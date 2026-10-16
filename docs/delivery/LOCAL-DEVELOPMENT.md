@@ -27,12 +27,26 @@ The current portable projects have no third-party NuGet packages; local restore 
 
 Open docs/design/wanderconnect-colour-studio.html directly in a browser. It is self-contained. After editing themes.json, run `python3 scripts/check_design.py --write`, then `--check`. The generator preserves all other spec text and embedded portrait. Earlier colour-palettes.svg is historical, not a second theme authority.
 
-## Optional Docker validation
+## Docker local stack
 
-No services or database are needed yet. To run the same portable checks using Docker (first image pull requires internet):
+Docker Engine/Desktop with Compose v2+ and Python 3 are required. No host .NET SDK is needed for the container build. From the repository root:
 
 ```sh
-docker run --rm -v "$PWD:/workspace" -w /workspace mcr.microsoft.com/dotnet/sdk:10.0.400 bash -c 'dotnet restore DatingApp.Local.sln -p:NuGetAudit=false && dotnet build DatingApp.Local.sln --no-restore -c Release && dotnet run --project tests/DatingApp.Checks --no-build -c Release'
+./scripts/docker-local.sh init
+./scripts/docker-local.sh up
+./scripts/docker-local.sh status
+./scripts/docker-local.sh smoke
+./scripts/docker-local.sh down
 ```
 
-This checks .NET only; run the Python design check on the host. Linux containers cannot validate iOS/Xcode tooling. Add database/provider containers only when those integrations exist; do not call a detached unused container an integration test.
+`up` builds API and web, waits for Keycloak readiness and runs HTTP smoke. First use downloads pinned images and needs internet. Leave ports 5080, 5081 and 8180 free. API is http://localhost:5080, web http://localhost:5081 and Keycloak http://localhost:8180. Every published port binds only 127.0.0.1. No mobile build or provider login is performed. The hosts are independent foundation shells, not an authenticated end-to-end app.
+
+`init` generates a random bootstrap password in ignored `.local/docker.env` with private permissions and retains an existing file. The bootstrap username is `local-bootstrap`; inspect the private file locally if admin-console access is needed. Never paste it into issues/logs or run `docker compose config` with secrets in shared output. Docker administrators can inspect container environment values. This is a disposable local bootstrap mechanism, not a production secret store. No credentials or fictional user accounts ship in the realm import.
+
+Keycloak uses a Compose-owned volume for its development database. `down` stops/removes this project's containers/network and preserves its volume. To deliberately reset only this sandbox, stop it, then run `docker compose --env-file .local/docker.env down --volumes` and start again. This deletes local realm changes/accounts/sessions; do not use against another environment. Changing the bootstrap password file does not rotate an existing admin password. Realm import skips an existing realm; edit through the console for investigation or explicitly reset to reimport. Never export real users or secrets into the tracked realm template.
+
+DEFAULT: digest-pinned Linux multi-stage builds publish API/web separately and run as the ASP.NET image's non-root app user on port 8080. Image indexes support ARM64 and AMD64; only the platform recorded in VALIDATION.md has been executed. The Docker build context excludes mobile, local environment and host build outputs. Containers do not modify host bin/obj. Keep normal `./scripts/check.sh` as the pre-commit gate; Docker smoke adds runtime observations, not a replacement for policy checks.
+
+CONFIRMED deployment direction: all server components will be containerised on public/dev infrastructure; mobile apps remain native. These image targets prepare that path. This Compose file is local-only: Keycloak `start-dev`, embedded database, loopback HTTP and bootstrap admin must not be promoted. Public/dev deployment still needs production Keycloak/database settings, HTTPS and proxy trust, public issuer/callbacks, secret storage, persistent web data-protection keys when sessions exist, resource limits, backup/restore and readiness/security validation. No deployment is included or authorized.
+
+See [sandbox evidence and investigation matrix](PHASE-1-KEYCLOAK-SANDBOX.md). No PostgreSQL app service is added because the app still has no persistence adapter. No SMTP, social provider, application OAuth client or fake authorization adapter is configured. Linux containers cannot validate iOS/Xcode tooling.

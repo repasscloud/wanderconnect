@@ -50,3 +50,20 @@ Follow-up `./scripts/check.sh` passed: portable Release build with zero warnings
 D14 confirms linked Apple/Google identities are allowed, with verified email and fresh direct email/password or approved email-link authentication required for privileged access. Updated repository instructions, product and architecture specifications and decision/question registers. No evidence evaluator, freshness window or provider configuration was invented; integration remains disabled pending validated evidence. Existing 50 policy cases still demonstrate downstream composition with hypothetical verdicts, not live provider authentication.
 
 Q10 follow-up validation: `./scripts/check.sh` passed with zero build warnings/errors, all 50 policy cases, typed-client checks, design/disabled-workflow checks, API/web HTTP smoke and diff hygiene. Only policy documentation and a source comment changed; no provider integration was enabled.
+
+## Local Docker and Keycloak sandbox — 16 October 2026
+
+Current inspection supersedes the earlier no-sandbox snapshots above. PR #2 is MERGED at main e0e76ff (head 99665b5); GitHub review submissions/comments showed no newer review beyond the superseded finding and owner resolution. Working tree was clean before this slice; new branch codex/local-docker-keycloak. Nothing was merged or deployed by this work.
+
+Passed locally:
+
+- Docker Desktop 4.95.0, Engine 29.8.2, Compose v5.6.0; executed Linux ARM64 images. Registry index inspection confirmed ARM64 and AMD64 manifests, but AMD64 runtime was not tested.
+- Official Keycloak downloads/release rechecked at 26.8.1; registry resolved to the index digest pinned in compose.yaml. SDK 10.0.400 and ASP.NET 10.0 runtime index digests are pinned in containers/Dockerfile.
+- `./scripts/docker-local.sh init`: generated private ignored .local/docker.env without printing credentials; repeated init retained it. Permissions verified: directory 700, file 600. `git check-ignore` confirmed exclusion.
+- `./scripts/docker-local.sh up`: separate API and web Release publish/image builds, successful Keycloak startup and realm import, management readiness health check healthy. API and web process identity checked as uid/gid 1654 (non-root). Published ports inspected as 127.0.0.1 only; Keycloak management port is not published.
+- Docker HTTP smoke passed: API liveness/status JSON, actual web foundation HTML, exact local realm issuer, nonempty published signing keys and advertised PKCE S256. No login or token-validation evidence is inferred from discovery.
+- `down` followed by `up`: startup and HTTP smoke passed again with the retained volume. Keycloak logs explicitly showed existing datingapp-dev realm import skipped. No destructive volume reset was needed or tested.
+- `./scripts/check.sh`: portable Release restore/build, zero warnings/errors; 50 policy cases, typed-client checks, canonical design/72 contrast pairs, disabled-workflow checks, API/web host HTTP smoke and diff hygiene.
+- `bash -n scripts/docker-local.sh` and Python smoke-script compilation passed. Independent read-only container review found no blocking findings; final evidence recording was the only follow-up requested.
+
+Gaps: no app OAuth clients, direct/social/linked-account browser login, token validation, AMR/broker mappings, verified-email delivery, SSO/refresh/reauthentication, optional MFA/recovery, logout/revocation/rotation or email-link capability was tested. Only metadata and runtime readiness were observed. The [investigation matrix](PHASE-1-KEYCLOAK-SANDBOX.md) preserves these gates. No evidence evaluator or protected endpoint is enabled. Mobile workloads/build/device acceptance, interactive web choice, public/dev production container settings and all remaining Phase 1 exit criteria are open. No visual/browser acceptance is claimed; product UI and theme tokens are unchanged. Actions remain untouched and disabled.
