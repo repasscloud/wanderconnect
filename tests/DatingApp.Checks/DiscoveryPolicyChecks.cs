@@ -73,10 +73,13 @@ static class DiscoveryPolicyChecks
         Check("request limit enforced", false, request with { Resource = DiscoveryResource.Contact, RequestLimitAllows = false });
         Check("incognito disclosure explicit", false, request with { Resource = DiscoveryResource.Contact, IsIncognito = true });
         Check("incognito disclosure confirmed", true, request with { Resource = DiscoveryResource.Contact, IsIncognito = true, IncognitoDisclosureConfirmed = true });
+        var travelContext = request with { Context = DiscoveryContext.Travel, Resource = DiscoveryResource.Contact, RequiresDestinationPresence = false };
+        Check("travel context cannot bypass presence with false flag", false, travelContext);
         var traveller = request with { Resource = DiscoveryResource.Contact, RequiresDestinationPresence = true };
         Check("planned destination is no presence", false, traveller);
         Check("upcoming traveller can be viewed", true, traveller with { Resource = DiscoveryResource.Profile });
         var presence = new DestinationPresence(viewerId, area, now.AddMinutes(-1), now.AddMinutes(4), true, true);
+        Check("travel context derives presence requirement", true, travelContext with { Presence = presence });
         Check("fresh consented presence", true, traveller with { Presence = presence });
         foreach (var invalid in new[] { presence with { AccountId = subjectId }, presence with { AreaId = subjectId }, presence with { ObservedAt = now.AddSeconds(1) }, presence with { ExpiresAt = now }, presence with { HasConsent = false }, presence with { RiskApproved = false }, presence with { ExpiresAt = presence.ObservedAt } })
             Check("invalid presence denies initiation", false, traveller with { Presence = invalid });
