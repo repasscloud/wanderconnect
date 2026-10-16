@@ -57,3 +57,7 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D21 | DEFAULT, implementation 16 October 2026 | Portable appearance state uses per-activation response tickets, default display while loading, versioned server compare-and-swap/idempotency DTOs, unchanged retry identity offline and explicit conflict resolution; generic guest preference deliberately survives sign-out | No HTTP/account integration. Server revisions reserve long.MaxValue to avoid increment overflow. Future authenticated transport must bind outgoing work to its activation. See [scope](PHASE-2-APPEARANCE-SYNC.md) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D22 | DEFAULT, implementation 16 October 2026 | Opt-in Development-only fictional discovery API/typed client/static SSR preview, fixed adult viewer, explicit verification/location simulations and generic resource denials; optional intention/activity filters demonstrate allowed/empty/denied states | No real session, privileged verdict, provider/storage connection or messages. Production suppresses routes regardless of flag. See [scope and local demo](PHASE-2-DISCOVERY-PREVIEW.md) |
