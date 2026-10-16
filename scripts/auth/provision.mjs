@@ -5,25 +5,44 @@ const base = 'http://localhost:8180';
 const realmPath = '/admin/realms/datingapp-dev';
 const flow = 'datingapp-investigation-browser-v1';
 const owner = 'datingapp-local-investigation-v1';
-async function privateRead(path) {
+export async function privateRead(path) {
   if ((await stat(path)).mode & 0o077) throw new Error('Private local file permissions must be 600');
   return readFile(path, 'utf8');
 }
 export function validateFixture(fixture, users) {
   if (users.length > 1 || (users[0] && users[0].id !== fixture.userId) || (!users.length && fixture.userId)) throw new Error('Unmanaged or stale fixture; deliberately replace the private fixture after inspecting the disposable realm');
 }
-export async function provision() {
-  const env = await privateRead('.local/docker.env');
+export async function localRealmApi({ provider = request, read = privateRead, clock = () => Date.now() } = {}) {
+  const env = await read('.local/docker.env');
   const password = env.split('\n').find(line => line.startsWith('KC_BOOTSTRAP_ADMIN_PASSWORD='))?.split('=')[1];
   if (!password) throw new Error('Initialize the local sandbox first');
-  // Bootstrap admin-cli grant configures the sandbox only. It is not browser-login evidence.
-  const admin = await request(base + '/realms/master/protocol/openid-connect/token', {
-    method: 'POST', body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'local-bootstrap', password })
-  });
-  const api = (path, method = 'GET', body) => request(base + realmPath + path, {
-    method, headers: { Authorization: 'Bearer ' + admin.access_token, 'Content-Type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) })
-  });
+  let accessToken, expiresAt = 0;
+  async function authenticate() {
+    // Management setup only, never browser-login evidence. Tokens are process memory only.
+    const admin = await provider(base + '/realms/master/protocol/openid-connect/token', {
+      method: 'POST', body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'local-bootstrap', password })
+    });
+    if (typeof admin.access_token !== 'string' || !Number.isFinite(admin.expires_in) || admin.expires_in <= 0)
+      throw new Error('Local management authorization rejected');
+    accessToken = admin.access_token;
+    expiresAt = clock() + Math.max(0, admin.expires_in - 5) * 1000;
+  }
+  return async (path, method = 'GET', body) => {
+    if (!accessToken || clock() >= expiresAt) await authenticate();
+    const send = () => provider(base + realmPath + path, {
+      method, headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    });
+    try { return await send(); }
+    catch (error) {
+      if (error.status !== 401) throw error;
+      await authenticate();
+      return send(); // One reauthentication only; persistent failures still fail closed.
+    }
+  };
+}
+export async function provision() {
+  const api = await localRealmApi();
   const realm = await api('');
   if (realm.realm !== 'datingapp-dev' || realm.registrationAllowed || Object.keys(realm.smtpServer ?? {}).length) {
     throw new Error('Expected isolated development realm; refuse configuration drift');

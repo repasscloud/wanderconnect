@@ -26,3 +26,5 @@ The [guest web appearance slice](PHASE-2-WEB-APPEARANCE.md) adds real local pref
 The [portable appearance synchronization slice](PHASE-2-APPEARANCE-SYNC.md) adds shared-client generation/retry/conflict rules and DTOs. It is not connected account persistence and does not complete account-switch/offline integration acceptance.
 
 The [fictional discovery preview](PHASE-2-DISCOVERY-PREVIEW.md) demonstrates a partial local API/client/web journey and explicit denial/empty/error states. It does not supply real authentication/verification/location, chat or mobile evidence; both Phase 1 and Phase 2 remain incomplete.
+
+The [actual local signing-key rotation investigation](PHASE-1-SIGNING-ROTATION.md) advances Phase 1 with real browser/provider overlap, restoration and removed-key rejection. It does not validate a future production API/BFF adapter or complete mail/social/MFA/mobile gates.

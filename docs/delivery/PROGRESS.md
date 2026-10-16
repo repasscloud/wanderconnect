@@ -73,3 +73,19 @@ Test evidence: initial enabled-route check failed 404 versus 200 before implemen
 Next: finish evidence/full check/commit/PR, then reassess authentication gaps and connection lifecycle/plan/feedback invariants. No slice completion is a stopping condition. Continue in managed worktree; original checkout contains owner branding work and must not be switched/reset.
 
 Discovery preview final evidence: published separate ARM64 API/web and actual Edge journey passed, including malformed-web regression, empty result, incognito disclosure, upcoming contact denial and320px/200% text. Direct published hidden profile/media/contact denials passed. First readiness curl hit empty startup response; ready-host rerun passed unchanged. Full portable/prototype check passes; check validation document for explicit simulation and mobile/provider gaps. Prepare commit/PR, then continue next independent slice.
+
+## Delivered fictional discovery preview
+
+Commit d100e3c; [PR #9](https://github.com/repasscloud/wanderconnect/pull/9) OPEN to main, depends on #8/#5–7. All local provider/preview hosts and disposable preview containers/network stopped. Original auth volumes/fixtures retained. No merge/deployment.
+
+## Next slice: actual local Keycloak signing-key rotation
+
+Branch codex/keycloak-signing-rotation based on d100e3c; dependent stack remains explicit. Reassessed all phases: choose an unblocked Phase 1 provider gate after several independent client/discovery slices. Investigate real temporary local realm key rotation with browser login/refresh, old/new published keys, new signature validation and cleanup restoring original active key. No production adapter or privileged verdict. Use original checkout's matching retained .local fixture/volume without printing or copying secrets; worktree code can run with original checkout as cwd. Connection/plan/feedback/venue invariants remain valuable independent later work; social/provider/device decisions still block their real integration, not all engineering.
+
+Rotation progress: actual Edge original/new RS256/JWKS-overlap/removed-key rejection/refresh continuity/restoration/logout passed twice. Independent review found management-token expiry could prevent cleanup after a delay; helper now renews before expiry and once on 401.39 auth cases pass, including cleanup-after-expiry and lost-create-response. Guard-removal mutation catches missing proactive renewal. Real 65-second delayed cleanup run in progress. GitHub PR #9 raised inherited Travel-context/false-presence-flag bypass; fix being applied to originating PR #6 and carried through dependent branches using a separate managed worktree. No app access or merge/deployment enabled.
+
+Rotation delayed run passed: held the experiment beyond the observed 60-second management lifetime, acquired management authorization twice, restored original active key, removed temporary key from JWKS, then refreshed/logged out. Auth stack stopped afterward; fixtures/volumes retained.
+
+Travel-context review correction: originating PR #6 commit4d78a8d; carried through #7 as57e5764, #8 as3a39405, #9 as5c40d31 and current rotation branch as6cb3db1. Every branch ran its full check before committing;73 discovery cases now pass, including false-flag denial and fresh-presence acceptance. No UI/client behavior changed because the preview already supplied the required flag. These are explicit repeated patch commits across proposal branches, not merges.
+
+Next after rotation commit/PR: optional MFA enrollment/login/negative/cleanup investigation in the owned local fixture can advance Phase 1 without mail/social credentials, provided existing OTP credentials are preserved. Independently, connection request/decline/chat, plan revision, private-feedback and venue-capacity/redemption rules remain unimplemented and useful. Real mail/social, production authorization, persistence and mobile/device exit evidence remain incomplete. No stopping condition reached.
