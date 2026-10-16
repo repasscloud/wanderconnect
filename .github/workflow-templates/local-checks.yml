@@ -1,0 +1,22 @@
+# Disabled in full: owner has no GitHub Actions minutes. Do not uncomment without owner request.
+# name: Portable checks
+# on:
+#   pull_request:
+#     branches: [main]
+#   push:
+#     branches: [main]
+# permissions:
+#   contents: read
+# jobs:
+#   checks:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-dotnet@v4
+#         with:
+#           global-json-file: global.json
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.x'
+#       - run: ./scripts/check.sh
+# Mobile device/build checks are a separate future workflow requiring toolchain pinning.
