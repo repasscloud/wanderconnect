@@ -49,9 +49,9 @@ public sealed class AppearanceSyncState
     public bool CompleteLoad(Guid ticket, AppearanceSnapshot? snapshot)
     {
         if (ticket == Guid.Empty || ticket != activation || !IsLoading
-            || (snapshot is not null && !ValidSnapshot(snapshot))) return false;
-        server = snapshot;
-        Current = snapshot?.Preference ?? guest;
+            || (snapshot is not null && !ValidRevision(snapshot))) return false;
+        server = snapshot is null ? null : Normalize(snapshot);
+        Current = server?.Preference ?? guest;
         IsLoading = false;
         return true;
     }
@@ -84,9 +84,9 @@ public sealed class AppearanceSyncState
 
     public bool AcceptConflict(AppearanceSaveAttempt attempt, AppearanceSnapshot snapshot)
     {
-        if (!IsCurrent(attempt) || !ValidSnapshot(snapshot)
+        if (!IsCurrent(attempt) || !ValidRevision(snapshot)
             || snapshot.Revision <= attempt.Update.ExpectedRevision) return false;
-        Conflict = snapshot;
+        Conflict = Normalize(snapshot);
         inFlight = null;
         return true;
     }
@@ -109,8 +109,13 @@ public sealed class AppearanceSyncState
 
     private bool IsCurrent(AppearanceSaveAttempt? attempt) => activation != Guid.Empty
         && attempt is not null && attempt.Activation == activation && attempt == inFlight;
-    private static bool ValidSnapshot(AppearanceSnapshot? value) => value is { Revision: > 0 and < long.MaxValue }
-        && AppearancePreferences.IsValid(value.Preference);
+    private static bool ValidRevision(AppearanceSnapshot? value) => value is { Revision: > 0 and < long.MaxValue };
+    private static bool ValidSnapshot(AppearanceSnapshot? value) => ValidRevision(value)
+        && AppearancePreferences.IsValid(value!.Preference);
+    // Unknown stored values must not wedge loading or erase the server revision. This
+    // local display fallback does not queue an automatic overwrite of the stored choice.
+    private static AppearanceSnapshot Normalize(AppearanceSnapshot value) =>
+        AppearancePreferences.IsValid(value.Preference) ? value : value with { Preference = AppearancePreferences.Default };
     private static void RequirePreference(AppearancePreference? value)
     {
         if (!AppearancePreferences.IsValid(value)) throw new ArgumentException("Unsupported appearance preference.");
