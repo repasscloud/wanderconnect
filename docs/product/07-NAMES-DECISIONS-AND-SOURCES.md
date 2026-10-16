@@ -31,7 +31,7 @@ Suggested first review: WanderConnect, Kinvero, HelloOrbit. Keep the name outsid
 | MAUI + Blazor + shared API | CONFIRMED direction | Seven projects; validate vertical slice |
 | Name | OPEN | Seven candidates; no availability clearance |
 | Appearance | CONFIRMED | Six free personal schemes, light/dark; Electric + System is DEFAULT |
-| IdentityCloak | CONFIRMED | Authentication backend; integration contract unverified |
+| Keycloak | CONFIRMED | Authentication backend; integration contract unverified |
 | Privileged login | CONFIRMED | Venue partner/admin/support: dedicated email/password or email link; no social login |
 | MFA | CONFIRMED | Optional |
 | Member magic link | DEFAULT proposal | Apple/Google/email confirmed; extra providers OPEN |

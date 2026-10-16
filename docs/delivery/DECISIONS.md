@@ -8,20 +8,27 @@ Keep owner attention on decisions that change the product. Before asking, read t
 4. Put the answer, date, source (owner or verified provider reference), affected documents and implementation consequence in the decision register. Update the product docs in the same PR. Do not leave conflicting copies.
 5. Before each phase, present a concrete reviewable slice, evidence, remaining questions and the next phase's entry conditions. Unanswered questions stay OPEN; silence is not approval.
 
-Example next question: “Which repository or documentation defines IdentityCloak, and which version/environment should this app integrate with?” This is about the chosen provider's contract, not reconsidering the confirmed backend choice.
+Q10 was answered by the owner on 16 October 2026 (D14). Configured Keycloak session evidence remains a phase 1 integration gate.
 
 ## Decision register — 16 October 2026
 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D01 | CONFIRMED, owner | Six personal schemes, both modes | Theme spec replaces original muted palettes |
-| D02 | CONFIRMED, owner | IdentityCloak backend | Verify contract before adapter implementation |
+| D02 | SUPERSEDED by D11 | Earlier IdentityCloak naming | Owner corrected provider to Keycloak |
 | D03 | CONFIRMED, owner | Partner/admin/support dedicated email/password or magic link; optional MFA | Backend-enforced login matrix; separate support role |
 | D04 | CONFIRMED, owner | Other users Apple/Google/email; extra options uncertain | Member links DEFAULT proposal; no extra social providers |
 | D05 | CONFIRMED direction, owner | MAUI, Blazor, API, Contracts, Client, Domain, Infrastructure | Seven projects plus tests |
 | D06 | CONFIRMED, owner | Local testing, Actions commented out, PR to main | No hosted workflow execution |
 | D07 | DEFAULT, implementation | DatingApp namespace; .NET 10; SSR shell; separate local solution | Brand rename stays cheap; mobile tooling isolated |
-| D08 | DEFAULT, implementation | Separate staff/member accounts; invitation provisioning | No accidental social-to-staff elevation |
+| D08 | PARTLY SUPERSEDED by D12 | Invitation provisioning remains DEFAULT; separate staff/member account assumption withdrawn | Q10 defines dedicated-email access; no email-based classification |
 | D09 | DEFAULT, implementation | Electric violet + System; member email links; 10-minute link expiry | Provider and phase review can amend defaults |
+| D10 | DEFAULT, implementation, 16 October 2026 | Coarse account-area policy uses one application-owned role per evaluated session; no implicit role hierarchy; venue access requires an explicit nonempty venue ID and current membership | Phase 1 Domain slice only; separate-account portion of D08 superseded by D12. Additional roles/permissions require explicit design, not email matching or admin inheritance. See [slice](PHASE-1-ACCESS-POLICY.md) and [authentication](../architecture/AUTHENTICATION.md). |
+| D11 | CONFIRMED, owner reply, 16 October 2026 | Keycloak is the central authentication service; official docs and source supplied | Supersedes D02 naming; inspect/reuse configuration before proposing a pin and realm |
+| D12 | CONFIRMED, owner reply, 16 October 2026 | Accounts may have direct and linked Apple/Google credentials; registration, email ownership and session authentication are distinct evidence | Supersedes exclusive staff/member account assumption in D08/D10. Dedicated-email definition subsequently resolved by D14; provider evidence remains unvalidated |
+| D13 | DEFAULT proposal, implementation, 16 October 2026 | Keycloak 26.8.1 and isolated datingapp-dev realm | No existing pin/realm/sandbox found; not deployed, configured or owner-approved. See [proposal](../architecture/KEYCLOAK-DEVELOPMENT.md) |
+| D14 | CONFIRMED, owner Q10 reply, 16 October 2026 | Allow linked identities; privileged access requires verified email and a fresh direct email/password or approved email-link session | No separate social-free account requirement. Social sessions remain denied even on accounts with direct credentials. Configure and validate positive session evidence before enabling access; email-link capability remains unverified |
 
 A default does not imply the corresponding feature has been implemented. New decisions append rows and supersede old ones explicitly.
+
+D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 and D11–12 remain authoritative. Member email links remain a proposal under D09 and are denied by the current policy until the decision and provider contract are resolved.
