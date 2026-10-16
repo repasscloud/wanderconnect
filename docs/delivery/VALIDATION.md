@@ -36,10 +36,17 @@ Evidence is for pure application policy, not live authentication. No Keycloak so
 No UI changed; no new screenshot or browser/device acceptance is claimed. Six schemes × System/Light/Dark still require phase 2 implementation. Docker was unnecessary for these dependency-free checks. Actions remain commented under workflow-templates, with no active workflow added. Phase 1 remains IN PROGRESS; nothing was merged or deployed by this slice.
 
 
-## Keycloak owner correction — 16 October 2026
+## Keycloak owner correction — 16 October 2026 (before Q10 answer)
 
 Owner supplied the official Keycloak documentation and source; earlier entries above describe the pre-clarification snapshot. Repository inspection found no existing version pin, realm export, sandbox/container deployment or provider settings. Official upstream downloads/release and admin/container documentation were read. D11–13 and the [development proposal](../architecture/KEYCLOAK-DEVELOPMENT.md) record the corrected provider, proposed 26.8.1 pin, isolated realm and four distinct evidence categories.
 
 The exclusive staff-account assumption was withdrawn. The Domain input is now named `HasApprovedPrivilegedEmailEvidence`, a reserved future server verdict, not an account classifier. Its evaluator remains unimplemented pending Q10; no adapter or realm was configured. Existing policy checks use hypothetical verdicts only. Linked identity records do not determine a session's method. Government ID/liveness remains separate.
 
 Follow-up `./scripts/check.sh` passed: portable Release build with zero warnings/errors, all 50 policy cases, existing client checks, design/disabled-workflow checks, API/web HTTP smoke and diff hygiene. Independent read-only follow-up review found no blocking findings and reran the executable checks. No Docker image pull, sandbox startup, login, provider credential setup or device validation is claimed.
+
+
+## Q10 owner decision — 16 October 2026
+
+D14 confirms linked Apple/Google identities are allowed, with verified email and fresh direct email/password or approved email-link authentication required for privileged access. Updated repository instructions, product and architecture specifications and decision/question registers. No evidence evaluator, freshness window or provider configuration was invented; integration remains disabled pending validated evidence. Existing 50 policy cases still demonstrate downstream composition with hypothetical verdicts, not live provider authentication.
+
+Q10 follow-up validation: `./scripts/check.sh` passed with zero build warnings/errors, all 50 policy cases, typed-client checks, design/disabled-workflow checks, API/web HTTP smoke and diff hygiene. Only policy documentation and a source comment changed; no provider integration was enabled.

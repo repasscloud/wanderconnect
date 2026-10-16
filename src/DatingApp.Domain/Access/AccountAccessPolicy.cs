@@ -10,8 +10,8 @@ public enum SignInMethod { Unknown, Apple, Google, EmailPassword, EmailLink }
 /// memberships before constructing this value. Never bind it from an HTTP request.
 /// IsActive includes session revocation and account suspension checks.
 /// HasApprovedPrivilegedEmailEvidence is a future server policy verdict, not an
-/// account type. Its evaluator is unimplemented pending Q10; keep it false in any
-/// real adapter until dedicated-email policy and session evidence are validated.
+/// account type. Its evaluator is unimplemented; keep it false in any real adapter until
+/// D14 evidence (verified email and fresh direct email session) is validated.
 /// Linked social identities do not establish the method used in this session.
 /// </summary>
 public sealed record AccessSession(

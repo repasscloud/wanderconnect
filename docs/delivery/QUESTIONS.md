@@ -4,7 +4,7 @@ No answer is needed to review the phase 0 foundation. Ask these when approaching
 
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
-| Q01 | PARTLY ANSWERED, owner 16 October 2026 | Phase 1 live auth | Keycloak docs/source confirmed; no existing pin/realm/sandbox found. Proposed pin/realm in D13; configured session evidence still needs sandbox validation | Use official sources; keep privileged integration disabled pending Q10 and evidence |
+| Q01 | PARTLY ANSWERED, owner 16 October 2026 | Phase 1 live auth | Keycloak docs/source confirmed; no existing pin/realm/sandbox found. Proposed pin/realm in D13; configured session evidence still needs sandbox validation | Use official sources; keep privileged integration disabled pending validated session evidence (Q10 answered in D14) |
 | Q02 | OPEN | Phase 1 auth UX | Enable member magic links in addition to Apple/Google/email-password? What cross-device email-link behavior is expected? | Yes, if backend supports the required safe exchange |
 | Q03 | OPEN | Phase 1 web interaction | Should authenticated web use Interactive Server or justify adding WASM client? | Server initially; measure scale needs before adding project |
 | Q04 | OPEN | Phase 2 live verification | Which document/liveness provider, gate timing, retention and manual appeal route? | Gate browsing/contact; separate from Keycloak auth |
@@ -27,4 +27,6 @@ Owner corrected the provider name to Keycloak and supplied https://www.keycloak.
 
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
-| Q10 | OPEN; asked in implementation chat | Phase 1 privileged-email classifier and access | Does dedicated email require a verified email and fresh direct session even with social links, or a separate account without social links? | Allow links while requiring positively evidenced direct email session; recommendation only, not implemented classification |
+| Q10 | ANSWERED, owner 16 October 2026; D14 | Policy resolved; configured evidence still blocks access | Allow linked Apple/Google identities; require verified email and a fresh direct email/password or approved email-link session for privileged access | No separate social-free account required; no configured Keycloak evidence or adapter yet |
+
+Q10 owner selected “Allow linked identities; require direct email session” in response to the verified-email/fresh-session proposal. D14 records this confirmation. Exact freshness window and the configured proof remain implementation/validation work, not invented provider claims.
