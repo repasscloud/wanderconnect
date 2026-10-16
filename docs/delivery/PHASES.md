@@ -16,3 +16,5 @@ Phase 0 was merged into main. Phase 1 is IN PROGRESS: the [account access policy
 Each PR states: problem/result, requirement IDs, changed defaults, commands/results, screenshots when UI changes, unresolved gaps and next blocking question. Re-enable hosted checks only on owner request, by moving the template from `.github/workflow-templates` to `.github/workflows`, uncommenting and reviewing it. Never spend runner minutes merely to reproduce local evidence while disabled.
 
 The next partial Phase 1 slice adds [local Docker and Keycloak sandbox](PHASE-1-KEYCLOAK-SANDBOX.md): independently containerised server hosts, pinned isolated realm and startup/discovery checks. This does not meet the live login/session or mobile exit criteria. D15 records containerised server deployment direction without authorizing deployment.
+
+A further partial Phase 1 [browser investigation slice](PHASE-1-BROWSER-INVESTIGATION.md) adds an opt-in local client/flow, validated ID-token observations and provider rejection probes. It does not connect the API/web hosts or satisfy email ownership, social/linked-account, MFA, persistence or mobile exit criteria.

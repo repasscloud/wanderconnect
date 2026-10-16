@@ -37,3 +37,7 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | --- | --- | --- | --- |
 | D15 | CONFIRMED, owner 16 October 2026 | All server components containerised for public/dev infrastructure; mobile apps excepted | Prepare local Docker builds/testing; no deployment authorization |
 | D16 | DEFAULT, implementation 16 October 2026; advances D13 | Separate digest-pinned API/web images and local-only Keycloak 26.8.1, empty datingapp-dev realm, generated private bootstrap secret, development embedded database | Reversible local infrastructure only; no app clients or login adapter. See [sandbox slice](PHASE-1-KEYCLOAK-SANDBOX.md). Production database/HTTPS/secrets remain a later deployment slice |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D17 | DEFAULT, implementation 16 October 2026 | Opt-in local Node browser investigation client, fixed loopback callback, copied password-execution AMR with experimental 60-second lifetime, private fictional-adult fixture with simulated administrator-asserted email status | Advances Q01 with browser/code/PKCE evidence only. No app authentication, privileged grant, real email ownership or product freshness policy. See [browser slice](PHASE-1-BROWSER-INVESTIGATION.md) |

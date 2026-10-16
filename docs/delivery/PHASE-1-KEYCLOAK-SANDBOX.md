@@ -30,3 +30,7 @@ The [server administration guide](https://www.keycloak.org/docs/latest/server_ad
 For the next harness use fictional adults and explicit local redirect allowlists, separate web/mobile clients and no public-client secrets. Keep raw tokens, passwords, mail and user exports out of Git and reports; record only minimal redacted observations with provenance. A genuine login test must report its exact configured flow and token-validation steps. Do not substitute a password grant for browser/SSO evidence. Do not infer direct authentication from missing broker notes or credential existence.
 
 No server evidence evaluator or authorization wiring is added. Real privileged access remains disabled; HasApprovedPrivilegedEmailEvidence must remain false until validated evidence proves D14. Login, roles/venue persistence, mobile/device tests and all remaining Phase 1 exit criteria stay open. Actual results and limitations belong in [VALIDATION](VALIDATION.md).
+
+## Subsequent browser slice
+
+The preceding matrix records this infrastructure slice's starting state. The [D17 browser investigation](PHASE-1-BROWSER-INVESTIGATION.md) subsequently adds an opt-in investigation client, copied flow, configured AMR and signed browser ID-token observations. Direct password, SSO, refresh and forced reauthentication now have local evidence; product integration, real email ownership, social/linked accounts, MFA, rotation and mobile acceptance remain open. This does not change the empty startup-import template or connect application hosts.
