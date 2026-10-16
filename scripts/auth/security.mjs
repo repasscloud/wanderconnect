@@ -25,7 +25,7 @@ export function validateIdToken(token, jwks, { issuer, client, nonce, refresh = 
   requireValue(Number.isInteger(claims.exp) && claims.exp > now);
   requireValue(Number.isInteger(claims.iat) && claims.iat <= now + 5 && claims.iat < claims.exp);
   requireValue(claims.nbf === undefined || (Number.isInteger(claims.nbf) && claims.nbf <= now));
-  requireValue(Number.isInteger(claims.auth_time) && claims.auth_time <= now + 5 && claims.auth_time <= claims.iat);
+  requireValue(Number.isInteger(claims.auth_time) && claims.auth_time >= 0 && claims.auth_time <= now + 5 && claims.auth_time <= claims.iat);
   requireValue(typeof claims.sub === 'string' && claims.sub.length > 0 && typeof claims.sid === 'string' && claims.sid.length > 0);
   return claims;
 }
@@ -34,7 +34,7 @@ export class Transactions {
   start(browser, now = Math.floor(Date.now() / 1000)) {
     for (const [state, tx] of this.#pending) if (tx.expires <= now) this.#pending.delete(state);
     requireValue(this.#pending.size < 100);
-    const tx = { state: random(), nonce: random(), verifier: random(), browser, expires: now + 300 };
+    const tx = { state: random(), nonce: random(), verifier: random(), browser, created: now, expires: now + 300 };
     this.#pending.set(tx.state, tx);
     return tx;
   }
