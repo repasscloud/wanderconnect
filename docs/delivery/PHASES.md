@@ -20,3 +20,5 @@ The next partial Phase 1 slice adds [local Docker and Keycloak sandbox](PHASE-1-
 A further partial Phase 1 [browser investigation slice](PHASE-1-BROWSER-INVESTIGATION.md) adds an opt-in local client/flow, validated ID-token observations and provider rejection probes. It does not connect the API/web hosts or satisfy email ownership, social/linked-account, MFA, persistence or mobile exit criteria.
 
 Unattended follow-up: the [discovery policy slice](PHASE-2-DISCOVERY-POLICY.md) advances independent Phase 2 Domain invariants while Phase 1 remains IN PROGRESS. It enables no application browsing or provider authentication and does not satisfy end-to-end media/direct URL or device gates.
+
+The [guest web appearance slice](PHASE-2-WEB-APPEARANCE.md) adds real local preference controls and generated canonical runtime palettes. Account sync, mobile rendering and feature-wide acceptance remain open; static SSR does not answer Q03.

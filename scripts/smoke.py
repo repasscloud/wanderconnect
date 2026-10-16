@@ -8,6 +8,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from web_smoke import check_web_assets
 
 root = Path(__file__).resolve().parents[1]
 processes = []
@@ -33,6 +34,8 @@ try:
     with urllib.request.urlopen(web) as r:
         html = r.read().decode()
         assert 'WanderConnect' in html and 'not connected' in html
+    check_web_assets(web)
+    print('PASS: appearance route and linked runtime scripts/styles.')
     print('PASS: API liveness/status JSON and Blazor foundation HTTP response.')
 finally:
     for p,log in processes:
