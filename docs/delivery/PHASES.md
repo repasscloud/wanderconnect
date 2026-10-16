@@ -18,3 +18,5 @@ Each PR states: problem/result, requirement IDs, changed defaults, commands/resu
 The next partial Phase 1 slice adds [local Docker and Keycloak sandbox](PHASE-1-KEYCLOAK-SANDBOX.md): independently containerised server hosts, pinned isolated realm and startup/discovery checks. This does not meet the live login/session or mobile exit criteria. D15 records containerised server deployment direction without authorizing deployment.
 
 A further partial Phase 1 [browser investigation slice](PHASE-1-BROWSER-INVESTIGATION.md) adds an opt-in local client/flow, validated ID-token observations and provider rejection probes. It does not connect the API/web hosts or satisfy email ownership, social/linked-account, MFA, persistence or mobile exit criteria.
+
+Unattended follow-up: the [discovery policy slice](PHASE-2-DISCOVERY-POLICY.md) advances independent Phase 2 Domain invariants while Phase 1 remains IN PROGRESS. It enables no application browsing or provider authentication and does not satisfy end-to-end media/direct URL or device gates.

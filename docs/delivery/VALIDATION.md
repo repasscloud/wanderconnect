@@ -100,3 +100,14 @@ Verified PR #4 MERGED, main 78b6628, no inline review findings and completed Cod
 The email-verified fixture remains administrator-asserted SIMULATION ONLY. No application authorization, production adapter, real email, social federation, linked-account transition, optional MFA/recovery, real signing-key rotation or mobile/device gate passed. Phase 1 remains incomplete. Actions remain disabled. No merge or deployment performed.
 
 Final session-slice check: one run failed during NuGet restore with MSB4166 child-node termination (reported temporary diagnostic directory no longer existed on inspection). A clean rerun of the unchanged `./scripts/check.sh` passed: 31 Node cases, Release build zero warnings/errors, 50 access cases, typed client, canonical design/72 contrast pairs, disabled-workflow and HTTP smoke checks. Headless Edge journey reran successfully after the final logout guard. This records the transient build failure rather than omitting it.
+
+## Independent discovery policy — 16 October 2026
+
+Partial Phase 2 work; Phase 1 stays incomplete. Branch codex/discovery-eligibility-policy starts at e161f10 and depends on open PR #5 (both target main). No merge/deployment.
+
+- Test-first build failed with missing Domain types, then 71 named discovery cases passed after implementation. They exercise all five resources, hidden FWB exclusion versus LTR+friendship allowance, reciprocal filters, ANY/ALL, contradictions/unknown values, inactive/underage/unverified members, account binding, contexts/blocks/incognito/sparse, request limits, disclosure confirmation and travel assertion identity/area/time/consent/risk. Snapshots are hypothetical trusted facts, not provider or API evidence.
+- Temporary guard-removal mutations for exclusion, block, incognito refusal and missing traveller presence caused named failures; original code restored. An initial inverted travel branch mutation also failed a positive case; the actual bypass mutation was separately checked against the pre-arrival denial.
+- `./scripts/check.sh` passed: Release build zero warnings/errors, 50 account and 71 discovery cases, 31 Node tests, typed client, design/72 contrast pairs, commented-workflow checks, API/web HTTP smoke and whitespace hygiene.
+- Independent read-only review found no actionable issues and reran 71 discovery/50 access checks.
+
+No UI changed; browser/device accessibility checks add no evidence for this pure policy. Docker unnecessary for dependency-free rules. No authenticated endpoint, live profiles/media, persistence, demographic/compatible-pair model, real identity or location source exists; no permission/verification/arrival simulation is presented as live. Existing chat/realtime membership and account/device acceptance remain separate gates.

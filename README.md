@@ -2,7 +2,7 @@
 
 Adult human connection platform. Working product name: WanderConnect; stable engineering namespace: `DatingApp`. Final public naming remains open.
 
-This repository contains the product definition and a .NET foundation with a provider-independent account access policy. It does **not** yet implement member journeys, live sign-in, identity verification, payments or persistence.
+This repository contains the product definition and a .NET foundation with provider-independent account and discovery access policies. It does **not** yet implement member journeys, live sign-in, identity verification, payments or persistence.
 
 ## Start here
 
@@ -51,3 +51,5 @@ CONFIRMED = explicit owner requirement; DEFAULT = reversible engineering recomme
 For container testing: `./scripts/docker-local.sh init` then `./scripts/docker-local.sh up`. See [local development](docs/delivery/LOCAL-DEVELOPMENT.md#docker-local-stack) for lifecycle, credentials, reset and deployment boundaries.
 
 An opt-in [local browser investigation harness](docs/delivery/PHASE-1-BROWSER-INVESTIGATION.md) tests code + PKCE and signed ID-token observations. Its email-verified fixture is explicitly simulated; it grants no application access.
+
+Independent partial Phase 2 work adds a [Domain discovery policy](docs/delivery/PHASE-2-DISCOVERY-POLICY.md), including hidden intention exclusions, incognito/sparse/block enforcement and travel initiation evidence checks. It is not wired to an API or live profile data.

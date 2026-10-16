@@ -1,6 +1,6 @@
 # Architecture baseline
 
-16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database or Keycloak connector exists yet. Phase 1 adds a provider-independent Domain account-area policy; discovery policy and API authorization wiring remain planned.
+16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database or Keycloak connector exists yet. Phase 1 adds a provider-independent Domain account-area policy; a partial Phase 2 discovery policy now implements shared resource/new-contact rules; API authorization wiring remains planned.
 
 | Project | Owns | References |
 | --- | --- | --- |

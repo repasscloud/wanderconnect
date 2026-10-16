@@ -28,3 +28,11 @@ Record each slice's commits, PR relationship, actual checks and exact remaining 
 Session slice evidence: 31 Node tests pass after regression fixes; retained-volume Docker smoke/provision/provider negatives passed; actual headless Edge password/PKCE, silent SSO, fresh reauth, refresh/logout passed. Independent review caught pending-callback logout restoration and the added regression is fixed. Full portable check passed; final documentation/check/commit and PR pending. No live signing rotation or application access claimed.
 
 Final verification: unchanged check rerun passed after one transient MSB4166 restore worker failure; final Edge journey passed after logout guard. Independent review reports no remaining actionable findings. Local harness and Docker stack will be stopped with fixtures/volumes retained before switching to independent Domain work.
+
+## Delivered session slice
+
+Commit e161f10; [PR #5](https://github.com/repasscloud/wanderconnect/pull/5) OPEN to main. GitGuardian/CLA passed at last inspection; GitHub code review was still running. Independent local review clean. Harness and datingapp-local containers stopped, volumes/private fixture retained.
+
+## Current discovery slice
+
+Branch codex/discovery-eligibility-policy starts at e161f10 and explicitly depends on PR #5. Domain tests initially failed compilation because types did not exist; implementation now passes 71 discovery cases plus 50 access cases. Exclusion, block, incognito and travel guard-removal mutations detect named regressions. No API, database or live verification/location service enabled. All phases remain incomplete except foundation. Next unblocked slice: canonical appearance generation and guest-local web settings, keeping account synchronization gated behind real authentication.
