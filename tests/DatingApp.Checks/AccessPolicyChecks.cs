@@ -23,13 +23,14 @@ static class AccessPolicyChecks
         Check("member links remain unapproved", false, member with { Method = SignInMethod.EmailLink }, AccountRole.Member);
         foreach (var role in new[] { AccountRole.VenuePartner, AccountRole.Admin, AccountRole.Support })
         {
+            // A hypothetical approved server verdict, not a configured Keycloak flow.
             var staff = new AccessSession(role, SignInMethod.EmailPassword, true, true, new HashSet<Guid> { venueA });
             var scope = role == AccountRole.VenuePartner ? venueA : (Guid?)null;
             Check($"{role} dedicated password without mandatory MFA", true, staff, role, scope);
             Check($"{role} dedicated link", true, staff with { Method = SignInMethod.EmailLink }, role, scope);
             foreach (var method in new[] { SignInMethod.Apple, SignInMethod.Google, SignInMethod.Unknown, (SignInMethod)999 })
                 Check($"{role} rejects {method}", false, staff with { Method = method }, role, scope);
-            Check($"{role} requires separate dedicated account", false, staff with { IsDedicatedStaffAccount = false }, role, scope);
+            Check($"{role} requires approved privileged email evidence", false, staff with { HasApprovedPrivilegedEmailEvidence = false }, role, scope);
             Check($"{role} revoked", false, staff with { IsActive = false }, role, scope);
             Check($"member cannot enter {role}", false, member, role, scope);
             Check($"{role} cannot enter member area", false, staff, AccountRole.Member);

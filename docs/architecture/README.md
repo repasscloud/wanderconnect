@@ -1,6 +1,6 @@
 # Architecture baseline
 
-16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database or IdentityCloak connector exists yet. Phase 1 adds a provider-independent Domain account-area policy; discovery policy and API authorization wiring remain planned.
+16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database or Keycloak connector exists yet. Phase 1 adds a provider-independent Domain account-area policy; discovery policy and API authorization wiring remain planned.
 
 | Project | Owns | References |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ DEFAULT: modular monolith with one API, PostgreSQL persistence when needed, priv
 
 The Blazor shell uses static SSR to keep the initial solution small. Select an interactive mode in phase 1: Interactive Server fits the existing host; WASM/Auto adds Web.Client and needs a documented architecture change. This replaces the older handoff's assumed Interactive WASM requirement. MAUI shares contracts and clients, not Razor markup.
 
-IdentityCloak handles authentication; API policies own application roles, venue scope, member privacy and access. Authentication is not identity verification. The role matrix and provider-contract gate are in [authentication](AUTHENTICATION.md).
+Keycloak handles authentication; API policies own application roles, venue scope, member privacy and access. Authentication is not identity verification. The role matrix and provider-contract gate are in [authentication](AUTHENTICATION.md).
 
 Dependency versions: SDK pinned in global.json; net10.0 server/shared, net10.0-android and net10.0-ios mobile. Mobile uses the installed workload's MauiVersion and template package references; workload/Xcode/Android SDK compatibility must be pinned and verified before phase 1 device acceptance. Full solution build is deliberately distinct from the portable local solution.
 

@@ -12,7 +12,7 @@ CONFIRMED direction: `DatingApp.sln` with seven application projects under `src/
 
 Foundation pins .NET SDK 10.0.400 (latest patch roll-forward). DEFAULT: static SSR web shell initially, native MAUI XAML mobile UI. Interactive rendering is a later explicit decision: adopting WASM requires a Web.Client project and architecture amendment; it is not silently included. Share contracts/typed clients, never authoritative access decisions in client code. API owns policies; Infrastructure owns external integrations. Add Application/Worker projects only when a delivery slice demonstrates a need. Admin, support and partner areas initially belong to Web with separate authorization policies.
 
-IdentityCloak is the confirmed authentication backend, with dedicated email login for privileged audiences and optional MFA. See document 04 for the matrix. Document/liveness verification remains separate and OPEN.
+Keycloak is the confirmed authentication backend, with dedicated email login for privileged audiences and optional MFA. See document 04 for the matrix. Document/liveness verification remains separate and OPEN.
 
 One API codebase and initially one logical deployment for all clients. Horizontally replicate behind routing/load balancing when required. Separate ios-api/android-api/web-api hostnames may route to the same or separate pools later, without branching business logic. Cloudflare can front origins; DNS alone does not supply health-aware load balancing. Restrict trusted proxy headers. No personalised API/media caching at public edges by default.
 
@@ -67,7 +67,7 @@ Demo personas include LTR-only owner excluding casual/FWB; LTR+FWB candidate; su
 
 ## 7. Engineering sequence
 
-Follow [delivery phases](../delivery/PHASES.md). After the foundation, verify IdentityCloak and role boundaries, then implement policy evaluator and sample fixtures; then profiles/discovery; requests/chat/plans; travel/incognito; feedback/admin; venue voucher workflow and payment adapters; responsive/accessibility pass. Authentication is phase 1, before protected product features. Validate the entire loop on web and both mobile targets before broad feature expansion. Unit tests focus on rule invariants; integration/concurrency tests cover billing, holds and redemption. Add end-to-end tests for core journeys rather than duplicating markup assertions.
+Follow [delivery phases](../delivery/PHASES.md). After the foundation, verify Keycloak and role boundaries, then implement policy evaluator and sample fixtures; then profiles/discovery; requests/chat/plans; travel/incognito; feedback/admin; venue voucher workflow and payment adapters; responsive/accessibility pass. Authentication is phase 1, before protected product features. Validate the entire loop on web and both mobile targets before broad feature expansion. Unit tests focus on rule invariants; integration/concurrency tests cover billing, holds and redemption. Add end-to-end tests for core journeys rather than duplicating markup assertions.
 
 ## 8. Production gates
 

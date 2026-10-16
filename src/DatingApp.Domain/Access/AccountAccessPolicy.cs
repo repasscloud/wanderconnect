@@ -9,11 +9,15 @@ public enum SignInMethod { Unknown, Apple, Google, EmailPassword, EmailLink }
 /// the provider session and resolve application-owned role, active state and venue
 /// memberships before constructing this value. Never bind it from an HTTP request.
 /// IsActive includes session revocation and account suspension checks.
+/// HasApprovedPrivilegedEmailEvidence is a future server policy verdict, not an
+/// account type. Its evaluator is unimplemented pending Q10; keep it false in any
+/// real adapter until dedicated-email policy and session evidence are validated.
+/// Linked social identities do not establish the method used in this session.
 /// </summary>
 public sealed record AccessSession(
     AccountRole Role,
     SignInMethod Method,
-    bool IsDedicatedStaffAccount,
+    bool HasApprovedPrivilegedEmailEvidence,
     bool IsActive,
     IReadOnlySet<Guid> VenueIds);
 
@@ -34,7 +38,7 @@ public sealed class AccountAccessPolicy
                 SignInMethod.Apple or SignInMethod.Google or SignInMethod.EmailPassword;
 
         if (area is not (AccountRole.VenuePartner or AccountRole.Admin or AccountRole.Support)
-            || !session.IsDedicatedStaffAccount
+            || !session.HasApprovedPrivilegedEmailEvidence
             || session.Method is not (SignInMethod.EmailPassword or SignInMethod.EmailLink))
             return false;
 
