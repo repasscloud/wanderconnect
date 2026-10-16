@@ -1,0 +1,11 @@
+**
+!global.json
+!Directory.Build.props
+!src/
+!src/**
+src/**/bin/
+src/**/obj/
+src/DatingApp.Mobile/
+**/.env*
+**/*.pfx
+**/*.key

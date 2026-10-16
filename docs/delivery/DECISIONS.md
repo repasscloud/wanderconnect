@@ -32,3 +32,8 @@ Q10 was answered by the owner on 16 October 2026 (D14). Configured Keycloak sess
 A default does not imply the corresponding feature has been implemented. New decisions append rows and supersede old ones explicitly.
 
 D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 and D11–12 remain authoritative. Member email links remain a proposal under D09 and are denied by the current policy until the decision and provider contract are resolved.
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D15 | CONFIRMED, owner 16 October 2026 | All server components containerised for public/dev infrastructure; mobile apps excepted | Prepare local Docker builds/testing; no deployment authorization |
+| D16 | DEFAULT, implementation 16 October 2026; advances D13 | Separate digest-pinned API/web images and local-only Keycloak 26.8.1, empty datingapp-dev realm, generated private bootstrap secret, development embedded database | Reversible local infrastructure only; no app clients or login adapter. See [sandbox slice](PHASE-1-KEYCLOAK-SANDBOX.md). Production database/HTTPS/secrets remain a later deployment slice |

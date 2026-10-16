@@ -2,9 +2,9 @@
 
 16 October 2026. CONFIRMED: owner selected Keycloak and supplied its [documentation](https://www.keycloak.org/documentation) and [source repository](https://github.com/keycloak/keycloak). This corrects the earlier IdentityCloak name. Authentication and verified email ownership are separate from government-ID verification and liveness (Q04).
 
-## Repository inspection and proposed environment
+## Initial repository inspection and proposed environment
 
-No existing Keycloak version pin, realm export, Compose/container deployment, sandbox configuration or configured credentials were found in tracked project files or the working tree. The API and web settings contain no provider integration. No external machine or account was inspected; this finding describes this repository only.
+Historical inspection before the sandbox slice: no existing Keycloak version pin, realm export, Compose/container deployment, sandbox configuration or configured credentials were found in tracked project files or the working tree. The API and web settings contain no provider integration. No external machine or account was inspected; this finding describes this repository only.
 
 | Item | Status | Proposal |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ No existing Keycloak version pin, realm export, Compose/container deployment, sa
 | Social federation | CONFIRMED intent | Apple and Google; Google broker documented upstream. Apple integration route, app registrations, signing/secret handling and both providers' callbacks need verification against the pinned version; no working federation claimed |
 | Email delivery | OPEN setup | Development-only mail sink or owner-approved sandbox SMTP; verified email and recovery must be demonstrated, not simulated as live |
 
-No container, realm, account, client or credential was created by this slice. The pin is a documented proposal, not an existing deployed version. Before deployment resolve a registry digest for reproducibility and verify image/platform availability. This adds no application projects and does not change the seven-project architecture.
+No container, realm, account, client or credential was created by the original proposal slice. The pin is a documented proposal, not an existing deployed version. Before deployment resolve a registry digest for reproducibility and verify image/platform availability. This adds no application projects and does not change the seven-project architecture.
 
 Sources: [official downloads](https://www.keycloak.org/downloads), [26.8.1 release](https://github.com/keycloak/keycloak/releases/tag/26.8.1), [container guide](https://www.keycloak.org/server/containers). The container guide documents development mode and bootstrap variables. Runtime and realm validation remain future evidence.
 
@@ -46,3 +46,9 @@ Email magic-link support, scanner safety, atomic consumption and cross-device ex
 ## Next reviewable integration evidence
 
 With Q10 resolved, the next slice can provision an isolated sandbox; record exact image digest, realm/client configuration and test identities without secrets; capture redacted validated-token observations and documented server-record provenance. Demonstrate the member/privileged method matrix, account linking and SSO/refresh negatives, optional MFA enrolment/recovery, logout/revocation and email verification. Keep privileged access disabled until these pass. API authorization wiring and mobile/web sessions remain separate implementation work. Actions remain disabled; use local checks.
+
+## Local sandbox follow-up — 16 October 2026
+
+The proposal above is now partly implemented as reversible D16 defaults. Official downloads/release were rechecked and the 26.8.1 multi-platform registry index was resolved to `sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244`. Compose pins that digest and imports an empty `datingapp-dev` realm. No application clients, users, social federation, SMTP or method mappers are supplied. Keycloak creates its normal built-in realm clients; the template's empty client list is not a claim that the running realm has no built-in clients. Local bootstrap credentials are generated privately by the operator script.
+
+See [local commands](../delivery/LOCAL-DEVELOPMENT.md#docker-local-stack), [investigation scope](../delivery/PHASE-1-KEYCLOAK-SANDBOX.md) and [actual validation](../delivery/VALIDATION.md). The application is not connected to Keycloak. Startup/discovery/JWKS observations cannot establish a trusted authentication method, verify a token or satisfy D14. `HasApprovedPrivilegedEmailEvidence` still has no evaluator and real privileged access remains disabled.

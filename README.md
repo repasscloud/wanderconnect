@@ -42,8 +42,10 @@ The GitHub Actions template in `.github/workflow-templates/` is fully commented 
 
 Phase 1 is in progress: [account access policy slice](docs/delivery/PHASE-1-ACCESS-POLICY.md). The Domain policy is executable in local checks; no protected API or provider adapter is enabled.
 
-Keycloak is the confirmed authentication service following the owner correction. [Development pin, realm proposal and evidence boundaries](docs/architecture/KEYCLOAK-DEVELOPMENT.md) are documented; no sandbox is configured.
+Keycloak is the confirmed authentication service following the owner correction. [Development pin, realm proposal and evidence boundaries](docs/architecture/KEYCLOAK-DEVELOPMENT.md) are documented. A [local Docker sandbox](docs/delivery/LOCAL-DEVELOPMENT.md#docker-local-stack) runs API, web and an isolated Keycloak realm; application sign-in is not connected.
 
 ## Requirement status
 
 CONFIRMED = explicit owner requirement; DEFAULT = reversible engineering recommendation; OPEN = unresolved decision. Defaults may unblock prototypes, but cannot masquerade as owner approval, provider capabilities or production readiness. See the decision process for change ownership.
+
+For container testing: `./scripts/docker-local.sh init` then `./scripts/docker-local.sh up`. See [local development](docs/delivery/LOCAL-DEVELOPMENT.md#docker-local-stack) for lifecycle, credentials, reset and deployment boundaries.
