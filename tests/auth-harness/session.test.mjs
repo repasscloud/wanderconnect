@@ -90,3 +90,9 @@ test('logout invalidates a pending browser callback', () => fixture(async f => {
   assert.equal((await f.send(pending)).status, 400);
   assert.equal(f.calls(), count);
 }));
+test('logout cancels an initial pending login even without stored refresh', () => fixture(async f => {
+  const pending = await f.begin();
+  assert.equal((await f.post('/logout')).status, 303);
+  assert.equal((await f.send(pending)).status, 400);
+  assert.equal(f.calls(), 0);
+}));
