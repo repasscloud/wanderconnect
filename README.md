@@ -32,7 +32,7 @@ scripts/                       Local checks and design synchronization
 
 ## Local validation
 
-.NET SDK 10.0.400 with latest patch roll-forward and Python 3 are required. Run `./scripts/check.sh`. Restore uses locally installed SDK assets for current non-mobile projects; no third-party packages or GitHub runner minutes are needed. First-time SDK/workload installation may require internet access. This is local execution, not an air-gapped dependency guarantee.
+.NET SDK 10.0.400 with latest patch roll-forward, Python 3 and Node >=22 are required. Run `./scripts/check.sh`. Restore uses locally installed SDK assets for current non-mobile projects; no third-party packages or GitHub runner minutes are needed. First-time SDK/workload installation may require internet access. This is local execution, not an air-gapped dependency guarantee.
 
 Start API: `dotnet run --project src/DatingApp.Api --no-launch-profile --urls http://localhost:5080`.
 Start web separately: `dotnet run --project src/DatingApp.Web --no-launch-profile --urls http://localhost:5081`.
@@ -49,3 +49,5 @@ Keycloak is the confirmed authentication service following the owner correction.
 CONFIRMED = explicit owner requirement; DEFAULT = reversible engineering recommendation; OPEN = unresolved decision. Defaults may unblock prototypes, but cannot masquerade as owner approval, provider capabilities or production readiness. See the decision process for change ownership.
 
 For container testing: `./scripts/docker-local.sh init` then `./scripts/docker-local.sh up`. See [local development](docs/delivery/LOCAL-DEVELOPMENT.md#docker-local-stack) for lifecycle, credentials, reset and deployment boundaries.
+
+An opt-in [local browser investigation harness](docs/delivery/PHASE-1-BROWSER-INVESTIGATION.md) tests code + PKCE and signed ID-token observations. Its email-verified fixture is explicitly simulated; it grants no application access.

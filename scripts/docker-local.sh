@@ -21,6 +21,11 @@ else:
     print('Created private .local/docker.env; no secret printed.')
 PY
     ;;
+  auth-init|auth)
+    # The harness remains a host-side investigation tool, not an application service.
+    if [[ "$1" == auth-init ]]; then node scripts/auth/provision.mjs
+    else node scripts/auth/harness.mjs; fi
+    ;;
   up|down|status|smoke)
     if [[ ! -f "$local_env" ]]; then
       echo 'Run ./scripts/docker-local.sh init first.' >&2
@@ -34,5 +39,5 @@ PY
       smoke) python3 scripts/docker_smoke.py ;;
     esac
     ;;
-  *) echo 'Usage: ./scripts/docker-local.sh {init|up|smoke|status|down}' >&2; exit 2 ;;
+  *) echo 'Usage: ./scripts/docker-local.sh {init|up|smoke|status|down|auth-init|auth}' >&2; exit 2 ;;
 esac
