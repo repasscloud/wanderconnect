@@ -63,14 +63,17 @@ export function createHarness(provider = request) {
         auth.search = new URLSearchParams({ client_id: client, redirect_uri: callback, response_type: 'code', scope: 'openid profile email', state: tx.state, nonce: tx.nonce, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(tx.verifier).digest('base64url'), ...(mode === 'reauth' ? { prompt: 'login', max_age: '0' } : {}), ...(mode === 'silent' ? { prompt: 'none' } : {}) });
         return send(303, '', { Location: auth.href });
       }
+      if (url.pathname === '/logout') {
+        // Cancel pending login even when no provider session has been observed yet.
+        session.generation = (session.generation ?? 0) + 1;
+        if (!session.refresh) return send(303, '', { Location: '/' });
+      }
       if (!session.refresh) return send(400, 'No validated session');
       session.busy = true; lockedSession = session;
       if (url.pathname === '/refresh') {
         const tokens = await provider(issuer + '/protocol/openid-connect/token', { method: 'POST', body: new URLSearchParams({ grant_type: 'refresh_token', client_id: client, refresh_token: session.refresh }) });
         await observe(session, tokens, session.nonce, 'refresh');
       } else {
-        // A callback begun before logout must never restore this local session.
-        session.generation = (session.generation ?? 0) + 1;
         await provider(issuer + '/protocol/openid-connect/logout', { method: 'POST', body: new URLSearchParams({ client_id: client, refresh_token: session.refresh }) });
         // Prove refresh rejection after provider logout; never print or persist the token.
         let rejected = false;
