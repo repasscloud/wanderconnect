@@ -34,3 +34,5 @@ The [optional local MFA investigation](PHASE-1-OPTIONAL-MFA.md) demonstrates act
 The [portable connection lifecycle](PHASE-3-CONNECTION-RULES.md) advances independent Phase3 rules while earlier integration gates remain open. No persistence, live messaging, web/mobile journey or realtime revocation evidence is implied.
 
 The [private meeting-plan rules](PHASE-3-MEETING-PLANS.md) add versioned mutual consent, cancellation and separate completion acknowledgements. Live plan invitations, storage and web/mobile meeting journeys remain unimplemented.
+
+The [private feedback rules](PHASE-3-PRIVATE-FEEDBACK.md) add independent author-only history and amendments from trusted retained interaction facts. They do not implement live feedback/reporting, moderation/ranking or web/mobile journeys.

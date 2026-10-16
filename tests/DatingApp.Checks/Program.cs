@@ -8,6 +8,7 @@ AccessPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
+PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 
