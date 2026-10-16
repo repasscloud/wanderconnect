@@ -2,7 +2,7 @@
 
 Adult human connection platform. Working product name: WanderConnect; stable engineering namespace: `DatingApp`. Final public naming remains open.
 
-This repository contains the product definition and a .NET foundation with provider-independent account and discovery access policies. It does **not** yet implement member journeys, live sign-in, identity verification, payments or persistence.
+This repository contains the product definition and a .NET foundation with provider-independent account and discovery access policies. It does **not** yet implement authenticated member journeys, live application sign-in, identity verification, payments or persistence. Fictional previews are explicitly simulated.
 
 ## Start here
 
@@ -57,3 +57,6 @@ Independent partial Phase 2 work adds a [Domain discovery policy](docs/delivery/
 [Settings → Appearance](docs/delivery/PHASE-2-WEB-APPEARANCE.md) now runs at `/settings/appearance` in the web host: all six schemes, independent System/Light/Dark, immediate previews and browser-local guest saving. Account sync remains unconnected. These settings do not affect another member's view or authorization.
 
 An opt-in [fictional discovery preview](docs/delivery/PHASE-2-DISCOVERY-PREVIEW.md) now connects local API → typed Client → static web grid/profile. Verification/location are labelled simulations; hidden-intention, incognito, sparse, block and travel gates run server-side before fictional projections. Default/Production hosts expose no prototype API routes. No actual member sign-in, profile storage or message sending is enabled.
+
+
+A Development-only [connection scenario preview](docs/delivery/PHASE-3-CONNECTION-WEB.md) now runs at `/prototype/conversation` when explicitly enabled: request, accept/decline, canned reply, block and close across fictional roles. It uses the Domain [connection rules](docs/delivery/PHASE-3-CONNECTION-RULES.md), with separate portable [meeting-plan consent](docs/delivery/PHASE-3-MEETING-PLANS.md) and [private-feedback](docs/delivery/PHASE-3-PRIVATE-FEEDBACK.md) rules not yet wired to web journeys. No real messages or member sessions are enabled.
