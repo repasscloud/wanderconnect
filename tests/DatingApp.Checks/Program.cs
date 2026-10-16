@@ -11,6 +11,7 @@ MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
+await PrototypeConversationClientChecks.Run();
 
 var expected = new FoundationStatus("DatingApp.Api", "foundation");
 using var http = new HttpClient(new StatusHandler()) { BaseAddress = new Uri("https://example.invalid/") };

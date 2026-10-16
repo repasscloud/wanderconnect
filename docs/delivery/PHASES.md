@@ -36,3 +36,5 @@ The [portable connection lifecycle](PHASE-3-CONNECTION-RULES.md) advances indepe
 The [private meeting-plan rules](PHASE-3-MEETING-PLANS.md) add versioned mutual consent, cancellation and separate completion acknowledgements. Live plan invitations, storage and web/mobile meeting journeys remain unimplemented.
 
 The [private feedback rules](PHASE-3-PRIVATE-FEEDBACK.md) add independent author-only history and amendments from trusted retained interaction facts. They do not implement live feedback/reporting, moderation/ranking or web/mobile journeys.
+
+The [fictional connection scenario API/client](PHASE-3-CONNECTION-SCENARIOS.md) exercises state transitions, block suppression and in-process concurrent revision checks over actual HTTP. No browser/mobile, persistence, real authentication/messaging or realtime claim.
