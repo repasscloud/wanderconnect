@@ -28,3 +28,5 @@ The [portable appearance synchronization slice](PHASE-2-APPEARANCE-SYNC.md) adds
 The [fictional discovery preview](PHASE-2-DISCOVERY-PREVIEW.md) demonstrates a partial local API/client/web journey and explicit denial/empty/error states. It does not supply real authentication/verification/location, chat or mobile evidence; both Phase 1 and Phase 2 remain incomplete.
 
 The [actual local signing-key rotation investigation](PHASE-1-SIGNING-ROTATION.md) advances Phase 1 with real browser/provider overlap, restoration and removed-key rejection. It does not validate a future production API/BFF adapter or complete mail/social/MFA/mobile gates.
+
+The [optional local MFA investigation](PHASE-1-OPTIONAL-MFA.md) demonstrates actual password-only/enrolled/invalid-code/restored browser paths on one fictional fixture. Recovery, real mail/social/linked-account matrix, application auth and mobile remain incomplete.

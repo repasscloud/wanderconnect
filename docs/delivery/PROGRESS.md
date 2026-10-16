@@ -89,3 +89,23 @@ Rotation delayed run passed: held the experiment beyond the observed 60-second m
 Travel-context review correction: originating PR #6 commit4d78a8d; carried through #7 as57e5764, #8 as3a39405, #9 as5c40d31 and current rotation branch as6cb3db1. Every branch ran its full check before committing;73 discovery cases now pass, including false-flag denial and fresh-presence acceptance. No UI/client behavior changed because the preview already supplied the required flag. These are explicit repeated patch commits across proposal branches, not merges.
 
 Next after rotation commit/PR: optional MFA enrollment/login/negative/cleanup investigation in the owned local fixture can advance Phase 1 without mail/social credentials, provided existing OTP credentials are preserved. Independently, connection request/decline/chat, plan revision, private-feedback and venue-capacity/redemption rules remain unimplemented and useful. Real mail/social, production authorization, persistence and mobile/device exit evidence remain incomplete. No stopping condition reached.
+
+## Delivered real signing rotation
+
+Commit4934fe8 plus travel carry6cb3db1; [PR #10](https://github.com/repasscloud/wanderconnect/pull/10) OPEN to main, dependent on #9/inherited stack. Actual delayed65-second cleanup proved management renewal and original-key restoration. Source auth stack stopped after validation; volumes/private files retained. No merge/deployment.
+
+## Current optional MFA investigation
+
+Branch codex/keycloak-optional-mfa based on4934fe8, managed appearance worktree. Plan/spec [optional MFA](PHASE-1-OPTIONAL-MFA.md). TOTP generator passes six RFC6238 SHA1 vectors plus input validation. Temporary fixture lifecycle refuses preexisting OTP/actions, removes only unique owned OTP label and temporary action, preserves passwords/foreign credentials.53 auth tests pass. Initial fake API returned mutable arrays unlike REST snapshots; corrected test double to clone responses. Actual password-only baseline succeeded, then preflight refused provider-normalized lowercase username versus private mixed-case fixture; exact ID matched, no OTP/action existed. Added failing canonicalization regression and fixed comparison; unrelated rename remains denied. Actual enrollment/login/negative/cleanup run in progress; no MFA success claimed yet. No secret/QR/code/token/browser trace output.
+
+## Execution usage limit — unfinished MFA preserved
+
+The active-goal service reported status usageLimited; this is the user's explicit stopping condition3. No claim that all useful engineering is complete. PRs #5–#10 remain delivered proposals; nothing merged/deployed. Current codex/keycloak-optional-mfa work remains uncommitted and unreviewed, with no MFA PR.53 auth unit cases passed earlier; full check must be rerun after current edits.
+
+Latest real browser evidence: password-only baseline and temporary enrollment succeeded; configured OTP challenge appeared; an actual empty-code POST returned200 and rendered #otp aria-invalid=true with #input-error-otp (the installed theme differs from upstream base template #input-error-otp-code). The driver had timed out on that wrong selector. Changed both negative assertions to the actual invalid OTP field selector and removed diagnostic probes, but DID NOT rerun corrected driver before execution limit. Wrong-code/correct-code/restored-password full journey remains unverified. Cleanup after the failed run was checked using nonsecret Admin REST counts: temporaryActionActive=false, otpCount=0, passwordCount=1. No private data printed. Harness/browser exited. Local Docker stack being stopped; retain original matching volumes and ignored private fixture. Continue with actual driver rerun, independent review, full checks, evidence/docs and dependent PR; then audit other unblocked phases as already listed. Original checkout's owner branding edits remain unrelated and preserved.
+
+## Resumed17 October2026 — MFA actual journey passes
+
+User explicitly requested continued unattended work. Existing original owner branding edits preserved. Active managed branch remains codex/keycloak-optional-mfa. Actual full browser journey passed after selector correction;53auth+4appearance Node/full portable checks pass. Review requested under requesting-code-review skill. Next: finish review, rerun after any corrections, commit/PR main; then implement independent Phase3 connection lifecycle rules. No merge/deployment.
+
+MFA final: independent review no actionable findings (14 focused tests), full check rerun passed, actual full Edge journey passed twice. Final nonsecret provider cleanup counts: no CONFIGURE_TOTP, zero OTP, one password. Temporary harness/browser exited; stop stack retaining volumes. Prepare commit/PR, then next slice.

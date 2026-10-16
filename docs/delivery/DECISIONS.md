@@ -65,3 +65,5 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D23 | DEFAULT, implementation 16 October 2026 | Opt-in unique temporary local RSA signing provider; preserve existing keys; verify JWKS overlap/removal and restore original active key; renew short-lived management authorization for cleanup | Provider/browser investigation only, no production validator/cache policy or privileges. See [scope](PHASE-1-SIGNING-ROTATION.md) |
+
+| D24 | DEFAULT, implementation17 October2026 | Optional owned-fixture TOTP browser investigation with unique temporary authenticator, preexisting-credential refusal and exact cleanup; RFC6238 generator used only in test memory | No global MFA mandate, recovery or application access. See [evidence](PHASE-1-OPTIONAL-MFA.md) |
