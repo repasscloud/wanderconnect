@@ -171,3 +171,7 @@ See [slice evidence](PHASE-1-OPTIONAL-MFA.md): actual Edge password-only baselin
 ## Portable connection lifecycle —17 October2026
 
 Initial test-first build failed missing lifecycle types. Final88 named Domain cases pass: request/recipient accept/decline, duplicate/stale revisions, terminal decline/close across contexts, text limits, pending reply denial, travel-presence acceptance/denial, accepted continuity, current actor/pair/block/privacy/adult/verification/suspension gates and historical reporting eligibility. Independent review found no actionable findings and reran portable tests. Full ./scripts/check.sh passes (53 auth/four appearance Node;50 account/73 discovery/88 connection/39 sync; Release zero warnings/errors; design/workflow/HTTP checks). These are hypothetical server snapshots, not real messaging, persistence/concurrency, realtime, mobile or browser journey evidence. No merge/deployment.
+
+## Private meeting-plan rules —17 October2026
+
+See [evidence](PHASE-3-MEETING-PLANS.md): test-first missing-type build, then70 named consent/revision/timing/cancellation/current-safety cases pass. Independent review no actionable findings. Full check passed (Release zero warnings/errors;53 auth/four appearance Node;50 account/73 discovery/88 connection/70 plan/39 sync and HTTP/design/workflow checks). Hypothetical server snapshots only; no live plan/attendance/commerce/concurrency/device evidence.
