@@ -483,3 +483,8 @@ $RECYCLE.BIN/
 
 # Private local container environment
 .local/
+
+# Python app icon builder scripts
+docs/design/swoovr-brand-pack/.venv/
+scripts/__pycache__/
+docs/design/swoovr-brand-pack/assets/
