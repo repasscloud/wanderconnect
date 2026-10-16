@@ -54,8 +54,10 @@ static class AppearanceSyncChecks
         var sameAccountAgain = state.BeginAccount();
         Check("reactivation uses a fresh generation", sameAccountAgain != first && sameAccountAgain != second);
         Check("signed-out load ignored after reactivation", !state.CompleteLoad(second,new AppearanceSnapshot(last,1)));
-        Check("invalid server preference rejected", !state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(new("unknown","dark"),1)) && state.IsLoading);
         Check("invalid server revision rejected", !state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(remote,0)));
+        Check("unsupported account preference falls back and completes loading", state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(new("unknown","dark"),17)) && !state.IsLoading && state.Current==AppearancePreferences.Default && !state.HasPendingSave);
+        state.Select(next);Check("fallback preserves authoritative revision for next save",state.BeginSave()!.Update.ExpectedRevision==17);
+        state.SignOut();sameAccountAgain=state.BeginAccount();
         Check("valid load remains possible", state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(remote,1)));
         Check("duplicate load cannot overwrite edits", !state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(last,2)));
         Reject("invalid local choice rejected", () => state.Select(new("solar","invalid")));
@@ -73,6 +75,16 @@ static class AppearanceSyncChecks
         Check("unresolved conflict never appears saved", conflictState.HasPendingSave);
         conflictState.SignOut();
         Check("signout clears unresolved conflict", conflictState.Conflict is null && !conflictState.HasPendingSave && conflictState.Current == guest);
+        foreach(var invalidPreference in new AppearancePreference?[]{new("unknown","dark"),new("solar","removed"),null,new(null!,"dark"),new("cobalt",null!)})
+        {
+            var fallback=new AppearanceSyncState(guest);var ticket=fallback.BeginAccount();
+            Check("malformed server preference normalizes complete pair",fallback.CompleteLoad(ticket,new(invalidPreference!,23)) && !fallback.IsLoading && fallback.Current==AppearancePreferences.Default && !fallback.HasPendingSave);
+            fallback.Select(next);var save=fallback.BeginSave()!;
+            Check("normalized load allows edits and preserves revision",save.Update.ExpectedRevision==23);
+            Check("unsupported conflict accepted as safe fallback",fallback.AcceptConflict(save,new(invalidPreference!,25)) && fallback.Conflict?.Preference==AppearancePreferences.Default);
+            fallback.ResolveConflict(false);
+            Check("remote fallback conflict resolution completes",fallback.Current==AppearancePreferences.Default && !fallback.HasPendingSave);
+        }
         Console.WriteLine($"PASS: {count} appearance sync cases (pure client state; no account transport/persistence).");
     }
 }
