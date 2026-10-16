@@ -31,3 +31,7 @@ Separate dedicated staff accounts are the initial default for people who are als
 - Venue staff cannot access another venue; support cannot perform admin-only actions.
 
 These are acceptance criteria. No live authentication endpoints, fake JWT validator or production integration are included in phase 0.
+
+## Phase 1 independent policy slice
+
+`DatingApp.Domain.AccountAccessPolicy` now evaluates trusted application facts for coarse account-area access. It is not registered as an API authorization handler and does not authenticate any request. [Slice scope and adapter obligations](../delivery/PHASE-1-ACCESS-POLICY.md) explain the trust boundary. SignInMethod values are internal application categories, not IdentityCloak claims or capabilities. Provider uncertainty must map to no session or Unknown, never an optimistic email-method default. No adapter is configured.

@@ -2,7 +2,7 @@
 
 Adult human connection platform. Working product name: WanderConnect; stable engineering namespace: `DatingApp`. Final public naming remains open.
 
-This repository contains the product definition and a .NET foundation. It does **not** yet implement member journeys, live sign-in, identity verification, payments or persistence.
+This repository contains the product definition and a .NET foundation with a provider-independent account access policy. It does **not** yet implement member journeys, live sign-in, identity verification, payments or persistence.
 
 ## Start here
 
@@ -39,6 +39,8 @@ Start web separately: `dotnet run --project src/DatingApp.Web --no-launch-profil
 API: `/health/live` and `/api/v1/status`; web: `/`. The web shell is not an API-backed member app yet.
 
 The GitHub Actions template in `.github/workflow-templates/` is fully commented out by owner request and kept outside the active workflow directory. Keep checks local until explicitly re-enabled. Open feature PRs to `main`; review before merging.
+
+Phase 1 is in progress: [account access policy slice](docs/delivery/PHASE-1-ACCESS-POLICY.md). The Domain policy is executable in local checks; no protected API or provider adapter is enabled.
 
 ## Requirement status
 

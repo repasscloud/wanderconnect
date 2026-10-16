@@ -19,3 +19,18 @@
 - GitHub created an invalid-workflow failure for the fully commented file under `.github/workflows` (zero jobs). Moved the still-commented YAML to `.github/workflow-templates` to prevent further workflow entries. No runner jobs executed.
 
 Phase 0 provides a reviewable scaffold and delivery specification. Phases 1–5 remain planned in PHASES.md. This record does not certify accessibility, provider security or mobile readiness.
+
+
+## Phase 1 account access policy slice — 16 October 2026
+
+Passed locally on .NET SDK 10.0.400:
+
+- `./scripts/check.sh`: portable restore and Release build, zero warnings/errors; 50 account access policy cases; existing typed-client checks; 72 palette contrast pairs and canonical documentation checks; disabled workflow checks; API and Blazor HTTP smoke; staged/unstaged whitespace checks.
+- Test-first compilation initially failed because the new Domain types did not exist. During implementation, collection-expression compilation errors in test fixtures were corrected using explicit HashSet values.
+- Four temporary guard-removal mutations each produced a named policy failure: social-to-staff bypass, wrong venue, role elevation and inactive/revoked session. Original guards were restored before the passing full check. This establishes that the negative cases detect those regressions.
+- Read-only independent code review: no blocking findings; reviewer also ran the executable checks.
+- `dotnet workload list`: no installed workloads. No Android/iOS build or device test claimed.
+
+Evidence is for pure application policy, not live authentication. No IdentityCloak source/version/sandbox is configured, no adapter maps trusted method evidence, and no API handler invokes the policy yet. Direct API/callback replay, account-linking, issuer/audience/signature/expiry/rotation, email-link scanner/replay/concurrency and optional MFA enrolment/recovery remain untested integration gates. Application role provisioning, persistence and revocation propagation remain unimplemented. See [slice](PHASE-1-ACCESS-POLICY.md).
+
+No UI changed; no new screenshot or browser/device acceptance is claimed. Six schemes × System/Light/Dark still require phase 2 implementation. Docker was unnecessary for these dependency-free checks. Actions remain commented under workflow-templates, with no active workflow added. Phase 1 remains IN PROGRESS; nothing was merged or deployed by this slice.

@@ -23,5 +23,8 @@ Example next question: “Which repository or documentation defines IdentityCloa
 | D07 | DEFAULT, implementation | DatingApp namespace; .NET 10; SSR shell; separate local solution | Brand rename stays cheap; mobile tooling isolated |
 | D08 | DEFAULT, implementation | Separate staff/member accounts; invitation provisioning | No accidental social-to-staff elevation |
 | D09 | DEFAULT, implementation | Electric violet + System; member email links; 10-minute link expiry | Provider and phase review can amend defaults |
+| D10 | DEFAULT, implementation, 16 October 2026 | Coarse account-area policy uses one application-owned role per evaluated session; no implicit role hierarchy; venue access requires an explicit nonempty venue ID and current membership | Phase 1 Domain slice only; separate staff/member default D08 retained. Additional roles/permissions require explicit design, not email matching or admin inheritance. See [slice](PHASE-1-ACCESS-POLICY.md) and [authentication](../architecture/AUTHENTICATION.md). |
 
 A default does not imply the corresponding feature has been implemented. New decisions append rows and supersede old ones explicitly.
+
+D10 is an implementation default, not an owner answer to Q01–03/Q09. D02–04 remain authoritative. Member email links remain a proposal under D09 and are denied by the current policy until the decision and provider contract are resolved.

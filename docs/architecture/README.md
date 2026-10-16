@@ -1,6 +1,6 @@
 # Architecture baseline
 
-16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database, IdentityCloak connector or policy engine exists yet.
+16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database or IdentityCloak connector exists yet. Phase 1 adds a provider-independent Domain account-area policy; discovery policy and API authorization wiring remain planned.
 
 | Project | Owns | References |
 | --- | --- | --- |
