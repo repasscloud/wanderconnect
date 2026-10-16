@@ -13,4 +13,4 @@ Each phase is a reviewable PR to main, with a concrete demo and recorded local e
 
 Phase 0 is the scope of this restructuring PR. Features listed in phases 1–5 remain planned. Do not mark a phase complete from a passing build alone. A blocked external integration can use a clearly labelled simulation while independent work continues; its production gate remains open.
 
-Each PR states: problem/result, requirement IDs, changed defaults, commands/results, screenshots when UI changes, unresolved gaps and next blocking question. Re-enable hosted checks only on owner request, by uncommenting and reviewing the workflow. Never spend runner minutes merely to reproduce local evidence while disabled.
+Each PR states: problem/result, requirement IDs, changed defaults, commands/results, screenshots when UI changes, unresolved gaps and next blocking question. Re-enable hosted checks only on owner request, by moving the template from `.github/workflow-templates` to `.github/workflows`, uncommenting and reviewing it. Never spend runner minutes merely to reproduce local evidence while disabled.

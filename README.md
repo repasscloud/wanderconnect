@@ -38,7 +38,7 @@ Start API: `dotnet run --project src/DatingApp.Api --no-launch-profile --urls ht
 Start web separately: `dotnet run --project src/DatingApp.Web --no-launch-profile --urls http://localhost:5081`.
 API: `/health/live` and `/api/v1/status`; web: `/`. The web shell is not an API-backed member app yet.
 
-All GitHub Actions YAML is fully commented out by owner request. Keep checks local until explicitly re-enabled. Open feature PRs to `main`; review before merging.
+The GitHub Actions template in `.github/workflow-templates/` is fully commented out by owner request and kept outside the active workflow directory. Keep checks local until explicitly re-enabled. Open feature PRs to `main`; review before merging.
 
 ## Requirement status
 

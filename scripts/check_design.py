@@ -50,6 +50,6 @@ for path in [root/'README.md', root/'AGENTS.md', *root.glob('docs/**/*.md')]:
     for target in re.findall(r'\]\(([^\s)]+)\)',path.read_text()):
         if '://' in target or target.startswith('#'): continue
         assert (path.parent / target.split('#')[0]).exists(), (str(path),target)
-for path in (root/'.github/workflows').glob('*'):
+for path in [*(root/'.github/workflows').glob('*'), *(root/'.github/workflow-templates').glob('*')]:
     assert all(not line.strip() or line.lstrip().startswith('#') for line in path.read_text().splitlines()), f'Active workflow: {path}'
 print(f'PASS: {count} contrast pairs, canonical token copies, local Markdown links and disabled workflows.')
