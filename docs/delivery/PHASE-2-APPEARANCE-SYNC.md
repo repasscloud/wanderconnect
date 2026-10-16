@@ -13,3 +13,9 @@ On conflict, retain the local choice and expose the server choice/revision. Paus
 Plan: add named executable checks for account-switch/reauth isolation, delayed load/save, offline idempotent retry, conflict resolution, malformed revisions and independent dimensions; observe missing-type build failure; implement only Contracts/Client plus generated client catalogue; run full checks and independent review; record evidence and dependent PR. No UI/API integration, persistence, real accounts or mobile/device acceptance is implied.
 
 Server absence must be established by a successful authorized read that explicitly represents no preference, never a network/authentication failure or generic unavailable response. Revisions reserve long.MaxValue so incrementing a request cannot overflow. State mutation belongs to the client UI thread; this is not a multi-threaded server store.
+
+## Unsupported account-value correction —17 October2026
+
+GitHub review on dependent PR#13 identified that unsupported stored values left CompleteLoad permanently loading. A failing regression reproduced it. Valid-revision loads and conflict snapshots now normalize an unknown/removed/malformed scheme/mode pair to Electric violet + System, retaining the exact server revision and completing the load/conflict path. No automatic overwrite is queued; a later explicit edit saves against the retained revision. Invalid revisions still fail closed and permit a valid correlated retry; save acknowledgements still require exact valid posted content.
+
+Sixty appearance-state cases cover unknown scheme/mode/null fields, fallback editing/revision preservation and conflict resolution, plus existing generation/signout/offline guarantees. Corrected at originating PR#8 and explicitly carried through dependent proposals. Pure client state only; no account transport/persistence or UI sync claim.
