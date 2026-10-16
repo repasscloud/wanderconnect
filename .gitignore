@@ -486,5 +486,7 @@ $RECYCLE.BIN/
 
 # Python app icon builder scripts
 docs/design/swoovr-brand-pack/.venv/
-scripts/__pycache__/
 docs/design/swoovr-brand-pack/assets/
+
+# Pycache from scripts
+scripts/__pycache__/
