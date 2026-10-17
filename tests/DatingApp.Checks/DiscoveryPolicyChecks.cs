@@ -34,6 +34,7 @@ static class DiscoveryPolicyChecks
             var baseRequest = request with { Resource = resource, ViewerRules = rules with { Intentions = restricted } };
             Check($"{resource}: LTR plus hidden FWB excluded", false, baseRequest with { Subject = subject with { ApplicableIntentions = new HashSet<ConnectionIntention> { ltr, fwb } } });
             Check($"{resource}: LTR plus friendship allowed", true, baseRequest);
+            Check($"{resource}: owner sparse filter never excludes a sparse viewer", true, request with { Resource = resource, SubjectRules = rules with { HideSparse = true }, Viewer = viewer with { IsSubstantive = false } });
             Check($"{resource}: block cannot be bypassed", false, request with { Resource = resource, BlockedEitherDirection = true });
             Check($"{resource}: incognito refusal", false, request with { Resource = resource, IsIncognito = true, SubjectRules = rules with { AcceptIncognito = false } });
         }
@@ -49,7 +50,7 @@ static class DiscoveryPolicyChecks
         Check("empty account", false, request with { Subject = subject with { Id = Guid.Empty } });
         Check("sparse hidden", false, request with { ViewerRules = rules with { HideSparse = true }, Subject = subject with { IsSubstantive = false } });
         Check("sparse allowed when not filtered", true, request with { Subject = subject with { IsSubstantive = false } });
-        Check("reciprocal sparse filter", false, request with { SubjectRules = rules with { HideSparse = true }, Viewer = viewer with { IsSubstantive = false } });
+        Check("owner outbound sparse filter is not a visibility rule", true, request with { SubjectRules = rules with { HideSparse = true }, Viewer = viewer with { IsSubstantive = false } });
         Check("no-photo not an input or denial", true, request);
         Check("subject refuses viewing", false, request with { SubjectRules = rules with { AllowViewing = false } });
         Check("viewer context unavailable", false, request with { Viewer = viewer with { EnabledContexts = new HashSet<DiscoveryContext>() } });

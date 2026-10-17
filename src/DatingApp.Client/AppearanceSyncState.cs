@@ -28,6 +28,7 @@ public sealed class AppearanceSyncState
     private bool explicitSaveRequired;
     public AppearancePreference Current { get; private set; }
     public bool IsLoading { get; private set; }
+    public bool IsRevisionExhausted => server?.Revision == long.MaxValue;
     public AppearanceSnapshot? Conflict { get; private set; }
     public bool HasPendingSave => activation != Guid.Empty && !IsLoading
         && (Conflict is not null || inFlight is not null || explicitSaveRequired || server is null || Current != server.Preference);
@@ -63,13 +64,14 @@ public sealed class AppearanceSyncState
     {
         RequirePreference(preference);
         if (IsLoading) throw new InvalidOperationException("Wait for the account preference before editing.");
+        if (IsRevisionExhausted) throw new InvalidOperationException("Account appearance revision is exhausted; further saves are unavailable.");
         Current = preference;
         if (activation == Guid.Empty) guest = preference;
     }
 
     public AppearanceSaveAttempt? BeginSave()
     {
-        if (Conflict is not null || !HasPendingSave) return null;
+        if (Conflict is not null || !HasPendingSave || IsRevisionExhausted) return null;
         // A timeout/offline failure is retried verbatim, even after a newer local edit.
         return inFlight ??= new(activation, new(Current, server?.Revision ?? 0, Guid.NewGuid()));
     }
@@ -119,7 +121,7 @@ public sealed class AppearanceSyncState
 
     private bool IsCurrent(AppearanceSaveAttempt? attempt) => activation != Guid.Empty
         && attempt is not null && attempt.Activation == activation && attempt == inFlight;
-    private static bool ValidRevision(AppearanceSnapshot? value) => value is { Revision: > 0 and < long.MaxValue };
+    private static bool ValidRevision(AppearanceSnapshot? value) => value is { Revision: > 0 };
     private static bool ValidSnapshot(AppearanceSnapshot? value) => ValidRevision(value)
         && AppearancePreferences.IsValid(value!.Preference);
     // Unknown stored values must not wedge loading or erase the server revision. This
