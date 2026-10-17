@@ -60,7 +60,6 @@ public sealed class DiscoveryAccessPolicy
             || !viewerRules.AllowViewing || !subjectRules.AllowViewing
             || (request.IsIncognito && !subjectRules.AcceptIncognito)
             || (viewerRules.HideSparse && !subject.IsSubstantive)
-            || (subjectRules.HideSparse && !viewer.IsSubstantive)
             || viewerRules.Intentions is null || subjectRules.Intentions is null
             || !viewerRules.Intentions.Allows(subject.ApplicableIntentions)
             || !subjectRules.Intentions.Allows(viewer.ApplicableIntentions))
