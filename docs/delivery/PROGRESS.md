@@ -115,3 +115,11 @@ MFA final: independent review no actionable findings (14 focused tests), full ch
 MFA commit236ddc6; PR#11 OPEN to main, depends on#10/inherited proposals. Auth stack stopped; original private fixtures/volumes intact. Next branch codex/connection-lifecycle-rules based on236ddc6, plan/spec PHASE-3-CONNECTION-RULES.md. DEFAULT pure Domain immutable retained pair lifecycle; no UI/API/message service or production access. Q05 acceptance/reply exception stays denied pending decision. Native test-first execution; original checkout untouched.
 
 Connection rules final:88 cases pass; independent review no actionable findings. Initial missing-type build failure recorded; full check passes. D25 documents reversible defaults. No production/API/messages enabled. Commit/PR next, followed by plan revisions/private-feedback rules or venue atomicity, not a stopping condition.
+
+## Delivered connection rules; meeting plan revisions next
+
+Connection commita6709c3; PR#12 OPEN main dependent on#11/inherited stack. Current branch codex/meeting-plan-revisions. Plan/spec PHASE-3-MEETING-PLANS.md. Native Domain-only test-first execution, retaining mutually agreed terms until both confirm replacement. Private plans only; no travel reply exception, commerce or attendance proof. Provider stack remains stopped.
+
+Meeting-plan test-first build failed on missing types. Implementation passes70 named cases with existingportablechecks. Current reviewing/fullcheck. DEFAULT private scope, two explicit approvals including proposer, preserve prior agreement while replacement pending; completion acknowledgements never assert attendance. Next independent slice: private feedback with owner-only access and amend audit, after plan commit/PR.
+
+Meeting plans final:70 cases/fullcheck pass; independentreview no findings. Prepare commit/PR then privatefeedback slice, no provider/container work running. Original owner changes preserved.

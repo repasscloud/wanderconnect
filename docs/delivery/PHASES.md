@@ -32,3 +32,5 @@ The [actual local signing-key rotation investigation](PHASE-1-SIGNING-ROTATION.m
 The [optional local MFA investigation](PHASE-1-OPTIONAL-MFA.md) demonstrates actual password-only/enrolled/invalid-code/restored browser paths on one fictional fixture. Recovery, real mail/social/linked-account matrix, application auth and mobile remain incomplete.
 
 The [portable connection lifecycle](PHASE-3-CONNECTION-RULES.md) advances independent Phase3 rules while earlier integration gates remain open. No persistence, live messaging, web/mobile journey or realtime revocation evidence is implied.
+
+The [private meeting-plan rules](PHASE-3-MEETING-PLANS.md) add versioned mutual consent, cancellation and separate completion acknowledgements. Live plan invitations, storage and web/mobile meeting journeys remain unimplemented.

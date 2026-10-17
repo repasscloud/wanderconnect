@@ -7,6 +7,7 @@ using System.Text.Json;
 AccessPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
 ConnectionChecks.Run();
+MeetingPlanChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 
