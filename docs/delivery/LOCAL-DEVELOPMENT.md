@@ -68,3 +68,7 @@ DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/appearance/web
 If Playwright resolves through normal Node modules, omit that variable. `DATINGAPP_WEB_URL` may select another loopback port (default http://127.0.0.1:5081). Screenshots go to ignored `.local/appearance-browser/`; override `DATINGAPP_BROWSER_OUTPUT` if needed. The test verifies 18 preferences/12 computed palette pairs, requested/System behavior, reload/reset, cross-tab events, keyboard, completed enhanced navigation and 320px/200% text. Storage denial is injected for that error-path test. This is not screen-reader/device or account-sync acceptance.
 
 After canonical token edits, `python3 scripts/check_design.py --write` also regenerates production `themes.css` and `appearance-palettes.js`; `--check` rejects drift. Do not edit generated assets directly.
+
+## Fictional discovery preview
+
+Follow the [opt-in demo commands](PHASE-2-DISCOVERY-PREVIEW.md#local-demo). No provider login is performed. The development flag enables only fixed fictional adult read/eligibility routes; default and Production remain closed. `./scripts/check.sh` starts/stops additional test hosts on ports 5191–5196 for these API/Web gates. Keep them free. Browser checks remain optional and use installed Edge/Playwright; no heavyweight tooling installation occurs in the check script.

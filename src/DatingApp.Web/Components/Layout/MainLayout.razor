@@ -1,7 +1,9 @@
 @inherits LayoutComponentBase
+@inject IConfiguration Configuration
+@inject IWebHostEnvironment Environment
 <header class="app-header">
     <a class="wordmark" href="/">WanderConnect</a>
-    <nav aria-label="Settings navigation"><a href="/settings/appearance">Appearance</a></nav>
+    <nav aria-label="Site navigation">@if (Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled")) { <a href="/prototype/people">Fictional preview</a> } <a href="/settings/appearance">Appearance</a></nav>
 </header>
 <main id="main-content">@Body</main>
 <footer class="app-footer">A connection platform in progress. Sign-in and member experiences are not connected.</footer>

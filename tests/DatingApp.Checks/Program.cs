@@ -7,6 +7,7 @@ using System.Text.Json;
 AccessPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
 AppearanceSyncChecks.Run();
+await PrototypeClientChecks.Run();
 
 var expected = new FoundationStatus("DatingApp.Api", "foundation");
 using var http = new HttpClient(new StatusHandler()) { BaseAddress = new Uri("https://example.invalid/") };

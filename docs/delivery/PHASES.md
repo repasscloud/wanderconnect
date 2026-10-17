@@ -24,3 +24,5 @@ Unattended follow-up: the [discovery policy slice](PHASE-2-DISCOVERY-POLICY.md) 
 The [guest web appearance slice](PHASE-2-WEB-APPEARANCE.md) adds real local preference controls and generated canonical runtime palettes. Account sync, mobile rendering and feature-wide acceptance remain open; static SSR does not answer Q03.
 
 The [portable appearance synchronization slice](PHASE-2-APPEARANCE-SYNC.md) adds shared-client generation/retry/conflict rules and DTOs. It is not connected account persistence and does not complete account-switch/offline integration acceptance.
+
+The [fictional discovery preview](PHASE-2-DISCOVERY-PREVIEW.md) demonstrates a partial local API/client/web journey and explicit denial/empty/error states. It does not supply real authentication/verification/location, chat or mobile evidence; both Phase 1 and Phase 2 remain incomplete.
