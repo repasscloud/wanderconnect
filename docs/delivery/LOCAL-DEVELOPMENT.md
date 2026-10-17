@@ -76,3 +76,5 @@ Follow the [opt-in demo commands](PHASE-2-DISCOVERY-PREVIEW.md#local-demo). No p
 ## Optional signing-key investigation
 
 [Rotation commands and cleanup boundaries](PHASE-1-SIGNING-ROTATION.md) use only the existing local investigation realm and matching private fixture. The optional Edge/Playwright driver creates a unique temporary key provider and restores the original active provider. The delayed-cleanup option exercises management authorization renewal. Do not run concurrently with another rotation or reset/mix fixture volumes; do not force-kill during mutation. Normal Node checks test the lifecycle with injected providers and need no private credentials/browser.
+
+Optional provider mutation checks: [signing rotation](PHASE-1-SIGNING-ROTATION.md) and [temporary MFA](PHASE-1-OPTIONAL-MFA.md) require the original matching private fixture/volume and installed Edge. They are separate from portable checks and restore owned temporary state; no force-kill cleanup guarantee.

@@ -163,3 +163,7 @@ Investigation branch codex/keycloak-signing-rotation based on d100e3c; depends o
 - Graceful SIGINT/SIGTERM close the browser to unwind into finally; force-kill/crash/provider-unavailability cleanup remains explicitly unguaranteed. A leftover experiment prefix makes reruns fail closed pending deliberate local inspection. No original key provider edited/deleted, no realm/volume reset.
 
 The fixture's email ownership remains administrator-asserted SIMULATION. No production token validator/cache, live application authorization, social/linking, actual email, optional MFA/recovery or device acceptance was established. Privileged access stays disabled; Phase 1 remains incomplete. Full pre-commit check results and travel-review propagation are recorded in the progress ledger. Nothing merged or deployed.
+
+## Optional local MFA —17 October2026
+
+See [slice evidence](PHASE-1-OPTIONAL-MFA.md): actual Edge password-only baseline, temporary OTP enrollment, missing/wrong OTP provider denials with no token issuance, validated password+OTP code/S256 callback, logout rejection, owned authenticator/action cleanup and password-only restoration passed. Portable check passed53 auth/four appearance Node,50 account/73 discovery/39 sync cases and HTTP checks; Release zero warnings/errors. Initial rendered error-selector mismatch corrected against actual theme. Email is still administrator-asserted SIMULATION; recovery/social/linking/app authorization/mobile are unverified. Nothing merged/deployed.
