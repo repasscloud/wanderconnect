@@ -1,0 +1,156 @@
+{
+  "primary": {
+    "bird": [
+      "#7228E8"
+    ],
+    "word": [
+      "#23162F"
+    ],
+    "background": [
+      "#FFFFFF"
+    ]
+  },
+  "dark": {
+    "bird": [
+      "#BD87F2"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ]
+  },
+  "purple": {
+    "bird": [
+      "#FFFFFF"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#7228E8"
+    ]
+  },
+  "black": {
+    "bird": [
+      "#000000"
+    ],
+    "word": [
+      "#000000"
+    ],
+    "background": [
+      "#FFFFFF"
+    ]
+  },
+  "white": {
+    "bird": [
+      "#FFFFFF"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#000000"
+    ]
+  },
+  "pride-6": {
+    "bird": [
+      "#E40303",
+      "#FF8C00",
+      "#FFED00",
+      "#008026",
+      "#24408E",
+      "#732982"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ]
+  },
+  "pride-7": {
+    "bird": [
+      "#E40303",
+      "#FF8C00",
+      "#FFED00",
+      "#008026",
+      "#00A8E8",
+      "#24408E",
+      "#732982"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ]
+  },
+  "pride-trans-5": {
+    "bird": [
+      "#5BCEFA",
+      "#F5A9B8",
+      "#FFFFFF",
+      "#F5A9B8",
+      "#5BCEFA"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ]
+  },
+  "holiday-3": {
+    "bird": [
+      "#C41E3A",
+      "#FFF5E1",
+      "#168B57"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#122C22"
+    ]
+  },
+  "new-year-2": {
+    "bird": [
+      "#F4C95D",
+      "#FFF2BB"
+    ],
+    "word": [
+      "#F4C95D"
+    ],
+    "background": [
+      "#101018"
+    ]
+  },
+  "aurora-4": {
+    "bird": [
+      "#11D5C1",
+      "#35A7FF",
+      "#8A4FFF",
+      "#EF5DA8"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ]
+  },
+  "violet-gradient": {
+    "bird": [
+      "#5420C5",
+      "#A358F5"
+    ],
+    "word": [
+      "#23162F"
+    ],
+    "background": [
+      "#FFFFFF"
+    ]
+  }
+}
