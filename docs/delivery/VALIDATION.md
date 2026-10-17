@@ -175,3 +175,7 @@ Initial test-first build failed missing lifecycle types. Final88 named Domain ca
 ## Private meeting-plan rules —17 October2026
 
 See [evidence](PHASE-3-MEETING-PLANS.md): test-first missing-type build, then70 named consent/revision/timing/cancellation/current-safety cases pass. Independent review no actionable findings. Full check passed (Release zero warnings/errors;53 auth/four appearance Node;50 account/73 discovery/88 connection/70 plan/39 sync and HTTP/design/workflow checks). Hypothetical server snapshots only; no live plan/attendance/commerce/concurrency/device evidence.
+
+## Independent private-feedback rules —17 October2026
+
+Initial build failed on missing feedback types; final70 cases pass, including exact author/interaction/pair, counterpart/staff/anonymous denials, independent self-report labels, scalar validation, amendment revision/time and immutable prior history. Independent read-only review no actionable findings and reran portable checks. No actual feedback, historical-provider proof, storage/unique-key concurrency, reporting/ranking/sanctions or device/browser acceptance is claimed. Full pre-commit check recorded in progress ledger.
