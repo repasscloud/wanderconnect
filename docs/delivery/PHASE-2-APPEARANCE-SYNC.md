@@ -23,3 +23,6 @@ Sixty appearance-state cases cover unknown scheme/mode/null fields, fallback edi
 ## Explicit keep-local correction —18 October2026
 
 Fresh pre-merge Codex review found an additional case: normalized remote default equalled the local default, suppressing the explicit keep-local write. A failing regression reproduced it. Track normalized conflict origin and an explicit-save requirement so keep-local rebases even when display pairs match; keep-server/load alone still never repairs storage automatically. Valid acknowledgement and account activation/signout clear this requirement.66 appearance-state cases pass, including verbatim retry identity and acknowledgement cleanup.
+
+
+Revision exhaustion correction18 October2026: long.MaxValue is accepted as an explicit terminal revision. The final save acknowledgement clears its in-flight retry; IsRevisionExhausted prevents any further BeginSave/Select. A newer pre-ack local choice stays visible as unsaved with terminal status instead of retrying forever. Terminal loads/conflicts expose the same read-only state. This supersedes the earlier default reserving MaxValue and rejecting its acknowledgement.75 appearance-state cases cover the boundary.

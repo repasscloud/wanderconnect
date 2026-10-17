@@ -99,6 +99,21 @@ static class AppearanceSyncChecks
         localDefault.AcceptConflict(another,new(new("removed","dark"),9));localDefault.ResolveConflict(true);
         localDefault.SignOut();var cleanTicket=localDefault.BeginAccount();localDefault.CompleteLoad(cleanTicket,new(AppearancePreferences.Default,10));
         Check("activation clears forced normalized save",!localDefault.HasPendingSave && localDefault.BeginSave() is null);
+        var terminal=new AppearanceSyncState(guest);var terminalTicket=terminal.BeginAccount();
+        Check("penultimate revision loads",terminal.CompleteLoad(terminalTicket,new(remote,long.MaxValue-1)));
+        terminal.Select(next);var finalWrite=terminal.BeginSave()!;
+        Check("last write uses penultimate revision",finalWrite.Update.ExpectedRevision==long.MaxValue-1);
+        terminal.Select(last);
+        Check("terminal acknowledgement is accepted",terminal.AcceptSaved(finalWrite,new(next,long.MaxValue)));
+        Check("terminal clears retry but exposes newer unsaved choice",terminal.IsRevisionExhausted && terminal.HasPendingSave && terminal.Current==last && terminal.BeginSave() is null);
+        Reject("terminal account edits are explicitly read-only",()=>terminal.Select(next));
+        Check("terminal duplicate acknowledgement rejected",!terminal.AcceptSaved(finalWrite,new(next,long.MaxValue)));
+        terminal.SignOut();terminalTicket=terminal.BeginAccount();
+        Check("terminal load is explicit read-only state",terminal.CompleteLoad(terminalTicket,new(remote,long.MaxValue)) && terminal.IsRevisionExhausted && !terminal.HasPendingSave && terminal.BeginSave() is null);
+        terminal.SignOut();terminalTicket=terminal.BeginAccount();terminal.CompleteLoad(terminalTicket,new(remote,1));terminal.Select(next);var limitConflict=terminal.BeginSave()!;
+        Check("terminal conflict is resolvable",terminal.AcceptConflict(limitConflict,new(last,long.MaxValue)));
+        terminal.ResolveConflict(false);
+        Check("terminal remote resolution clean and read-only",terminal.IsRevisionExhausted && terminal.Current==last && !terminal.HasPendingSave && terminal.BeginSave() is null);
         Console.WriteLine($"PASS: {count} appearance sync cases (pure client state; no account transport/persistence).");
     }
 }
