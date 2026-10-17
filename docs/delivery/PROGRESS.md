@@ -131,3 +131,9 @@ Plan commit4c9760f, PR#13 OPEN main dependent on#12/inheritedstack. Branch codex
 Private feedback: initial missing-type build failure then70 cases pass; independentreview no actionable findings. Internal privatehistory never returned to counterpart/staff. Next fullcheck/commit/PR, then reassess real web OIDC foundation versus other independent prototype work. Earlier Q02/Q03/Q04/Q05/Q06/Q09 remain OPEN; no new owner approvals assumed.
 
 Private feedback full ./scripts/check.sh passed: Release zero warnings/errors;53auth/fourappearance Node;50account/73discovery/88connection/70plan/70feedback/39sync cases plus HTTP/design/workflow checks. Ready commit/PR. Next selected valuable slice: fictional connection API/client/web journey to exercise actual state transitions with generic denials; reuse Development+Prototype gate and clearly separate role simulation from authentication. No new provider, no Q03 render-mode decision, no actual messages.
+
+## Delivered feedback and next fictional connection scenarios
+
+Feedbackc297a74 PR#14 OPEN main dependent#13/inheritedstack. Current codex/fictional-connection-scenarios. Plan/spec PHASE-3-CONNECTION-SCENARIOS.md defines local HTTP contract before code. Fixed canned messages avoid accepting private data. Disposable scenarios explicitly resettable,32 capacity/20min expiry; lock+CAS within process only. Domain productionlike invariants still pure, no claim real auth/realtime/durablepair. API/client first; browser UI follows independently.
+
+Scenario final: fullcheckpassed including newHTTPsuite; updated chunked-bound test initiallyusedunsupported PythonHTTPConnection contextmanager, fixed withclosing(), thenpasses. Independentreview noactionablefindings. No tests claim waited20minexpiry. Capacity/messages/lock+CAS/productiongatesactualHTTPpass; typedclientboundprojectionpass. Preparecommit/PR, then browser surfacewithCSRF/staticSSR, separatefromQ03authenticatedrenderdecision.
