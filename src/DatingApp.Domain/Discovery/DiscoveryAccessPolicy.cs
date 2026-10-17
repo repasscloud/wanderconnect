@@ -60,7 +60,6 @@ public sealed class DiscoveryAccessPolicy
             || !viewerRules.AllowViewing || !subjectRules.AllowViewing
             || (request.IsIncognito && !subjectRules.AcceptIncognito)
             || (viewerRules.HideSparse && !subject.IsSubstantive)
-            || (subjectRules.HideSparse && !viewer.IsSubstantive)
             || viewerRules.Intentions is null || subjectRules.Intentions is null
             || !viewerRules.Intentions.Allows(subject.ApplicableIntentions)
             || !subjectRules.Intentions.Allows(viewer.ApplicableIntentions))
@@ -71,7 +70,8 @@ public sealed class DiscoveryAccessPolicy
             || (request.IsIncognito && !request.IncognitoDisclosureConfirmed))
             return false;
 
-        if (!request.RequiresDestinationPresence) return true;
+        // Travel context itself requires presence; an inconsistent false flag cannot bypass it.
+        if (request.Context != DiscoveryContext.Travel && !request.RequiresDestinationPresence) return true;
         return request.Presence is { HasConsent: true, RiskApproved: true } presence
             && presence.AccountId == viewer.Id && presence.AreaId == request.DiscoveryAreaId
             && presence.ObservedAt <= now && presence.ExpiresAt > now

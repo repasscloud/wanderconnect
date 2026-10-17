@@ -2,7 +2,7 @@
 
 Adult human connection platform. Working product name: WanderConnect; stable engineering namespace: `DatingApp`. Final public naming remains open.
 
-This repository contains the product definition and a .NET foundation with provider-independent account and discovery access policies. It does **not** yet implement member journeys, live sign-in, identity verification, payments or persistence.
+This repository contains the product definition and a .NET foundation with provider-independent account and discovery access policies. It does **not** yet implement authenticated member journeys, live application sign-in, identity verification, payments or persistence. Fictional previews are explicitly simulated.
 
 ## Start here
 
@@ -35,7 +35,7 @@ scripts/                       Local checks and design synchronization
 .NET SDK 10.0.400 with latest patch roll-forward, Python 3 and Node >=22 are required. Run `./scripts/check.sh`. Restore uses locally installed SDK assets for current non-mobile projects; no third-party packages or GitHub runner minutes are needed. First-time SDK/workload installation may require internet access. This is local execution, not an air-gapped dependency guarantee.
 
 Start API: `dotnet run --project src/DatingApp.Api --no-launch-profile --urls http://localhost:5080`.
-Start web separately: `dotnet run --project src/DatingApp.Web --no-launch-profile --urls http://localhost:5081`.
+Start web separately: `ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/DatingApp.Web --no-launch-profile --urls http://localhost:5081`.
 API: `/health/live` and `/api/v1/status`; web: `/`. The web shell is not an API-backed member app yet.
 
 The GitHub Actions template in `.github/workflow-templates/` is fully commented out by owner request and kept outside the active workflow directory. Keep checks local until explicitly re-enabled. Open feature PRs to `main`; review before merging.
@@ -53,3 +53,10 @@ For container testing: `./scripts/docker-local.sh init` then `./scripts/docker-l
 An opt-in [local browser investigation harness](docs/delivery/PHASE-1-BROWSER-INVESTIGATION.md) tests code + PKCE and signed ID-token observations. Its email-verified fixture is explicitly simulated; it grants no application access.
 
 Independent partial Phase 2 work adds a [Domain discovery policy](docs/delivery/PHASE-2-DISCOVERY-POLICY.md), including hidden intention exclusions, incognito/sparse/block enforcement and travel initiation evidence checks. It is not wired to an API or live profile data.
+
+[Settings → Appearance](docs/delivery/PHASE-2-WEB-APPEARANCE.md) now runs at `/settings/appearance` in the web host: all six schemes, independent System/Light/Dark, immediate previews and browser-local guest saving. Account sync remains unconnected. These settings do not affect another member's view or authorization.
+
+An opt-in [fictional discovery preview](docs/delivery/PHASE-2-DISCOVERY-PREVIEW.md) now connects local API → typed Client → static web grid/profile. Verification/location are labelled simulations; hidden-intention, incognito, sparse, block and travel gates run server-side before fictional projections. Default/Production hosts expose no prototype API routes. No actual member sign-in, profile storage or message sending is enabled.
+
+
+A Development-only [connection scenario preview](docs/delivery/PHASE-3-CONNECTION-WEB.md) now runs at `/prototype/conversation` when explicitly enabled: request, accept/decline, canned reply, block and close across fictional roles. It uses the Domain [connection rules](docs/delivery/PHASE-3-CONNECTION-RULES.md), with separate portable [meeting-plan consent](docs/delivery/PHASE-3-MEETING-PLANS.md) and [private-feedback](docs/delivery/PHASE-3-PRIVATE-FEEDBACK.md) rules not yet wired to web journeys. No real messages or member sessions are enabled.

@@ -4,6 +4,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+from web_smoke import check_web_assets
 
 
 def fetch(url):
@@ -27,6 +28,7 @@ require(json.loads(fetch('http://localhost:5080/health/live')) == {'status': 'ok
 status = json.loads(fetch('http://localhost:5080/api/v1/status'))
 require(status == {'service': 'DatingApp.Api', 'stage': 'foundation'}, 'API status mismatch')
 require('WanderConnect' in fetch('http://localhost:5081/'), 'Web shell missing')
+check_web_assets('http://localhost:5081/')
 issuer = 'http://localhost:8180/realms/datingapp-dev'
 discovery = json.loads(fetch(issuer + '/.well-known/openid-configuration'))
 require(discovery['issuer'] == issuer, 'Unexpected sandbox issuer')
@@ -35,5 +37,6 @@ require(discovery['jwks_uri'] == issuer + '/protocol/openid-connect/certs', 'Une
 keys = json.loads(fetch(discovery['jwks_uri']))['keys']
 require(any(key.get('use') == 'sig' and key.get('kid') for key in keys), 'No signing key')
 require('S256' in discovery.get('code_challenge_methods_supported', []), 'PKCE S256 not advertised')
+print('PASS: published appearance route and linked runtime scripts/styles.')
 print('Docker HTTP smoke passed: API, web, realm issuer, JWKS, advertised PKCE S256.')
 print('No login, token validation, verified-email or privileged-session evidence tested.')

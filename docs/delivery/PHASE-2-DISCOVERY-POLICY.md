@@ -13,3 +13,10 @@ Unknown enums, missing facts, empty IDs, mismatched actor/presence, stale/future
 OPEN: actual identity provider Q04, presence source/radius/freshness policy, demographic preference representation and compatible reciprocal intention-pair configuration remain integration work. This slice implements explicit intention filters, not a complete matching/ranking system. No API or UI consumes it yet. Phase 2 and Phase 1 remain incomplete.
 
 Implementation plan: add named executable checks first; observe missing policy compilation failure; implement focused `IntentionRule` and `DiscoveryAccessPolicy` types within Domain; run checks and guard-removal mutations; independent review; document actual evidence; commit and open a dependent PR to main. Preserve all seven projects and disabled Actions.
+
+## Review correction — Travel presence
+
+DEFAULT fail-closed refinement: Contact in Travel context always requires the bound, fresh destination presence assertion, even if the separate RequiresDestinationPresence flag is false. That flag can additionally require presence for a traveller in another context; it cannot weaken the Travel gate. The server still must derive travel/presence facts from authoritative services. This adds a conservative Travel-context requirement; it does not manufacture arrival or change Q05's unanswered reply exception. Regression first reproduced an incorrectly allowed Travel contact, then passed alongside a fresh-presence positive case.
+
+
+Pre-merge correction18 October2026: HideSparse is the viewer's outbound filter only, not the subject's visibility policy. Sparse viewers retain otherwise eligible list/profile/media/saved/contact access when a substantive subject has enabled their own outbound filter. Regression failed before removing the reciprocal condition;78 discovery cases pass. Explicit owner AllowViewing/AllowContact, block, intention and safety gates remain unchanged.

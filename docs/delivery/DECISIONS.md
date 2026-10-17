@@ -49,3 +49,31 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D19 | DEFAULT, implementation 16 October 2026 | Pure Domain discovery gate requires active verified adults, reciprocal explicit intention/context/area rules, both-direction block enforcement and shared resource checks; contact adds permission, request limit, explicit incognito disclosure and actor/area-bound fresh travel presence | No endpoint/provider enabled. Hidden intentions remain checked; no-photo status never denies. Accepted-chat continuity and Q05 reply exception are outside this new-contact gate. See [scope](PHASE-2-DISCOVERY-POLICY.md) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D20 | DEFAULT, implementation 16 October 2026 | Static SSR appearance settings with a synchronous external guest preference bootstrap; versioned browser-local scheme/requested mode only; retain explicit guest choice on this browser; storage denial keeps in-memory choice with unsaved notice | No account sync, authentication or web render-mode decision. Generated web CSS/data come from themes.json. See [scope](PHASE-2-WEB-APPEARANCE.md) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D21 | DEFAULT, implementation 16 October 2026 | Portable appearance state uses per-activation response tickets, default display while loading, versioned server compare-and-swap/idempotency DTOs, unchanged retry identity offline and explicit conflict resolution; generic guest preference deliberately survives sign-out | No HTTP/account integration. Revision long.MaxValue is an explicit terminal read-only state: accept its acknowledgement and prevent further saves. Future authenticated transport must bind outgoing work to its activation. See [scope](PHASE-2-APPEARANCE-SYNC.md) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D22 | DEFAULT, implementation 16 October 2026 | Opt-in Development-only fictional discovery API/typed client/static SSR preview, fixed adult viewer, explicit verification/location simulations and generic resource denials; optional intention/activity filters demonstrate allowed/empty/denied states | No real session, privileged verdict, provider/storage connection or messages. Production suppresses routes regardless of flag. See [scope and local demo](PHASE-2-DISCOVERY-PREVIEW.md) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D23 | DEFAULT, implementation 16 October 2026 | Opt-in unique temporary local RSA signing provider; preserve existing keys; verify JWKS overlap/removal and restore original active key; renew short-lived management authorization for cleanup | Provider/browser investigation only, no production validator/cache policy or privileges. See [scope](PHASE-1-SIGNING-ROTATION.md) |
+
+| D24 | DEFAULT, implementation17 October2026 | Optional owned-fixture TOTP browser investigation with unique temporary authenticator, preexisting-credential refusal and exact cleanup; RFC6238 generator used only in test memory | No global MFA mandate, recovery or application access. See [evidence](PHASE-1-OPTIONAL-MFA.md) |
+
+| D25 | DEFAULT, implementation17 October2026 | Immutable retained-pair Domain connection lifecycle; one text request, recipient accept/decline, terminal decline/close, accepted-chat continuity under fresh safety gates, independent historical reporting eligibility | Future store must enforce unique pair and CAS; no messaging/realtime enabled. Q05 pre-arrival acceptance stays denied. See [slice](PHASE-3-CONNECTION-RULES.md) |
+
+| D26 | DEFAULT, implementation17 October2026 | Private immutable meeting proposals require both explicit confirmations; material edits retain the last agreement until both accept replacement; completion requires scheduled instant and both lifecycle acknowledgements | Not attendance/chemistry/payment/booking evidence. Current connection safety gates collaboration; cancellation remains after closure/block. See [slice](PHASE-3-MEETING-PLANS.md) |
+
+| D27 | DEFAULT, implementation17 October2026 | Independent owner-private feedback for retained genuine connection/agreed meeting; scalar self-report answers and immutable amendment audit, exact actor/pair/interaction binding | No counterpart access, public score, automated sanctions, real reports/storage or attendance proof. Future unique(interaction,author)/CAS/retention gates. See [slice](PHASE-3-PRIVATE-FEEDBACK.md) |
+
+| D28 | DEFAULT, implementation17 October2026 | Development-only disposable fictional connection API/client, canned messages, explicit actor simulation,32scenarios/64messages/20min expiry/16KiB body; locked scenario revision updates and current Domain projections | No real auth/messages/durable pair/realtime. Reset creates a distinct disposable simulation; production repeat policy unchanged. See [contract](PHASE-3-CONNECTION-SCENARIOS.md) |
+
+| D29 | DEFAULT, implementation17 October2026 | Existing staticSSR named forms/antiforgery drive the fictional connection preview; explicit simulated role switch, canned messages and controlled stale/offline states; shared personal theme tokens | No authenticated interaction/render decision(Q03), real requests/chat or realtime. See [browser evidence](PHASE-3-CONNECTION-WEB.md) |

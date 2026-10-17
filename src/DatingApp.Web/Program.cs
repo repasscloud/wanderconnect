@@ -4,6 +4,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents();
+builder.Services.AddHttpClient<DatingApp.Client.PrototypeClient>(http => {
+    http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
+    http.Timeout = TimeSpan.FromSeconds(5);
+});
+
+builder.Services.AddHttpClient<DatingApp.Client.PrototypeConversationClient>(http => {
+    http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
+    http.Timeout = TimeSpan.FromSeconds(5);
+});
 
 var app = builder.Build();
 

@@ -1,0 +1,72 @@
+@page "/prototype/people"
+@inject PrototypeClient Client
+@inject IConfiguration Configuration
+@inject IWebHostEnvironment Environment
+<PageTitle>People preview — WanderConnect</PageTitle>
+<div class="page-heading"><p class="breadcrumb"><a href="/">Home</a> / Explore preview</p><h1>A little room for connection.</h1><p>People, at your own pace. Start with what you have in common.</p></div>
+<aside class="prototype-notice"><strong>Fictional adult preview</strong><p>Verification and location are simulated. No sign-in, messages or real profiles. The viewer requires long-term relationship intentions and excludes casual connections and friends with benefits, including hidden selections.</p></aside>
+@if (!Enabled)
+{
+    <section class="empty-state"><h2>This local preview is off</h2><p>No member service is connected. You can still <a href="/settings/appearance">choose your appearance</a>.</p></section>
+}
+else
+{
+    <form method="get" action="/prototype/people" class="discovery-filters">
+        <fieldset><legend>Your demo settings</legend>
+            <div class="filter-select"><label for="preview-travel">Simulated presence</label><select id="preview-travel" name="travel"><option value="local" selected="@(Travel == "local")">Local</option><option value="upcoming" selected="@(Travel == "upcoming")">Visiting soon</option><option value="arrived" selected="@(Travel == "arrived")">Arrived (demo)</option></select></div>
+            <label><input type="checkbox" name="hideSparse" value="true" checked="@HideSparse" /> Hide sparse profiles</label>
+            <label><input type="checkbox" name="incognito" value="true" checked="@Incognito" /> Browse incognito</label>
+            <label><input type="checkbox" name="requireFriendship" value="true" checked="@RequireFriendship" /> Also require friendship</label>
+            <label><input type="checkbox" name="requireActivity" value="true" checked="@RequireActivity" /> Also require activity companion</label>
+            <div class="filter-select"><label for="preview-match">Required intention match</label><select id="preview-match" name="match"><option value="any" selected="@(Match == "any")">Any required</option><option value="all" selected="@(Match == "all")">All required</option></select></div>
+            <button class="primary-button" type="submit">Apply demo settings</button>
+        </fieldset>
+    </form>
+    @if (Error is not null) { <section class="empty-state" role="status"><h2>People are unavailable</h2><p>@Error</p><a href="/prototype/people">Try again with default settings</a></section> }
+    else if (Result is null) { <p role="status">Loading fictional people…</p> }
+    else if (Result.People.Count == 0) { <section class="empty-state"><h2>No people match these settings</h2><p>Try another combination. Your exclusions still apply.</p></section> }
+    else
+    {
+        <section aria-label="Fictional people" class="people-grid">
+            @foreach (var person in Result.People)
+            {
+                <article class="person-card">
+                    @if (person.HasDemoImage) { <div class="demo-image" role="img" aria-label="Abstract demo image placeholder"><span aria-hidden="true">R</span><small>Demo image placeholder</small></div> }
+                    <div class="person-card-content"><p class="field-help">@person.Area</p><h2><a href="@($"/prototype/people/{person.Id}?{PrototypeClient.Query(Filter)}")">@person.Name, @person.Age</a></h2><p>@person.Introduction</p>
+                    <div class="intention-chips">@foreach (var intention in person.Intentions) { <span>@intention</span> }</div>
+                    <p class="field-help">@(person.CanContact ? "Contact eligible in this demo" : "Contact unavailable with these demo settings")</p>
+                    <a class="quiet-button" href="@($"/prototype/people/{person.Id}?{PrototypeClient.Query(Filter)}")">Open fictional profile</a></div>
+                </article>
+            }
+        </section>
+    }
+}
+@code {
+    [SupplyParameterFromQuery(Name="travel")] public string[]? TravelInput { get; set; }
+    private string Travel => PrototypeQuery.Value(TravelInput,"local");
+    [SupplyParameterFromQuery(Name="incognito")] public string[]? IncognitoInput { get; set; }
+    private bool Incognito => PrototypeQuery.Boolean(IncognitoInput);
+    [SupplyParameterFromQuery(Name="hideSparse")] public string[]? HideSparseInput { get; set; }
+    private bool HideSparse => PrototypeQuery.Boolean(HideSparseInput);
+    [SupplyParameterFromQuery(Name="requireFriendship")] public string[]? RequireFriendshipInput { get; set; }
+    private bool RequireFriendship => PrototypeQuery.Boolean(RequireFriendshipInput);
+    [SupplyParameterFromQuery(Name="match")] public string[]? MatchInput { get; set; }
+    private string Match => PrototypeQuery.Value(MatchInput,"any");
+    [SupplyParameterFromQuery(Name="requireActivity")] public string[]? RequireActivityInput { get; set; }
+    private bool RequireActivity => PrototypeQuery.Boolean(RequireActivityInput);
+    private bool QueryValid => PrototypeQuery.ValidOption(TravelInput,"local","upcoming","arrived") && PrototypeQuery.ValidOption(MatchInput,"any","all")
+        && PrototypeQuery.ValidBoolean(IncognitoInput) && PrototypeQuery.ValidBoolean(HideSparseInput) && PrototypeQuery.ValidBoolean(RequireFriendshipInput) && PrototypeQuery.ValidBoolean(RequireActivityInput);
+    private PrototypeFilter Filter => new(Travel ?? "local",Incognito,HideSparse,RequireFriendship,Match ?? "any",RequireActivity);
+    private bool Enabled => Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled");
+    private DatingApp.Contracts.PrototypePeople? Result;
+    private string? Error;
+    protected override async Task OnParametersSetAsync()
+    {
+        Result = null; Error = null;
+        if (!Enabled) return;
+        if (!QueryValid) { Error = "Choose the listed demo settings and try again."; return; }
+        try { Result = await Client.GetPeopleAsync(Filter); }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException or ArgumentException or System.Text.Json.JsonException)
+        { Error = "The local fictional preview could not be loaded. Your settings have not changed."; }
+    }
+}

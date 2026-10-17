@@ -20,3 +20,23 @@ The next partial Phase 1 slice adds [local Docker and Keycloak sandbox](PHASE-1-
 A further partial Phase 1 [browser investigation slice](PHASE-1-BROWSER-INVESTIGATION.md) adds an opt-in local client/flow, validated ID-token observations and provider rejection probes. It does not connect the API/web hosts or satisfy email ownership, social/linked-account, MFA, persistence or mobile exit criteria.
 
 Unattended follow-up: the [discovery policy slice](PHASE-2-DISCOVERY-POLICY.md) advances independent Phase 2 Domain invariants while Phase 1 remains IN PROGRESS. It enables no application browsing or provider authentication and does not satisfy end-to-end media/direct URL or device gates.
+
+The [guest web appearance slice](PHASE-2-WEB-APPEARANCE.md) adds real local preference controls and generated canonical runtime palettes. Account sync, mobile rendering and feature-wide acceptance remain open; static SSR does not answer Q03.
+
+The [portable appearance synchronization slice](PHASE-2-APPEARANCE-SYNC.md) adds shared-client generation/retry/conflict rules and DTOs. It is not connected account persistence and does not complete account-switch/offline integration acceptance.
+
+The [fictional discovery preview](PHASE-2-DISCOVERY-PREVIEW.md) demonstrates a partial local API/client/web journey and explicit denial/empty/error states. It does not supply real authentication/verification/location, chat or mobile evidence; both Phase 1 and Phase 2 remain incomplete.
+
+The [actual local signing-key rotation investigation](PHASE-1-SIGNING-ROTATION.md) advances Phase 1 with real browser/provider overlap, restoration and removed-key rejection. It does not validate a future production API/BFF adapter or complete mail/social/MFA/mobile gates.
+
+The [optional local MFA investigation](PHASE-1-OPTIONAL-MFA.md) demonstrates actual password-only/enrolled/invalid-code/restored browser paths on one fictional fixture. Recovery, real mail/social/linked-account matrix, application auth and mobile remain incomplete.
+
+The [portable connection lifecycle](PHASE-3-CONNECTION-RULES.md) advances independent Phase3 rules while earlier integration gates remain open. No persistence, live messaging, web/mobile journey or realtime revocation evidence is implied.
+
+The [private meeting-plan rules](PHASE-3-MEETING-PLANS.md) add versioned mutual consent, cancellation and separate completion acknowledgements. Live plan invitations, storage and web/mobile meeting journeys remain unimplemented.
+
+The [private feedback rules](PHASE-3-PRIVATE-FEEDBACK.md) add independent author-only history and amendments from trusted retained interaction facts. They do not implement live feedback/reporting, moderation/ranking or web/mobile journeys.
+
+The [fictional connection scenario API/client](PHASE-3-CONNECTION-SCENARIOS.md) exercises state transitions, block suppression and in-process concurrent revision checks over actual HTTP. No browser/mobile, persistence, real authentication/messaging or realtime claim.
+
+The [fictional connection web journey](PHASE-3-CONNECTION-WEB.md) exercises API/client/SSR request/accept/decline/canned reply/block/close with actual Edge and published local containers. It remains simulation; real member auth, mobile and realtime revocation are unverified.

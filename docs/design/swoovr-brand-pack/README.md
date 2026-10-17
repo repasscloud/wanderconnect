@@ -2,7 +2,7 @@
 
 Start with **PREVIEW.html** in a browser for the offline colour studio. **OVERVIEW.png** shows the 12 included palettes. Everything is built from actual vector paths: SVGs contain no embedded bitmap images and do not require installed fonts.
 
-## What's included
+## Sources and generated deliverables
 
 - Separate bird, outlined wordmark, horizontal and stacked logos.
 - Primary violet, lavender on dark, white on violet, true black and white, violet gradient, Pride 6 and 7 stop spectra, trans Pride, Christmas, New Year and aurora palettes.
@@ -15,7 +15,7 @@ Start with **PREVIEW.html** in a browser for the offline colour studio. **OVERVI
 
 ## Quick start
 
-The prebuilt files can be used immediately. Rebuilding requires Python 3.10+, Pillow and Inkscape's command line executable on PATH. FontTools is only needed to rebuild the wordmark font. The build works offline after dependencies are installed.
+The checked-in preview, overview, source geometry/palettes and wordmark font can be used directly. Logo/icon/social exports are generated locally under the intentionally untracked `assets/` directory. Building these exports requires Python 3.10+, Pillow and Inkscape's command line executable on PATH. FontTools is only needed to rebuild the wordmark font. The build works offline after dependencies are installed.
 
 ```bash
 python3 -m venv .venv
@@ -55,3 +55,6 @@ The reference's paper texture, lighting and small inconsistencies between birds 
 ## Source of truth
 
 `source/geometry.json` holds the bird and wordmark paths. `source/themes.json` holds palette stops. Edit those and rebuild; direct edits to generated SVGs will be overwritten. No external font or paid asset is needed to display the logos. This package does not establish trademark clearance or rights in the supplied concept.
+
+
+Repository note: generated logo/icon/social exports under `assets/` are intentionally untracked. Run the builder to produce those files; the checked-in preview, overview, source geometry/palettes and wordmark font are available directly.
