@@ -49,3 +49,14 @@ test('stored fixture ID never silently rebinds after user or realm removal', asy
   assert.doesNotThrow(() => validateFixture({}, []));
   assert.doesNotThrow(() => validateFixture({ userId: 'same' }, [{ id: 'same' }]));
 });
+test('published signing-key rollover accepts new key and rejects removed old key', () => {
+  const next = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const nextKey = { ...next.publicKey.export({ format: 'jwk' }), kid: 'next', alg: 'RS256', use: 'sig' };
+  const options = { issuer: base.iss, client: base.aud, nonce: 'nonce', now };
+  const nextToken = jwt(base, { alg: 'RS256', kid: 'next' }, next.privateKey);
+  assert.equal(validateIdToken(nextToken, { keys: [key, nextKey] }, options).sub, base.sub);
+  assert.equal(validateIdToken(jwt(), { keys: [key, nextKey] }, options).sub, base.sub);
+  assert.throws(() => validateIdToken(jwt(), { keys: [nextKey] }, options));
+  assert.throws(() => validateIdToken(nextToken, { keys: [key] }, options));
+});
+test('negative authentication epoch is rejected', () => assert.throws(() => validate(jwt({ ...base, auth_time: -1 }))));

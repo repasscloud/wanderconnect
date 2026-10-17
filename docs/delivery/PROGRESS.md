@@ -1,0 +1,32 @@
+# Unattended execution progress — 16 October 2026
+
+Authoritative restart ledger for the active goal: advance the documented prototype and exit criteria through reviewable slices. Keep all CONFIRMED requirements, record DEFAULT/OPEN decisions, run local checks before commits, open PRs to main. No merge, deployment, purchases or external contacts authorized. Do not stop at a delivered slice.
+
+## Verified starting state
+
+- Local main at 78b6628; PRs #1–4 MERGED by prior activity. PR #4 Codex review completed without findings; no inline review comments; GitGuardian and CLA passed.
+- Unrelated untracked `docs/design/Swoovr Swallow Logo Concept.png` and `docs/design/swoovr-brand-pack/` preserved. No naming decision inferred.
+- API/web remain unauthenticated foundation hosts. No Domain privileged evidence evaluator exists. Real mail/social/mobile/device integration remains unverified.
+- Existing private .local fixtures and retained Docker volumes must be preserved; never print them.
+
+## Current slice
+
+`codex/investigation-session-continuity`, based on main 78b6628. Plan: [session continuity](../superpowers/plans/2026-10-16-investigation-session-continuity.md).
+
+Root cause confirmed by failing HTTP regressions: only refresh validates prior subject/session/auth_time; forced login sends max_age without checking returned authentication time. Concurrent asynchronous provider calls can mutate the same session in completion order. Tests will establish regressions before fixes.
+
+## Backlog audit and next work
+
+1. Phase 1: complete investigation negatives/session checks; optional local MFA and signing rotation investigations can proceed without social credentials. Real mail/social/production adapter/device gates remain open. Q02/Q03/Q09 remain OPEN.
+2. Phase 2: pure Domain discovery/contact evaluator and negative tests are independent; then canonical appearance contracts/client renderers and offline preference handling. Live identity provider Q04 stays gated; simulations never count as live.
+3. Phase 3: pure request/block/plan/feedback lifecycle invariants can proceed independently; pre-arrival reply policy Q05 remains fail-closed until answered.
+4. Phase 4: local inventory/hold/redemption invariants can proceed; real billing/MoR/settlement Q06 blocked.
+5. Phase 5: local operational/security/accessibility preparation remains possible; live pilot requires Q07/Q08 and production authorization.
+
+Record each slice's commits, PR relationship, actual checks and exact remaining gaps here before moving on.
+
+Session slice evidence: 31 Node tests pass after regression fixes; retained-volume Docker smoke/provision/provider negatives passed; actual headless Edge password/PKCE, silent SSO, fresh reauth, refresh/logout passed. Independent review caught pending-callback logout restoration and the added regression is fixed. Full portable check passed; final documentation/check/commit and PR pending. No live signing rotation or application access claimed.
+
+Final verification: unchanged check rerun passed after one transient MSB4166 restore worker failure; final Edge journey passed after logout guard. Independent review reports no remaining actionable findings. Local harness and Docker stack will be stopped with fixtures/volumes retained before switching to independent Domain work.
+
+PR review follow-up: addressed the pending-initial-login/logout finding reported on dependent PR #6 in the originating PR #5 branch. Local logout now cancels callbacks before checking for a stored refresh token. Test failed before fix; 32 Node cases pass afterward. This does not claim browser SSO logout when no provider token was observed. Dependent branches must incorporate this fix.

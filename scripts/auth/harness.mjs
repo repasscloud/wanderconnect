@@ -13,6 +13,7 @@ export function createHarness(provider = request) {
   };
   const server = createServer(async (req, res) => {
     const send = (status, body = '', extra = {}) => { res.writeHead(status, { ...headers, 'Content-Type': 'text/html; charset=utf-8', ...extra }); res.end(body); };
+    let lockedSession;
     try {
       if (req.headers.host !== '127.0.0.1:8280') return send(400, 'Invalid host');
       const url = new URL(req.url, origin);
@@ -22,12 +23,15 @@ export function createHarness(provider = request) {
       let session = sessions.get(id);
       if (url.pathname === '/callback' && req.method === 'GET') {
         if (!session) return send(400, 'Callback rejected');
+        if (session.busy) return send(409, 'Session operation in progress');
         const allowed = new Set(['state', 'code', 'iss', 'session_state', 'error', 'error_description']);
         if ([...url.searchParams.keys()].some(k => !allowed.has(k) || url.searchParams.getAll(k).length !== 1)) return send(400, 'Callback rejected');
         const tx = transactions.consume(url.searchParams.get('state'), id);
+        if (tx.generation !== session.generation) throw new Error('Superseded transaction');
+        session.busy = true; lockedSession = session;
         if (url.searchParams.get('error') || url.searchParams.get('iss') !== issuer || !url.searchParams.get('code')) throw new Error('Callback rejected');
         const tokens = await provider(issuer + '/protocol/openid-connect/token', { method: 'POST', body: new URLSearchParams({ grant_type: 'authorization_code', client_id: client, redirect_uri: callback, code: url.searchParams.get('code'), code_verifier: tx.verifier }) });
-        await observe(session, tokens, tx.nonce, tx.mode);
+        await observe(session, tokens, tx.nonce, tx.mode, tx.created);
         return send(303, '', { Location: '/' });
       }
       if (!session) {
@@ -49,15 +53,23 @@ export function createHarness(provider = request) {
       for await (const chunk of req) { body += chunk; if (body.length > 1024) return send(413, 'Request rejected'); }
       const form = new URLSearchParams(body);
       if (form.getAll('csrf').length !== 1 || form.get('csrf') !== session.csrf) return send(403, 'Request rejected');
+      if (session.busy) return send(409, 'Session operation in progress');
       if (url.pathname === '/begin') {
         const mode = form.get('mode');
         if (!['', 'reauth', 'silent'].includes(mode)) return send(400, 'Request rejected');
         const tx = transactions.start(id); tx.mode = mode || 'browser';
+        session.generation = (session.generation ?? 0) + 1; tx.generation = session.generation;
         const auth = new URL(issuer + '/protocol/openid-connect/auth');
         auth.search = new URLSearchParams({ client_id: client, redirect_uri: callback, response_type: 'code', scope: 'openid profile email', state: tx.state, nonce: tx.nonce, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(tx.verifier).digest('base64url'), ...(mode === 'reauth' ? { prompt: 'login', max_age: '0' } : {}), ...(mode === 'silent' ? { prompt: 'none' } : {}) });
         return send(303, '', { Location: auth.href });
       }
+      if (url.pathname === '/logout') {
+        // Cancel pending login even when no provider session has been observed yet.
+        session.generation = (session.generation ?? 0) + 1;
+        if (!session.refresh) return send(303, '', { Location: '/' });
+      }
       if (!session.refresh) return send(400, 'No validated session');
+      session.busy = true; lockedSession = session;
       if (url.pathname === '/refresh') {
         const tokens = await provider(issuer + '/protocol/openid-connect/token', { method: 'POST', body: new URLSearchParams({ grant_type: 'refresh_token', client_id: client, refresh_token: session.refresh }) });
         await observe(session, tokens, session.nonce, 'refresh');
@@ -74,12 +86,15 @@ export function createHarness(provider = request) {
     } catch {
       // Exceptions may contain URLs/codes/tokens; log no exception text or provider response body.
       send(400, 'Investigation rejected. No access granted. Return to the local harness and start a new transaction.');
+    } finally {
+      if (lockedSession) lockedSession.busy = false;
     }
   });
-  async function observe(session, tokens, nonce, mode) {
+  async function observe(session, tokens, nonce, mode, started) {
     const jwks = await provider(issuer + '/protocol/openid-connect/certs');
     const claims = validateIdToken(tokens.id_token, jwks, { issuer, client, nonce, refresh: mode === 'refresh' });
-    if (mode === 'refresh' && (claims.sub !== session.claims.sub || claims.sid !== session.claims.sid || claims.auth_time !== session.claims.auth_time)) throw new Error('Session changed');
+    if ((mode === 'refresh' || (mode === 'silent' && session.claims)) && (claims.sub !== session.claims.sub || claims.sid !== session.claims.sid || claims.auth_time !== session.claims.auth_time)) throw new Error('Session changed');
+    if (mode === 'reauth' && (claims.auth_time < started - 5 || (session.claims && claims.sub !== session.claims.sub))) throw new Error('Reauthentication evidence rejected');
     if (typeof tokens.refresh_token !== 'string') throw new Error('Missing refresh');
     const previous = session.claims;
     session.observations.push({ mode, validatedIdToken: true, amr: Array.isArray(claims.amr) ? claims.amr.filter(v => ['datingapp:password'].includes(v)) : [], otherAmrPresent: Array.isArray(claims.amr) && claims.amr.some(v => v !== 'datingapp:password'), brokerEvidencePresent: typeof claims.sandbox_broker === 'string', emailVerifiedClaim: claims.email_verified === true, emailOwnershipEvidence: 'ADMIN_ASSERTED_SIMULATION_ONLY', authAgeSeconds: Math.floor(Date.now() / 1000) - claims.auth_time, sameAuthTimeAsPrevious: previous ? previous.auth_time === claims.auth_time : null, sameSessionAsPrevious: previous ? previous.sid === claims.sid : null, privilegedAccessEnabled: false });
