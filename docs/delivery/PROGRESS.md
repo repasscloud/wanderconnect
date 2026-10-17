@@ -29,4 +29,11 @@ Session slice evidence: 31 Node tests pass after regression fixes; retained-volu
 
 Final verification: unchanged check rerun passed after one transient MSB4166 restore worker failure; final Edge journey passed after logout guard. Independent review reports no remaining actionable findings. Local harness and Docker stack will be stopped with fixtures/volumes retained before switching to independent Domain work.
 
+## Delivered session slice
+
+Commit e161f10; [PR #5](https://github.com/repasscloud/wanderconnect/pull/5) OPEN to main. GitGuardian/CLA passed at last inspection; GitHub code review was still running. Independent local review clean. Harness and datingapp-local containers stopped, volumes/private fixture retained.
+
+## Current discovery slice
+
+Branch codex/discovery-eligibility-policy starts at e161f10 and explicitly depends on PR #5. Domain tests initially failed compilation because types did not exist; implementation now passes 71 discovery cases plus 50 access cases. Exclusion, block, incognito and travel guard-removal mutations detect named regressions. No API, database or live verification/location service enabled. All phases remain incomplete except foundation. Next unblocked slice: canonical appearance generation and guest-local web settings, keeping account synchronization gated behind real authentication.
 PR review follow-up: addressed the pending-initial-login/logout finding reported on dependent PR #6 in the originating PR #5 branch. Local logout now cancels callbacks before checking for a stored refresh token. Test failed before fix; 32 Node cases pass afterward. This does not claim browser SSO logout when no provider token was observed. Dependent branches must incorporate this fix.

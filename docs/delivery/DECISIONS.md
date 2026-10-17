@@ -45,3 +45,7 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D18 | DEFAULT, implementation 16 October 2026 | Investigation transactions supersede older begins; serialize local session provider operations; logout invalidates pending callbacks; silent SSO preserves known identity/session/time; reauth preserves subject and validates auth_time against request start with five-second clock tolerance | Investigation-only consistency checks, no product privileged freshness policy or access grant. See [browser investigation](PHASE-1-BROWSER-INVESTIGATION.md#session-consistency-follow-up--16-october-2026) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D19 | DEFAULT, implementation 16 October 2026 | Pure Domain discovery gate requires active verified adults, reciprocal explicit intention/context/area rules, both-direction block enforcement and shared resource checks; contact adds permission, request limit, explicit incognito disclosure and actor/area-bound fresh travel presence | No endpoint/provider enabled. Hidden intentions remain checked; no-photo status never denies. Accepted-chat continuity and Q05 reply exception are outside this new-contact gate. See [scope](PHASE-2-DISCOVERY-POLICY.md) |
