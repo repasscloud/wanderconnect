@@ -127,3 +127,14 @@ Independent partial Phase 2 surface on branch codex/personal-web-appearance, bas
 - Independent review found no remaining actionable issues; it also ran Node/canonical checks. Guest state never contains account identifiers, tokens or entitlement flags.
 
 Gaps: no authenticated account sync/revision conflict or account switching, no MAUI rendering/build/device acceptance, no screen-reader/forced-colors/low-bandwidth first-paint certification. Full feature-surface appearance and semantic states remain future work. Static SSR plus external preference scripts does not resolve Q03 or complete Phase 1/2. No merge or deployment performed; local-only container is stopped after checks. Existing auth fixtures and volumes remain retained in the original checkout.
+
+## Portable appearance account-state rules — 16 October 2026
+
+Branch codex/appearance-account-sync-state based on 2baf863; depends on PR #7 (and inherited #5/#6). No real accounts, transport or persistence added.
+
+- Test-first portable build failed because DTO/state types did not exist. First implementation build then failed CS8669 because generated code needs an explicit nullable context; generator now emits #nullable enable. Final 39 named state checks pass.
+- Checks cover 18 supported pairs, loading/default display, existing-account precedence, guest initialization only for known absence, stable offline retry/change ID, newer local choices surviving old success, monotonic/content-checked revisions, duplicate/stale loads/saves/conflicts, switching away and back, sign-out clearing pending/conflict state and malformed inputs. An added unresolved-conflict test failed before including conflicts in HasPendingSave, then passed after the guard change.
+- `./scripts/check.sh` passed: portable Release build zero warnings/errors, 39 appearance-state/71 discovery/50 account cases, 32 auth/four appearance Node cases, canonical generation/72 text pairs, disabled workflows, API/web/runtime-asset smoke and diff hygiene. Independent read-only review found no actionable issues and reran portable state and design checks.
+- `dotnet workload list` still reports no installed mobile workloads (manifest 10.0.400.1); `xcode-select -p` reports installed Xcode. No mobile build/device acceptance attempted or claimed.
+
+No UI changed in this slice, so no additional visual acceptance is claimed; prior screenshots apply only to the guest surface. No server revision/idempotency enforcement, real offline cloud retry, authenticated switching or MAUI integration is demonstrated. These remain integration gates. Client generation checks protect local state; they never authenticate or authorize server writes. No Docker needed for these pure client rules. Nothing merged or deployed.
