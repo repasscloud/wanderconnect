@@ -37,3 +37,15 @@ Commit e161f10; [PR #5](https://github.com/repasscloud/wanderconnect/pull/5) OPE
 
 Branch codex/discovery-eligibility-policy starts at e161f10 and explicitly depends on PR #5. Domain tests initially failed compilation because types did not exist; implementation now passes 71 discovery cases plus 50 access cases. Exclusion, block, incognito and travel guard-removal mutations detect named regressions. No API, database or live verification/location service enabled. All phases remain incomplete except foundation. Next unblocked slice: canonical appearance generation and guest-local web settings, keeping account synchronization gated behind real authentication.
 PR review follow-up: addressed the pending-initial-login/logout finding reported on dependent PR #6 in the originating PR #5 branch. Local logout now cancels callbacks before checking for a stored refresh token. Test failed before fix; 32 Node cases pass afterward. This does not claim browser SSO logout when no provider token was observed. Dependent branches must incorporate this fix.
+
+## Delivered discovery and review correction
+
+[PR #6](https://github.com/repasscloud/wanderconnect/pull/6), commits 360c56c and a2991d6, OPEN to main, depends on #5. GitHub identified initial pending-login logout invalidation in inherited auth code; corrected in #5 commit 481169e and carried into #6 as a2991d6 after full checks. 32 auth tests now pass. No merge/deployment.
+
+## Current guest web appearance slice
+
+Managed worktree `/Users/danijeljw/.codex/worktrees/personal-web-appearance/wanderconnect-brief`, branch codex/personal-web-appearance based on a2991d6. Explicitly depends on #5/#6; all PRs target main. Original checkout received concurrent owner branding commits 5329377, 590a522 and 3977f8f plus a build.py edit. Moved only 20 task-owned appearance files into the managed worktree and restored their originals after byte-for-byte copy verification. Owner commits/design files/build.py edit remain untouched; no public-name selection inferred.
+
+4 appearance unit tests, all 18 browser choices/12 computed palettes, system changes, persistence, cross-tab, reset, keyboard and 320px/200% text passed. Browser inspection found and fixed narrow reflow; a completed-enhancedload regression failed root theme retention before explicitly reapplying state on every enhancement (including pages without a settings form). Independent review clean. Full isolated check passes 32 auth/4 appearance/71 discovery/50 account cases plus runtime asset smoke. Published isolated web container check in progress. Account/device/cloud behavior remains open.
+
+Next independent work after appearance PR: shared client preference/account revision conflict state with account-switch isolation (no authenticated endpoint claim), followed by native generated resources if tooling can validate them; or connection lifecycle policies where client integration remains blocked. Continue backlog audit across all phases.

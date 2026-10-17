@@ -49,3 +49,7 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D19 | DEFAULT, implementation 16 October 2026 | Pure Domain discovery gate requires active verified adults, reciprocal explicit intention/context/area rules, both-direction block enforcement and shared resource checks; contact adds permission, request limit, explicit incognito disclosure and actor/area-bound fresh travel presence | No endpoint/provider enabled. Hidden intentions remain checked; no-photo status never denies. Accepted-chat continuity and Q05 reply exception are outside this new-contact gate. See [scope](PHASE-2-DISCOVERY-POLICY.md) |
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D20 | DEFAULT, implementation 16 October 2026 | Static SSR appearance settings with a synchronous external guest preference bootstrap; versioned browser-local scheme/requested mode only; retain explicit guest choice on this browser; storage denial keeps in-memory choice with unsaved notice | No account sync, authentication or web render-mode decision. Generated web CSS/data come from themes.json. See [scope](PHASE-2-WEB-APPEARANCE.md) |

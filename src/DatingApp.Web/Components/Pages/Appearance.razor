@@ -1,0 +1,62 @@
+@page "/settings/appearance"
+<PageTitle>Appearance — WanderConnect</PageTitle>
+<div class="page-heading">
+    <p class="breadcrumb"><a href="/">Me</a> / Settings</p>
+    <h1>Make yourself at home.</h1>
+    <p>Choose the colours you want to spend time with. This changes your view, wherever the conversation goes.</p>
+</div>
+<form data-appearance-settings class="appearance-layout">
+    <div class="settings-controls">
+        <fieldset disabled>
+            <legend>Colour scheme</legend>
+            <p class="field-help">Six ways to feel at home. All free, all yours.</p>
+            <div class="scheme-grid">
+                @foreach (var scheme in Schemes)
+                {
+                    <label class="scheme-choice">
+                        <span class="choice-heading"><input type="radio" name="scheme" value="@scheme.Id" checked="@(scheme.Id == "electric")" /> <span>@scheme.Name</span><span class="selected-label" aria-hidden="true">Selected</span></span>
+                        <span class="scheme-previews" aria-hidden="true">
+                            <span><span class="palette-swatch swatch-@(scheme.Id)-light"><i></i><b></b></span><span class="preview-label">Light</span></span>
+                            <span><span class="palette-swatch swatch-@(scheme.Id)-dark"><i></i><b></b></span><span class="preview-label">Dark</span></span>
+                        </span>
+                    </label>
+                }
+            </div>
+        </fieldset>
+        <fieldset disabled>
+            <legend>Display mode</legend>
+            <p class="field-help">System follows your device. Your colour scheme stays the same.</p>
+            <div class="mode-choices">
+                <label><input type="radio" name="mode" value="system" checked /> System</label>
+                <label><input type="radio" name="mode" value="light" /> Light</label>
+                <label><input type="radio" name="mode" value="dark" /> Dark</label>
+            </div>
+        </fieldset>
+        <div class="save-area">
+            <p role="status" aria-live="polite">Enable JavaScript to choose and save appearance on this browser.</p>
+            <p class="field-help">Browser preference only. Account sync is not connected.</p>
+            <button type="button" class="quiet-button" data-reset disabled>Reset appearance</button>
+        </div>
+    </div>
+    <aside class="appearance-preview" aria-label="Live appearance preview">
+        <p class="preview-title">Your view</p>
+        <p data-current-choice class="field-help">Electric violet · System</p>
+        <article class="sample-profile">
+            <span class="sample-avatar" aria-hidden="true">A</span>
+            <p class="sample-name">Alex, 32</p>
+            <p>Good coffee, coastal walks and someone with a different reading list.</p>
+            <div class="intention-chips"><span>Friendship</span><span>Conversation</span></div>
+            <button type="button" class="primary-button" disabled>Say hello</button>
+            <p class="field-help">Fictional profile preview. No message is sent.</p>
+        </article>
+        <div class="sample-chat"><p>There’s a little bookshop I think you’d like.</p><p>Sounds like my kind of afternoon.</p></div>
+        <p class="field-help">Your choice stays personal. Other people see their own colours.</p>
+    </aside>
+</form>
+@code {
+    private static readonly (string Id, string Name)[] Schemes = [
+        ("electric", "Electric violet"), ("raspberry", "Raspberry spark"),
+        ("cobalt", "Cobalt social"), ("coral", "Coral current"),
+        ("orchid", "Orchid afterglow"), ("solar", "Solar club")
+    ];
+}
