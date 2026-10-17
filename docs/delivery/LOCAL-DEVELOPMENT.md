@@ -72,3 +72,7 @@ After canonical token edits, `python3 scripts/check_design.py --write` also rege
 ## Fictional discovery preview
 
 Follow the [opt-in demo commands](PHASE-2-DISCOVERY-PREVIEW.md#local-demo). No provider login is performed. The development flag enables only fixed fictional adult read/eligibility routes; default and Production remain closed. `./scripts/check.sh` starts/stops additional test hosts on ports 5191–5196 for these API/Web gates. Keep them free. Browser checks remain optional and use installed Edge/Playwright; no heavyweight tooling installation occurs in the check script.
+
+## Optional signing-key investigation
+
+[Rotation commands and cleanup boundaries](PHASE-1-SIGNING-ROTATION.md) use only the existing local investigation realm and matching private fixture. The optional Edge/Playwright driver creates a unique temporary key provider and restores the original active provider. The delayed-cleanup option exercises management authorization renewal. Do not run concurrently with another rotation or reset/mix fixture volumes; do not force-kill during mutation. Normal Node checks test the lifecycle with injected providers and need no private credentials/browser.
