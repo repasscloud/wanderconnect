@@ -85,6 +85,20 @@ static class AppearanceSyncChecks
             fallback.ResolveConflict(false);
             Check("remote fallback conflict resolution completes",fallback.Current==AppearancePreferences.Default && !fallback.HasPendingSave);
         }
+        var localDefault=new AppearanceSyncState(guest);var localTicket=localDefault.BeginAccount();
+        localDefault.CompleteLoad(localTicket,new(remote,1));localDefault.Select(AppearancePreferences.Default);
+        var localAttempt=localDefault.BeginSave()!;
+        Check("normalized conflict displayed",localDefault.AcceptConflict(localAttempt,new(new("removed","dark"),7)));
+        localDefault.ResolveConflict(true);
+        Check("explicit keep-local of normalized default still queues save",localDefault.HasPendingSave);
+        var repair=localDefault.BeginSave()!;
+        Check("explicit normalized conflict save rebases",repair.Update.ExpectedRevision==7 && repair.Update.Preference==AppearancePreferences.Default);
+        Check("explicit save retains retry identity",localDefault.BeginSave()==repair);
+        Check("repair acknowledgement clears pending",localDefault.AcceptSaved(repair,new(AppearancePreferences.Default,8)) && !localDefault.HasPendingSave);
+        localDefault.Select(next);var another=localDefault.BeginSave()!;
+        localDefault.AcceptConflict(another,new(new("removed","dark"),9));localDefault.ResolveConflict(true);
+        localDefault.SignOut();var cleanTicket=localDefault.BeginAccount();localDefault.CompleteLoad(cleanTicket,new(AppearancePreferences.Default,10));
+        Check("activation clears forced normalized save",!localDefault.HasPendingSave && localDefault.BeginSave() is null);
         Console.WriteLine($"PASS: {count} appearance sync cases (pure client state; no account transport/persistence).");
     }
 }
