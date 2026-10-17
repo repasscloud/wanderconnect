@@ -6,6 +6,7 @@ using System.Text.Json;
 
 AccessPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
+ConnectionChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 

@@ -109,3 +109,9 @@ Latest real browser evidence: password-only baseline and temporary enrollment su
 User explicitly requested continued unattended work. Existing original owner branding edits preserved. Active managed branch remains codex/keycloak-optional-mfa. Actual full browser journey passed after selector correction;53auth+4appearance Node/full portable checks pass. Review requested under requesting-code-review skill. Next: finish review, rerun after any corrections, commit/PR main; then implement independent Phase3 connection lifecycle rules. No merge/deployment.
 
 MFA final: independent review no actionable findings (14 focused tests), full check rerun passed, actual full Edge journey passed twice. Final nonsecret provider cleanup counts: no CONFIGURE_TOTP, zero OTP, one password. Temporary harness/browser exited; stop stack retaining volumes. Prepare commit/PR, then next slice.
+
+## Delivered MFA and next connection rules
+
+MFA commit236ddc6; PR#11 OPEN to main, depends on#10/inherited proposals. Auth stack stopped; original private fixtures/volumes intact. Next branch codex/connection-lifecycle-rules based on236ddc6, plan/spec PHASE-3-CONNECTION-RULES.md. DEFAULT pure Domain immutable retained pair lifecycle; no UI/API/message service or production access. Q05 acceptance/reply exception stays denied pending decision. Native test-first execution; original checkout untouched.
+
+Connection rules final:88 cases pass; independent review no actionable findings. Initial missing-type build failure recorded; full check passes. D25 documents reversible defaults. No production/API/messages enabled. Commit/PR next, followed by plan revisions/private-feedback rules or venue atomicity, not a stopping condition.

@@ -30,3 +30,5 @@ The [fictional discovery preview](PHASE-2-DISCOVERY-PREVIEW.md) demonstrates a p
 The [actual local signing-key rotation investigation](PHASE-1-SIGNING-ROTATION.md) advances Phase 1 with real browser/provider overlap, restoration and removed-key rejection. It does not validate a future production API/BFF adapter or complete mail/social/MFA/mobile gates.
 
 The [optional local MFA investigation](PHASE-1-OPTIONAL-MFA.md) demonstrates actual password-only/enrolled/invalid-code/restored browser paths on one fictional fixture. Recovery, real mail/social/linked-account matrix, application auth and mobile remain incomplete.
+
+The [portable connection lifecycle](PHASE-3-CONNECTION-RULES.md) advances independent Phase3 rules while earlier integration gates remain open. No persistence, live messaging, web/mobile journey or realtime revocation evidence is implied.
