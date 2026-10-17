@@ -22,6 +22,8 @@ Every `assets/<theme>/` folder follows the same naming scheme. Size suffixes on 
 | `social-portrait.svg` | 1080 × 1350 portrait post |
 | `story.svg` | 1080 × 1920 story / vertical campaign canvas |
 | `open-graph.svg` | 1200 × 630 link-preview canvas |
+| `reddit-banner.svg`, `reddit-banner-1072.png` | Reddit desktop banner, 1072 × 128; centred X-header lockup scaled to fit |
+| `reddit-mobile-banner.svg`, `reddit-mobile-banner-1080.png` | Reddit mobile banner, 1080 × 128; same shallow composition |
 | `x-header.svg` | 1500 × 500 header canvas |
 | `linkedin-cover.svg` | 1584 × 396 cover canvas |
 | `youtube-banner.svg` | 2560 × 1440 banner; logo in central crop region |

@@ -490,3 +490,6 @@ docs/design/swoovr-brand-pack/assets/
 
 # Pycache from scripts
 scripts/__pycache__/
+
+# Generated custom brand variants (editable configs remain tracked)
+docs/design/swoovr-brand-pack/custom-assets/

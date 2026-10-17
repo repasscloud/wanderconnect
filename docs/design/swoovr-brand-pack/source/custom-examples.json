@@ -1,0 +1,30 @@
+{
+  "trans-carbon": {
+    "base": "pride-trans-5",
+    "swap": "bird-background",
+    "bird": ["#0D0F12"],
+    "word": ["#0D0F12"],
+    "background_angle": 138
+  },
+  "rainbow-surface": {
+    "base": "pride-8",
+    "swap": "bird-background",
+    "bird": ["#15181D"],
+    "word": ["#15181D"],
+    "background_angle": 90
+  },
+  "pink-jack-offwhite": {
+    "base": "pink-union-jack",
+    "swap": "bird-background",
+    "bird": ["#F4F1EA"],
+    "word": ["#F4F1EA"],
+    "background_angle": 0
+  },
+  "carbon-on-coral": {
+    "base": "primary",
+    "bird": ["#0D0F12"],
+    "word": ["#0D0F12"],
+    "background": ["#FF8EAB"],
+    "bird_style": "blend"
+  }
+}

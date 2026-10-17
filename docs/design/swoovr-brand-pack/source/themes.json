@@ -55,6 +55,7 @@
     ]
   },
   "pride-6": {
+    "label": "Rainbow \u00b7 six stripes, 1979",
     "bird": [
       "#E40303",
       "#FF8C00",
@@ -68,16 +69,27 @@
     ],
     "background": [
       "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
     ]
   },
   "pride-7": {
+    "label": "Rainbow \u00b7 seven stripes, 1978",
     "bird": [
       "#E40303",
       "#FF8C00",
       "#FFED00",
       "#008026",
-      "#00A8E8",
-      "#24408E",
+      "#40E0D0",
+      "#3F008F",
       "#732982"
     ],
     "word": [
@@ -85,9 +97,21 @@
     ],
     "background": [
       "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
     ]
   },
   "pride-trans-5": {
+    "label": "Transgender \u00b7 Monica Helms, 1999",
     "bird": [
       "#5BCEFA",
       "#F5A9B8",
@@ -100,6 +124,15 @@
     ],
     "background": [
       "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1,
+      1,
+      1
     ]
   },
   "holiday-3": {
@@ -152,5 +185,150 @@
     "background": [
       "#FFFFFF"
     ]
+  },
+  "pride-8": {
+    "label": "Gilbert Baker \u00b7 eight stripes, 1978",
+    "bird": [
+      "#FF69B4",
+      "#E40303",
+      "#FF8C00",
+      "#FFED00",
+      "#008026",
+      "#40E0D0",
+      "#3F008F",
+      "#732982"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "pride-9": {
+    "label": "Gilbert Baker \u00b7 nine stripes, 2017",
+    "bird": [
+      "#B57EDC",
+      "#FF69B4",
+      "#E40303",
+      "#FF8C00",
+      "#FFED00",
+      "#008026",
+      "#40E0D0",
+      "#3F008F",
+      "#732982"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "pride-bi": {
+    "label": "Bisexual \u00b7 Michael Page, 1998",
+    "bird": [
+      "#D60270",
+      "#9B4F96",
+      "#0038A8"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      2,
+      1,
+      2
+    ]
+  },
+  "pride-pan": {
+    "label": "Pansexual",
+    "bird": [
+      "#FF218C",
+      "#FFD800",
+      "#21B1FF"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1
+    ]
+  },
+  "pride-nonbinary": {
+    "label": "Non-binary \u00b7 Kye Rowan, 2014",
+    "bird": [
+      "#FFF430",
+      "#FFFFFF",
+      "#9C59D1",
+      "#000000"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#64748B"
+    ],
+    "style": "soft",
+    "angle": 90,
+    "weights": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "pink-union-jack": {
+    "label": "Pink Union Jack \u00b7 custom campaign artwork",
+    "bird": [
+      "#EC168C",
+      "#FFFFFF",
+      "#651344"
+    ],
+    "word": [
+      "#FFFFFF"
+    ],
+    "background": [
+      "#23162F"
+    ],
+    "style": "union-jack",
+    "angle": 0
   }
 }
