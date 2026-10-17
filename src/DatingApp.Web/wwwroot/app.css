@@ -106,3 +106,13 @@ input[type=checkbox] { accent-color: var(--text); width: 1.25rem; height: 1.25re
 .filter-select { grid-template-columns: minmax(0, 1fr); flex: 1 1 16rem; }
 .filter-select select { width: 100%; min-width: 0; }
 .filter-select label { display: block; overflow-wrap: anywhere; }
+
+.conversation-panel { max-width: 48rem; margin: 0 auto; }
+.conversation-roles, .conversation-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1.5rem 0; }
+.conversation-roles a { display: inline-flex; align-items: center; min-height: 44px; padding: .4rem; }
+.conversation-roles [aria-current=page] { font-weight: 700; text-decoration-thickness: 3px; }
+.conversation-messages { list-style: none; padding: 0; display: grid; gap: 1rem; }
+.conversation-message { padding: 1rem; border-left: 4px solid var(--primary); background: var(--surface); overflow-wrap: anywhere; }
+.conversation-message p { margin: .4rem 0 0; }
+.conversation-controls button { min-height: 44px; overflow-wrap: anywhere; }
+.conversation-controls .filter-select { flex-basis: 100%; }

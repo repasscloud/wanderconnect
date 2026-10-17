@@ -38,3 +38,5 @@ The [private meeting-plan rules](PHASE-3-MEETING-PLANS.md) add versioned mutual 
 The [private feedback rules](PHASE-3-PRIVATE-FEEDBACK.md) add independent author-only history and amendments from trusted retained interaction facts. They do not implement live feedback/reporting, moderation/ranking or web/mobile journeys.
 
 The [fictional connection scenario API/client](PHASE-3-CONNECTION-SCENARIOS.md) exercises state transitions, block suppression and in-process concurrent revision checks over actual HTTP. No browser/mobile, persistence, real authentication/messaging or realtime claim.
+
+The [fictional connection web journey](PHASE-3-CONNECTION-WEB.md) exercises API/client/SSR request/accept/decline/canned reply/block/close with actual Edge and published local containers. It remains simulation; real member auth, mobile and realtime revocation are unverified.

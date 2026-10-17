@@ -69,6 +69,8 @@ def enabled(base):
 def web_disabled(base):
     body,_=probe(base,'/prototype/people')
     assert b'This local preview is off' in body and b'person-card-content' not in body
+    conversation,_=probe(base,'/prototype/conversation')
+    assert b'This local preview is off' in conversation and b'Start fictional scenario' not in conversation
 
 def web_invalid(base):
     for query in ['incognito=maybe','hideSparse=maybe','requireFriendship=maybe','requireActivity=maybe','incognito=true&incognito=false','travel=unknown']:
