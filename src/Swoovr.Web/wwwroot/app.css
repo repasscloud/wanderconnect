@@ -195,15 +195,18 @@ input[type=radio]:checked::after { transform: scale(1); }
 .demo-image > span { font: 700 3.5rem/1 var(--font); }
 .demo-image small { font: var(--type-label); letter-spacing: .3px; text-transform: uppercase; }
 
-/* Chat: their bubble surface + hairline, bottom-left corner 4; mine ink, bottom-right 4. Composer: soft pill + round ink send. */
+/* Chat (owner, 23 October 2026: screen 13 is the design): their bubble is a soft grey pill with no border; my reply is
+   the opposite colour (primary). Composer: outlined round "+" button, soft pill input, outline send arrow. */
 .chat-thread { display: flex; flex-direction: column; gap: 8px; padding: 0; margin: 18px 0; list-style: none; }
-.bubble { max-width: 78%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 20px 20px 20px 4px; background: var(--surface); color: var(--text); font: 400 1rem/1.35 var(--font); overflow-wrap: anywhere; align-self: flex-start; }
-.bubble.mine { align-self: flex-end; border-color: var(--primary); border-radius: 20px 20px 4px 20px; background: var(--primary); color: var(--onPrimary); }
+.bubble { max-width: 78%; padding: 11px 16px; border-radius: 22px; background: var(--soft); color: var(--softText); font: 400 1rem/1.35 var(--font); overflow-wrap: anywhere; align-self: flex-start; }
+.bubble.mine { align-self: flex-end; background: var(--primary); color: var(--onPrimary); }
 .bubble p { margin: 0; }
 .chat-day { align-self: center; font: var(--type-small); color: var(--muted); }
 .composer { display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
-.composer-input { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; padding: 10px 16px; border-radius: 22px; background: var(--soft); color: var(--softText); font: 400 1rem/1.3 var(--font); }
-.send-button { flex: 0 0 44px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--primary); color: var(--onPrimary); transition: transform .12s ease; }
+.composer-input { flex: 1; min-width: 0; min-height: 40px; display: flex; align-items: center; padding: 9px 16px; border-radius: 20px; background: var(--soft); color: var(--softText); font: 400 1rem/1.3 var(--font); }
+.attach-button { flex: 0 0 40px; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); }
+.attach-button:disabled { color: var(--placeholder); }
+.send-button { flex: 0 0 44px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--text); transition: transform .12s ease; }
 .send-button:active { transform: scale(.94); }
 .avatar { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; background: var(--soft); color: var(--softText); font: 700 1.125rem/1 var(--font); overflow: hidden; }
 

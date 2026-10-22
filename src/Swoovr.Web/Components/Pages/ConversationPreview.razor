@@ -51,7 +51,7 @@ else
                     {
                         var action = Result.State == "None" ? "request" : "send";
                         var label = Result.State == "None" ? "Send sample request" : "Send sample reply";
-                        <div class="composer"><span class="composer-input">@(Result.State == "None" ? "Sample request (fixed in this demo)" : "Sample reply (fixed in this demo)")</span><button class="send-button" name="Input.Action" value="@action" aria-label="@label" title="@label"><Icon Name="send" Size="20" /></button></div>
+                        <div class="composer"><button type="button" class="attach-button" disabled aria-label="Attachments (not available in this preview)"><Icon Name="plus" Size="20" /></button><span class="composer-input">@(Result.State == "None" ? "Sample request (fixed in this demo)" : "Sample reply (fixed in this demo)")</span><button class="send-button" name="Input.Action" value="@action" aria-label="@label" title="@label"><Icon Name="send" Size="26" /></button></div>
                     }
                     @if (Result.State=="Pending" && Actor!=Requester) { <div class="button-row"><button class="primary-button" name="Input.Action" value="accept">Accept request</button><button class="quiet-button" name="Input.Action" value="decline">Decline request</button></div> }
                     <div class="secondary-actions">

@@ -86,7 +86,7 @@ const screens = ['/', '/settings/appearance', '/account', '/prototype/people', '
     await page.goto(base + '/prototype/people');
     assert.match(await page.locator('.profile-tile .badge').first().getAttribute('aria-label'), /simulated/); pass();
 
-    // Chat: my bubble is right-aligned in the primary colour, theirs left on the surface.
+    // Chat (D56): my reply is right-aligned in the primary colour; theirs is the soft pill on the left.
     await page.goto(base + '/prototype/conversation');
     await page.getByRole('button', { name: 'Start fictional scenario', exact: true }).click(); await page.waitForURL(/actor=alex/);
     await page.getByRole('button', { name: 'Send sample request', exact: true }).click(); await page.waitForURL(/actor=alex/);
@@ -96,11 +96,11 @@ const screens = ['/', '/settings/appearance', '/account', '/prototype/people', '
     await page.getByRole('button', { name: 'Accept request', exact: true }).click(); await page.getByRole('heading', { name: 'Conversation accepted', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Send sample reply', exact: true }).click(); await page.locator('.bubble.mine').waitFor();
     const bubbles = await page.locator('.conversation-message').evaluateAll(els => els.map(e => ({ mine: e.classList.contains('mine'), right: Math.round(e.getBoundingClientRect().right), bg: getComputedStyle(e).backgroundColor })));
-    const primary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--primary').trim());
+    const [primary, soft] = await page.evaluate(() => ['--primary', '--soft'].map(name => getComputedStyle(document.documentElement).getPropertyValue(name).trim()));
     const theirs = bubbles.find(b => !b.mine), mine = bubbles.find(b => b.mine);
     assert.ok(theirs && mine && mine.right > theirs.right, 'mine sits right of theirs');
     const toRgb = hex => `rgb(${[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
-    assert.equal(mine.bg, toRgb(primary)); pass();
+    assert.equal(mine.bg, toRgb(primary)); assert.equal(theirs.bg, toRgb(soft), 'their bubble is the soft pill (D56)'); pass();
     await page.screenshot({ path: output + '/chat-violet-dark-390.png', fullPage: true });
 
     assert.deepEqual(errors, []);

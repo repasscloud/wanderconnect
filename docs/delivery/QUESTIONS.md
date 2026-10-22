@@ -55,3 +55,7 @@ D55 confirms that flags are application-owned. The owner is still defining the p
 | --- | --- | --- | --- | --- |
 | Q11 | OPEN | Profile persistence and badges | Final flag set and rules: what admin verified means and its badge; founding-member criteria; employee badge = ruby "Swoovr staff" bird; several badges at once; bot/employee accounts in discovery | Use the five drawn badges; add admin verified when it is defined |
 | Q12 | OPEN | Profile, discovery and the segmented control | Final set of modes (brief: Connect / Friends & company / Travel & exploring; reference screens: Dating / Friends / Activities; owner examples: dating, friends, business) | Keep mode labels data-driven until the set is final |
+
+## Owner answers — 23 October 2026
+
+Q11 is PARTLY ANSWERED: the employee badge is the ruby "Swoovr staff" bird (D57), and admin verified is a backend flag with no badge that never implies ID verified (D58). Still OPEN: founding-member criteria, whether admin verified changes age status, several badges at once, and bot/employee accounts in discovery. The chat style is settled by D56. Q12 (modes) stays OPEN. The table above keeps its original snapshot.

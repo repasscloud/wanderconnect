@@ -18,9 +18,9 @@ CONFIRMED, owner 23 October 2026 (D55):
 | Founding member | Joined during the founding period | The application; criteria OPEN | Gold bird `#D4AF37` | Badge drawn; criteria OPEN |
 | Photo verified | Profile photos matched to a verification photo; does not prove age | The application, after a photo check; process OPEN | Blue `#087CFA` portrait with tick | Badge drawn; check OPEN |
 | ID verified | Government ID and age checked | The application, from the identity provider's outcome (Stripe Identity, D40) | Teal `#00AAA0` card with tick | Badge drawn; integration OPEN (Q04) |
-| Admin verified | OPEN: what an admin confirms and how it differs from ID verified | A Swoovr admin, recorded and audited in the application | None defined yet | OPEN (Q11) |
+| Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED; how it affects age status OPEN (Q11) |
 | Bot account | An automated Swoovr account (for example a guide) | The application; never self-declared | Silver bird `#C0C0C0` ("Swoovr guide (bot)") | Badge drawn |
-| Employee account | A Repass Cloud / Swoovr employee | The application, from the staff record (staff realm invitation, D31) | Ruby bird `#E0115F` ("Swoovr staff") | Badge drawn; mapping DEFAULT |
+| Employee account | A Repass Cloud / Swoovr employee | The application, from the staff record (staff realm invitation, D31) | Ruby bird `#E0115F` ("Swoovr staff") | CONFIRMED (D57) |
 
 Rules (DEFAULT unless marked):
 
@@ -30,6 +30,7 @@ Rules (DEFAULT unless marked):
 - Where the API provides it, the profile shows when each check happened ("Checked 17 Oct", reference screen 10).
 - Badges sit right after the name, 16 px on tiles and lists and larger on the profile page, with the same colours in every scheme and mode (UI-STYLE.md).
 - Fictional and prototype people may show badges only when labelled as simulated.
+- Not every flag has a badge: admin verified is backend only (D58).
 
 ## Modes
 
@@ -45,11 +46,11 @@ Until the set is final, the segmented control and intention chips take their lab
 
 ## Current state
 
-- Web: `Components/UI/Badge.razor` draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. There is no admin-verified badge.
+- Web: `Components/UI/Badge.razor` draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. Admin verified has no badge by design (D58).
 - MAUI: badge colours in `Colors.xaml`; no badge drawing yet.
 - API: no profile store and no flag fields yet. Profile persistence comes later.
 
 ## Open questions
 
-- **Q11.** Final flag set and rules. What does admin verified mean, and what should its badge look like? What are the founding-member criteria? Is the employee badge the ruby "Swoovr staff" bird? Can someone show several badges at once, and do bot and employee accounts appear in discovery?
+- **Q11.** Remaining flag rules: founding-member criteria; whether admin verified changes age status (for example D40's staff override to adult); whether someone can show several badges at once; whether bot and employee accounts appear in discovery. Answered: employee badge (D57) and admin verified (D58).
 - **Q12.** The final set of modes and how they relate to intentions and discovery contexts.
