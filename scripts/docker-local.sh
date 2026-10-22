@@ -27,6 +27,10 @@ PY
     # Applies flow settings a realm import cannot express; safe to repeat.
     node scripts/auth/realms.mjs
     ;;
+  root-admin)
+    # Fictional local root admin in the staff realm; credentials stay in .local (600).
+    node scripts/auth/root-admin.mjs
+    ;;
   auth-init|auth)
     # The harness remains a host-side investigation tool, not an application service.
     if [[ "$1" == auth-init ]]; then node scripts/auth/provision.mjs
@@ -46,5 +50,5 @@ PY
       smoke) python3 scripts/docker_smoke.py ;;
     esac
     ;;
-  *) echo 'Usage: ./scripts/docker-local.sh {init|up|realms|smoke|status|down|auth-init|auth}' >&2; exit 2 ;;
+  *) echo 'Usage: ./scripts/docker-local.sh {init|up|realms|root-admin|smoke|status|down|auth-init|auth}' >&2; exit 2 ;;
 esac

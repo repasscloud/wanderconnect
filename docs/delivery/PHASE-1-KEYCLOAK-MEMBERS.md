@@ -12,6 +12,7 @@ First implementation slice of the owner-approved [Keycloak integration design](.
 | Mail sink | `mailpit` in `compose.yaml`, UI on 127.0.0.1:8025 | Catches every Keycloak email locally. MailerSend (D39) is not configured |
 | Session evidence | `src/Swoovr.Domain/Access/SessionEvidencePolicy.cs`, `AccountAccessPolicy.cs` | Maps validated token facts to method/MFA/freshness; realm-aware area gate (members, venue partner, admin/support, root admin with OTP) |
 | API validation | `src/Swoovr.Api/Auth/KeycloakAuthentication.cs` | One JWT bearer scheme per realm (issuer, `swoovr-api` audience, RS256, signature, expiry); `GET /api/v1/session` returns the caller's own summary. Fails closed (401) when no HTTPS issuer is configured outside Development |
+| Local root admin | `scripts/auth/root-admin.mjs` (`./scripts/docker-local.sh root-admin`) | Fictional `root-admin@example.test` in the staff realm: password only, `CONFIGURE_TOTP` required before the first session (D36). Keycloak's built-in conditional 2FA then asks for the code on every sign-in; the API's root-admin rule needs `pwd` and `otp`. Credentials stay in `.local/swoovr-root-admin.json` (600). Email status is an administrator-asserted simulation |
 | Web sign-in | `src/Swoovr.Web/Auth/MemberSignIn.cs`, `/account` | Members-realm OIDC code + PKCE (pushed authorization request), tokens in a server-side ticket store, HttpOnly Lax cookie, refresh before expiry, antiforgery POST sign-out with Keycloak logout. Off unless `Keycloak:Authority` and `Keycloak:ClientSecret` are set |
 
 ## Behaviour verified on Keycloak 26.8.1
@@ -20,6 +21,7 @@ First implementation slice of the owner-approved [Keycloak integration design](.
 - After 3 wrong passwords the account is locked for 900 seconds and the correct password is refused; a completed email password reset clears the lock immediately (D37 confirmed without custom code).
 - Passkeys register through `webauthn-register-passwordless` and sign in from the form button or autofill; they report `pwd` (D45).
 - The `TERMS_AND_CONDITIONS` action must be enabled for the registration checkbox to record its timestamp.
+- The root admin's enrolment session carries only `pwd` (the code is set up, not used to sign in), so it does not satisfy the root-admin rule; every later sign-in carries `pwd` and `otp`. Keycloak rejects requirement changes inside the built-in 2FA subflow ("Illegal execution"), so OTP is enforced through the required action plus the API rule rather than a custom flow.
 - AMR is empty for the session started by email-first registration, and for any token issued after the authentication second unless `maxAge` is set (D46).
 
 ## How to run it
@@ -34,7 +36,7 @@ Recorded in [validation](VALIDATION.md#keycloak-members-slice--22-october-2026).
 
 - No application persistence: venue/staff roles, venue membership, invitations, the root-admin flag, DOB and age status have nowhere to live, so venue and staff areas stay closed. The API reports `memberArea` only.
 - Not configured (need external registrations): Apple, Google, Entra ID brokers; MailerSend API sender; production/UAT hosts and RP IDs.
-- Not built yet: email sign-in link extension, venue and staff portal sign-in, root-admin OTP enforcement flow, mobile sign-in (Q09), account linking UI, account deletion, step-up `max_age` for sensitive actions, email theme (Keycloak's default email layout is still used), a separate passkey flow with its own AMR.
+- Not built yet: email sign-in link extension, venue and staff portal sign-in (the staff realm has no web sign-in yet; the root admin is exercised against Keycloak and the API only), a Keycloak-side guard against an administrator removing the root admin's OTP (the API rule still denies access), mobile sign-in (Q09), account linking UI, account deletion, step-up `max_age` for sensitive actions, email theme (Keycloak's default email layout is still used), a separate passkey flow with its own AMR.
 - Web tickets are in process memory: a restart signs members out, and more than one web instance needs a shared store.
 - The containerised API/web (`compose.yaml`) are not configured for Keycloak; local sign-in runs the hosts with `dotnet run`.
 - The previous `swoovr-dev` investigation realm is still imported for the existing harness.

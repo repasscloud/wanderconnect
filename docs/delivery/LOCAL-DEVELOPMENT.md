@@ -68,10 +68,13 @@ Stop the API/web containers first (`docker compose --env-file .local/docker.env 
 
 After changing `scripts/keycloak_realms.py`, run it with `--write`. Keycloak imports a realm only when it does not exist, so recreate the local stack's own volume to re-import (`docker compose --env-file .local/docker.env down` then `docker volume rm swoovr-local_keycloak-data`), and never remove volumes you have not inspected. `./scripts/docker-local.sh realms` reapplies flow settings at any time.
 
+`./scripts/docker-local.sh root-admin` creates the fictional local root admin in the staff realm; its password and, after the first acceptance run, its test TOTP secret stay in `.local/swoovr-root-admin.json`.
+
 Optional acceptance with installed Edge and Playwright, with the stack and both hosts running:
 
 ```sh
 SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/auth/members.browser.cjs
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/auth/root-admin.browser.cjs   # needs only the API host
 ```
 
 It registers and signs in fictional accounts, uses a virtual passkey authenticator, deliberately locks one account and resets it, and saves screenshots to ignored `.local/auth-browser/`.
