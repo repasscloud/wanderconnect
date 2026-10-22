@@ -20,13 +20,13 @@ Q10 was answered by the owner on 16 October 2026 (D14). Configured Keycloak sess
 | D04 | CONFIRMED, owner | Other users Apple/Google/email; extra options uncertain | Member links DEFAULT proposal; no extra social providers |
 | D05 | CONFIRMED direction, owner | MAUI, Blazor, API, Contracts, Client, Domain, Infrastructure | Seven projects plus tests |
 | D06 | CONFIRMED, owner | Local testing, Actions commented out, PR to main | No hosted workflow execution |
-| D07 | DEFAULT, implementation | DatingApp namespace; .NET 10; SSR shell; separate local solution | Brand rename stays cheap; mobile tooling isolated |
+| D07 | PARTLY SUPERSEDED by D30 | Original brand-neutral namespace default replaced by Swoovr; .NET 10, SSR shell and separate local solution retained | D30 confirms product/code naming; mobile tooling remains isolated |
 | D08 | PARTLY SUPERSEDED by D12 | Invitation provisioning remains DEFAULT; separate staff/member account assumption withdrawn | Q10 defines dedicated-email access; no email-based classification |
 | D09 | DEFAULT, implementation | Electric violet + System; member email links; 10-minute link expiry | Provider and phase review can amend defaults |
 | D10 | DEFAULT, implementation, 16 October 2026 | Coarse account-area policy uses one application-owned role per evaluated session; no implicit role hierarchy; venue access requires an explicit nonempty venue ID and current membership | Phase 1 Domain slice only; separate-account portion of D08 superseded by D12. Additional roles/permissions require explicit design, not email matching or admin inheritance. See [slice](PHASE-1-ACCESS-POLICY.md) and [authentication](../architecture/AUTHENTICATION.md). |
 | D11 | CONFIRMED, owner reply, 16 October 2026 | Keycloak is the central authentication service; official docs and source supplied | Supersedes D02 naming; inspect/reuse configuration before proposing a pin and realm |
 | D12 | CONFIRMED, owner reply, 16 October 2026 | Accounts may have direct and linked Apple/Google credentials; registration, email ownership and session authentication are distinct evidence | Supersedes exclusive staff/member account assumption in D08/D10. Dedicated-email definition subsequently resolved by D14; provider evidence remains unvalidated |
-| D13 | DEFAULT proposal, implementation, 16 October 2026 | Keycloak 26.8.1 and isolated datingapp-dev realm | No existing pin/realm/sandbox found; not deployed, configured or owner-approved. See [proposal](../architecture/KEYCLOAK-DEVELOPMENT.md) |
+| D13 | DEFAULT proposal, implementation, 16 October 2026 | Keycloak 26.8.1 and isolated swoovr-dev realm | No existing pin/realm/sandbox found; not deployed, configured or owner-approved. See [proposal](../architecture/KEYCLOAK-DEVELOPMENT.md) |
 | D14 | CONFIRMED, owner Q10 reply, 16 October 2026 | Allow linked identities; privileged access requires verified email and a fresh direct email/password or approved email-link session | No separate social-free account requirement. Social sessions remain denied even on accounts with direct credentials. Configure and validate positive session evidence before enabling access; email-link capability remains unverified |
 
 A default does not imply the corresponding feature has been implemented. New decisions append rows and supersede old ones explicitly.
@@ -36,7 +36,7 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D15 | CONFIRMED, owner 16 October 2026 | All server components containerised for public/dev infrastructure; mobile apps excepted | Prepare local Docker builds/testing; no deployment authorization |
-| D16 | DEFAULT, implementation 16 October 2026; advances D13 | Separate digest-pinned API/web images and local-only Keycloak 26.8.1, empty datingapp-dev realm, generated private bootstrap secret, development embedded database | Reversible local infrastructure only; no app clients or login adapter. See [sandbox slice](PHASE-1-KEYCLOAK-SANDBOX.md). Production database/HTTPS/secrets remain a later deployment slice |
+| D16 | DEFAULT, implementation 16 October 2026; advances D13 | Separate digest-pinned API/web images and local-only Keycloak 26.8.1, empty swoovr-dev realm, generated private bootstrap secret, development embedded database | Reversible local infrastructure only; no app clients or login adapter. See [sandbox slice](PHASE-1-KEYCLOAK-SANDBOX.md). Production database/HTTPS/secrets remain a later deployment slice |
 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
@@ -77,3 +77,9 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | D28 | DEFAULT, implementation17 October2026 | Development-only disposable fictional connection API/client, canned messages, explicit actor simulation,32scenarios/64messages/20min expiry/16KiB body; locked scenario revision updates and current Domain projections | No real auth/messages/durable pair/realtime. Reset creates a distinct disposable simulation; production repeat policy unchanged. See [contract](PHASE-3-CONNECTION-SCENARIOS.md) |
 
 | D29 | DEFAULT, implementation17 October2026 | Existing staticSSR named forms/antiforgery drive the fictional connection preview; explicit simulated role switch, canned messages and controlled stale/offline states; shared personal theme tokens | No authenticated interaction/render decision(Q03), real requests/chat or realtime. See [browser evidence](PHASE-3-CONNECTION-WEB.md) |
+
+## Naming confirmation — 22 October 2026
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D30 | CONFIRMED, owner 22 October 2026 | Product and codebase use Swoovr; lowercase identifiers use swoovr | Supersedes D07 namespace/name separation and the naming shortlist. Rename solutions, seven projects, test project, namespaces, UI, scripts, local realm/Compose IDs and documentation. Preserve real external URLs and historical evidence; no production deployment or store clearance implied. See [conventions](../architecture/NAMING.md) and [migration](SWOOVR-RENAME-2026-10-22.md). |

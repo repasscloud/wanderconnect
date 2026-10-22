@@ -1,12 +1,14 @@
 # Phase 1 — local containers and Keycloak contract investigation
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 16 October 2026. Partial Phase 1 slice. Foundation PR #1 and access-policy PR #2 were already merged when inspected; new work starts from main merge e0e76ff. No merge or public/dev deployment is part of this slice.
 
 ## Reviewable scope
 
-CONFIRMED: D11/D14 Keycloak and privileged session policy; D15 server containerisation except mobile. Preserve seven projects, DatingApp namespace, replaceable public name, six personal schemes and independent mode choices. Actions remain disabled.
+CONFIRMED: D11/D14 Keycloak and privileged session policy; D15 server containerisation except mobile. Preserve seven projects, Swoovr product name and namespace, six personal schemes and independent mode choices. Actions remain disabled.
 
-DEFAULT D16: separate API/web multi-stage image targets; pinned SDK/runtime indexes; loopback Compose stack; pinned Keycloak 26.8.1 development mode with embedded disposable database and isolated datingapp-dev realm; privately generated bootstrap secret. No app persistence service is needed yet. No application OAuth clients are registered until the callback/evidence harness is specified. No users or provider credentials are seeded. This is infrastructure preparation, not simulated login.
+DEFAULT D16: separate API/web multi-stage image targets; pinned SDK/runtime indexes; loopback Compose stack; pinned Keycloak 26.8.1 development mode with embedded disposable database and isolated swoovr-dev realm; privately generated bootstrap secret. No app persistence service is needed yet. No application OAuth clients are registered until the callback/evidence harness is specified. No users or provider credentials are seeded. This is infrastructure preparation, not simulated login.
 
 Run [the local commands](LOCAL-DEVELOPMENT.md#docker-local-stack). Smoke checks real HTTP API JSON and web HTML, exact sandbox issuer, signing-key publication and advertised S256. These are provider metadata observations only. Health/readiness does not establish authenticated access. Application hosts remain independent of Keycloak, so no artificial dependency implies that app authentication is working.
 

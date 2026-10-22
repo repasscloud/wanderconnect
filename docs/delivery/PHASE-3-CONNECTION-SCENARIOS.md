@@ -1,5 +1,7 @@
 # Phase 3 — fictional connection scenarios API
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Partial API → typed Client slice. No real sign-in, private messages, profile/identity/location evidence, persistence, production member access or realtime delivery. UI/browser journey follows separately. Development AND Prototype:Enabled required; no routes in Production even with flag. Every projection IsSimulation=true, no-store; canned fictional adults/messages only.
 
 DEFAULT: disposable in-memory scenario, fixed Alex/Jamie adult pair, simulation actor selector (alex/jamie; NEVER authentication). Fixed canned request/reply only, no supplied message text. Each scenario holds one retained ConnectionThread across actions. No repeat after decline/close in that scenario; creating a fresh scenario is explicitly resetting a disposable simulation, not a production repeat-request policy. Coarse local/upcoming/arrived presence at creation is labelled simulated and stays fixed; Q05 prearrival acceptance remains denied. Block is irreversible within scenario, suppresses all message projections and sends for both actors immediately. Close/report eligibility remains Domain controlled; no report service.

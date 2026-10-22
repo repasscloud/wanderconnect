@@ -17,7 +17,7 @@ async function fixture(run) {
     if (gate) { enteredResolve(); await gate; }
     if (url.endsWith('/logout')) return null;
     const now = Math.floor(Date.now() / 1000);
-    const input = [{ alg: 'RS256', kid: key.kid }, { iss: issuer, aud: client, sub: 'adult-fixture', sid: 'session', nonce, auth_time: now, iat: now, exp: now + 300, amr: ['datingapp:password'], ...claims }].map(x => Buffer.from(JSON.stringify(x)).toString('base64url')).join('.');
+    const input = [{ alg: 'RS256', kid: key.kid }, { iss: issuer, aud: client, sub: 'adult-fixture', sid: 'session', nonce, auth_time: now, iat: now, exp: now + 300, amr: ['swoovr:password'], ...claims }].map(x => Buffer.from(JSON.stringify(x)).toString('base64url')).join('.');
     return { id_token: input + '.' + sign('RSA-SHA256', Buffer.from(input), privateKey).toString('base64url'), refresh_token: 'PRIVATE_SYNTHETIC_REFRESH' };
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

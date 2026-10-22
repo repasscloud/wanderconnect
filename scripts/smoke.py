@@ -15,7 +15,7 @@ processes = []
 def start(name, port):
     log = tempfile.TemporaryFile()
     env = dict(os.environ, ASPNETCORE_ENVIRONMENT='Development', ASPNETCORE_URLS=f'http://127.0.0.1:{port}')
-    process = subprocess.Popen(['dotnet',str(root/f'src/DatingApp.{name}/bin/Release/net10.0/DatingApp.{name}.dll')],cwd=root/f'src/DatingApp.{name}',env=env,stdout=log,stderr=log)
+    process = subprocess.Popen(['dotnet',str(root/f'src/Swoovr.{name}/bin/Release/net10.0/Swoovr.{name}.dll')],cwd=root/f'src/Swoovr.{name}',env=env,stdout=log,stderr=log)
     processes.append((process,log))
     url = f'http://127.0.0.1:{port}/'
     for _ in range(100):
@@ -30,10 +30,10 @@ try:
     api = start('Api',5187)
     web = start('Web',5188)
     with urllib.request.urlopen(api+'health/live') as r: assert json.load(r)=={'status':'ok'}
-    with urllib.request.urlopen(api+'api/v1/status') as r: assert json.load(r)=={'service':'DatingApp.Api','stage':'foundation'}
+    with urllib.request.urlopen(api+'api/v1/status') as r: assert json.load(r)=={'service':'Swoovr.Api','stage':'foundation'}
     with urllib.request.urlopen(web) as r:
         html = r.read().decode()
-        assert 'WanderConnect' in html and 'not connected' in html
+        assert 'Swoovr' in html and 'not connected' in html
     check_web_assets(web)
     print('PASS: appearance route and linked runtime scripts/styles.')
     print('PASS: API liveness/status JSON and Blazor foundation HTTP response.')

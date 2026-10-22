@@ -1,11 +1,11 @@
 // Opt-in local realm experiment only. Never changes or deletes an existing key provider.
 import { random } from './security.mjs';
-const prefix='datingapp-investigation-rotation-';
+const prefix='swoovr-investigation-rotation-';
 const providerType='org.keycloak.keys.KeyProvider';
 function requireValue(value){if(!value)throw new Error('Local rotation evidence rejected');}
 export async function withTemporarySigningKey(api,exercise){
   const realm=await api('');
-  requireValue(realm.realm==='datingapp-dev' && typeof realm.id==='string' && realm.id.length>0);
+  requireValue(realm.realm==='swoovr-dev' && typeof realm.id==='string' && realm.id.length>0);
   const existing=await api('/components');
   requireValue(Array.isArray(existing) && !existing.some(c=>c.name?.startsWith(prefix)));
   const beforeKid=(await api('/keys')).active?.RS256;

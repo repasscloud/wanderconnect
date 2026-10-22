@@ -5,7 +5,7 @@ import { validateIdToken, Transactions } from '../../scripts/auth/security.mjs';
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const key = { ...publicKey.export({ format: 'jwk' }), kid: 'test', alg: 'RS256', use: 'sig' };
 const now = 1000;
-const base = { iss: 'http://localhost:8180/realms/datingapp-dev', aud: 'datingapp-investigation', azp: 'datingapp-investigation', sub: 'fictional', sid: 'session', nonce: 'nonce', iat: now, exp: now + 300, auth_time: now };
+const base = { iss: 'http://localhost:8180/realms/swoovr-dev', aud: 'swoovr-investigation', azp: 'swoovr-investigation', sub: 'fictional', sid: 'session', nonce: 'nonce', iat: now, exp: now + 300, auth_time: now };
 function jwt(claims = base, header = { alg: 'RS256', kid: 'test' }, signer = privateKey) {
   const input = [header, claims].map(x => Buffer.from(JSON.stringify(x)).toString('base64url')).join('.');
   return input + '.' + sign('RSA-SHA256', Buffer.from(input), signer).toString('base64url');

@@ -1,5 +1,7 @@
 # Phase 3 — portable connection lifecycle
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Partial Domain slice implementing behaviour specification §2/3/5. No real requests, private messages, API mutations, persistence, realtime or UI are enabled.
 
 CONFIRMED constraints remain: blocking in either direction prevents contact; no traveller initiation before confirmed arrival; no member-visible visit trace. Q05 pre-arrival reply exception remains OPEN. This slice conservatively applies full current new-contact eligibility to both initial request and recipient acceptance, including arrival where applicable; it does not silently approve that exception.
@@ -14,8 +16,8 @@ Use an immutable privately constructed ConnectionThread. Every successful mutati
 
 Native execution in the existing managed worktree, branch codex/connection-lifecycle-rules based on236ddc6/PR#11. User unattended instructions authorize reversible defaults and waive optional question/approval pauses. Seven-project boundary and .NET10 preserved.
 
-- [x] Add tests/DatingApp.Checks/ConnectionChecks.cs plus Program.cs invocation. Tests cover eligible request/recipient acceptance; sender/outsider denial; no pending second message; text validation; decline/close terminal; stale revision; swapped fact IDs; cross-context repeat; pending travel denial; accepted continuity and current safety revocation across read/send; historical reporting only. Run and observe missing-type build failure.
-- [x] Add src/DatingApp.Domain/Connections/ConnectionThread.cs with ConnectionState enum, immutable message and trusted access records; private constructor/static Empty; TryRequest/TryAccept/TryDecline/TrySend/TryClose, CanRead/CanReport. Run portable checks; add any missing edge-case regressions before fixes.
+- [x] Add tests/Swoovr.Checks/ConnectionChecks.cs plus Program.cs invocation. Tests cover eligible request/recipient acceptance; sender/outsider denial; no pending second message; text validation; decline/close terminal; stale revision; swapped fact IDs; cross-context repeat; pending travel denial; accepted continuity and current safety revocation across read/send; historical reporting only. Run and observe missing-type build failure.
+- [x] Add src/Swoovr.Domain/Connections/ConnectionThread.cs with ConnectionState enum, immutable message and trusted access records; private constructor/static Empty; TryRequest/TryAccept/TryDecline/TrySend/TryClose, CanRead/CanReport. Run portable checks; add any missing edge-case regressions before fixes.
 - [x] Independent read-only review; fix valid findings with failing regressions. Run ./scripts/check.sh; synchronize D25/validation/phases/ledger. Commit/push dependent PR main; no merge/deploy. Then continue next unblocked slice.
 
 Review focus: stale safety facts must not be cached; identity-swapped snapshots deny; declined pair must not be recreated by integration; acceptance must not approve Q05; closed history/reporting must not reopen live messages. Tests use fictional IDs/text only. No browser/container claim is appropriate for this pure Domain slice.

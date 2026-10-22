@@ -2,7 +2,7 @@
 import {random} from './security.mjs';
 function requireValue(value){if(!value)throw Error('Local MFA evidence rejected');}
 export async function withTemporaryOtp(api,fixture,exercise){
- requireValue(fixture?.owner==='datingapp-local-investigation-v1'&&fixture.fictionalAdult===true&&/^[a-zA-Z0-9-]+$/.test(fixture.userId??''));
+ requireValue(fixture?.owner==='swoovr-local-investigation-v1'&&fixture.fictionalAdult===true&&/^[a-zA-Z0-9-]+$/.test(fixture.userId??''));
  const path='/users/'+fixture.userId;
  const user=await api(path);
  requireValue(user.id===fixture.userId&&typeof user.username==='string'&&typeof fixture.username==='string'&&user.username.toLowerCase()===fixture.username.toLowerCase());
@@ -10,7 +10,7 @@ export async function withTemporaryOtp(api,fixture,exercise){
  const before=await api(path+'/credentials');
  requireValue(Array.isArray(actions)&&actions.length===0&&Array.isArray(before)&&!before.some(c=>c.type==='otp'));
  const beforeIds=new Set(before.map(c=>c.id));
- const label='datingapp-investigation-mfa-'+random().slice(0,12);
+ const label='swoovr-investigation-mfa-'+random().slice(0,12);
  try{
   await api(path,'PUT',{requiredActions:['CONFIGURE_TOTP']});
   return await exercise({label});

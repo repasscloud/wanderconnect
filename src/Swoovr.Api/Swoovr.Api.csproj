@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Swoovr.Contracts\Swoovr.Contracts.csproj" />
+    <ProjectReference Include="..\Swoovr.Domain\Swoovr.Domain.csproj" />
+    <ProjectReference Include="..\Swoovr.Infrastructure\Swoovr.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

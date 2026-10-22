@@ -6,7 +6,7 @@
 
 **Architecture:** Keep Node built-ins and the existing loopback harness. Transactions capture creation time and a browser generation; a per-session operation lock prevents overlapping token/logout writes. No application adapter or privileged verdict is introduced.
 
-**Constraints:** Seven application projects; DatingApp namespace; no real identity data; disabled Actions; no merge/deployment. Existing owner files remain untouched.
+**Constraints:** Seven application projects; Swoovr namespace; no real identity data; disabled Actions; no merge/deployment. Existing owner files remain untouched.
 
 **DEFAULT:** Five seconds of reauthentication clock tolerance, measured against transaction creation; this is investigation request validation, not a product privilege freshness window. Most recent browser begin supersedes earlier unfinished transactions. Silent SSO must retain any previously observed subject/session/auth_time; explicit login may switch identity. Reauthentication must retain an existing subject but may establish a new session.
 

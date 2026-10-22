@@ -1,18 +1,20 @@
 # Phase 1 — account access policy slice
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 16 October 2026. Status: partial Phase 1, ready for local review; not live authentication.
 
 ## Intent and requirements
 
 Implement the provider-independent portion of role boundaries while configured Keycloak evidence and D14 session evidence block privileged integration. The seven application projects and existing dependency directions are retained. Domain holds pure rules; executable checks reference Domain. No packages, projects, endpoints, UI changes or workflow changes are introduced.
 
-CONFIRMED (D02–04): Keycloak remains the backend; members may use Apple/Google/email; partner/admin/support require dedicated email/password or email links and cannot use social authentication; MFA is optional. Public name remains replaceable; engineering namespace remains DatingApp. Six schemes and independent System/Light/Dark are unchanged and remain phase 2 work.
+CONFIRMED (D02–04): Keycloak remains the backend; members may use Apple/Google/email; partner/admin/support require dedicated email/password or email links and cannot use social authentication; MFA is optional. The product and engineering namespace are now Swoovr (D28). Six schemes and independent System/Light/Dark are unchanged and remain phase 2 work.
 
 DEFAULT (D10): one explicit application role per evaluated session, no role hierarchy, explicit venue membership for venue operations. The earlier separate-staff-account default is superseded by D12. CONFIRMED (D14/Q10): linked identities are allowed; privileged access requires verified email and a fresh direct email session. There is no implemented evidence evaluator. The policy reserves a future approved server verdict; real adapters must not supply true until configured evidence validates D14. Accounts may support both direct and linked social credentials. Email/password implements member email for this slice. OPEN (Q02): member magic links are still a proposal and therefore denied. Unknown roles/methods, inactive sessions and absent sessions deny access.
 
 ## Implemented behaviour and demo
 
-Run `dotnet run --project tests/DatingApp.Checks --configuration Release` for the executable demonstration. Fifty policy cases exercise successful member Apple/Google/password access; hypothetical approved email password/link verdicts for each staff role without mandatory MFA; social/unknown-method denial for staff; missing approved privileged-email evidence; inactive sessions; cross-role denial; missing, empty, revoked and wrong venue scope. Invalid enum values fail closed. A support role never inherits admin access; an admin role does not implicitly gain venue or member access.
+Run `dotnet run --project tests/Swoovr.Checks --configuration Release` for the executable demonstration. Fifty policy cases exercise successful member Apple/Google/password access; hypothetical approved email password/link verdicts for each staff role without mandatory MFA; social/unknown-method denial for staff; missing approved privileged-email evidence; inactive sessions; cross-role denial; missing, empty, revoked and wrong venue scope. Invalid enum values fail closed. A support role never inherits admin access; an admin role does not implicitly gain venue or member access.
 
 The policy is a coarse gate only. A successful member result grants no profile browsing or contact permission; adulthood/identity, block, privacy and other product rules still need their own checks. A successful staff area result grants no arbitrary record access or unrestricted support powers. Resource-specific permissions and audit trails are future work.
 

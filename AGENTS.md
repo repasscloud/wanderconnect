@@ -1,6 +1,6 @@
 # Repository instructions
 
-Read README, the relevant product/design specifications and delivery documents before editing. Preserve CONFIRMED requirements; label DEFAULT and OPEN decisions. Keep `DatingApp` as the code namespace and WanderConnect as a replaceable public working name.
+Read README, the relevant product/design specifications and delivery documents before editing. Preserve CONFIRMED requirements; label DEFAULT and OPEN decisions. Use the confirmed public name `Swoovr`, `Swoovr` for .NET namespaces/projects and `swoovr` for lowercase technical identifiers (owner, 22 October 2026). See docs/architecture/NAMING.md.
 
 - Use a descriptive branch name (e.g. `fix/login-validation` or `feature/user-settings`) and open PRs targeting 
   `main`; do not merge or deploy unless explicitly requested.

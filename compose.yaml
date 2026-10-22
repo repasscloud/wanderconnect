@@ -1,5 +1,5 @@
 # Local development ONLY. Never promote start-dev or HTTP bindings to public infrastructure.
-name: datingapp-local
+name: swoovr-local
 services:
   api:
     build:
@@ -32,7 +32,7 @@ services:
       - "127.0.0.1:8180:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
-      - ./containers/keycloak/datingapp-dev-realm.json:/opt/keycloak/data/import/datingapp-dev-realm.json:ro
+      - ./containers/keycloak/swoovr-dev-realm.json:/opt/keycloak/data/import/swoovr-dev-realm.json:ro
     healthcheck:
       # The hardened upstream image has bash but no curl. Management stays unpublished.
       test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3; head -n 1 <&3 | grep -q ' 200 '"]

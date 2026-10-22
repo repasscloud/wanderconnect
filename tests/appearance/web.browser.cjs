@@ -1,11 +1,11 @@
 // Optional real browser acceptance; run against the built local web host.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
-const { chromium } = require(process.env.DATINGAPP_PLAYWRIGHT_PATH || 'playwright');
-const palettes = require('../../src/DatingApp.Web/wwwroot/appearance-palettes.js');
-const base = process.env.DATINGAPP_WEB_URL || 'http://127.0.0.1:5081';
+const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
+const palettes = require('../../src/Swoovr.Web/wwwroot/appearance-palettes.js');
+const base = process.env.SWOOVR_WEB_URL || 'http://127.0.0.1:5081';
 if (new URL(base).hostname !== '127.0.0.1') throw Error('Browser checks require a loopback host');
-const output = process.env.DATINGAPP_BROWSER_OUTPUT || '.local/appearance-browser';
+const output = process.env.SWOOVR_BROWSER_OUTPUT || '.local/appearance-browser';
 (async () => {
   await fs.mkdir(output, { recursive: true, mode: 0o700 });
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -46,7 +46,7 @@ const output = process.env.DATINGAPP_BROWSER_OUTPUT || '.local/appearance-browse
     await expectState('electric','light','light');
     await schemeInput('cobalt').check(); await modeInput('dark').check();
     await page.evaluate(() => { window.appearanceNavigationCount=0; Blazor.addEventListener('enhancedload', () => window.appearanceNavigationCount++); });
-    await page.getByRole('link',{name:'WanderConnect',exact:true}).click();
+    await page.getByRole('link',{name:'Swoovr',exact:true}).click();
     await page.waitForFunction(() => window.appearanceNavigationCount >= 1);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.scheme),'cobalt','navigation must retain selected scheme on Home');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme),'dark','navigation must retain mode on Home');
@@ -62,7 +62,7 @@ const output = process.env.DATINGAPP_BROWSER_OUTPUT || '.local/appearance-browse
     await page.evaluate(() => document.documentElement.style.fontSize='100%');
     await modeInput('dark').check();
     await page.screenshot({path:output+'/orchid-dark-320.png',fullPage:true});
-    await page.evaluate(() => localStorage.setItem('datingapp.appearance.guest.v1','{broken'));
+    await page.evaluate(() => localStorage.setItem('swoovr.appearance.guest.v1','{broken'));
     await page.reload(); await expectState('electric','system','dark');
     const denied = await browser.newContext();
     await denied.addInitScript(() => Object.defineProperty(window,'localStorage',{get(){throw new Error('test storage denial');}}));

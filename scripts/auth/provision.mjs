@@ -2,9 +2,9 @@
 import { chmod, mkdir, open, readFile, stat } from 'node:fs/promises';
 import { client, callback, origin, random, request } from './security.mjs';
 const base = 'http://localhost:8180';
-const realmPath = '/admin/realms/datingapp-dev';
-const flow = 'datingapp-investigation-browser-v1';
-const owner = 'datingapp-local-investigation-v1';
+const realmPath = '/admin/realms/swoovr-dev';
+const flow = 'swoovr-investigation-browser-v1';
+const owner = 'swoovr-local-investigation-v1';
 export async function privateRead(path) {
   if ((await stat(path)).mode & 0o077) throw new Error('Private local file permissions must be 600');
   return readFile(path, 'utf8');
@@ -44,17 +44,17 @@ export async function localRealmApi({ provider = request, read = privateRead, cl
 export async function provision() {
   const api = await localRealmApi();
   const realm = await api('');
-  if (realm.realm !== 'datingapp-dev' || realm.registrationAllowed || Object.keys(realm.smtpServer ?? {}).length) {
+  if (realm.realm !== 'swoovr-dev' || realm.registrationAllowed || Object.keys(realm.smtpServer ?? {}).length) {
     throw new Error('Expected isolated development realm; refuse configuration drift');
   }
   await mkdir('.local', { recursive: true, mode: 0o700 });
   await chmod('.local', 0o700);
   let fixture;
-  try { fixture = JSON.parse(await privateRead('.local/auth-fixture.json')); }
+  try { fixture = JSON.parse(await privateRead('.local/swoovr-auth-fixture.json')); }
   catch (error) {
     if (error.code !== 'ENOENT') throw error;
     fixture = { username: 'adult-fixture-' + random().slice(0, 12), password: random(), fictionalAdult: true, emailOwnership: 'ADMIN_ASSERTED_SIMULATION_ONLY', owner };
-    const file = await open('.local/auth-fixture.json', 'wx', 0o600);
+    const file = await open('.local/swoovr-auth-fixture.json', 'wx', 0o600);
     try { await file.writeFile(JSON.stringify(fixture)); } finally { await file.close(); }
   }
   if (fixture.owner !== owner || !fixture.fictionalAdult) throw new Error('Unmanaged fixture');
@@ -69,7 +69,7 @@ export async function provision() {
   const executions = await api('/authentication/flows/' + flow + '/executions');
   const passwordExecution = executions.find(e => e.providerId === 'auth-username-password-form');
   if (!passwordExecution) throw new Error('Expected password execution is missing');
-  const config = { alias: flow + '-password-evidence', config: { 'default.reference.value': 'datingapp:password', 'default.reference.maxAge': '60' } };
+  const config = { alias: flow + '-password-evidence', config: { 'default.reference.value': 'swoovr:password', 'default.reference.maxAge': '60' } };
   if (passwordExecution.authenticationConfig) {
     const current = await api('/authentication/config/' + passwordExecution.authenticationConfig);
     if (current.alias !== config.alias) throw new Error('Unmanaged authentication config');
@@ -77,13 +77,13 @@ export async function provision() {
   } else await api('/authentication/executions/' + passwordExecution.id + '/config', 'POST', config);
   const flowId = (await api('/authentication/flows')).find(f => f.alias === flow).id;
   const clients = await api('/clients?clientId=' + client);
-  if (clients.length > 1 || (clients[0] && clients[0].attributes?.['datingapp.owner'] !== owner)) throw new Error('Unmanaged client');
+  if (clients.length > 1 || (clients[0] && clients[0].attributes?.['swoovr.owner'] !== owner)) throw new Error('Unmanaged client');
   const definition = {
     clientId: client, name: 'Local investigation ONLY', protocol: 'openid-connect', enabled: true,
     publicClient: true, standardFlowEnabled: true, implicitFlowEnabled: false, directAccessGrantsEnabled: false,
     serviceAccountsEnabled: false, redirectUris: [callback], webOrigins: [], fullScopeAllowed: false,
     defaultClientScopes: ['basic', 'profile', 'email'], optionalClientScopes: [],
-    attributes: { 'datingapp.owner': owner, 'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': origin + '/' },
+    attributes: { 'swoovr.owner': owner, 'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': origin + '/' },
     authenticationFlowBindingOverrides: { browser: flowId },
     protocolMappers: [
       { name: 'execution-amr', protocol: 'openid-connect', protocolMapper: 'oidc-amr-mapper', config: { 'id.token.claim': 'true', 'access.token.claim': 'true' } },
@@ -109,7 +109,7 @@ export async function provision() {
   });
   if (!users.length) {
     fixture.userId = (await api('/users?exact=true&username=' + encodeURIComponent(fixture.username)))[0].id;
-    const file = await open('.local/auth-fixture.json', 'w', 0o600);
+    const file = await open('.local/swoovr-auth-fixture.json', 'w', 0o600);
     try { await file.writeFile(JSON.stringify(fixture)); } finally { await file.close(); }
   }
   const actual = (await api('/clients?clientId=' + client))[0];

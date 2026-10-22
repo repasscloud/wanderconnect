@@ -1,5 +1,7 @@
 # Phase 2 — discovery eligibility policy slice
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 This partial Phase 2 slice proceeds independently of incomplete Phase 1 integration. It implements the behaviour rules in Domain; it does not enable a protected endpoint or public/member browsing. Read [behaviour](../product/02-BEHAVIOUR-AND-RULES.md) and [handoff acceptance](../product/06-TECHNICAL-AND-AI-HANDOFF.md).
 
 CONFIRMED: exclusions evaluate all applicable intentions, including undisplayed ones; incognito refusal denies discovery/direct opening; photos are optional; block applies in both directions/across contexts; selecting a destination cannot establish physical presence; no pre-arrival traveller initiation.

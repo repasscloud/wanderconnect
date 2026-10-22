@@ -8,7 +8,7 @@ Never create real purchases, collect real ID documents, contact users/venues, pu
 
 ## 2. Architecture
 
-CONFIRMED direction: `DatingApp.sln` with seven application projects under `src/`: Mobile (MAUI Android/iOS), Web (Blazor Web App), Api (ASP.NET Core), Contracts, Client, Domain, Infrastructure. See [architecture](../architecture/README.md) for dependency rules. `DatingApp.Local.sln` excludes Mobile so server checks do not require mobile workloads. Test projects live under `tests/`.
+CONFIRMED direction: `Swoovr.sln` with seven application projects under `src/`: Mobile (MAUI Android/iOS), Web (Blazor Web App), Api (ASP.NET Core), Contracts, Client, Domain, Infrastructure. See [architecture](../architecture/README.md) for dependency rules. `Swoovr.Local.sln` excludes Mobile so server checks do not require mobile workloads. Test projects live under `tests/`.
 
 Foundation pins .NET SDK 10.0.400 (latest patch roll-forward). DEFAULT: static SSR web shell initially, native MAUI XAML mobile UI. Interactive rendering is a later explicit decision: adopting WASM requires a Web.Client project and architecture amendment; it is not silently included. Share contracts/typed clients, never authoritative access decisions in client code. API owns policies; Infrastructure owns external integrations. Add Application/Worker projects only when a delivery slice demonstrates a need. Admin, support and partner areas initially belong to Web with separate authorization policies.
 
@@ -42,7 +42,7 @@ Rate limits and pagination; idempotency keys for purchases, plan acceptance, red
 
 ## 5. Prototype deliverables
 
-Runnable source, exact local start commands, environment variable example with no secrets, database migrations/seed data if using real persistence, deterministic demo personas, feature toggles for mocked integrations, mobile/web screens, admin/venue examples, architecture notes, decision log, and tests for the security/commercial invariants below. Use provider sandboxes before real production. Preserve design flexibility through tokens; do not hardcode WanderConnect into database/domain identifiers.
+Runnable source, exact local start commands, environment variable example with no secrets, database migrations/seed data if using real persistence, deterministic demo personas, feature toggles for mocked integrations, mobile/web screens, admin/venue examples, architecture notes, decision log, and tests for the security/commercial invariants below. Use provider sandboxes before real production. Preserve design flexibility through tokens; do not hardcode Swoovr into database/domain identifiers.
 
 Demo personas include LTR-only owner excluding casual/FWB; LTR+FWB candidate; substantive photo-free member; sparse photo-only member; incognito visitor; owner refusing incognito; upcoming traveller; physically present traveller; ordinary venue staff; limited moderator. Cover varied adult ages and orientations without stereotypes.
 

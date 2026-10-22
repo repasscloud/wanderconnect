@@ -5,7 +5,7 @@
 !src/**
 src/**/bin/
 src/**/obj/
-src/DatingApp.Mobile/
+src/Swoovr.Mobile/
 **/.env*
 **/*.pfx
 **/*.key

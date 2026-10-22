@@ -4,7 +4,7 @@
 
 Warm, clear, adult, inclusive and approachable. Avoid casino-like rewards, nightclub-only styling, childish hearts everywhere or sexualised marketing. Not a promise to serve literally every unrelated app category.
 
-CONFIRMED: six personal colour schemes, each in light and dark mode. [User appearance themes](../design/USER-APPEARANCE-THEMES.md) defines the canonical tokens, stable IDs, persistence, accessibility and acceptance criteria. The adjacent [colour studio](../design/wanderconnect-colour-studio.html) previews all twelve resolved themes. These supersede the original three muted palettes; earlier teal images are layout references only.
+CONFIRMED: six personal colour schemes, each in light and dark mode. [User appearance themes](../design/USER-APPEARANCE-THEMES.md) defines the canonical tokens, stable IDs, persistence, accessibility and acceptance criteria. The adjacent [colour studio](../design/swoovr-colour-studio.html) previews all twelve resolved themes. These supersede the original three muted palettes; earlier teal images are layout references only.
 
 Schemes: Electric violet (`electric`), Raspberry spark (`raspberry`), Cobalt social (`cobalt`), Coral current (`coral`), Orchid afterglow (`orchid`), Solar club (`solar`). DEFAULT: Electric violet + System. Users select scheme independently of System/Light/Dark in Settings → Appearance, free of charge. Theme affects their own interface only, including member, partner, admin and support surfaces. It never changes profile visibility, intentions or permissions. Preserve explicit onPrimary pairings; semantic error, warning, success and focus states still need validation.
 

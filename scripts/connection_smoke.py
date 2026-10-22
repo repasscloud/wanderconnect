@@ -29,7 +29,7 @@ def call(base,path='',body=None,expected=200,raw=None):
 def run(mode,enabled,port,tests):
     env=dict(os.environ,ASPNETCORE_ENVIRONMENT=mode,ASPNETCORE_URLS=f'http://127.0.0.1:{port}',Prototype__Enabled=str(enabled).lower())
     with tempfile.TemporaryFile() as log:
-        p=subprocess.Popen(['dotnet',str(root/'src/DatingApp.Api/bin/Release/net10.0/DatingApp.Api.dll')],cwd=root/'src/DatingApp.Api',env=env,stdout=log,stderr=log)
+        p=subprocess.Popen(['dotnet',str(root/'src/Swoovr.Api/bin/Release/net10.0/Swoovr.Api.dll')],cwd=root/'src/Swoovr.Api',env=env,stdout=log,stderr=log)
         base=f'http://127.0.0.1:{port}'
         try:
             for _ in range(100):

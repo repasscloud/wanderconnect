@@ -1,5 +1,7 @@
 # Delivery phases
 
+Updated 22 October 2026. [Current status](STATUS.md) distinguishes integrated slices from full phase completion. Phase 0 is complete; phases 1–3 are partial; phases 4–5 have no completed implementation.
+
 Each phase is a reviewable PR to main, with a concrete demo and recorded local evidence. No phase implies production deployment. Keep GitHub Actions fully commented. Implement the product acceptance criteria progressively rather than attempting the whole brief in the foundation PR.
 
 | Phase | Scope / dependencies | Exit evidence |
@@ -11,7 +13,7 @@ Each phase is a reviewable PR to main, with a concrete demo and recorded local e
 | 4 — Venue and commerce sandbox | Partner/admin/support areas, offers/holds/bookings/vouchers, provider webhook adapters; Q06 for real commerce | Concurrent no-oversell/no-double-redemption tests; idempotent billing; scoped staff access; clearly labelled sandbox purchases |
 | 5 — Pilot readiness | Q07–08, contracts, verified identity/privacy/policy review, operations, backups, app-store work | Security/accessibility/device reviews; restore drill; moderated compact pilot plan; explicit production authorization |
 
-Phase 0 was merged into main. Phase 1 is IN PROGRESS: the [account access policy slice](PHASE-1-ACCESS-POLICY.md) delivers provider-independent Domain rules and negative checks. Live authentication, client foundations and all phase 1 exit evidence remain incomplete; phases 2–5 remain planned. Do not mark a phase complete from a passing build alone. A blocked external integration can use a clearly labelled simulation while independent work continues; its production gate remains open.
+Phase 0 was merged into main. Phase 1 is IN PROGRESS: the [account access policy slice](PHASE-1-ACCESS-POLICY.md) delivers provider-independent Domain rules and negative checks. Live authentication, client foundations and all phase 1 exit evidence remain incomplete; phases 2 and 3 have integrated partial prototypes; phases 4 and 5 remain planned. Do not mark a phase complete from a passing build alone. A blocked external integration can use a clearly labelled simulation while independent work continues; its production gate remains open.
 
 Each PR states: problem/result, requirement IDs, changed defaults, commands/results, screenshots when UI changes, unresolved gaps and next blocking question. Re-enable hosted checks only on owner request, by moving the template from `.github/workflow-templates` to `.github/workflows`, uncommenting and reviewing it. Never spend runner minutes merely to reproduce local evidence while disabled.
 

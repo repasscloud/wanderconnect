@@ -4,17 +4,17 @@ Install .NET SDK matching global.json and Python 3. Run all commands from reposi
 
 ```sh
 ./scripts/check.sh
-dotnet run --project src/DatingApp.Api --no-launch-profile --urls http://localhost:5080
-ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/DatingApp.Web --no-launch-profile --urls http://localhost:5081
+dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://localhost:5080
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081
 ```
 
 Run API/web in separate terminals. `/health/live` is liveness only and does not certify database/provider readiness. `/api/v1/status` returns foundation metadata. Web is a static Blazor shell; there are no sign-in buttons claiming working authentication. Local HTTP is for loopback development; real authentication requires configured HTTPS callbacks and secure cookies.
 
-`DatingApp.Local.sln` includes all non-mobile projects and executable checks. `DatingApp.sln` also includes MAUI. Do not run full-solution restore on a server-only environment and assume missing MAUI workloads are code defects. For mobile, install the supported MAUI Android/iOS workloads plus Android SDK/JDK and compatible Xcode; pin/record their versions before phase 1. Then:
+`Swoovr.Local.sln` includes all non-mobile projects and executable checks. `Swoovr.sln` also includes MAUI. Do not run full-solution restore on a server-only environment and assume missing MAUI workloads are code defects. For mobile, install the supported MAUI Android/iOS workloads plus Android SDK/JDK and compatible Xcode; pin/record their versions before phase 1. Then:
 
 ```sh
-dotnet build src/DatingApp.Mobile -f net10.0-android
-dotnet build src/DatingApp.Mobile -f net10.0-ios
+dotnet build src/Swoovr.Mobile -f net10.0-android
+dotnet build src/Swoovr.Mobile -f net10.0-ios
 ```
 
 Simulator runtime/signing arguments depend on the local platform. Do not claim these builds passed unless actually run. No automatic heavyweight workload installation is part of local checks.
@@ -25,7 +25,7 @@ The current portable projects have no third-party NuGet packages; local restore 
 
 ## Design and docs
 
-Open docs/design/wanderconnect-colour-studio.html directly in a browser. It is self-contained. After editing themes.json, run `python3 scripts/check_design.py --write`, then `--check`. The generator preserves all other spec text and embedded portrait. Earlier colour-palettes.svg is historical, not a second theme authority.
+Open docs/design/swoovr-colour-studio.html directly in a browser. It is self-contained. After editing themes.json, run `python3 scripts/check_design.py --write`, then `--check`. The generator preserves all other spec text and embedded portrait. Earlier colour-palettes.svg is historical, not a second theme authority.
 
 ## Docker local stack
 
@@ -62,10 +62,10 @@ Node >=22 is required for the dependency-free harness and its tests. No npm inst
 Optional actual-browser acceptance uses Playwright and installed Edge (not installed by checks). Start the local web host, then run:
 
 ```sh
-DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/appearance/web.browser.cjs
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/appearance/web.browser.cjs
 ```
 
-If Playwright resolves through normal Node modules, omit that variable. `DATINGAPP_WEB_URL` may select another loopback port (default http://127.0.0.1:5081). Screenshots go to ignored `.local/appearance-browser/`; override `DATINGAPP_BROWSER_OUTPUT` if needed. The test verifies 18 preferences/12 computed palette pairs, requested/System behavior, reload/reset, cross-tab events, keyboard, completed enhanced navigation and 320px/200% text. Storage denial is injected for that error-path test. This is not screen-reader/device or account-sync acceptance.
+If Playwright resolves through normal Node modules, omit that variable. `SWOOVR_WEB_URL` may select another loopback port (default http://127.0.0.1:5081). Screenshots go to ignored `.local/appearance-browser/`; override `SWOOVR_BROWSER_OUTPUT` if needed. The test verifies 18 preferences/12 computed palette pairs, requested/System behavior, reload/reset, cross-tab events, keyboard, completed enhanced navigation and 320px/200% text. Storage denial is injected for that error-path test. This is not screen-reader/device or account-sync acceptance.
 
 After canonical token edits, `python3 scripts/check_design.py --write` also regenerates production `themes.css` and `appearance-palettes.js`; `--check` rejects drift. Do not edit generated assets directly.
 
@@ -77,4 +77,8 @@ Follow the [opt-in demo commands](PHASE-2-DISCOVERY-PREVIEW.md#local-demo). No p
 
 [Rotation commands and cleanup boundaries](PHASE-1-SIGNING-ROTATION.md) use only the existing local investigation realm and matching private fixture. The optional Edge/Playwright driver creates a unique temporary key provider and restores the original active provider. The delayed-cleanup option exercises management authorization renewal. Do not run concurrently with another rotation or reset/mix fixture volumes; do not force-kill during mutation. Normal Node checks test the lifecycle with injected providers and need no private credentials/browser.
 
-Optional provider mutation checks: [signing rotation](PHASE-1-SIGNING-ROTATION.md) and [temporary MFA](PHASE-1-OPTIONAL-MFA.md) require the original matching private fixture/volume and installed Edge. They are separate from portable checks and restore owned temporary state; no force-kill cleanup guarantee.
+Optional provider mutation checks: [signing rotation](PHASE-1-SIGNING-ROTATION.md) and [temporary MFA](PHASE-1-OPTIONAL-MFA.md) require a matching private fixture/volume for the current realm and installed Edge. Pre-rename fixtures/volumes are historical and must not be reused with the renamed realm. They are separate from portable checks and restore owned temporary state; no force-kill cleanup guarantee.
+
+## Swoovr naming transition — 22 October 2026
+
+Use `Swoovr.Local.sln`, `src/Swoovr.*`, the `swoovr-dev` realm and `SWOOVR_*` browser variables. The renamed Compose project uses a separate volume and `.local/swoovr-auth-fixture.json`. Before restarting retained sandbox work, follow the [migration steps](SWOOVR-RENAME-2026-10-22.md#local-migration-and-compatibility); old volumes and fixtures must not be mixed or deleted. See [current status](STATUS.md) for what is connected.

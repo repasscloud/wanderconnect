@@ -1,5 +1,7 @@
 # Unattended execution progress — 16 October 2026
 
+> Historical delivery evidence. Read [current status](STATUS.md) first. Current identifiers follow [D30](DECISIONS.md#naming-confirmation--22-october-2026); original commit IDs, URLs, filesystem locations and captured images retain their historical meaning.
+
 Authoritative restart ledger for the active goal: advance the documented prototype and exit criteria through reviewable slices. Keep all CONFIRMED requirements, record DEFAULT/OPEN decisions, run local checks before commits, open PRs to main. No merge, deployment, purchases or external contacts authorized. Do not stop at a delivered slice.
 
 ## Verified starting state
@@ -31,7 +33,7 @@ Final verification: unchanged check rerun passed after one transient MSB4166 res
 
 ## Delivered session slice
 
-Commit e161f10; [PR #5](https://github.com/repasscloud/wanderconnect/pull/5) OPEN to main. GitGuardian/CLA passed at last inspection; GitHub code review was still running. Independent local review clean. Harness and datingapp-local containers stopped, volumes/private fixture retained.
+Commit e161f10; [PR #5](https://github.com/repasscloud/wanderconnect/pull/5) OPEN to main. GitGuardian/CLA passed at last inspection; GitHub code review was still running. Independent local review clean. Harness and swoovr-local containers stopped, volumes/private fixture retained.
 
 ## Current discovery slice
 
@@ -174,3 +176,13 @@ GitGuardian failed#11–#16 solely on tests/auth-harness/totp.test.mjs:4 at236dd
 All six actionable Codex review threads have verified fixes, commit/test replies and resolved status. Final corrections include candidate-only sparse filtering (78 cases), explicit normalized-conflict saves and terminal revision acknowledgement/read-only state (75 appearance cases). Full final stack and combined committed-branding candidate pass scripts/check.sh: 431 named policy/state cases, 57 Node tests, Release builds and local HTTP gates. GitHub Codex quota prevented repeated final-head bot rechecks; a fresh independent local Codex review found no further actionable defects. GitGuardian retains its documented public RFC test-vector advisory; no check result or scanner policy was modified.
 
 PRs #5–#16 are merged in dependency order with expected-head guards; final application merge is 93dab1cf5030c3f539bb180832dd33d3d82c1181. Committed branding integration preserves original commits 5329377, 590a522 and 3977f8f; see MAIN-INTEGRATION-2026-10-18.md. Original uncommitted owner changes remain private and will be restored byte-for-byte after fast-forwarding the original checkout to main. No deployment or claim that incomplete product phases are finished.
+
+## Swoovr naming and documentation — 22 October 2026
+
+Owner explicitly superseded the original neutral namespace rule: product and engineering use Swoovr, lowercase identifiers use swoovr (D30). Branch `codex/swoovr-repository-rename` targets main. Solutions, projects, namespaces, XAML, Razor/JS, local storage, Compose/realm/investigation IDs, scripts and documentation are renamed. A separate new realm fixture avoids mixing retained private state. Existing GitHub URLs, actual historical paths and old binary captures remain truthful.
+
+Current authority is [STATUS.md](STATUS.md), organised by [documentation index](../README.md), [naming](../architecture/NAMING.md) and [migration](SWOOVR-RENAME-2026-10-22.md). Naming is confirmed; store clearance/paid terms remain OPEN under Q08. Six personal schemes and seven-project boundaries are retained.
+
+Fresh validation: portable gate passes 431 policy/state cases, 57 Node tests, zero-warning/error Release builds, naming/design/docs/disabled-workflow and actual local HTTP gates. All three existing Edge suites pass against renamed hosts; published API/Web Linux ARM64 images build and start with correct status/web/appearance responses. Temporary browser/host/container processes are stopped; private auth fixture and retained volumes are untouched. MAUI workload/device and newly provisioned renamed Keycloak journey remain unverified. See the migration validation section for commands, screenshots and evidence limits.
+
+Separate read-only review found no actionable defects and independently passed naming/staged-whitespace checks. The requested validation-record completion was applied with actual container/browser results and explicit gaps. Final pre-commit `./scripts/check.sh` passed again on the renamed tree. No merge, deployment, real identity data or credential changes are included.

@@ -1,6 +1,8 @@
 # Phase 3 — private meeting plan revisions
 
-Partial Domain implementation of product behaviour §6. No live plan API, booking, attendance tracking, payment or venue redemption is enabled. Namespace DatingApp; seven projects unchanged.
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
+Partial Domain implementation of product behaviour §6. No live plan API, booking, attendance tracking, payment or venue redemption is enabled. Namespace Swoovr; seven projects unchanged.
 
 DEFAULT: private plan between an accepted connection's two participants. Terms name context, intention, activity, public venue/coarse area, instant/timezone and cost responsibility. Every proposal (including creator's initial proposal) needs explicit confirmation from both participants. Interest/request/chat acceptance is never meeting acceptance. Rescheduling/material edits create a new proposal version and clear proposal confirmations; the last mutually agreed terms remain authoritative until both accept the new version. Cancelling ends the plan and any pending proposal. Closing/blocking the connection prevents further collaboration; either authenticated participant may still cancel.
 

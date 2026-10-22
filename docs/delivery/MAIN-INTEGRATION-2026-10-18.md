@@ -1,5 +1,7 @@
 # Main integration —18 October2026
 
+> Historical delivery evidence. Read [current status](STATUS.md) first. Current identifiers follow [D30](DECISIONS.md#naming-confirmation--22-october-2026); original commit IDs, URLs, filesystem locations and captured images retain their historical meaning.
+
 Owner explicitly authorized merging every reviewed PR and the three already-committed branding/design changes. This supersedes earlier no-merge instructions for this integration only. No deployment, runner re-enablement or production access is authorized.
 
 Review process: request current-head Codex review on each PR; verify/fix every actionable finding with regression evidence; reply in its exact inline thread and resolve it. Preserve Git history with ordinary merge commits and expected-head guards. Synchronize stacked dependencies in order; resolve progress/validation Markdown conflicts by retaining both evidence sections, never by dropping a policy fix. Run full ./scripts/check.sh on every synchronized head and on the combined branding/application candidate.
@@ -8,7 +10,7 @@ The pending-login logout, context-derived travel-presence and unsupported-appear
 
 GitGuardian incident38295743 flags the public RFC6238 AppendixB SHA1 test vector in tests/auth-harness/totp.test.mjs, not an enrolled or application credential. Verified against [RFC6238](https://www.rfc-editor.org/rfc/rfc6238#appendix-B). Documented classification on each affected PR. GitGuardian dashboard requires separate login; do not describe its red advisory as a passed check. No live credential rotation is applicable, scanner configuration/check results were not modified and no security policy was bypassed. Hosted Actions remain disabled.
 
-Committed branding source is included from5329377,590a522,3977f8f with original ancestry. It does not replace the canonical six personal schemes or change the DatingApp namespace. Clarified the pack README: generated assets are intentionally untracked; checked-in source/preview/font are available and the builder creates exports.
+Committed branding source is included from5329377,590a522,3977f8f with original ancestry. It does not replace the canonical six personal schemes or change the Swoovr namespace. Clarified the pack README: generated assets are intentionally untracked; checked-in source/preview/font are available and the builder creates exports.
 
 Brand validation: existing isolated validation runtime decoded the checked-in PNG/font/JSON files without errors; all204 SVG exports rebuilt from committed sources and parsed without embedded raster/duplicate IDs; Python compilation, Bash syntax and preview JavaScript syntax pass. Owner's newer uncommitted builder/source changes are excluded from the merge and preserved separately.
 

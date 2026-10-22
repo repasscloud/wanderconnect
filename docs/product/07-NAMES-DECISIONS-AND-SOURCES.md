@@ -1,20 +1,10 @@
 # Names, decisions and sources
 
-## Naming shortlist — candidates only
+## Confirmed name — 22 October 2026
 
-No availability checks, domain registration checks or trademark clearance have been performed. These are creative candidates, not claims of uniqueness. Do not purchase domains automatically.
+CONFIRMED, owner: **Swoovr** is the product name. Use `Swoovr` for display text, .NET namespaces, projects and assemblies; `swoovr` for lowercase identifiers. The owner explicitly requested the entire codebase to follow this convention, superseding the earlier neutral namespace and naming shortlist.
 
-| Candidate | Why consider it | Trade-off | Domain strings to check |
-| --- | --- | --- | --- |
-| WanderConnect | Continuity with the owner's existing project; movement and human connection | Longer, travel association | wanderconnect.com / .app / .com.au |
-| Kinvero | Invented, broad connection identity | Needs pronunciation and conflict checks; “kin” can imply family | kinvero.com / .app |
-| HelloOrbit | Broad social discovery with local/global scope | “Orbit” is a crowded brand word | helloorbit.com / .app |
-| CommonKind | Shared humanity, friendship and romance | Could sound like a charity or ethical retailer | commonkind.com / .app |
-| Meetward | Meeting and moving forward, not solely dating | Invented construction may divide opinion | meetward.com / .app |
-| Alongside | Strong company/companionship meaning | Ordinary word, likely crowded | alongside.app / meetalongside.com |
-| Near & Elsewhere | Local and global scope | Too long for some app contexts | nearelsewhere.com |
-
-Suggested first review: WanderConnect, Kinvero, HelloOrbit. Keep the name outside core code identifiers until selected. Check domain registrar availability, Apple/Google listings, social handles, Australian and target-market trademark databases, company names, pronunciation and meanings in initial languages. A free domain is not legal clearance.
+[Naming conventions](../architecture/NAMING.md) define each identifier. [Migration record](../delivery/SWOOVR-RENAME-2026-10-22.md) explains what changed, why, how to run it, retained historical references and validation gaps. Name selection does not establish trademark clearance, app-store availability or registered signing identifiers; those publishing checks remain OPEN under Q08.
 
 ## Decisions and defaults
 
@@ -29,7 +19,7 @@ Suggested first review: WanderConnect, Kinvero, HelloOrbit. Keep the name outsid
 | Venue voucher experiences | CONFIRMED direction | Commercial mechanics are defaults |
 | Apple/Google sign-in and social links | CONFIRMED direction | Specific other providers/links are defaults |
 | MAUI + Blazor + shared API | CONFIRMED direction | Seven projects; validate vertical slice |
-| Name | OPEN | Seven candidates; no availability clearance |
+| Name | CONFIRMED, owner 22 October 2026 | Swoovr; publishing clearance remains OPEN |
 | Appearance | CONFIRMED | Six free personal schemes, light/dark; Electric + System is DEFAULT |
 | Keycloak | CONFIRMED | Authentication backend; integration contract unverified |
 | Privileged login | CONFIRMED | Venue partner/admin/support: dedicated email/password or email link; no social login |
@@ -57,4 +47,4 @@ Official sources inform platform/technical constraints, not invented market succ
 
 ## Owner review
 
-Use the ordered [question backlog](../delivery/QUESTIONS.md), [decision process](../delivery/DECISIONS.md) and [phases](../delivery/PHASES.md). Do not ask the owner to select a single global palette: all six are approved personal options. Name, identity verification, pilot market and commerce decisions remain separate.
+Use the ordered [question backlog](../delivery/QUESTIONS.md), [decision process](../delivery/DECISIONS.md) and [phases](../delivery/PHASES.md). Do not ask the owner to select a single global palette: all six are approved personal options. The name is confirmed. Identity verification, pilot operations and commerce decisions remain separate.

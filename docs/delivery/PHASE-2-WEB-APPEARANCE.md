@@ -1,5 +1,7 @@
 # Phase 2 — local web appearance
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Partial Phase 2 slice. Follow the [confirmed appearance specification](../design/USER-APPEARANCE-THEMES.md). No account sync or authenticated web interaction is implied; Q03 remains OPEN. Static SSR serves accessible settings; small external scripts apply a guest browser preference before styles paint and enhance native controls. No extra project, framework dependency or render-mode decision is needed.
 
 CONFIRMED: six schemes; independent System/Light/Dark; free personal choice; explicit onPrimary colors; no photo requirement or effect on matching/permissions. DEFAULT D20: store only a versioned scheme/mode pair under a dedicated guest localStorage key. This guest choice is deliberately retained on this browser. It is not attached to an account. Storage failures retain the current in-memory selection with an honest unsaved notice. Cross-tab guest changes synchronize through storage events. Malformed/unknown stored values safely use Electric violet + System without rewriting storage until an explicit choice. Reset restores that pair.

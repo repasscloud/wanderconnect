@@ -1,7 +1,7 @@
 // Investigation-only verification. Never imported by application hosts.
 import { createPublicKey, randomBytes, verify } from 'node:crypto';
-export const issuer = 'http://localhost:8180/realms/datingapp-dev';
-export const client = 'datingapp-investigation';
+export const issuer = 'http://localhost:8180/realms/swoovr-dev';
+export const client = 'swoovr-investigation';
 export const origin = 'http://127.0.0.1:8280';
 export const callback = origin + '/callback';
 export const random = () => randomBytes(32).toString('base64url');

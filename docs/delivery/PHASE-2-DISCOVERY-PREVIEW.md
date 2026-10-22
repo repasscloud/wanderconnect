@@ -1,5 +1,7 @@
 # Phase 2 — fictional local discovery preview
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 A vertical slice through API → Contracts/typed Client → static SSR Web. It demonstrates Domain list/profile/media/contact denials using fixed fictional adult fixtures. It does not connect Keycloak, create a member session, grant roles, process identity/location or complete earlier phase gates. All verification/location values are clearly labelled simulations. Protected application endpoints remain absent.
 
 DEFAULT D22: register `/api/v1/prototype` only when both Development environment and `Prototype:Enabled=true` are explicit. Web preview `/prototype/people` also requires both flags. Default and Production-enabled hosts keep API prototype routes absent. Local start binds loopback; no public/dev deployment authorized. These routes return only repository-owned fictional data and must never connect to real storage. No configurable user/account ID or role is accepted: the viewer is a fixed adult persona with LTR required and FWB/casual excluded. Hidden FWB always participates in eligibility. Safe inputs select simulated local/upcoming/arrived travel, incognito, sparse filter and optional friendship requirement/ANY–ALL.
@@ -17,13 +19,13 @@ The optional additional activity-companion requirement plus ALL provides a real 
 From the repository root, use two terminals (no Keycloak/SMTP/device setup needed for this fictional preview):
 
 ```sh
-ASPNETCORE_ENVIRONMENT=Development Prototype__Enabled=true dotnet run --project src/DatingApp.Api --no-launch-profile --urls http://127.0.0.1:5080
-ASPNETCORE_ENVIRONMENT=Development Prototype__Enabled=true dotnet run --project src/DatingApp.Web --no-launch-profile --urls http://127.0.0.1:5081
+ASPNETCORE_ENVIRONMENT=Development Prototype__Enabled=true dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://127.0.0.1:5080
+ASPNETCORE_ENVIRONMENT=Development Prototype__Enabled=true dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://127.0.0.1:5081
 ```
 
 Open http://127.0.0.1:5081/prototype/people. `Prototype:ApiBaseUrl` can configure the trusted local server-to-server URL for container testing; it is never supplied by a browser. Do not point these fictional-only routes at a real account service. Omitting the opt-in flag disables both surfaces; Production suppresses API routes even with the flag.
 
-`./scripts/check.sh` includes portable API/Web default/Production gating and malformed-input HTTP checks plus fictional API acceptance. With installed Edge and available Playwright, run `DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/prototype/discovery.browser.cjs`; optional `DATINGAPP_WEB_URL` selects another loopback web port. Screenshots stay under ignored `.local/discovery-browser` except the selected fictional evidence below. The script sends no messages and uses no identities/credentials.
+`./scripts/check.sh` includes portable API/Web default/Production gating and malformed-input HTTP checks plus fictional API acceptance. With installed Edge and available Playwright, run `SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/prototype/discovery.browser.cjs`; optional `SWOOVR_WEB_URL` selects another loopback web port. Screenshots stay under ignored `.local/discovery-browser` except the selected fictional evidence below. The script sends no messages and uses no identities/credentials.
 
 ![Cobalt dark desktop fictional people](evidence/discovery/cobalt-dark-desktop.png)
 
