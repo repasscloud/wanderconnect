@@ -43,31 +43,63 @@ async function secret() {
     const context = await browser.newContext({ colorScheme: 'light', viewport: { width: 1280, height: 1000 } });
     const page = await context.newPage();
 
+    // Launch splash (UI-STYLE.md): the first sign-in visit of a browser session plays it on our page,
+    // then hands off to Keycloak; later visits in the same session go straight there.
+    let started = Date.now();
+    await page.goto(web + '/account/sign-in');
+    assert.equal(await page.locator('#splash .word span').count(), 6); pass();
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('play')), true); pass();
+    await assertSwoovrType(page, 'launch splash'); pass();
+    await page.waitForURL(url => url.origin === keycloak, { timeout: 6000 });
+    assert.ok(Date.now() - started >= 2000, 'the splash runs its full ~2.2 s before the hand-off'); pass();
+    assert.equal((await context.cookies(web + '/account/sign-in')).some(c => c.name === 'swoovr.intro' && c.httpOnly && c.expires === -1), true, 'session-only intro cookie'); pass();
+    const again = await page.request.get(web + '/account/sign-in', { maxRedirects: 0 });
+    assert.equal(again.status(), 302, 'no replay later in the session'); pass();
+    const calmIntro = await browser.newContext({ reducedMotion: 'reduce' }); const quiet = await calmIntro.newPage();
+    started = Date.now();
+    await quiet.goto(web + '/account/sign-in');
+    assert.equal(await quiet.evaluate(() => document.documentElement.classList.contains('calm')), true); pass();
+    await quiet.waitForURL(url => url.origin === keycloak, { timeout: 4000 });
+    assert.ok(Date.now() - started < 2000, 'reduced motion: logo then a short cross-fade'); pass();
+    await calmIntro.close();
+
     // Theme (D41): Standard only, device light/dark, claims line, no scheme picker.
     await page.goto(web + '/account/sign-in');
     await page.waitForURL(url => url.origin === keycloak);
     assert.match(await page.locator('.sw-claims').innerText(), /In development · Starting in Adelaide · Adults 18\+/); pass();
     assert.equal(await page.locator('[data-scheme], input[name=scheme]').count(), 0); pass();
     await assertSwoovrType(page, 'Keycloak sign-in'); pass();
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(250, 250, 250)'); pass();
+    // The prototype's white sign-in screen is the Standard surface token (#FFFFFF light, #161616 dark).
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)'); pass();
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.waitForFunction(() => document.documentElement.classList.contains('pf-v5-theme-dark'));
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(10, 10, 10)'); pass();
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(22, 22, 22)'); pass();
     await assertSwoovrType(page, 'Keycloak sign-in dark'); pass();
     await shot(page, 'sign-in-dark');
     await page.emulateMedia({ colorScheme: 'light' });
+    const calm = await browser.newContext({ reducedMotion: 'reduce' }); const still = await calm.newPage();
+    await still.goto(web + '/account/sign-in'); await still.waitForURL(url => url.origin === keycloak);
+    assert.equal(await still.evaluate(() => document.documentElement.classList.contains('sw-enter')), false, 'reduced motion: no stagger'); pass();
+    await calm.close();
 
     // Registration (D40): blocked without the 18+ checkbox; email-first; then password.
     await page.goto(web + '/account/create');
     await page.waitForSelector('#kc-register-form');
     await assertSwoovrType(page, 'Keycloak registration'); pass();
+    const entering = () => page.evaluate(() => document.documentElement.classList.contains('sw-enter'));
+    assert.equal(await entering(), true, 'a new screen staggers in'); pass();
     await page.fill('#email', email); await page.fill('#firstName', 'Ana');
-    await Promise.all([page.waitForNavigation(), page.click('#kc-register-form [type=submit]')]);
+    // The page keeps "Create account" disabled until the box is ticked (prototype); the realm must still
+    // refuse a submission that bypasses the page, so submit the form directly.
+    assert.equal(await page.locator('#kc-register').isDisabled(), true); pass();
+    await Promise.all([page.waitForNavigation(), page.evaluate(() => document.getElementById('kc-register-form').requestSubmit())]);
     assert.match(await page.locator('#input-error-terms-accepted').innerText(), /18 or over/); pass();
+    assert.equal(await entering(), false, 'a re-render of the same screen does not animate again'); pass();
     assert.equal(await mailCount(email), 0, 'no account or email before the 18+ confirmation'); pass();
     await shot(page, 'register-blocked');
-    let started = Date.now();
+    started = Date.now();
     await page.check('#termsAccepted');
+    assert.equal(await page.locator('#kc-register').isEnabled(), true); pass();
     await Promise.all([page.waitForNavigation(), page.click('#kc-register-form [type=submit]')]);
     await page.goto(await mailLink(email, started));
     await page.fill('#password-new', password); await page.fill('#password-confirm', password);
@@ -188,6 +220,6 @@ async function secret() {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 320)); pass();
     await shot(page, 'account-320');
     await context.close();
-    console.log(`PASS: ${passed} members-realm checks in actual Edge against local Keycloak 26.8.1: Standard theme light/dark with Helvetica Neue computed on every text element, 18+ blocking registration, email-first verification, server-side web session, password and passkey sign-in, API token validation negatives, 3-failure lockout cleared by reset, invitation-only venues/staff realms, 320px account page.`);
+    console.log(`PASS: ${passed} members-realm checks in actual Edge against local Keycloak 26.8.1: launch splash once per session (reduced-motion cross-fade) then Keycloak, prototype sign-in screens light/dark with Helvetica Neue computed on every text element and arrival stagger rules, 18+ blocking registration, email-first verification, server-side web session, password and passkey sign-in, API token validation negatives, 3-failure lockout cleared by reset, invitation-only venues/staff realms, 320px account page.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

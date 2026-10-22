@@ -90,6 +90,21 @@ for path in ['src/Swoovr.Web/wwwroot/app.css', 'containers/keycloak/themes/swoov
     assert '"Helvetica Neue", Helvetica, Arial, sans-serif' in (root / path).read_text(), f'{path} lacks the Swoovr font stack'
 assert 'Value="Helvetica Neue"' in (root / 'src/Swoovr.Mobile/Resources/Styles/Styles.xaml').read_text()
 
+# Pages that can't load themes.css (Keycloak, the launch splash) copy Standard values; keep them equal.
+def css_block(text, selector):
+    block = text[text.index(selector + ' {'):]
+    return dict(re.findall(r'--([\w-]+):\s*(#[0-9A-Fa-f]{6})', block[:block.index('}')]))
+keycloak_css = (root / 'containers/keycloak/themes/swoovr/login/resources/css/swoovr.css').read_text()
+for selector, mode in [(':root', 'light'), ('html.pf-v5-theme-dark', 'dark')]:
+    copied = css_block(keycloak_css, selector)
+    for key, name in [('bg', 'sw-bg'), ('surface', 'sw-surface'), ('text', 'sw-text'), ('muted', 'sw-muted'), ('primary', 'sw-primary'),
+                      ('onPrimary', 'sw-on-primary'), ('soft', 'sw-soft'), ('border', 'sw-border')]:
+        assert copied[name].upper() == standard[mode][key], f'Keycloak {mode} --{name} differs from themes.json {key}'
+launch_css = (root / 'src/Swoovr.Web/wwwroot/launch/launch.css').read_text()
+assert css_block(launch_css, ':root')['ink'].upper() == standard['light']['primary'], 'launch ink differs from Standard primary'
+assert css_block(launch_css, ':root')['page'].upper() == standard['light']['surface'], 'launch page differs from Standard surface'
+assert re.search(r'prefers-color-scheme: dark\) \{ :root \{ --page: ' + standard['dark']['surface'], launch_css), 'launch dark page differs from Standard surface'
+
 # Reject missing relative Markdown destinations without opening remote links.
 for path in [root/'README.md', root/'AGENTS.md', *root.glob('docs/**/*.md')]:
     for target in re.findall(r'\]\(([^\s)]+)\)',path.read_text()):
@@ -97,4 +112,4 @@ for path in [root/'README.md', root/'AGENTS.md', *root.glob('docs/**/*.md')]:
         assert (path.parent / target.split('#')[0]).exists(), (str(path),target)
 for path in [*(root/'.github/workflows').glob('*'), *(root/'.github/workflow-templates').glob('*')]:
     assert all(not line.strip() or line.lstrip().startswith('#') for line in path.read_text().splitlines()), f'Active workflow: {path}'
-print(f'PASS: {count} contrast pairs, canonical token copies (web, client, MAUI), one font family in {font_count} UI files, local Markdown links and disabled workflows.')
+print(f'PASS: {count} contrast pairs, canonical token copies (web, client, MAUI, Keycloak, launch splash), one font family in {font_count} UI files, local Markdown links and disabled workflows.')

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRealm, applyAll, amrReferences, amrMaxAgeSeconds, realms } from '../../scripts/auth/realms.mjs';
+import { applyRealm, applyAll, amrReferences, amrMaxAgeSeconds, realms, generatedProfile } from '../../scripts/auth/realms.mjs';
 
 // In-memory stand-in for the Admin REST paths realms.mjs uses; no provider is contacted.
 function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-only', foreignConfig = false } = {}) {
@@ -10,6 +10,8 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
     action: { alias: 'TERMS_AND_CONDITIONS', enabled: false, defaultAction: false, priority: 20 },
     browser: Object.keys(amrReferences).map((providerId, i) => ({ id: 'e' + i, providerId, authenticationConfig: foreignConfig && i === 0 ? 'foreign' : undefined })),
     configs: foreignConfig ? { foreign: { id: 'foreign', alias: 'someone-else', config: {} } } : {},
+    // As first imported: email before first name, no placeholders.
+    profile: { attributes: [{ name: 'username' }, { name: 'email' }, { name: 'firstName' }] },
     writes: [],
   };
   const api = async (path, method = 'GET', body) => {
@@ -24,6 +26,7 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
       return state.action;
     }
     if (path === '/authentication/flows/browser/executions') return state.browser;
+    if (path === '/users/profile') { if (method === 'PUT') { state.profile = structuredClone(body); return; } return structuredClone(state.profile); }
     const execution = path.match(/^\/authentication\/executions\/(\w+)\/config$/);
     if (execution) {
       const id = 'c' + execution[1];
@@ -50,7 +53,18 @@ test('members realm: 18+ checkbox required, terms action recorded by default, AM
     assert.equal(config['default.reference.value'], reference);
     assert.equal(config['default.reference.maxAge'], amrMaxAgeSeconds, 'AMR must outlive the authentication second');
   }
-  assert.equal(changes.length, 2 + Object.keys(amrReferences).length);
+  assert.equal(changes.length, 3 + Object.keys(amrReferences).length);
+});
+
+test('user profile follows the generated import: first name before email, prototype placeholders', async () => {
+  const { api, state } = fakeRealm('swoovr-members-dev');
+  const changes = await applyRealm(api, 'swoovr-members-dev');
+  assert.ok(changes.includes('user profile'));
+  assert.deepEqual(state.profile, await generatedProfile('swoovr-members-dev'));
+  const names = state.profile.attributes.map(a => a.name);
+  assert.ok(names.indexOf('firstName') < names.indexOf('email'));
+  assert.equal(state.profile.attributes.find(a => a.name === 'email').annotations.inputTypePlaceholder, '${swoovrPlaceholder.username}');
+  assert.deepEqual(await applyRealm(api, 'swoovr-members-dev'), []);
 });
 
 test('second run changes nothing (idempotent)', async () => {

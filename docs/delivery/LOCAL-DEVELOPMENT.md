@@ -64,6 +64,8 @@ ASPNETCORE_ENVIRONMENT=Development Keycloak__Authority=http://localhost:8180/rea
   Api__BaseUrl=http://127.0.0.1:5080/ dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081
 ```
 
+The first sign-in visit of a browser session plays the launch splash before Keycloak; add `?intro=done` to skip it, or open a new private window to see it again.
+
 Stop the API/web containers first (`docker compose --env-file .local/docker.env stop api web`) because they hold ports 5080/5081. Use `localhost` (not `127.0.0.1`) for the web host: it is the registered redirect URI and the passkey RP ID. Open http://localhost:5081/account.
 
 After changing `scripts/keycloak_realms.py`, run it with `--write`. Keycloak imports a realm only when it does not exist, so recreate the local stack's own volume to re-import (`docker compose --env-file .local/docker.env down` then `docker volume rm swoovr-local_keycloak-data`), and never remove volumes you have not inspected. `./scripts/docker-local.sh realms` reapplies flow settings at any time.

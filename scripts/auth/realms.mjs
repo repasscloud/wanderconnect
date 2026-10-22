@@ -1,6 +1,7 @@
 // Local development ONLY: applies the parts of the three Swoovr realms that a partial
 // realm import cannot express (built-in flow requirements, execution configs, required
 // actions). Idempotent; refuses anything that does not look like a local -dev realm.
+import { readFile } from 'node:fs/promises';
 import { localRealmApi } from './provision.mjs';
 
 export const realms = ['swoovr-members-dev', 'swoovr-venues-dev', 'swoovr-staff-dev'];
@@ -10,7 +11,15 @@ export const amrReferences = { 'auth-username-password-form': 'pwd', 'auth-otp-f
 // i.e. the same second). Match the 12-hour SSO session; privileged freshness uses auth_time.
 export const amrMaxAgeSeconds = '43200';
 
-export async function applyRealm(api, name) {
+// The declarative user profile from the generated import (scripts/keycloak_realms.py), so field order and
+// placeholders follow the theme without recreating the local volume.
+export async function generatedProfile(name, read = path => readFile(path, 'utf8')) {
+  const realm = JSON.parse(await read(new URL(`../../containers/keycloak/realms/${name}.json`, import.meta.url)));
+  return JSON.parse(realm.components['org.keycloak.userprofile.UserProfileProvider'][0].config['kc.user.profile.config'][0]);
+}
+const profileShape = profile => JSON.stringify(profile.attributes.map(a => [a.name, a.annotations ?? {}, a.required ?? null, a.permissions]));
+
+export async function applyRealm(api, name, profile = generatedProfile) {
   const realm = await api('');
   if (realm.realm !== name || realm.attributes?.['swoovr.environment'] !== 'local-development-only')
     throw new Error('Expected a local Swoovr development realm; refusing to configure ' + name);
@@ -48,6 +57,12 @@ export async function applyRealm(api, name) {
       await api('/authentication/config/' + current.id, 'PUT', { ...config, id: current.id });
       changes.push('amr ' + reference + ' on ' + providerId);
     }
+  }
+  const wantedProfile = await profile(name);
+  const currentProfile = await api('/users/profile');
+  if (profileShape(currentProfile) !== profileShape(wantedProfile)) {
+    await api('/users/profile', 'PUT', wantedProfile);
+    changes.push('user profile');
   }
   return changes;
 }

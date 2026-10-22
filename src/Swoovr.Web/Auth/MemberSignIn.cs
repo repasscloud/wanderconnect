@@ -16,6 +16,8 @@ namespace Swoovr.Web.Auth;
 public static class MemberSignIn
 {
     public const string Cookie = "swoovr.member";
+    /// <summary>Session cookie marking that this browser session has seen the launch splash.</summary>
+    public const string IntroCookie = "swoovr.intro";
     public static bool IsConfigured(IConfiguration configuration) =>
         !string.IsNullOrWhiteSpace(configuration["Keycloak:Authority"]) && !string.IsNullOrWhiteSpace(configuration["Keycloak:ClientSecret"]);
 
@@ -71,9 +73,28 @@ public static class MemberSignIn
     public static void MapMemberSignIn(WebApplication app)
     {
         var configured = IsConfigured(app.Configuration);
-        app.MapGet("/account/sign-in", (HttpContext context) => configured
-            ? Results.Challenge(new AuthenticationProperties { RedirectUri = "/account" }, [OpenIdConnectDefaults.AuthenticationScheme])
-            : Results.Redirect("/account"));
+        app.MapGet("/account/sign-in", (HttpContext context) =>
+        {
+            if (!configured) return Results.Redirect("/account");
+            // Launch splash (docs/design/reference/UI-STYLE.md): the first sign-in visit of a browser
+            // session plays it here, before the hand-off, because Keycloak pages can't run it between
+            // redirects. The page returns with intro=done; the cookie stops replays on later visits.
+            if (!context.Request.Cookies.ContainsKey(IntroCookie) && context.Request.Query["intro"] != "done")
+            {
+                var launch = app.Environment.WebRootFileProvider.GetFileInfo("launch/index.html");
+                if (launch.Exists)
+                {
+                    context.Response.Cookies.Append(IntroCookie, "1", new CookieOptions
+                    {
+                        HttpOnly = true, SameSite = SameSiteMode.Lax, Path = "/account", IsEssential = true,
+                        Secure = !app.Environment.IsDevelopment() || context.Request.IsHttps,
+                    });
+                    context.Response.Headers.CacheControl = "no-store";
+                    return Results.Stream(launch.CreateReadStream(), "text/html; charset=utf-8");
+                }
+            }
+            return Results.Challenge(new AuthenticationProperties { RedirectUri = "/account" }, [OpenIdConnectDefaults.AuthenticationScheme]);
+        });
         app.MapGet("/account/create", (HttpContext context) =>
         {
             if (!configured) return Results.Redirect("/account");

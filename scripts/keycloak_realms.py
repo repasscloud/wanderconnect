@@ -35,8 +35,11 @@ def attribute(name, display, required, extra=None):
 def user_profile():
     attributes = [
         attribute('username', '${username}', False, {'validations': {'length': {'min': 3, 'max': 255}, 'username-prohibited-characters': {}, 'up-username-not-idn-homograph': {}}, 'permissions': {'view': ['admin', 'user'], 'edit': ['admin']}}),
-        attribute('email', '${email}', True, {'validations': {'email': {}, 'length': {'max': 255}}}),
-        attribute('firstName', '${firstName}', True, {'validations': {'length': {'max': 255}, 'person-name-prohibited-characters': {}}}),
+        # Prototype order and placeholders (docs/design/reference/screens/06-create-account.png).
+        attribute('firstName', '${firstName}', True, {'validations': {'length': {'max': 255}, 'person-name-prohibited-characters': {}},
+                                                       'annotations': {'inputTypePlaceholder': '${swoovrPlaceholder.firstName}'}}),
+        attribute('email', '${email}', True, {'validations': {'email': {}, 'length': {'max': 255}},
+                                               'annotations': {'inputTypePlaceholder': '${swoovrPlaceholder.username}'}}),
     ]
     # Written by the built-in registration terms step (the 18+ checkbox, D40); undeclared attributes are dropped.
     attributes.append(attribute('terms_and_conditions', 'Adult attestation time', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}}))
