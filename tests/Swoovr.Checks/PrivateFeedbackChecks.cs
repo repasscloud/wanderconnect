@@ -10,7 +10,7 @@ static class PrivateFeedbackChecks
         var stranger=Guid.Parse("99999999-9999-9999-9999-999999999999");
         var interaction=Guid.Parse("33333333-3333-3333-3333-333333333333");
         var now=new DateTimeOffset(2026,10,17,2,0,0,TimeSpan.Zero);
-        var session=new AccessSession(AccountRole.Member,SignInMethod.EmailPassword,false,true,new HashSet<Guid>());
+        var session=new AccessSession(AccountRole.Member,AccountRealm.Members,SignInMethod.EmailPassword,false,true,true,true,false,new HashSet<Guid>());
         var access=new FeedbackAccess(session,a,interaction,a,b,true,false);
         var recipient=access with {ActorId=b};
         var answers=new FeedbackAnswers(FeedbackContext.ChatOnly,PrivateAnswer.Yes,PrivateAnswer.Yes,PrivateAnswer.Uncertain,PrivateAnswer.Yes,ConnectionIntention.Friendship,null);

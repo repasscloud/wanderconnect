@@ -58,7 +58,7 @@ internal static class PrototypeDiscovery
         var ownerRules = new DiscoveryRules(true, true, person.IncognitoAccepted, false,
             new(new HashSet<ConnectionIntention>(), RequiredIntentionMatch.Any, new HashSet<ConnectionIntention>()));
         var request = new DiscoveryAccessRequest(
-            new(AccountRole.Member, SignInMethod.EmailPassword, false, true, new HashSet<Guid>()), ViewerId,
+            new(AccountRole.Member, AccountRealm.Members, SignInMethod.EmailPassword, false, true, true, true, false, new HashSet<Guid>()), ViewerId,
             new(ViewerId, true, true, true, true, Contexts, new HashSet<ConnectionIntention> { ConnectionIntention.LongTermRelationship, ConnectionIntention.Friendship }),
             new(person.Id, person.Active, true, true, person.Substantive, Contexts, person.Applicable),
             viewerRules, ownerRules, options.Travel == "local" ? DiscoveryContext.Connect : DiscoveryContext.Travel,
@@ -99,7 +99,7 @@ internal static class PrototypeDiscovery
             if (options is null) return Results.BadRequest();
             var person = People.SingleOrDefault(p => p.Id == id);
             return person is not null && person.DemoImage && Allows(person, options, DiscoveryResource.Media)
-                ? Results.Text("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 480 280\"><rect width=\"480\" height=\"280\" fill=\"#EEE3FF\"/><circle cx=\"240\" cy=\"115\" r=\"52\" fill=\"#7132D0\"/><path d=\"M100 280a140 115 0 01280 0\" fill=\"#7132D0\"/><text x=\"240\" y=\"260\" text-anchor=\"middle\" fill=\"white\" font-family=\"sans-serif\" font-size=\"18\">Demo image placeholder</text></svg>", "image/svg+xml")
+                ? Results.Text("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 480 280\"><rect width=\"480\" height=\"280\" fill=\"#F4F4F4\"/><circle cx=\"240\" cy=\"115\" r=\"52\" fill=\"#8A8A8A\"/><path d=\"M100 280a140 115 0 01280 0\" fill=\"#8A8A8A\"/><text x=\"240\" y=\"260\" text-anchor=\"middle\" fill=\"#0A0A0A\" font-family=\"Helvetica Neue, Helvetica, Arial, sans-serif\" font-size=\"18\">Demo image placeholder</text></svg>", "image/svg+xml")
                 : Results.NotFound();
         });
         group.MapGet("/people/{id:guid}/contact-eligibility", (Guid id, HttpRequest request) => {

@@ -8,12 +8,8 @@ public static class MauiProgram
 	{
 		var builder = MauiApp.CreateBuilder();
 		builder
-			.UseMauiApp<App>()
-			.ConfigureFonts(fonts =>
-			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-			});
+			// No bundled fonts: Swoovr uses the platform's Helvetica Neue / Arial (see Resources/Styles/Styles.xaml).
+			.UseMauiApp<App>();
 
 #if DEBUG
 		builder.Logging.AddDebug();

@@ -2,7 +2,6 @@
 import { chmod, mkdir, open, readFile, stat } from 'node:fs/promises';
 import { client, callback, origin, random, request } from './security.mjs';
 const base = 'http://localhost:8180';
-const realmPath = '/admin/realms/swoovr-dev';
 const flow = 'swoovr-investigation-browser-v1';
 const owner = 'swoovr-local-investigation-v1';
 export async function privateRead(path) {
@@ -12,7 +11,7 @@ export async function privateRead(path) {
 export function validateFixture(fixture, users) {
   if (users.length > 1 || (users[0] && users[0].id !== fixture.userId) || (!users.length && fixture.userId)) throw new Error('Unmanaged or stale fixture; deliberately replace the private fixture after inspecting the disposable realm');
 }
-export async function localRealmApi({ provider = request, read = privateRead, clock = () => Date.now() } = {}) {
+export async function localRealmApi({ provider = request, read = privateRead, clock = () => Date.now(), realm = 'swoovr-dev' } = {}) {
   const env = await read('.local/docker.env');
   const password = env.split('\n').find(line => line.startsWith('KC_BOOTSTRAP_ADMIN_PASSWORD='))?.split('=')[1];
   if (!password) throw new Error('Initialize the local sandbox first');
@@ -29,7 +28,7 @@ export async function localRealmApi({ provider = request, read = privateRead, cl
   }
   return async (path, method = 'GET', body) => {
     if (!accessToken || clock() >= expiresAt) await authenticate();
-    const send = () => provider(base + realmPath + path, {
+    const send = () => provider(base + '/admin/realms/' + realm + path, {
       method, headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });

@@ -195,3 +195,63 @@ Full ./scripts/check.sh passes: Release zero warnings/errors;53auth/fourappearan
 ## Swoovr rename — 22 October 2026
 
 The [rename validation record](SWOOVR-RENAME-2026-10-22.md#validation) records fresh local portable, actual Edge and published Linux ARM64 container results, screenshot locations and exact remaining mobile/provider/production gaps. Current source uses Swoovr identifiers; earlier results above describe earlier builds and are not a new realm acceptance claim.
+
+## Eight-scheme appearance handoff — 22 October 2026
+
+Owner design handoff (`docs/design/`, committed by the owner in 6466657) applied on `feature/keycloak-integration-design`: eight schemes in Core/Community/Colour groups, Standard + System default, guest storage schema v2 with v1 migration (Electric → Violet, Coral → Coral, other retired schemes → Standard), regenerated `themes.css`, `appearance-palettes.js` and `AppearanceSchemes.g.cs`. `check_naming.py` now also exempts the real host checkout directory name in documentation, like recorded absolute paths.
+
+Executed locally:
+
+- `python3 scripts/check_design.py --write` then `./scripts/check.sh`: PASS. Zero build warnings/errors; 96 contrast pairs; 58 Node tests (including v1 migration); 431 → 439 named policy/state cases (83 appearance, adding retired-ID fallback); API/Web, discovery and conversation HTTP gates.
+- `tests/appearance/web.browser.cjs`, `tests/prototype/discovery.browser.cjs`, `tests/prototype/conversation.browser.cjs`: PASS in headless Edge via the existing bundled Playwright, against Development hosts on 127.0.0.1:5380/5381 with `Prototype__Enabled=true`. Appearance covers 24 preferences/16 computed palettes. Desktop and 320px dark captures were inspected; hosts stopped afterwards.
+
+Gaps: no screen-reader audit; mobile appearance not built (no MAUI workloads); account sync transport still absent.
+
+## Keycloak members slice — 22 October 2026
+
+Branch `feature/keycloak-integration-design`. Executed locally on macOS (ARM64), Docker 29.9.1, Keycloak 26.8.1 (pinned digest), .NET SDK 10.0.400, headless Edge through the existing bundled Playwright.
+
+- `./scripts/check.sh`: PASS. Zero build warnings/errors; realm import generator/invariants; 70 Node tests (7 for realm configuration, 5 for the root admin); 84 access-policy and 28 session-evidence cases among 501 named policy/state cases; API session endpoint 401 for missing/malformed/Basic tokens; unconfigured web sign-in stays off; existing HTTP gates. One run failed `tests/auth-harness/session.test.mjs` "in-flight refresh rejects overlapping logout, refresh and begin" (400 vs 303); it passed 6 isolated reruns and every later full run. Recorded as a pre-existing timing flake, not fixed in this slice.
+- `./scripts/docker-local.sh up` and `smoke`: PASS. API/web images rebuilt with the new authentication packages; members/venues/staff and investigation realm discovery, PKCE S256, mail sink.
+- `tests/auth/members.browser.cjs`: PASS, 34 checks, three consecutive runs after the AMR max-age fix (one earlier failure exposed D46). Covers Standard theme light/dark and claims line; 18+ registration blocked server-side with no email sent; email-first verification and password; server-side web session (HttpOnly Lax cookie, no token in cookies); GET sign-out ignored, POST sign-out; password sign-in method; API accepts a real members token and rejects missing, tampered-claim, cross-realm issuer, wrong audience, unsigned, `alg: none` and malformed tokens; lockout after 3 failures, correct password refused while locked, reset clears it; passkey registration and sign-in with a virtual authenticator; venues/staff realms have no registration link or social providers; 320px account page.
+- `tests/auth/root-admin.browser.cjs`: PASS, 9 checks, on a freshly created root admin (enrolment path) and on four further consecutive runs (sign-in path). Staff realm has no registration or social sign-in; TOTP enrolment is required before any session; the enrolment session reports `pwd` only; later sign-ins ask for the code, reject a wrong code without issuing an authorization code, and carry `amr` `pwd`+`otp`, which the API reports as `multiFactor: true` for the staff realm. Two earlier runs failed by reusing a TOTP code from the previous run's 30-second step; the test now records the last step in the private fixture.
+- Root admin unit tests: 5 Node cases (fictional account with mandatory TOTP enrolment, idempotent without password rewrite, refuses non-local/non-staff realms, unowned accounts and unowned fixtures).
+- Manual inspection: Keycloak login, registration, choose-password and blocked-registration pages in light and dark at 1280px and 390px; account page at desktop.
+
+Gaps: no Apple/Google/Entra federation, no MailerSend delivery, no venue/staff portal sign-in, no root-admin OTP flow, no persistence, no mobile, no screen-reader audit, no production TLS/hosts. Passkey sign-in reports `pwd` (D45). Evidence is local-only and fictional.
+
+## UI style step 1: type and base styles — 22 October 2026
+
+Branch `feature/swoovr-ui-style` (from `feature/keycloak-integration-design`). Owner direction: [UI style](../design/reference/UI-STYLE.md) is the visual source of truth; wireframes are for content and flow only. Step 1 of 3 (type and base styles); the splash and shared components follow.
+
+Before this step: web used `-apple-system, "Segoe UI"` body text and Georgia headings; MAUI was the stock template (bundled Open Sans, purple `#512BD4` palette, template splash/icon colour, `dotnet_bot` image); the Keycloak theme already set Helvetica Neue through PatternFly variables.
+
+Changed: one family `"Helvetica Neue", Helvetica, Arial, sans-serif`, antialiased, with the UI-STYLE type scale as `--type-*` tokens (rem, so browser text size still applies); Georgia kept only as the photo-free tile quote token. Blazor error bar and the API demo-image placeholder now use Standard tokens. MAUI colours are generated from `themes.json` (Standard light/dark) by `check_design.py`, Open Sans and the template image are removed, and Styles.xaml defines the font per platform (iOS/Mac Helvetica Neue, Windows Arial, Android platform sans-serif because Android has neither) and the type styles. `check_design.py` rejects Inter, system-ui, Segoe, -apple-system, Roboto, Open Sans and Red Hat fonts in web, MAUI and Keycloak sources. A shared browser helper (`tests/ui-fonts.cjs`) asserts the **computed** font and smoothing on every visible text element.
+
+Executed locally:
+
+- `./scripts/check.sh`: PASS (zero warnings; font guard over 39 UI files).
+- Computed-font probe at 390px, light and dark: home, appearance, account, people preview, conversation preview, not found, Keycloak sign-in, registration and forgot password all resolve to the Swoovr stack, antialiased. Red Hat font faces are declared by PatternFly but never loaded; the only font file downloaded is PatternFly's Font Awesome icon font (password reveal), to be replaced by the outline icon set with the shared components.
+- `tests/appearance/web.browser.cjs`: PASS with font checks on home, appearance and account (light, and dark at 320px). `tests/auth/members.browser.cjs`: PASS, 37 checks (adds computed fonts on Keycloak sign-in light/dark and registration).
+
+Gaps: MAUI not built or run (no MAUI workload on this machine); Android renders the platform sans-serif, not Helvetica; MAUI buttons are Bold (700) because MAUI has no 600 weight attribute. Screens are not yet compared with the reference screenshots; that happens per screen in steps 2–3.
+
+## UI style step 2: launch splash and prototype sign-in screens — 22 October 2026
+
+Branch `feature/swoovr-ui-style`. Visual source: [login.html](../design/reference/login.html), the screenshots and [UI-STYLE.md](../design/reference/UI-STYLE.md). Where the video frames (drawn from `source/SignInDemo.tsx`) and login.html differ by a few pixels (for example 8 px vs 10 px between fields), login.html wins, as UI-STYLE.md says to port its CSS exactly. Note: `screens/05-forgot-password.png` shows Create account and `06-create-account.png` shows Forgot password (file names swapped in the handoff).
+
+Changed:
+
+- **Web launch splash.** The first `/account/sign-in` of a browser session serves `wwwroot/launch/` (the `.splash` markup, CSS and easing from login.html, every time × 0.6 ≈ 2.2 s) and sets the session-only HttpOnly `swoovr.intro` cookie (path `/account`). The page ends by returning with `intro=done`, which hands off to Keycloak; later visits go straight there. Reduced motion shows the finished logo for 600 ms, then a 300 ms cross-fade. No JavaScript: a meta refresh continues to sign-in.
+- **Keycloak pages match the prototype.** Overrides of the 26.8.1 `template.ftl`, `field.ftl`, `login.ftl`, `register.ftl`, `register-commons.ftl`, `login-reset-password.ftl`, `social-providers.ftl` and `footer.ftl`: brand row or back chevron + icon circle chosen by page id, title + subtitle, labels inside 56 px fields with placeholders, "Show"/"Hide" text control (no icon font), "Forgot password?" right-aligned, OR divider, passkey (key icon), Apple (black, white on dark per Apple HIG) and Google (outline, colour "G"), "New to Swoovr? Create an account", claims and version footer at the bottom, 24 px 18+ checkbox before the 18+/Terms line, "Create account" disabled until it is ticked (the realm still enforces D40). Page colour is the Standard surface, matching the prototype's white screen. New screens stagger in (70 ms steps) and slide like an iOS push / pop via same-origin view transitions; a same-page re-render and reduced motion do neither. `realms.mjs` now syncs the user profile (first name before email, placeholders) to running local realms.
+- **MAUI.** Native splash is the bird on ink (`splash.svg`, 132 × 112); `LaunchPage` runs the same sequence at the prototype's full timings on cold start only, then shows the shell (mobile sign-in is not built, Q09). Reduced motion follows iOS Reduce Motion / Android "remove animations". Named label styles are now `BasedOn` the base style (an explicit MAUI style otherwise drops the font and colour).
+- `check_design.py` also checks the Keycloak and launch colours against themes.json.
+
+Executed locally:
+
+- `./scripts/check.sh`: PASS (see the commit for the final run).
+- `tests/auth/members.browser.cjs`: PASS, 50 checks. Adds: splash on first visit (6 letters, animated, Swoovr type), hand-off after ≥ 2 s, session-only HttpOnly cookie, no replay later in the session, reduced-motion cross-fade under 2 s; Keycloak screens' stagger on a new screen, none on a re-render, none with reduced motion; "Create account" disabled until 18+ is ticked and the realm rejecting a direct submission; surface page colour light/dark. `tests/auth/root-admin.browser.cjs`: PASS, 9 checks (OTP pages on the new template).
+- `node --test tests/auth-harness/realms.test.mjs`: 8 tests, including the user-profile sync.
+- Side-by-side at 390 px against screens 01–06 in light and dark (sign in, create account, forgot password; splash frozen at fixed times). Apple/Google buttons were checked with throwaway placeholder brokers on the local members realm, removed afterwards.
+
+Gaps: MAUI not built or run (no MAUI workload; installing it needs administrator rights); mobile status-bar colour change and the Keycloak hand-off from the app are not built. Under the web wipe the revealed page is the blank sign-in colour (the Keycloak form then rises in), because our page can't show Keycloak's content before it loads. Keycloak's registration has no password field (email-first, D44) and labels the field "Email" (email is the username). Google's own button guidance specifies Roboto; we follow the prototype's Helvetica label and keep the official "G" (review when Google is registered). Keycloak template overrides must be re-copied when the pinned Keycloak version changes.

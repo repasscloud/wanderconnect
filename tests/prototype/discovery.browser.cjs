@@ -50,18 +50,18 @@ const base=process.env.SWOOVR_WEB_URL||'http://127.0.0.1:5081';
     assert.equal(response.status(),200);await page.getByRole('heading',{name:'Profile unavailable',exact:true}).waitFor();
   }
   await page.goto(base+'/settings/appearance');
-  await page.getByRole('radio',{name:'Cobalt social',exact:true}).check();
+  await page.getByRole('radio',{name:'Union Jack',exact:true}).check();
   await page.getByRole('radio',{name:'Dark',exact:true}).check();
   await page.goto(base+'/prototype/people');
-  assert.equal(await page.evaluate(()=>document.documentElement.dataset.scheme),'cobalt');
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.scheme),'union');
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
-  await page.screenshot({path:'.local/discovery-browser/cobalt-dark-desktop.png',fullPage:true});
+  await page.screenshot({path:'.local/discovery-browser/union-dark-desktop.png',fullPage:true});
   await page.setViewportSize({width:320,height:900});
   await page.evaluate(()=>document.documentElement.style.fontSize='200%');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'Preview reflows at 320px/200%');
-  await page.screenshot({path:'.local/discovery-browser/cobalt-dark-320-large.png',fullPage:true});
+  await page.screenshot({path:'.local/discovery-browser/union-dark-320-large.png',fullPage:true});
   await page.evaluate(()=>document.documentElement.style.fontSize='100%');
-  await page.screenshot({path:'.local/discovery-browser/cobalt-dark-320.png',fullPage:true});
+  await page.screenshot({path:'.local/discovery-browser/union-dark-320.png',fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS: actual Edge fictional grid/profile, sparse/incognito/ANY-ALL filters, disclosure/contact negatives, upcoming versus simulated arrival, hidden direct profile, persisted appearance and 320px/200% reflow.');
  }finally{await browser.close()}

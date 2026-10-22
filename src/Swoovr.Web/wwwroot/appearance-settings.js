@@ -29,7 +29,7 @@
     form.querySelector('[data-reset]').addEventListener('click', () => {
       state.preference = { ...api.defaults };
       state.available = api.save(state.storage, state.preference);
-      update(state.available ? 'Reset to Electric violet and System. Saved on this browser.' : 'Appearance reset for this visit. Browser storage is unavailable.');
+      update(state.available ? 'Reset to Standard and System. Saved on this browser.' : 'Appearance reset for this visit. Browser storage is unavailable.');
     });
     update();
   }

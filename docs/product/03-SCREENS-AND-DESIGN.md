@@ -4,9 +4,9 @@
 
 Warm, clear, adult, inclusive and approachable. Avoid casino-like rewards, nightclub-only styling, childish hearts everywhere or sexualised marketing. Not a promise to serve literally every unrelated app category.
 
-CONFIRMED: six personal colour schemes, each in light and dark mode. [User appearance themes](../design/USER-APPEARANCE-THEMES.md) defines the canonical tokens, stable IDs, persistence, accessibility and acceptance criteria. The adjacent [colour studio](../design/swoovr-colour-studio.html) previews all twelve resolved themes. These supersede the original three muted palettes; earlier teal images are layout references only.
+CONFIRMED: Standard black and white plus seven optional personal colour schemes (eight in total), each in light and dark mode. [User appearance themes](../design/USER-APPEARANCE-THEMES.md) defines the canonical tokens, stable IDs, persistence, accessibility and acceptance criteria. The adjacent [colour studio](../design/swoovr-colour-studio.html) previews all twelve resolved themes. These supersede the original three muted palettes; earlier teal images are layout references only.
 
-Schemes: Electric violet (`electric`), Raspberry spark (`raspberry`), Cobalt social (`cobalt`), Coral current (`coral`), Orchid afterglow (`orchid`), Solar club (`solar`). DEFAULT: Electric violet + System. Users select scheme independently of System/Light/Dark in Settings → Appearance, free of charge. Theme affects their own interface only, including member, partner, admin and support surfaces. It never changes profile visibility, intentions or permissions. Preserve explicit onPrimary pairings; semantic error, warning, success and focus states still need validation.
+Schemes (updated 22 October 2026, owner design handoff): Standard (`standard`), Lounge (`lounge`), Pride (`pride`), Trans (`trans`), Union Jack (`union`), Violet (`violet`), Coral (`coral`), Eucalyptus (`eucalyptus`), grouped Core, Community and Colour. CONFIRMED default: Standard + System; sign-in pages use Standard only. Users select scheme independently of System/Light/Dark in Settings → Appearance, free of charge. Theme affects their own interface only, including member, partner, admin and support surfaces. It never changes profile visibility, intentions or permissions. Preserve explicit onPrimary pairings; semantic error, warning, success and focus states still need validation. The retired Electric, Raspberry, Cobalt, Orchid and Solar IDs fall back safely.
 
 Use a readable system sans-serif for controls/body; optional restrained serif for large editorial headings as in reference images. Body target 16 logical pixels, comfortable line height; support dynamic text. 8-unit spacing system, 12–16 corner radius, restrained shadows. Minimum target sizes follow each platform's guidance; target at least 44 logical points for mobile actions. Do not compress text into unreadable two-column cards at large accessibility sizes: switch to a one-column list.
 
@@ -36,7 +36,7 @@ Mobile bottom tabs: Explore, Connections, Chats, Me. Explore switches People / P
 | Voucher wallet | Upcoming/used vouchers with venue, schedule, terms | Pending booking; invalid/expired/redeemed |
 | Voucher detail | QR/code, redemption status, support and cancellation | No reusable static value token; offline handling explained |
 | Feedback | Private structured questions and separate safety report | Did not meet; skipped; submitted; report confirmation |
-| Appearance | Six scheme tiles, System/Light/Dark, live sample, reset | Offline save, account switch, system change, large text |
+| Appearance | Eight scheme tiles in three groups, System/Light/Dark, live sample, reset | Offline save, account switch, system change, large text |
 | Privacy/settings | Incognito, owner acceptance, visibility, blocked list, sessions, notification privacy | Consistent policy preview and save errors |
 | Account/billing | Entitlements, payment source, manage/restore, deletion/export | Renewal/refund/grace; provider management destination |
 | Venue portal | Bookings, offers, redemption scanner, staff permissions | Double redemption; staff revoked; audit history |

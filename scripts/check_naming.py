@@ -26,6 +26,8 @@ for relative in sorted(set(filter(None, paths))):
         # These are actual external resources and historical local locations, not names to invent.
         content = re.sub(r'https://github\.com/repasscloud/' + r'wander' + r'connect\b[^\s)<>`]*', '', content)
         content = re.sub(r'/Users/[^\s)`<>]+', '', content)
+        # The actual host checkout directory is a real location, not a product identifier.
+        content = re.sub(r'\b' + r'wander' + r'connect-brief\b', '', content)
     for number, line in enumerate(content.splitlines(), 1):
         if legacy.search(line):
             failures.append(f'{relative}:{number}: legacy identifier')

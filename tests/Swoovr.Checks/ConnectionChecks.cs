@@ -10,7 +10,7 @@ static class ConnectionChecks
         var outsider = Guid.Parse("99999999-9999-9999-9999-999999999999");
         var area = Guid.Parse("33333333-3333-3333-3333-333333333333");
         var now = new DateTimeOffset(2026,10,17,1,0,0,TimeSpan.Zero);
-        var session = new AccessSession(AccountRole.Member, SignInMethod.EmailPassword, false, true, new HashSet<Guid>());
+        var session = new AccessSession(AccountRole.Member, AccountRealm.Members, SignInMethod.EmailPassword, false, true, true, true, false, new HashSet<Guid>());
         var member = new DiscoveryMember(a,true,true,true,true,new HashSet<DiscoveryContext>(Enum.GetValues<DiscoveryContext>()),new HashSet<ConnectionIntention>{ConnectionIntention.Friendship});
         var other = member with {Id=b};
         var rule = new DiscoveryRules(true,true,true,false,new IntentionRule(new HashSet<ConnectionIntention>(),RequiredIntentionMatch.Any,new HashSet<ConnectionIntention>()));

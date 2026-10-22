@@ -21,7 +21,7 @@ def check_web_assets(base):
     with urllib.request.urlopen(base + 'settings/appearance', timeout=5) as response:
         html = response.read().decode()
     assert 'data-appearance-settings' in html and 'Account sync is not connected' in html
-    for scheme in ['electric', 'raspberry', 'cobalt', 'coral', 'orchid', 'solar']:
+    for scheme in ['standard', 'lounge', 'pride', 'trans', 'union', 'violet', 'coral', 'eucalyptus']:
         assert f'value="{scheme}"' in html
     assets = Assets()
     assets.feed(html)

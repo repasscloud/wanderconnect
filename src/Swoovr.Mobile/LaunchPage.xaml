@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Launch splash, ported from docs/design/reference/login.html (.splash): the bird draws as a white outline,
+     fills, "swoovr" rises letter by letter, the hairline loads, then the ink sheet wipes up with rounded
+     bottom corners to reveal the page underneath. Timings live in LaunchPage.xaml.cs. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Swoovr.Mobile.LaunchPage"
+             Shell.NavBarIsVisible="False"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+    <ContentPage.Resources>
+        <Style TargetType="Label" x:Key="LaunchLetter" BasedOn="{StaticResource BaseLabel}">
+            <Setter Property="FontSize" Value="30" />
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="TextColor" Value="{StaticResource SurfaceLight}" />
+        </Style>
+    </ContentPage.Resources>
+    <Grid x:Name="Root" IgnoreSafeArea="True">
+        <Border x:Name="Sheet" VerticalOptions="Start" StrokeThickness="0" Padding="0"
+                BackgroundColor="{StaticResource PrimaryLight}" SemanticProperties.Description="Swoovr">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="0,0,48,48" />
+            </Border.StrokeShape>
+            <Grid x:Name="Stage" VerticalOptions="Start" IgnoreSafeArea="True">
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                    <Grid WidthRequest="132" HeightRequest="112" HorizontalOptions="Center">
+                        <Path x:Name="Bird" WidthRequest="129" HeightRequest="109" Aspect="Uniform"
+                              HorizontalOptions="Center" VerticalOptions="Center"
+                              Stroke="{StaticResource SurfaceLight}" StrokeThickness="1" Fill="Transparent"
+                              Data="M139 0C153.755264 7.892353 168.569412 15.313709 182.947464 22.516602C252.37085 57.295238 311.627411 86.980667 305 140C304.202057 150.107193 301.06955 159.719162 296.279846 168.835938C297.106506 168.971268 298.010498 169.491089 298.900879 170.167953C327.374664 144.083389 345.228699 148.062378 367 154C373 156 378 156 384 156C355 164 350 185 339 207C310 270 226 282 97 324C153.7 289.85 197.8 257.1 233.4 227.7C236.604 225.054 238.45 222.35 239.85 218.65C260.85 163.15 218.0 80.86 139 0ZM77 137C120 159 205 163 226 192C259.219879 239.585236 132.02446 263.793365 32.588951 282.71817C21.274101 284.871643 10.3187 286.956696 0 289C79 260 166 226 180 207C188.996353 193.205597 164.180161 181.929153 134.46019 168.424454C114.626785 159.41217 92.609497 149.407547 77 137Z" />
+                    </Grid>
+                    <Grid Margin="9,22,0,0" IsClippedToBounds="True" HorizontalOptions="Center">
+                        <HorizontalStackLayout x:Name="Word" Spacing="9">
+                        <Label Text="s" Style="{StaticResource LaunchLetter}" />
+                        <Label Text="w" Style="{StaticResource LaunchLetter}" />
+                        <Label Text="o" Style="{StaticResource LaunchLetter}" />
+                        <Label Text="o" Style="{StaticResource LaunchLetter}" />
+                        <Label Text="v" Style="{StaticResource LaunchLetter}" />
+                        <Label Text="r" Style="{StaticResource LaunchLetter}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <Grid Margin="0,34,0,0" WidthRequest="120" HeightRequest="1" HorizontalOptions="Center">
+                        <BoxView Color="{StaticResource SurfaceLight}" Opacity="0.18" />
+                        <BoxView x:Name="BarFill" Color="{StaticResource SurfaceLight}" AnchorX="0" ScaleX="0" />
+                    </Grid>
+                </VerticalStackLayout>
+                <Label x:Name="Tag" Text="Dating · Friendship · Activities" FontSize="12" CharacterSpacing="0.4"
+                       TextColor="{StaticResource SurfaceLight}" Opacity="0"
+                       HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,52" />
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

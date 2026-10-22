@@ -9,9 +9,9 @@ static class AppearanceSyncChecks
         void Check(string name, bool valid) { if (!valid) throw new Exception("Appearance sync: " + name); count++; }
         void Reject(string name, Action action) { try { action(); } catch (ArgumentException) { count++; return; } catch (InvalidOperationException) { count++; return; } throw new Exception("Appearance sync: " + name); }
         var guest = new AppearancePreference("coral", "system");
-        var remote = new AppearancePreference("orchid", "dark");
-        var next = new AppearancePreference("solar", "light");
-        var last = new AppearancePreference("cobalt", "system");
+        var remote = new AppearancePreference("pride", "dark");
+        var next = new AppearancePreference("eucalyptus", "light");
+        var last = new AppearancePreference("union", "system");
         var state = new AppearanceSyncState(guest);
         Check("guest starts local", state.Current == guest && !state.HasPendingSave);
         var first = state.BeginAccount();
@@ -60,11 +60,11 @@ static class AppearanceSyncChecks
         state.SignOut();sameAccountAgain=state.BeginAccount();
         Check("valid load remains possible", state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(remote,1)));
         Check("duplicate load cannot overwrite edits", !state.CompleteLoad(sameAccountAgain,new AppearanceSnapshot(last,2)));
-        Reject("invalid local choice rejected", () => state.Select(new("solar","invalid")));
+        Reject("invalid local choice rejected", () => state.Select(new("eucalyptus","invalid")));
         Check("invalid local choice leaves current", state.Current == remote);
         state.SignOut(); state.Select(last);
         Check("guest changes never queue account save", state.Current == last && !state.HasPendingSave);
-        Check("all 18 portable preferences supported", new[] { "electric", "raspberry", "cobalt", "coral", "orchid", "solar" }.All(scheme => new[] { "system", "light", "dark" }.All(mode => AppearancePreferences.IsValid(new(scheme,mode)))));
+        Check("all 24 portable preferences supported", new[] { "standard", "lounge", "pride", "trans", "union", "violet", "coral", "eucalyptus" }.All(scheme => new[] { "system", "light", "dark" }.All(mode => AppearancePreferences.IsValid(new(scheme,mode)))));
         Reject("conflict resolution requires a conflict", () => state.ResolveConflict(true));
         var conflictState = new AppearanceSyncState(guest);
         var conflictActivation = conflictState.BeginAccount();
@@ -75,7 +75,7 @@ static class AppearanceSyncChecks
         Check("unresolved conflict never appears saved", conflictState.HasPendingSave);
         conflictState.SignOut();
         Check("signout clears unresolved conflict", conflictState.Conflict is null && !conflictState.HasPendingSave && conflictState.Current == guest);
-        foreach(var invalidPreference in new AppearancePreference?[]{new("unknown","dark"),new("solar","removed"),null,new(null!,"dark"),new("cobalt",null!)})
+        foreach(var invalidPreference in new AppearancePreference?[]{new("unknown","dark"),new("eucalyptus","removed"),null,new(null!,"dark"),new("union",null!),new("electric","dark"),new("solar","light")})
         {
             var fallback=new AppearanceSyncState(guest);var ticket=fallback.BeginAccount();
             Check("malformed server preference normalizes complete pair",fallback.CompleteLoad(ticket,new(invalidPreference!,23)) && !fallback.IsLoading && fallback.Current==AppearancePreferences.Default && !fallback.HasPendingSave);

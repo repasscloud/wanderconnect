@@ -51,13 +51,43 @@ CONFIRMED deployment direction: all server components will be containerised on p
 
 See [sandbox evidence and investigation matrix](PHASE-1-KEYCLOAK-SANDBOX.md). No PostgreSQL app service is added because the app still has no persistence adapter. No SMTP, social provider, application OAuth client or fake authorization adapter is configured. Linux containers cannot validate iOS/Xcode tooling.
 
+## Member sign-in (local Keycloak)
+
+The [members slice](PHASE-1-KEYCLOAK-MEMBERS.md) runs against the Docker stack. Local only: fictional adult accounts at `example.test`, every email caught by the mail sink at http://127.0.0.1:8025.
+
+```sh
+./scripts/docker-local.sh init     # adds any missing local secrets to .local/docker.env (600), never prints them
+./scripts/docker-local.sh up       # Keycloak, mail sink, API/web containers; applies realm settings
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://127.0.0.1:5080
+ASPNETCORE_ENVIRONMENT=Development Keycloak__Authority=http://localhost:8180/realms/swoovr-members-dev \
+  Keycloak__ClientSecret="$(grep '^SWOOVR_MEMBERS_WEB_SECRET=' .local/docker.env | cut -d= -f2)" Keycloak__RequireHttpsMetadata=false \
+  Api__BaseUrl=http://127.0.0.1:5080/ dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081
+```
+
+The first sign-in visit of a browser session plays the launch splash before Keycloak; add `?intro=done` to skip it, or open a new private window to see it again.
+
+Stop the API/web containers first (`docker compose --env-file .local/docker.env stop api web`) because they hold ports 5080/5081. Use `localhost` (not `127.0.0.1`) for the web host: it is the registered redirect URI and the passkey RP ID. Open http://localhost:5081/account.
+
+After changing `scripts/keycloak_realms.py`, run it with `--write`. Keycloak imports a realm only when it does not exist, so recreate the local stack's own volume to re-import (`docker compose --env-file .local/docker.env down` then `docker volume rm swoovr-local_keycloak-data`), and never remove volumes you have not inspected. `./scripts/docker-local.sh realms` reapplies flow settings at any time.
+
+`./scripts/docker-local.sh root-admin` creates the fictional local root admin in the staff realm; its password and, after the first acceptance run, its test TOTP secret stay in `.local/swoovr-root-admin.json`.
+
+Optional acceptance with installed Edge and Playwright, with the stack and both hosts running:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/auth/members.browser.cjs
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/auth/root-admin.browser.cjs   # needs only the API host
+```
+
+It registers and signs in fictional accounts, uses a virtual passkey authenticator, deliberately locks one account and resets it, and saves screenshots to ignored `.local/auth-browser/`.
+
 ## Optional local browser investigation
 
 Node >=22 is required for the dependency-free harness and its tests. No npm install is needed. After the Docker stack is running, `./scripts/docker-local.sh auth-init` configures only local investigation resources; `./scripts/docker-local.sh auth` starts the fixed 127.0.0.1:8280 callback host. `node scripts/auth/provider-check.mjs` checks actual provider rejection behaviour. Follow the [browser slice](PHASE-1-BROWSER-INVESTIGATION.md) for private fixture handling, simulated-email limits, lifecycle and acceptance gaps. Application API/web authentication remains disconnected.
 
 ## Web appearance checks
 
-`/settings/appearance` offers all six schemes with independent System/Light/Dark and guest browser persistence. Account sync is not connected. Local builds must run with `ASPNETCORE_ENVIRONMENT=Development` to resolve development static web assets; published container output uses its production asset manifest. `./scripts/check.sh` now fetches the appearance page and linked scripts/styles as well as the foundation HTML.
+`/settings/appearance` offers all eight schemes with independent System/Light/Dark and guest browser persistence. Account sync is not connected. Local builds must run with `ASPNETCORE_ENVIRONMENT=Development` to resolve development static web assets; published container output uses its production asset manifest. `./scripts/check.sh` now fetches the appearance page and linked scripts/styles as well as the foundation HTML.
 
 Optional actual-browser acceptance uses Playwright and installed Edge (not installed by checks). Start the local web host, then run:
 
@@ -65,7 +95,7 @@ Optional actual-browser acceptance uses Playwright and installed Edge (not insta
 SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/appearance/web.browser.cjs
 ```
 
-If Playwright resolves through normal Node modules, omit that variable. `SWOOVR_WEB_URL` may select another loopback port (default http://127.0.0.1:5081). Screenshots go to ignored `.local/appearance-browser/`; override `SWOOVR_BROWSER_OUTPUT` if needed. The test verifies 18 preferences/12 computed palette pairs, requested/System behavior, reload/reset, cross-tab events, keyboard, completed enhanced navigation and 320px/200% text. Storage denial is injected for that error-path test. This is not screen-reader/device or account-sync acceptance.
+If Playwright resolves through normal Node modules, omit that variable. `SWOOVR_WEB_URL` may select another loopback port (default http://127.0.0.1:5081). Screenshots go to ignored `.local/appearance-browser/`; override `SWOOVR_BROWSER_OUTPUT` if needed. The test verifies 24 preferences/16 computed palette pairs, requested/System behavior, reload/reset, cross-tab events, keyboard, completed enhanced navigation and 320px/200% text. Storage denial is injected for that error-path test. This is not screen-reader/device or account-sync acceptance.
 
 After canonical token edits, `python3 scripts/check_design.py --write` also regenerates production `themes.css` and `appearance-palettes.js`; `--check` rejects drift. Do not edit generated assets directly.
 

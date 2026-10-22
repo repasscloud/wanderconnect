@@ -83,3 +83,33 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
 | D30 | CONFIRMED, owner 22 October 2026 | Product and codebase use Swoovr; lowercase identifiers use swoovr | Supersedes D07 namespace/name separation and the naming shortlist. Rename solutions, seven projects, test project, namespaces, UI, scripts, local realm/Compose IDs and documentation. Preserve real external URLs and historical evidence; no production deployment or store clearance implied. See [conventions](../architecture/NAMING.md) and [migration](SWOOVR-RENAME-2026-10-22.md). |
+
+## Keycloak application integration — 22 October 2026
+
+Owner answers given while designing the [Keycloak integration](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md). The design document was approved by the owner on 22 October 2026; its DEFAULT and VERIFY items are not decisions.
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D31 | CONFIRMED, owner 22 October 2026 | Three Keycloak realms: members, venues, staff. Venue organisations may later sign in with email or their own SSO | Supersedes the shared-account part of D12; a person who is both member and venue partner has separate accounts. Social providers exist only in the members realm |
+| D32 | CONFIRMED, owner 22 October 2026 | Repass Cloud employees sign in with Microsoft 365 / Entra ID SSO; web portal only (mobile browser allowed, no app sign-in) | Adds corporate SSO as a privileged method; replaces D14's email-session mechanics for staff. Consumer Apple/Google stay excluded |
+| D33 | CONFIRMED, owner 22 October 2026 | Passkeys are in scope for members; custom QR-code sign-in is dropped | Supersedes "passkeys OPEN". Passkey cross-device sign-in covers the QR use case |
+| D34 | CONFIRMED, owner 22 October 2026 | Member and venue email sign-in links, implemented inside Keycloak (custom authenticator) | Answers Q02 for members. If impractical, remove and document why |
+| D35 | CONFIRMED, owner 22 October 2026 | The Swoovr API must never mint sign-in tokens or obtain sessions on a user's behalf | No impersonation role, no user-token exchange for the API, no API-created login links |
+| D36 | CONFIRMED, owner 22 October 2026 | One root admin: username/password only with MFA enforced | Exception to optional MFA (D03) for this account only |
+| D37 | CONFIRMED, owner 22 October 2026 | Lock an account for 15 minutes after 3 failed password attempts; a completed password reset clears the lock immediately | Revised by the owner the same day from lock-until-reset, to limit deliberate lockout. Keycloak temporary brute-force lockout |
+| D38 | CONFIRMED, owner 22 October 2026 | Never link accounts by matching email; reauthenticate before linking/unlinking; handle Apple private relay addresses | Restates product policy as owner-confirmed |
+| D39 | CONFIRMED, owner 22 October 2026 | Production `https://swoovr.app`, UAT `https://uat.swoovr.app` (UAT moves to separate Azure billing later); email via the MailerSend HTTP API (not SMTP); daily backups of Keycloak and the database | Passkey relying-party IDs follow these domains. No deployment or account configured |
+| D40 | CONFIRMED, owner 22 October 2026 | Registration requires an "I'm 18 or over" checkbox; DOB entered at profile setup and stored; under-18 DOB locks the account; AI profile review can require Stripe age verification; support/admin can override to adult; an 18+ DOB is not "age verified" | Keycloak holds only the attestation; age status is application-owned. Stripe Identity answers Q04's provider choice only |
+| D41 | CONFIRMED, owner 22 October 2026 | Keycloak pages use Standard only, light/dark from the device, no scheme picker or remembered scheme; claims footer on every page; provider brand rules for Apple/Google; emails in Standard light | Uses the supplied `keycloak.v2` theme after version checks |
+
+## Keycloak members slice — 22 October 2026
+
+Implementation choices made while building the first slice of the [integration design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md). All are reversible; see the [slice record](PHASE-1-KEYCLOAK-MEMBERS.md) for evidence.
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D42 | DEFAULT, implementation 22 October 2026 | Member-area access requires the members realm, an active session and verified email, but no particular sign-in method | Realm separation (D31) makes method evidence a privileged-only concern. Needed because Keycloak's email-first registration session carries no AMR. Venue and staff areas still require positive method evidence |
+| D43 | DEFAULT, implementation 22 October 2026 | The 18+ checkbox is Keycloak's built-in registration terms step (relabelled) plus the `TERMS_AND_CONDITIONS` default required action | Server-enforced before any account exists; records the attestation time, emitted as `swoovr_adult_attested_at`; also asks brokered accounts. The user-profile checkbox approach failed on 26.8.1 |
+| D44 | DEFAULT, observed Keycloak 26.8.1 behaviour | Keep email verification on, which makes registration email-first (password after the link) | No password can be set on an unverified address |
+| D45 | DEFAULT, implementation 22 October 2026 | Passkeys enabled only in the members realm | 26.8.1 reports a passkey used on the sign-in form as `pwd`; that would blur privileged evidence in venues/staff. Splitting the flow is follow-up work |
+| D46 | DEFAULT, implementation 22 October 2026 | AMR references use a 12-hour `maxAge`, matching the SSO session | Keycloak's default 0 drops the reference after the authentication second. Privileged freshness stays on `auth_time` (12 hours) and future step-up |

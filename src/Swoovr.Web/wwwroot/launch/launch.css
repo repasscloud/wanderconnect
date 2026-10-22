@@ -1,0 +1,55 @@
+/* Launch splash, ported from docs/design/reference/login.html (.splash). The web runs the same steps
+   with every time scaled by --k (0.6 → about 2.2 s in total, UI-STYLE.md). Underneath is the blank
+   sign-in page colour (Standard surface), so the Keycloak screen arrives on the same white or dark. */
+:root {
+  --k: .6;
+  --ink: #0A0A0A;
+  --white: #FFFFFF;
+  --page: #FFFFFF;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-in-out: cubic-bezier(.76, 0, .24, 1);
+}
+@media (prefers-color-scheme: dark) { :root { --page: #161616; } }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--page) !important; overflow: hidden;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;
+}
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.splash {
+  position: fixed; inset: 0; z-index: 1; background: var(--ink); color: var(--white);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  clip-path: inset(0 0 0 0 round 0);
+}
+.splash .mark { width: 132px; height: 112px; }
+.splash .mark path { fill: transparent; stroke: var(--white); stroke-width: 3; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.splash .word { margin-top: 22px; font-size: 30px; font-weight: 700; letter-spacing: 9px; padding-left: 9px; display: flex; overflow: hidden; }
+.splash .word span { display: inline-block; transform: translateY(110%); }
+.splash .bar { margin-top: 34px; width: 120px; height: 1px; background: rgba(255, 255, 255, .18); overflow: hidden; }
+.splash .bar i { display: block; height: 100%; width: 100%; background: var(--white); transform: scaleX(0); transform-origin: left; }
+.splash .tag { position: absolute; bottom: 52px; font-size: 12px; letter-spacing: .4px; color: rgba(255, 255, 255, .55); opacity: 0; }
+
+.play .splash .mark path {
+  animation: draw calc(1.3s * var(--k)) var(--ease-in-out) calc(.15s * var(--k)) forwards,
+             fill calc(.5s * var(--k)) ease calc(1.25s * var(--k)) forwards;
+}
+.play .splash .word span { animation: rise calc(.7s * var(--k)) var(--ease) forwards; animation-delay: calc((1.2s + var(--i) * 55ms) * var(--k)); }
+.play .splash .bar i { animation: load calc(1.5s * var(--k)) var(--ease-in-out) calc(.9s * var(--k)) forwards; }
+.play .splash .tag { animation: fadeIn calc(.6s * var(--k)) ease calc(1.5s * var(--k)) forwards; }
+.play .splash { animation: wipe calc(.9s * var(--k)) var(--ease-in-out) calc(2.75s * var(--k)) forwards; }
+
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fill { to { fill: var(--white); stroke-width: 0; } }
+@keyframes rise { to { transform: translateY(0); } }
+@keyframes load { to { transform: scaleX(1); } }
+@keyframes fadeIn { to { opacity: 1; } }
+@keyframes wipe { to { clip-path: inset(0 0 100% 0 round 0 0 48px 48px); } }
+
+/* Reduced motion: the finished logo for about 600 ms, then a plain cross-fade to the sign-in page. */
+.calm .splash .mark path { fill: var(--white); stroke-width: 0; }
+.calm .splash .word span { transform: none; }
+.calm .splash .bar i { transform: scaleX(1); }
+.calm .splash .tag { opacity: 1; }
+.calm .splash { animation: fadeOut .3s ease .6s forwards; }
+@keyframes fadeOut { to { opacity: 0; } }
