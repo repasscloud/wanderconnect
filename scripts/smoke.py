@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Launch built portable hosts, assert HTTP responses, always clean up processes."""
+import base64
 import json
 import os
 from pathlib import Path
@@ -36,7 +37,8 @@ try:
         assert 'Swoovr' in html and 'not connected' in html
     check_web_assets(web)
     # Without a token, or with a malformed one, the session endpoint is 401 and never 500.
-    for header in [None, 'Bearer not.a.token', 'Bearer abc', 'Basic Zm9vOmJhcg==']:
+    # The Basic value is random per run: a wrong scheme, never a stored credential.
+    for header in [None, 'Bearer not.a.token', 'Bearer abc', 'Basic ' + base64.b64encode(os.urandom(12)).decode()]:
         request = urllib.request.Request(api+'api/v1/session', headers={'Authorization': header} if header else {})
         try: urllib.request.urlopen(request); raise AssertionError('session must require a valid token')
         except urllib.error.HTTPError as error: assert error.code == 401, (header, error.code)
