@@ -15,7 +15,7 @@ CONFIRMED, owner 23 October 2026 (D55):
 
 | Flag | Meaning (working) | Set by | Badge (UI-STYLE.md, brand-colours.json) | Status |
 | --- | --- | --- | --- | --- |
-| Founding member | Joined during the founding period | The application; criteria OPEN | Gold bird `#D4AF37` | Badge drawn; criteria OPEN |
+| Founding member | One of the first 1,000 founding members, activated after onboarding and Photo and/or ID verification; permanent even without a paid subscription (Q08, D63) | The application, from the founding programme | Gold bird `#D4AF37` ("Swoovr Founder") | CONFIRMED (D63) |
 | Photo verified | Profile photos matched to a verification photo; does not prove age | The application, after a photo check; process OPEN | Blue `#087CFA` portrait with tick | Badge drawn; check OPEN |
 | ID verified | Government ID and age checked | The application, from the identity provider's outcome (Stripe Identity, D40) | Teal `#00AAA0` card with tick | Badge drawn; integration OPEN (Q04) |
 | Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED; how it affects age status OPEN (Q11) |
@@ -52,5 +52,5 @@ Until the set is final, the segmented control and intention chips take their lab
 
 ## Open questions
 
-- **Q11.** Remaining flag rules: founding-member criteria; whether admin verified changes age status (for example D40's staff override to adult); whether someone can show several badges at once; whether bot and employee accounts appear in discovery. Answered: employee badge (D57) and admin verified (D58).
+- **Q11.** Remaining flag rules: whether admin verified changes age status (for example D40's staff override to adult); whether someone can show several badges at once; whether bot and employee accounts appear in discovery. Answered: founding member (D63), employee badge (D57) and admin verified (D58).
 - **Q12.** The final set of modes and how they relate to intentions and discovery contexts.

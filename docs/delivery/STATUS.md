@@ -28,7 +28,7 @@ Follow [local development](LOCAL-DEVELOPMENT.md) for tools and commands. Run `./
 
 1. Continue the [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md#delivery-order-default): persistence for accounts/roles/invitations, Apple/Google brokering once registrations exist, email sign-in link and MailerSend extension, venue and staff portals (Entra, root admin OTP), then mobile. Q03 (authenticated web rendering) and Q09 (mobile tooling) remain OPEN; Q02 is answered (D34).
 2. Add persistence for real accounts/profiles and connect authenticated client journeys. PostgreSQL remains a DEFAULT, not a configured service. Keep privacy/media/authorization rules server-side.
-3. Connect account appearance, live discovery/location/identity, messaging, meeting plans and private feedback. Resolve Q04 verification and Q05 pre-arrival reply policy before enabling dependent behavior.
-4. Implement venue/commerce sandbox after the core loop; Q06 governs real financial responsibilities. Complete operations/device/security/accessibility/store gates before a pilot (Q07/Q08).
+3. Connect account appearance, live discovery/location/identity, messaging, meeting plans and private feedback. Resolve Q04 verification before enabling dependent behavior; the pre-arrival reply policy is answered (D60). Signed-in features move to Interactive WebAssembly (D59).
+4. Implement venue/commerce sandbox after the core loop; real money follows D61 once integrations and agreements are validated. Complete operations/device/security/accessibility/store gates before the Adelaide private beta (D62) and publishing (D63).
 
 Owner attention should focus on the earliest material blocker, one question at a time under the [decision process](DECISIONS.md). Continue independent work without inventing provider capabilities, credentials, pricing or authorization. No deployment is authorized by this rename.
