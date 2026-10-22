@@ -128,3 +128,9 @@ Choices made while building the [UI style](../design/reference/UI-STYLE.md) comp
 | D52 | DEFAULT, implementation 22 October 2026 | Filters are a native `popover` bottom sheet on phones (no script) and an inline side panel at 760px and wider. The rule chips (Long-term on; Casual and FWB struck through) are derived from the fixed viewer rules | Existing form fields, names and behaviour are unchanged |
 | D53 | DEFAULT, implementation 22 October 2026 | Where screenshot 13 (chat) and the UI-STYLE table differ, the table wins: their bubble is surface + hairline (not soft grey) and send is a round ink button (not an outline icon) | Matches UI-STYLE's rule that it overrides frames |
 | D54 | DEFAULT, implementation 22 October 2026 | `/prototype/components` (Development + `Prototype:Enabled` only) shows every shared component, including the Plan a date pieces that have no screen yet | Used by `tests/ui/components.browser.cjs`; closed in default and Production configuration |
+
+## Profile flags owner direction — 23 October 2026
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D55 | CONFIRMED, owner 23 October 2026 | Keycloak answers "who" (authentication, minimal data, the first 18+ catch at registration); the application database and API answer "what". Profile flags (founding member, photo verified, ID verified, admin verified, bot account, employee account) live on the profile in the application, never in Keycloak, and the API decides which badges a viewer sees | Clients draw only the badges the API returns. See [profile flags and modes](../product/08-PROFILE-FLAGS-AND-MODES.md); criteria and the admin-verified badge are Q11 |
