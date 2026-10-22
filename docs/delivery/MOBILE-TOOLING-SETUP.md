@@ -1,0 +1,77 @@
+# Mobile tooling setup (owner, macOS)
+
+Written 23 October 2026 for the owner's Apple Silicon Mac (D64: .NET 10 + MAUI, built and tested locally). It lists what is still missing after the overnight slice E and the exact commands to install it. Nothing here was installed overnight: the commands download several GB, change system locations or need administrator rights.
+
+## What this Mac already has (checked 23 October 2026)
+
+| Item | State |
+| --- | --- |
+| .NET SDK | 10.0.400 (pinned by `global.json`) |
+| `maui` workload | 10.0.110 installed (`dotnet workload list`) |
+| Xcode | 27.1 (27A9275); iOS 27.0 simulator runtime present |
+| Android SDK | **Missing** (`~/Library/Android/sdk` does not exist) |
+| Java (JDK) | **Missing** (`/usr/libexec/java_home` finds none) |
+
+See [validation](VALIDATION.md) (slice E) for what built with this setup.
+
+## 1. Confirm the workload and Xcode
+
+```sh
+dotnet workload list            # expect: maui 10.0.110 (or later) for SDK 10.0.400
+xcode-select -p                 # expect: /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept # once per Xcode version
+xcrun simctl list runtimes      # expect an iOS runtime
+```
+
+If `maui` is missing or older, install or update it. On macOS this needs administrator rights:
+
+```sh
+sudo dotnet workload install maui
+# or, to update an existing install:
+sudo dotnet workload update
+```
+
+## 2. Android SDK and JDK (one command)
+
+Microsoft's recommended route is the `InstallAndroidDependencies` build target. It installs the Android SDK components this project needs and, with `JavaSdkDirectory`, a Microsoft OpenJDK build tested with .NET for Android. Use absolute paths without `~` or spaces. Run it from the repository root:
+
+```sh
+dotnet build src/Swoovr.Mobile -t:InstallAndroidDependencies -f net10.0-android \
+  -p:AndroidSdkDirectory="$HOME/Library/Android/sdk" \
+  -p:JavaSdkDirectory="$HOME/Library/Developer/Java/jdk" \
+  -p:AcceptAndroidSDKLicenses=True
+```
+
+This accepts the Android SDK licences on your behalf (`AcceptAndroidSDKLicenses=True`); read them first if you prefer (`sdkmanager --licenses`). Then add to `~/.zshrc`:
+
+```sh
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export JAVA_HOME="$HOME/Library/Developer/Java/jdk"
+```
+
+Alternative: install [Microsoft OpenJDK](https://learn.microsoft.com/java/openjdk/download) (the .NET for Android docs name OpenJDK 21) and Android Studio, then point `JAVA_HOME` and `ANDROID_HOME` at them.
+
+## 3. Android emulator (Apple Silicon)
+
+```sh
+cd "$ANDROID_HOME/cmdline-tools/latest/bin"   # the folder name may be a version number
+./sdkmanager --install emulator "system-images;android-35;google_apis;arm64-v8a"
+./avdmanager create avd -n swoovr-pixel -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_7
+```
+
+Pick the system image API level that matches the Android target the build reports (D64 rule 9: current MAUI and Google Play requirements). API 35 is Microsoft's documented example, not a decision.
+
+## 4. Build and run
+
+```sh
+dotnet build src/Swoovr.Mobile -f net10.0-ios       # iOS simulator build (no signing needed)
+dotnet build src/Swoovr.Mobile -f net10.0-android   # after steps 2–3
+dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios
+dotnet build src/Swoovr.Mobile -t:Run -f net10.0-android
+```
+
+A physical iPhone needs an Apple Developer account, a provisioning profile and the bundle identifier (`com.swoovr.app` is a DEFAULT, not registered). Those belong to the store and TestFlight work (D63, D64), not this setup.
+
+## 5. Record the result
+
+Add the versions you installed (`dotnet workload list`, `xcodebuild -version`, `java -version`, `sdkmanager --list_installed`) and the build results to [validation](VALIDATION.md), and pin the workload set once it builds (D64: SDK pinned by `global.json` plus a workload set).

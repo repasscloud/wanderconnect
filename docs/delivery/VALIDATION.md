@@ -364,3 +364,23 @@ Executed locally (same environment as slice A; web on http://localhost:5081):
 - `docker build --target web -f containers/Dockerfile .`: succeeded with the WebAssembly client (image not run).
 
 Gaps: only the account page is WebAssembly; appearance sync, real Explore/profile/Chats pages and a Content Security Policy are planned in issue #27. No screen-reader or phone-device check of the new page; first load shows "Loading your account…" until WebAssembly starts (no prerendering, D85).
+
+## Slice E: MAUI on the iOS simulator — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D87–D88. Owner setup for the rest: [mobile tooling setup](MOBILE-TOOLING-SETUP.md).
+
+Environment: macOS 27.0.1 (26A434), Xcode 27.1 (27A9275), .NET SDK 10.0.400, `maui` workload 10.0.110 (iOS SDK pack 27.1.10018), iOS 27.0 simulator runtime. No Android SDK or JDK.
+
+First MAUI build on this machine; three defects found and fixed:
+
+1. **Invalid XML.** `Colors.xaml` and the Android `colors.xml` are generated with a header comment containing `--write`, which is not allowed inside an XML comment, so XAML compilation failed (`MAUIG1001`). `scripts/check_design.py` now writes "in write mode" and fails the check if any MAUI `.xaml`/`.xml` file is not well-formed, so a machine without the workload catches it.
+2. **No UIScene life cycle.** The app installed but iOS refused to launch it ("UIScene life cycle is required for apps built with this SDK"). Added `Platforms/iOS/SceneDelegate.cs` and the scene manifest in `Info.plist` (D88). An incremental build kept the old `Info.plist`; a clean build was needed.
+3. **Launch splash never started.** `LaunchPage` started only on the page's `SizeChanged`, which arrives before the bird is measured, so the step 2 sequence never ran and the page sat on its static layout with no hand-off to the shell. It now also starts on the bird's `SizeChanged`.
+
+Executed locally:
+
+- `dotnet build src/Swoovr.Mobile -f net10.0-ios`: Build succeeded, 0 warnings, 0 errors (simulator, `iossimulator-arm64`, Debug).
+- `dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios -p:_DeviceName=:v2:udid=<iPhone 18 Pro simulator>`: launches. A burst of simulator screenshots shows the native ink splash, then the bird filled with "swoovr", the hairline and the "Dating · Friendship · Activities" line, the ink sheet wiping up with rounded bottom corners, and finally the shell's `MainPage` in Helvetica Neue with the `PageTitle` style. An iPad simulator also launched.
+- `python3 scripts/check_design.py --check`: PASS with the new XML guard; `./scripts/check.sh`: PASS.
+
+Not run or not verified: Android (no SDK/JDK; see the setup guide), a physical device, Release/AOT builds, reduced-motion on iOS, VoiceOver, dark mode on device, the step 3 MAUI component styles on any screen (no screen uses them yet), and mobile sign-in (Keycloak hand-off from the app is not built). The app icon is still the MAUI template (purple ".NET" square); no Swoovr icon asset has been supplied.

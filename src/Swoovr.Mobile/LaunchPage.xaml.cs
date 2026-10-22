@@ -18,7 +18,9 @@ public partial class LaunchPage : ContentPage
     {
         this.done = done;
         InitializeComponent();
+        // The page is sized before the bird is measured, so start on whichever arrives last.
         SizeChanged += (_, _) => Start();
+        Bird.SizeChanged += (_, _) => Start();
     }
 
     private void Start()
