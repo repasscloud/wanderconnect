@@ -48,7 +48,7 @@ Until the set is final, the segmented control and intention chips take their lab
 
 - Web: `Components/UI/Badge.razor` draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. Admin verified has no badge by design (D58).
 - MAUI: badge colours in `Colors.xaml`; no badge drawing yet.
-- API: `member_profiles` stores the flags, verification statuses and optional DOB/age (D69, D70); `BadgePolicy` returns the badges to show (D74) and `/api/v1/me` returns the member's own. No other-profile endpoint, flag-setting admin routes or verification integrations yet.
+- API: `member_profiles` stores the flags, verification statuses and optional DOB/age (D69, D70); `BadgePolicy` returns the badges to show (D74) and `/api/v1/me` returns the member's own. Founding status is granted by an admin route and restorable with the recovery token (D79–D81). No other-profile endpoint, other flag-setting admin routes or verification integrations yet.
 
 ## Open questions
 

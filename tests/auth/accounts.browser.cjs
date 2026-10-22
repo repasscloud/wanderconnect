@@ -4,7 +4,7 @@
 // (tests/auth/root-admin.browser.cjs) and a Debug build of the API for operator commands.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims } = require('./local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, membersRealm, mailTo, sleep } = require('./local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -150,7 +150,71 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     await assert.rejects(cli('beta', 'add', 'not-an-email'), /./); pass();
     assert.equal(await sql(`SELECT count(*) FROM beta_enrolments WHERE email = 'fictional.tester.one@example.test' AND revoked_at IS NULL`), '1'); pass();
 
+    // Founding membership and recovery token (D63, D65).
+    const dave = await createMember('dave'); const erin = await createMember('erin');
+    await cli('beta', 'add', dave.email, erin.email);
+    let daveToken = await memberToken(browser, dave); const erinToken = await memberToken(browser, erin);
+    assert.equal((await call(daveToken, '/api/v1/me')).status, 200); assert.equal((await call(erinToken, '/api/v1/me')).status, 200);
+    const daveId = (await call(rootToken, '/api/v1/admin/accounts?email=' + encodeURIComponent(dave.email))).body[0].id;
+    assert.equal((await call(aliceToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).status, 403, 'members cannot grant'); pass();
+    const placesBefore = Number(await sql('SELECT count(*) FROM founder_places'));
+    const grant = await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' });
+    assert.equal(grant.status, 201); assert.equal(grant.body.emailSent, true); assert.equal(grant.body.place, placesBefore + 1); pass();
+    assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'already-founder'); pass();
+    let mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(dave.email); if (!mail.length) await sleep(250); }
+    const firstCode = mail[0].match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
+    assert.ok(firstCode, 'founder code emailed through the local mail sink'); pass();
+    me = await call(daveToken, '/api/v1/me');
+    assert.deepEqual(me.body.badges.map(b => b.badge), ['founder']); pass();
+    assert.equal((await call(daveToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode.toLowerCase() } })).status, 200, 'own code is a no-op'); pass();
+    // A shared or sold code fails for anyone else, and every refusal reads the same.
+    let refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
+    assert.deepEqual([refused.status, refused.body.code], [400, 'coupon-invalid']); pass();
+    for (const code of ['WELCOME10', 'FOUNDER-V1-' + '0'.repeat(64), 'FOUNDER-V9-' + firstCode.slice(11), 'FOUNDER-nonsense'])
+    { refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code } }); assert.deepEqual([refused.status, refused.body.code], [400, 'coupon-invalid'], code); pass(); }
+    refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
+    assert.deepEqual([refused.status, refused.body.code], [429, 'too-many-attempts'], 'five failures an hour, then refused'); pass();
+    assert.equal((await call(erinToken, '/api/v1/me')).body.badges.length, 0); pass();
+    // Email change (owner answer): a new code for the new address; the old one stops working.
+    const realmApi = await membersRealm();
+    const daveUser = (await realmApi('/users?exact=true&email=' + encodeURIComponent(dave.email)))[0];
+    const changedEmail = 'changed.' + dave.email;
+    await realmApi('/users/' + daveUser.id, 'PUT', { ...daveUser, username: changedEmail, email: changedEmail, emailVerified: true });
+    daveToken = await memberToken(browser, { email: changedEmail, password: dave.password });
+    assert.equal((await call(daveToken, '/api/v1/me')).status, 200, 'beta access follows the account after an email change'); pass();
+    mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(changedEmail); if (!mail.length) await sleep(250); }
+    const secondCode = mail[0]?.match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
+    assert.ok(secondCode && secondCode !== firstCode, 'new code for the new address'); pass();
+    let tokens = (await call(rootToken, '/api/v1/admin/founder-tokens?place=' + grant.body.place)).body;
+    assert.deepEqual(tokens.map(t => [t.status, t.invalidatedReason, t.secretVersion]), [['invalidated', 'email-changed', 1], ['valid', null, 1]]); pass();
+    assert.equal(JSON.stringify(tokens).includes('FOUNDER-'), false, 'admins never see the code'); pass();
+    // Deletion and return: the account row goes, the token row stays; a new account restores the same place.
+    await sql(`DELETE FROM accounts WHERE id = '${daveId}'`);
+    await realmApi('/users/' + daveUser.id, 'DELETE');
+    const returning = { email: changedEmail, password: 'Correct-horse-' + Date.now() };
+    await realmApi('/users', 'POST', { username: changedEmail, email: changedEmail, firstName: 'Fictional', enabled: true, emailVerified: true,
+      credentials: [{ type: 'password', value: returning.password, temporary: false }] });
+    await cli('beta', 'add', changedEmail);
+    const returnToken = await memberToken(browser, returning);
+    assert.notEqual(claims(returnToken).sub, daveUser.id); assert.deepEqual((await call(returnToken, '/api/v1/me')).body.badges, []); pass();
+    refused = await call(returnToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
+    assert.equal(refused.status, 400, 'the invalidated code no longer restores'); pass();
+    const restored = await call(returnToken, '/api/v1/me/coupons', { method: 'POST', body: { code: secondCode } });
+    assert.equal(restored.status, 200); assert.deepEqual(restored.body.badges.map(b => b.badge), ['founder']); pass();
+    assert.equal(Number(await sql('SELECT count(*) FROM founder_places')), placesBefore + 1, 'restoring never takes a new place'); pass();
+    assert.equal(await sql(`SELECT founder_place FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`), String(grant.body.place)); pass();
+    // Admins can invalidate and delete tokens; the live account keeps its status.
+    const live = tokens.find(t => t.status === 'valid');
+    assert.equal((await call(rootToken, `/api/v1/admin/founder-tokens/${live.id}/invalidate`, { method: 'POST' })).status, 204); pass();
+    assert.equal((await call(rootToken, '/api/v1/admin/founder-tokens/' + tokens[0].id, { method: 'DELETE' })).status, 204); pass();
+    tokens = (await call(rootToken, '/api/v1/admin/founder-tokens?place=' + grant.body.place)).body;
+    assert.deepEqual(tokens.map(t => [t.status, t.invalidatedReason]), [['invalidated', 'admin']]); pass();
+    assert.deepEqual((await call(returnToken, '/api/v1/me')).body.badges.map(b => b.badge), ['founder']); pass();
+    for (const [method, path] of [['GET', '/api/v1/admin/founder-tokens?place=1'], ['POST', `/api/v1/admin/founder-tokens/${live.id}/invalidate`], ['DELETE', `/api/v1/admin/founder-tokens/${live.id}`]])
+    { assert.equal((await call(erinToken, path, { method })).status, 403, method + ' ' + path); pass(); }
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE detail LIKE '%FOUNDER%' OR target_id LIKE '%FOUNDER%' OR detail LIKE '%@%'`), '0', 'no code or address in the audit log'); pass();
+
     for (const extra of extras) await extra();
-    console.log(`PASS: ${passed} account checks against the API and PostgreSQL with real local Keycloak tokens: (issuer, subject) accounts, member area only for members, age entry (DOB, age, blank, invalid) and under-18 lock, admin routes refused to members and unauthenticated callers, root admin only from the application record, staff/venue invitations (validation, revoke) never granting a member account by matching email, adult override, no email in the audit log; private beta gate (not-enrolled API refusal and web notice with the swoovr.com/beta link, admin add/list/revoke, activation bound to the account, revocation ends access, staff not gated, file import by operator command).`);
+    console.log(`PASS: ${passed} account checks against the API and PostgreSQL with real local Keycloak tokens: (issuer, subject) accounts, member area only for members, age entry (DOB, age, blank, invalid) and under-18 lock, admin routes refused to members and unauthenticated callers, root admin only from the application record, staff/venue invitations (validation, revoke) never granting a member account by matching email, adult override, no email in the audit log; private beta gate (not-enrolled API refusal and web notice with the swoovr.com/beta link, admin add/list/revoke, activation bound to the account, revocation ends access, staff not gated, file import by operator command); founding membership (admin grant, code emailed to the mail sink, founder badge, shared/sold/unknown codes refused alike, 5 failures an hour then 429, email change reissues and invalidates, delete-and-return restores the same place, admin invalidate/delete, codes never shown to admins or written to the audit log).`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

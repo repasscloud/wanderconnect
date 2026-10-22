@@ -103,6 +103,41 @@ static class AccountPolicyChecks
         Check("allows enrolled and not required only", BetaAccessPolicy.Allows(BetaAccess.Enrolled) && BetaAccessPolicy.Allows(BetaAccess.NotRequired)
             && !BetaAccessPolicy.Allows(BetaAccess.NotEnrolled) && !BetaAccessPolicy.Allows(BetaAccess.Unavailable));
 
-        Console.WriteLine($"PASS: {count} account policy cases (email normalisation, age entry and lock, badges, invitations, beta gate).");
+        // Founder recovery token (D65): HMAC of the verified email under a versioned secret.
+        var secret = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
+        var other = Enumerable.Range(2, 32).Select(i => (byte)i).ToArray();
+        var code = FounderTokenCodec.Issue(" Founder@Example.test ", 1, secret);
+        Check("format FOUNDER-V1- + 64 hex", code.Length == "FOUNDER-V1-".Length + 64 && code.StartsWith("FOUNDER-V1-") && code[11..].All(Uri.IsHexDigit));
+        // Same payload and HMAC as the owner's sketch (QUESTIONS.md), upper-case hex.
+        var sketch = Convert.ToHexString(System.Security.Cryptography.HMACSHA256.HashData(secret, System.Text.Encoding.UTF8.GetBytes("swoovr:founder:v1:founder@example.test")));
+        Check("matches the owner's sketch", code == "FOUNDER-V1-" + sketch);
+        Check("deterministic", code == FounderTokenCodec.Issue("founder@example.test", 1, secret));
+        Check("version is part of the payload", FounderTokenCodec.Issue("founder@example.test", 2, secret)[11..] != code[11..]);
+        Check("parse canonical", FounderTokenCodec.TryParse(code, out var canonical, out var parsedVersion) && canonical == code && parsedVersion == 1);
+        Check("parse lower case and spaces", FounderTokenCodec.TryParse("  " + code.ToLowerInvariant() + " ", out var lower, out _) && lower == code);
+        foreach (var bad in new[] { null, "", "FOUNDER-", "FOUNDER-V1-", "FOUNDER-V0-" + sketch, "FOUNDER-V-" + sketch, "FOUNDER-V1-" + sketch[..63], "FOUNDER-V1-" + sketch + "0",
+            "FOUNDER-V1-" + sketch[..62] + "ZZ", "FOUNDER-V+1-" + sketch, "COUPON-V1-" + sketch, sketch })
+            Check($"reject {bad}", !FounderTokenCodec.TryParse(bad, out _, out _));
+        Check("prefix routes to founder check", FounderTokenCodec.IsFounderCode("founder-anything") && !FounderTokenCodec.IsFounderCode("WELCOME10") && !FounderTokenCodec.IsFounderCode(null));
+        Check("same email matches", FounderTokenCodec.Matches(code, 1, "FOUNDER@example.test", secret));
+        Check("another email fails (sold or shared code)", !FounderTokenCodec.Matches(code, 1, "buyer@example.test", secret));
+        Check("another secret fails", !FounderTokenCodec.Matches(code, 1, "founder@example.test", other));
+        Check("another version fails", !FounderTokenCodec.Matches(code, 2, "founder@example.test", secret));
+        Check("no email fails", !FounderTokenCodec.Matches(code, 1, null, secret));
+        Check("short secret refused", !FounderTokenCodec.Matches(code, 1, "founder@example.test", secret[..16]));
+        var row = new FounderToken { Code = code, SecretVersion = 1, Place = 7, Status = FounderTokenStatus.Valid };
+        var fresh = new MemberProfile();
+        FounderRedeemOutcome Redeem(FounderToken? t, bool verified = true, string? email = "founder@example.test", byte[]? key = null, MemberProfile? p = null) =>
+            FounderRedeemPolicy.Evaluate(t, code, 1, verified, email, key ?? secret, p ?? fresh);
+        Check("valid token, same email restores", Redeem(row) == FounderRedeemOutcome.Restored);
+        Check("missing row refused", Redeem(null) == FounderRedeemOutcome.Rejected);
+        Check("invalidated row refused", Redeem(new FounderToken { Code = code, SecretVersion = 1, Place = 7, Status = FounderTokenStatus.Invalidated }) == FounderRedeemOutcome.Rejected);
+        Check("version mismatch refused", Redeem(new FounderToken { Code = code, SecretVersion = 2, Place = 7 }) == FounderRedeemOutcome.Rejected);
+        Check("unverified email refused", Redeem(row, verified: false) == FounderRedeemOutcome.Rejected);
+        Check("other email refused", Redeem(row, email: "buyer@example.test") == FounderRedeemOutcome.Rejected);
+        Check("unknown secret version refused", FounderRedeemPolicy.Evaluate(row, code, 1, true, "founder@example.test", null, fresh) == FounderRedeemOutcome.Rejected);
+        Check("already holding that place", Redeem(row, p: new MemberProfile { FoundingMember = true, FounderPlace = 7 }) == FounderRedeemOutcome.AlreadyFounder);
+
+        Console.WriteLine($"PASS: {count} account policy cases (email normalisation, age entry and lock, badges, invitations, beta gate, founder token).");
     }
 }

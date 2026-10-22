@@ -104,4 +104,16 @@ async function call(token, path, { method = 'GET', body } = {}) {
   return { status: response.status, body: text ? JSON.parse(text) : null };
 }
 
-module.exports = { keycloak, api, web, sleep, claims, localEnv, createMember, memberToken, rootAdminToken, cli, sql, call };
+/** The local members realm's admin API (management only, never sign-in evidence). */
+async function membersRealm() {
+  const { localRealmApi } = await import('../../scripts/auth/provision.mjs');
+  return localRealmApi({ realm: 'swoovr-members-dev' });
+}
+
+/** Text bodies of the local mail sink's messages to one address, newest first. */
+async function mailTo(address) {
+  const list = await (await fetch('http://127.0.0.1:8025/api/v1/search?query=' + encodeURIComponent(`to:"${address}"`))).json();
+  return Promise.all((list.messages ?? []).map(async m => (await (await fetch(`http://127.0.0.1:8025/api/v1/message/${m.ID}`)).json()).Text));
+}
+
+module.exports = { keycloak, api, web, sleep, claims, localEnv, createMember, memberToken, rootAdminToken, cli, sql, call, membersRealm, mailTo };

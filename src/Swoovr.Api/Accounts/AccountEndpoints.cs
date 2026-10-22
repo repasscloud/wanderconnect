@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Swoovr.Contracts;
 using Swoovr.Domain;
 
@@ -31,6 +32,7 @@ public static class AccountEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             return denied ?? Results.Ok(View(current!.Profile!, Today(clock)));
         });
+        me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -59,6 +61,54 @@ public static class AccountEndpoints
                 ? Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountLocked, "This account is locked.")
                 : Results.Ok(View(profile, Today(clock)));
         });
+    }
+
+    /// <summary>
+    /// The coupon code screen. Founder codes (FOUNDER- prefix) go to the founder check (D65);
+    /// there are no ordinary coupons yet. Every refusal reads the same, and failed attempts are
+    /// audited and limited per account.
+    /// </summary>
+    private static async Task<IResult> RedeemAsync(CouponRequest request, ClaimsPrincipal user, AccountResolver accounts, Founders founders,
+        TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+        if (denied is not null) return denied;
+        var (account, profile, db) = (current!.Account!, current.Profile!, accounts.Db!);
+        var now = clock.GetUtcNow();
+        if (await founders.RecentFailuresAsync(account.Id, now, cancellationToken) >= Founders.AttemptsPerHour)
+            return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.TooManyAttempts, "Too many attempts. Try again later.");
+        FounderToken? token = null;
+        var outcome = FounderRedeemOutcome.Rejected;
+        if (FounderTokenCodec.IsFounderCode(request.Code) && FounderTokenCodec.TryParse(request.Code, out var canonical, out var version))
+        {
+            token = await db.FounderTokens.SingleOrDefaultAsync(t => t.Code == canonical, cancellationToken);
+            outcome = FounderRedeemPolicy.Evaluate(token, canonical, version, current.Facts.EmailVerified, current.VerifiedEmail,
+                founders.Secrets.GetValueOrDefault(version), profile);
+            // One live account per place; another live holder means this account cannot take it.
+            if (outcome == FounderRedeemOutcome.Restored
+                && await db.MemberProfiles.AnyAsync(p => p.FounderPlace == token!.Place && p.AccountId != account.Id, cancellationToken))
+                outcome = FounderRedeemOutcome.Rejected;
+        }
+        if (outcome == FounderRedeemOutcome.Rejected)
+        {
+            var kind = FounderTokenCodec.IsFounderCode(request.Code) ? "founder" : "other";
+            Audit.Record(db, now, account.Id, "account", "coupon.rejected", "account", account.Id.ToString(), kind);
+            await db.SaveChangesAsync(cancellationToken);
+            return Problem(StatusCodes.Status400BadRequest, ProblemCodes.CouponInvalid, "That code can't be used.");
+        }
+        if (outcome == FounderRedeemOutcome.Restored)
+        {
+            var place = await db.FounderPlaces.SingleAsync(p => p.Place == token!.Place, cancellationToken);
+            // Restoring keeps the original start, so it never restarts the free Plus period (D65).
+            (profile.FoundingMember, profile.FounderPlace, profile.FoundingSince) = (true, place.Place, place.GrantedAt);
+            Audit.Record(db, now, account.Id, "account", "founder.restored", "founder-token", token!.Id.ToString(), $"place:{place.Place}");
+            try { await db.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateException)
+            {
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.CouponInvalid, "That code can't be used.");
+            }
+        }
+        return Results.Ok(View(profile, DateOnly.FromDateTime(now.UtcDateTime)));
     }
 
     /// <summary>The caller as an active member with a profile, or the response that refuses them.</summary>

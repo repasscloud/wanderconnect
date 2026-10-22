@@ -304,7 +304,7 @@ Rules:
 
 #### Founder recovery token
 
-Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification and review answers of the same day. Not implemented. Privacy follow-up: [issue #22](https://github.com/repasscloud/wanderconnect/issues/22).
+Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification and review answers of the same day. Implemented locally on 23 October 2026 (D79–D81, admin-granted until verification exists); follow-ups in [issue #26](https://github.com/repasscloud/wanderconnect/issues/26). Privacy follow-up: [issue #22](https://github.com/repasscloud/wanderconnect/issues/22).
 
 Founding status survives account deletion through a token that Swoovr stores and the member keeps, so Swoovr need not keep the deleted profile.
 

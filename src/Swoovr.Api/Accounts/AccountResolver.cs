@@ -70,6 +70,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         var issuer = user.FindFirstValue("iss")!;
         var account = await Db.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject, cancellationToken)
             ?? await CreateAsync(issuer, facts, email, now, cancellationToken);
+        var emailChanged = email is not null && account.Email is not null && account.Email != email;
         if (email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
         {
             account.Email = email ?? account.Email;
@@ -78,8 +79,13 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         }
         MemberProfile? profile = null;
         if (facts.Realm == AccountRealm.Members)
+        {
             profile = await Db.MemberProfiles.FindAsync([account.Id], cancellationToken)
                 ?? await CreateProfileAsync(account.Id, facts, now, cancellationToken);
+            // D65: a founder whose verified email changed gets a new token; the old one stops working.
+            if (emailChanged && profile.FoundingMember)
+                await services.GetRequiredService<Founders>().ReissueForEmailChangeAsync(account, profile, now, cancellationToken);
+        }
         else
             await AcceptInvitationsAsync(account, facts, result, email, now, cancellationToken);
         var roles = await Db.RoleGrants.Where(r => r.AccountId == account.Id).ToListAsync(cancellationToken);

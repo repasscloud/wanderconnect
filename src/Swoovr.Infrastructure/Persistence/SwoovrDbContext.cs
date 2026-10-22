@@ -7,7 +7,7 @@ namespace Swoovr.Infrastructure.Persistence;
 /// <summary>
 /// The application database (DEFAULT PostgreSQL). Holds what Keycloak does not (D55):
 /// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details, beta
-/// enrolments (D62) and the audit log. Names are snake_case; enums are stored as their names
+/// enrolments (D62), founder places and tokens (D65) and the audit log. Names are snake_case; enums are stored as their names
 /// so a reordered enum can never change stored meaning.
 /// </summary>
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
@@ -18,6 +18,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<BetaEnrolment> BetaEnrolments => Set<BetaEnrolment>();
+    public DbSet<FounderPlace> FounderPlaces => Set<FounderPlace>();
+    public DbSet<FounderToken> FounderTokens => Set<FounderToken>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -45,6 +47,22 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             profile.HasKey(p => p.AccountId);
             profile.HasOne<Account>().WithOne().HasForeignKey<MemberProfile>(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+            profile.HasIndex(p => p.FounderPlace).IsUnique().HasFilter("founder_place IS NOT NULL");
+        });
+        model.Entity<FounderPlace>(place =>
+        {
+            place.HasKey(p => p.Place);
+            place.Property(p => p.Place).ValueGeneratedNever();
+            place.ToTable(t => t.HasCheckConstraint("ck_founder_places_place", "place >= 1"));
+        });
+        // Founder tokens hold no email and no account id, so they survive account deletion (D65).
+        model.Entity<FounderToken>(token =>
+        {
+            token.Property(t => t.Code).HasMaxLength(96);
+            token.HasIndex(t => t.Code).IsUnique();
+            token.HasIndex(t => t.Place);
+            token.Property(t => t.InvalidatedReason).HasMaxLength(32);
+            token.HasOne<FounderPlace>().WithMany().HasForeignKey(t => t.Place).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<BetaEnrolment>(enrolment =>
         {

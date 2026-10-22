@@ -188,6 +188,78 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("beta_enrolments");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
+                {
+                    b.Property<int>("Place")
+                        .HasColumnType("integer")
+                        .HasColumnName("place");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("granted_at");
+
+                    b.HasKey("Place")
+                        .HasName("pk_founder_places");
+
+                    b.ToTable("founder_places", t =>
+                        {
+                            t.HasCheckConstraint("ck_founder_places_place", "place >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("character varying(96)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset?>("InvalidatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invalidated_at");
+
+                    b.Property<string>("InvalidatedReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("invalidated_reason");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<int>("Place")
+                        .HasColumnType("integer")
+                        .HasColumnName("place");
+
+                    b.Property<int>("SecretVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("secret_version");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_founder_tokens");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_founder_tokens_code");
+
+                    b.HasIndex("Place")
+                        .HasDatabaseName("ix_founder_tokens_place");
+
+                    b.ToTable("founder_tokens");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -294,6 +366,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("employee");
 
+                    b.Property<int?>("FounderPlace")
+                        .HasColumnType("integer")
+                        .HasColumnName("founder_place");
+
                     b.Property<bool>("FoundingMember")
                         .HasColumnType("boolean")
                         .HasColumnName("founding_member");
@@ -324,6 +400,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("AccountId")
                         .HasName("pk_member_profiles");
+
+                    b.HasIndex("FounderPlace")
+                        .IsUnique()
+                        .HasDatabaseName("ix_member_profiles_founder_place")
+                        .HasFilter("founder_place IS NOT NULL");
 
                     b.ToTable("member_profiles");
                 });
@@ -367,6 +448,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("AccountId", "Role", "VenueId"), false);
 
                     b.ToTable("role_grants");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>
+                {
+                    b.HasOne("Swoovr.Domain.FounderPlace", null)
+                        .WithMany()
+                        .HasForeignKey("Place")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_founder_tokens_founder_places_place");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>

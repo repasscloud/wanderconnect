@@ -95,6 +95,77 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
+        // Founding membership (D63/D65). Until verification exists (Q04), an admin grants it.
+        admin.MapPost("/accounts/{id:guid}/founder", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, Founders founders, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var account = await db.Accounts.FindAsync([id], cancellationToken);
+            var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
+            if (account is null || profile is null) return Results.NotFound();
+            var grant = await founders.GrantAsync(account, profile, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
+            return grant.Outcome switch
+            {
+                FounderGrantOutcome.Granted => Results.Created($"/api/v1/admin/founder-tokens?place={grant.Place}", new FounderGrantView(grant.Place!.Value, grant.EmailSent)),
+                FounderGrantOutcome.AlreadyFounder => Problem(StatusCodes.Status409Conflict, ProblemCodes.AlreadyFounder, "This account is already a founding member."),
+                FounderGrantOutcome.PlacesFull => Problem(StatusCodes.Status409Conflict, ProblemCodes.FounderPlacesFull, "All founding places are taken."),
+                FounderGrantOutcome.NoVerifiedEmail => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.NoVerifiedEmail, "The account has no verified email."),
+                _ => Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Founder tokens are not configured."),
+            };
+        });
+
+        admin.MapPost("/accounts/{id:guid}/founder/resend", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, Founders founders, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (_, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var account = await db.Accounts.FindAsync([id], cancellationToken);
+            var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
+            if (account is null || profile is null) return Results.NotFound();
+            var sent = await founders.ResendAsync(account, profile, clock.GetUtcNow(), cancellationToken);
+            return sent is null ? Results.NotFound() : Results.Ok(new FounderGrantView(profile.FounderPlace!.Value, sent.Value));
+        });
+
+        admin.MapGet("/founder-tokens", async (int place, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (_, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var tokens = await accounts.Db!.FounderTokens.Where(t => t.Place == place).OrderBy(t => t.IssuedAt).ToListAsync(cancellationToken);
+            return Results.Ok(tokens.Select(View).ToList());
+        });
+
+        // Admins can invalidate or delete a founder token (D65); neither changes a live account's status.
+        admin.MapPost("/founder-tokens/{id:guid}/invalidate", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var token = await db.FounderTokens.FindAsync([id], cancellationToken);
+            if (token is null) return Results.NotFound();
+            if (token.Status == FounderTokenStatus.Valid)
+            {
+                var now = clock.GetUtcNow();
+                (token.Status, token.InvalidatedAt, token.InvalidatedReason) = (FounderTokenStatus.Invalidated, now, "admin");
+                Audit.Record(db, now, current!.Account!.Id, "account", "founder-token.invalidated", "founder-token", id.ToString());
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            return Results.NoContent();
+        });
+
+        admin.MapDelete("/founder-tokens/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var token = await db.FounderTokens.FindAsync([id], cancellationToken);
+            if (token is null) return Results.NotFound();
+            db.FounderTokens.Remove(token);
+            Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", "founder-token.deleted", "founder-token", id.ToString());
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.NoContent();
+        });
+
         // Support needs to find an account from the address a member gives them. Exact match on
         // the normalised verified email only; the search is audited without the address.
         admin.MapGet("/accounts", async (string? email, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -150,6 +221,8 @@ public static class AdminEndpoints
         var allowed = current.Allows(AccountRole.Admin) || area == AccountRole.Support && current.Allows(AccountRole.Support);
         return allowed ? (current, null) : (null, Results.Forbid());
     }
+
+    private static FounderTokenView View(FounderToken t) => new(t.Id, t.Place, t.SecretVersion, Wire(t.Status), t.IssuedAt, t.InvalidatedAt, t.InvalidatedReason);
 
     private static InvitationView View(Invitation i, DateTimeOffset now) => new(i.Id, i.Email, Wire(i.Realm), Wire(i.Role), i.VenueId,
         i.CreatedAt, i.ExpiresAt,

@@ -28,7 +28,10 @@ public sealed class MemberProfile
     public DateTimeOffset? AgeStatusAt { get; set; }
 
     public bool FoundingMember { get; set; }
+    /// <summary>When the founding place was first granted; a restore keeps it (D65: no new free period).</summary>
     public DateTimeOffset? FoundingSince { get; set; }
+    /// <summary>The founding place this account holds; one live account per place.</summary>
+    public int? FounderPlace { get; set; }
     public VerificationStatus PhotoStatus { get; set; }
     public DateTimeOffset? PhotoCheckedAt { get; set; }
     public VerificationStatus IdStatus { get; set; }

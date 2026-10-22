@@ -23,7 +23,19 @@ public static class ProblemCodes
     public const string InvalidAge = "invalid-age";
     public const string StaleSession = "stale-session";
     public const string InvalidRequest = "invalid-request";
+    public const string CouponInvalid = "coupon-invalid";
+    public const string TooManyAttempts = "too-many-attempts";
+    public const string FounderPlacesFull = "founder-places-full";
+    public const string AlreadyFounder = "already-founder";
+    public const string NoVerifiedEmail = "no-verified-email";
+    public const string NotConfigured = "not-configured";
 }
+
+public sealed record CouponRequest(string Code);
+public sealed record FounderGrantView(int Place, bool EmailSent);
+/// <summary>A founder token as staff see it: never the code itself.</summary>
+public sealed record FounderTokenView(Guid Id, int Place, int SecretVersion, string Status, DateTimeOffset IssuedAt,
+    DateTimeOffset? InvalidatedAt, string? InvalidatedReason);
 
 public sealed record BetaEnrolmentRequest(string Email);
 public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt);

@@ -35,7 +35,6 @@ static class PersistenceChecks
                 await db.Database.MigrateAsync();
                 Check("no pending migrations", !(await db.Database.GetPendingMigrationsAsync()).Any());
             }
-            await Extra(options, Check);
 
             var now = DateTimeOffset.Parse("2026-10-23T00:00:00Z");
             var id = Guid.NewGuid();
@@ -78,6 +77,7 @@ static class PersistenceChecks
                 await db.SaveChangesAsync();
                 Check("profile and grants go with the account", !await db.MemberProfiles.AnyAsync() && !await db.RoleGrants.AnyAsync());
             }
+            await Extra(options, Check);
         }
         finally
         {
@@ -102,6 +102,35 @@ static class PersistenceChecks
         {
             db.BetaEnrolments.Add(new BetaEnrolment { Id = Guid.NewGuid(), Email = "beta@example.test", CreatedAt = now });
             check("one live enrolment per address", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.FounderPlaces.Add(new FounderPlace { Place = 0, GrantedAt = now });
+            check("founder places start at 1", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.FounderPlaces.Add(new FounderPlace { Place = 1, GrantedAt = now });
+            db.FounderTokens.Add(new FounderToken { Id = Guid.NewGuid(), Place = 1, Code = "FOUNDER-V1-A", SecretVersion = 1, IssuedAt = now });
+            await db.SaveChangesAsync();
+            db.FounderTokens.Add(new FounderToken { Id = Guid.NewGuid(), Place = 1, Code = "FOUNDER-V1-A", SecretVersion = 1, IssuedAt = now });
+            check("a founder code is stored once", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.FounderTokens.Add(new FounderToken { Id = Guid.NewGuid(), Place = 99, Code = "FOUNDER-V1-B", SecretVersion = 1, IssuedAt = now });
+            check("a token needs its place", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            var first = Guid.NewGuid(); var second = Guid.NewGuid();
+            foreach (var id in new[] { first, second })
+                db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = id.ToString(), Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+            db.MemberProfiles.Add(new MemberProfile { AccountId = first, FoundingMember = true, FounderPlace = 1 });
+            db.MemberProfiles.Add(new MemberProfile { AccountId = second });
+            await db.SaveChangesAsync();
+            (await db.MemberProfiles.SingleAsync(p => p.AccountId == second)).FounderPlace = 1;
+            check("one live account per founding place", await Throws(db.SaveChangesAsync()));
         }
     }
 
