@@ -84,7 +84,7 @@ for relative, generated in [('src/Swoovr.Web/wwwroot/themes.css',css), ('src/Swo
 # platform-default stacks in any UI source; Georgia only through the web quote token.
 banned = re.compile(r'\bInter\b|system-ui|Segoe|-apple-system|BlinkMacSystemFont|Roboto|OpenSans|Open Sans|RedHat|Red Hat (Text|Display)', re.I)
 font_count = 0
-ui_sources = [p for p in [*root.glob('src/Swoovr.Web/**/*'), *root.glob('src/Swoovr.Mobile/**/*'), *root.glob('containers/keycloak/themes/**/*')]
+ui_sources = [p for p in [*root.glob('src/Swoovr.Web/**/*'), *root.glob('src/Swoovr.Web.Client/**/*'), *root.glob('src/Swoovr.Mobile/**/*'), *root.glob('containers/keycloak/themes/**/*')]
               if p.is_file() and p.suffix in {'.css', '.razor', '.html', '.js', '.xaml', '.cs', '.ftl', '.csproj'} and not {'bin', 'obj'} & set(p.parts)]
 for path in ui_sources:
     text = path.read_text()
@@ -99,7 +99,8 @@ assert 'Value="Helvetica Neue"' in (root / 'src/Swoovr.Mobile/Resources/Styles/S
 # Web UI colours come only from tokens: no stray hex/rgb/hsl values, shadows, gradients or framework classes
 # in the app's own styles and markup (the launch splash and generated themes.css are checked separately).
 stray = re.compile(r'(?<![\w&/])#(?:[0-9A-Fa-f]{3}){1,2}\b|\b(?:rgba?|hsla?)\(|box-shadow|text-shadow|gradient\(|\btext-danger\b|\bbtn-')
-web_styles = [p for p in [*root.glob('src/Swoovr.Web/**/*.razor'), *root.glob('src/Swoovr.Web/**/*.razor.css'), root / 'src/Swoovr.Web/wwwroot/app.css']
+web_styles = [p for p in [*root.glob('src/Swoovr.Web/**/*.razor'), *root.glob('src/Swoovr.Web/**/*.razor.css'),
+                           *root.glob('src/Swoovr.Web.Client/**/*.razor'), *root.glob('src/Swoovr.Web.Client/**/*.razor.css'), root / 'src/Swoovr.Web/wwwroot/app.css']
               if not {'bin', 'obj'} & set(p.parts)]
 for path in web_styles:
     found = stray.search(re.sub(r'/\*.*?\*/', '', path.read_text(), flags=re.S))

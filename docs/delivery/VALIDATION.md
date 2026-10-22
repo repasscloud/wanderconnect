@@ -345,3 +345,22 @@ Executed locally (same environment as slice A; API run with `Founders__Secrets__
 - `tests/auth/accounts.browser.cjs`: `PASS: 106 account checks`, 30 of them new for founders: members cannot grant; the grant takes the next place and emails a `FOUNDER-V1-` code to Mailpit; a second grant is 409; the founder badge appears; the owner's own code is accepted as a no-op; another member gets the same 400 for the shared code, an ordinary coupon, an all-zero code, an unknown version and a malformed founder code, then 429 on the sixth try; changing the founder's email in Keycloak reissues a new code by email and marks the old one `email-changed`, while beta access follows the account; after deleting the account row and the Keycloak user and registering again with that address, the invalidated code is refused and the new code restores founding status on the **same** place with no new place taken; admin invalidate and delete leave the live account a founder; members get 403 on the token routes; admins never receive a code; no code or address in the audit log. The first attempt of this run stopped on a transient Keycloak admin-API timeout before reaching the API; the rerun passed unchanged.
 
 Gaps: automatic activation after verification (Q04), the deletion-request email (no deletion flow exists), founder benefits and a live places-full test are open (issue #26). Secrets are local configuration only.
+
+## Slice D: `Swoovr.Web.Client` and the backend-for-frontend — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D83–D86; follow-ups in [issue #27](https://github.com/repasscloud/wanderconnect/issues/27).
+
+Changed:
+
+- **Project.** `src/Swoovr.Web.Client` (Blazor WebAssembly, references only `Swoovr.Client`), added to both solutions. `scripts/check_naming.py` now expects eight projects and checks that Web, Web.Client and Mobile never reference Domain or Infrastructure; `scripts/check_design.py` scans Web.Client for fonts and token-only colours.
+- **Host.** Web adds `AddInteractiveWebAssemblyComponents`/`AddInteractiveWebAssemblyRenderMode`, the `/bff/` forwarder (`Auth/Bff.cs`) and references Web.Client. `Icon`, `Badge` and `ProfileTile` moved to `Swoovr.Web.Client/UI`.
+- **Account page.** `/account` is now a static shell (sign-in links when signed out; sign-out POST and settings link when signed in) around `MemberAccountPanel`, an Interactive WebAssembly component without prerendering that loads session and account through `MemberClient` (new in `Swoovr.Client`) and shows the beta notice, badges, optional DOB/age entry, the under-18 locked state and the coupon code form for founder codes.
+
+Executed locally (same environment as slice A; web on http://localhost:5081):
+
+- `./scripts/check.sh`: PASS (eight application projects and reference rules; design guard over 62 UI files and 20 web style sources).
+- `tests/auth/accounts.browser.cjs`: `PASS: 121 account checks`, 15 new for the WebAssembly page: the founder badge drawn from API data; a `.wasm` resource loaded; DOB entry saves and disables the age field; age-only entry stored as `[null, 33]`; clearing shows "No age is shown"; age 130 stopped by the browser's range check with nothing saved; an ordinary coupon refused with "That code can't be used."; BFF statuses `[400, 200, 404, 404, 404]` for no header, session, an admin route, a prototype route and health; no JWT in the page, storage or readable cookies; 401 from `/bff/` without a session cookie; an under-18 age locks the account and the locked notice survives a reload. Two test mistakes were fixed on the way (the range check never reaches the server; the coupon button now updates on input, which is also what members expect).
+- `tests/auth/members.browser.cjs`: PASS, 50 (waits for the WebAssembly panel before reading it). `tests/auth/root-admin.browser.cjs`: PASS, 9. `tests/ui/components.browser.cjs`: PASS, 59 (components now from Web.Client). `tests/appearance/web.browser.cjs`, `tests/prototype/discovery.browser.cjs`, `tests/prototype/conversation.browser.cjs`: PASS.
+- `docker build --target web -f containers/Dockerfile .`: succeeded with the WebAssembly client (image not run).
+
+Gaps: only the account page is WebAssembly; appearance sync, real Explore/profile/Chats pages and a Content Security Policy are planned in issue #27. No screen-reader or phone-device check of the new page; first load shows "Loading your account…" until WebAssembly starts (no prerendering, D85).

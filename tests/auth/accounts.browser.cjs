@@ -116,6 +116,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await webPage.goto(web + '/account/sign-in?intro=done');
     await webPage.fill('#username', carol.email); await webPage.fill('#password', carol.password);
     await Promise.all([webPage.waitForURL(web + '/account'), webPage.click('#kc-login')]);
+    await webPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
     assert.equal(await webPage.locator('[data-beta=notEnrolled]').count(), 1); pass();
     assert.equal(await webPage.locator('[data-beta] a').getAttribute('href'), 'https://swoovr.com/beta/'); pass();
     assert.match(await webPage.locator('[data-beta]').innerText(), /private beta[\s\S]*not on the list yet/); pass();
@@ -131,7 +132,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     session = await call(carolToken, '/api/v1/session');
     assert.deepEqual([session.body.memberArea, session.body.beta], [true, 'enrolled']); pass();
     assert.equal((await call(carolToken, '/api/v1/me')).status, 200); pass();
-    await webPage.reload();
+    await webPage.reload(); await webPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
     assert.equal(await webPage.locator('[data-beta]').count(), 0); pass();
     assert.equal(await webPage.locator('[data-member-area=true]').count(), 1); pass();
     await webContext.close();
@@ -214,7 +215,61 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     { assert.equal((await call(erinToken, path, { method })).status, 403, method + ' ' + path); pass(); }
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE detail LIKE '%FOUNDER%' OR target_id LIKE '%FOUNDER%' OR detail LIKE '%@%'`), '0', 'no code or address in the audit log'); pass();
 
+    // The WebAssembly account page (D59) through the backend-for-frontend.
+    const ui = await browser.newContext(); const page = await ui.newPage();
+    await page.goto(web + '/account/sign-in?intro=done');
+    await page.fill('#username', returning.email); await page.fill('#password', returning.password);
+    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
+    assert.equal(await page.locator('[data-badges=founder] [data-badge=founding]').count(), 1, 'founder badge drawn from the API'); pass();
+    assert.ok(await page.evaluate(() => [...performance.getEntriesByType('resource')].some(r => r.name.includes('/_framework/') && r.name.endsWith('.wasm'))), 'runs as WebAssembly'); pass();
+    await page.fill('#dob', '1990-05-01'); await page.click('[data-age-form] [type=submit]');
+    await page.waitForSelector('[data-age-status=selfDeclaredAdult]');
+    assert.match(await page.locator('[data-age-form] [role=status]').innerText(), /Saved\. Your age shows as \d+\./); pass();
+    assert.equal(await page.locator('#age').isDisabled(), true, 'a date of birth decides the age'); pass();
+    await page.fill('#dob', ''); await page.fill('#age', '33'); await page.click('[data-age-form] [type=submit]');
+    await page.waitForFunction(() => document.querySelector('[data-age-form] [role=status]')?.textContent.includes('33'));
+    assert.deepEqual(JSON.parse(await sql(`SELECT json_build_array(date_of_birth, declared_age)::text FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`)), [null, 33]); pass();
+    await page.fill('#age', ''); await page.click('[data-age-form] [type=submit]');
+    await page.waitForSelector('[data-age-status=attested]');
+    assert.match(await page.locator('[data-age-form] [role=status]').innerText(), /No age is shown/); pass();
+    // The browser's own range check stops 130 before any request (the API refuses it too, above).
+    await page.fill('#age', '130'); await page.click('[data-age-form] [type=submit]');
+    assert.equal(await page.locator('#age').evaluate(input => input.validity.rangeOverflow), true); pass();
+    assert.equal(await page.locator('[data-age-status]').getAttribute('data-age-status'), 'attested', 'nothing saved'); pass();
+    await page.fill('#age', '');
+    await page.fill('#coupon', 'WELCOME10'); await page.click('[data-coupon-form] [type=submit]');
+    await page.waitForSelector('[data-coupon-result=invalid]');
+    assert.equal(await page.locator('[data-coupon-form] [role=status]').innerText(), "That code can't be used."); pass();
+    await page.screenshot({ path: '.local/auth-browser/account-wasm.png', fullPage: true });
+    // BFF boundary: header required, only the member's own routes, no token in the browser.
+    const probe = await page.evaluate(async () => {
+      const get = async (path, headers = {}) => (await fetch(path, { headers })).status;
+      return [await get('/bff/api/v1/session'), await get('/bff/api/v1/session', { 'X-Swoovr-Bff': '1' }), await get('/bff/api/v1/admin/beta', { 'X-Swoovr-Bff': '1' }),
+        await get('/bff/api/v1/prototype/people', { 'X-Swoovr-Bff': '1' }), await get('/bff/health/live', { 'X-Swoovr-Bff': '1' })];
+    });
+    assert.deepEqual(probe, [400, 200, 404, 404, 404]); pass();
+    const visible = await page.evaluate(() => document.documentElement.outerHTML + JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.cookie);
+    assert.doesNotMatch(visible, /eyJ[A-Za-z0-9_-]{10,}\./, 'no token in the page, storage or readable cookies'); pass();
+    assert.equal((await fetch(web + '/bff/api/v1/session', { headers: { 'X-Swoovr-Bff': '1' } })).status, 401, 'no session cookie, no access'); pass();
+    // Under-18 entry in the WebAssembly page locks the account and shows the locked notice.
+    const young = await createMember('young'); await cli('beta', 'add', young.email);
+    const youngPage = await (await browser.newContext()).newPage();
+    await youngPage.goto(web + '/account/sign-in?intro=done');
+    await youngPage.fill('#username', young.email); await youngPage.fill('#password', young.password); await youngPage.click('#kc-login');
+    // First sign-in of an admin-created member stops at the 18+ terms action.
+    await youngPage.waitForURL(u => u.href.includes('TERMS_AND_CONDITIONS') || u.href === web + '/account');
+    if (youngPage.url().includes('TERMS_AND_CONDITIONS')) await youngPage.click('[name=accept]');
+    await youngPage.waitForURL(web + '/account'); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
+    await youngPage.fill('#age', '16'); await youngPage.click('[data-age-form] [type=submit]');
+    await youngPage.waitForSelector('[data-account-locked=true]');
+    assert.equal(await youngPage.locator('[data-age-form]').count(), 0); pass();
+    await youngPage.reload(); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
+    assert.equal(await youngPage.locator('[data-account-locked=true]').count(), 1, 'still locked after reload'); pass();
+    assert.equal(await youngPage.locator('[data-member-area=false]').count(), 1); pass();
+    await ui.close();
+
     for (const extra of extras) await extra();
-    console.log(`PASS: ${passed} account checks against the API and PostgreSQL with real local Keycloak tokens: (issuer, subject) accounts, member area only for members, age entry (DOB, age, blank, invalid) and under-18 lock, admin routes refused to members and unauthenticated callers, root admin only from the application record, staff/venue invitations (validation, revoke) never granting a member account by matching email, adult override, no email in the audit log; private beta gate (not-enrolled API refusal and web notice with the swoovr.com/beta link, admin add/list/revoke, activation bound to the account, revocation ends access, staff not gated, file import by operator command); founding membership (admin grant, code emailed to the mail sink, founder badge, shared/sold/unknown codes refused alike, 5 failures an hour then 429, email change reissues and invalidates, delete-and-return restores the same place, admin invalidate/delete, codes never shown to admins or written to the audit log).`);
+    console.log(`PASS: ${passed} account checks against the API and PostgreSQL with real local Keycloak tokens: (issuer, subject) accounts, member area only for members, age entry (DOB, age, blank, invalid) and under-18 lock, admin routes refused to members and unauthenticated callers, root admin only from the application record, staff/venue invitations (validation, revoke) never granting a member account by matching email, adult override, no email in the audit log; private beta gate (not-enrolled API refusal and web notice with the swoovr.com/beta link, admin add/list/revoke, activation bound to the account, revocation ends access, staff not gated, file import by operator command); founding membership (admin grant, code emailed to the mail sink, founder badge, shared/sold/unknown codes refused alike, 5 failures an hour then 429, email change reissues and invalidates, delete-and-return restores the same place, admin invalidate/delete, codes never shown to admins or written to the audit log); the Interactive WebAssembly account page through the backend-for-frontend (founder badge, age entry and validation, coupon refusal, under-18 lock, header and route allow-list, no token in the browser).`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

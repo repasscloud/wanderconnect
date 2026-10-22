@@ -4,7 +4,8 @@ using Swoovr.Web.Components;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents();
+// Static SSR for public and sign-in pages; signed-in features as Interactive WebAssembly only (D59).
+builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
 builder.Services.AddHttpClient<Swoovr.Client.PrototypeClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
     http.Timeout = TimeSpan.FromSeconds(5);
@@ -15,6 +16,7 @@ builder.Services.AddHttpClient<Swoovr.Client.SessionClient>(http => {
     http.Timeout = TimeSpan.FromSeconds(5);
 });
 builder.Services.AddMemberSignIn(builder.Configuration, builder.Environment);
+builder.Services.AddBff(builder.Configuration);
 
 builder.Services.AddHttpClient<Swoovr.Client.PrototypeConversationClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
@@ -38,6 +40,9 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 MemberSignIn.MapMemberSignIn(app);
-app.MapRazorComponents<App>();
+Bff.MapBff(app);
+app.MapRazorComponents<App>()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(Swoovr.Web.Client._Imports).Assembly);
 
 app.Run();

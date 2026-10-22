@@ -116,7 +116,7 @@ Design: a small Keycloak authenticator extension (Java, Keycloak SPI) added to t
 4. Keycloak atomically consumes the token, rejects reuse, expiry, wrong client or wrong realm, and completes its own authentication flow, recording an `amr` value for the email-link method.
 5. If the link is opened on a different device or browser from the one that asked, it signs in that device only after the confirmation button; the original tab is not signed in remotely (DEFAULT, simplest safe behaviour).
 
-Cost and trade-off: this is a Java (Maven) component outside the seven .NET projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. The extension must be rebuilt and retested on every Keycloak upgrade. The same extension also holds the MailerSend API email sender and, if needed, the lockout-clearing listener; it is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
+Cost and trade-off: this is a Java (Maven) component outside the .NET application projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. The extension must be rebuilt and retested on every Keycloak upgrade. The same extension also holds the MailerSend API email sender and, if needed, the lockout-clearing listener; it is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
 
 ## Account protection
 

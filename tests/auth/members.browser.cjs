@@ -13,6 +13,8 @@ const output = process.env.SWOOVR_BROWSER_OUTPUT || '.local/auth-browser';
 for (const url of [web, api, keycloak, mailSink]) if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw Error('Auth checks require loopback hosts');
 const b64 = value => Buffer.from(value).toString('base64url');
 const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
+// Signed-in account content is Interactive WebAssembly (D59): wait until it has loaded from the API.
+const accountReady = page => page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function mailLink(to, after) {
@@ -106,6 +108,7 @@ async function secret() {
     await page.goto(await mailLink(email, started));
     await page.fill('#password-new', password); await page.fill('#password-confirm', password);
     await Promise.all([page.waitForURL(web + '/account'), page.click('[type=submit]')]);
+    await accountReady(page);
     assert.match(await page.locator('h1').innerText(), /You're in, Ana\./); pass();
     assert.equal(await page.locator('[data-adult-attested]').getAttribute('data-adult-attested'), 'true'); pass();
     assert.equal(await page.locator('[data-member-area]').getAttribute('data-member-area'), 'true'); pass();
@@ -118,7 +121,7 @@ async function secret() {
 
     // Sign out is a POST with antiforgery; a cross-site GET does nothing.
     assert.ok([404, 405].includes((await page.request.get(web + '/account/sign-out', { maxRedirects: 0 })).status())); pass();
-    await page.goto(web + '/account');
+    await page.goto(web + '/account'); await accountReady(page);
     assert.match(await page.locator('h1').innerText(), /You're in, Ana\./, 'GET must not sign out'); pass();
     await Promise.all([page.waitForURL(web + '/'), page.click('text=Sign out')]);
     await page.goto(web + '/account');
@@ -202,7 +205,7 @@ async function secret() {
       await sleep(1500);
       if (passkeyPage.url().startsWith(keycloak)) await passkeyPage.click('#authenticateWebAuthnButton');
     }
-    await passkeyPage.waitForURL(web + '/account');
+    await passkeyPage.waitForURL(web + '/account'); await accountReady(passkeyPage);
     assert.match(await passkeyPage.locator('h1').innerText(), /You're in, Ana\./); pass();
     await shot(passkeyPage, 'account-passkey');
     await passkeyContext.close();
@@ -218,7 +221,7 @@ async function secret() {
 
     // 320px reflow on the account page.
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto(web + '/account');
+    await page.goto(web + '/account'); await accountReady(page);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 320)); pass();
     await shot(page, 'account-320');
     await context.close();

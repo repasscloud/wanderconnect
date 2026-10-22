@@ -1,0 +1,176 @@
+@* The signed-in account page (Interactive WebAssembly, D59). Everything here comes from the API through the
+   host's backend-for-frontend: session, beta gate (D62), badges (D55), age entry (D69) and the coupon code
+   screen for founder codes (D65). The host page keeps sign-in, sign-out and settings links static. *@
+@inject MemberClient Members
+<div class="page-heading" data-account-panel="@(loaded ? "ready" : "loading")">
+    <p class="breadcrumb"><a href="/">Me</a> / Account</p>
+    @if (!loaded)
+    {
+        <h1>Hello, @Name.</h1>
+        <p role="status">Loading your account…</p>
+    }
+    else if (session is not null && BetaBlocked)
+    {
+        <h1>Almost there, @Name.</h1>
+        <p>You're signed in. The Swoovr app opens once your email is on the private beta list.</p>
+    }
+    else
+    {
+        <h1>You're in, @Name.</h1>
+        <p>You're signed in to the Swoovr development preview. Profiles, matching and messages aren't connected to accounts yet.</p>
+    }
+</div>
+@if (loaded)
+{
+    <section class="card account-session" aria-label="Your session">
+        @if (session is null)
+        {
+            <p role="status">We couldn't confirm your session with the Swoovr API. Try signing in again.</p>
+        }
+        else
+        {
+            @if (BetaBlocked)
+            {
+                @* D77: same words whatever the reason, so the page never says whether an address was ever enrolled. *@
+                <div class="notice" role="status" data-beta="@session.Beta">
+                    <p><strong>Swoovr is in private beta.</strong> You're not on the list yet.</p>
+                    <p><a class="link" href="https://swoovr.com/beta/">Ask to join the beta on swoovr.com</a></p>
+                </div>
+            }
+            <dl>
+                <div><dt>Signed in with</dt><dd data-session-method="@session.Method">@MethodLabel(session.Method)@(session.MultiFactor ? " + one-time code" : "")</dd></div>
+                <div><dt>Email</dt><dd>@(session.EmailVerified ? "Verified" : "Not verified yet")</dd></div>
+                <div><dt>18+ confirmation</dt><dd data-adult-attested="@(session.AdultAttested ? "true" : "false")">@(session.AdultAttested ? "Confirmed when you joined" : "Not recorded")</dd></div>
+                <div><dt>Member area</dt><dd data-member-area="@(session.MemberArea ? "true" : "false")">@(session.MemberArea ? "Allowed" : "Not allowed")</dd></div>
+            </dl>
+            <p class="field-help">Confirming you're 18+ isn't age verification. ID checks come later.</p>
+        }
+    </section>
+    @if (locked)
+    {
+        <section class="card account-section" aria-label="Account locked" data-account-locked="true">
+            <h2>This account is locked.</h2>
+            <p>Swoovr is for adults only. If the age you entered was a mistake, contact Swoovr support to have it reviewed.</p>
+        </section>
+    }
+    else if (me is not null)
+    {
+        <section class="card account-section" aria-labelledby="badges-heading">
+            <h2 id="badges-heading">Badges</h2>
+            @if (me.Badges.Count == 0)
+            {
+                <p class="field-help" data-badges="none">No badges yet. Each badge shows one check, such as a photo or ID check, once it's done.</p>
+            }
+            else
+            {
+                <ul class="badge-list" data-badges="@string.Join(" ", me.Badges.Select(b => b.Badge))">
+                    @foreach (var badge in me.Badges)
+                    {
+                        <li><Badge Kind="@BadgeKind(badge.Badge)" Size="20" /> @BadgeLabel(badge.Badge)@(badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : "")</li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="card account-section" aria-labelledby="age-heading">
+            <h2 id="age-heading">Your age</h2>
+            <p class="field-help">Both are optional. If you enter your date of birth, we work out your age from it. Entering your age isn't age verification.</p>
+            <form class="stack" @onsubmit="SaveAgeAsync" data-age-form>
+                <div class="field"><label for="dob">Date of birth</label><input id="dob" type="date" @bind="dateOfBirth" max="@Today" /></div>
+                <div class="field"><label for="age">Or your age</label><input id="age" type="number" inputmode="numeric" min="0" max="120" @bind="age" disabled="@(dateOfBirth is not null)" placeholder="Leave blank if you'd rather not say" /></div>
+                <button type="submit" class="button" disabled="@busy">Save</button>
+                <p role="status" aria-live="polite" class="field-help" data-age-status="@AgeStatus">@ageMessage</p>
+            </form>
+        </section>
+
+        <section class="card account-section" aria-labelledby="coupon-heading">
+            <h2 id="coupon-heading">Coupon code</h2>
+            <p class="field-help">Founding members: if you've returned to Swoovr, enter the founder code we emailed you to restore your founding status.</p>
+            <form class="stack" @onsubmit="RedeemAsync" data-coupon-form>
+                <div class="field"><label for="coupon">Code</label><input id="coupon" type="text" autocomplete="off" spellcheck="false" @bind="coupon" @bind:event="oninput" placeholder="FOUNDER-…" /></div>
+                <button type="submit" class="button button-secondary" disabled="@(busy || string.IsNullOrWhiteSpace(coupon))">Apply code</button>
+                <p role="status" aria-live="polite" class="field-help" data-coupon-result="@couponResult">@couponMessage</p>
+            </form>
+        </section>
+    }
+}
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    private bool loaded, busy, locked;
+    private SessionSummary? session;
+    private MemberAccount? me;
+    private DateOnly? dateOfBirth;
+    private int? age;
+    private string? ageMessage, coupon, couponMessage, couponResult;
+    private bool BetaBlocked => session?.Beta is "notEnrolled" or "unavailable";
+    private string AgeStatus => me?.AgeStatus ?? "";
+    private static string Today => DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            session = (await Members.SessionAsync()).Value;
+            if (session is { MemberArea: true }) Show(await Members.MeAsync());
+            else if (session is not null && (await Members.MeAsync()).Code == ProblemCodes.AccountLocked) locked = true;
+        }
+        catch (HttpRequestException) { session = null; }
+        loaded = true;
+    }
+
+    private void Show(ApiResult<MemberAccount> result)
+    {
+        if (result.Code == ProblemCodes.AccountLocked) { (locked, me) = (true, null); return; }
+        if (result.Value is not { } account) return;
+        me = account;
+        (dateOfBirth, age) = (account.DateOfBirth, account.DateOfBirth is null ? account.DeclaredAge : null);
+    }
+
+    private async Task SaveAgeAsync()
+    {
+        busy = true;
+        var result = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, dateOfBirth is null ? age : null));
+        busy = false;
+        if (result.Code == ProblemCodes.InvalidAge) { ageMessage = "Check the date or age: it can't be in the future or over 120."; return; }
+        Show(result);
+        ageMessage = locked ? null : me?.Age is { } years ? $"Saved. Your age shows as {years}." : "Saved. No age is shown.";
+    }
+
+    private async Task RedeemAsync()
+    {
+        busy = true;
+        var result = await Members.RedeemAsync(coupon ?? "");
+        busy = false;
+        (couponResult, couponMessage) = result.Code switch
+        {
+            null when result.Value is not null => ("ok", result.Value.Badges.Any(b => b.Badge == "founder") ? "Your founding status is restored." : "Code applied."),
+            ProblemCodes.TooManyAttempts => ("limited", "Too many attempts. Try again in an hour."),
+            _ => ("invalid", "That code can't be used."),
+        };
+        if (result.Value is not null) { Show(result); coupon = null; }
+    }
+
+    private static string BadgeKind(string badge) => badge switch
+    {
+        "founder" => "founding", "photoVerified" => "photo", "idVerified" => "id", "staff" => "staff", _ => "bot",
+    };
+
+    private static string BadgeLabel(string badge) => badge switch
+    {
+        "founder" => "Swoovr Founder", "photoVerified" => "Photo verified", "idVerified" => "ID verified",
+        "staff" => "Swoovr staff", _ => "Swoovr guide (bot)",
+    };
+
+    private static string MethodLabel(string method) => method switch
+    {
+        // Keycloak 26.8.1 reports a passkey used on the sign-in form as the password method.
+        "emailPassword" => "Password or passkey",
+        "passkey" => "Passkey",
+        "emailLink" => "Email sign-in link",
+        "apple" => "Apple",
+        "google" => "Google",
+        // Keycloak records no method for the session it starts right after email-first sign-up.
+        _ => "New account (just created)",
+    };
+}
