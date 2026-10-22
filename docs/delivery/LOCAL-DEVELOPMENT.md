@@ -93,6 +93,7 @@ Optional actual-browser acceptance uses Playwright and installed Edge (not insta
 
 ```sh
 SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/appearance/web.browser.cjs
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/ui/components.browser.cjs   # web with Prototype__Enabled=true and the API host
 ```
 
 If Playwright resolves through normal Node modules, omit that variable. `SWOOVR_WEB_URL` may select another loopback port (default http://127.0.0.1:5081). Screenshots go to ignored `.local/appearance-browser/`; override `SWOOVR_BROWSER_OUTPUT` if needed. The test verifies 24 preferences/16 computed palette pairs, requested/System behavior, reload/reset, cross-tab events, keyboard, completed enhanced navigation and 320px/200% text. Storage denial is injected for that error-path test. This is not screen-reader/device or account-sync acceptance.
