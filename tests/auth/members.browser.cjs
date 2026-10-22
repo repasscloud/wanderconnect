@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
+const { assertSwoovrType } = require('../ui-fonts.cjs');
 const web = 'http://localhost:5081', api = 'http://127.0.0.1:5080', keycloak = 'http://localhost:8180', mailSink = 'http://localhost:8025';
 const realm = 'swoovr-members-dev';
 const output = process.env.SWOOVR_BROWSER_OUTPUT || '.local/auth-browser';
@@ -47,16 +48,19 @@ async function secret() {
     await page.waitForURL(url => url.origin === keycloak);
     assert.match(await page.locator('.sw-claims').innerText(), /In development · Starting in Adelaide · Adults 18\+/); pass();
     assert.equal(await page.locator('[data-scheme], input[name=scheme]').count(), 0); pass();
+    await assertSwoovrType(page, 'Keycloak sign-in'); pass();
     assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(250, 250, 250)'); pass();
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.waitForFunction(() => document.documentElement.classList.contains('pf-v5-theme-dark'));
     assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(10, 10, 10)'); pass();
+    await assertSwoovrType(page, 'Keycloak sign-in dark'); pass();
     await shot(page, 'sign-in-dark');
     await page.emulateMedia({ colorScheme: 'light' });
 
     // Registration (D40): blocked without the 18+ checkbox; email-first; then password.
     await page.goto(web + '/account/create');
     await page.waitForSelector('#kc-register-form');
+    await assertSwoovrType(page, 'Keycloak registration'); pass();
     await page.fill('#email', email); await page.fill('#firstName', 'Ana');
     await Promise.all([page.waitForNavigation(), page.click('#kc-register-form [type=submit]')]);
     assert.match(await page.locator('#input-error-terms-accepted').innerText(), /18 or over/); pass();
@@ -184,6 +188,6 @@ async function secret() {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 320)); pass();
     await shot(page, 'account-320');
     await context.close();
-    console.log(`PASS: ${passed} members-realm checks in actual Edge against local Keycloak 26.8.1: Standard theme light/dark, 18+ blocking registration, email-first verification, server-side web session, password and passkey sign-in, API token validation negatives, 3-failure lockout cleared by reset, invitation-only venues/staff realms, 320px account page.`);
+    console.log(`PASS: ${passed} members-realm checks in actual Edge against local Keycloak 26.8.1: Standard theme light/dark with Helvetica Neue computed on every text element, 18+ blocking registration, email-first verification, server-side web session, password and passkey sign-in, API token validation negatives, 3-failure lockout cleared by reset, invitation-only venues/staff realms, 320px account page.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

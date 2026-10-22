@@ -219,3 +219,19 @@ Branch `feature/keycloak-integration-design`. Executed locally on macOS (ARM64),
 - Manual inspection: Keycloak login, registration, choose-password and blocked-registration pages in light and dark at 1280px and 390px; account page at desktop.
 
 Gaps: no Apple/Google/Entra federation, no MailerSend delivery, no venue/staff portal sign-in, no root-admin OTP flow, no persistence, no mobile, no screen-reader audit, no production TLS/hosts. Passkey sign-in reports `pwd` (D45). Evidence is local-only and fictional.
+
+## UI style step 1: type and base styles — 22 October 2026
+
+Branch `feature/swoovr-ui-style` (from `feature/keycloak-integration-design`). Owner direction: [UI style](../design/reference/UI-STYLE.md) is the visual source of truth; wireframes are for content and flow only. Step 1 of 3 (type and base styles); the splash and shared components follow.
+
+Before this step: web used `-apple-system, "Segoe UI"` body text and Georgia headings; MAUI was the stock template (bundled Open Sans, purple `#512BD4` palette, template splash/icon colour, `dotnet_bot` image); the Keycloak theme already set Helvetica Neue through PatternFly variables.
+
+Changed: one family `"Helvetica Neue", Helvetica, Arial, sans-serif`, antialiased, with the UI-STYLE type scale as `--type-*` tokens (rem, so browser text size still applies); Georgia kept only as the photo-free tile quote token. Blazor error bar and the API demo-image placeholder now use Standard tokens. MAUI colours are generated from `themes.json` (Standard light/dark) by `check_design.py`, Open Sans and the template image are removed, and Styles.xaml defines the font per platform (iOS/Mac Helvetica Neue, Windows Arial, Android platform sans-serif because Android has neither) and the type styles. `check_design.py` rejects Inter, system-ui, Segoe, -apple-system, Roboto, Open Sans and Red Hat fonts in web, MAUI and Keycloak sources. A shared browser helper (`tests/ui-fonts.cjs`) asserts the **computed** font and smoothing on every visible text element.
+
+Executed locally:
+
+- `./scripts/check.sh`: PASS (zero warnings; font guard over 39 UI files).
+- Computed-font probe at 390px, light and dark: home, appearance, account, people preview, conversation preview, not found, Keycloak sign-in, registration and forgot password all resolve to the Swoovr stack, antialiased. Red Hat font faces are declared by PatternFly but never loaded; the only font file downloaded is PatternFly's Font Awesome icon font (password reveal), to be replaced by the outline icon set with the shared components.
+- `tests/appearance/web.browser.cjs`: PASS with font checks on home, appearance and account (light, and dark at 320px). `tests/auth/members.browser.cjs`: PASS, 37 checks (adds computed fonts on Keycloak sign-in light/dark and registration).
+
+Gaps: MAUI not built or run (no MAUI workload on this machine); Android renders the platform sans-serif, not Helvetica; MAUI buttons are Bold (700) because MAUI has no 600 weight attribute. Screens are not yet compared with the reference screenshots; that happens per screen in steps 2–3.
