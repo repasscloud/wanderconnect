@@ -4,57 +4,68 @@
 @inject IWebHostEnvironment Environment
 @inject NavigationManager Navigation
 <PageTitle>Connection preview — Swoovr</PageTitle>
+<div class="column">
 <div class="page-heading"><p class="breadcrumb"><a href="/">Home</a> / Connection preview</p><h1>A conversation starts with a choice.</h1><p>One invitation. Room to decide. A conversation only when both agree.</p></div>
-<aside class="prototype-notice"><strong>Fictional adult scenario</strong><p>Alex and Jamie, their verification and their location are simulated. Role switching is a demo control, not sign-in. Only sample messages can be sent. Scenarios expire and are not saved as member conversations.</p></aside>
+<aside class="notice prototype-notice"><strong>Fictional adult scenario</strong><p>Alex and Jamie, their verification and their location are simulated. Role switching is a demo control, not sign-in. Only sample messages can be sent. Scenarios expire and are not saved as member conversations.</p></aside>
 @if (!Enabled)
 {
     <section class="empty-state"><h2>This local preview is off</h2><p>No messaging service is connected.</p></section>
 }
 else if (!QueryValid || (ScenarioId.HasValue && Result is null))
 {
-    <section class="empty-state"><h2>Scenario unavailable</h2><p>The fictional scenario may have expired or the local service may be offline.</p><a href="/prototype/conversation">Start over</a></section>
+    <section class="empty-state"><h2>Scenario unavailable</h2><p>The fictional scenario may have expired or the local service may be offline.</p><a class="link" href="/prototype/conversation">Start over</a></section>
 }
 else
 {
-    @if (Error is not null) { <p role="status" class="prototype-notice">@Error</p> }
+    @if (Error is not null) { <p role="status" class="notice">@Error</p> }
     @if (Result is null)
     {
-        <section class="conversation-panel"><h2>Try both sides of an invitation</h2><p>Start a separate, disposable Alex and Jamie scenario. Resetting a demo does not change the no-repeat-after-decline rule within a conversation.</p>
+        <section class="conversation-panel"><h2>Try both sides of an invitation</h2><p class="subtitle">Start a separate, disposable Alex and Jamie scenario. Resetting a demo does not change the no-repeat-after-decline rule within a conversation.</p>
         <form method="post" @onsubmit="Apply" @formname="ScenarioAction" class="conversation-controls">
             <AntiforgeryToken />
-            <div class="filter-select"><label for="scenario-presence">Simulated presence</label><select id="scenario-presence" name="Input.Travel"><option value="local">Local</option><option value="upcoming">Visiting soon</option><option value="arrived">Arrived (demo)</option></select></div>
+            <div class="field filter-select"><label for="scenario-presence">Simulated presence</label><select id="scenario-presence" name="Input.Travel"><option value="local">Local</option><option value="upcoming">Visiting soon</option><option value="arrived">Arrived (demo)</option></select><span class="field-chevron"><Icon Name="back" Size="18" /></span></div>
             <button class="primary-button" name="Input.Action" value="create">Start fictional scenario</button>
         </form></section>
     }
     else
     {
         <section class="conversation-panel" aria-label="Fictional conversation">
-            <p class="field-help">Viewing as fictional @(Actor == "alex" ? "Alex" : "Jamie")</p>
-            <nav class="conversation-roles" aria-label="Demo role switch"><a href="@Url(Result.Id,"alex")" aria-current="@(Actor=="alex" ? "page" : null)">View as fictional Alex</a><a href="@Url(Result.Id,"jamie")" aria-current="@(Actor=="jamie" ? "page" : null)">View as fictional Jamie</a></nav>
-            <h2>@Heading</h2>
-            <p>@Explanation</p>
+            <div class="chat-head">
+                <span class="avatar" aria-hidden="true">@OtherName[..1]</span>
+                <div><p class="chat-name">@OtherName <Badge Kind="id" Size="16" Simulated /></p><p class="chat-sub field-help">Viewing as fictional @(Actor == "alex" ? "Alex" : "Jamie")</p></div>
+            </div>
+            <nav class="segmented conversation-roles" aria-label="Demo role switch"><a class="segment" href="@Url(Result.Id,"alex")" aria-current="@(Actor=="alex" ? "page" : null)">View as fictional Alex</a><a class="segment" href="@Url(Result.Id,"jamie")" aria-current="@(Actor=="jamie" ? "page" : null)">View as fictional Jamie</a></nav>
+            <h2 class="chat-state">@Heading</h2>
+            <p class="field-help">@Explanation</p>
             @if (Result.CanRead)
             {
-                <ol class="conversation-messages" aria-label="Sample messages">
-                    @foreach (var message in Result.Messages) { <li class="conversation-message"><strong>@message.Sender</strong><p>@message.Text</p></li> }
+                <ol class="conversation-messages chat-thread" aria-label="Sample messages">
+                    @foreach (var message in Result.Messages) { <li class="conversation-message bubble @(message.Sender == ActorName ? "mine" : "")"><span class="visually-hidden">@message.Sender: </span><p>@message.Text</p></li> }
                 </ol>
             }
             @if (Result.State is "None" or "Pending" or "Accepted")
             {
                 <form method="post" @onsubmit="Apply" @formname="ScenarioAction" class="conversation-controls">
                     <AntiforgeryToken /><input type="hidden" name="Input.Revision" value="@Result.Revision" />
-                    @if (Result.State=="None") { <button class="primary-button" name="Input.Action" value="request">Send sample request</button> }
-                    @if (Result.State=="Pending" && Actor!=Requester) { <button class="primary-button" name="Input.Action" value="accept">Accept request</button><button class="quiet-button" name="Input.Action" value="decline">Decline request</button> }
-                    @if (Result.State=="Accepted") { <button class="primary-button" name="Input.Action" value="send">Send sample reply</button> }
-                    @if (Result.State is "Pending" or "Accepted") { <button class="quiet-button" name="Input.Action" value="close">Close conversation</button> }
-                    <button class="quiet-button" name="Input.Action" value="block">Block in this scenario</button>
+                    @if (Result.State is "None" or "Accepted")
+                    {
+                        var action = Result.State == "None" ? "request" : "send";
+                        var label = Result.State == "None" ? "Send sample request" : "Send sample reply";
+                        <div class="composer"><button type="button" class="attach-button" disabled aria-label="Attachments (not available in this preview)"><Icon Name="plus" Size="20" /></button><span class="composer-input">@(Result.State == "None" ? "Sample request (fixed in this demo)" : "Sample reply (fixed in this demo)")</span><button class="send-button" name="Input.Action" value="@action" aria-label="@label" title="@label"><Icon Name="send" Size="26" /></button></div>
+                    }
+                    @if (Result.State=="Pending" && Actor!=Requester) { <div class="button-row"><button class="primary-button" name="Input.Action" value="accept">Accept request</button><button class="quiet-button" name="Input.Action" value="decline">Decline request</button></div> }
+                    <div class="secondary-actions">
+                        @if (Result.State is "Pending" or "Accepted") { <button class="quiet-button button-small" name="Input.Action" value="close">Close conversation</button> }
+                        <button class="quiet-button button-small" name="Input.Action" value="block">Block in this scenario</button>
+                    </div>
                 </form>
             }
             @if (Result.CanReport) { <p class="field-help">Prior-interaction reporting eligibility is retained in the demo rules. No report is submitted here.</p> }
-            <p><a href="/prototype/conversation">Start a separate fictional scenario</a></p>
+            <p><a class="link" href="/prototype/conversation">Start a separate fictional scenario</a></p>
         </section>
     }
 }
+</div>
 @code {
     [SupplyParameterFromQuery(Name="id")] public string[]? IdInput {get;set;}
     [SupplyParameterFromQuery(Name="actor")] public string[]? ActorInput {get;set;}

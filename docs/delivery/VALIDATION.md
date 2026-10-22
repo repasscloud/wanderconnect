@@ -255,3 +255,46 @@ Executed locally:
 - Side-by-side at 390 px against screens 01–06 in light and dark (sign in, create account, forgot password; splash frozen at fixed times). Apple/Google buttons were checked with throwaway placeholder brokers on the local members realm, removed afterwards.
 
 Gaps: MAUI not built or run (no MAUI workload; installing it needs administrator rights); mobile status-bar colour change and the Keycloak hand-off from the app are not built. Under the web wipe the revealed page is the blank sign-in colour (the Keycloak form then rises in), because our page can't show Keycloak's content before it loads. Keycloak's registration has no password field (email-first, D44) and labels the field "Email" (email is the username). Google's own button guidance specifies Roboto; we follow the prototype's Helvetica label and keep the official "G" (review when Google is registered). Keycloak template overrides must be re-copied when the pinned Keycloak version changes.
+
+## UI style step 3: shared components and restyled web screens — 22 October 2026
+
+Branch `feature/swoovr-ui-style`. Visual source: [UI-STYLE.md](../design/reference/UI-STYLE.md) (Components and Layout tables), `source/ui.tsx` for numbers, and screens 07–14. Decisions D47–D54 in [decisions](DECISIONS.md#ui-style-step-3-shared-components--22-october-2026).
+
+Reference file names (by content, in addition to the 05/06 swap noted in step 2): `08-explore-friends.png` shows Explore with active filter chips, not a Friends tab; `11-profile-photo-free.png` is the mixed photo/photo-free grid and `12-explore-mixed.png` is the photo-free profile; `13-plan-a-date.png` is the chat and `14-chat.png` is Plan a date.
+
+Screen → reference → components:
+
+| Screen | Reference | Components |
+| --- | --- | --- |
+| Header, tab bar, footer | 07 (tab bar) | wordmark, tab bar (Explore, Connections, Chats, Me; bottom on phones, top on wide screens), outline icons, footer text |
+| Home `/` | type scale | page title, eyebrow, primary button, card |
+| Appearance `/settings/appearance` | cards, 09 chips | card scheme choices with custom radios, segmented control (System/Light/Dark), chips, bubbles, primary/secondary buttons |
+| Account `/account` | 10 cards | card rows, primary link button, secondary button, settings card (Appearance) |
+| People `/prototype/people` | 07, 08, 09, 11 | screen title + Filters pill, rule chips (on / ruled out) + match count, equal profile tiles (placeholder photo and serif quote), simulated ID badge, filters sheet with inside-label selects, checkboxes, rule chips and full-width Apply |
+| Profile `/prototype/people/{id}` | 10, 12 | back chevron, photo or quote block, name + badge, area with pin, intention chips, verification card, pinned action bar with checkbox and primary button |
+| Conversation `/prototype/conversation` | 13 | chat header with avatar and badge, segmented role switch, bubbles (theirs / mine), composer with round send button, secondary actions |
+| Not found, Error | — | page title, subtitle, link (Bootstrap `text-danger` classes removed) |
+| Plan a date (no screen) | 14 | option tiles with icons, icon inputs, textarea, send button: shown on `/prototype/components` |
+
+Changed:
+
+- **Components.** `Components/UI/Icon.razor` (one outline set, Lucide paths, 1.5 stroke), `Badge.razor` (photo, ID, founding, staff and bot birds; fixed colours; "simulated" label option), `ProfileTile.razor` (170 × 270 photo and photo-free tiles). CSS components in `app.css`: input (56 px, label inside, focus ring), primary/secondary/disabled/pressed/loading buttons, link, checkbox (24 px, tick pop; the real input sits over the box), radio, chips, card, notice, segmented control, sheet (native popover, grab handle, backdrop), badges, tiles, bubbles, composer, avatar, option tiles, icon inputs.
+- **Screens.** All listed screens restyled; content, form fields, names and behaviour kept. Removed: the header's separate Appearance link (now under Me, linked from Account) and each people card's duplicate "Open fictional profile" button (the name link and the whole tile open the profile). Added: rule chips with a match count (screen 08) and a "Back to home" link on Not found and Error.
+- **Guards.** `check_design.py` generates the badge tokens and rejects literal hex/rgb/hsl colours, shadows, gradients and Bootstrap classes in web styles and markup. The serif quote is allowed only through `--font-quote` and the MAUI `SwoovrQuoteFont` resource.
+- **MAUI.** Styles.xaml gains keyed PrimaryButton/SecondaryButton, Link, Card (implicit), InputBorder, Chip/ChipOn and their labels, ProfileTile/ProfileTileQuote (170 × 270), TileName/TileQuote/TileArea, BubbleTheirs/BubbleMine and their text, ComposerInput, SendButton, SegmentTrack/SegmentOn/SegmentLabel, and badge colours in Colors.xaml.
+
+Executed locally (macOS ARM64, .NET SDK 10.0.400, headless Edge through the existing bundled Playwright; Docker Keycloak 26.8.1 from `./scripts/docker-local.sh up`, then the API and web hosts from this branch with `Prototype__Enabled=true`, web on http://localhost:5081):
+
+- `./scripts/check.sh`: PASS (zero warnings; token-only colours in 18 web style sources; all policy, HTTP and prototype gates).
+- `tests/ui/components.browser.cjs` (new): PASS, 59 checks. Computed Swoovr type and no sideways scroll on all 8 restyled screens in light and dark at 390 px; every tile exactly 170 × 270 (photo and photo-free, on the people preview with and without sparse profiles and on the gallery), two columns 10 px apart, still equal to each other at 200% text; tab bar active item (aria-current, bold) on Explore/profile/Chats/Me/settings and none on Home, Connections not a link, fixed 80 px at the bottom on phones, static on desktop; filters sheet closed until the Filters button opens it, Apply submits, inline on desktop; badge colours identical in Standard light and Violet dark; simulated label on fictional badges; mine-bubble right-aligned in the primary colour.
+- `tests/appearance/web.browser.cjs`, `tests/prototype/discovery.browser.cjs`, `tests/prototype/conversation.browser.cjs`: PASS, **no selector changes**. Two restyle bugs were found by them and fixed: button colour transitions delayed the computed scheme colours, and the checkbox box intercepted clicks.
+- `tests/auth/members.browser.cjs`: PASS, 50 checks (signed-in account page at 320 px included).
+- Side-by-side at 390 px against the references in Standard light, Standard dark and Violet light: Explore (07/08/11), filters sheet (09), profile (10/12), chat (13), Plan a date pieces (14), plus home, appearance, account and not found. Fixed during comparison: quote overflow past the line clamp, Filters pill height, a 1 px photo-tile overflow, account settings-row padding, and the profile's oversized pinned bar.
+
+Gaps: MAUI is not built or run (no MAUI workload on this machine), so the new XAML styles are unverified beyond XML well-formedness and the font/colour guards; no native tab bar active-weight or segmented-control behaviour. Fictional people have no photos or real verification, so tiles use the abstract placeholder or the quote and show only a simulated ID badge; the "Checked 17 Oct" dates in screen 10 have no data. Connections has no screen. Plan a date has components only. Screens include extra prototype notices and the existing longer titles ("A little room for connection." rather than "Explore"), kept as content. Full-page screenshots show the fixed tab bar mid-page; that is a capture artefact. No screen-reader audit.
+
+### Owner follow-up — 23 October 2026
+
+The owner chose reference screen 13 for the chat (D56, superseding D53): their bubble is a soft grey pill with no border, the member's own reply is the primary colour, and the composer has an outlined "+" button, a soft pill input and an outline send arrow (web CSS and MAUI styles). The conversation preview shows "+" disabled because the demo has no attachments. Also recorded: employee = ruby staff bird (D57); admin verified is a backend flag with no badge that never implies ID verified (D58).
+
+Executed locally: `tests/ui/components.browser.cjs` PASS, 59 checks (now also asserting their bubble is the soft colour), `tests/prototype/conversation.browser.cjs` and `tests/appearance/web.browser.cjs` PASS; the chat was compared with screen 13 at 390 px in Standard light and dark. `./scripts/check.sh` PASS (see the commit). MAUI still not built.

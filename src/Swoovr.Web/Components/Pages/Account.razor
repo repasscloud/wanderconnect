@@ -3,6 +3,7 @@
 @inject SessionClient Sessions
 @inject IConfiguration Configuration
 <PageTitle>Account — Swoovr</PageTitle>
+<div class="column">
 <div class="page-heading">
     <p class="breadcrumb"><a href="/">Me</a> / Account</p>
     @if (signedIn)
@@ -22,11 +23,11 @@
 }
 else if (!signedIn)
 {
-    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a> <a href="/account/create">Create an account</a></p>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a> <a class="button button-secondary" href="/account/create">Create an account</a></p>
 }
 else
 {
-    <section class="account-session" aria-label="Your session">
+    <section class="card account-session" aria-label="Your session">
         @if (summary is null)
         {
             <p role="status">We couldn't confirm your session with the Swoovr API. Try signing in again.</p>
@@ -34,10 +35,10 @@ else
         else
         {
             <dl>
-                <dt>Signed in with</dt><dd data-session-method="@summary.Method">@MethodLabel(summary.Method)@(summary.MultiFactor ? " + one-time code" : "")</dd>
-                <dt>Email</dt><dd>@(summary.EmailVerified ? "Verified" : "Not verified yet")</dd>
-                <dt>18+ confirmation</dt><dd data-adult-attested="@(summary.AdultAttested ? "true" : "false")">@(summary.AdultAttested ? "Confirmed when you joined" : "Not recorded")</dd>
-                <dt>Member area</dt><dd data-member-area="@(summary.MemberArea ? "true" : "false")">@(summary.MemberArea ? "Allowed" : "Not allowed")</dd>
+                <div><dt>Signed in with</dt><dd data-session-method="@summary.Method">@MethodLabel(summary.Method)@(summary.MultiFactor ? " + one-time code" : "")</dd></div>
+                <div><dt>Email</dt><dd>@(summary.EmailVerified ? "Verified" : "Not verified yet")</dd></div>
+                <div><dt>18+ confirmation</dt><dd data-adult-attested="@(summary.AdultAttested ? "true" : "false")">@(summary.AdultAttested ? "Confirmed when you joined" : "Not recorded")</dd></div>
+                <div><dt>Member area</dt><dd data-member-area="@(summary.MemberArea ? "true" : "false")">@(summary.MemberArea ? "Allowed" : "Not allowed")</dd></div>
             </dl>
             <p class="field-help">Confirming you're 18+ isn't age verification. Your date of birth and any ID check come later, in your profile.</p>
         }
@@ -47,6 +48,8 @@ else
         </form>
     </section>
 }
+<nav class="card settings-list" aria-label="Settings"><a href="/settings/appearance">Appearance <Icon Name="back" Size="18" /></a></nav>
+</div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool configured, signedIn;

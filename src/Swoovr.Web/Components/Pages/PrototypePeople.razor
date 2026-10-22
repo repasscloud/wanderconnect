@@ -3,43 +3,75 @@
 @inject IConfiguration Configuration
 @inject IWebHostEnvironment Environment
 <PageTitle>People preview — Swoovr</PageTitle>
-<div class="page-heading"><p class="breadcrumb"><a href="/">Home</a> / Explore preview</p><h1>A little room for connection.</h1><p>People, at your own pace. Start with what you have in common.</p></div>
-<aside class="prototype-notice"><strong>Fictional adult preview</strong><p>Verification and location are simulated. No sign-in, messages or real profiles. The viewer requires long-term relationship intentions and excludes casual connections and friends with benefits, including hidden selections.</p></aside>
+<div class="screen-head">
+    <div class="page-heading"><p class="breadcrumb"><a href="/">Home</a> / Explore preview</p><h1 class="screen-title">A little room for connection.</h1><p class="subtitle">People, at your own pace. Start with what you have in common.</p></div>
+    @if (Enabled) { <button type="button" class="pill-button filters-open" popovertarget="filters"><Icon Name="filters" Size="20" />Filters</button> }
+</div>
+<aside class="notice prototype-notice"><strong>Fictional adult preview</strong><p>Verification and location are simulated. No sign-in, messages or real profiles. The viewer requires long-term relationship intentions and excludes casual connections and friends with benefits, including hidden selections.</p></aside>
 @if (!Enabled)
 {
     <section class="empty-state"><h2>This local preview is off</h2><p>No member service is connected. You can still <a href="/settings/appearance">choose your appearance</a>.</p></section>
 }
 else
 {
-    <form method="get" action="/prototype/people" class="discovery-filters">
-        <fieldset><legend>Your demo settings</legend>
-            <div class="filter-select"><label for="preview-travel">Simulated presence</label><select id="preview-travel" name="travel"><option value="local" selected="@(Travel == "local")">Local</option><option value="upcoming" selected="@(Travel == "upcoming")">Visiting soon</option><option value="arrived" selected="@(Travel == "arrived")">Arrived (demo)</option></select></div>
-            <label><input type="checkbox" name="hideSparse" value="true" checked="@HideSparse" /> Hide sparse profiles</label>
-            <label><input type="checkbox" name="incognito" value="true" checked="@Incognito" /> Browse incognito</label>
-            <label><input type="checkbox" name="requireFriendship" value="true" checked="@RequireFriendship" /> Also require friendship</label>
-            <label><input type="checkbox" name="requireActivity" value="true" checked="@RequireActivity" /> Also require activity companion</label>
-            <div class="filter-select"><label for="preview-match">Required intention match</label><select id="preview-match" name="match"><option value="any" selected="@(Match == "any")">Any required</option><option value="all" selected="@(Match == "all")">All required</option></select></div>
-            <button class="primary-button" type="submit">Apply demo settings</button>
-        </fieldset>
-    </form>
-    @if (Error is not null) { <section class="empty-state" role="status"><h2>People are unavailable</h2><p>@Error</p><a href="/prototype/people">Try again with default settings</a></section> }
+    <div class="explore">
+    <div id="filters" popover class="sheet discovery-filters" aria-labelledby="filters-title">
+        <span class="sheet-handle" aria-hidden="true"></span>
+        <button type="button" class="sheet-close" popovertarget="filters" popovertargetaction="hide"><Icon Name="plus" Size="22" /><span class="visually-hidden">Close filters</span></button>
+        <h2 class="sheet-title" id="filters-title">Filters</h2>
+        <form method="get" action="/prototype/people">
+            <fieldset><legend>Your demo settings</legend>
+                <div class="filter-stack">
+                    <div class="field filter-select"><label for="preview-travel">Simulated presence</label><select id="preview-travel" name="travel"><option value="local" selected="@(Travel == "local")">Local</option><option value="upcoming" selected="@(Travel == "upcoming")">Visiting soon</option><option value="arrived" selected="@(Travel == "arrived")">Arrived (demo)</option></select><span class="field-chevron"><Icon Name="back" Size="18" /></span></div>
+                    <label class="check"><input type="checkbox" name="hideSparse" value="true" checked="@HideSparse" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Hide sparse profiles</label>
+                    <label class="check"><input type="checkbox" name="incognito" value="true" checked="@Incognito" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Browse incognito</label>
+                    <label class="check"><input type="checkbox" name="requireFriendship" value="true" checked="@RequireFriendship" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Also require friendship</label>
+                    <label class="check"><input type="checkbox" name="requireActivity" value="true" checked="@RequireActivity" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Also require activity companion</label>
+                    <div class="field filter-select"><label for="preview-match">Required intention match</label><select id="preview-match" name="match"><option value="any" selected="@(Match == "any")">Any required</option><option value="all" selected="@(Match == "all")">All required</option></select><span class="field-chevron"><Icon Name="back" Size="18" /></span></div>
+                </div>
+                <div class="filter-rules">
+                    <h3 class="section-heading">Looking for</h3>
+                    <ul class="chip-row" aria-label="Required intentions"><li class="chip is-on">Long-term</li>@if (RequireFriendship) { <li class="chip is-on">Friendship</li> }@if (RequireActivity) { <li class="chip is-on">Activity</li> }</ul>
+                    <h3 class="section-heading">Not looking for</h3>
+                    <ul class="chip-row" aria-label="Ruled-out intentions"><li class="chip is-off">Casual</li><li class="chip is-off">FWB</li></ul>
+                    <p class="field-help">Anyone who has selected an intention you rule out won't appear, even if they also want what you want.</p>
+                </div>
+                <div class="filter-stack"><button class="primary-button" type="submit">Apply demo settings</button></div>
+            </fieldset>
+        </form>
+    </div>
+    <div class="explore-results">
+    @if (Error is not null) { <section class="empty-state" role="status"><h2>People are unavailable</h2><p>@Error</p><a class="link" href="/prototype/people">Try again with default settings</a></section> }
     else if (Result is null) { <p role="status">Loading fictional people…</p> }
-    else if (Result.People.Count == 0) { <section class="empty-state"><h2>No people match these settings</h2><p>Try another combination. Your exclusions still apply.</p></section> }
     else
     {
-        <section aria-label="Fictional people" class="people-grid">
-            @foreach (var person in Result.People)
-            {
-                <article class="person-card">
-                    @if (person.HasDemoImage) { <div class="demo-image" role="img" aria-label="Abstract demo image placeholder"><span aria-hidden="true">R</span><small>Demo image placeholder</small></div> }
-                    <div class="person-card-content"><p class="field-help">@person.Area</p><h2><a href="@($"/prototype/people/{person.Id}?{PrototypeClient.Query(Filter)}")">@person.Name, @person.Age</a></h2><p>@person.Introduction</p>
-                    <div class="intention-chips">@foreach (var intention in person.Intentions) { <span>@intention</span> }</div>
-                    <p class="field-help">@(person.CanContact ? "Contact eligible in this demo" : "Contact unavailable with these demo settings")</p>
-                    <a class="quiet-button" href="@($"/prototype/people/{person.Id}?{PrototypeClient.Query(Filter)}")">Open fictional profile</a></div>
-                </article>
-            }
-        </section>
+        <ul class="chip-row" aria-label="Active intention rules">
+            <li class="chip is-on"><Icon Name="check" Size="12" Stroke="2.5" />Long-term</li>
+            @if (RequireFriendship) { <li class="chip is-on"><Icon Name="check" Size="12" Stroke="2.5" />Friendship</li> }
+            @if (RequireActivity) { <li class="chip is-on"><Icon Name="check" Size="12" Stroke="2.5" />Activity</li> }
+            <li class="chip is-off"><span class="visually-hidden">Ruled out: </span>Casual</li>
+            <li class="chip is-off"><span class="visually-hidden">Ruled out: </span>FWB</li>
+            <li class="hint">Showing @Result.People.Count who match</li>
+        </ul>
+        @if (Result.People.Count == 0) { <section class="empty-state"><h2>No people match these settings</h2><p>Try another combination. Your exclusions still apply.</p></section> }
+        else
+        {
+            <section aria-label="Fictional people" class="people-grid">
+                @foreach (var person in Result.People)
+                {
+                    var href = $"/prototype/people/{person.Id}?{PrototypeClient.Query(Filter)}";
+                    <ProfileTile Name="@person.Name" Age="@person.Age" Href="@href" Intentions="@person.Intentions" Area="@person.Area"
+                                 Quote="@(person.HasDemoImage ? null : person.Introduction)"
+                                 Photo="@(person.HasDemoImage ? DemoImage(person.Name) : null)">
+                        <Badges><Badge Kind="id" Size="14" Simulated /></Badges>
+                        <ChildContent><p class="tile-contact">@(person.CanContact ? "Contact eligible in this demo" : "Contact unavailable with these demo settings")</p></ChildContent>
+                    </ProfileTile>
+                }
+            </section>
+        }
     }
+    </div>
+    </div>
 }
 @code {
     [SupplyParameterFromQuery(Name="travel")] public string[]? TravelInput { get; set; }
@@ -60,6 +92,7 @@ else
     private bool Enabled => Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled");
     private Swoovr.Contracts.PrototypePeople? Result;
     private string? Error;
+    private static RenderFragment DemoImage(string name) => @<div class="demo-image" role="img" aria-label="Abstract demo image placeholder"><span aria-hidden="true">@name[..1]</span><small>Demo image placeholder</small></div>;
     protected override async Task OnParametersSetAsync()
     {
         Result = null; Error = null;

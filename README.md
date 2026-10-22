@@ -11,7 +11,7 @@ This repository contains the product definition and a .NET foundation with provi
 - [Naming conventions](docs/architecture/NAMING.md) and [rename/migration record](docs/delivery/SWOOVR-RENAME-2026-10-22.md).
 
 - [Product brief](docs/product/01-PRODUCT-BRIEF.md), [behaviour](docs/product/02-BEHAVIOUR-AND-RULES.md), [screens](docs/product/03-SCREENS-AND-DESIGN.md).
-- [Identity and safety](docs/product/04-IDENTITY-TRUST-AND-SAFETY.md), [commerce](docs/product/05-VENUES-VOUCHERS-AND-COMMERCE.md), [technical handoff](docs/product/06-TECHNICAL-AND-AI-HANDOFF.md), [names and sources](docs/product/07-NAMES-DECISIONS-AND-SOURCES.md).
+- [Identity and safety](docs/product/04-IDENTITY-TRUST-AND-SAFETY.md), [commerce](docs/product/05-VENUES-VOUCHERS-AND-COMMERCE.md), [technical handoff](docs/product/06-TECHNICAL-AND-AI-HANDOFF.md), [names and sources](docs/product/07-NAMES-DECISIONS-AND-SOURCES.md), [profile flags and modes](docs/product/08-PROFILE-FLAGS-AND-MODES.md) (planned).
 - [Appearance specification](docs/design/USER-APPEARANCE-THEMES.md), [colour studio](docs/design/swoovr-colour-studio.html), [canonical palette data](docs/design/themes.json), [screen board](docs/design/screen-board.svg).
 - [Architecture](docs/architecture/README.md), [authentication](docs/architecture/AUTHENTICATION.md), [local development](docs/delivery/LOCAL-DEVELOPMENT.md).
 - [Phases](docs/delivery/PHASES.md), [questions](docs/delivery/QUESTIONS.md), [decision process](docs/delivery/DECISIONS.md), [validation evidence](docs/delivery/VALIDATION.md).
