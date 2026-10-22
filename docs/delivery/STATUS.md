@@ -1,13 +1,14 @@
 # Current Swoovr delivery status
 
-As of 22 October 2026 (Australia/Adelaide). This page is the current summary; dated slice documents and the progress ledger explain how we reached it. Swoovr is an integrated local prototype, not a member-ready pilot or production deployment.
+As of 23 October 2026 (Australia/Adelaide). This page is the current summary; dated slice documents and the progress ledger explain how we reached it. Swoovr is an integrated local prototype, not a member-ready pilot or production deployment.
 
 ## What exists and where
 
 | Area | Implemented | Location / remaining boundary |
 | --- | --- | --- |
 | Foundation — phase 0 complete | Seven .NET application projects, portable checks, local server containers | `src/Swoovr.*`, `Swoovr.Local.sln`; full solution includes unvalidated mobile targets |
-| Identity — phase 1 partial | Owner-approved [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md); local members/venues/staff realms with Standard theme, 18+ registration, email verification, 15-minute lockout, passkeys; realm-aware session evidence; API token validation; members web sign-in | `containers/keycloak`, `src/Swoovr.Domain/Access`, `src/Swoovr.Api/Auth`, `src/Swoovr.Web/Auth`; [slice record](PHASE-1-KEYCLOAK-MEMBERS.md). Local only; no Apple/Google/Entra/MailerSend, no persistence, venue/staff areas closed |
+| Accounts — phase 1 partial | PostgreSQL 17 (local Compose service) with EF Core migrations: accounts keyed by `(issuer, subject)`, role grants, venue/staff invitations, member profile flags, optional DOB/age with under-18 lock, audit log; `/api/v1/me`, age entry, admin invitations, account search and adult override; `migrate` and `root-admin grant` operator commands | `src/Swoovr.Infrastructure/Persistence`, `src/Swoovr.Api/Accounts`; [D67–D75](DECISIONS.md#accounts-beta-founder-and-webassembly-slices--23-october-2026). Local only; venue records, staff Entra sign-in and the venue/staff portals are not built |
+| Identity — phase 1 partial | Owner-approved [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md); local members/venues/staff realms with Standard theme, 18+ registration, email verification, 15-minute lockout, passkeys; realm-aware session evidence; API token validation; members web sign-in; staff roles and the root admin now come from application records | `containers/keycloak`, `src/Swoovr.Domain/Access`, `src/Swoovr.Api/Auth`, `src/Swoovr.Web/Auth`; [slice record](PHASE-1-KEYCLOAK-MEMBERS.md). Local only; no Apple/Google/Entra/MailerSend; venue/staff portals not built |
 | Appearance — phase 2 partial | Eight schemes (Standard default) × System/Light/Dark, browser-local guest saving; portable account conflict/retry rules; [UI style](../design/reference/UI-STYLE.md) steps 1–3 (Helvetica Neue type scale; launch splash on web and MAUI; Keycloak sign-in screens matching the prototype; shared components and restyled web screens with a bottom tab bar, equal profile tiles, filters sheet and chat bubbles; MAUI component styles unbuilt) | `/settings/appearance`, `src/Swoovr.Client/AppearanceSyncState.cs`; no account sync transport or mobile acceptance |
 | Discovery — phase 2 partial | Policy gates and fictional adult grid/profile API → Client → Web preview | `/prototype/people`; development opt-in only; no live profile storage, identity or location evidence |
 | Connections — phase 3 partial | Request/accept/decline/canned reply/block/close scenarios with revision checks and SSR forms | `/prototype/conversation`; fictional actors, process-local state, no real messages/realtime |
@@ -26,8 +27,8 @@ Follow [local development](LOCAL-DEVELOPMENT.md) for tools and commands. Run `./
 
 ## What comes next and why
 
-1. Continue the [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md#delivery-order-default): persistence for accounts/roles/invitations, Apple/Google brokering once registrations exist, email sign-in link and MailerSend extension, venue and staff portals (Entra, root admin OTP), then mobile. Q03 (authenticated web rendering) and Q09 (mobile tooling) remain OPEN; Q02 is answered (D34).
-2. Add persistence for real accounts/profiles and connect authenticated client journeys. PostgreSQL remains a DEFAULT, not a configured service. Keep privacy/media/authorization rules server-side.
+1. Continue the [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md#delivery-order-default): Apple/Google brokering once registrations exist, email sign-in link and MailerSend extension, venue and staff portals (Entra, root admin OTP), then mobile. Q02 (D34), Q03 (D59, Interactive WebAssembly for signed-in pages) and Q09 (D64, .NET 10 + MAUI built locally) are answered.
+2. Build on the account records (D68–D75) for real profiles and authenticated client journeys. PostgreSQL runs locally only; hosted databases, backups and data residency are not configured. Keep privacy/media/authorization rules server-side.
 3. Connect account appearance, live discovery/location/identity, messaging, meeting plans and private feedback. Resolve Q04 verification before enabling dependent behavior; the pre-arrival reply policy is answered (D60). Signed-in features move to Interactive WebAssembly (D59).
 4. Implement venue/commerce sandbox after the core loop; real money follows D61 once integrations and agreements are validated. Complete operations/device/security/accessibility/store gates before the Adelaide private beta (D62) and publishing (D63).
 

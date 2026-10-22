@@ -145,7 +145,7 @@ async function secret() {
     const ok = await call(token);
     assert.equal(ok.status, 200); pass();
     const summary = await ok.json();
-    assert.deepEqual(summary, { realm: 'members', method: 'emailPassword', multiFactor: false, emailVerified: true, adultAttested: true, memberArea: true }, JSON.stringify({ summary, amr: claims(token).amr })); pass();
+    assert.deepEqual(summary, { realm: 'members', method: 'emailPassword', multiFactor: false, emailVerified: true, adultAttested: true, memberArea: true, adminArea: false, supportArea: false }, JSON.stringify({ summary, amr: claims(token).amr })); pass();
     const [header, payload, signature] = token.split('.');
     const forged = body => b64(JSON.stringify(body));
     const original = claims(token);

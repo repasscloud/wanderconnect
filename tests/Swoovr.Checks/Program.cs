@@ -5,6 +5,7 @@ using Swoovr.Contracts;
 using System.Text.Json;
 
 AccessPolicyChecks.Run();
+AccountPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
@@ -12,6 +13,7 @@ PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
+await PersistenceChecks.Run();
 
 var expected = new FoundationStatus("Swoovr.Api", "foundation");
 using var http = new HttpClient(new StatusHandler()) { BaseAddress = new Uri("https://example.invalid/") };

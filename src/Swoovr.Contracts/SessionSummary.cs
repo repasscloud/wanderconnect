@@ -10,4 +10,6 @@ public sealed record SessionSummary(
     bool MultiFactor,
     bool EmailVerified,
     bool AdultAttested,
-    bool MemberArea);
+    bool MemberArea,
+    bool AdminArea,
+    bool SupportArea);

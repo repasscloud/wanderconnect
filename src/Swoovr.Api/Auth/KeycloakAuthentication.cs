@@ -2,11 +2,9 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using Swoovr.Contracts;
 using Swoovr.Domain;
 
 namespace Swoovr.Api.Auth;
@@ -104,25 +102,5 @@ public static class KeycloakAuthentication
         return new(realm, subject, user.FindFirstValue("email_verified") == "true",
             user.FindAll("amr").Select(c => c.Value).ToArray(), user.FindFirstValue("swoovr_idp"),
             DateTimeOffset.FromUnixTimeSeconds(authTime), attested);
-    }
-
-    public static void MapSession(WebApplication app)
-    {
-        app.MapGet("/api/v1/session", (ClaimsPrincipal user, KeycloakOptions options, SessionEvidencePolicy evidence, TimeProvider clock) =>
-        {
-            var facts = Facts(user, options);
-            if (facts is null) return Results.Unauthorized();
-            var result = evidence.Evaluate(facts, clock.GetUtcNow());
-            // Roles, venue membership and root-admin status are application-owned records.
-            // No account store exists yet, so only the implicit member role is granted.
-            var role = facts.Realm == AccountRealm.Members ? AccountRole.Member : AccountRole.Unknown;
-            var session = new AccessSession(role, facts.Realm, result.Method, result.MultiFactor, facts.EmailVerified,
-                result.IsFresh, IsActive: true, IsRootAdmin: false, new HashSet<Guid>());
-            return Results.Ok(new SessionSummary(
-                JsonNamingPolicy.CamelCase.ConvertName(facts.Realm.ToString()),
-                JsonNamingPolicy.CamelCase.ConvertName(result.Method.ToString()),
-                result.MultiFactor, facts.EmailVerified, facts.AdultAttestedAt is not null,
-                new AccountAccessPolicy().Allows(session, AccountRole.Member)));
-        }).RequireAuthorization();
     }
 }

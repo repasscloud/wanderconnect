@@ -102,7 +102,7 @@ The API grants venue or staff access only when all of these hold; otherwise it d
 - AMR references are configured with a 12-hour `maxAge` (D46); Keycloak's default of 0 drops the reference from any token issued after the authentication second.
 - Freshness: privileged portal sessions last at most 12 hours (DEFAULT); sensitive actions (role grants, age overrides, data export, account deletion) require reauthentication within the last 15 minutes using OIDC `max_age` (DEFAULT). Refresh never resets freshness.
 
-IMPLEMENTED: `SessionEvidencePolicy` (Domain) maps validated token facts to method, MFA and freshness; `AccountAccessPolicy` now takes the realm and those facts instead of the reserved `HasApprovedPrivilegedEmailEvidence` verdict. Venue and staff roles, venue membership and the root-admin flag still need application persistence, so those areas remain closed in practice.
+IMPLEMENTED: `SessionEvidencePolicy` (Domain) maps validated token facts to method, MFA and freshness; `AccountAccessPolicy` now takes the realm and those facts instead of the reserved `HasApprovedPrivilegedEmailEvidence` verdict. Venue and staff roles, venue membership and the root-admin flag are application records (D70, D71); invitations bind them to `(issuer, subject)` on first sign-in (D72). The venue and staff portals are not built, and no Entra provider is configured, so only the root admin can reach staff routes locally.
 
 ## Email sign-in link
 

@@ -298,3 +298,23 @@ Gaps: MAUI is not built or run (no MAUI workload on this machine), so the new XA
 The owner chose reference screen 13 for the chat (D56, superseding D53): their bubble is a soft grey pill with no border, the member's own reply is the primary colour, and the composer has an outlined "+" button, a soft pill input and an outline send arrow (web CSS and MAUI styles). The conversation preview shows "+" disabled because the demo has no attachments. Also recorded: employee = ruby staff bird (D57); admin verified is a backend flag with no badge that never implies ID verified (D58).
 
 Executed locally: `tests/ui/components.browser.cjs` PASS, 59 checks (now also asserting their bubble is the soft colour), `tests/prototype/conversation.browser.cjs` and `tests/appearance/web.browser.cjs` PASS; the chat was compared with screen 13 at 390 px in Standard light and dark. `./scripts/check.sh` PASS (see the commit). MAUI still not built.
+
+## Slice A: application persistence — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D67–D75 in [decisions](DECISIONS.md#accounts-beta-founder-and-webassembly-slices--23-october-2026).
+
+Changed:
+
+- **Database.** Compose service `postgres` (17.11-alpine, digest-pinned, 127.0.0.1:5433, generated password); Mailpit also publishes SMTP on 127.0.0.1:1025 for API email. `SwoovrDbContext` (EF Core 10, Npgsql) with the `InitialAccounts` migration: `accounts` (unique `(issuer, subject)`), `role_grants`, `invitations`, `member_profiles`, `audit_entries`.
+- **Domain.** `Account`, `RoleGrant`, `AuditEntry`, `EmailAddress.Normalise`, `MemberProfile` with `AgePolicy` and `BadgePolicy`, `Invitation` with `InvitationPolicy`.
+- **API.** `AccountResolver` maps each validated token to its account (created on first use, verified email cached, member profile created with the 18+ attestation status, venue/staff invitations accepted once). `/api/v1/session` now reports `adminArea` and `supportArea` from application records. New: `GET /api/v1/me`, `PUT /api/v1/me/age`, admin `POST/GET/DELETE /api/v1/admin/invitations`, `GET /api/v1/admin/accounts?email=`, `POST /api/v1/admin/accounts/{id}/adult-override`. Operator commands `migrate` and `root-admin grant`.
+
+Executed locally (macOS ARM64, .NET SDK 10.0.400, Docker Keycloak 26.8.1, PostgreSQL 17.11, headless Edge through the bundled Playwright; API and web from this branch):
+
+- `./scripts/check.sh`: PASS, including `PASS: 69 account policy cases` and `PASS: 8 persistence cases against PostgreSQL` (throwaway database per run).
+- `tests/auth/accounts.browser.cjs` (new): `PASS: 51 account checks` — one account per `(issuer, subject)`; member area only for members; DOB/age/blank entry and four invalid entries (400); age audit rows; a member gets 403 on all four admin routes and an anonymous caller 401; the root admin's staff session has no admin area until `root-admin grant` records it, then has it; granting root admin to a member subject is refused; a support invitation for a member's own email (upper-case) leaves that member with no admin or support area and the invitation pending; five invalid invitations refused; revoke and unknown-id 404; an age of 17 locks the account (`/me` and further age entry 403, member area off); exact-email account search; adult override restores access; no `@` anywhere in the audit log.
+- `tests/auth/members.browser.cjs`: PASS, 50 checks (session summary now includes `adminArea: false, supportArea: false`). `tests/auth/root-admin.browser.cjs`: PASS, 9 checks.
+
+Found while testing: Docker Desktop's bind mount of the Keycloak theme had gone empty inside the long-running container, so Keycloak served its stock theme; recreating that container fixed it (now in [local development](LOCAL-DEVELOPMENT.md#application-database--23-october-2026)).
+
+Gaps: no Entra provider, so the Entra half of invitation acceptance and the support role are covered only by domain checks; the 15-minute freshness rule for the adult override has no live negative test (it needs a 15-minute-old session); venue records, flag-setting admin routes and other members' profiles are not built; no hosted database, backup or retention policy.

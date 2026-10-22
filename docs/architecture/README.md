@@ -1,6 +1,6 @@
 # Architecture baseline
 
-Updated 22 October 2026. Seven application projects remain the confirmed direction. The foundation and partial discovery/connection prototypes are integrated; the product is incomplete. There is no application persistence or Keycloak application adapter. The local Keycloak investigation harness is separate from application authentication. See [current status](../delivery/STATUS.md) for delivered slices and [naming](NAMING.md) for Swoovr identifiers.
+Updated 22 October 2026. Seven application projects remain the confirmed direction. The foundation and partial discovery/connection prototypes are integrated; the product is incomplete. Application persistence exists for accounts (PostgreSQL through EF Core in Infrastructure, D68); the API validates Keycloak tokens itself. The local Keycloak investigation harness is separate from application authentication. See [current status](../delivery/STATUS.md) for delivered slices and [naming](NAMING.md) for Swoovr identifiers.
 
 | Project | Owns | References |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ Updated 22 October 2026. Seven application projects remain the confirmed directi
 
 Test projects can reference layers under test. Do not reference Infrastructure or Domain from UI code to bypass API enforcement. Domain interfaces belong with the rules that need them; application orchestration initially lives in API feature folders. Split an Application project only once complexity justifies it.
 
-DEFAULT: modular monolith with one API, PostgreSQL persistence when needed, private object media storage, durable background processing when introduced. No database container is required for this foundation because it stores nothing. No Kubernetes, extra portal hosts, queue, Redis or worker project is required by the scaffold.
+DEFAULT: modular monolith with one API, PostgreSQL persistence (CONFIRMED for local development, D68; `SwoovrDbContext` and migrations in Infrastructure, used from API feature folders), private object media storage, durable background processing when introduced. The local Compose stack runs PostgreSQL 17 on 127.0.0.1:5433; without a connection string the API stores nothing and every account-dependent route answers 503 or denies (fail closed). No Kubernetes, extra portal hosts, queue, Redis or worker project is required by the scaffold.
 
 The Blazor shell uses static SSR to keep the initial solution small. Select an interactive mode in phase 1: Interactive Server fits the existing host; WASM/Auto adds Web.Client and needs a documented architecture change. This replaces the older handoff's assumed Interactive WASM requirement. MAUI shares contracts and clients, not Razor markup.
 
