@@ -14,6 +14,7 @@ Source of truth: the `design/` folder of the **swoovr-marketing** repository. Co
 | `swatch.png` / `swatch.svg` | The whole palette on one sheet. |
 | `tokens.css` / `tokens.ts` | Generated copies for web and TypeScript (Remotion) code. |
 | `build.py` | Validates contrast and regenerates every copy. |
+| `reference/UI-STYLE.md` | **The look of every screen**: type, layout, components, the launch splash. Overrides older wireframes. With `login.html` (working sign-in prototype), screenshots and component source. |
 
 ## Direction
 
