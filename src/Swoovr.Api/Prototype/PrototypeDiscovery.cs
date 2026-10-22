@@ -58,7 +58,7 @@ internal static class PrototypeDiscovery
         var ownerRules = new DiscoveryRules(true, true, person.IncognitoAccepted, false,
             new(new HashSet<ConnectionIntention>(), RequiredIntentionMatch.Any, new HashSet<ConnectionIntention>()));
         var request = new DiscoveryAccessRequest(
-            new(AccountRole.Member, SignInMethod.EmailPassword, false, true, new HashSet<Guid>()), ViewerId,
+            new(AccountRole.Member, AccountRealm.Members, SignInMethod.EmailPassword, false, true, true, true, false, new HashSet<Guid>()), ViewerId,
             new(ViewerId, true, true, true, true, Contexts, new HashSet<ConnectionIntention> { ConnectionIntention.LongTermRelationship, ConnectionIntention.Friendship }),
             new(person.Id, person.Active, true, true, person.Substantive, Contexts, person.Applicable),
             viewerRules, ownerRules, options.Travel == "local" ? DiscoveryContext.Connect : DiscoveryContext.Travel,

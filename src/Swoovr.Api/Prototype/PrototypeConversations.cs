@@ -18,7 +18,7 @@ internal static class PrototypeConversations
         public long Revision {get;set;}
         public bool Blocked {get;set;}
     }
-    private static readonly AccessSession Session=new(AccountRole.Member,SignInMethod.EmailPassword,false,true,new HashSet<Guid>());
+    private static readonly AccessSession Session=new(AccountRole.Member,AccountRealm.Members,SignInMethod.EmailPassword,false,true,true,true,false,new HashSet<Guid>());
     private static DiscoveryMember Member(Guid id)=>new(id,true,true,true,true,
         new HashSet<DiscoveryContext>(Enum.GetValues<DiscoveryContext>()),new HashSet<ConnectionIntention>{ConnectionIntention.Friendship});
     private static DiscoveryRules Rules()=>new(true,true,true,false,

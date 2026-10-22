@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRealm, applyAll, amrReferences, realms } from '../../scripts/auth/realms.mjs';
+import { applyRealm, applyAll, amrReferences, amrMaxAgeSeconds, realms } from '../../scripts/auth/realms.mjs';
 
 // In-memory stand-in for the Admin REST paths realms.mjs uses; no provider is contacted.
 function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-only', foreignConfig = false } = {}) {
@@ -45,7 +45,11 @@ test('members realm: 18+ checkbox required, terms action recorded by default, AM
   assert.equal(state.action.enabled, true);
   assert.equal(state.action.defaultAction, true);
   for (const [i, reference] of Object.values(amrReferences).entries())
-    assert.equal(state.configs[state.browser[i].authenticationConfig].config['default.reference.value'], reference);
+  {
+    const config = state.configs[state.browser[i].authenticationConfig].config;
+    assert.equal(config['default.reference.value'], reference);
+    assert.equal(config['default.reference.maxAge'], amrMaxAgeSeconds, 'AMR must outlive the authentication second');
+  }
   assert.equal(changes.length, 2 + Object.keys(amrReferences).length);
 });
 
@@ -85,4 +89,13 @@ test('applyAll covers exactly the three realms from D31', async () => {
   const result = await applyAll({ open: async name => { opened.push(name); return fakeRealm(name, { terms: name === 'swoovr-members-dev' ? 'REQUIRED' : 'DISABLED' }).api; } });
   assert.deepEqual(opened, realms);
   assert.deepEqual(Object.keys(result), ['swoovr-members-dev', 'swoovr-venues-dev', 'swoovr-staff-dev']);
+});
+
+test('an owned config with the old zero max age is updated', async () => {
+  const { api, state } = fakeRealm('swoovr-members-dev');
+  await applyRealm(api, 'swoovr-members-dev');
+  const id = state.browser[0].authenticationConfig;
+  state.configs[id].config = { 'default.reference.value': 'pwd' };
+  assert.deepEqual(await applyRealm(api, 'swoovr-members-dev'), ['amr pwd on auth-username-password-form']);
+  assert.equal(state.configs[id].config['default.reference.maxAge'], amrMaxAgeSeconds);
 });

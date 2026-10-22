@@ -206,3 +206,14 @@ Executed locally:
 - `tests/appearance/web.browser.cjs`, `tests/prototype/discovery.browser.cjs`, `tests/prototype/conversation.browser.cjs`: PASS in headless Edge via the existing bundled Playwright, against Development hosts on 127.0.0.1:5380/5381 with `Prototype__Enabled=true`. Appearance covers 24 preferences/16 computed palettes. Desktop and 320px dark captures were inspected; hosts stopped afterwards.
 
 Gaps: no screen-reader audit; mobile appearance not built (no MAUI workloads); account sync transport still absent.
+
+## Keycloak members slice — 22 October 2026
+
+Branch `feature/keycloak-integration-design`. Executed locally on macOS (ARM64), Docker 29.9.1, Keycloak 26.8.1 (pinned digest), .NET SDK 10.0.400, headless Edge through the existing bundled Playwright.
+
+- `./scripts/check.sh`: PASS. Zero build warnings/errors; realm import generator/invariants; 65 Node tests (7 for realm configuration); 84 access-policy and 28 session-evidence cases among 501 named policy/state cases; API session endpoint 401 for missing/malformed/Basic tokens; unconfigured web sign-in stays off; existing HTTP gates. One run failed `tests/auth-harness/session.test.mjs` "in-flight refresh rejects overlapping logout, refresh and begin" (400 vs 303); it passed 6 isolated reruns and every later full run. Recorded as a pre-existing timing flake, not fixed in this slice.
+- `./scripts/docker-local.sh up` and `smoke`: PASS. API/web images rebuilt with the new authentication packages; members/venues/staff and investigation realm discovery, PKCE S256, mail sink.
+- `tests/auth/members.browser.cjs`: PASS, 34 checks, three consecutive runs after the AMR max-age fix (one earlier failure exposed D46). Covers Standard theme light/dark and claims line; 18+ registration blocked server-side with no email sent; email-first verification and password; server-side web session (HttpOnly Lax cookie, no token in cookies); GET sign-out ignored, POST sign-out; password sign-in method; API accepts a real members token and rejects missing, tampered-claim, cross-realm issuer, wrong audience, unsigned, `alg: none` and malformed tokens; lockout after 3 failures, correct password refused while locked, reset clears it; passkey registration and sign-in with a virtual authenticator; venues/staff realms have no registration link or social providers; 320px account page.
+- Manual inspection: Keycloak login, registration, choose-password and blocked-registration pages in light and dark at 1280px and 390px; account page at desktop.
+
+Gaps: no Apple/Google/Entra federation, no MailerSend delivery, no venue/staff portal sign-in, no root-admin OTP flow, no persistence, no mobile, no screen-reader audit, no production TLS/hosts. Passkey sign-in reports `pwd` (D45). Evidence is local-only and fictional.

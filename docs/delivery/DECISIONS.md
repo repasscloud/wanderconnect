@@ -101,3 +101,15 @@ Owner answers given while designing the [Keycloak integration](../architecture/K
 | D39 | CONFIRMED, owner 22 October 2026 | Production `https://swoovr.app`, UAT `https://uat.swoovr.app` (UAT moves to separate Azure billing later); email via the MailerSend HTTP API (not SMTP); daily backups of Keycloak and the database | Passkey relying-party IDs follow these domains. No deployment or account configured |
 | D40 | CONFIRMED, owner 22 October 2026 | Registration requires an "I'm 18 or over" checkbox; DOB entered at profile setup and stored; under-18 DOB locks the account; AI profile review can require Stripe age verification; support/admin can override to adult; an 18+ DOB is not "age verified" | Keycloak holds only the attestation; age status is application-owned. Stripe Identity answers Q04's provider choice only |
 | D41 | CONFIRMED, owner 22 October 2026 | Keycloak pages use Standard only, light/dark from the device, no scheme picker or remembered scheme; claims footer on every page; provider brand rules for Apple/Google; emails in Standard light | Uses the supplied `keycloak.v2` theme after version checks |
+
+## Keycloak members slice — 22 October 2026
+
+Implementation choices made while building the first slice of the [integration design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md). All are reversible; see the [slice record](PHASE-1-KEYCLOAK-MEMBERS.md) for evidence.
+
+| ID | Status / source | Decision | Consequence |
+| --- | --- | --- | --- |
+| D42 | DEFAULT, implementation 22 October 2026 | Member-area access requires the members realm, an active session and verified email, but no particular sign-in method | Realm separation (D31) makes method evidence a privileged-only concern. Needed because Keycloak's email-first registration session carries no AMR. Venue and staff areas still require positive method evidence |
+| D43 | DEFAULT, implementation 22 October 2026 | The 18+ checkbox is Keycloak's built-in registration terms step (relabelled) plus the `TERMS_AND_CONDITIONS` default required action | Server-enforced before any account exists; records the attestation time, emitted as `swoovr_adult_attested_at`; also asks brokered accounts. The user-profile checkbox approach failed on 26.8.1 |
+| D44 | DEFAULT, observed Keycloak 26.8.1 behaviour | Keep email verification on, which makes registration email-first (password after the link) | No password can be set on an unverified address |
+| D45 | DEFAULT, implementation 22 October 2026 | Passkeys enabled only in the members realm | 26.8.1 reports a passkey used on the sign-in form as `pwd`; that would blur privileged evidence in venues/staff. Splitting the flow is follow-up work |
+| D46 | DEFAULT, implementation 22 October 2026 | AMR references use a 12-hour `maxAge`, matching the SSO session | Keycloak's default 0 drops the reference after the authentication second. Privileged freshness stays on `auth_time` (12 hours) and future step-up |

@@ -1,3 +1,4 @@
+using Swoovr.Web.Auth;
 using Swoovr.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,12 @@ builder.Services.AddHttpClient<Swoovr.Client.PrototypeClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
     http.Timeout = TimeSpan.FromSeconds(5);
 });
+
+builder.Services.AddHttpClient<Swoovr.Client.SessionClient>(http => {
+    http.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
+    http.Timeout = TimeSpan.FromSeconds(5);
+});
+builder.Services.AddMemberSignIn(builder.Configuration, builder.Environment);
 
 builder.Services.AddHttpClient<Swoovr.Client.PrototypeConversationClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
@@ -26,9 +33,11 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+MemberSignIn.MapMemberSignIn(app);
 app.MapRazorComponents<App>();
 
 app.Run();

@@ -35,7 +35,19 @@ try:
         html = r.read().decode()
         assert 'Swoovr' in html and 'not connected' in html
     check_web_assets(web)
+    # Without a token, or with a malformed one, the session endpoint is 401 and never 500.
+    for header in [None, 'Bearer not.a.token', 'Bearer abc', 'Basic Zm9vOmJhcg==']:
+        request = urllib.request.Request(api+'api/v1/session', headers={'Authorization': header} if header else {})
+        try: urllib.request.urlopen(request); raise AssertionError('session must require a valid token')
+        except urllib.error.HTTPError as error: assert error.code == 401, (header, error.code)
+    # An unconfigured web host keeps sign-in off and never redirects to a provider.
+    with urllib.request.urlopen(web+'account') as r: assert "Sign-in isn't configured" in r.read().decode()
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args): return None
+    try: urllib.request.build_opener(NoRedirect).open(web+'account/sign-in'); raise AssertionError('expected redirect')
+    except urllib.error.HTTPError as error: assert error.code == 302 and error.headers['Location'] == '/account', error.headers['Location']
     print('PASS: appearance route and linked runtime scripts/styles.')
+    print('PASS: session endpoint 401 for missing/malformed tokens; unconfigured web sign-in stays off.')
     print('PASS: API liveness/status JSON and Blazor foundation HTTP response.')
 finally:
     for p,log in processes:

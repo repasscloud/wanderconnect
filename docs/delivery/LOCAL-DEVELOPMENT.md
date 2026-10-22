@@ -51,6 +51,31 @@ CONFIRMED deployment direction: all server components will be containerised on p
 
 See [sandbox evidence and investigation matrix](PHASE-1-KEYCLOAK-SANDBOX.md). No PostgreSQL app service is added because the app still has no persistence adapter. No SMTP, social provider, application OAuth client or fake authorization adapter is configured. Linux containers cannot validate iOS/Xcode tooling.
 
+## Member sign-in (local Keycloak)
+
+The [members slice](PHASE-1-KEYCLOAK-MEMBERS.md) runs against the Docker stack. Local only: fictional adult accounts at `example.test`, every email caught by the mail sink at http://127.0.0.1:8025.
+
+```sh
+./scripts/docker-local.sh init     # adds any missing local secrets to .local/docker.env (600), never prints them
+./scripts/docker-local.sh up       # Keycloak, mail sink, API/web containers; applies realm settings
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://127.0.0.1:5080
+ASPNETCORE_ENVIRONMENT=Development Keycloak__Authority=http://localhost:8180/realms/swoovr-members-dev \
+  Keycloak__ClientSecret="$(grep '^SWOOVR_MEMBERS_WEB_SECRET=' .local/docker.env | cut -d= -f2)" Keycloak__RequireHttpsMetadata=false \
+  Api__BaseUrl=http://127.0.0.1:5080/ dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081
+```
+
+Stop the API/web containers first (`docker compose --env-file .local/docker.env stop api web`) because they hold ports 5080/5081. Use `localhost` (not `127.0.0.1`) for the web host: it is the registered redirect URI and the passkey RP ID. Open http://localhost:5081/account.
+
+After changing `scripts/keycloak_realms.py`, run it with `--write`. Keycloak imports a realm only when it does not exist, so recreate the local stack's own volume to re-import (`docker compose --env-file .local/docker.env down` then `docker volume rm swoovr-local_keycloak-data`), and never remove volumes you have not inspected. `./scripts/docker-local.sh realms` reapplies flow settings at any time.
+
+Optional acceptance with installed Edge and Playwright, with the stack and both hosts running:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/auth/members.browser.cjs
+```
+
+It registers and signs in fictional accounts, uses a virtual passkey authenticator, deliberately locks one account and resets it, and saves screenshots to ignored `.local/auth-browser/`.
+
 ## Optional local browser investigation
 
 Node >=22 is required for the dependency-free harness and its tests. No npm install is needed. After the Docker stack is running, `./scripts/docker-local.sh auth-init` configures only local investigation resources; `./scripts/docker-local.sh auth` starts the fixed 127.0.0.1:8280 callback host. `node scripts/auth/provider-check.mjs` checks actual provider rejection behaviour. Follow the [browser slice](PHASE-1-BROWSER-INVESTIGATION.md) for private fixture handling, simulated-email limits, lifecycle and acceptance gaps. Application API/web authentication remains disconnected.

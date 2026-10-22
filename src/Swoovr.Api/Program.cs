@@ -1,8 +1,14 @@
+using Swoovr.Api.Auth;
 using Swoovr.Contracts;
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 var app = builder.Build();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
+KeycloakAuthentication.MapSession(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

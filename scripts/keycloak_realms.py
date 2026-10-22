@@ -88,10 +88,12 @@ def realm(name, display, *, registration, clients, passkeys):
             'config': {'kc.user.profile.config': [json.dumps(user_profile(), separators=(',', ':'))]}}]},
         **brute_force,
     }
+    # Keycloak 26.8.1 runs passkeys inside the password form, so a passkey sign-in carries the
+    # password form's AMR ('pwd'). Keep them off wherever 'pwd' is privileged evidence.
+    value['webAuthnPolicyPasswordlessPasskeysEnabled'] = passkeys
     if passkeys:
         value.update({'webAuthnPolicyPasswordlessRpId': 'localhost', 'webAuthnPolicyPasswordlessRpEntityName': 'Swoovr', 'webAuthnPolicyPasswordlessResidentKey': 'required',
-                      'webAuthnPolicyPasswordlessUserVerificationRequirement': 'required',
-                      'webAuthnPolicyPasswordlessPasskeysEnabled': True})
+                      'webAuthnPolicyPasswordlessUserVerificationRequirement': 'required'})
     return value
 
 
@@ -120,6 +122,7 @@ def check(name, value):
         assert client['attributes']['standard.token.exchange.enabled'] == 'false', (name, 'D35: no token exchange')
         assert all(uri.startswith(web + '/') for uri in client['redirectUris']), (name, 'loopback redirect only')
         assert not client['fullScopeAllowed'], (name, 'no full scope')
+    assert value['webAuthnPolicyPasswordlessPasskeysEnabled'] == (name == 'swoovr-members-dev'), (name, 'passkeys only where pwd is not privileged evidence')
     assert (value['attributes'].get('swoovr.registrationTerms') == 'REQUIRED') == value['registrationAllowed'], (name, 'D40: open registration needs the 18+ checkbox')
 
 

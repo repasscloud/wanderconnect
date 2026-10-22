@@ -7,7 +7,7 @@ As of 22 October 2026 (Australia/Adelaide). This page is the current summary; da
 | Area | Implemented | Location / remaining boundary |
 | --- | --- | --- |
 | Foundation — phase 0 complete | Seven .NET application projects, portable checks, local server containers | `src/Swoovr.*`, `Swoovr.Local.sln`; full solution includes unvalidated mobile targets |
-| Identity — phase 1 partial | Domain account-area access policy; separate real local Keycloak login/session/MFA/key-rotation investigations | `src/Swoovr.Domain/Access`, `scripts/auth`; API/web application sign-in is disconnected |
+| Identity — phase 1 partial | Owner-approved [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md); local members/venues/staff realms with Standard theme, 18+ registration, email verification, 15-minute lockout, passkeys; realm-aware session evidence; API token validation; members web sign-in | `containers/keycloak`, `src/Swoovr.Domain/Access`, `src/Swoovr.Api/Auth`, `src/Swoovr.Web/Auth`; [slice record](PHASE-1-KEYCLOAK-MEMBERS.md). Local only; no Apple/Google/Entra/MailerSend, no persistence, venue/staff areas closed |
 | Appearance — phase 2 partial | Eight schemes (Standard default) × System/Light/Dark, browser-local guest saving; portable account conflict/retry rules | `/settings/appearance`, `src/Swoovr.Client/AppearanceSyncState.cs`; no account sync transport or mobile acceptance |
 | Discovery — phase 2 partial | Policy gates and fictional adult grid/profile API → Client → Web preview | `/prototype/people`; development opt-in only; no live profile storage, identity or location evidence |
 | Connections — phase 3 partial | Request/accept/decline/canned reply/block/close scenarios with revision checks and SSR forms | `/prototype/conversation`; fictional actors, process-local state, no real messages/realtime |
@@ -26,7 +26,7 @@ Follow [local development](LOCAL-DEVELOPMENT.md) for tools and commands. Run `./
 
 ## What comes next and why
 
-1. Complete application Keycloak integration and server-side session evidence, verified email/recovery and linked Apple/Google journeys. Q02 (email links), Q03 (authenticated web rendering) and Q09 (mobile tooling) remain OPEN.
+1. Continue the [Keycloak design](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md#delivery-order-default): persistence for accounts/roles/invitations, Apple/Google brokering once registrations exist, email sign-in link and MailerSend extension, venue and staff portals (Entra, root admin OTP), then mobile. Q03 (authenticated web rendering) and Q09 (mobile tooling) remain OPEN; Q02 is answered (D34).
 2. Add persistence for real accounts/profiles and connect authenticated client journeys. PostgreSQL remains a DEFAULT, not a configured service. Keep privacy/media/authorization rules server-side.
 3. Connect account appearance, live discovery/location/identity, messaging, meeting plans and private feedback. Resolve Q04 verification and Q05 pre-arrival reply policy before enabling dependent behavior.
 4. Implement venue/commerce sandbox after the core loop; Q06 governs real financial responsibilities. Complete operations/device/security/accessibility/store gates before a pilot (Q07/Q08).

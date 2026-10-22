@@ -15,6 +15,10 @@ Updated 22 October 2026. CONFIRMED by the owner; [D30](../delivery/DECISIONS.md#
 | Browser test environment variables | `SWOOVR_PLAYWRIGHT_PATH`, `SWOOVR_WEB_URL`, `SWOOVR_BROWSER_OUTPUT` | Optional browser drivers under `tests/` |
 | Local Compose project / realm | `swoovr-local` / `swoovr-dev` | `compose.yaml`, `containers/keycloak/swoovr-dev-realm.json` |
 | Investigation OAuth client | `swoovr-investigation` | `scripts/auth/security.mjs` |
+| Application realms (local) | `swoovr-members-dev`, `swoovr-venues-dev`, `swoovr-staff-dev`; production/UAT drop `-dev` (D31) | `scripts/keycloak_realms.py` |
+| Application OIDC clients / API audience | `swoovr-web`, `swoovr-venue-web`, `swoovr-admin-web` / `swoovr-api` | `scripts/keycloak_realms.py` |
+| Swoovr token claims | `swoovr_idp`, `swoovr_adult_attested_at` | Realm protocol mappers |
+| Member web session cookie | `swoovr.member` | `src/Swoovr.Web/Auth/MemberSignIn.cs` |
 | Investigation cookie / resource markers | Lowercase `swoovr` prefix | `scripts/auth/` |
 | Mobile application ID | `com.swoovr.app` (DEFAULT development identifier) | `src/Swoovr.Mobile/Swoovr.Mobile.csproj` |
 | Colour studio / exports | `swoovr-colour-studio.html`, `swoovr-…-tokens.css` | `docs/design/` |

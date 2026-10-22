@@ -19,7 +19,7 @@ static class DiscoveryPolicyChecks
         var rules = new DiscoveryRules(true, true, true, false, unrestricted);
         var viewer = new DiscoveryMember(viewerId, true, true, true, true, all, new HashSet<ConnectionIntention> { ltr, friend });
         var subject = viewer with { Id = subjectId };
-        var session = new AccessSession(AccountRole.Member, SignInMethod.EmailPassword, false, true, new HashSet<Guid>());
+        var session = new AccessSession(AccountRole.Member, AccountRealm.Members, SignInMethod.EmailPassword, false, true, true, true, false, new HashSet<Guid>());
         var request = new DiscoveryAccessRequest(session, viewerId, viewer, subject, rules, rules,
             DiscoveryContext.Connect, DiscoveryResource.Profile, false, false, true, true, false, false, area, null);
         void Check(string name, bool expected, DiscoveryAccessRequest value)

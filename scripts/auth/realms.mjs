@@ -6,6 +6,9 @@ import { localRealmApi } from './provision.mjs';
 export const realms = ['swoovr-members-dev', 'swoovr-venues-dev', 'swoovr-staff-dev'];
 // RFC 8176 authentication method references emitted by the AMR mapper (D31 evidence).
 export const amrReferences = { 'auth-username-password-form': 'pwd', 'auth-otp-form': 'otp', 'webauthn-authenticator': 'hwk' };
+// Keycloak only reports a reference while the authentication is younger than maxAge (default 0,
+// i.e. the same second). Match the 12-hour SSO session; privileged freshness uses auth_time.
+export const amrMaxAgeSeconds = '43200';
 
 export async function applyRealm(api, name) {
   const realm = await api('');
@@ -33,7 +36,7 @@ export async function applyRealm(api, name) {
   for (const [providerId, reference] of Object.entries(amrReferences)) {
     const execution = browser.find(e => e.providerId === providerId);
     if (!execution) throw new Error('Browser flow execution is missing: ' + providerId);
-    const config = { alias: 'swoovr-amr-' + reference + '-' + providerId, config: { 'default.reference.value': reference } };
+    const config = { alias: 'swoovr-amr-' + reference + '-' + providerId, config: { 'default.reference.value': reference, 'default.reference.maxAge': amrMaxAgeSeconds } };
     if (!execution.authenticationConfig) {
       await api('/authentication/executions/' + execution.id + '/config', 'POST', config);
       changes.push('amr ' + reference + ' on ' + providerId);
@@ -41,7 +44,7 @@ export async function applyRealm(api, name) {
     }
     const current = await api('/authentication/config/' + execution.authenticationConfig);
     if (current.alias !== config.alias) throw new Error('Unmanaged authentication config on ' + providerId);
-    if (current.config?.['default.reference.value'] !== reference) {
+    if (current.config?.['default.reference.value'] !== reference || current.config?.['default.reference.maxAge'] !== amrMaxAgeSeconds) {
       await api('/authentication/config/' + current.id, 'PUT', { ...config, id: current.id });
       changes.push('amr ' + reference + ' on ' + providerId);
     }

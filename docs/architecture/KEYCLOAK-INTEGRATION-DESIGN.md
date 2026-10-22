@@ -69,9 +69,11 @@ Tokens carry only identity and session evidence. The API looks up everything els
 | Email and password | Keycloak username/password form; email is the username; email must be verified before the API grants a member session | CONFIRMED method |
 | Apple | Keycloak identity broker for Sign in with Apple, web and mobile via the system browser | CONFIRMED method. VERIFY: whether 26.8.1 ships an Apple provider; if not, an Apple-specific extension is needed because Apple's client secret is a signed JWT that expires at most every six months, which a generic OIDC provider cannot regenerate |
 | Google | Keycloak's Google identity provider | CONFIRMED method |
-| Passkey | Keycloak WebAuthn passwordless with a discoverable credential; relying-party ID `swoovr.app` in production, `uat.swoovr.app` in UAT | CONFIRMED in scope (D33, supersedes "passkeys OPEN"). VERIFY: 26.8.1 passkey/conditional-UI support and its flow configuration |
+| Passkey | Keycloak WebAuthn passwordless with a discoverable credential; relying-party ID `swoovr.app` in production, `uat.swoovr.app` in UAT (`localhost` locally). VERIFIED on 26.8.1: passkeys run inside the sign-in form (button and autofill) and register via the `webauthn-register-passwordless` action. Limitation (D45): a passkey sign-in carries the form's `pwd` AMR, so passkeys stay off in the venues and staff realms where `pwd` is privileged evidence | CONFIRMED in scope (D33, supersedes "passkeys OPEN"). VERIFY: 26.8.1 passkey/conditional-UI support and its flow configuration |
 | Email sign-in link | Keycloak custom authenticator ([below](#email-sign-in-link)) | CONFIRMED in scope (D34, answers Q02 for members) |
 | MFA | Optional OTP (and passkey as second factor where Keycloak supports it); enrolment and recovery from account settings | CONFIRMED optional |
+
+Registration is email-first (D44): with email verification on, Keycloak 26.8.1 asks for email, first name and the 18+ checkbox, sends the verification link, and only then asks for a password. Nobody can set a password on an address they don't control. The session Keycloak starts after that sequence has no AMR, so the API reports its method as Unknown; member access does not depend on the method (D42).
 
 Mobile uses the system browser (`ASWebAuthenticationSession` / Custom Tabs) to the members realm with authorization code + PKCE, returning through a verified universal/app link on `swoovr.app`. Passkeys created on the web work on the phone because both use the `swoovr.app` relying-party ID; the mobile apps need the matching `apple-app-site-association` and `assetlinks.json` files under `https://swoovr.app/.well-known/`.
 
@@ -97,9 +99,10 @@ The API grants venue or staff access only when all of these hold; otherwise it d
 - Token signature, issuer (the venue or staff realm), audience (the portal client), expiry and session are valid and the session is not revoked.
 - Venue realm: `email_verified` is true, and the session method is password or email link (from the configured `amr` mapper).
 - Staff realm: `identity_provider` is the configured Entra alias, or the account is the root admin and the session `amr` includes both password and OTP.
+- AMR references are configured with a 12-hour `maxAge` (D46); Keycloak's default of 0 drops the reference from any token issued after the authentication second.
 - Freshness: privileged portal sessions last at most 12 hours (DEFAULT); sensitive actions (role grants, age overrides, data export, account deletion) require reauthentication within the last 15 minutes using OIDC `max_age` (DEFAULT). Refresh never resets freshness.
 
-The existing `AccountAccessPolicy` keeps its job; its `HasApprovedPrivilegedEmailEvidence` input is replaced by a realm-aware privileged-session verdict produced by this adapter.
+IMPLEMENTED: `SessionEvidencePolicy` (Domain) maps validated token facts to method, MFA and freshness; `AccountAccessPolicy` now takes the realm and those facts instead of the reserved `HasApprovedPrivilegedEmailEvidence` verdict. Venue and staff roles, venue membership and the root-admin flag still need application persistence, so those areas remain closed in practice.
 
 ## Email sign-in link
 
@@ -117,7 +120,7 @@ Cost and trade-off: this is a Java (Maven) component outside the seven .NET proj
 
 ## Account protection
 
-- **Lockout:** CONFIRMED (D37, revised by owner 22 October 2026) three failed password attempts lock the account for 15 minutes; completing a password reset by email clears the lock immediately. Implemented with Keycloak brute-force detection in temporary-lockout mode (3 failures, 15-minute wait, no permanent lockout) on the members and venues realms and for the root admin, plus per-IP rate limiting at the reverse proxy (DEFAULT). The temporary lock limits deliberate lockout of someone else's account to 15 minutes at a time. VERIFY: whether a completed reset-credentials flow clears the brute-force record in 26.8.1; if not, the Swoovr Keycloak extension adds an event listener that clears it after a successful password update. Entra handles lockout for employees.
+- **Lockout:** CONFIRMED (D37, revised by owner 22 October 2026) three failed password attempts lock the account for 15 minutes; completing a password reset by email clears the lock immediately. Implemented with Keycloak brute-force detection in temporary-lockout mode (3 failures, 15-minute wait, no permanent lockout) on the members and venues realms and for the root admin, plus per-IP rate limiting at the reverse proxy (DEFAULT). The temporary lock limits deliberate lockout of someone else's account to 15 minutes at a time. VERIFIED on 26.8.1 (22 October 2026, [members slice](../delivery/PHASE-1-KEYCLOAK-MEMBERS.md)): 3 failures set a 900-second lock, the correct password is refused while locked, and a completed reset-credentials flow clears the brute-force record immediately, so no lockout-clearing listener is needed. Entra handles lockout for employees.
 - **Linking:** CONFIRMED (D38) never link or merge accounts because emails match. Keycloak's first-broker-login flow is configured to ask the existing account holder to sign in before linking, never to link automatically. Linking or unlinking from Swoovr settings requires a fresh sign-in (`max_age=0`), and the last remaining sign-in method cannot be removed.
 - **Apple private relay:** relay addresses are stored as delivered and never compared with other addresses. To deliver verification and sign-in emails to relay addresses, the `swoovr.app` sending domain must be registered in Apple's Private Email Relay settings.
 - **Account deletion:** in-app deletion (App Store requirement) is handled by the API: delete application data per the retention policy, then delete the Keycloak user through a narrowly scoped service account (`manage-users` in the members realm only; no impersonation, no token exchange), and revoke Apple tokens. Subscriptions are not assumed cancelled.
@@ -128,7 +131,7 @@ Cost and trade-off: this is a Java (Maven) component outside the seven .NET proj
 
 CONFIRMED (D40) owner rules, with Keycloak's part kept to one fact.
 
-Keycloak: registration (all methods, including the Apple/Google first sign-in and passkey-first registration) requires a blocking "I'm 18 or over" checkbox plus the Terms/Privacy line. This is realm configuration — a required user-profile attribute shown on registration and on the first-broker-login profile review (DEFAULT mechanism; VERIFY on 26.8.1) — not CSS. The attestation and its timestamp are passed to the API once.
+Keycloak: registration requires a blocking "I'm 18 or over" checkbox plus the Terms/Privacy line, enforced server-side before any account or email exists. IMPLEMENTED (D43): Keycloak's built-in registration terms step, relabelled, with the `TERMS_AND_CONDITIONS` required action enabled as a default action. That combination records the attestation time on the account (`terms_and_conditions`, emitted as the `swoovr_adult_attested_at` claim) and asks Apple/Google and other new accounts the same question before their first session. A declarative user-profile checkbox was tried first and rejected: on 26.8.1 it refused even a ticked box. The attestation is passed to the API in the token; the API will copy it once persistence exists.
 
 Application (API and database):
 
@@ -163,10 +166,10 @@ CONFIRMED by the owner and the design handoff (`docs/design/keycloak-theme/`, `k
 - Apple and Google buttons follow their own brand rules; the passkey button is an outline button.
 - Emails use Standard light with the same footer.
 - The same theme is applied to all three realms. Staff and venue pages hide member-only copy such as "New to Swoovr?" (DEFAULT via realm-specific messages).
-- VERIFY: the theme's `styles=` line against `keycloak.v2` in 26.8.1, and every page in light and dark, including the email-link confirmation page this design adds (the prototype has no email-link screens yet).
+- VERIFIED on 26.8.1: the theme's `styles=` line matches `keycloak.v2` (`css/styles.css`, PatternFly 5 in `stylesCommon`), dark mode uses `pf-v5-theme-dark`, and login, registration, password, reset and passkey pages were inspected in light and dark at desktop and 390px. Fixes applied: card top colour, input height/focus ring, reveal button, block-button alignment, checkbox label, alert colours; the claims line moved from CSS `::after` into `footer.ftl` so it is real, readable text. The email-link page does not exist yet.
 - Note: the prototype's passkey sheet reads "swoovr.com"; the real prompt will show `swoovr.app`.
 
-The theme moves from `docs/design/keycloak-theme/` to `containers/keycloak/themes/swoovr/` when implemented, because `docs/design/` is read-only and copied from swoovr-marketing (handoff step 5). This design does not perform the separate eight-scheme migration in the handoff; that is its own slice.
+The theme was copied from `docs/design/keycloak-theme/` to `containers/keycloak/themes/swoovr/`, because `docs/design/` is read-only and copied from swoovr-marketing (handoff step 5). This design does not perform the separate eight-scheme migration in the handoff; that is its own slice.
 
 ## Dropped or rejected
 

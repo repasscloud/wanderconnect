@@ -37,6 +37,12 @@ require(discovery['jwks_uri'] == issuer + '/protocol/openid-connect/certs', 'Une
 keys = json.loads(fetch(discovery['jwks_uri']))['keys']
 require(any(key.get('use') == 'sig' and key.get('kid') for key in keys), 'No signing key')
 require('S256' in discovery.get('code_challenge_methods_supported', []), 'PKCE S256 not advertised')
+for realm in ['swoovr-members-dev', 'swoovr-venues-dev', 'swoovr-staff-dev']:
+    realm_issuer = 'http://localhost:8180/realms/' + realm
+    realm_discovery = json.loads(fetch(realm_issuer + '/.well-known/openid-configuration'))
+    require(realm_discovery['issuer'] == realm_issuer, 'Unexpected issuer for ' + realm)
+    require('S256' in realm_discovery.get('code_challenge_methods_supported', []), 'PKCE S256 not advertised by ' + realm)
+require('messages' in json.loads(fetch('http://localhost:8025/api/v1/messages')), 'Local mail sink missing')
 print('PASS: published appearance route and linked runtime scripts/styles.')
-print('Docker HTTP smoke passed: API, web, realm issuer, JWKS, advertised PKCE S256.')
+print('Docker HTTP smoke passed: API, web, realm issuers (investigation + members/venues/staff), JWKS, advertised PKCE S256, mail sink.')
 print('No login, token validation, verified-email or privileged-session evidence tested.')

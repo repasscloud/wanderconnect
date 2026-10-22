@@ -142,9 +142,9 @@
   "quickLoginCheckMilliSeconds": 1000,
   "maxDeltaTimeSeconds": 43200,
   "bruteForceStrategy": "MULTIPLE",
+  "webAuthnPolicyPasswordlessPasskeysEnabled": true,
   "webAuthnPolicyPasswordlessRpId": "localhost",
   "webAuthnPolicyPasswordlessRpEntityName": "Swoovr",
   "webAuthnPolicyPasswordlessResidentKey": "required",
-  "webAuthnPolicyPasswordlessUserVerificationRequirement": "required",
-  "webAuthnPolicyPasswordlessPasskeysEnabled": true
+  "webAuthnPolicyPasswordlessUserVerificationRequirement": "required"
 }
