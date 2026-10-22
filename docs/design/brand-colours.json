@@ -1,0 +1,56 @@
+{
+  "marketing": {
+    "note": "Marketing is black and white first. These are the exact values for posts, videos and the website.",
+    "ink": "#0A0A0A",
+    "muted": "#6B6B6B",
+    "line": "#E5E5E5",
+    "soft": "#F4F4F4",
+    "offWhite": "#FAFAFA",
+    "white": "#FFFFFF",
+    "carbon": "#0D0F12",
+    "paper": "#F6F4EF",
+    "font": "Helvetica Neue, Helvetica, Arial, sans-serif"
+  },
+  "vip": {
+    "note": "From swoovr.com/referral (src/styles/referral.css). Qantas-style navy, champagne gold and silver. Drives the Lounge theme and founding/VIP marketing.",
+    "navy": "#1E3857",
+    "navyDeep": "#172C45",
+    "gold": "#D0B786",
+    "silver": "#C1C1C1",
+    "graphite": "#454545",
+    "ivory": "#F0ECE4"
+  },
+  "badges": {
+    "note": "Fixed in every theme and mode; never recoloured by the user's scheme. Files in video/public/badges/.",
+    "photoVerified": { "hex": "#087CFA", "label": "Photo verified", "shape": "blue tick" },
+    "idVerified": { "hex": "#00AAA0", "label": "ID verified", "shape": "teal tick" },
+    "founding": { "hex": "#D4AF37", "label": "Founding member", "shape": "gold bird" },
+    "staff": { "hex": "#E0115F", "label": "Swoovr staff", "shape": "ruby bird" },
+    "bot": { "hex": "#C0C0C0", "label": "Swoovr guide (bot)", "shape": "silver bird" }
+  },
+  "semantic": {
+    "note": "Status colours keep their meaning in every scheme. Always pair with an icon or label.",
+    "light": { "success": "#1E7A46", "warning": "#8A5300", "error": "#C0262D", "info": "#0864C8" },
+    "dark": { "success": "#5FD08F", "warning": "#F5B84A", "error": "#FF7A7F", "info": "#6AB0FF" }
+  },
+  "legacyVideo": {
+    "note": "Backgrounds already used by -Colour videos (video/src/Root.tsx THEME). Existing renders stay valid; new videos use a theme hero instead.",
+    "violet": { "hex": "#7228E8", "now": "violet" },
+    "cobalt": { "hex": "#2454D6", "now": "union or lounge" },
+    "raspberry": { "hex": "#BC1459", "now": "pride or coral" },
+    "coral": { "hex": "#BE402C", "now": "coral" },
+    "orchid": { "hex": "#9430BC", "now": "violet or pride" },
+    "solar": { "hex": "#F4C52F", "now": "retired (yellow needs dark text)" }
+  },
+  "flags": {
+    "note": "Screen palettes from branding/source/themes.json, for campaign artwork (bird fills, stripes). Not textile/Pantone specs.",
+    "pride6": ["#E40303", "#FF8C00", "#FFED00", "#008026", "#24408E", "#732982"],
+    "pride8": ["#FF69B4", "#E40303", "#FF8C00", "#FFED00", "#008026", "#40E0D0", "#3F008F", "#732982"],
+    "trans": ["#5BCEFA", "#F5A9B8", "#FFFFFF", "#F5A9B8", "#5BCEFA"],
+    "bi": ["#D60270", "#9B4F96", "#0038A8"],
+    "pan": ["#FF218C", "#FFD800", "#21B1FF"],
+    "nonbinary": ["#FFF430", "#FFFFFF", "#9C59D1", "#000000"],
+    "unionJack": ["#012169", "#FFFFFF", "#C8102E"],
+    "pinkUnionJack": ["#EC168C", "#FFFFFF", "#651344"]
+  }
+}

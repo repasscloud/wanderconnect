@@ -7,7 +7,7 @@ Updated 22 October 2026. Start with [current delivery status](delivery/STATUS.md
 | What are we building and for whom? | [Product brief](product/01-PRODUCT-BRIEF.md) | Adult audiences, connection goals, confirmed scope and success measures |
 | How must features behave? | [Behaviour and rules](product/02-BEHAVIOUR-AND-RULES.md) | Privacy, discovery, travel and interaction requirements |
 | What should users see? | [Screens and design](product/03-SCREENS-AND-DESIGN.md) | Navigation, screens, denied/empty/error states and accessibility |
-| Who may sign in or access data? | [Identity and safety](product/04-IDENTITY-TRUST-AND-SAFETY.md), [authentication architecture](architecture/AUTHENTICATION.md) | Keycloak boundary, privileged session evidence and separate identity verification |
+| Who may sign in or access data? | [Identity and safety](product/04-IDENTITY-TRUST-AND-SAFETY.md), [authentication architecture](architecture/AUTHENTICATION.md), [Keycloak integration design](architecture/KEYCLOAK-INTEGRATION-DESIGN.md) | Keycloak boundary, privileged session evidence and separate identity verification |
 | How do venues and payments work? | [Commerce](product/05-VENUES-VOUCHERS-AND-COMMERCE.md) | Proposed lifecycle, financial responsibilities and unresolved contracts |
 | Where does code belong? | [Architecture](architecture/README.md), [technical handoff](product/06-TECHNICAL-AND-AI-HANDOFF.md) | Seven projects, dependencies, implementation boundaries |
 | Which name or identifier? | [Naming](architecture/NAMING.md), [names and sources](product/07-NAMES-DECISIONS-AND-SOURCES.md) | Owner-confirmed conventions and source references |

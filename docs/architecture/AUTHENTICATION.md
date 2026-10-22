@@ -1,5 +1,7 @@
 # Keycloak integration boundary
 
+Update, 22 October 2026: the [application integration design](KEYCLOAK-INTEGRATION-DESIGN.md) (draft for owner approval) records D31–D41 — three realms, Entra SSO for staff, passkeys, Keycloak-side email links and no API-minted sessions. Where it conflicts with this page, the design and those decisions govern.
+
 CONFIRMED backend selection: Keycloak. Owner supplied official documentation and source on 16 October 2026. No existing version, realm or sandbox configuration was found. Proposed development pin and evidence mapping are in [Keycloak development proposal](KEYCLOAK-DEVELOPMENT.md). This document defines required behaviour, not claims about provider features. Do not substitute another product.
 
 The [product policy](../product/04-IDENTITY-TRUST-AND-SAFETY.md) is authoritative: members Apple/Google/email; partner/admin/support dedicated email/password or email link; optional MFA. Member magic links are a DEFAULT proposal. Extra providers remain OPEN.
