@@ -86,7 +86,7 @@ D10 is an implementation default, not an owner answer to Q01–03/Q09. D03–04 
 
 ## Keycloak application integration — 22 October 2026
 
-Owner answers given while designing the [Keycloak integration](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md). The design document is a DRAFT awaiting owner approval; its DEFAULT and VERIFY items are not decisions.
+Owner answers given while designing the [Keycloak integration](../architecture/KEYCLOAK-INTEGRATION-DESIGN.md). The design document was approved by the owner on 22 October 2026; its DEFAULT and VERIFY items are not decisions.
 
 | ID | Status / source | Decision | Consequence |
 | --- | --- | --- | --- |
@@ -96,8 +96,8 @@ Owner answers given while designing the [Keycloak integration](../architecture/K
 | D34 | CONFIRMED, owner 22 October 2026 | Member and venue email sign-in links, implemented inside Keycloak (custom authenticator) | Answers Q02 for members. If impractical, remove and document why |
 | D35 | CONFIRMED, owner 22 October 2026 | The Swoovr API must never mint sign-in tokens or obtain sessions on a user's behalf | No impersonation role, no user-token exchange for the API, no API-created login links |
 | D36 | CONFIRMED, owner 22 October 2026 | One root admin: username/password only with MFA enforced | Exception to optional MFA (D03) for this account only |
-| D37 | CONFIRMED, owner 22 October 2026 | Lock an account after 3 failed password attempts; the user resets their password to unlock | Keycloak brute-force detection; deliberate-lockout risk recorded in the design |
+| D37 | CONFIRMED, owner 22 October 2026 | Lock an account for 15 minutes after 3 failed password attempts; a completed password reset clears the lock immediately | Revised by the owner the same day from lock-until-reset, to limit deliberate lockout. Keycloak temporary brute-force lockout |
 | D38 | CONFIRMED, owner 22 October 2026 | Never link accounts by matching email; reauthenticate before linking/unlinking; handle Apple private relay addresses | Restates product policy as owner-confirmed |
-| D39 | CONFIRMED, owner 22 October 2026 | Production `https://swoovr.app`, UAT `https://uat.swoovr.app` (UAT moves to separate Azure billing later); email via MailerSend; daily backups of Keycloak and the database | Passkey relying-party IDs follow these domains. No deployment or account configured |
+| D39 | CONFIRMED, owner 22 October 2026 | Production `https://swoovr.app`, UAT `https://uat.swoovr.app` (UAT moves to separate Azure billing later); email via the MailerSend HTTP API (not SMTP); daily backups of Keycloak and the database | Passkey relying-party IDs follow these domains. No deployment or account configured |
 | D40 | CONFIRMED, owner 22 October 2026 | Registration requires an "I'm 18 or over" checkbox; DOB entered at profile setup and stored; under-18 DOB locks the account; AI profile review can require Stripe age verification; support/admin can override to adult; an 18+ DOB is not "age verified" | Keycloak holds only the attestation; age status is application-owned. Stripe Identity answers Q04's provider choice only |
 | D41 | CONFIRMED, owner 22 October 2026 | Keycloak pages use Standard only, light/dark from the device, no scheme picker or remembered scheme; claims footer on every page; provider brand rules for Apple/Google; emails in Standard light | Uses the supplied `keycloak.v2` theme after version checks |

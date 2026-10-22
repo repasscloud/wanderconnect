@@ -1,6 +1,6 @@
 # Keycloak application integration design
 
-22 October 2026. Status: DRAFT for owner approval. Owner answers in this document are CONFIRMED and recorded as D31–D41 in [decisions](../delivery/DECISIONS.md). Everything marked DEFAULT is a reversible implementation call made by the builder (Claude) and may be changed without an owner decision. Anything marked VERIFY is an unproven assumption about Keycloak 26.8.1 or a third-party service; it must be checked against the pinned version before code depends on it. This document supersedes conflicting parts of [authentication](AUTHENTICATION.md) and [Keycloak development](KEYCLOAK-DEVELOPMENT.md) where noted; those remain the record of earlier investigation evidence.
+22 October 2026. Status: APPROVED by the owner on 22 October 2026. Owner answers in this document are CONFIRMED and recorded as D31–D41 in [decisions](../delivery/DECISIONS.md). Everything marked DEFAULT is a reversible implementation call made by the builder (Claude) and may be changed without an owner decision. Anything marked VERIFY is an unproven assumption about Keycloak 26.8.1 or a third-party service; it must be checked against the pinned version before code depends on it. This document supersedes conflicting parts of [authentication](AUTHENTICATION.md) and [Keycloak development](KEYCLOAK-DEVELOPMENT.md) where noted; those remain the record of earlier investigation evidence.
 
 ## Intent
 
@@ -113,11 +113,11 @@ Design: a small Keycloak authenticator extension (Java, Keycloak SPI) added to t
 4. Keycloak atomically consumes the token, rejects reuse, expiry, wrong client or wrong realm, and completes its own authentication flow, recording an `amr` value for the email-link method.
 5. If the link is opened on a different device or browser from the one that asked, it signs in that device only after the confirmation button; the original tab is not signed in remotely (DEFAULT, simplest safe behaviour).
 
-Cost and trade-off: this is a Java (Maven) component outside the seven .NET projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. It must be rebuilt and retested on every Keycloak upgrade. It is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
+Cost and trade-off: this is a Java (Maven) component outside the seven .NET projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. The extension must be rebuilt and retested on every Keycloak upgrade. The same extension also holds the MailerSend API email sender and, if needed, the lockout-clearing listener; it is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
 
 ## Account protection
 
-- **Lockout:** CONFIRMED (D37) three failed password attempts lock the account until the user resets their password by email. Implemented with Keycloak brute-force detection in permanent-lockout mode on all three realms, plus per-IP rate limiting at the reverse proxy (DEFAULT). Risk the owner should know: anyone who knows a member's email can lock that account on purpose, repeatedly; the reset email is the recovery. VERIFY: that a completed reset-credentials flow clears a permanent lockout in 26.8.1 without staff action, and whether a locked account can still sign in with a passkey or Apple/Google. Entra handles lockout for employees; the root admin lockout is cleared only by the Keycloak `master` admin.
+- **Lockout:** CONFIRMED (D37, revised by owner 22 October 2026) three failed password attempts lock the account for 15 minutes; completing a password reset by email clears the lock immediately. Implemented with Keycloak brute-force detection in temporary-lockout mode (3 failures, 15-minute wait, no permanent lockout) on the members and venues realms and for the root admin, plus per-IP rate limiting at the reverse proxy (DEFAULT). The temporary lock limits deliberate lockout of someone else's account to 15 minutes at a time. VERIFY: whether a completed reset-credentials flow clears the brute-force record in 26.8.1; if not, the Swoovr Keycloak extension adds an event listener that clears it after a successful password update. Entra handles lockout for employees.
 - **Linking:** CONFIRMED (D38) never link or merge accounts because emails match. Keycloak's first-broker-login flow is configured to ask the existing account holder to sign in before linking, never to link automatically. Linking or unlinking from Swoovr settings requires a fresh sign-in (`max_age=0`), and the last remaining sign-in method cannot be removed.
 - **Apple private relay:** relay addresses are stored as delivered and never compared with other addresses. To deliver verification and sign-in emails to relay addresses, the `swoovr.app` sending domain must be registered in Apple's Private Email Relay settings.
 - **Account deletion:** in-app deletion (App Store requirement) is handled by the API: delete application data per the retention policy, then delete the Keycloak user through a narrowly scoped service account (`manage-users` in the members realm only; no impersonation, no token exchange), and revoke Apple tokens. Subscriptions are not assumed cancelled.
@@ -152,7 +152,7 @@ Suggested status values (DEFAULT): `declared`, `dob_under_18_locked`, `flagged_n
 
 ## Email
 
-CONFIRMED (D39): MailerSend. Keycloak sends verification, password-reset and sign-in-link email through MailerSend (DEFAULT: SMTP relay; VERIFY MailerSend SMTP settings). `swoovr.app` must be verified as a sending domain (SPF, DKIM, DMARC). Credentials are deployment secrets, never committed. Local development uses a mail sink; nothing in development is described as delivered email.
+CONFIRMED (D39, owner 22 October 2026): MailerSend, sending through its HTTP API rather than SMTP. Keycloak's email sender is replaced by a MailerSend API sender in the Swoovr Keycloak extension (Keycloak email-sender SPI; VERIFY the SPI shape in 26.8.1), so verification, password-reset and sign-in-link email all go through the API. The API token is a deployment secret, never committed. `swoovr.app` must be verified as a sending domain (SPF, DKIM, DMARC). Local development keeps Keycloak's built-in SMTP sender pointed at a mail sink; nothing in development is described as delivered email.
 
 ## Sign-in pages and emails
 
@@ -182,7 +182,7 @@ The theme moves from `docs/design/keycloak-theme/` to `containers/keycloak/theme
 2. Google and Apple brokering with safe first-broker-login and the adult attestation; linking/unlinking.
 3. Optional MFA; passkeys.
 4. Email sign-in link extension.
-5. Venues realm and portal sign-in with invitations.
+5. Venues realm and portal sign-in with invitations; MailerSend API sender.
 6. Staff realm: Entra SSO, root admin with enforced OTP, staff invitations, privileged freshness.
 7. Mobile sign-in (blocked on Q09 toolchain).
 8. Age model in the API (DOB, statuses, staff override); Stripe Identity and AI review are separate later slices.
