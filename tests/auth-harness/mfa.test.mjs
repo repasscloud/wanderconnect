@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {withTemporaryOtp} from '../../scripts/auth/mfa.mjs';
-const fixture={userId:'fixture-id',username:'fictional-adult',fictionalAdult:true,owner:'datingapp-local-investigation-v1'};
+const fixture={userId:'fixture-id',username:'fictional-adult',fictionalAdult:true,owner:'swoovr-local-investigation-v1'};
 function fake(existing=[]){
  let credentials=[{id:'password',type:'password'},...existing],actions=[],mutations=0;
  const api=async(path,method='GET',body)=>{

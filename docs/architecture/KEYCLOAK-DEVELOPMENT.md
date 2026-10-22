@@ -9,7 +9,7 @@ Historical inspection before the sandbox slice: no existing Keycloak version pin
 | Item | Status | Proposal |
 | --- | --- | --- |
 | Server version | DEFAULT proposal | Pin `quay.io/keycloak/keycloak:26.8.1`; official downloads and release page list 26.8.1 at review time. This is an upstream community release, not a paid support or LTS commitment. Recheck maintenance/security updates before installation and promotion. |
-| Realm | DEFAULT proposal | `datingapp-dev`, isolated from `master`, pilot and production; fictional adult test accounts only |
+| Realm | DEFAULT proposal | `swoovr-dev`, isolated from `master`, pilot and production; fictional adult test accounts only |
 | Deployment | DEFAULT proposal | Separate disposable local container, `start-dev`, loopback-only host binding such as `127.0.0.1:8180:8080`; never use development mode for production |
 | Bootstrap credentials | OPEN setup | Generated locally and supplied out of band; none invented, committed, deployed or configured by this proposal |
 | Clients | DEFAULT proposal | Separate web and mobile registrations, explicit callback allowlists and PKCE; exact IDs, redirect URIs, audiences, secrets and issuer remain unconfigured |
@@ -49,7 +49,7 @@ With Q10 resolved, the next slice can provision an isolated sandbox; record exac
 
 ## Local sandbox follow-up — 16 October 2026
 
-The proposal above is now partly implemented as reversible D16 defaults. Official downloads/release were rechecked and the 26.8.1 multi-platform registry index was resolved to `sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244`. Compose pins that digest and imports an empty `datingapp-dev` realm. No application clients, users, social federation, SMTP or method mappers are supplied. Keycloak creates its normal built-in realm clients; the template's empty client list is not a claim that the running realm has no built-in clients. Local bootstrap credentials are generated privately by the operator script.
+The proposal above is now partly implemented as reversible D16 defaults. Official downloads/release were rechecked and the 26.8.1 multi-platform registry index was resolved to `sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244`. Compose pins that digest and imports an empty `swoovr-dev` realm. No application clients, users, social federation, SMTP or method mappers are supplied. Keycloak creates its normal built-in realm clients; the template's empty client list is not a claim that the running realm has no built-in clients. Local bootstrap credentials are generated privately by the operator script.
 
 See [local commands](../delivery/LOCAL-DEVELOPMENT.md#docker-local-stack), [investigation scope](../delivery/PHASE-1-KEYCLOAK-SANDBOX.md) and [actual validation](../delivery/VALIDATION.md). The application is not connected to Keycloak. Startup/discovery/JWKS observations cannot establish a trusted authentication method, verify a token or satisfy D14. `HasApprovedPrivilegedEmailEvidence` still has no evaluator and real privileged access remains disabled.
 

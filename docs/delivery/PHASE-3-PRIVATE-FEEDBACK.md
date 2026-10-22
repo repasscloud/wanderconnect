@@ -1,5 +1,7 @@
 # Phase 3 — independent private experience feedback
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Partial Domain implementation of behaviour §7. No real user answers, feedback API/storage, reporting service, moderation scoring, ranking or enforcement is enabled.
 
 DEFAULT: one feedback record per interaction and author, independently submitted and amendable with immutable version history. Internal historical server facts bind an interaction ID, two participants, validated actor/session and evidence of genuine connection or an agreed meeting. Current unmatching/blocking is not an input to eligibility; retained legitimate interaction facts permit feedback/reporting access without reopening chat/profile. Suspended/unauthenticated sessions do not receive app access. Reporting remains a separate action/service, outside these private answers.

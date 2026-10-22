@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
-const {chromium}=require(process.env.DATINGAPP_PLAYWRIGHT_PATH||'playwright');
-const base=process.env.DATINGAPP_WEB_URL||'http://127.0.0.1:5081';
+const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'playwright');
+const base=process.env.SWOOVR_WEB_URL||'http://127.0.0.1:5081';
 (async()=>{
  const browser=await chromium.launch({channel:'msedge',headless:true});
  try{

@@ -6,7 +6,7 @@ Status: confirmed product requirement, 16 October 2026.
 
 Every user can choose one of six approved colour directions for their own app interface. All six are available in light and dark mode. Appearance is a personal preference, not an app-wide administrator choice and not a paid entitlement.
 
-Place this document beside **wanderconnect-colour-studio.html** in the project directory. The HTML is the visual reference for all six palettes, paired modes and sample screens. It is a design explorer, not production app code. The earlier muted palettes in the product brief are superseded by these six options. Earlier teal mockups remain layout references only.
+Place this document beside **swoovr-colour-studio.html** in the project directory. The HTML is the visual reference for all six palettes, paired modes and sample screens. It is a design explorer, not production app code. The earlier muted palettes in the product brief are superseded by these six options. Earlier teal mockups remain layout references only.
 
 The owner explicitly selected the six-palette personalisation approach. Defaults, storage and interaction details below are recommended implementation decisions; retain them unless the project has an established equivalent.
 

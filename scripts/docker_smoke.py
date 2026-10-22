@@ -26,10 +26,10 @@ def require(condition, message):
 require(json.loads(fetch('http://localhost:5080/health/live')) == {'status': 'ok'},
         'API liveness mismatch')
 status = json.loads(fetch('http://localhost:5080/api/v1/status'))
-require(status == {'service': 'DatingApp.Api', 'stage': 'foundation'}, 'API status mismatch')
-require('WanderConnect' in fetch('http://localhost:5081/'), 'Web shell missing')
+require(status == {'service': 'Swoovr.Api', 'stage': 'foundation'}, 'API status mismatch')
+require('Swoovr' in fetch('http://localhost:5081/'), 'Web shell missing')
 check_web_assets('http://localhost:5081/')
-issuer = 'http://localhost:8180/realms/datingapp-dev'
+issuer = 'http://localhost:8180/realms/swoovr-dev'
 discovery = json.loads(fetch(issuer + '/.well-known/openid-configuration'))
 require(discovery['issuer'] == issuer, 'Unexpected sandbox issuer')
 # Compare exact known local URL before fetching; never follow an arbitrary discovered host.

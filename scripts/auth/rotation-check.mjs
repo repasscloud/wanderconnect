@@ -7,9 +7,9 @@ import { localRealmApi,privateRead,validateFixture } from './provision.mjs';
 import { withTemporarySigningKey } from './rotation.mjs';
 const require=createRequire(import.meta.url);
 async function run(){
-  const {chromium}=require(process.env.DATINGAPP_PLAYWRIGHT_PATH||'playwright');
-  const fixture=JSON.parse(await privateRead('.local/auth-fixture.json'));
-  assert.equal(fixture.owner,'datingapp-local-investigation-v1');assert.equal(fixture.fictionalAdult,true);
+  const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'playwright');
+  const fixture=JSON.parse(await privateRead('.local/swoovr-auth-fixture.json'));
+  assert.equal(fixture.owner,'swoovr-local-investigation-v1');assert.equal(fixture.fictionalAdult,true);
   assert.equal(typeof fixture.userId,'string');
   let managementGrants=0;
   const api=await localRealmApi({provider:async(url,options)=>{if(url.includes('/realms/master/'))managementGrants++;return request(url,options);}});

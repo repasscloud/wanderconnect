@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const appearance = require('../../src/DatingApp.Web/wwwroot/appearance-core.js');
+const appearance = require('../../src/Swoovr.Web/wwwroot/appearance-core.js');
 const schemes = ['electric','raspberry','cobalt','coral','orchid','solar'];
 test('18 independent requested combinations resolve to 12 visuals', () => {
   const visuals = new Set();

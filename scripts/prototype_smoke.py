@@ -20,7 +20,7 @@ def probe(base,path,expected=200):
 def host(mode, enabled, port, run, kind="Api"):
     log=tempfile.TemporaryFile()
     env=dict(os.environ,ASPNETCORE_ENVIRONMENT=mode,ASPNETCORE_URLS=f'http://127.0.0.1:{port}',Prototype__Enabled=str(enabled).lower())
-    process=subprocess.Popen(['dotnet',str(root/f'src/DatingApp.{kind}/bin/Release/net10.0/DatingApp.{kind}.dll')],cwd=root/f'src/DatingApp.{kind}',env=env,stdout=log,stderr=log)
+    process=subprocess.Popen(['dotnet',str(root/f'src/Swoovr.{kind}/bin/Release/net10.0/Swoovr.{kind}.dll')],cwd=root/f'src/Swoovr.{kind}',env=env,stdout=log,stderr=log)
     base=f'http://127.0.0.1:{port}'
     try:
         for _ in range(100):

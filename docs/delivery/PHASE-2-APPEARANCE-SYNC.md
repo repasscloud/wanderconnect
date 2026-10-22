@@ -1,5 +1,7 @@
 # Phase 2 — portable appearance synchronization state
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Implement the client-side account lifecycle specified by [appearance storage rules](../design/USER-APPEARANCE-THEMES.md), without inventing an account API/provider. This is a pure portable state machine for future Web/Mobile adapters, not a connected account service. Guest web settings remain guest-only.
 
 DEFAULT D21: each account activation gets a new opaque in-memory generation. Until its account read completes, display defaults and disallow account edits rather than showing the previous account's preference. Existing account preference wins at sign-in; only an account with no preference initializes from the deliberate generic guest preference. Sign-out clears every account preference, pending save/conflict and in-flight ticket; the generic guest preference remains by policy. Late load/save/conflict responses from a prior activation are ignored, even when the same account later signs in again.

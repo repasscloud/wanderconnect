@@ -5,7 +5,7 @@ function fake() {
   let component;
   let deleted=0;
   const api=async (path,method='GET',body) => {
-    if(path==='') return {realm:'datingapp-dev',id:'realm-id'};
+    if(path==='') return {realm:'swoovr-dev',id:'realm-id'};
     if(path==='/components' && method==='GET') return component?[component]:[];
     if(path==='/keys') return {active:{RS256:component?'new-key':'old-key'}};
     if(path==='/components' && method==='POST') {component={...body,id:'temporary'};return null;}
@@ -26,8 +26,8 @@ test('existing investigation rotation refuses to mutate or delete it',async()=>{
  let mutated=false;
  const api=async(path,method='GET')=>{
   if(method!=='GET'){mutated=true;throw Error('No mutation permitted')}
-  if(path==='')return {realm:'datingapp-dev',id:'realm-id'};
-  if(path==='/components')return [{name:'datingapp-investigation-rotation-existing'}];
+  if(path==='')return {realm:'swoovr-dev',id:'realm-id'};
+  if(path==='/components')return [{name:'swoovr-investigation-rotation-existing'}];
   if(path==='/keys')return {active:{RS256:'old-key'}};
  };
  await assert.rejects(withTemporarySigningKey(api,async()=>{}));assert.equal(mutated,false);
@@ -48,7 +48,7 @@ test('cleanup reacquires expired management authorization after delayed exercise
  const provider=async(url,options)=>{
   if(url.includes('/realms/master/'))return {access_token:'synthetic-'+(++grants),expires_in:60};
   if(now>=60000 && grants<2)throw Object.assign(Error('expired'),{status:401});
-  return f.api(new URL(url).pathname.slice('/admin/realms/datingapp-dev'.length),options.method,options.body?JSON.parse(options.body):undefined);
+  return f.api(new URL(url).pathname.slice('/admin/realms/swoovr-dev'.length),options.method,options.body?JSON.parse(options.body):undefined);
  };
  const api=await localRealmApi({provider,read:async()=> 'KC_BOOTSTRAP_ADMIN_PASSWORD=synthetic-test-only',clock:()=>now});
  await withTemporarySigningKey(api,async()=>{now=61000});

@@ -1,4 +1,6 @@
-# Product brief
+# Swoovr product brief
+
+Updated 22 October 2026: Swoovr is the owner-confirmed product name. See [current status](../delivery/STATUS.md) for implementation progress and [naming](../architecture/NAMING.md) for engineering conventions.
 
 ## 1. Vision
 

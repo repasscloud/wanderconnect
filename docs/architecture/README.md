@@ -1,6 +1,6 @@
 # Architecture baseline
 
-16 October 2026. Seven application projects are the confirmed direction. The skeleton is phase 0, not a completed product. No database or Keycloak connector exists yet. Phase 1 adds a provider-independent Domain account-area policy; a partial Phase 2 discovery policy now implements shared resource/new-contact rules; API authorization wiring remains planned.
+Updated 22 October 2026. Seven application projects remain the confirmed direction. The foundation and partial discovery/connection prototypes are integrated; the product is incomplete. There is no application persistence or Keycloak application adapter. The local Keycloak investigation harness is separate from application authentication. See [current status](../delivery/STATUS.md) for delivered slices and [naming](NAMING.md) for Swoovr identifiers.
 
 | Project | Owns | References |
 | --- | --- | --- |

@@ -1,5 +1,7 @@
 # Phase 1 — optional local MFA investigation
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Partial provider investigation only. Keycloak remains the backend, MFA remains optional, and no application/privileged access is enabled. The existing fictional-adult fixture has simulated administrator-asserted email status; this does not prove email ownership/adulthood.
 
 DEFAULT: opt-in browser test on the owned fixture, refusing an existing OTP credential or outstanding required action. Temporarily request CONFIGURE_TOTP for that one fixture, enroll using a uniquely labelled test authenticator, demonstrate password+OTP with wrong/missing-code denials, then delete only that labelled credential and remove only the temporary required action. Preserve the password and every unrelated credential/action. Verify a final password-only browser login, proving MFA did not become a global requirement. Never log or persist the OTP secret, QR, generated codes, password, token or raw browser trace.
@@ -19,6 +21,6 @@ The installed Keycloak theme renders invalid OTP as `#otp[aria-invalid="true"]`,
 
 ## Local reproduction
 
-Start the original matching fixture/volume via `./scripts/docker-local.sh up`; from that checkout run `DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node /absolute/path/to/this/worktree/scripts/auth/mfa-check.mjs`. Installed Edge is required. This optional mutating provider investigation is deliberately separate from portable checks. Run only against the owned local fixture with no preexisting OTP/required actions. Do not reset or rebind the private fixture. Afterward stop the stack with `./scripts/docker-local.sh down`, retaining volumes/private files.
+Start the original matching fixture/volume via `./scripts/docker-local.sh up`; from that checkout run `SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node /absolute/path/to/this/worktree/scripts/auth/mfa-check.mjs`. Installed Edge is required. This optional mutating provider investigation is deliberately separate from portable checks. Run only against the owned local fixture with no preexisting OTP/required actions. Do not reset or rebind the private fixture. Afterward stop the stack with `./scripts/docker-local.sh down`, retaining volumes/private files.
 
 References: [RFC6238](https://www.rfc-editor.org/rfc/rfc6238), [Keycloak OTP policy](https://www.keycloak.org/docs/latest/server_admin/index.html#otp-policies), [pinned Admin REST](https://www.keycloak.org/docs-api/26.8.1/rest-api/index.html). The SHA1/6-digit/30-second/window1 settings are checked against the actual local realm; they are investigation settings, not a product security-policy decision.

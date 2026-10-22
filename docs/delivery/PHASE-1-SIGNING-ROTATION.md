@@ -1,12 +1,14 @@
 # Phase 1 — local signing-key rotation investigation
 
-Partial Phase 1 provider evidence only. Uses the fixed local Keycloak 26.8.1 datingapp-dev realm and existing owned investigation client/fictional-adult fixture. No production OIDC adapter, real verified-email ownership, application role or privileged grant is added.
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
+Partial Phase 1 provider evidence only. Uses the fixed local Keycloak 26.8.1 swoovr-dev realm and existing owned investigation client/fictional-adult fixture. No production OIDC adapter, real verified-email ownership, application role or privileged grant is added.
 
 DEFAULT D23: generate a uniquely named temporary `rsa-generated` RS256/2048 provider with priority above existing key providers, retain the original provider, then delete only the component whose unique name/type/provider/realm match the current experiment. Refuse any existing investigation rotation provider rather than silently adopting/removing it. Read back the restored active key and published JWKS. No original provider is edited or removed.
 
 The actual browser driver starts the investigation harness on 127.0.0.1:8280, signs in with the private fixture and captures responses in process memory only. It validates the original ID token; adds the temporary key; validates both original/new signatures against overlapping published keys; verifies refreshed subject/session/original auth_time; removes the temporary component; rejects its token against the newly published JWKS; validates the original token again; refreshes with the restored active key and proves logout invalid_grant. No raw token/password/identity/key material, callback URL, screenshot or browser trace is logged/exported.
 
-Cleanup runs in finally on success and ordinary failure. SIGINT/SIGTERM close the browser to unwind pending actions and reach cleanup. A force kill, machine crash or unavailable provider can still interrupt cleanup: reruns refuse a leftover experiment prefix. Inspect only `datingapp-investigation-rotation-` key providers in the disposable realm and deliberately remove an interrupted owned component after checking ownership; never reset the volume or delete an arbitrary key provider.
+Cleanup runs in finally on success and ordinary failure. SIGINT/SIGTERM close the browser to unwind pending actions and reach cleanup. A force kill, machine crash or unavailable provider can still interrupt cleanup: reruns refuse a leftover experiment prefix. Inspect only `swoovr-investigation-rotation-` key providers in the disposable realm and deliberately remove an interrupted owned component after checking ownership; never reset the volume or delete an arbitrary key provider.
 
 Management authorization is setup, not browser-login evidence. The local helper reacquires its bootstrap-admin token before expiry and retries once after 401. This avoids a browser wait exhausting the observed 60-second management lifetime before cleanup. Credentials remain in the private ignored file; tokens remain in memory. Persistent failure still rejects rather than claiming cleanup.
 
@@ -17,8 +19,8 @@ Use the checkout whose ignored .local/docker.env and auth-fixture.json match the
 ```sh
 ./scripts/docker-local.sh up
 ./scripts/docker-local.sh auth-init
-DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node scripts/auth/rotation-check.mjs
-DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node scripts/auth/rotation-check.mjs --delay-cleanup
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node scripts/auth/rotation-check.mjs
+SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node scripts/auth/rotation-check.mjs --delay-cleanup
 ./scripts/docker-local.sh down
 ```
 

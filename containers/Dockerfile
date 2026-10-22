@@ -5,10 +5,10 @@ COPY global.json Directory.Build.props ./
 COPY src/ ./src/
 
 FROM source AS api-publish
-RUN dotnet publish src/DatingApp.Api -c Release -o /publish -p:NuGetAudit=false
+RUN dotnet publish src/Swoovr.Api -c Release -o /publish -p:NuGetAudit=false
 
 FROM source AS web-publish
-RUN dotnet publish src/DatingApp.Web -c Release -o /publish -p:NuGetAudit=false
+RUN dotnet publish src/Swoovr.Web -c Release -o /publish -p:NuGetAudit=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS runtime
 WORKDIR /app
@@ -18,8 +18,8 @@ EXPOSE 8080
 
 FROM runtime AS api
 COPY --from=api-publish /publish .
-ENTRYPOINT ["dotnet", "DatingApp.Api.dll"]
+ENTRYPOINT ["dotnet", "Swoovr.Api.dll"]
 
 FROM runtime AS web
 COPY --from=web-publish /publish .
-ENTRYPOINT ["dotnet", "DatingApp.Web.dll"]
+ENTRYPOINT ["dotnet", "Swoovr.Web.dll"]

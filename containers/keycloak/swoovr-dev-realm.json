@@ -1,0 +1,15 @@
+{
+  "realm": "swoovr-dev",
+  "enabled": true,
+  "displayName": "Swoovr local authentication sandbox",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "rememberMe": false,
+  "clients": [],
+  "users": [],
+  "identityProviders": []
+}

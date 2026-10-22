@@ -1,5 +1,7 @@
 # Phase 3 — fictional connection web journey
 
+> Slice record from 16–18 October 2026. Read [current status](STATUS.md) for integration and remaining work; [D30](DECISIONS.md#naming-confirmation--22-october-2026) governs current naming.
+
 Partial static SSR web journey over PR#15's isolated scenario API. No authenticated member experience, real messages, persistence or realtime. Existing six personal schemes remain canonical, no global brand selection. Q03 authenticated interaction decision remains OPEN; this uses the existing static SSR mode and built-in named forms/antiforgery.
 
 DEFAULT: distinct Connection preview navigation entry only when Development+Prototype:Enabled; /prototype/conversation renders an off state otherwise. Start a disposable scenario with labelled simulated local/upcoming/arrived presence. View as fictional Alex/Jamie is a conspicuous demo role switch, never sign-in. One canned request; recipient accept/decline; accepted canned reply; close/block. No free text or attachments. Explanation of one request/wait, terminal decline/close, hidden blocked history and hypothetical reporting eligibility. Fresh GET after each mutation; stale/denied409 shows a controlled reload/retry state; expired/missing/unavailable/APIoffline shows a controlled start-over state. GET never mutates.
@@ -21,4 +23,4 @@ Actual installed Edge suite passed on local hosts and separately published ARM64
 
 Selected fictional evidence: [default desktop](evidence/connection/pending.png), [Cobalt/Dark](evidence/connection/cobalt-dark.png), [320px/200% controls](evidence/connection/narrow-controls.png). Canonical token generation unchanged. No live messaging/authentication or mobile/realtime proof.
 
-Reproduce: start opt-in API/Web at loopback ports with Prototype:Enabled=true and Web Prototype:ApiBaseUrl pointing to API. With installed Edge and Playwright available, run `DATINGAPP_WEB_URL=http://127.0.0.1:5301 DATINGAPP_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/prototype/conversation.browser.cjs`. Optional suite stays separate from dependency-free portable checks. Local test hosts/container network stopped after validation; no merge or public/dev deployment.
+Reproduce: start opt-in API/Web at loopback ports with Prototype:Enabled=true and Web Prototype:ApiBaseUrl pointing to API. With installed Edge and Playwright available, run `SWOOVR_WEB_URL=http://127.0.0.1:5301 SWOOVR_PLAYWRIGHT_PATH=/absolute/path/to/playwright node tests/prototype/conversation.browser.cjs`. Optional suite stays separate from dependency-free portable checks. Local test hosts/container network stopped after validation; no merge or public/dev deployment.

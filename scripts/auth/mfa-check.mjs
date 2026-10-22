@@ -9,12 +9,12 @@ import {totp} from './totp.mjs';
 const require=createRequire(import.meta.url);
 let stage='preflight';
 async function run(){
- const {chromium}=require(process.env.DATINGAPP_PLAYWRIGHT_PATH||'playwright');
- const fixture=JSON.parse(await privateRead('.local/auth-fixture.json'));
+ const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'playwright');
+ const fixture=JSON.parse(await privateRead('.local/swoovr-auth-fixture.json'));
  const api=await localRealmApi();
  validateFixture(fixture,await api('/users?exact=true&username='+encodeURIComponent(fixture.username)));
  const realm=await api('');
- assert.equal(realm.realm,'datingapp-dev');assert.equal(realm.otpPolicyType,'totp');assert.equal(realm.otpPolicyAlgorithm,'HmacSHA1');
+ assert.equal(realm.realm,'swoovr-dev');assert.equal(realm.otpPolicyType,'totp');assert.equal(realm.otpPolicyAlgorithm,'HmacSHA1');
  assert.equal(realm.otpPolicyDigits,6);assert.equal(realm.otpPolicyPeriod,30);assert.equal(realm.otpPolicyLookAheadWindow,1);
  assert.ok(!(await api('/users/'+fixture.userId+'/credentials')).some(c=>c.type==='otp'));
  let issued=0;

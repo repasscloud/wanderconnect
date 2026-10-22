@@ -17,7 +17,7 @@ export function createHarness(provider = request) {
     try {
       if (req.headers.host !== '127.0.0.1:8280') return send(400, 'Invalid host');
       const url = new URL(req.url, origin);
-      let id = /(?:^|;\s*)datingapp_investigation=([A-Za-z0-9_-]{43})(?:;|$)/.exec(req.headers.cookie ?? '')?.[1];
+      let id = /(?:^|;\s*)swoovr_investigation=([A-Za-z0-9_-]{43})(?:;|$)/.exec(req.headers.cookie ?? '')?.[1];
       const now = Math.floor(Date.now() / 1000);
       for (const [key, value] of sessions) if (value.expires <= now) sessions.delete(key);
       let session = sessions.get(id);
@@ -41,11 +41,11 @@ export function createHarness(provider = request) {
         session = { csrf: random(), expires: now + 1800, observations: [] };
         sessions.set(id, session);
         // HTTP is allowed only on this loopback investigation host. Production needs Secure.
-        res.setHeader('Set-Cookie', `datingapp_investigation=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=1800`);
+        res.setHeader('Set-Cookie', `swoovr_investigation=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=1800`);
       }
       if (req.method === 'GET' && url.pathname === '/' && !url.search) {
         const form = (path, label, mode = '') => `<form method="post" action="${path}"><input type="hidden" name="csrf" value="${session.csrf}"><input type="hidden" name="mode" value="${mode}"><button>${label}</button></form>`;
-        return send(200, `<h1>Local authentication investigation</h1><p>Fictional adult fixture only. Email status is administrator-asserted simulation. No application or privileged access is enabled.</p>${form('/begin', 'Browser login / SSO')}${form('/begin', 'Force password reauthentication', 'reauth')}${form('/begin', 'Silent SSO probe', 'silent')}${form('/refresh', 'Refresh stored session')}${form('/logout', 'End provider session')}<table border="1"><caption>Redacted observations; email ownership is simulated; privileged access always disabled</caption><thead><tr><th>Mode</th><th>Validated ID</th><th>Password AMR</th><th>Other AMR</th><th>Auth age (s)</th><th>Same auth time</th><th>Same session</th><th>Refresh rejected after logout</th></tr></thead><tbody>${session.observations.map(o => '<tr>' + [o.mode, o.validatedIdToken, o.amr?.includes('datingapp:password'), o.otherAmrPresent, o.authAgeSeconds, o.sameAuthTimeAsPrevious, o.sameSessionAsPrevious, o.refreshRejectedAfterLogout].map(v => '<td>' + esc(v ?? 'n/a') + '</td>').join('') + '</tr>').join('')}</tbody></table>`);
+        return send(200, `<h1>Local authentication investigation</h1><p>Fictional adult fixture only. Email status is administrator-asserted simulation. No application or privileged access is enabled.</p>${form('/begin', 'Browser login / SSO')}${form('/begin', 'Force password reauthentication', 'reauth')}${form('/begin', 'Silent SSO probe', 'silent')}${form('/refresh', 'Refresh stored session')}${form('/logout', 'End provider session')}<table border="1"><caption>Redacted observations; email ownership is simulated; privileged access always disabled</caption><thead><tr><th>Mode</th><th>Validated ID</th><th>Password AMR</th><th>Other AMR</th><th>Auth age (s)</th><th>Same auth time</th><th>Same session</th><th>Refresh rejected after logout</th></tr></thead><tbody>${session.observations.map(o => '<tr>' + [o.mode, o.validatedIdToken, o.amr?.includes('swoovr:password'), o.otherAmrPresent, o.authAgeSeconds, o.sameAuthTimeAsPrevious, o.sameSessionAsPrevious, o.refreshRejectedAfterLogout].map(v => '<td>' + esc(v ?? 'n/a') + '</td>').join('') + '</tr>').join('')}</tbody></table>`);
       }
       if (req.method !== 'POST' || !['/begin', '/refresh', '/logout'].includes(url.pathname) || url.search) return send(404, 'Not found');
       if (req.headers.origin !== origin || req.headers['content-type'] !== 'application/x-www-form-urlencoded') return send(403, 'Request rejected');
@@ -97,7 +97,7 @@ export function createHarness(provider = request) {
     if (mode === 'reauth' && (claims.auth_time < started - 5 || (session.claims && claims.sub !== session.claims.sub))) throw new Error('Reauthentication evidence rejected');
     if (typeof tokens.refresh_token !== 'string') throw new Error('Missing refresh');
     const previous = session.claims;
-    session.observations.push({ mode, validatedIdToken: true, amr: Array.isArray(claims.amr) ? claims.amr.filter(v => ['datingapp:password'].includes(v)) : [], otherAmrPresent: Array.isArray(claims.amr) && claims.amr.some(v => v !== 'datingapp:password'), brokerEvidencePresent: typeof claims.sandbox_broker === 'string', emailVerifiedClaim: claims.email_verified === true, emailOwnershipEvidence: 'ADMIN_ASSERTED_SIMULATION_ONLY', authAgeSeconds: Math.floor(Date.now() / 1000) - claims.auth_time, sameAuthTimeAsPrevious: previous ? previous.auth_time === claims.auth_time : null, sameSessionAsPrevious: previous ? previous.sid === claims.sid : null, privilegedAccessEnabled: false });
+    session.observations.push({ mode, validatedIdToken: true, amr: Array.isArray(claims.amr) ? claims.amr.filter(v => ['swoovr:password'].includes(v)) : [], otherAmrPresent: Array.isArray(claims.amr) && claims.amr.some(v => v !== 'swoovr:password'), brokerEvidencePresent: typeof claims.sandbox_broker === 'string', emailVerifiedClaim: claims.email_verified === true, emailOwnershipEvidence: 'ADMIN_ASSERTED_SIMULATION_ONLY', authAgeSeconds: Math.floor(Date.now() / 1000) - claims.auth_time, sameAuthTimeAsPrevious: previous ? previous.auth_time === claims.auth_time : null, sameSessionAsPrevious: previous ? previous.sid === claims.sid : null, privilegedAccessEnabled: false });
     session.observations = session.observations.slice(-20);
     session.refresh = tokens.refresh_token; session.claims = claims; session.nonce = nonce;
   }

@@ -31,7 +31,7 @@ test('local HTTP boundary rejects host, CSRF, unbound/duplicate callback and rep
     assert.equal(auth.searchParams.get('code_challenge_method'), 'S256');
     assert.equal(auth.searchParams.get('redirect_uri'), 'http://127.0.0.1:8280/callback');
     const state = auth.searchParams.get('state');
-    const callback = `/callback?state=${state}&iss=${encodeURIComponent(auth.origin + '/realms/datingapp-dev')}&code=secret`;
+    const callback = `/callback?state=${state}&iss=${encodeURIComponent(auth.origin + '/realms/swoovr-dev')}&code=secret`;
     assert.equal((await send(callback + '&state=duplicate', { headers: { Cookie: cookie } })).status, 400);
     assert.equal(providerCalls, 0);
     assert.equal((await send(callback, { headers: { Cookie: cookie } })).status, 400);
@@ -48,7 +48,7 @@ test('signed callback, refresh continuity and actual versus unavailable logout e
   let nonce, patch = {}, revoked = false, outage = false;
   const authTime = Math.floor(Date.now() / 1000) - 10;
   function token(refresh) {
-    const claims = { iss: issuer, aud: client, azp: client, sub: 'fictional', sid: 'test-session', exp: Math.floor(Date.now() / 1000) + 300, iat: Math.floor(Date.now() / 1000), auth_time: authTime, amr: ['datingapp:password'], ...(refresh ? {} : { nonce }), ...patch };
+    const claims = { iss: issuer, aud: client, azp: client, sub: 'fictional', sid: 'test-session', exp: Math.floor(Date.now() / 1000) + 300, iat: Math.floor(Date.now() / 1000), auth_time: authTime, amr: ['swoovr:password'], ...(refresh ? {} : { nonce }), ...patch };
     const input = [{ alg: 'RS256', kid: key.kid }, claims].map(x => Buffer.from(JSON.stringify(x)).toString('base64url')).join('.');
     return input + '.' + sign('RSA-SHA256', Buffer.from(input), privateKey).toString('base64url');
   }

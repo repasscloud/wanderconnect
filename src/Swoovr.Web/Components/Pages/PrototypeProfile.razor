@@ -1,0 +1,60 @@
+@page "/prototype/people/{Id:guid}"
+@inject PrototypeClient Client
+@inject IConfiguration Configuration
+@inject IWebHostEnvironment Environment
+<PageTitle>Fictional profile — Swoovr</PageTitle>
+<p class="breadcrumb"><a href="@($"/prototype/people?{SafeQuery}")">Back to people preview</a></p>
+<aside class="prototype-notice"><strong>Fictional adult profile</strong><p>Verification and presence are simulated. No real person, account or message.</p></aside>
+@if (Person is null)
+{
+    <section class="empty-state"><h1>Profile unavailable</h1><p>This profile is not available with these demo settings, or the local preview is off.</p></section>
+}
+else
+{
+    <article class="profile-detail"><p class="field-help">@Person.Area</p><h1>@Person.Name, @Person.Age</h1><p class="profile-introduction">@Person.Introduction</p><div class="intention-chips">@foreach (var intention in Person.Intentions) { <span>@intention</span> }</div>
+    <p>@(Person.HasDemoImage ? "Image is an abstract demo placeholder." : "A meaningful profile can be photo-free.")</p>
+    <form method="get" action="@($"/prototype/people/{Id}")">
+        <input type="hidden" name="travel" value="@Filter.Travel" /><input type="hidden" name="incognito" value="@Incognito.ToString().ToLowerInvariant()" /><input type="hidden" name="hideSparse" value="@HideSparse.ToString().ToLowerInvariant()" /><input type="hidden" name="requireFriendship" value="@RequireFriendship.ToString().ToLowerInvariant()" /><input type="hidden" name="requireActivity" value="@RequireActivity.ToString().ToLowerInvariant()" /><input type="hidden" name="match" value="@Filter.Match" /><input type="hidden" name="checkContact" value="true" />
+        @if (Incognito) { <label><input type="checkbox" name="disclose" value="true" checked="@Disclose" /> Show my fictional profile for this contact check</label> }
+        <button class="primary-button" type="submit">Check demo contact eligibility</button>
+    </form>
+    @if (ContactMessage is not null) { <p role="status" class="prototype-notice">@ContactMessage</p> }
+    <p class="field-help">This checks a rule only. It never sends a chat request or changes incognito browsing.</p></article>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery(Name="travel")] public string[]? TravelInput { get; set; }
+    private string Travel => PrototypeQuery.Value(TravelInput,"local");
+    [SupplyParameterFromQuery(Name="incognito")] public string[]? IncognitoInput { get; set; }
+    private bool Incognito => PrototypeQuery.Boolean(IncognitoInput);
+    [SupplyParameterFromQuery(Name="hideSparse")] public string[]? HideSparseInput { get; set; }
+    private bool HideSparse => PrototypeQuery.Boolean(HideSparseInput);
+    [SupplyParameterFromQuery(Name="requireFriendship")] public string[]? RequireFriendshipInput { get; set; }
+    private bool RequireFriendship => PrototypeQuery.Boolean(RequireFriendshipInput);
+    [SupplyParameterFromQuery(Name="match")] public string[]? MatchInput { get; set; }
+    private string Match => PrototypeQuery.Value(MatchInput,"any");
+    [SupplyParameterFromQuery(Name="checkContact")] public string[]? CheckContactInput { get; set; }
+    private bool CheckContact => PrototypeQuery.Boolean(CheckContactInput);
+    [SupplyParameterFromQuery(Name="disclose")] public string[]? DiscloseInput { get; set; }
+    private bool Disclose => PrototypeQuery.Boolean(DiscloseInput);
+    [SupplyParameterFromQuery(Name="requireActivity")] public string[]? RequireActivityInput { get; set; }
+    private bool RequireActivity => PrototypeQuery.Boolean(RequireActivityInput);
+    private bool QueryValid => PrototypeQuery.ValidOption(TravelInput,"local","upcoming","arrived") && PrototypeQuery.ValidOption(MatchInput,"any","all")
+        && PrototypeQuery.ValidBoolean(IncognitoInput) && PrototypeQuery.ValidBoolean(HideSparseInput) && PrototypeQuery.ValidBoolean(RequireFriendshipInput) && PrototypeQuery.ValidBoolean(RequireActivityInput) && PrototypeQuery.ValidBoolean(CheckContactInput) && PrototypeQuery.ValidBoolean(DiscloseInput);
+    private PrototypeFilter Filter => new(Travel ?? "local",Incognito,HideSparse,RequireFriendship,Match ?? "any",RequireActivity);
+    private string SafeQuery { get { try { return PrototypeClient.Query(Filter); } catch (ArgumentException) { return ""; } } }
+    private PrototypePerson? Person;
+    private string? ContactMessage;
+    protected override async Task OnParametersSetAsync()
+    {
+        Person = null; ContactMessage = null;
+        if (!QueryValid) return;
+        if (!Environment.IsDevelopment() || !Configuration.GetValue<bool>("Prototype:Enabled")) return;
+        try { Person = await Client.GetPersonAsync(Id, Filter); }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException or ArgumentException or System.Text.Json.JsonException) { return; }
+        if (!CheckContact) return;
+        try { ContactMessage = (await Client.CheckContactAsync(Id,Filter,Disclose)).Message; }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException or System.Text.Json.JsonException)
+        { ContactMessage = "Contact is unavailable with these demo settings. No request or message was sent."; }
+    }
+}
