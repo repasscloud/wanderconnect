@@ -118,11 +118,15 @@ for selector, mode in [(':root', 'light'), ('html.pf-v5-theme-dark', 'dark')]:
         assert copied[name].upper() == standard[mode][key], f'Keycloak {mode} --{name} differs from themes.json {key}'
 # Every MAUI XAML/XML file must be well-formed (an XML comment cannot contain "--"); a build without the
 # MAUI workload would not notice.
-import xml.etree.ElementTree as ElementTree
+# Well-formedness only: expat with external entities and parameter entities switched off.
+from xml.parsers import expat
 for path in [*root.glob('src/Swoovr.Mobile/**/*.xaml'), *root.glob('src/Swoovr.Mobile/**/*.xml')]:
     if {'bin', 'obj'} & set(path.parts): continue
-    try: ElementTree.parse(path)
-    except ElementTree.ParseError as error: raise SystemExit(f'{path.relative_to(root)}: not well-formed XML: {error}')
+    parser = expat.ParserCreate()
+    parser.SetParamEntityParsing(expat.XML_PARAM_ENTITY_PARSING_NEVER)
+    parser.ExternalEntityRefHandler = lambda *_: False
+    try: parser.Parse(path.read_bytes(), True)
+    except expat.ExpatError as error: raise SystemExit(f'{path.relative_to(root)}: not well-formed XML: {error}')
 launch_css = (root / 'src/Swoovr.Web/wwwroot/launch/launch.css').read_text()
 assert css_block(launch_css, ':root')['ink'].upper() == standard['light']['primary'], 'launch ink differs from Standard primary'
 assert css_block(launch_css, ':root')['page'].upper() == standard['light']['surface'], 'launch page differs from Standard surface'
