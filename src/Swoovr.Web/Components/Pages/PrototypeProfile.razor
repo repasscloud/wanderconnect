@@ -3,24 +3,37 @@
 @inject IConfiguration Configuration
 @inject IWebHostEnvironment Environment
 <PageTitle>Fictional profile — Swoovr</PageTitle>
-<p class="breadcrumb"><a href="@($"/prototype/people?{SafeQuery}")">Back to people preview</a></p>
-<aside class="prototype-notice"><strong>Fictional adult profile</strong><p>Verification and presence are simulated. No real person, account or message.</p></aside>
+<div class="column">
+<nav class="top-bar" aria-label="Profile"><a class="back-link" href="@($"/prototype/people?{SafeQuery}")"><Icon Name="back" Size="24" /><span>Back to people preview</span></a></nav>
+<aside class="notice prototype-notice"><strong>Fictional adult profile</strong><p>Verification and presence are simulated. No real person, account or message.</p></aside>
 @if (Person is null)
 {
     <section class="empty-state"><h1>Profile unavailable</h1><p>This profile is not available with these demo settings, or the local preview is off.</p></section>
 }
 else
 {
-    <article class="profile-detail"><p class="field-help">@Person.Area</p><h1>@Person.Name, @Person.Age</h1><p class="profile-introduction">@Person.Introduction</p><div class="intention-chips">@foreach (var intention in Person.Intentions) { <span>@intention</span> }</div>
-    <p>@(Person.HasDemoImage ? "Image is an abstract demo placeholder." : "A meaningful profile can be photo-free.")</p>
+    <article class="profile-detail">
+    @if (Person.HasDemoImage) { <div class="profile-photo demo-image" role="img" aria-label="Abstract demo image placeholder"><span aria-hidden="true">@Person.Name[..1]</span><small>Demo image placeholder</small></div> }
+    else { <figure class="profile-quote"><span class="tile-quote-mark" aria-hidden="true" data-font="quote">&ldquo;</span><p data-font="quote">@Person.Introduction</p></figure> }
+    <div class="profile-name"><h1>@Person.Name, @Person.Age</h1><Badge Kind="id" Size="24" Simulated /></div>
+    <p class="profile-meta">@(Person.HasDemoImage ? "Image is an abstract demo placeholder." : "A meaningful profile can be photo-free.")</p>
+    <p class="profile-area"><Icon Name="pin" Size="18" />@Person.Area</p>
+    <h2 class="section-heading">Looking for</h2>
+    <div class="intention-chips">@for (var i = 0; i < Person.Intentions.Count; i++) { <span class="chip @(i == 0 ? "is-on" : "")">@Person.Intentions[i]</span> }</div>
+    <section class="card verify-card" aria-label="Verification"><Badge Kind="id" Size="28" Simulated /><div><strong>ID verified</strong><span>Simulated in this preview, not a real check</span></div></section>
+    @if (Person.HasDemoImage) { <h2 class="section-heading">About me</h2><p class="profile-introduction">@Person.Introduction</p> }
+    <div class="action-bar">
     <form method="get" action="@($"/prototype/people/{Id}")">
         <input type="hidden" name="travel" value="@Filter.Travel" /><input type="hidden" name="incognito" value="@Incognito.ToString().ToLowerInvariant()" /><input type="hidden" name="hideSparse" value="@HideSparse.ToString().ToLowerInvariant()" /><input type="hidden" name="requireFriendship" value="@RequireFriendship.ToString().ToLowerInvariant()" /><input type="hidden" name="requireActivity" value="@RequireActivity.ToString().ToLowerInvariant()" /><input type="hidden" name="match" value="@Filter.Match" /><input type="hidden" name="checkContact" value="true" />
-        @if (Incognito) { <label><input type="checkbox" name="disclose" value="true" checked="@Disclose" /> Show my fictional profile for this contact check</label> }
+        @if (Incognito) { <label class="check"><input type="checkbox" name="disclose" value="true" checked="@Disclose" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Show my fictional profile for this contact check</label> }
         <button class="primary-button" type="submit">Check demo contact eligibility</button>
     </form>
-    @if (ContactMessage is not null) { <p role="status" class="prototype-notice">@ContactMessage</p> }
-    <p class="field-help">This checks a rule only. It never sends a chat request or changes incognito browsing.</p></article>
+    </div>
+    @if (ContactMessage is not null) { <p role="status" class="notice contact-status">@ContactMessage</p> }
+    <p class="field-help">This checks a rule only. It never sends a chat request or changes incognito browsing.</p>
+    </article>
 }
+</div>
 @code {
     [Parameter] public Guid Id { get; set; }
     [SupplyParameterFromQuery(Name="travel")] public string[]? TravelInput { get; set; }

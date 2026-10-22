@@ -1,0 +1,81 @@
+@page "/prototype/components"
+@inject IConfiguration Configuration
+@inject IWebHostEnvironment Environment
+<PageTitle>Components — Swoovr</PageTitle>
+@* Local reference for the shared components (UI-STYLE.md Components), including the Plan a date pieces that have no
+   screen yet. Development + Prototype:Enabled only, like the other previews. Nothing here submits anywhere. *@
+<div class="page-heading"><p class="breadcrumb"><a href="/">Home</a> / Components</p><h1 class="screen-title">Components</h1><p class="subtitle">Shared Swoovr components in the current scheme and mode. Fictional examples only.</p></div>
+@if (!Enabled)
+{
+    <section class="empty-state"><h2>This local preview is off</h2><p>Run the web host in Development with the prototype flag.</p></section>
+}
+else
+{
+    <div class="gallery">
+        <section class="column" aria-labelledby="g-controls">
+            <h2 class="section-heading" id="g-controls">Buttons, link, input, checkbox</h2>
+            <div class="filter-stack">
+                <div class="field"><label for="g-email">Email</label><input id="g-email" type="email" placeholder="you@example.com" /></div>
+                <label class="check"><input type="checkbox" checked /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> I'm 18 or over</label>
+                <button type="button" class="button">Primary</button>
+                <button type="button" class="button button-secondary">Secondary</button>
+                <button type="button" class="button" disabled>Disabled</button>
+                <button type="button" class="button" aria-label="Loading"><span class="spinner" aria-hidden="true"></span></button>
+                <p><a class="link" href="/">A link</a></p>
+            </div>
+        </section>
+        <section class="column" aria-labelledby="g-chips">
+            <h2 class="section-heading" id="g-chips">Chips, segmented control, card, badges</h2>
+            <ul class="chip-row"><li class="chip is-on">Long-term</li><li class="chip">Friends</li><li class="chip is-off">Casual</li></ul>
+            <div class="segmented" role="radiogroup" aria-label="Context">
+                <label class="segment"><input type="radio" name="g-context" value="dating" checked /> Dating</label>
+                <label class="segment"><input type="radio" name="g-context" value="friends" /> Friends</label>
+                <label class="segment"><input type="radio" name="g-context" value="activities" /> Activities</label>
+            </div>
+            <section class="card verify-card" aria-label="Badges"><span class="badges" data-badges><Badge Kind="photo" /><Badge Kind="id" /><Badge Kind="founding" /><Badge Kind="staff" /><Badge Kind="bot" /></span><div><strong>Badges</strong><span>Each badge describes one check, not a general endorsement.</span></div></section>
+        </section>
+        <section aria-labelledby="g-tiles">
+            <h2 class="section-heading" id="g-tiles">Profile tiles</h2>
+            <div class="people-grid">
+                <ProfileTile Name="Rowan" Age="40" Href="/prototype/components#g-tiles" Intentions="@(["Long-term", "Friends"])" Area="Fictional area"
+                             Photo="@DemoPhoto">
+                    <Badges><Badge Kind="id" Size="14" Simulated /></Badges>
+                </ProfileTile>
+                <ProfileTile Name="Jamie" Age="34" Href="/prototype/components#g-tiles" Intentions="@(["Long-term"])" Quote="Bookshops, long walks and someone to laugh with.">
+                    <Badges><Badge Kind="id" Size="14" Simulated /></Badges>
+                </ProfileTile>
+            </div>
+        </section>
+        <section class="column" aria-labelledby="g-chat">
+            <h2 class="section-heading" id="g-chat">Chat</h2>
+            <div class="chat-thread"><p class="chat-day">Today</p><p class="bubble">Hey! How was your week?</p><p class="bubble mine">Good! We should catch up sometime.</p></div>
+            <div class="composer"><span class="composer-input">Message</span><button type="button" class="send-button" aria-label="Send"><Icon Name="send" Size="20" /></button></div>
+        </section>
+        <section class="column" aria-labelledby="g-plan">
+            <h2 class="section-heading" id="g-plan">Plan a date (components only; no screen yet)</h2>
+            <h3 class="section-heading">What would you like to do?</h3>
+            <div class="option-grid" role="radiogroup" aria-label="What would you like to do?">
+                @foreach (var (value, icon, label) in Options)
+                {
+                    <label class="option"><input type="radio" name="g-plan" value="@value" checked="@(value == "coffee")" /><Icon Name="@icon" Size="24" />@label</label>
+                }
+            </div>
+            <h3 class="section-heading">Where?</h3>
+            <label class="icon-input"><Icon Name="search" Size="20" /><span class="visually-hidden">Where?</span><input type="text" value="Harbour Lane Coffee" /></label>
+            <div class="button-row plan-when">
+                <label class="icon-input"><Icon Name="calendar" Size="20" /><span class="visually-hidden">Date</span><input type="text" value="Sat 24 Oct" /></label>
+                <label class="icon-input"><Icon Name="clock" Size="20" /><span class="visually-hidden">Time</span><input type="text" value="2:00 PM" /></label>
+            </div>
+            <h3 class="section-heading">Personal message (optional)</h3>
+            <textarea class="input" aria-label="Personal message (optional)">Coffee's on me?</textarea>
+            <button type="button" class="button plan-send"><Icon Name="send" Size="19" />Send invitation</button>
+            <p class="field-help plan-note">Example only; nothing is sent.</p>
+        </section>
+    </div>
+}
+@code {
+    private bool Enabled => Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled");
+    private static readonly RenderFragment DemoPhoto = @<div class="demo-image" role="img" aria-label="Abstract demo image placeholder"><span aria-hidden="true">R</span><small>Demo image placeholder</small></div>;
+    private static readonly (string Value, string Icon, string Label)[] Options =
+        [("coffee", "coffee", "Coffee"), ("drinks", "drinks", "Drinks"), ("dinner", "dinner", "Dinner"), ("walk", "walk", "Walk"), ("activity", "activity", "Activity"), ("other", "more", "Other")];
+}

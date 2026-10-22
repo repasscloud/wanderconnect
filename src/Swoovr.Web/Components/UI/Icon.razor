@@ -1,0 +1,33 @@
+@* The one outline icon set (UI-STYLE.md Icons): 24-unit grid, 1.5 stroke, currentColor (ink or muted from the parent).
+   Paths follow Lucide (https://lucide.dev, ISC licence, © Lucide Contributors), the set the reference screens were drawn with.
+   Decorative: the parent element carries the accessible name. *@
+<svg class="icon" width="@Size" height="@Size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="@Stroke"
+     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" data-icon="@Name">@Paths</svg>
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 22;
+    [Parameter] public double Stroke { get; set; } = 1.5;
+
+    private RenderFragment Paths => Name switch
+    {
+        "search" => @<g><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></g>,
+        "users" => @<g><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></g>,
+        "chat" => @<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
+        "user" => @<g><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></g>,
+        "pin" => @<g><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></g>,
+        "filters" => @<g><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" /></g>,
+        "back" => @<path d="m15 18-6-6 6-6" />,
+        "more" => @<g><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></g>,
+        "send" => @<g><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></g>,
+        "plus" => @<path d="M5 12h14M12 5v14" />,
+        "check" => @<path d="M20 6 9 17l-5-5" />,
+        "coffee" => @<g><path d="M10 2v2M14 2v2M6 2v2" /><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" /></g>,
+        "drinks" => @<g><path d="M8 22h8M7 10h10M12 15v7" /><path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z" /></g>,
+        "dinner" => @<g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></g>,
+        "walk" => @<g><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0ZM20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0ZM16 17h4M4 13h4" /></g>,
+        "activity" => @<g><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><path d="M13 5v2M13 17v2M13 11v2" /></g>,
+        "calendar" => @<g><path d="M8 2v4M16 2v4M3 10h18" /><rect width="18" height="18" x="3" y="4" rx="2" /></g>,
+        "clock" => @<g><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></g>,
+        _ => throw new ArgumentOutOfRangeException(nameof(Name), Name, "Not in the Swoovr icon set"),
+    };
+}

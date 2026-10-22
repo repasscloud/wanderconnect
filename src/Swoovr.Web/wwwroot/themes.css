@@ -223,3 +223,11 @@
   color-scheme: dark;
 }
 .swatch-eucalyptus-dark { --swatch-bg: #0E1511; --swatch-primary: #8CCBA8; --swatch-accent: #E6C27A; }
+:root {
+  --badge-photoVerified: #087CFA;
+  --badge-idVerified: #00AAA0;
+  --badge-founding: #D4AF37;
+  --badge-staff: #E0115F;
+  --badge-bot: #C0C0C0;
+  --badge-tick: #FFFFFF;
+}

@@ -1,0 +1,29 @@
+@* Verification and status badges (UI-STYLE.md Badges): 16px, right after a name, same colours in every scheme
+   (--badge-* tokens generated from docs/design/brand-colours.json). Each badge describes one check; on fictional
+   preview people the label says the check is simulated, never live. *@
+<svg class="badge badge-@Kind" width="@Size" height="@Size" viewBox="@(IsBird ? "140 30 420 356" : "0 0 24 24")" role="img" aria-label="@AccessibleLabel" data-badge="@Kind"><title>@AccessibleLabel</title>@Shape</svg>
+@code {
+    [Parameter, EditorRequired] public string Kind { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 16;
+    [Parameter] public bool Simulated { get; set; }
+
+    private bool IsBird => Kind is "founding" or "staff" or "bot";
+    private string Label => Kind switch
+    {
+        "photo" => "Photo verified",
+        "id" => "ID verified",
+        "founding" => "Founding member",
+        "staff" => "Swoovr staff",
+        "bot" => "Swoovr guide (bot)",
+        _ => throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unknown badge"),
+    };
+    private string AccessibleLabel => Simulated ? $"{Label} (simulated in this preview)" : Label;
+
+    // Photo: portrait frame; ID: card. Both carry a filled check disc. Birds reuse the Swoovr mark.
+    private RenderFragment Shape => Kind switch
+    {
+        "photo" => @<g fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect class="badge-line" x="2.5" y="2.5" width="15" height="15" rx="3" /><circle class="badge-line" cx="10" cy="8.4" r="2.6" /><path class="badge-line" d="M5.4 16.2c.9-2.3 2.6-3.5 4.6-3.5s3.4.9 4.3 2.6" /><circle class="badge-disc" cx="18" cy="18" r="5" /><path class="badge-tick" d="m15.6 18.1 1.6 1.6 3.1-3.3" /></g>,
+        "id" => @<g fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect class="badge-line" x="1.5" y="4.5" width="18" height="14" rx="2.5" /><circle class="badge-line" cx="7" cy="10" r="1.9" /><path class="badge-line" d="M4.4 15.4c.5-1.5 1.4-2.2 2.6-2.2s2.1.7 2.6 2.2M12.5 9.5h4.5M12.5 12.5h2.5" /><circle class="badge-disc" cx="18.5" cy="18" r="4.8" /><path class="badge-tick" d="m16.2 18.1 1.5 1.5 3-3.1" /></g>,
+        _ => @<path class="badge-bird" fill-rule="evenodd" transform="translate(145 35.03125) scale(1.067708)" d="M139 0C153.755264 7.892353 168.569412 15.313709 182.947464 22.516602C252.37085 57.295238 311.627411 86.980667 305 140C304.202057 150.107193 301.06955 159.719162 296.279846 168.835938C297.106506 168.971268 298.010498 169.491089 298.900879 170.167953C327.374664 144.083389 345.228699 148.062378 367 154C373 156 378 156 384 156C355 164 350 185 339 207C310 270 226 282 97 324C153.7 289.85 197.8 257.1 233.4 227.7C236.604 225.054 238.45 222.35 239.85 218.65C260.85 163.15 218.0 80.86 139 0ZM77 137C120 159 205 163 226 192C259.219879 239.585236 132.02446 263.793365 32.588951 282.71817C21.274101 284.871643 10.3187 286.956696 0 289C79 260 166 226 180 207C188.996353 193.205597 164.180161 181.929153 134.46019 168.424454C114.626785 159.41217 92.609497 149.407547 77 137Z" />,
+    };
+}
