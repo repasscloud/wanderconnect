@@ -318,3 +318,17 @@ Executed locally (macOS ARM64, .NET SDK 10.0.400, Docker Keycloak 26.8.1, Postgr
 Found while testing: Docker Desktop's bind mount of the Keycloak theme had gone empty inside the long-running container, so Keycloak served its stock theme; recreating that container fixed it (now in [local development](LOCAL-DEVELOPMENT.md#application-database--23-october-2026)).
 
 Gaps: no Entra provider, so the Entra half of invitation acceptance and the support role are covered only by domain checks; the 15-minute freshness rule for the adult override has no live negative test (it needs a 15-minute-old session); venue records, flag-setting admin routes and other members' profiles are not built; no hosted database, backup or retention policy.
+
+## Slice B: private beta enrolment — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D76–D78; follow-ups in [issue #25](https://github.com/repasscloud/wanderconnect/issues/25).
+
+Changed: `beta_enrolments` table (migration `BetaEnrolment`, unique live address); `BetaAccessPolicy` in Domain; the resolver binds the first matching enrolment to the account and `AccountResolver.Allows(Member)` requires the gate; `/api/v1/session` reports `beta`; member routes answer 403 `beta-not-enrolled`; admin `POST/GET/DELETE /api/v1/admin/beta`; operator command `beta`; `containers/postgres/beta-enrolment.fictional.txt`; the web account page shows the private-beta notice and swoovr.com/beta link (heading "Almost there") instead of "You're in".
+
+Executed locally (same environment as slice A):
+
+- `./scripts/check.sh`: PASS, including `PASS: 82 account policy cases` (13 new beta cases: verified-only match, binding survives an email change and never transfers, revocation, no database fails closed, staff and venue realms not gated) and `PASS: 10 persistence cases` (a revoked enrolment can be re-added; one live enrolment per address).
+- `tests/auth/accounts.browser.cjs`: `PASS: 76 account checks`, 25 of them new for the beta: an unenrolled member gets `memberArea: false, beta: notEnrolled`, 403 on `/me` and age entry; the web account page shows the notice, the `https://swoovr.com/beta/` link and "Not allowed"; members get 403 on the three beta admin routes; invalid address 400; admin add (upper-case, padded) normalises and returns 201, a second add 200; the member then has access and the page drops the notice; the enrolment shows `activated` and is bound to the account; revoking ends access; unknown id 404; the root admin's session reports `notRequired`; the file import prints counts with no address; an invalid address makes the command fail.
+- `tests/auth/members.browser.cjs`: PASS, 50 checks (the test now pre-authorises its fictional address and expects `beta: 'enrolled'`). The first run of this pass timed out once at the passkey sign-in (`waitForURL` after a fresh context's launch splash); the rerun passed unchanged. Watch for it as a possible flake.
+
+Gaps: no staff-portal screen; no email to testers on enrolment; no iOS distribution or market records (issue #25). The beta gate applies to the API member area; the prototype routes stay development-only demos outside it.

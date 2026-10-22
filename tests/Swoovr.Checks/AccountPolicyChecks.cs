@@ -83,6 +83,26 @@ static class AccountPolicyChecks
         Check("bad email", !InvitationPolicy.IsValidRequest(AccountRole.Admin, "not-an-email", null));
         Check("valid partner", InvitationPolicy.IsValidRequest(AccountRole.VenuePartner, "a@example.test", venue));
 
-        Console.WriteLine($"PASS: {count} account policy cases (email normalisation, age entry and lock, badges, invitations).");
+        // Private beta (D62): members only, verified email or a bound enrolment, revocation ends it.
+        var account = Guid.NewGuid();
+        var open = new BetaEnrolment { Email = "beta@example.test" };
+        BetaAccess Beta(bool enabled, bool persistence, AccountRealm realm, bool verified, string? email, params BetaEnrolment[] list) =>
+            BetaAccessPolicy.Evaluate(enabled, persistence, realm, account, verified, email, list);
+        Check("verified email matches", Beta(true, true, AccountRealm.Members, true, "Beta@Example.test", open) == BetaAccess.Enrolled);
+        Check("unverified email never matches", Beta(true, true, AccountRealm.Members, false, "beta@example.test", open) == BetaAccess.NotEnrolled);
+        Check("other email", Beta(true, true, AccountRealm.Members, true, "other@example.test", open) == BetaAccess.NotEnrolled);
+        Check("no enrolments", Beta(true, true, AccountRealm.Members, true, "beta@example.test") == BetaAccess.NotEnrolled);
+        Check("revoked", Beta(true, true, AccountRealm.Members, true, "beta@example.test", new BetaEnrolment { Email = "beta@example.test", RevokedAt = now }) == BetaAccess.NotEnrolled);
+        Check("bound to this account survives an email change", Beta(true, true, AccountRealm.Members, true, "new@example.test", new BetaEnrolment { Email = "beta@example.test", AccountId = account }) == BetaAccess.Enrolled);
+        Check("bound to another account does not transfer", Beta(true, true, AccountRealm.Members, true, "beta@example.test", new BetaEnrolment { Email = "beta@example.test", AccountId = Guid.NewGuid() }) == BetaAccess.NotEnrolled);
+        Check("revoked binding ends access", Beta(true, true, AccountRealm.Members, true, "beta@example.test", new BetaEnrolment { Email = "beta@example.test", AccountId = account, RevokedAt = now }) == BetaAccess.NotEnrolled);
+        Check("no database fails closed", Beta(true, false, AccountRealm.Members, true, "beta@example.test", open) == BetaAccess.Unavailable);
+        Check("beta off", Beta(false, false, AccountRealm.Members, true, null) == BetaAccess.NotRequired);
+        foreach (var realm in new[] { AccountRealm.Venues, AccountRealm.Staff })
+            Check($"{realm} not gated", Beta(true, true, realm, true, null) == BetaAccess.NotRequired);
+        Check("allows enrolled and not required only", BetaAccessPolicy.Allows(BetaAccess.Enrolled) && BetaAccessPolicy.Allows(BetaAccess.NotRequired)
+            && !BetaAccessPolicy.Allows(BetaAccess.NotEnrolled) && !BetaAccessPolicy.Allows(BetaAccess.Unavailable));
+
+        Console.WriteLine($"PASS: {count} account policy cases (email normalisation, age entry and lock, badges, invitations, beta gate).");
     }
 }

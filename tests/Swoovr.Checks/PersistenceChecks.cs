@@ -88,7 +88,22 @@ static class PersistenceChecks
     }
 
     /// <summary>Further persistence cases added by later slices.</summary>
-    static Task Extra(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check) => Task.CompletedTask;
+    static async Task Extra(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
+    {
+        var now = DateTimeOffset.Parse("2026-10-23T00:00:00Z");
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.BetaEnrolments.Add(new BetaEnrolment { Id = Guid.NewGuid(), Email = "beta@example.test", CreatedAt = now, RevokedAt = now });
+            db.BetaEnrolments.Add(new BetaEnrolment { Id = Guid.NewGuid(), Email = "beta@example.test", CreatedAt = now });
+            await db.SaveChangesAsync();
+            check("a revoked enrolment can be added again", await db.BetaEnrolments.CountAsync() == 2);
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.BetaEnrolments.Add(new BetaEnrolment { Id = Guid.NewGuid(), Email = "beta@example.test", CreatedAt = now });
+            check("one live enrolment per address", await Throws(db.SaveChangesAsync()));
+        }
+    }
 
     static async Task<bool> Throws(Task task)
     {

@@ -6,9 +6,9 @@ namespace Swoovr.Infrastructure.Persistence;
 
 /// <summary>
 /// The application database (DEFAULT PostgreSQL). Holds what Keycloak does not (D55):
-/// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details and
-/// the audit log. Names are snake_case; enums are stored as their names so a reordered enum
-/// can never change stored meaning.
+/// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details, beta
+/// enrolments (D62) and the audit log. Names are snake_case; enums are stored as their names
+/// so a reordered enum can never change stored meaning.
 /// </summary>
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
 {
@@ -17,6 +17,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<BetaEnrolment> BetaEnrolments => Set<BetaEnrolment>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -44,6 +45,13 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             profile.HasKey(p => p.AccountId);
             profile.HasOne<Account>().WithOne().HasForeignKey<MemberProfile>(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<BetaEnrolment>(enrolment =>
+        {
+            enrolment.Property(e => e.Email).HasMaxLength(254);
+            // One live enrolment per address; a revoked one can be added again later.
+            enrolment.HasIndex(e => e.Email).IsUnique().HasFilter("revoked_at IS NULL");
+            enrolment.HasIndex(e => e.AccountId);
         });
         model.Entity<AuditEntry>(audit =>
         {

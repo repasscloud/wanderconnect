@@ -21,7 +21,8 @@ public static class AccountEndpoints
             return Results.Ok(new SessionSummary(
                 Wire(current.Facts.Realm), Wire(current.Evidence.Method), current.Evidence.MultiFactor,
                 current.Facts.EmailVerified, current.Facts.AdultAttestedAt is not null,
-                current.Allows(AccountRole.Member), current.Allows(AccountRole.Admin), current.Allows(AccountRole.Support)));
+                current.Allows(AccountRole.Member), current.Allows(AccountRole.Admin), current.Allows(AccountRole.Support),
+                Wire(current.Beta)));
         }).RequireAuthorization();
 
         var me = app.MapGroup("/api/v1/me").RequireAuthorization();
@@ -69,6 +70,8 @@ public static class AccountEndpoints
             return (null, Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.PersistenceUnavailable, "Accounts are not available."));
         if (current.Account.Status != AccountStatus.Active && current.Facts.Realm == AccountRealm.Members)
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountLocked, "This account is locked."));
+        if (current.Facts.Realm == AccountRealm.Members && !BetaAccessPolicy.Allows(current.Beta))
+            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.BetaNotEnrolled, "Swoovr is in private beta."));
         if (!current.Allows(AccountRole.Member)) return (null, Results.Forbid());
         return (current, null);
     }

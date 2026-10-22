@@ -19,10 +19,14 @@ public static class ProblemCodes
 {
     public const string PersistenceUnavailable = "persistence-unavailable";
     public const string AccountLocked = "account-locked";
+    public const string BetaNotEnrolled = "beta-not-enrolled";
     public const string InvalidAge = "invalid-age";
     public const string StaleSession = "stale-session";
     public const string InvalidRequest = "invalid-request";
 }
+
+public sealed record BetaEnrolmentRequest(string Email);
+public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt);
 
 public sealed record InvitationRequest(string Email, string Role, Guid? VenueId);
 public sealed record InvitationView(Guid Id, string Email, string Realm, string Role, Guid? VenueId, DateTimeOffset CreatedAt,

@@ -125,7 +125,7 @@ ConnectionStrings__Swoovr="Host=127.0.0.1;Port=5433;Database=swoovr;Username=swo
 
 Run the API through `dotnet run --project` (or from its output folder): started from the repository root, the built DLL does not find `appsettings.Development.json`, so Keycloak validation stays unconfigured and every token gets 401.
 
-Operator commands use the same configuration: `dotnet run --project src/Swoovr.Api -- migrate` and `-- root-admin grant <staff-realm subject>` (D71). `./scripts/check.sh` runs the persistence checks in a throwaway database when the container is reachable and prints a SKIP line otherwise.
+Operator commands use the same configuration: `dotnet run --project src/Swoovr.Api -- migrate`, `-- root-admin grant <staff-realm subject>` (D71) and `-- beta add <email>...`, `-- beta add --file containers/postgres/beta-enrolment.fictional.txt`, `-- beta revoke <email>`, `-- beta list` (D76). The members area needs an enrolment for the account's verified email (D62, D78); `tests/auth/members.browser.cjs` and `tests/auth/accounts.browser.cjs` enrol their own fictional addresses. `./scripts/check.sh` runs the persistence checks in a throwaway database when the container is reachable and prints a SKIP line otherwise.
 
 `tests/auth/accounts.browser.cjs` (Edge and Playwright, as above) creates fictional members through the local Keycloak admin API, signs them in for real tokens and exercises the account, age and admin routes. It needs the enrolled fictional root admin from `tests/auth/root-admin.browser.cjs` and a Debug build of the API for the operator commands.
 

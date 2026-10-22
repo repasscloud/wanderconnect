@@ -6,7 +6,12 @@
 <div class="column">
 <div class="page-heading">
     <p class="breadcrumb"><a href="/">Me</a> / Account</p>
-    @if (signedIn)
+    @if (signedIn && BetaBlocked)
+    {
+        <h1>Almost there, @name.</h1>
+        <p>You're signed in. The Swoovr app opens once your email is on the private beta list.</p>
+    }
+    else if (signedIn)
     {
         <h1>You're in, @name.</h1>
         <p>You're signed in to the Swoovr development preview. Profiles, matching and messages aren't connected to accounts yet.</p>
@@ -34,6 +39,14 @@ else
         }
         else
         {
+            @if (BetaBlocked)
+            {
+                @* D62: same words whatever the reason, so the page never says whether an address was ever enrolled. *@
+                <div class="notice" role="status" data-beta="@summary.Beta">
+                    <p><strong>Swoovr is in private beta.</strong> You're not on the list yet.</p>
+                    <p><a class="link" href="https://swoovr.com/beta/">Ask to join the beta on swoovr.com</a></p>
+                </div>
+            }
             <dl>
                 <div><dt>Signed in with</dt><dd data-session-method="@summary.Method">@MethodLabel(summary.Method)@(summary.MultiFactor ? " + one-time code" : "")</dd></div>
                 <div><dt>Email</dt><dd>@(summary.EmailVerified ? "Verified" : "Not verified yet")</dd></div>
@@ -55,6 +68,7 @@ else
     private bool configured, signedIn;
     private string? name;
     private SessionSummary? summary;
+    private bool BetaBlocked => summary?.Beta is "notEnrolled" or "unavailable";
 
     protected override async Task OnInitializedAsync()
     {

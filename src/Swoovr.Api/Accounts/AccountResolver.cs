@@ -9,7 +9,8 @@ namespace Swoovr.Api.Accounts;
 /// <summary>
 /// The caller as the API sees it: validated token facts plus the application account they
 /// map to. Account is null only when no database is configured. VerifiedEmail is the
-/// token's email only when the token also says it is verified.
+/// token's email only when the token also says it is verified. Beta is the private beta
+/// gate (D62); the member area needs it to allow access.
 /// </summary>
 public sealed record CurrentAccount(
     ValidatedSessionFacts Facts,
@@ -17,7 +18,8 @@ public sealed record CurrentAccount(
     string? VerifiedEmail,
     Account? Account,
     IReadOnlyList<RoleGrant> Roles,
-    MemberProfile? Profile)
+    MemberProfile? Profile,
+    BetaAccess Beta)
 {
     /// <summary>
     /// The trusted snapshot for one area. Roles come only from application records: the
@@ -38,7 +40,8 @@ public sealed record CurrentAccount(
 
     public bool IsRootAdmin => Account is { IsRootAdmin: true } && Facts.Realm == AccountRealm.Staff;
 
-    public bool Allows(AccountRole area) => new AccountAccessPolicy().Allows(SessionFor(area), area);
+    public bool Allows(AccountRole area) => new AccountAccessPolicy().Allows(SessionFor(area), area)
+        && (area != AccountRole.Member || BetaAccessPolicy.Allows(Beta));
 
     /// <summary>DEFAULT (Keycloak design): sensitive actions need a sign-in within the last 15 minutes.</summary>
     public bool RecentlyAuthenticated(DateTimeOffset now) =>
@@ -46,8 +49,10 @@ public sealed record CurrentAccount(
 }
 
 public sealed class AccountResolver(IServiceProvider services, KeycloakOptions keycloak, SessionEvidencePolicy evidence,
-    TimeProvider clock, ILogger<AccountResolver> log)
+    TimeProvider clock, IConfiguration configuration, ILogger<AccountResolver> log)
 {
+    /// <summary>The private beta gate is on unless Beta:Enabled is false (D62; turned off at public launch).</summary>
+    private bool BetaEnabled => configuration.GetValue("Beta:Enabled", true);
     private static readonly TimeSpan SeenInterval = TimeSpan.FromMinutes(5);
     public SwoovrDbContext? Db { get; } = services.GetService<SwoovrDbContext>();
 
@@ -58,7 +63,9 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         var now = clock.GetUtcNow();
         var result = evidence.Evaluate(facts, now);
         var email = facts.EmailVerified ? EmailAddress.Normalise(user.FindFirstValue("email")) : null;
-        if (Db is null) return new(facts, result, email, null, [], null);
+        if (Db is null)
+            return new(facts, result, email, null, [], null,
+                BetaAccessPolicy.Evaluate(BetaEnabled, persistence: false, facts.Realm, Guid.Empty, facts.EmailVerified, email, []));
 
         var issuer = user.FindFirstValue("iss")!;
         var account = await Db.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject, cancellationToken)
@@ -76,7 +83,35 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         else
             await AcceptInvitationsAsync(account, facts, result, email, now, cancellationToken);
         var roles = await Db.RoleGrants.Where(r => r.AccountId == account.Id).ToListAsync(cancellationToken);
-        return new(facts, result, email, account, roles, profile);
+        var beta = await BetaAsync(account, facts, email, now, cancellationToken);
+        return new(facts, result, email, account, roles, profile, beta);
+    }
+
+    /// <summary>
+    /// Evaluates the beta gate and, the first time a verified email matches an unbound
+    /// enrolment, binds it to this account so a later email change keeps access (D62).
+    /// </summary>
+    private async Task<BetaAccess> BetaAsync(Account account, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (facts.Realm != AccountRealm.Members || !BetaEnabled) return BetaAccess.NotRequired;
+        var candidates = await Db!.BetaEnrolments
+            .Where(e => e.RevokedAt == null && (e.AccountId == account.Id || e.AccountId == null && email != null && e.Email == email))
+            .ToListAsync(cancellationToken);
+        var access = BetaAccessPolicy.Evaluate(true, true, facts.Realm, account.Id, facts.EmailVerified, email, candidates);
+        if (access == BetaAccess.Enrolled && candidates.All(e => e.AccountId != account.Id))
+        {
+            var enrolment = candidates.First(e => e.AccountId is null);
+            (enrolment.AccountId, enrolment.ActivatedAt) = (account.Id, now);
+            Audit.Record(Db, now, account.Id, "account", "beta.activated", "beta-enrolment", enrolment.Id.ToString());
+            try { await Db.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateException exception)
+            {
+                // Another request bound it first; access is still decided by this evaluation.
+                log.LogInformation(exception, "Beta activation raced.");
+                Db.ChangeTracker.Clear();
+            }
+        }
+        return access;
     }
 
     private async Task<Account> CreateAsync(string issuer, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken)

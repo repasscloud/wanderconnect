@@ -63,6 +63,38 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
+        // Private beta enrolment (D62): admins add, list and revoke pre-authorised addresses.
+        admin.MapPost("/beta", async (BetaEnrolmentRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var (result, enrolment) = await BetaEnrolments.AddAsync(accounts.Db!, request.Email, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
+            return result switch
+            {
+                BetaEnrolments.AddResult.InvalidEmail => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Enrolment needs a full email address."),
+                BetaEnrolments.AddResult.AlreadyEnrolled => Results.Ok(BetaEnrolments.View(enrolment!)),
+                _ => Results.Created($"/api/v1/admin/beta/{enrolment!.Id}", BetaEnrolments.View(enrolment)),
+            };
+        });
+
+        admin.MapGet("/beta", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (_, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var list = await accounts.Db!.BetaEnrolments.OrderByDescending(e => e.CreatedAt).Take(1000).ToListAsync(cancellationToken);
+            return Results.Ok(list.Select(BetaEnrolments.View).ToList());
+        });
+
+        admin.MapDelete("/beta/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var enrolment = await accounts.Db!.BetaEnrolments.FindAsync([id], cancellationToken);
+            if (enrolment is null) return Results.NotFound();
+            await BetaEnrolments.RevokeAsync(accounts.Db, enrolment, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
+            return Results.NoContent();
+        });
+
         // Support needs to find an account from the address a member gives them. Exact match on
         // the normalised verified email only; the search is audited without the address.
         admin.MapGet("/accounts", async (string? email, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
