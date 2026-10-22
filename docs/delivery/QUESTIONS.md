@@ -304,17 +304,17 @@ Rules:
 
 #### Founder recovery token
 
-Status: CONFIRMED design, owner 23 October 2026 (D65). Not implemented. Review notes below are OPEN.
+Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification of the same day. Not implemented. Remaining review notes are OPEN.
 
-Founding status survives account deletion through a token the member keeps, so Swoovr need not keep the deleted profile.
+Founding status survives account deletion through a token that Swoovr stores and the member keeps, so Swoovr need not keep the deleted profile.
 
 1. **Founding membership is activated.** The member completes registration and either identity or photo verification, and qualifies for one of the 1,000 founding positions.
-2. **A recovery token is generated.** Swoovr calculates an HMAC-SHA256 token from the member's normalised, verified email address and a server-side secret.
-3. **The member receives the token** and is told to store it securely, because it is needed to reclaim founding status after account deletion.
-4. **The member deletes their account.** Swoovr deletes their personal information, including the email address, subject to any independently applicable legal retention requirements.
-5. **The member returns,** creates a new account with the same email address, verifies ownership of it, and enters the original token.
-6. **Swoovr verifies the token.** The API normalises the verified email address, recalculates the HMAC and compares it with the submitted token in constant time.
-7. **Founding status is restored.** A match shows possession of the token issued for that email address, so the account reclaims its founding entitlement.
+2. **A token is issued automatically.** Background logic calculates an HMAC-SHA256 token from the member's normalised, verified email address and a server-side secret when founder status is reached, and stores it in the founder-token table. The table stores the token and its status, not the email address.
+3. **The member receives the token by email** when they reach founder status, and again when they ask to delete their account (part of offboarding, sent before the email address is deleted). They are told to keep it, because it is needed to reclaim founding status.
+4. **The member deletes their account.** Swoovr deletes their personal information, including the email address, subject to any independently applicable legal retention requirements. The founder-token row stays.
+5. **The member returns,** creates a new account, verifies their email address, and enters the token on the in-app **coupon code** screen.
+6. **Swoovr checks the token.** It must exist in the founder-token table and be valid (not deleted or invalidated), **and** the HMAC of the account's current verified email address must equal it, compared in constant time. The email cannot be read back out of the token; the check recalculates the HMAC from the current email. A token sold or passed to someone else therefore fails, because their email produces a different value.
+7. **Founding status is restored** on the new account.
 
 Example (owner's sketch, not production code):
 
@@ -363,20 +363,21 @@ public static class FoundingTokenService
 
 Properties and rules:
 
-- A match shows the token is valid for the verified email address. It does not by itself prove founding membership; that holds because tokens are issued only after founding eligibility is established.
-- The token is deterministic and reproducible, so it is not inherently single-use.
-- If the HMAC secret is compromised, founding tokens could be forged.
+- **The token record exists.** Admins can delete a founder token or set it to invalid in its table; a deleted or invalid token never restores status.
+- **A token can be used more than once,** across later deletions and returns, as long as it stays valid and the email matches. It is re-sent at each deletion request. Because an email address belongs to one account at a time, only one live account can hold a given founder status.
+- A match shows the token was issued for that verified email address. It proves founding membership only because tokens are issued solely by the founder logic.
+- If the HMAC secret is compromised, founding tokens could be forged for any email address; admins can invalidate affected tokens.
 - Restoring founding status does not restart the three-month complimentary Plus period or the 12-month discount; those apply once, when founding status first starts.
-- Founding membership is a permanent recognition entitlement, separate from the subscription, recoverable through a verifiable token without Swoovr keeping the deleted profile.
+- **Restoring uses the existing token row, so it never takes a new one of the 1,000 places.**
+- Founding membership is a permanent recognition entitlement, separate from the subscription.
 
 Review notes (OPEN, to settle before implementation):
 
-1. **Redemption record versus single use.** The owner's notes say both that tokens are not single-use and that "a persistent redemption record exists, so Swoovr can reliably invalidate individual tokens (no enforcement on single-use recovery)". Decide whether a redemption record is kept, what it stores, and whether a token can be redeemed more than once.
-2. **Privacy of any retained record.** A record keyed by the token (or its hash) is derived from the deleted email address and can be linked to it by anyone holding the secret. Check this against the deletion promise and privacy obligations, and say so in the privacy notice if kept.
-3. **Secret management and rotation.** Keep the secret in a managed key store, never in configuration files. Rotating it invalidates every issued token unless old secrets stay available for validation (the `v1` prefix allows versioning).
-4. **Founding places.** Restoring status must not use up a new one of the 1,000 places.
-5. **Brute force.** Rate-limit and audit token attempts per account, even though a 256-bit token cannot practically be guessed.
-6. **Code.** In the sketch, `Validate` decodes the supplied hex twice; one `Convert.TryFromHexString` into a 32-byte buffer is enough. Email normalisation (trim + lower-case invariant) must match exactly what is used when issuing.
+1. **Privacy of the retained row.** The stored token is derived from the deleted email address, and anyone holding the secret can test whether a given email matches it. Mention the retained founder token in the privacy notice and the deletion confirmation.
+2. **Email changes.** A founder who changes their email address no longer matches their token. Decide whether an email change re-issues the token (and invalidates the old one).
+3. **Secret management and rotation.** Keep the secret in a managed key store, never in configuration files. Rotating it breaks every stored token unless each row records its secret version (the `v1` prefix allows this) and old secrets stay available for checking.
+4. **Coupon screen.** Founder tokens share the coupon code screen with ordinary coupons; keep the checks separate server-side, and rate-limit and audit attempts per account.
+5. **Code.** In the sketch, `Validate` decodes the supplied hex twice; one `Convert.TryFromHexString` into a 32-byte buffer is enough. Email normalisation (trim + lower-case invariant) must match exactly what is used when issuing.
 
 #### Outstanding publishing and implementation checks
 
