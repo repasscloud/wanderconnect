@@ -70,15 +70,15 @@ The owner answered Q03 and Q05–Q09 below (decisions D59–D64) and part of Q11
 | Q11 | PARTLY ANSWERED, owner 23 October 2026 | Employee = ruby staff bird (D57); admin verified = backend flag, no badge (D58); founding = gold Swoovr Founder badge, permanent, after onboarding and Photo and/or ID verification (Q08). Still OPEN: whether admin verified changes age status, several badges at once, bot/employee accounts in discovery |
 | Q12 | OPEN | Final set of modes |
 
-### Points to confirm
+### Points confirmed
 
-Noted while filing these answers; nothing below changes them.
+Raised while filing these answers and answered by the owner on 23 October 2026.
 
-1. **Q03 adds a project.** Interactive WebAssembly needs a separate client project (`Swoovr.Web.Client` in the suggested layout). The architecture currently confirms seven application projects, and `scripts/check_naming.py` checks that, so the first WebAssembly slice must update the [architecture](../architecture/README.md) and that check.
-2. **Q08 refers to earlier approvals** ("previously approved founding membership programme", "previously approved secure recovery-token mechanism") that are not recorded in this repository. The founding rules below are now the record; the recovery-token mechanism still needs describing.
-3. **Company name.** These answers use "RePass Cloud Pty Ltd"; other documents use "Repass Cloud". Confirm the spelling to use everywhere.
-4. **Q07 rule 9** describes 24/7 staffing (three shifts, two people each). Read with rules 7–8, this is the public-launch model; beta support is business hours.
-5. **Q09 rule 2** gives macOS 27.0.1 with build 26A434; a macOS 27 build would normally start with 27. Check the build number.
+1. **Q03 adds a project.** CONFIRMED. The first Interactive WebAssembly slice adds a separate `Swoovr.Web.Client` project, updates the [architecture](../architecture/README.md) to the new project count, updates `scripts/check_naming.py` to recognise and validate it, and keeps `swoovr.com` as a separate Astro application. These changes are authorised under Q03/D59 and need no further architectural approval.
+2. **Founder recovery.** The earlier approvals in Q08 were not recorded in this repository. The founding rules below are now the record, and the owner described the recovery-token mechanism; see [founder recovery token](#founder-recovery-token).
+3. **Company name.** Use "RePass Cloud Pty Ltd" everywhere (D66).
+4. **Q07 rule 9.** Confirmed: the 24/7 staffing model applies from public launch; beta support is business hours.
+5. **Q09 rule 2.** Confirmed by `sw_vers` on the development Mac: macOS 27.0.1, build 26A434.
 
 ### Q03 — Web rendering architecture
 
@@ -301,6 +301,82 @@ Rules:
 7. **Paid conversion:** Members must explicitly opt in to a paid subscription; complimentary memberships must not automatically convert into paid subscriptions.
 8. **Founder permanence:** Founder recognition remains permanent even if the member cancels or does not maintain a paid subscription.
 9. **Account recovery:** Founder status may be recovered following account deletion and re-registration using the previously approved secure recovery-token mechanism, subject to account verification and recovery policies.
+
+#### Founder recovery token
+
+Status: CONFIRMED design, owner 23 October 2026 (D65). Not implemented. Review notes below are OPEN.
+
+Founding status survives account deletion through a token the member keeps, so Swoovr need not keep the deleted profile.
+
+1. **Founding membership is activated.** The member completes registration and either identity or photo verification, and qualifies for one of the 1,000 founding positions.
+2. **A recovery token is generated.** Swoovr calculates an HMAC-SHA256 token from the member's normalised, verified email address and a server-side secret.
+3. **The member receives the token** and is told to store it securely, because it is needed to reclaim founding status after account deletion.
+4. **The member deletes their account.** Swoovr deletes their personal information, including the email address, subject to any independently applicable legal retention requirements.
+5. **The member returns,** creates a new account with the same email address, verifies ownership of it, and enters the original token.
+6. **Swoovr verifies the token.** The API normalises the verified email address, recalculates the HMAC and compares it with the submitted token in constant time.
+7. **Founding status is restored.** A match shows possession of the token issued for that email address, so the account reclaims its founding entitlement.
+
+Example (owner's sketch, not production code):
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+
+public static class FoundingTokenService
+{
+    public static string Generate(
+        string email,
+        byte[] secret)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        var payload = Encoding.UTF8.GetBytes(
+            $"swoovr:founder:v1:{normalizedEmail}");
+
+        var hash = HMACSHA256.HashData(secret, payload);
+
+        return Convert.ToHexString(hash);
+    }
+
+    public static bool Validate(
+        string email,
+        string suppliedToken,
+        byte[] secret)
+    {
+        var expected = Generate(email, secret);
+
+        if (!Convert.TryFromHexString(
+            suppliedToken, new byte[32], out var written)
+            || written != 32)
+        {
+            return false;
+        }
+
+        var actual = Convert.FromHexString(suppliedToken);
+        var expectedBytes = Convert.FromHexString(expected);
+
+        return CryptographicOperations.FixedTimeEquals(
+            actual, expectedBytes);
+    }
+}
+```
+
+Properties and rules:
+
+- A match shows the token is valid for the verified email address. It does not by itself prove founding membership; that holds because tokens are issued only after founding eligibility is established.
+- The token is deterministic and reproducible, so it is not inherently single-use.
+- If the HMAC secret is compromised, founding tokens could be forged.
+- Restoring founding status does not restart the three-month complimentary Plus period or the 12-month discount; those apply once, when founding status first starts.
+- Founding membership is a permanent recognition entitlement, separate from the subscription, recoverable through a verifiable token without Swoovr keeping the deleted profile.
+
+Review notes (OPEN, to settle before implementation):
+
+1. **Redemption record versus single use.** The owner's notes say both that tokens are not single-use and that "a persistent redemption record exists, so Swoovr can reliably invalidate individual tokens (no enforcement on single-use recovery)". Decide whether a redemption record is kept, what it stores, and whether a token can be redeemed more than once.
+2. **Privacy of any retained record.** A record keyed by the token (or its hash) is derived from the deleted email address and can be linked to it by anyone holding the secret. Check this against the deletion promise and privacy obligations, and say so in the privacy notice if kept.
+3. **Secret management and rotation.** Keep the secret in a managed key store, never in configuration files. Rotating it invalidates every issued token unless old secrets stay available for validation (the `v1` prefix allows versioning).
+4. **Founding places.** Restoring status must not use up a new one of the 1,000 places.
+5. **Brute force.** Rate-limit and audit token attempts per account, even though a 256-bit token cannot practically be guessed.
+6. **Code.** In the sketch, `Validate` decodes the supplied hex twice; one `Convert.TryFromHexString` into a 32-byte buffer is enough. Email normalisation (trim + lower-case invariant) must match exactly what is used when issuing.
 
 #### Outstanding publishing and implementation checks
 

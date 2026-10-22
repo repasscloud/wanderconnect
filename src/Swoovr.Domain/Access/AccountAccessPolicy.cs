@@ -53,7 +53,7 @@ public sealed class AccountAccessPolicy
             || session.Realm != AccountRealm.Staff)
             return false;
 
-        // Employees use Repass Cloud Entra SSO (D32); the root admin uses password + OTP (D36).
+        // Employees use RePass Cloud Entra SSO (D32); the root admin uses password + OTP (D36).
         return session.Method == SignInMethod.CorporateSso && !session.IsRootAdmin
             || area == AccountRole.Admin && session.IsRootAdmin
                 && session.Method == SignInMethod.EmailPassword && session.MultiFactor;

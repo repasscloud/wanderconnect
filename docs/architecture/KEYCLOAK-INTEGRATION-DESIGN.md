@@ -10,7 +10,7 @@ Connect the Swoovr API, web and mobile clients to Keycloak so that real people c
 
 1. Members sign in on web and mobile with Apple, Google, email and password, an emailed sign-in link, or a passkey. MFA is optional.
 2. Venue partners sign in to the web venue portal with email and password or an emailed sign-in link; later, each venue organisation may connect its own SSO.
-3. Repass Cloud employees sign in to the web admin/support portal with Microsoft 365 (Entra ID) SSO only. Mobile access for staff is the mobile browser view of the web portal, not the app.
+3. RePass Cloud employees sign in to the web admin/support portal with Microsoft 365 (Entra ID) SSO only. Mobile access for staff is the mobile browser view of the web portal, not the app.
 4. One root admin account uses username and password with MFA enforced; it is a break-glass account, not a daily login.
 5. The API validates every token and session server-side and derives access from application-owned records.
 6. Sign-in pages and emails use the supplied Standard Keycloak theme.
@@ -40,7 +40,7 @@ CONFIRMED, owner (D31): Keycloak is split into three realms. A realm is a fully 
 | --- | --- | --- | --- | --- |
 | `swoovr-members` | Members | Apple, Google, email/password, email link, passkey | Optional | `swoovr-web` (confidential, server-side), `swoovr-mobile` (public, PKCE) |
 | `swoovr-venues` | Venue partner staff | Email/password, email link; later per-organisation SSO | Optional | `swoovr-venue-web` (confidential) |
-| `swoovr-staff` | Repass Cloud employees and root admin | Microsoft Entra ID SSO; root admin password only | Entra enforces for employees; enforced OTP for root admin | `swoovr-admin-web` (confidential) |
+| `swoovr-staff` | RePass Cloud employees and root admin | Microsoft Entra ID SSO; root admin password only | Entra enforces for employees; enforced OTP for root admin | `swoovr-admin-web` (confidential) |
 
 Why three (builder's reasoning, accepted by owner): each audience signs in differently, and a realm boundary makes those differences structural rather than a hidden button. The venue and staff realms have no Apple/Google identity providers configured, so a social session cannot exist there. A person who is both a member and a venue partner has two unconnected accounts, which keeps a work identity out of the dating profile. A brute-force or misconfiguration incident in the members realm cannot reach staff credentials.
 
@@ -87,9 +87,9 @@ Later, organisation SSO uses Keycloak's Organizations feature: each venue organi
 
 ### Staff realm
 
-- **Repass Cloud employees:** CONFIRMED (D32) Microsoft Entra ID SSO through a Keycloak OIDC identity provider restricted to the Repass Cloud tenant (single-tenant issuer, not `common`). MFA and device policy are enforced by Repass Cloud's Entra Conditional Access, outside this repository. Brokered users get no local password. The staff login page shows only "Sign in with Microsoft"; Keycloak's IdP redirector may skip the page entirely (DEFAULT).
+- **RePass Cloud employees:** CONFIRMED (D32) Microsoft Entra ID SSO through a Keycloak OIDC identity provider restricted to the RePass Cloud tenant (single-tenant issuer, not `common`). MFA and device policy are enforced by RePass Cloud's Entra Conditional Access, outside this repository. Brokered users get no local password. The staff login page shows only "Sign in with Microsoft"; Keycloak's IdP redirector may skip the page entirely (DEFAULT).
 - **Root admin:** CONFIRMED (D36) a single local user with password and mandatory OTP. IMPLEMENTED locally: the account is created with `CONFIGURE_TOTP` required, so no session exists before enrolment; Keycloak's conditional 2FA then asks for the code on every sign-in; and the API grants root-admin access only when the session carries both `pwd` and `otp`, so removing the OTP credential cannot open access. Reached through a separate, unlinked login route. Recovery codes are stored offline by the owner. Used for setup and emergencies; every use is audited.
-- **Roles:** an admin creates a staff invitation (email, role: admin or support) in the API. On first Entra sign-in, the API matches the invitation to the Entra-verified email from the staff-realm token once, then binds the staff record to `(issuer, subject)`; later sign-ins use the subject only. This one-time email match is acceptable because the email comes from Repass Cloud's own tenant through a realm that accepts nothing else (DEFAULT). Support and admin keep distinct permissions.
+- **Roles:** an admin creates a staff invitation (email, role: admin or support) in the API. On first Entra sign-in, the API matches the invitation to the Entra-verified email from the staff-realm token once, then binds the staff record to `(issuer, subject)`; later sign-ins use the subject only. This one-time email match is acceptable because the email comes from RePass Cloud's own tenant through a realm that accepts nothing else (DEFAULT). Support and admin keep distinct permissions.
 - Staff use only the web portal; there is no staff mobile client registration.
 
 ### Privileged session evidence (replaces D14 mechanics)
@@ -198,4 +198,4 @@ Exact client IDs, mapper names, token and session lifetimes beyond those stated,
 
 ## Needed from outside the repository
 
-Apple Developer account (Services ID, key, Private Email Relay domain), Google OAuth client, Entra app registration in the Repass Cloud tenant, MailerSend account and DNS records for `swoovr.app`, and hosting for Keycloak and its database. None are configured or claimed by this document.
+Apple Developer account (Services ID, key, Private Email Relay domain), Google OAuth client, Entra app registration in the RePass Cloud tenant, MailerSend account and DNS records for `swoovr.app`, and hosting for Keycloak and its database. None are configured or claimed by this document.
