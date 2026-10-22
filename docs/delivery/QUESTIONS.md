@@ -304,7 +304,7 @@ Rules:
 
 #### Founder recovery token
 
-Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification of the same day. Not implemented. Remaining review notes are OPEN.
+Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification and review answers of the same day. Not implemented. Privacy follow-up: [issue #22](https://github.com/repasscloud/wanderconnect/issues/22).
 
 Founding status survives account deletion through a token that Swoovr stores and the member keeps, so Swoovr need not keep the deleted profile.
 
@@ -371,13 +371,14 @@ Properties and rules:
 - **Restoring uses the existing token row, so it never takes a new one of the 1,000 places.**
 - Founding membership is a permanent recognition entitlement, separate from the subscription.
 
-Review notes (OPEN, to settle before implementation):
+Owner answers to the review notes, 23 October 2026:
 
-1. **Privacy of the retained row.** The stored token is derived from the deleted email address, and anyone holding the secret can test whether a given email matches it. Mention the retained founder token in the privacy notice and the deletion confirmation.
-2. **Email changes.** A founder who changes their email address no longer matches their token. Decide whether an email change re-issues the token (and invalidates the old one).
-3. **Secret management and rotation.** Keep the secret in a managed key store, never in configuration files. Rotating it breaks every stored token unless each row records its secret version (the `v1` prefix allows this) and old secrets stay available for checking.
-4. **Coupon screen.** Founder tokens share the coupon code screen with ordinary coupons; keep the checks separate server-side, and rate-limit and audit attempts per account.
-5. **Code.** In the sketch, `Validate` decodes the supplied hex twice; one `Convert.TryFromHexString` into a 32-byte buffer is enough. Email normalisation (trim + lower-case invariant) must match exactly what is used when issuing.
+1. **Email changes.** When a founder changes their email address, Swoovr issues a new token for the new verified address and invalidates the old one. Only accounts with founder status get a replacement.
+2. **Privacy of the retained row.** Follow-up tracked in [issue #22](https://github.com/repasscloud/wanderconnect/issues/22): mention the retained founder token in the privacy notice and deletion confirmation, and offer to delete it.
+3. **Secret versions.** Each token records the secret version that made it, so the secret can be rotated without breaking stored tokens; old secrets stay available, server-side only, for checking.
+4. **Coupon screen.** Founder tokens carry a fixed prefix that identifies them, so the server routes them to the founder check, separate from ordinary coupons. DEFAULT format: `FOUNDER-V1-` followed by the 64-character hex HMAC, where `V1` is the secret version (item 3). Rate-limit and audit attempts per account.
+
+Still to do in the implementation (not owner decisions): keep secrets in a managed key store, never in configuration files; normalise the email (trim + lower-case invariant) identically when issuing and checking; and in the sketch, `Validate` decodes the supplied hex twice, where one `Convert.TryFromHexString` into a 32-byte buffer is enough.
 
 #### Outstanding publishing and implementation checks
 
