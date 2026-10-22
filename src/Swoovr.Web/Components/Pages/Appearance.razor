@@ -9,19 +9,23 @@
     <div class="settings-controls">
         <fieldset disabled>
             <legend>Colour scheme</legend>
-            <p class="field-help">Six ways to feel at home. All free, all yours.</p>
-            <div class="scheme-grid">
-                @foreach (var scheme in Schemes)
-                {
-                    <label class="scheme-choice">
-                        <span class="choice-heading"><input type="radio" name="scheme" value="@scheme.Id" checked="@(scheme.Id == "electric")" /> <span>@scheme.Name</span><span class="selected-label" aria-hidden="true">Selected</span></span>
-                        <span class="scheme-previews" aria-hidden="true">
-                            <span><span class="palette-swatch swatch-@(scheme.Id)-light"><i></i><b></b></span><span class="preview-label">Light</span></span>
-                            <span><span class="palette-swatch swatch-@(scheme.Id)-dark"><i></i><b></b></span><span class="preview-label">Dark</span></span>
-                        </span>
-                    </label>
-                }
-            </div>
+            <p class="field-help">Standard black and white, or one of seven colour schemes. All free, all yours.</p>
+            @foreach (var group in Schemes.GroupBy(s => s.Group))
+            {
+                <p class="scheme-group">@group.Key</p>
+                <div class="scheme-grid">
+                    @foreach (var scheme in group)
+                    {
+                        <label class="scheme-choice">
+                            <span class="choice-heading"><input type="radio" name="scheme" value="@scheme.Id" checked="@(scheme.Id == "standard")" /> <span>@scheme.Name</span><span class="selected-label" aria-hidden="true">Selected</span></span>
+                            <span class="scheme-previews" aria-hidden="true">
+                                <span><span class="palette-swatch swatch-@(scheme.Id)-light"><i></i><b></b></span><span class="preview-label">Light</span></span>
+                                <span><span class="palette-swatch swatch-@(scheme.Id)-dark"><i></i><b></b></span><span class="preview-label">Dark</span></span>
+                            </span>
+                        </label>
+                    }
+                </div>
+            }
         </fieldset>
         <fieldset disabled>
             <legend>Display mode</legend>
@@ -40,7 +44,7 @@
     </div>
     <aside class="appearance-preview" aria-label="Live appearance preview">
         <p class="preview-title">Your view</p>
-        <p data-current-choice class="field-help">Electric violet · System</p>
+        <p data-current-choice class="field-help">Standard · System</p>
         <article class="sample-profile">
             <span class="sample-avatar" aria-hidden="true">A</span>
             <p class="sample-name">Alex, 32</p>
@@ -54,9 +58,9 @@
     </aside>
 </form>
 @code {
-    private static readonly (string Id, string Name)[] Schemes = [
-        ("electric", "Electric violet"), ("raspberry", "Raspberry spark"),
-        ("cobalt", "Cobalt social"), ("coral", "Coral current"),
-        ("orchid", "Orchid afterglow"), ("solar", "Solar club")
+    private static readonly (string Id, string Name, string Group)[] Schemes = [
+        ("standard", "Standard", "Core"), ("lounge", "Lounge", "Core"),
+        ("pride", "Pride", "Community"), ("trans", "Trans", "Community"), ("union", "Union Jack", "Community"),
+        ("violet", "Violet", "Colour"), ("coral", "Coral", "Colour"), ("eucalyptus", "Eucalyptus", "Colour")
     ];
 }

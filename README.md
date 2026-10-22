@@ -58,7 +58,7 @@ An opt-in [local browser investigation harness](docs/delivery/PHASE-1-BROWSER-IN
 
 Independent partial Phase 2 work adds a [Domain discovery policy](docs/delivery/PHASE-2-DISCOVERY-POLICY.md), including hidden intention exclusions, incognito/sparse/block enforcement and travel initiation evidence checks. It is not wired to an API or live profile data.
 
-[Settings → Appearance](docs/delivery/PHASE-2-WEB-APPEARANCE.md) now runs at `/settings/appearance` in the web host: all six schemes, independent System/Light/Dark, immediate previews and browser-local guest saving. Account sync remains unconnected. These settings do not affect another member's view or authorization.
+[Settings → Appearance](docs/delivery/PHASE-2-WEB-APPEARANCE.md) now runs at `/settings/appearance` in the web host: all eight schemes, independent System/Light/Dark, immediate previews and browser-local guest saving. Account sync remains unconnected. These settings do not affect another member's view or authorization.
 
 An opt-in [fictional discovery preview](docs/delivery/PHASE-2-DISCOVERY-PREVIEW.md) now connects local API → typed Client → static web grid/profile. Verification/location are labelled simulations; hidden-intention, incognito, sparse, block and travel gates run server-side before fictional projections. Default/Production hosts expose no prototype API routes. No actual member sign-in, profile storage or message sending is enabled.
 

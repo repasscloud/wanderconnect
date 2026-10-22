@@ -11,7 +11,7 @@ parser.add_argument('--write', action='store_true')
 parser.add_argument('--check', action='store_true')
 args = parser.parse_args()
 data = json.loads((root / 'docs/design/themes.json').read_text())
-assert [p['id'] for p in data] == ['electric', 'raspberry', 'cobalt', 'coral', 'orchid', 'solar']
+assert [p['id'] for p in data] == ['standard', 'lounge', 'pride', 'trans', 'union', 'violet', 'coral', 'eucalyptus']
 keys = ['bg', 'surface', 'text', 'muted', 'primary', 'onPrimary', 'accent', 'soft', 'softText', 'border']
 pairs = [('text','bg'), ('text','surface'), ('muted','bg'), ('muted','surface'), ('onPrimary','primary'), ('softText','soft')]
 def luminance(value):

@@ -4,7 +4,7 @@
   const palettes = typeof module === 'object' && module.exports ? require('./appearance-palettes.js') : root.SwoovrPalettes;
   const ids = new Set(palettes.map(p => p.id));
   const modes = new Set(['system', 'light', 'dark']);
-  const defaults = Object.freeze({ scheme: 'electric', mode: 'system' });
+  const defaults = Object.freeze({ scheme: 'standard', mode: 'system' });
   const key = 'swoovr.appearance.guest.v1';
   function normalize(value) {
     return value && ids.has(value.scheme) && modes.has(value.mode)
@@ -19,11 +19,17 @@
       const raw = storage.getItem(key);
       let value;
       try { value = JSON.parse(raw); } catch { /* Invalid data falls back without a write. */ }
-      return { preference: normalize(value?.version === 1 ? value : null), available: true };
+      return { preference: normalize(value?.version === 2 ? value : migrateV1(value)), available: true };
     } catch { return { preference: { ...defaults }, available: false }; }
   }
+  // Schema v1 held the six retired schemes; only Electric and Coral have successors.
+  function migrateV1(value) {
+    if (value?.version !== 1) return null;
+    const scheme = { electric: 'violet', coral: 'coral' }[value.scheme] ?? defaults.scheme;
+    return { scheme, mode: value.mode };
+  }
   function save(storage, value) {
-    try { storage.setItem(key, JSON.stringify({ version: 1, ...normalize(value) })); return true; }
+    try { storage.setItem(key, JSON.stringify({ version: 2, ...normalize(value) })); return true; }
     catch { return false; }
   }
   const api = { defaults, key, normalize, resolve, load, save };

@@ -20,7 +20,7 @@ CONFIRMED, owner: **Swoovr** is the product name. Use `Swoovr` for display text,
 | Apple/Google sign-in and social links | CONFIRMED direction | Specific other providers/links are defaults |
 | MAUI + Blazor + shared API | CONFIRMED direction | Seven projects; validate vertical slice |
 | Name | CONFIRMED, owner 22 October 2026 | Swoovr; publishing clearance remains OPEN |
-| Appearance | CONFIRMED | Six free personal schemes, light/dark; Electric + System is DEFAULT |
+| Appearance | CONFIRMED | Eight free personal schemes, light/dark; Standard + System is the default (owner design handoff, 22 October 2026) |
 | Keycloak | CONFIRMED | Authentication backend; integration contract unverified |
 | Privileged login | CONFIRMED | Venue partner/admin/support: dedicated email/password or email link; no social login |
 | MFA | CONFIRMED | Optional |

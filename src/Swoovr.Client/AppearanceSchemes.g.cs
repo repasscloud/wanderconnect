@@ -4,5 +4,5 @@ namespace Swoovr.Client;
 
 public static partial class AppearancePreferences
 {
-    private static bool IsSupportedScheme(string? value) => value is "electric" or "raspberry" or "cobalt" or "coral" or "orchid" or "solar";
+    private static bool IsSupportedScheme(string? value) => value is "standard" or "lounge" or "pride" or "trans" or "union" or "violet" or "coral" or "eucalyptus";
 }

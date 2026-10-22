@@ -8,7 +8,7 @@ As of 22 October 2026 (Australia/Adelaide). This page is the current summary; da
 | --- | --- | --- |
 | Foundation — phase 0 complete | Seven .NET application projects, portable checks, local server containers | `src/Swoovr.*`, `Swoovr.Local.sln`; full solution includes unvalidated mobile targets |
 | Identity — phase 1 partial | Domain account-area access policy; separate real local Keycloak login/session/MFA/key-rotation investigations | `src/Swoovr.Domain/Access`, `scripts/auth`; API/web application sign-in is disconnected |
-| Appearance — phase 2 partial | Six schemes × System/Light/Dark, browser-local guest saving; portable account conflict/retry rules | `/settings/appearance`, `src/Swoovr.Client/AppearanceSyncState.cs`; no account sync transport or mobile acceptance |
+| Appearance — phase 2 partial | Eight schemes (Standard default) × System/Light/Dark, browser-local guest saving; portable account conflict/retry rules | `/settings/appearance`, `src/Swoovr.Client/AppearanceSyncState.cs`; no account sync transport or mobile acceptance |
 | Discovery — phase 2 partial | Policy gates and fictional adult grid/profile API → Client → Web preview | `/prototype/people`; development opt-in only; no live profile storage, identity or location evidence |
 | Connections — phase 3 partial | Request/accept/decline/canned reply/block/close scenarios with revision checks and SSR forms | `/prototype/conversation`; fictional actors, process-local state, no real messages/realtime |
 | Meetings and feedback — phase 3 partial | Portable mutual-consent plan revisions and author-private feedback rules | `src/Swoovr.Domain/Connections`; no live UI, persistence or moderation integration |

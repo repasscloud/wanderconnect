@@ -4,7 +4,7 @@ namespace Swoovr.Client;
 
 public static partial class AppearancePreferences
 {
-    public static AppearancePreference Default { get; } = new("electric", "system");
+    public static AppearancePreference Default { get; } = new("standard", "system");
     public static bool IsValid(AppearancePreference? preference) => preference is not null
         && IsSupportedScheme(preference.Scheme) && preference.Mode is "system" or "light" or "dark";
 }

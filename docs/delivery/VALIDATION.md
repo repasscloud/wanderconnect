@@ -195,3 +195,14 @@ Full ./scripts/check.sh passes: Release zero warnings/errors;53auth/fourappearan
 ## Swoovr rename — 22 October 2026
 
 The [rename validation record](SWOOVR-RENAME-2026-10-22.md#validation) records fresh local portable, actual Edge and published Linux ARM64 container results, screenshot locations and exact remaining mobile/provider/production gaps. Current source uses Swoovr identifiers; earlier results above describe earlier builds and are not a new realm acceptance claim.
+
+## Eight-scheme appearance handoff — 22 October 2026
+
+Owner design handoff (`docs/design/`, committed by the owner in 6466657) applied on `feature/keycloak-integration-design`: eight schemes in Core/Community/Colour groups, Standard + System default, guest storage schema v2 with v1 migration (Electric → Violet, Coral → Coral, other retired schemes → Standard), regenerated `themes.css`, `appearance-palettes.js` and `AppearanceSchemes.g.cs`. `check_naming.py` now also exempts the real host checkout directory name in documentation, like recorded absolute paths.
+
+Executed locally:
+
+- `python3 scripts/check_design.py --write` then `./scripts/check.sh`: PASS. Zero build warnings/errors; 96 contrast pairs; 58 Node tests (including v1 migration); 431 → 439 named policy/state cases (83 appearance, adding retired-ID fallback); API/Web, discovery and conversation HTTP gates.
+- `tests/appearance/web.browser.cjs`, `tests/prototype/discovery.browser.cjs`, `tests/prototype/conversation.browser.cjs`: PASS in headless Edge via the existing bundled Playwright, against Development hosts on 127.0.0.1:5380/5381 with `Prototype__Enabled=true`. Appearance covers 24 preferences/16 computed palettes. Desktop and 320px dark captures were inspected; hosts stopped afterwards.
+
+Gaps: no screen-reader audit; mobile appearance not built (no MAUI workloads); account sync transport still absent.
