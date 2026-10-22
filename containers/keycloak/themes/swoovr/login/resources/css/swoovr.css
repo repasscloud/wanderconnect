@@ -1,0 +1,213 @@
+/*
+  Swoovr sign-in: Standard scheme only (design/themes.json → "standard").
+  Personal colour schemes never apply before sign-in. Light/dark follows the device:
+  keycloak.v2 (darkMode=true) adds .pf-v5-theme-dark to <html> when the OS prefers dark.
+  Visual target: swoovr-marketing _tmp/login.html (sign-in prototype).
+*/
+:root {
+  --sw-bg: #FAFAFA;
+  --sw-surface: #FFFFFF;
+  --sw-text: #0A0A0A;
+  --sw-muted: #6B6B6B;
+  --sw-primary: #0A0A0A;
+  --sw-on-primary: #FAFAFA;
+  --sw-soft: #F4F4F4;
+  --sw-border: #E5E5E5;
+  --sw-placeholder: #B5B5B5;
+  --sw-disabled: #D4D4D4;
+  --sw-error: #C0262D;
+  --sw-focus: rgba(10, 10, 10, .08);
+  --sw-logo: url("../img/swoovr-black.svg");
+  --sw-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --sw-radius: 14px;
+
+  /* PatternFly 5 globals, so anything we don't target directly still matches */
+  --pf-v5-global--FontFamily--text: var(--sw-font);
+  --pf-v5-global--FontFamily--heading: var(--sw-font);
+  --pf-v5-global--primary-color--100: var(--sw-primary);
+  --pf-v5-global--primary-color--200: var(--sw-primary);
+  --pf-v5-global--link--Color: var(--sw-text);
+  --pf-v5-global--link--Color--hover: var(--sw-text);
+  --pf-v5-global--Color--100: var(--sw-text);
+  --pf-v5-global--Color--200: var(--sw-muted);
+  --pf-v5-global--BackgroundColor--100: var(--sw-surface);
+  --pf-v5-global--BorderColor--100: var(--sw-border);
+  --pf-v5-global--danger-color--100: var(--sw-error);
+  --keycloak-card-top-color: transparent;
+}
+
+html.pf-v5-theme-dark {
+  --sw-bg: #0A0A0A;
+  --sw-surface: #161616;
+  --sw-text: #F5F5F5;
+  --sw-muted: #A3A3A3;
+  --sw-primary: #F5F5F5;
+  --sw-on-primary: #0A0A0A;
+  --sw-soft: #1F1F1F;
+  --sw-border: #2A2A2A;
+  --sw-placeholder: #6B6B6B;
+  --sw-disabled: #2A2A2A;
+  --sw-error: #FF7A7F;
+  --sw-focus: rgba(245, 245, 245, .12);
+  --sw-logo: url("../img/swoovr-white.svg");
+  color-scheme: dark;
+}
+
+/* Page */
+html, body, .pf-v5-c-login, .pf-v5-c-background-image {
+  background: var(--sw-bg) !important;
+  color: var(--sw-text);
+  font-family: var(--sw-font);
+  -webkit-font-smoothing: antialiased;
+}
+.pf-v5-c-background-image { display: none; }
+
+/* Logo instead of the realm name */
+#kc-header-wrapper, .pf-v5-c-login__header .pf-v5-c-brand {
+  width: 150px;
+  height: 47px;
+  margin: 0 auto 8px;
+  background: var(--sw-logo) center / contain no-repeat;
+  color: transparent;
+  font-size: 0;
+}
+
+/* Card: flat, no shadow; on phones it is the page itself */
+.pf-v5-c-login__main {
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border);
+  border-radius: 24px;
+  box-shadow: none;
+}
+@media (max-width: 575px) {
+  .pf-v5-c-login__main { border: 0; border-radius: 0; background: var(--sw-bg); }
+}
+
+/* Headings: "Welcome back." etc. */
+.pf-v5-c-login__main-header .pf-v5-c-title,
+#kc-page-title {
+  font-size: 32px;
+  line-height: 1.05;
+  letter-spacing: -1px;
+  font-weight: 700;
+  color: var(--sw-text);
+}
+.pf-v5-c-login__main-header-desc,
+.pf-v5-c-form__helper-text,
+#kc-info-message { color: var(--sw-muted); font-size: 15px; }
+
+/* Labels: small upper-case, like the prototype */
+.pf-v5-c-form__label, .pf-v5-c-form__label-text {
+  font-size: 11px;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  color: var(--sw-muted);
+  font-weight: 400;
+}
+
+/* Inputs */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BorderRadius: var(--sw-radius);
+  --pf-v5-c-form-control--before--BorderColor: var(--sw-border);
+  --pf-v5-c-form-control--after--BorderColor: transparent;
+  --pf-v5-c-form-control--BackgroundColor: var(--sw-surface);
+  min-height: 56px;
+  border-radius: var(--sw-radius);
+  background: var(--sw-surface);
+  color: var(--sw-text);
+}
+.pf-v5-c-form-control::before { border: 1px solid var(--sw-border); border-radius: var(--sw-radius); }
+.pf-v5-c-form-control::after { display: none; }
+.pf-v5-c-form-control > input, .pf-v5-c-form-control > select, .pf-v5-c-form-control > textarea {
+  font: 16px var(--sw-font);
+  color: var(--sw-text);
+  padding: 0 16px;
+}
+.pf-v5-c-form-control > input::placeholder { color: var(--sw-placeholder); }
+.pf-v5-c-form-control:focus-within::before { border-color: var(--sw-text); }
+.pf-v5-c-form-control:focus-within { box-shadow: 0 0 0 3px var(--sw-focus); }
+.pf-v5-c-form-control.pf-m-error::before { border-color: var(--sw-error); }
+.pf-v5-c-helper-text__item.pf-m-error, .kc-feedback-text, #input-error { color: var(--sw-error); }
+
+/* Buttons */
+.pf-v5-c-button {
+  min-height: 54px;
+  border-radius: var(--sw-radius);
+  font: 600 16px var(--sw-font);
+  letter-spacing: -.1px;
+}
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--sw-primary);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--sw-primary);
+  --pf-v5-c-button--m-primary--Color: var(--sw-on-primary);
+  --pf-v5-c-button--m-primary--hover--Color: var(--sw-on-primary);
+  background: var(--sw-primary);
+  color: var(--sw-on-primary);
+  width: 100%;
+}
+.pf-v5-c-button.pf-m-primary:disabled { background: var(--sw-disabled); color: var(--sw-muted); }
+.pf-v5-c-button.pf-m-secondary, .pf-v5-c-button.pf-m-tertiary, .pf-v5-c-button.pf-m-control {
+  background: var(--sw-surface);
+  color: var(--sw-text);
+  --pf-v5-c-button--after--BorderColor: var(--sw-border);
+  --pf-v5-c-button--hover--after--BorderColor: var(--sw-text);
+}
+.pf-v5-c-login__main a, .pf-v5-c-login__main .pf-v5-c-button.pf-m-link {
+  color: var(--sw-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--sw-border);
+}
+.pf-v5-c-login__main a:hover { border-bottom-color: var(--sw-text); }
+#kc-social-providers a { border-bottom: 1px solid var(--sw-border); }
+:focus-visible { outline: 2px solid var(--sw-text); outline-offset: 2px; }
+
+/* Social providers: outline style. Apple/Google marks keep their own brand rules. */
+#kc-social-providers .pf-v5-c-button, .kc-social-links .pf-v5-c-button {
+  background: var(--sw-surface);
+  color: var(--sw-text);
+  border: 1px solid var(--sw-border);
+}
+.pf-v5-c-login__main-footer-band { background: transparent; border-top: 1px solid var(--sw-border); color: var(--sw-muted); }
+
+/* Checkboxes (remember me, 18+ / terms) */
+.pf-v5-c-check__input { accent-color: var(--sw-primary); width: 20px; height: 20px; }
+
+/* Alerts */
+.pf-v5-c-alert { border-radius: var(--sw-radius); background: var(--sw-soft); color: var(--sw-text); box-shadow: none; }
+
+/* Fixes found on Keycloak 26.8.1 (keycloak.v2): input height/focus, reveal button, checkbox label, alerts */
+.pf-v5-c-form-control > input { min-height: 54px; }
+.pf-v5-c-form-control > input:focus-visible { outline: none; }
+.pf-v5-c-input-group { gap: 8px; }
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  min-height: 56px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-radius);
+  color: var(--sw-text);
+}
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after { display: none; }
+.pf-v5-c-button { display: inline-flex; align-items: center; justify-content: center; }
+.pf-v5-c-button.pf-m-block { display: flex; }
+.pf-v5-c-login__main a.pf-v5-c-button { border-bottom: 0; }
+.pf-v5-c-button::after { border-radius: var(--sw-radius); }
+#authenticateWebAuthnButton { margin-top: 12px; }
+label[for=termsAccepted], .pf-v5-c-check__label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 15px;
+  color: var(--sw-text);
+}
+#termsAccepted { accent-color: var(--sw-primary); width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; }
+.pf-v5-c-alert { --pf-v5-c-alert--BorderTopColor: var(--sw-border); border-top: 0; }
+.pf-v5-c-alert__title { color: var(--sw-text); font-weight: 600; }
+.pf-v5-c-alert.pf-m-danger .pf-v5-c-alert__title { color: var(--sw-error); }
+
+/* Required claims line on every sign-in page, rendered as real text by footer.ftl. */
+.sw-claims {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: var(--sw-muted);
+  padding: 16px 0 20px;
+  margin: 0;
+}
