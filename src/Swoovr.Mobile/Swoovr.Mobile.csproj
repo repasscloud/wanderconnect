@@ -26,8 +26,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0A0A0A" />
+		<!-- App icon (D89): the white Swoovr bird on black. appiconfg.svg is an unchanged copy of swoovr-marketing
+		     branding/assets/white/bird.svg. Scales follow that preset's own exports: the bird fills about 72% of the
+		     full-bleed app-square tile (iOS) and 44% of the adaptive-foreground canvas, inside Android's safe zone. -->
+		<MauiIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'" Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" ForegroundScale="0.72" Color="#000000" />
+		<MauiIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" ForegroundScale="0.44" Color="#000000" />
 
 		<!-- Splash Screen -->
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0A0A0A" BaseSize="132,112" />

@@ -415,3 +415,13 @@ Observed on Android: on the very first sign-in Chrome showed its first-run scree
 **iOS simulator (iPhone 18 Pro, iOS 27.0): built, installed and launched only.** The app showed the signed-out screen ("Sign in to see your account.", Sign in button, browser note) in Helvetica Neue. The sign-in itself was **not run on iOS**: this machine has no simulator UI driver (no `idb`, XCUITest runner or computer-use access, and Xcode 27's DeviceHub did not receive synthesised clicks), and the `ASWebAuthenticationSession` consent prompt needs a tap. So `SecureStorage` on the simulator without a Keychain entitlement is **unverified**; adding the entitlement made the simulator build ask for a provisioning profile, so it was left out. Owner steps are in [mobile tooling setup](MOBILE-TOOLING-SETUP.md#5-sign-in-against-the-local-stack).
 
 Not run or not verified: iOS sign-in, sign-out and token restore; the beta link opening swoovr.com in the browser (not tapped); passkeys from the app (the local relying-party ID is `localhost`); a physical device; Release builds (sign-in is off there by design); TalkBack/VoiceOver; dark mode; Apple/Google sign-in (not configured).
+
+## Slice G: app icon — 23 October 2026
+
+Decision D98. `src/Swoovr.Mobile/Resources/AppIcon/appiconfg.svg` is byte-identical to swoovr-marketing `branding/assets/white/bird.svg` (checked with `shasum -a 256`); `appicon.svg` is a black square.
+
+- `dotnet build src/Swoovr.Mobile -f net10.0-android` and `-f net10.0-ios`: Build succeeded, 0 errors. The generated `mipmap-xxxhdpi/appicon.png` shows the white bird on black.
+- Android emulator: the launcher's app drawer shows "Swoovr" as the white bird on a black circle, the whole bird inside the mask.
+- iOS simulator (iPhone 18 Pro): the home screen shows "Swoovr" as the white bird on a black rounded square.
+
+Not checked: themed (monochrome) icons on Android 13+ (no `monochrome` layer is generated), iOS 18+ dark and tinted icon variants, the App Store 1024 px marketing icon, a physical device.
