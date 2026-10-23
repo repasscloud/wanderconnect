@@ -478,3 +478,397 @@ The owner accepted the builder's defaults for slices F–I (D93–D104). These r
 | --- | --- | --- | --- | --- |
 | Q16 | OPEN | Intention chips content (not the code) | Which intention chips does each mode offer (Dating, Friends, Activities, Business), and how many may a member pick? D92 gives only illustrations ("Something serious", "Casual") | Owner supplies a list per mode; it is loaded as `mode_intentions` rows. Keep the DEFAULT limit of five per mode (D105) |
 | Q17 | OPEN | Travel slice | How is a Travel destination chosen and shown: a fixed list of cities, or free search with a geocoding provider (which one)? How precisely may others see it (city only, suburb)? Do destinations need the beta's activated markets (D62 rule 2)? | A fixed list of cities to start (Adelaide, Melbourne, Sydney and so on), shown to others as the city name only, no geocoding provider until needed |
+
+### Q16 — Mode-specific intention chips and selection limits
+
+Status: ANSWERED, owner 24 October 2026.
+
+Decision: Swoovr will provide ten predefined intention chips for each of its four connection modes: Dating, Friends, Activities and Business. Members may select up to five intentions per mode. Intentions are independent across modes and communicate what a member is seeking within each connection context. Intention definitions must be data-driven, stored in the `mode_intentions` table and associated with stable mode identifiers.
+
+Rules:
+
+1. Connection modes: Intention chips are available for Dating, Friends, Activities and Business, with ten predefined intentions per mode.
+2. Selection limit: Members may select a maximum of five intention chips per mode, consistent with D105. The limit applies independently to each mode.
+3. Multiple intentions: Members may select multiple intentions within the same mode, including intentions that appear contradictory but reflect genuine flexibility. For example, someone may be interested in both long-term relationships and casual dating.
+4. Mode independence: Selecting intentions in one mode must not automatically add, remove or modify intentions in another mode.
+5. Intention persistence: Selected intentions must remain saved when a member temporarily disables a connection mode. Disabling a mode removes its eligibility for discovery but does not delete its configuration.
+6. Dating intentions: Dating intentions describe romantic, relationship and intimacy goals. They must remain separate from gender, sexual orientation, relationship status, physical attributes and compatibility preferences.
+7. Friends intentions: Friends intentions describe platonic friendships and social connections, including networking, group activities, emotional support and travel companionship.
+8. Activities intentions: Activities intentions describe how members wish to participate in experiences rather than functioning as a catalogue of activity categories. Specific interests such as cinema, hiking, dining and concerts must be maintained separately.
+9. Business intentions: Business intentions support professional relationships involving networking, partnerships, customers, mentorship, career opportunities and collaboration. Members must not be required to own or represent a business to participate.
+10. Discovery eligibility: Intention selections may inform compatibility, ranking and discovery preferences but must not automatically exclude members unless an explicit discovery rule or user-selected filter requires exclusion.
+11. Intention compatibility: Different intentions may have different degrees of compatibility. The matching system should support evaluating intention alignment without assuming all different intentions are incompatible.
+12. Data-driven configuration: Intention definitions must be stored as data rather than hardcoded into UI components or application logic.
+13. Stable identifiers: Each intention must have a stable internal identifier independent of its displayed label, allowing future wording changes without breaking existing selections.
+14. Presentation: Intention chips must support configurable labels, display ordering and active status.
+15. Validation: The API must enforce valid intention identifiers, mode associations and the maximum of five selections per mode. Client-side validation alone is insufficient.
+16. Future changes: Administrators may introduce, deactivate or rename intentions without requiring database schema changes. Existing selections referencing retired intentions must be handled without corrupting user profiles.
+17. Cross-platform consistency: The same intention definitions and selection rules must apply to the Blazor web application and .NET MAUI iOS and Android applications.
+18. Travel independence: Travel remains an independent discovery state under Q12. Travel destinations must not change a member's selected intentions within Dating, Friends, Activities or Business.
+
+#### Approved intention definitions
+
+Dating — 10 intentions
+
+| Order | Intention                           |
+| ----- | ----------------------------------- |
+| 1     | Long-term relationship              |
+| 2     | Short-term dating                   |
+| 3     | Casual dating                       |
+| 4     | Something casual / no strings       |
+| 5     | Friends with benefits               |
+| 6     | Open to exploring                   |
+| 7     | Marriage / life partner             |
+| 8     | Intimacy / physical connection      |
+| 9     | Not sure yet                        |
+| 10    | New connections / see where it goes |
+
+Friends — 10 intentions
+
+| Order | Intention                              |
+| ----- | -------------------------------------- |
+| 1     | New friendships                        |
+| 2     | Close / meaningful friendships         |
+| 3     | Casual friendships                     |
+| 4     | Social groups / meetups                |
+| 5     | Activity partners                      |
+| 6     | Networking / meeting people            |
+| 7     | Emotional support / someone to talk to |
+| 8     | Travel companions                      |
+| 9     | Local connections                      |
+| 10    | Expanding my social circle             |
+
+Activities — 10 intentions
+
+| Order | Intention                       |
+| ----- | ------------------------------- |
+| 1     | Finding activity partners       |
+| 2     | Group outings                   |
+| 3     | Exploring local events          |
+| 4     | Trying new experiences          |
+| 5     | Fitness and outdoor activities  |
+| 6     | Food and dining experiences     |
+| 7     | Arts, culture and entertainment |
+| 8     | Weekend adventures              |
+| 9     | Travel and sightseeing          |
+| 10    | Spontaneous plans               |
+
+Business — 10 intentions
+
+| Order | Intention                   |
+| ----- | --------------------------- |
+| 1     | Professional networking     |
+| 2     | Business partnerships       |
+| 3     | Finding clients / customers |
+| 4     | Finding service providers   |
+| 5     | Mentorship / guidance       |
+| 6     | Career opportunities        |
+| 7     | Collaboration / projects    |
+| 8     | Entrepreneurship / startups |
+| 9     | Industry events / meetups   |
+| 10    | Knowledge sharing           |
+
+Rationale: Intention chips allow members to communicate their goals without forcing them into a single predefined relationship or connection type. Providing ten choices per mode offers meaningful variety while the five-selection limit encourages members to identify their priorities. Maintaining separate intention definitions for Dating, Friends, Activities and Business supports Swoovr's contextual compatibility model and prevents unrelated intentions from affecting each other. Data-driven configuration allows the platform to evolve its terminology, discovery and compatibility rules without requiring changes to application architecture.
+
+Implementation: Populate the `mode_intentions` table with the forty approved definitions, assigning each a stable identifier, connection-mode identifier, display order and active status. Store member selections in an appropriate relational association table with uniqueness constraints. Enforce the five-selection limit per mode through application services and API validation, with additional database protections where appropriate. Provide endpoints for retrieving available intentions and updating member selections. Implement reusable chip-selection components in Blazor and .NET MAUI, displaying available options and the current selection count. Preserve selections when modes are disabled. Expose selected intentions to the discovery and contextual compatibility services without treating intention differences as automatic exclusion criteria. Keep activity categories, profile attributes and Travel configuration separate from intention definitions.
+
+### Q17 — Travel destinations, visibility, discovery and connection permissions
+
+Status: ANSWERED, owner 24 October 2026.
+
+Decision: Swoovr will support searchable worldwide Travel destinations using its locally maintained GeoNames database, without requiring an external geocoding provider. Members may save unlimited trips, each containing a destination city, mandatory arrival and departure dates, and an independent discovery-visibility setting. Eligible destination-local members may discover travellers and initiate connection requests, while travellers remain independently discoverable in their home market. Travel discovery is intentionally asymmetric: travellers do not automatically receive destination-local profiles through normal discovery. Travellers may explicitly search for destination-local people only after establishing a qualifying Travel intention for that destination; the destination-search feature itself remains outside the Q17 implementation scope.
+
+Rules:
+
+1. Destination source: Travel destinations must be selected from Swoovr's locally maintained GeoNames database, supporting worldwide cities rather than a restricted or hardcoded list.
+2. Destination search: Members must be able to search for cities by name using an autocomplete interface. Results should include the city, state or region where applicable, and country to distinguish locations with identical names.
+3. Geographical identifiers: Each destination must reference its GeoNames identifier. Destination names must not be used as unique database keys.
+4. External services: No external geocoding provider is required for the initial implementation. Destination searching and resolution must use Swoovr's internal geographical dataset.
+5. Worldwide selection: Members may select any supported worldwide GeoNames city, including cities where Swoovr has not officially launched.
+6. Activated markets: Selecting a destination does not override existing activated-market restrictions under D62, rule 2. Travel discovery must respect the market's eligibility and activation requirements.
+7. Travel intention: A Travel intention is a destination-specific travel record containing the intended city, arrival date and departure date. It is independent of the four connection-mode intention-chip sets defined in Q16.
+8. Mandatory dates: Every Travel destination must include both an arrival date and a departure date. Open-ended trips without a departure date are not permitted.
+9. Date validation: Arrival must not occur after departure. Dates must be validated by application services and interpreted using the destination's local timezone.
+10. Advance discovery: A traveller may become discoverable in a destination up to 14 days before their planned arrival. Travel visibility must not begin earlier than the applicable eligibility window.
+11. Multi-city itineraries: Members may configure multiple destinations, including sequential cities within the same itinerary. Previously approved Q12 rules concerning subsequent itinerary destinations and their scheduling exceptions remain applicable.
+12. Unlimited saved trips: Free, Plus and Premium members may save unlimited Travel destinations and trips. No membership-tier restrictions apply to the number of saved trips.
+13. Repeat destinations: Members may save multiple trips to the same city when they represent different travel periods.
+14. Independent trip configuration: Each Travel destination must maintain its own arrival date, departure date, visibility setting and lifecycle state.
+15. Independent visibility toggle: Every destination must provide an independent visibility control. Disabling visibility must preserve the destination and its dates rather than deleting the trip.
+16. Visibility reactivation: Members may re-enable visibility for an existing trip, provided its dates, market eligibility, account permissions and other applicable discovery conditions remain valid.
+17. Automatic expiration: Destination discovery eligibility must end automatically after the departure date, based on the destination's local timezone.
+18. Travel history: Expired trips may remain available in the member's private Travel history but must not continue to generate remote discovery eligibility.
+19. Trip cancellation: Members may edit, disable, cancel or remove individual Travel destinations without affecting their other configured trips.
+20. Simultaneous destinations: Multiple eligible Travel destinations may be visible simultaneously, including destinations within a multi-city itinerary, subject to their individual scheduling and activation rules.
+21. Home discovery: Travelling members must retain normal discovery visibility in their home city while Travel is active. Enabling Travel must not automatically disable or replace home-market discovery.
+22. Destination discovery: Eligible local members in a destination city may discover travellers who have an active and visible Travel intention for that destination.
+23. Asymmetric discovery: Travel discovery is intentionally one-directional. A traveller becoming visible in a destination must not automatically gain access to destination-local profiles through normal discovery.
+24. Traveller identification: Members appearing through Travel discovery must be explicitly identified as travelling or planning to visit. The application must not present them as local residents of the destination.
+25. Public destination visibility: Other members may see the destination city and country only. Destination suburbs, precise coordinates and exact geographical distances must not be disclosed.
+26. Public travel dates: Eligible destination-local members may see the traveller's exact arrival and departure dates when the destination's visibility setting is enabled and the trip is eligible for discovery.
+27. Date presentation: Travel dates must be formatted according to the viewer's locale, while preserving the destination-local calendar dates entered by the traveller.
+28. Hidden destinations: Destinations with visibility disabled must not appear in destination discovery or disclose their intended location or travel dates through public-facing profile data.
+29. Connection initiation: Eligible destination-local members may initiate connection requests with travellers discovered in their city, subject to existing connection, safety and moderation rules.
+30. Connection acceptance: The travelling member may accept or decline an incoming connection request from a destination-local member.
+31. No automatic connections: Destination visibility and incoming connection requests must not automatically establish a connection. The traveller must explicitly accept the request.
+32. Messaging permissions: Once a connection has been accepted, messaging and communication must follow the existing Swoovr connection permissions and membership rules.
+33. Destination-search prerequisite: A traveller may only search for local people in a destination city when they have first established a qualifying Travel intention for that destination.
+34. Travel intention validation: Destination search eligibility must reference a valid Travel intention containing the destination GeoNames ID and mandatory arrival and departure dates. A member must not gain destination-search eligibility merely by entering an arbitrary city in a search field.
+35. Separate search permissions: Creating a Travel intention establishes potential eligibility for destination search but must not automatically insert destination-local profiles into the traveller's normal discovery feed.
+36. Destination-search scope: The functionality allowing travellers to actively search for destination-local members is deferred. Q17 must document and preserve its Travel-intention prerequisite but must not implement the destination-search interface or broader search behaviour.
+37. Connection-mode independence: Travel operates across the member's enabled Dating, Friends, Activities and Business modes. Travel must not introduce a fifth connection mode or modify existing mode-specific intentions.
+38. Mode-specific eligibility: Destination discovery and connection requests must respect applicable connection-mode preferences, eligibility conditions, compatibility requirements and visibility restrictions.
+39. Safety and moderation: Travel must not bypass blocks, account suspensions, moderation controls, age restrictions, identity-verification requirements or other existing discovery safeguards.
+40. Server-side enforcement: Travel eligibility, discovery direction, destination-search prerequisites, visibility settings, date windows and activated-market restrictions must be enforced by application services and APIs, not solely by client-side interface controls.
+41. Cross-platform behaviour: The same Travel configuration and discovery rules must apply across Blazor web, .NET MAUI iOS and .NET MAUI Android applications.
+42. Data protection: Destination coordinates may be retained internally where necessary for geographical resolution and market matching but must not be exposed through public APIs or discovery responses.
+43. Performance and abuse prevention: Unlimited trip storage must be supported using appropriate database indexes, paginated retrieval, request validation and API rate limiting.
+44. Single identity: Travel destinations and associated connections must reference the member's existing Swoovr account. Separate accounts or duplicated member profiles must not be created for different destinations.
+
+#### Approved Travel discovery behaviour
+
+| Scenario                                     | Behaviour                                                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Member is at home                            | Normal home-market discovery applies                                                                    |
+| Member creates a future trip                 | Trip is saved with destination and dates                                                                |
+| Trip is more than 14 days away               | Destination discovery is not yet eligible, except applicable Q12 itinerary rules                        |
+| Trip enters the permitted visibility window  | Destination locals can discover the traveller if visibility is enabled and other eligibility rules pass |
+| Member remains in their home city            | Home discovery continues independently                                                                  |
+| Destination local views traveller            | Traveller is identified as visiting, with destination city, country and exact travel dates              |
+| Destination local requests connection        | Traveller receives an incoming request                                                                  |
+| Traveller accepts request                    | Normal connection and messaging rules apply                                                             |
+| Traveller declines request                   | No connection is established                                                                            |
+| Traveller opens normal discovery             | Home-market discovery applies; destination locals are not automatically included                        |
+| Traveller wants to search destination locals | Requires a qualifying Travel intention; separate search functionality is deferred                       |
+| Traveller disables trip visibility           | Destination discovery stops; trip details are preserved                                                 |
+| Traveller departs or trip expires            | Destination discovery eligibility ends automatically                                                    |
+| Member has multiple trips                    | Each trip is evaluated independently                                                                    |
+| Destination market is not activated          | Trip may be saved, but discovery remains subject to D62                                                 |
+
+Rationale: Travel is designed to allow local residents to discover people planning to visit their city and initiate connections before or during their stay. This differs from conventional location-spoofing systems, where travellers can immediately browse residents of any selected destination. Asymmetric discovery gives destination locals control over whether to approach a visitor, while allowing travellers to accept relevant connections without being presented with an unsolicited remote discovery feed. Requiring an established Travel intention before destination-local search prevents arbitrary worldwide searching without a declared travel context. GeoNames provides a self-managed worldwide city database without dependence on external geocoding services. City-level public visibility, mandatory travel dates, independent visibility controls and existing activated-market restrictions provide predictable discovery behaviour while preserving location privacy. Unlimited saved trips support frequent travellers and multi-city itineraries without introducing artificial subscription limits.
+
+Implementation: Implement Travel using dedicated destination and itinerary persistence associated with the existing member account, referencing the internal GeoNames city dataset through stable GeoNames identifiers. Each trip must store its destination, arrival date, departure date, visibility preference and lifecycle state. Support unlimited saved trips, repeat visits and independently managed itinerary entries. Implement searchable city autocomplete backed by the local GeoNames database and return distinguishable city, region and country labels.
+
+Validate mandatory dates, itinerary associations and Travel discovery windows server-side. Apply the standard 14-day advance-discovery rule and preserve the approved Q12 multi-city itinerary exception. Calculate eligibility using destination-local dates and timezone rules. Support independent trip visibility toggles, immediate suppression of hidden trips and automatic removal of expired trips from remote discovery eligibility.
+
+Extend discovery services to evaluate home-market and destination-market visibility independently. A travelling member must remain eligible for normal home discovery while simultaneously appearing in destination discovery when their Travel configuration permits it. Destination discovery must be asymmetric: eligible destination locals may discover and request connections with travellers, but travellers must not automatically receive destination-local profiles through ordinary discovery. Reuse existing connection request, acceptance, rejection, blocking and messaging infrastructure rather than implementing a separate Travel connection system.
+
+Expose only the destination city, country, relevant travel dates and traveller status in authorised destination-discovery responses. Do not return precise destination coordinates, suburbs or distance information through public profile or discovery DTOs. Apply existing connection-mode eligibility, moderation restrictions, account verification, market activation and privacy controls before returning results.
+
+Document the destination-search prerequisite as a separate future capability: a member must possess a qualifying Travel intention for the requested GeoNames destination before destination-local search is permitted. Preserve this requirement in the application specification and future API design, but do not implement traveller-initiated destination search as part of Q17.
+
+Maintain cross-platform consistency between the Blazor web application and .NET MAUI clients. Add automated tests covering date validation, advance visibility windows, multi-city itineraries, unlimited trip storage, home and destination discovery independence, asymmetric discovery permissions, connection initiation and acceptance, destination visibility toggles, expiration, activated-market restrictions and prevention of unauthorised destination-local discovery.
+
+### Q11 — Profile flags, verification badges, founding membership, staff affiliation and official bots
+
+Status: ANSWERED, owner 24 October 2026. Supersedes earlier proposals concerning separate public staff accounts, staff administrative privileges and public Admin Verified badges.
+
+Decision: Swoovr will maintain independent profile flags, verification credentials, membership recognition badges, employment-affiliation badges and official bot classifications. Public badges must accurately communicate what has been verified or recognised without implying additional assurances or privileges. Photo Verified and ID Verified are separate credentials. Admin Verified represents an internal enhanced manual trust review with no public badge and remains valid until revoked. Founding members receive permanent gold recognition after satisfying the approved founding-programme requirements. The ruby Swoovr Staff bird identifies an ordinary member whose current employment with Swoovr has been confirmed; it does not represent administrative authority, system access or a privileged account type. Staff-affiliated members are held to higher standards of conduct, and every report against them requires human review. Official bots are separately classified, internally authorised, publicly identified and restricted to member-initiated interactions. Members may display multiple applicable badges simultaneously.
+
+Rules:
+
+1. **Independent profile flags:** Profile verification, account classification, membership recognition, employment affiliation, administrative trust review and system permissions must be represented as distinct concepts. One status must not automatically imply another.
+
+2. **Account registration:** A registered account does not automatically receive any public verification badge. Registration establishes an account but does not prove identity, adulthood beyond applicable checks, ownership of profile photographs or trustworthiness.
+
+3. **Email verification:** Email Verified is an internal account status confirming that the member has demonstrated control of their registered email address. It must not produce a public profile badge or be represented as identity verification.
+
+4. **External authentication:** Signing in through Apple, Google or another approved identity provider does not automatically grant Photo Verified or ID Verified status. Authentication and identity assurance remain separate.
+
+5. **Photo Verified:** The Photo Verified badge confirms that Swoovr has successfully compared the member's relevant profile photographs against a live verification selfie or equivalent approved photo-verification evidence.
+
+6. **Photo verification process:** Photo verification may use automated image matching, liveness checks and other approved verification methods. Failed, uncertain or inconclusive automated assessments must be eligible for human review rather than being treated as successful verification.
+
+7. **Photo verification lifecycle:** Material changes to the photographs covered by an existing Photo Verified credential must trigger re-verification where the previous verification no longer establishes that the displayed photographs belong to the member. The credential must support expiry, suspension, revocation and replacement.
+
+8. **ID Verified:** The ID Verified badge confirms successful completion of Swoovr's approved identity-document verification process, including applicable identity and liveness checks. It must remain independent of Photo Verified.
+
+9. **ID verification limitations:** ID Verified must not imply that publicly displayed profile photographs match the verified person, that the member has passed a criminal background check or that their future behaviour is guaranteed to be safe.
+
+10. **Public anonymity:** A member may hold an ID Verified credential without displaying a recognisable public face photograph, subject to applicable profile and discovery rules. Identity assurance must not require unnecessary disclosure of the member's verified legal identity to other members.
+
+11. **Independent verification credentials:** Photo Verified and ID Verified must be awarded, maintained, expired and revoked independently. Completing one verification process must not automatically grant the other badge.
+
+12. **Verification timestamps:** Profiles must support displaying relevant verification recency information, including "Last identity checked" and "Last photo checked", where the corresponding credential is valid and public display is permitted.
+
+13. **Verification revocation:** Public verification badges must cease appearing when their underlying credentials expire, are revoked or otherwise become invalid. A previously successful verification must not remain publicly represented as current after invalidation.
+
+14. **Admin Verified definition:** Admin Verified represents an enhanced manual trust review performed by an authorised Swoovr administrator. It is an internal assessment of an account or relevant verification circumstances, not a public identity credential.
+
+15. **Admin Verified visibility:** Admin Verified must never produce a public badge, icon, profile label or discovery indicator, consistent with D58. It must not be exposed through public profile or discovery APIs.
+
+16. **Admin Verified independence:** Admin Verified does not automatically grant Photo Verified, ID Verified, Founding Member status, Staff affiliation, additional messaging permissions, discovery priority or subscription benefits.
+
+17. **Admin Verified validity:** An approved Admin Verified status remains valid until explicitly revoked by an authorised administrator. It does not have a mandatory periodic expiry date.
+
+18. **Admin Verified re-review:** New reports, suspicious activity, changes to verification evidence or other relevant circumstances may trigger another manual trust review. Re-review must not automatically invalidate other independent credentials.
+
+19. **Admin Verified auditing:** Administrative trust reviews must record the reviewing administrator, review date, outcome, reason and relevant revocation or reassessment events. Access must be restricted to authorised administrative personnel.
+
+20. **Founding-member programme:** Swoovr will offer 1,000 founding-member positions to qualifying early adopters under the previously approved founding-membership programme.
+
+21. **Founding-member eligibility:** Members must complete the required profile setup and successfully complete ID verification and/or Photo verification before their founding membership and associated introductory benefits are activated. Registration or joining an invitation queue alone is insufficient.
+
+22. **Founding-member badge:** Activated founding members receive the permanent gold Swoovr Founding Member badge. The badge represents membership recognition, not identity verification, employment, moderation authority or an enhanced safety guarantee.
+
+23. **Founding-member benefits:** Eligible founding members receive three months of Swoovr Plus without requiring a payment method, followed by the opportunity to subscribe to Plus at a 50% discount for the subsequent twelve months, applicable to monthly or annual subscriptions. Paid continuation requires explicit member opt-in and must not begin automatically.
+
+24. **Permanent founding recognition:** Once legitimately activated, Founding Member status remains permanent regardless of whether the member maintains a paid subscription. Subscription entitlements and permanent founder recognition must be stored and evaluated separately.
+
+25. **Founding-member recovery:** The previously approved founder-recovery mechanism must support recovery of legitimate founding recognition following account deletion and re-registration. Recovery uses a securely generated HMAC-SHA256 token derived from the normalised verified email address and a server-held secret, with appropriate validation and anti-abuse controls. The recovery mechanism must not be treated as a replacement for account authentication or required verification.
+
+26. **Founding-member entitlement separation:** Founder recognition must remain independent of subscription entitlements. The entitlement system must support future promotional programmes, grants, discounts and account-specific benefits without embedding all benefit logic directly into the badge system.
+
+27. **Swoovr Staff badge:** The public Swoovr Staff badge is represented by the approved ruby-coloured Swoovr bird artwork. It identifies an ordinary member whose current employment affiliation with Swoovr has been confirmed.
+
+28. **Staff affiliation meaning:** The Staff badge communicates confirmed employment affiliation only. It does not identify an administrator, moderator, support operator or someone with privileged access to Swoovr's internal systems.
+
+29. **Normal employee accounts:** Employees using Swoovr for personal participation have ordinary member accounts. Their profiles, connections, conversations, intentions, privacy settings and membership features behave according to standard member rules.
+
+30. **No mandatory separate public accounts:** Employees are not required to create separate official public-facing and personal member accounts merely because they work for Swoovr. The Staff badge is an affiliation credential attached to their normal member account.
+
+31. **Administrative identity separation:** Employees who require administrative or operational system access must receive those permissions through Swoovr's separate authentication, authorisation and internal access-control mechanisms. Public Staff badges must never be used to determine administrative permissions.
+
+32. **Staff discovery participation:** Staff-affiliated members may participate in all four connection modes: Dating, Friends, Activities and Business. They may enable any combination of modes and maintain ordinary mode-specific intentions and discovery preferences.
+
+33. **Staff connection permissions:** Staff-affiliated members may initiate connection requests, accept or decline requests, and send and receive messages under the same social interaction rules applicable to other members.
+
+34. **Mandatory staff identification:** When an account holds an active Staff affiliation credential, its ruby badge must be displayed on applicable discovery cards, public profiles and conversation identity surfaces. The member must not be able to conceal the badge while retaining active Staff affiliation.
+
+35. **Independent staff verification:** Employment affiliation does not automatically grant Photo Verified or ID Verified. Staff-affiliated members must complete the relevant human verification processes to receive those badges.
+
+36. **Staff and Admin Verified independence:** A member displaying the Staff badge is not automatically Admin Verified. A member who is Admin Verified is not automatically a Swoovr employee. Neither status grants the other.
+
+37. **No elevated social privileges:** The Staff badge must not grant additional connection limits, messaging permissions, discovery reach, subscription privileges, access to private information or exemptions from standard platform rules.
+
+38. **Higher staff conduct standards:** Staff-affiliated members are held to higher behavioural and conduct standards because their public affiliation represents Swoovr. Employment affiliation must increase accountability rather than reduce it.
+
+39. **Mandatory staff report review:** Every report submitted against a staff-affiliated member must receive human review, regardless of the report category, initial automated risk score or apparent severity.
+
+40. **Automated moderation of staff reports:** Automated systems may classify reports, preserve evidence, detect urgent threats and apply immediate protective restrictions where appropriate. Automated systems must not replace the mandatory human review or silently dismiss a report against a staff-affiliated member.
+
+41. **Staff report escalation:** Reports against staff-affiliated members must be routed to appropriately authorised moderators or designated senior reviewers. The review process must provide conflict-of-interest protections, including preventing an employee from reviewing reports concerning their own account.
+
+42. **Staff misconduct consequences:** Substantiated misconduct may result in warnings, restrictions, suspension, permanent account termination, removal of Staff affiliation or other proportionate enforcement actions. Serious matters may also be escalated to authorised Swoovr management for separate employment-related consideration.
+
+43. **Staff report auditability:** Staff-related moderation reviews must record the report, reviewer, relevant evidence, assessment, outcome, enforcement action and escalation history. Reporting members must not receive confidential internal employment information.
+
+44. **Staff affiliation lifecycle:** Staff affiliation must support issuance, verification, revocation and historical audit records. When a member ceases to be an employee, their Staff badge must be revoked without automatically deleting or disabling their ordinary member account.
+
+45. **Official bot classification:** Official Swoovr bots must have a distinct automated-account classification. A bot is not a human member and must not be represented as one.
+
+46. **Official bot authorisation:** Bot accounts must be created, approved and authorised through Swoovr's internal administrative systems. Unauthorised accounts must not be able to claim official bot status or display the official Bot badge.
+
+47. **Official bot badge:** Every official bot must display the approved bot identification badge on discovery cards, profiles and relevant conversations. Bot identification must be mandatory and must not be removable by the bot or concealed through ordinary profile settings.
+
+48. **Bot discovery participation:** Official bots may participate in normal discovery across Dating, Friends, Activities and Business, but their permitted modes must be configured independently for each bot account.
+
+49. **Per-bot mode configuration:** Administrators may assign one, several or all four connection modes to an official bot. A bot must only appear in discovery for modes it has been explicitly authorised and enabled to participate in.
+
+50. **Member-initiated bot interactions:** Official bots must not initiate connection requests or conversations with members. The member must initiate the interaction.
+
+51. **Bot response permissions:** Once a member initiates contact, the bot may respond and continue the conversation within its authorised capabilities and applicable platform rules. Member initiation does not grant unlimited or unrestricted access to the member.
+
+52. **No unsolicited bot messaging:** Official bots must not independently start social conversations, send unsolicited connection requests or bypass communication preferences using their official account classification.
+
+53. **Bot verification exemption:** Official bots are exempt from human identity-document, selfie, liveness and photo-matching verification requirements.
+
+54. **No human badges for bots:** Official bots must never receive Photo Verified or ID Verified badges. Their internal authorisation and official Bot badge provide an account-type assurance rather than a human identity assurance.
+
+55. **Bot credentials and security:** Bot authentication credentials, operational permissions and account classification must be managed separately from human verification credentials and normal member sign-in processes.
+
+56. **Bot blocking and reporting:** Members must be able to block and report official bots using applicable platform controls. Official status does not exempt bots from safety, content or moderation requirements.
+
+57. **Multiple simultaneous badges:** A human member may display multiple applicable public badges simultaneously, including Photo Verified, ID Verified, Founding Member and Swoovr Staff. Each badge must retain its independent meaning.
+
+58. **Badge combinations:** Badge combinations must be derived from independently valid credentials and account states. Possession of one badge must not cause unrelated badges to be issued automatically.
+
+59. **Badge applicability:** Official bots may display their mandatory Bot badge and other explicitly applicable non-human account indicators, but must not receive human verification badges or human founding-membership entitlements.
+
+60. **Badge presentation:** Public badges must use approved Swoovr artwork and consistent visual semantics. The ruby Staff badge, gold Founding Member badge, Photo Verified badge, ID Verified badge and Bot badge must remain visually distinguishable.
+
+61. **Badge ordering:** Badge display order should be deterministic and configurable so that profiles with multiple badges render consistently across discovery cards, profiles and conversations.
+
+62. **Badge explanations:** Public badges must provide accessible explanations of their meaning. Descriptions must not imply guarantees beyond the underlying verification or recognition process.
+
+63. **Badge authenticity:** Public badge eligibility must be determined by trusted server-side account and credential records. Members must not be able to create, upload, impersonate or self-assign official badges through editable profile fields.
+
+64. **Public and internal data separation:** Public profile responses must expose only the public badges and related approved metadata necessary for presentation. Internal Admin Verified status, employee access permissions, moderation investigations and confidential verification evidence must not be disclosed.
+
+65. **Verification evidence protection:** Identity documents, verification selfies, biometric information and associated sensitive verification records must be protected using appropriate access controls, retention policies and secure storage practices. Public badge rendering must not require exposing underlying evidence.
+
+66. **Badge status changes:** Revocation or invalidation of a credential must be reflected in subsequent profile, discovery and conversation responses without requiring the member to manually update their profile.
+
+67. **Account lifecycle:** Badge eligibility and associated entitlements must account for account deactivation, deletion, suspension, reinstatement and legitimate recovery. Historical audit records must remain separate from currently active public badge states.
+
+68. **Cross-platform consistency:** The same badge definitions, credential semantics, visibility restrictions and account classifications must apply to Swoovr's Blazor web application and .NET MAUI iOS and Android clients.
+
+69. **Server-side enforcement:** Badge issuance, revocation, staff affiliation, bot authorisation, bot interaction restrictions, verification eligibility and enhanced staff moderation must be enforced by trusted application services and APIs rather than client-side presentation logic.
+
+70. **Extensibility:** The profile flag and badge architecture must support additional credentials, membership recognition programmes, affiliations and account classifications without requiring unrelated verification concepts to be merged or existing badges to change meaning.
+
+#### Approved public badges and internal states
+
+| Badge / state | Public badge | Meaning | Assignment / validation |
+| --- | --- | --- | --- |
+| Account Registered | No | Member has created an account | Authentication and registration |
+| Email Verified | No | Member controls their registered email address | Email verification |
+| Photo Verified | Yes | Profile photographs have passed the approved photo-matching process | Automated verification and/or authorised human review |
+| ID Verified | Yes | Member has passed the approved identity-document verification process | Identity verification provider and/or authorised review |
+| Admin Verified | No | Enhanced manual trust review completed | Authorised administrator; valid until revoked |
+| Founding Member | Gold badge | Permanent recognition as a qualifying Swoovr founder | Founding programme eligibility and activation |
+| Swoovr Staff | Ruby bird | Confirmed current employment affiliation with Swoovr | Authorised employment-affiliation assignment |
+| Official Bot | Bot badge | Internally authorised automated Swoovr account | Authorised bot provisioning and classification |
+
+#### Badge combination examples
+
+| Account | Permitted public badges |
+| --- | --- |
+| Ordinary unverified member | None |
+| Photo-verified member | Photo Verified |
+| ID-verified member | ID Verified |
+| Member with both verifications | Photo Verified, ID Verified |
+| Verified founding member | Founding Member and applicable verification badges |
+| Staff-affiliated member | Swoovr Staff |
+| Verified staff-affiliated member | Swoovr Staff, Photo Verified and/or ID Verified |
+| Staff-affiliated founding member | Swoovr Staff, Founding Member and applicable verification badges |
+| Admin-reviewed ordinary member | Only independently earned public badges; Admin Verified is hidden |
+| Official Swoovr bot | Official Bot; no human verification badges |
+
+#### Staff affiliation and administrative access separation
+
+| Capability / attribute | Staff-affiliated member | Authorised internal administrator |
+| --- | --- | --- |
+| Ordinary Swoovr member account | Yes | Independent of administrative access |
+| Ruby Swoovr Staff badge | Yes, while affiliation is valid | Not automatically |
+| Dating, Friends, Activities, Business | All four modes | Based on their ordinary member account |
+| Normal messaging and connections | Yes | Based on their ordinary member account |
+| Internal administrative system access | No, not from badge | Only through explicitly assigned permissions |
+| Access to member moderation tools | No, not from badge | Only if specifically authorised |
+| Access to identity verification evidence | No, not from badge | Only if specifically authorised |
+| Subject to normal reporting | Yes | Yes, for their ordinary member account |
+| Mandatory human review when reported | Yes, while staff-affiliated | Not automatically unless separately staff-affiliated |
+| Higher staff conduct standards | Yes | As applicable to their employment and operational responsibilities |
+| Automatic Photo Verified / ID Verified | No | No |
+
+Rationale: Swoovr's badge system must communicate specific, independently validated facts rather than creating a misleading overall trust score. Photo verification, identity verification, administrative trust review, permanent membership recognition, employment affiliation and bot authorisation establish different things and must remain distinguishable. Allowing multiple simultaneous badges gives members useful context without collapsing these meanings into a single verification status.
+
+The Founding Member badge recognises qualifying early adopters and preserves their contribution to Swoovr independently of paid subscription status. The Staff badge identifies a normal member whose employment affiliation has been confirmed, without incorrectly suggesting administrative privileges or privileged system access. Because staff-affiliated members publicly represent the organisation, reports against them require mandatory human review and higher accountability. Official bot identification ensures automated accounts can participate transparently in discovery without impersonating human members or initiating unsolicited social interactions. Keeping the system data-driven and enforcing eligibility server-side supports consistent, secure operation across all application platforms.
+
+Implementation: Extend the existing account, profile and credential persistence model to represent independent verification states, public badge assignments, founding-member recognition, employment affiliation, administrative trust review and official bot classification. Reuse existing authentication and authorisation infrastructure for privileged system access rather than deriving permissions from public profile badges.
+
+Persist Photo Verified and ID Verified as independently managed credentials with issuance, verification, expiry and revocation metadata. Implement validation of the underlying verification evidence and ensure that photograph changes can trigger re-verification without affecting unrelated identity credentials. Expose appropriate public verification dates without disclosing sensitive evidence or identity information.
+
+Implement Admin Verified as an internal, auditable enhanced manual trust-review record. Provide authorised administrative operations for review completion, reassessment and revocation. The status must remain valid until revoked and must not be included in public badge or discovery responses.
+
+Implement Founding Member recognition as a durable programme entitlement or status associated with the member account, subject to the approved 1,000-position limit and required verification activation. Keep permanent founding recognition distinct from the three-month Plus grant and subsequent twelve-month discounted subscription opportunity. Integrate the approved founder-recovery mechanism without using recovery tokens as authentication credentials.
+
+Model Swoovr Staff as a revocable employment-affiliation credential attached to an otherwise ordinary member account. Assign the ruby badge only after authorised confirmation of employment. Do not create a privileged public Staff account type, automatically grant administrative permissions or require separate public-facing accounts. Administrative identities and role assignments must be managed independently. Ensure that revoking employment affiliation removes the public badge without automatically deleting the member's normal account or unrelated credentials.
+
+Extend the moderation workflow so that every report against a staff-affiliated member is flagged for mandatory human review. Automated triage may continue to operate, including urgent protective interventions, but must not close the report without the required human-review outcome. Implement appropriate reviewer assignment, conflict-of-interest protections, senior escalation and comprehensive auditing. Support separate internal management escalation where serious employee misconduct is substantiated.
+
+Implement official bots using an explicit automated-account classification and authorised provisioning workflow. Persist independently configurable connection-mode permissions for each bot. Include eligible official bots in normal discovery results, with mandatory bot identification. Enforce member-initiated contact by rejecting bot-originated initial connection requests and unsolicited conversation creation at the API and application-service layers. Permit appropriate bot responses after member initiation. Prevent bots from receiving human Photo Verified or ID Verified credentials.
+
+Extend the existing badge-rendering components, including the Blazor WebAssembly badge component and corresponding .NET MAUI UI, to render all approved badge types and valid combinations. Use centrally defined badge metadata for identifiers, artwork, labels, ordering, accessibility descriptions and visibility rules. Ensure badges appear consistently across discovery cards, member profiles and messaging surfaces.
+
+Public-facing APIs must derive badges from trusted current credential and account records, exclude confidential administrative states and avoid exposing verification evidence, privileged role assignments or internal moderation information. Implement automated tests covering badge eligibility, combinations, verification independence, founding-member activation and recovery, staff affiliation assignment and revocation, mandatory staff-report review, bot mode configuration, bot identification, bot-initiated interaction restrictions, public/internal data separation and cross-platform presentation consistency.
