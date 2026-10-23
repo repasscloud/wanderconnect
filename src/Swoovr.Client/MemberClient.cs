@@ -48,8 +48,33 @@ public sealed class MemberClient(HttpClient http)
         SendAsync<PersonProfile>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profiles/" + id), cancellationToken);
 
     /// <summary>Sends a connection request in one mode to a person shown to the member (D112).</summary>
-    public Task<ApiResult<ConnectionRequestView>> SendRequestAsync(Guid to, string modeId, CancellationToken cancellationToken = default) =>
-        SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/requests") { Content = JsonContent.Create(new NewConnectionRequest(to, modeId)) }, cancellationToken);
+    public Task<ApiResult<ConnectionRequestView>> SendRequestAsync(Guid to, string modeId, Guid? trip = null, CancellationToken cancellationToken = default) =>
+        SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/requests") { Content = JsonContent.Create(new NewConnectionRequest(to, modeId, trip)) }, cancellationToken);
+
+    /// <summary>GeoNames city search (D111), largest places first.</summary>
+    public Task<ApiResult<List<PlaceView>>> PlacesAsync(string query, CancellationToken cancellationToken = default) =>
+        SendAsync<List<PlaceView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/places?q=" + Uri.EscapeDataString(query)), cancellationToken);
+
+    public Task<ApiResult<TripPage>> TripsAsync(int page = 1, CancellationToken cancellationToken = default) =>
+        SendAsync<TripPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/me/trips?page={page}"), cancellationToken);
+
+    /// <summary>Creates a trip (id null) or replaces one of the member's trips.</summary>
+    public Task<ApiResult<TripView>> SaveTripAsync(Guid? id, TripUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<TripView>(new HttpRequestMessage(id is null ? HttpMethod.Post : HttpMethod.Put, id is null ? "api/v1/me/trips" : $"api/v1/me/trips/{id}")
+            { Content = JsonContent.Create(update) }, cancellationToken);
+
+    public Task<int> CancelTripAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/trips/{id}/cancel"), cancellationToken);
+
+    public Task<int> RemoveTripAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/v1/me/trips/{id}"), cancellationToken);
+
+    public Task<ApiResult<ItineraryView>> NewItineraryAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ItineraryView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/itineraries"), cancellationToken);
+
+    /// <summary>Visiting travellers for a local (Q17); 403 not-local for anyone whose home city isn't in an active market.</summary>
+    public Task<ApiResult<VisitorPage>> VisitorsAsync(string modeId, int page = 1, CancellationToken cancellationToken = default) =>
+        SendAsync<VisitorPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/travel/visitors?mode={Uri.EscapeDataString(modeId)}&page={page}"), cancellationToken);
 
     /// <summary>Answers a request: "accept" or "decline" (the recipient) or "withdraw" (the sender).</summary>
     public Task<ApiResult<ConnectionRequestView>> AnswerRequestAsync(Guid id, string answer, CancellationToken cancellationToken = default) =>

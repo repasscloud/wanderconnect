@@ -79,6 +79,7 @@ static class PersistenceChecks
             }
             await Extra(options, Check);
             await Modes(options, Check);
+            await Travel(options, Check);
         }
         finally
         {
@@ -197,6 +198,43 @@ static class PersistenceChecks
             check("mode settings, intentions and bot authorisations go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a)
                 && !await db.MemberModeIntentions.AnyAsync() && !await db.BotModeAuthorisations.AnyAsync());
             check("requests and blocks go with either account", !await db.ConnectionRequests.AnyAsync() && !await db.Blocks.AnyAsync());
+        }
+    }
+
+    /// <summary>D110–D111: the GeoNames sample import (twice, as an upsert), search keys, the seeded market, trip constraints.</summary>
+    static async Task Travel(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
+    {
+        var folder = Path.Combine(AppContext.BaseDirectory, "geonames");
+        await using (var db = new SwoovrDbContext(options))
+        {
+            var first = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
+            var again = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
+            check("sample imported, and importing again changes nothing", first == again && await db.GeoCities.CountAsync() == first.Cities && first.Cities == 21
+                && await db.GeoCityNames.CountAsync() == first.Names);
+            var adelaide = await db.GeoCities.SingleAsync(c => c.GeoNameId == 2078025);
+            check("city with region, country and time zone", adelaide is { Name: "Adelaide", Admin1Name: "South Australia", CountryName: "Australia", TimeZone: "Australia/Adelaide" });
+            check("alternate names are searchable, folded", await db.GeoCityNames.AnyAsync(n => n.GeoNameId == 2988507 && n.Key == "parigi")
+                && await db.GeoCityNames.CountAsync(n => n.Key == "norwood") == 4);
+            var market = await db.Markets.SingleAsync();
+            check("Adelaide is the only market and active (D110)", market is { Id: "adelaide", Active: true, CentreGeoNameId: 2078025, RadiusKm: 50 });
+            var id = Guid.NewGuid();
+            var now = DateTimeOffset.Parse("2026-10-24T00:00:00Z");
+            db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "travel-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+            db.MemberProfiles.Add(new MemberProfile { AccountId = id, AgeStatus = AgeStatus.Attested, HomeGeoNameId = 2078025 });
+            db.Trips.Add(new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 3), CreatedAt = now, UpdatedAt = now });
+            await db.SaveChangesAsync();
+            check("a trip and a home city reference GeoNames ids", await db.Trips.CountAsync(t => t.AccountId == id) == 1);
+            foreach (var (what, trip) in new (string, Trip)[] {
+                ("a trip to a city that isn't in geo_cities", new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 1, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 2), CreatedAt = now, UpdatedAt = now }),
+                ("departure before arrival", new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 5), Departure = new DateOnly(2026, 11, 2), CreatedAt = now, UpdatedAt = now }) })
+                await using (var bad = new SwoovrDbContext(options))
+                {
+                    bad.Trips.Add(trip);
+                    check(what + " is refused by the database", await Throws(bad.SaveChangesAsync()));
+                }
+            db.Accounts.Remove(await db.Accounts.SingleAsync(a => a.Id == id));
+            await db.SaveChangesAsync();
+            check("trips go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id));
         }
     }
 

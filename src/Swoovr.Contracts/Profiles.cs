@@ -10,10 +10,12 @@ public sealed record ConnectionModeView(string Id, string Label, IReadOnlyList<I
 /// <summary>The member's own setting for one mode.</summary>
 public sealed record MyModeView(string Id, bool Enabled, bool Visible, IReadOnlyList<Guid> Intentions);
 
-/// <summary>The member's own profile: shared core fields plus every available mode's setting.</summary>
-public sealed record MyProfileView(Guid PublicId, string? DisplayName, string? Area, string? About, IReadOnlyList<MyModeView> Modes);
+/// <summary>The member's own profile: shared core fields plus every available mode's setting. HomeCity is private to the
+/// member (D110, D120); it decides which market they are local to.</summary>
+public sealed record MyProfileView(Guid PublicId, string? DisplayName, string? Area, string? About, IReadOnlyList<MyModeView> Modes, PlaceView? HomeCity = null);
 
-public sealed record ProfileUpdate(string? DisplayName, string? Area, string? About);
+/// <summary>A full replacement of the core profile: leaving HomeCityId out clears the home city.</summary>
+public sealed record ProfileUpdate(string? DisplayName, string? Area, string? About, int? HomeCityId = null);
 public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>? Intentions);
 
 /// <summary>One person in Explore for one mode, with the public badges the API decided (Q11). No age, email or account id.</summary>

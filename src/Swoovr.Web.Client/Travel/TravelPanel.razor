@@ -1,0 +1,228 @@
+@* Travel (Q17, D107, D109–D111; Interactive WebAssembly): its own screen, never part of the mode control. The member's
+   trips (city, dates, visibility, lifecycle, itineraries), and for locals of an active market the travellers visiting
+   it, marked "Visiting" with city, country and dates only. The API enforces every rule; this page only shows answers. *@
+@inject MemberClient Members
+<div class="page-heading" data-travel="@(loaded ? (refused is null ? "ready" : "refused") : "loading")">
+    <p class="breadcrumb"><a href="/explore">Explore</a> / Travel</p>
+    <h1>Travel</h1>
+    <p class="field-help">Locals can see you're visiting from 14 days before you arrive (or before the first stop of an itinerary). Your modes and home discovery don't change.</p>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (refused is not null) { <p role="status" data-travel-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Travel opens once your email is on the private beta list." : "We couldn't load Travel.")</p> }
+</div>
+@if (loaded && refused is null)
+{
+    <section class="card account-section" aria-labelledby="trips-heading" data-trips>
+        <h2 id="trips-heading">Your trips</h2>
+        @if (trips.Count == 0) { <p class="field-help">No trips yet.</p> }
+        else
+        {
+            <ul class="trip-list">
+                @foreach (var trip in trips)
+                {
+                    <li data-trip="@trip.Id" data-trip-state="@trip.State">
+                        <span><strong>@trip.City.Label</strong>@(trip.ItineraryId is null ? "" : " · itinerary")</span>
+                        <span class="field-help">@Dates(trip.Arrival, trip.Departure) · @StateText(trip)</span>
+                        @if (!trip.ActiveMarket && trip.State is not ("expired" or "cancelled"))
+                        {
+                            <span class="field-help" data-trip-market="inactive">Swoovr isn't open there yet, so no one can see this trip.</span>
+                        }
+                        @if (trip.State is not ("expired" or "cancelled"))
+                        {
+                            <span class="request-actions">
+                                <label class="option"><input type="checkbox" checked="@trip.Visible" disabled="@busy" @onchange="e => ToggleAsync(trip, e.Value is true)" /> Visible to locals</label>
+                                <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => CancelAsync(trip)">Cancel trip</button>
+                            </span>
+                        }
+                        <span class="request-actions"><button type="button" class="link-button" disabled="@busy" @onclick="() => RemoveAsync(trip)">Remove</button></span>
+                    </li>
+                }
+            </ul>
+            @if (more) { <button type="button" class="button button-secondary" @onclick="MoreAsync">Show more trips</button> }
+        }
+        <p role="status" aria-live="polite" class="field-help" data-trip-status="@tripStatus">@tripMessage</p>
+    </section>
+
+    <section class="card account-section" aria-labelledby="add-heading">
+        <h2 id="add-heading">Add a trip</h2>
+        <form class="stack" @onsubmit="AddAsync" data-trip-form>
+            <CitySearch InputId="trip-city" Label="Destination" @bind-Selected="city" />
+            <div class="field"><label for="arrival">Arrival</label><input id="arrival" type="date" @bind="arrival" /></div>
+            <div class="field"><label for="departure">Departure</label><input id="departure" type="date" @bind="departure" /></div>
+            <div class="field">
+                <label for="itinerary">Itinerary</label>
+                <select id="itinerary" @bind="itinerary">
+                    <option value="">Not part of an itinerary</option>
+                    @foreach (var id in trips.Where(t => t.ItineraryId is not null && t.State is not ("expired" or "cancelled")).Select(t => t.ItineraryId!.Value).Distinct())
+                    {
+                        <option value="@id">With @string.Join(", ", trips.Where(t => t.ItineraryId == id).Select(t => t.City.Name))</option>
+                    }
+                    <option value="new">Start a new itinerary</option>
+                </select>
+            </div>
+            <label class="option"><input type="checkbox" @bind="visible" /> Visible to locals when the trip opens</label>
+            <button type="submit" class="button" disabled="@(busy || city is null)">Save trip</button>
+        </form>
+    </section>
+
+    <section class="card account-section" aria-labelledby="visitors-heading" data-visitors="@visitorState">
+        <h2 id="visitors-heading">@(market is null ? "Visiting your city" : $"Visiting {market}")</h2>
+        @if (visitorState == "not-local")
+        {
+            <p class="field-help">Set a home city in a Swoovr market on <a class="link" href="/me/profile">your profile</a> to see who's visiting.</p>
+        }
+        else
+        {
+            <nav class="segmented" aria-label="Connection mode">
+                @foreach (var mode in modes.Where(m => enabled.Contains(m.Id)))
+                {
+                    <button type="button" class="segment" aria-pressed="@(mode.Id == visitorMode ? "true" : "false")" data-mode="@mode.Id" @onclick="() => VisitorsAsync(mode.Id)">@mode.Label</button>
+                }
+            </nav>
+            @if (visitorState == "off") { <p class="field-help">Turn on a mode in <a class="link" href="/me/profile">your profile</a> to see who's visiting.</p> }
+            else if (visitors.Count == 0) { <p class="field-help" data-visitors-empty>No one is visiting in @Label(visitorMode) yet.</p> }
+            else
+            {
+                <ul class="trip-list">
+                    @foreach (var person in visitors)
+                    {
+                        <li data-visitor="@person.Id" data-visitor-trip="@person.Visiting.TripId">
+                            <span class="request-person"><a href="@($"/people/{person.Id}")">@person.DisplayName</a><BadgeRow Badges="person.Badges" /></span>
+                            <span><span class="visiting">Visiting</span> @person.Visiting.City, @person.Visiting.Country · @Dates(person.Visiting.Arrival, person.Visiting.Departure)</span>
+                            @if (person.Intentions.Count > 0) { <span class="field-help">@string.Join(" · ", person.Intentions)</span> }
+                            <span class="request-actions"><button type="button" class="button" disabled="@busy" @onclick="() => RequestAsync(person)">Send request</button></span>
+                        </li>
+                    }
+                </ul>
+            }
+            <p role="status" aria-live="polite" class="field-help" data-visitor-status="@visitorStatus">@visitorMessage</p>
+        }
+    </section>
+}
+@code {
+    private bool loaded, busy, more, visible = true;
+    private int page = 1;
+    private string? refused, tripStatus, tripMessage, market, visitorStatus, visitorMessage, itinerary = "";
+    private string visitorMode = "", visitorState = "loading";
+    private PlaceView? city;
+    private DateOnly? arrival, departure;
+    private List<TripView> trips = [];
+    private List<ConnectionModeView> modes = [];
+    private HashSet<string> enabled = [];
+    private IReadOnlyList<VisitorCard> visitors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var (catalogue, profile, first) = (await Members.ModesAsync(), await Members.ProfileAsync(), await Members.TripsAsync());
+            if (catalogue.Value is null || profile.Value is null || first.Value is null) refused = catalogue.Code ?? profile.Code ?? first.Code ?? "unavailable";
+            else
+            {
+                (modes, trips, more) = (catalogue.Value, [.. first.Value.Items], first.Value.More);
+                enabled = profile.Value.Modes.Where(m => m.Enabled).Select(m => m.Id).ToHashSet();
+            }
+        }
+        catch (HttpRequestException) { refused = "unavailable"; }
+        loaded = true;
+        if (refused is null) await VisitorsAsync(modes.FirstOrDefault(m => enabled.Contains(m.Id))?.Id ?? "");
+    }
+
+    private async Task ReloadTripsAsync()
+    {
+        var first = await Members.TripsAsync();
+        (trips, more, page) = ([.. first.Value?.Items ?? []], first.Value?.More ?? false, 1);
+    }
+
+    private async Task MoreAsync()
+    {
+        var next = await Members.TripsAsync(page + 1);
+        if (next.Value is { } found) { trips.AddRange(found.Items); (more, page) = (found.More, page + 1); }
+    }
+
+    private async Task AddAsync()
+    {
+        if (city is null || arrival is null || departure is null) { (tripStatus, tripMessage) = ("invalid", "Pick a city and both dates."); return; }
+        busy = true;
+        Guid? group = Guid.TryParse(itinerary, out var existing) ? existing : null;
+        if (itinerary == "new") group = (await Members.NewItineraryAsync()).Value?.Id;
+        var result = await Members.SaveTripAsync(null, new TripUpdate(city.Id, arrival.Value, departure.Value, visible, group));
+        (tripStatus, tripMessage) = result.Ok ? ("saved", "Trip saved.") : (result.Code ?? "failed", Problem(result.Code));
+        if (result.Ok) { (city, arrival, departure, itinerary) = (null, null, null, ""); await ReloadTripsAsync(); }
+        busy = false;
+    }
+
+    private async Task ToggleAsync(TripView trip, bool on)
+    {
+        busy = true;
+        var result = await Members.SaveTripAsync(trip.Id, new TripUpdate(trip.City.Id, trip.Arrival, trip.Departure, on, trip.ItineraryId));
+        (tripStatus, tripMessage) = result.Ok ? ("saved", on ? "Visible to locals once it opens." : "Hidden. The trip is kept.") : (result.Code ?? "failed", Problem(result.Code));
+        await ReloadTripsAsync();
+        busy = false;
+    }
+
+    private async Task CancelAsync(TripView trip)
+    {
+        busy = true;
+        (tripStatus, tripMessage) = await Members.CancelTripAsync(trip.Id) == 204 ? ("cancelled", "Trip cancelled. It stays in your history.") : ("failed", "That didn't work.");
+        await ReloadTripsAsync();
+        busy = false;
+    }
+
+    private async Task RemoveAsync(TripView trip)
+    {
+        busy = true;
+        (tripStatus, tripMessage) = await Members.RemoveTripAsync(trip.Id) == 204 ? ("removed", "Trip removed.") : ("failed", "That didn't work.");
+        await ReloadTripsAsync();
+        busy = false;
+    }
+
+    private async Task VisitorsAsync(string modeId)
+    {
+        visitorMode = modeId;
+        if (modeId.Length == 0) { visitorState = "off"; return; }
+        var result = await Members.VisitorsAsync(modeId);
+        (visitorState, visitors, market) = result.Code switch
+        {
+            ProblemCodes.NotLocal => ("not-local", [], null),
+            ProblemCodes.ModeNotEnabled => ("off", [], market),
+            _ => ("ready", (IReadOnlyList<VisitorCard>?)result.Value?.People ?? [], result.Value?.Market),
+        };
+    }
+
+    private async Task RequestAsync(VisitorCard person)
+    {
+        busy = true;
+        var result = await Members.SendRequestAsync(person.Id, visitorMode, person.Visiting.TripId);
+        (visitorStatus, visitorMessage) = result.Ok ? ("sent", $"Request sent to {person.DisplayName}.") : (result.Code ?? "failed", result.Code switch
+        {
+            ProblemCodes.RequestPending => "There's already a request between you in this mode.",
+            ProblemCodes.AlreadyConnected => "You're already connected in this mode.",
+            ProblemCodes.TooManyRequests => "You've sent a lot of requests today. Try again later.",
+            _ => "That request couldn't be sent.",
+        });
+        busy = false;
+    }
+
+    private string Label(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
+
+    // Calendar dates at the destination, written in the viewer's locale (Q17 rule 27).
+    private static string Dates(DateOnly from, DateOnly to) => $"{from:d MMM yyyy} – {to:d MMM yyyy}";
+
+    private static string StateText(TripView trip) => trip.State switch
+    {
+        "visible" => "Visible to locals",
+        "expired" => "Over",
+        "cancelled" => "Cancelled",
+        _ => trip.Visible ? $"Opens {trip.OpensOn:d MMM yyyy}" : "Hidden",
+    };
+
+    private static string Problem(string? code) => code switch
+    {
+        ProblemCodes.InvalidTripDates => "Check the dates: departure on or after arrival, not already over, within two years.",
+        ProblemCodes.ItineraryNotBackToBack => "Itinerary stops run back to back: each arrives on or after the last one leaves, at most 14 days later.",
+        ProblemCodes.TripOverlaps => "Another visible trip overlaps these dates. Hide it first or change the dates.",
+        ProblemCodes.UnknownPlace => "Pick the city from the list.",
+        ProblemCodes.TooManyTrips => "That's a lot of trip changes. Try again later.",
+        _ => "That trip wasn't saved. Try again.",
+    };
+}

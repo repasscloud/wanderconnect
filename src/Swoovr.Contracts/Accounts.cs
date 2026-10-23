@@ -38,6 +38,13 @@ public static class ProblemCodes
     public const string RecentlyDeclined = "recently-declined";
     public const string TooManyRequests = "too-many-requests";
     public const string RequestSettled = "request-settled";
+    public const string UnknownPlace = "unknown-place";
+    public const string InvalidTripDates = "invalid-trip-dates";
+    public const string ItineraryNotBackToBack = "itinerary-not-back-to-back";
+    public const string TripOverlaps = "trip-overlaps";
+    public const string TripCancelled = "trip-cancelled";
+    public const string NotLocal = "not-local";
+    public const string TooManyTrips = "too-many-trips";
     public const string ModeNotEnabled = "mode-not-enabled";
     public const string FounderPlacesFull = "founder-places-full";
     public const string AlreadyFounder = "already-founder";

@@ -33,6 +33,15 @@ public static class RequestEndpoints
             if (mode is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
             var target = await ProfileEndpoints.Candidates(db, configuration, me.AccountId).SingleOrDefaultAsync(c => c.Profile.PublicId == request.To, cancellationToken);
             var shown = target is not null && (await ProfileEndpoints.SharedModesAsync(db, me.AccountId, target, cancellationToken)).Any(m => m.Id == mode.Id);
+            // From the Travel feed (Q17 rule 29): the trip must be the recipient's and one the sender, a local, can see now.
+            if (request.Trip is { } tripId)
+            {
+                var markets = await Travel.TravelEndpoints.MarketsAsync(db, cancellationToken);
+                var home = me.HomeGeoNameId is { } h ? await db.GeoCities.FindAsync([h], cancellationToken) : null;
+                shown = target is not null && PlaceNames.ActiveMarketOf(home, markets) is { } market
+                    && (await Travel.TravelEndpoints.VisitsToAsync(db, configuration, me.AccountId, market, markets, mode.Id, now, cancellationToken))
+                        .Any(v => v.Trip.Id == tripId && v.Person.Profile.AccountId == target.Profile.AccountId);
+            }
             var other = target?.Profile.AccountId ?? Guid.Empty;
             var (low, high) = ConnectionRequest.Pair(me.AccountId, other);
             var between = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high && r.ModeId == mode.Id).ToListAsync(cancellationToken);
@@ -66,7 +75,7 @@ public static class RequestEndpoints
             var created = new ConnectionRequest
             {
                 Id = Guid.NewGuid(), FromAccountId = me.AccountId, ToAccountId = other, PairLow = low, PairHigh = high, ModeId = mode.Id,
-                Status = ConnectionRequestStatus.Pending, CreatedAt = now,
+                Status = ConnectionRequestStatus.Pending, CreatedAt = now, TripId = request.Trip,
             };
             db.ConnectionRequests.Add(created);
             Audit.Record(db, now, me.AccountId, "account", "request.sent", "connection-request", created.Id.ToString(), mode.Id);
@@ -204,6 +213,8 @@ public static class RequestEndpoints
         var otherId = request.FromAccountId == me ? request.ToAccountId : request.FromAccountId;
         var other = await db.MemberProfiles.SingleAsync(p => p.AccountId == otherId, cancellationToken);
         var person = new PersonSummary(other.PublicId, other.DisplayName, ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
-        return new(request.Id, request.ModeId, request.FromAccountId == me ? "sent" : "received", Wire(request.Status), person, request.CreatedAt);
+        var visit = request.TripId is { } tripId ? await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
+                                                         where t.Id == tripId select Travel.TravelEndpoints.Visit(t, c)).SingleOrDefaultAsync(cancellationToken) : null;
+        return new(request.Id, request.ModeId, request.FromAccountId == me ? "sent" : "received", Wire(request.Status), person, request.CreatedAt, visit);
     }
 }

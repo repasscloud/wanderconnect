@@ -5,6 +5,7 @@
 @inject MemberClient Members
 <div class="page-heading" data-explore="@(loaded ? "ready" : "loading")">
     <h1>Explore</h1>
+    <p class="field-help"><a class="link" href="/travel" data-travel-link>Travel</a>: plan trips and see who's visiting.</p>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (refused is not null) { <p role="status" data-explore-refused="@refused">@RefusedText</p> }
 </div>

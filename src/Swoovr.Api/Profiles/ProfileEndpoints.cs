@@ -39,7 +39,10 @@ public static class ProfileEndpoints
             if (ProfileTextPolicy.Check(name, area, about) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, "Check the profile fields.");
             var (profile, db) = (current!.Profile!, accounts.Db!);
-            (profile.DisplayName, profile.Area, profile.About) = (name, area, about);
+            // D110: the home city must be a GeoNames city from Swoovr's own copy.
+            if (update.HomeCityId is { } home && !await db.GeoCities.AnyAsync(c => c.GeoNameId == home, cancellationToken))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.UnknownPlace, "Pick your home city from the list.");
+            (profile.DisplayName, profile.Area, profile.About, profile.HomeGeoNameId) = (name, area, about, update.HomeCityId);
             // The audit records that the profile changed, never what it says.
             Audit.Record(db, clock.GetUtcNow(), profile.AccountId, "account", "profile.updated", "account", profile.AccountId.ToString());
             await db.SaveChangesAsync(cancellationToken);
@@ -217,9 +220,10 @@ public static class ProfileEndpoints
                             where i.AccountId == profile.AccountId && offered.Available
                             orderby offered.SortOrder
                             select i).ToListAsync(cancellationToken);
+        var home = profile.HomeGeoNameId is { } id ? await db.GeoCities.FindAsync([id], cancellationToken) : null;
         return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
             ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList())
-            : new MyModeView(m.Id, false, false, [])).ToList());
+            : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home));
     }
 
     /// <summary>Labels of the available intentions each person chose, by (account, mode).</summary>

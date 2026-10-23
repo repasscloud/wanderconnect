@@ -396,6 +396,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.HasIndex("ModeId")
                         .HasDatabaseName("ix_connection_requests_mode_id");
 
+                    b.HasIndex("TripId")
+                        .HasDatabaseName("ix_connection_requests_trip_id");
+
                     b.HasIndex("FromAccountId", "CreatedAt")
                         .HasDatabaseName("ix_connection_requests_from_account_id_created_at");
 
@@ -490,6 +493,95 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("founder_tokens");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.GeoCity", b =>
+                {
+                    b.Property<int>("GeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("geo_name_id");
+
+                    b.Property<string>("Admin1Code")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("admin1_code");
+
+                    b.Property<string>("Admin1Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("admin1_name");
+
+                    b.Property<string>("AsciiName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("ascii_name");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<string>("CountryName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("country_name");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<long>("Population")
+                        .HasColumnType("bigint")
+                        .HasColumnName("population");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("time_zone");
+
+                    b.HasKey("GeoNameId")
+                        .HasName("pk_geo_cities");
+
+                    b.ToTable("geo_cities");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.GeoCityName", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("key");
+
+                    b.Property<int>("GeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("geo_name_id");
+
+                    b.HasKey("Key", "GeoNameId")
+                        .HasName("pk_geo_city_names");
+
+                    b.HasIndex("GeoNameId")
+                        .HasDatabaseName("ix_geo_city_names_geo_name_id");
+
+                    b.HasIndex(new[] { "Key" }, "ix_geo_city_names_key_prefix")
+                        .HasDatabaseName("ix_geo_city_names_key_prefix");
+
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Key" }, "ix_geo_city_names_key_prefix"), new[] { "text_pattern_ops" });
+
+                    b.ToTable("geo_city_names");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -550,6 +642,71 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_invitations_realm_email");
 
                     b.ToTable("invitations");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Itinerary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_itineraries");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_itineraries_account_id");
+
+                    b.ToTable("itineraries");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Market", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean")
+                        .HasColumnName("active");
+
+                    b.Property<int>("CentreGeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("centre_geo_name_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<double>("RadiusKm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("radius_km");
+
+                    b.HasKey("Id")
+                        .HasName("pk_markets");
+
+                    b.ToTable("markets");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "adelaide",
+                            Active = true,
+                            CentreGeoNameId = 2078025,
+                            Name = "Adelaide",
+                            RadiusKm = 50.0
+                        });
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>
@@ -679,6 +836,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("founding_since");
 
+                    b.Property<int?>("HomeGeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("home_geo_name_id");
+
                     b.Property<DateTimeOffset?>("IdCheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("id_checked_at");
@@ -712,6 +873,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_member_profiles_founder_place")
                         .HasFilter("founder_place IS NOT NULL");
+
+                    b.HasIndex("HomeGeoNameId")
+                        .HasDatabaseName("ix_member_profiles_home_geo_name_id");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
@@ -1119,6 +1283,67 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("role_grants");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Trip", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateOnly>("Arrival")
+                        .HasColumnType("date")
+                        .HasColumnName("arrival");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Departure")
+                        .HasColumnType("date")
+                        .HasColumnName("departure");
+
+                    b.Property<int>("GeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("geo_name_id");
+
+                    b.Property<Guid?>("ItineraryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("itinerary_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<bool>("Visible")
+                        .HasColumnType("boolean")
+                        .HasColumnName("visible");
+
+                    b.HasKey("Id")
+                        .HasName("pk_trips");
+
+                    b.HasIndex("ItineraryId")
+                        .HasDatabaseName("ix_trips_itinerary_id");
+
+                    b.HasIndex("AccountId", "Arrival")
+                        .HasDatabaseName("ix_trips_account_id_arrival");
+
+                    b.HasIndex("GeoNameId", "Departure")
+                        .HasDatabaseName("ix_trips_geo_name_id_departure");
+
+                    b.ToTable("trips", t =>
+                        {
+                            t.HasCheckConstraint("ck_trips_dates", "departure >= arrival");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Block", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1175,6 +1400,12 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_connection_requests_accounts_to_account_id");
+
+                    b.HasOne("Swoovr.Domain.Trip", null)
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_connection_requests_trips_trip_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>
@@ -1185,6 +1416,26 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_founder_tokens_founder_places_place");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.GeoCityName", b =>
+                {
+                    b.HasOne("Swoovr.Domain.GeoCity", null)
+                        .WithMany()
+                        .HasForeignKey("GeoNameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_geo_city_names_geo_cities_geo_name_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Itinerary", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_itineraries_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>
@@ -1229,6 +1480,12 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_member_profiles_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.GeoCity", null)
+                        .WithMany()
+                        .HasForeignKey("HomeGeoNameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_member_profiles_geo_cities_home_geo_name_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ModeIntention", b =>
@@ -1249,6 +1506,29 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_role_grants_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Trip", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_trips_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.GeoCity", null)
+                        .WithMany()
+                        .HasForeignKey("GeoNameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_trips_geo_cities_geo_name_id");
+
+                    b.HasOne("Swoovr.Domain.Itinerary", null)
+                        .WithMany()
+                        .HasForeignKey("ItineraryId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_trips_itineraries_itinerary_id");
                 });
 #pragma warning restore 612, 618
         }

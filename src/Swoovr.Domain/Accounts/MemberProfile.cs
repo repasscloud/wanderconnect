@@ -50,6 +50,8 @@ public sealed class MemberProfile
     public string? DisplayName { get; set; }
     public string? Area { get; set; }
     public string? About { get; set; }
+    /// <summary>The member's home city, a GeoNames id (D110). Decides which market they are local to; private to them.</summary>
+    public int? HomeGeoNameId { get; set; }
 }
 
 public enum Badge { Founder, PhotoVerified, IdVerified, Staff, Bot }

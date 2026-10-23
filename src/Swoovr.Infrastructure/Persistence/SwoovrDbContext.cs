@@ -30,6 +30,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<BotModeAuthorisation> BotModeAuthorisations => Set<BotModeAuthorisation>();
     public DbSet<ConnectionRequest> ConnectionRequests => Set<ConnectionRequest>();
     public DbSet<Block> Blocks => Set<Block>();
+    public DbSet<GeoCity> GeoCities => Set<GeoCity>();
+    public DbSet<GeoCityName> GeoCityNames => Set<GeoCityName>();
+    public DbSet<Market> Markets => Set<Market>();
+    public DbSet<Trip> Trips => Set<Trip>();
+    public DbSet<Itinerary> Itineraries => Set<Itinerary>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -64,6 +69,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.DisplayName).HasMaxLength(ProfileTextPolicy.DisplayNameMax);
             profile.Property(p => p.Area).HasMaxLength(ProfileTextPolicy.AreaMax);
             profile.Property(p => p.About).HasMaxLength(ProfileTextPolicy.AboutMax);
+            profile.HasOne<GeoCity>().WithMany().HasForeignKey(p => p.HomeGeoNameId).OnDelete(DeleteBehavior.Restrict);
         });
         // D92: four modes with stable ids; labels, order and availability are data. Q16: forty intention chips with
         // fixed ids (IntentionChips, D113).
@@ -119,6 +125,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             request.HasOne<Account>().WithMany().HasForeignKey(r => r.FromAccountId).OnDelete(DeleteBehavior.Cascade);
             request.HasOne<Account>().WithMany().HasForeignKey(r => r.ToAccountId).OnDelete(DeleteBehavior.Cascade);
             request.HasOne<ConnectionMode>().WithMany().HasForeignKey(r => r.ModeId).OnDelete(DeleteBehavior.Restrict);
+            request.HasOne<Trip>().WithMany().HasForeignKey(r => r.TripId).OnDelete(DeleteBehavior.SetNull);
             request.HasIndex(r => new { r.PairLow, r.PairHigh, r.ModeId }, "ix_connection_requests_one_pending").IsUnique().HasFilter("status = 'Pending'");
             request.HasIndex(r => new { r.PairLow, r.PairHigh, r.ModeId }, "ix_connection_requests_one_accepted").IsUnique().HasFilter("status = 'Accepted'");
             request.HasIndex(r => new { r.ToAccountId, r.Status });
@@ -132,6 +139,47 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             block.HasOne<Account>().WithMany().HasForeignKey(b => b.BlockedAccountId).OnDelete(DeleteBehavior.Cascade);
             block.HasIndex(b => b.BlockedAccountId);
             block.ToTable(t => t.HasCheckConstraint("ck_blocks_not_self", "blocker_account_id <> blocked_account_id"));
+        });
+        // D111: GeoNames cities and their searchable spellings (prefix search on a folded key).
+        model.Entity<GeoCity>(city =>
+        {
+            city.HasKey(c => c.GeoNameId);
+            city.Property(c => c.GeoNameId).ValueGeneratedNever();
+            city.Property(c => c.Name).HasMaxLength(200);
+            city.Property(c => c.AsciiName).HasMaxLength(200);
+            city.Property(c => c.CountryCode).HasMaxLength(2);
+            city.Property(c => c.CountryName).HasMaxLength(200);
+            city.Property(c => c.Admin1Code).HasMaxLength(20);
+            city.Property(c => c.Admin1Name).HasMaxLength(200);
+            city.Property(c => c.TimeZone).HasMaxLength(40);
+        });
+        model.Entity<GeoCityName>(name =>
+        {
+            name.HasKey(n => new { n.Key, n.GeoNameId });
+            name.Property(n => n.Key).HasMaxLength(200);
+            name.HasIndex(n => n.Key, "ix_geo_city_names_key_prefix").HasOperators("text_pattern_ops");
+            name.HasOne<GeoCity>().WithMany().HasForeignKey(n => n.GeoNameId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // D110: markets are rows; Adelaide (GeoNames 2078025) is the only active one. 50 km is a DEFAULT (Q18).
+        model.Entity<Market>(market =>
+        {
+            market.Property(m => m.Id).HasMaxLength(32);
+            market.Property(m => m.Name).HasMaxLength(80);
+            market.HasData(new Market { Id = "adelaide", Name = "Adelaide", Active = true, CentreGeoNameId = 2078025, RadiusKm = 50 });
+        });
+        model.Entity<Itinerary>(itinerary =>
+        {
+            itinerary.HasOne<Account>().WithMany().HasForeignKey(i => i.AccountId).OnDelete(DeleteBehavior.Cascade);
+            itinerary.HasIndex(i => i.AccountId);
+        });
+        model.Entity<Trip>(trip =>
+        {
+            trip.HasOne<Account>().WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Cascade);
+            trip.HasOne<GeoCity>().WithMany().HasForeignKey(t => t.GeoNameId).OnDelete(DeleteBehavior.Restrict);
+            trip.HasOne<Itinerary>().WithMany().HasForeignKey(t => t.ItineraryId).OnDelete(DeleteBehavior.SetNull);
+            trip.HasIndex(t => new { t.AccountId, t.Arrival });
+            trip.HasIndex(t => new { t.GeoNameId, t.Departure });
+            trip.ToTable(t => t.HasCheckConstraint("ck_trips_dates", "departure >= arrival"));
         });
         model.Entity<FounderPlace>(place =>
         {

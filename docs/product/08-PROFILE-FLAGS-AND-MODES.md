@@ -60,11 +60,19 @@ Travel is an optional, independent **discovery state**, not a fifth mode. It cha
 - **Own interface.** Travel has its own screen for choosing destinations, managing the itinerary, scheduling and cancelling, separate from the segmented control.
 - **Server-side.** Itinerary checks, the 14-day limit and its multi-city exception, activation and expiry are enforced by the application, not the client.
 
+### Travel as built (slice M, 24 October 2026)
+
+Q17 and the follow-up answers (D107, D109–D111) are built as described in D120–D122: GeoNames city search, a private home city, unlimited trips with a lifecycle (planned, visible, expired, cancelled), itineraries of back-to-back stops that open together, overlap refusal for visible trips, and the destination feed in which locals of an active market (only Adelaide) see visiting travellers and may send them a request. Travellers get no feed of locals.
+
+**Traveller destination search: prerequisite only (Q17 rules 33–36, not built).** A future `GET` search for locals in a destination must take the id of one of the caller's own trips, not a free city. It is allowed only while that trip is not cancelled or expired, has both dates and references the destination's GeoNames id, and its city is in an active market. It must apply the same account, mode, block and moderation rules as Explore, and it must never add its results to the normal Explore feed. Without such a trip the answer is the same 404 as for anything not available.
+
+Not built: arrival changing discovery to a device location (Q23), traveller search (above), Travel in the MAUI app (see validation).
+
 ### Earlier names
 
 **Connect**, **Friends & company** and **Travel & exploring** were the [product brief](01-PRODUCT-BRIEF.md)'s original context labels. They are legacy names, not extra connection modes. "Dating, Friends, Activities" on the reference screens was a placeholder set, now replaced by the four modes above.
 
-Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Built on 24 October 2026 (slice J, D106, D113): the forty chips seeded with fixed ids, the "n of 5" picker on the web profile page, chips on Explore tiles and person pages. Not built: per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
+Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Built on 24 October 2026 (slice J, D106, D113): the forty chips seeded with fixed ids, the "n of 5" picker on the web profile page, chips on Explore tiles and person pages. Built on 24 October 2026 (slices K–M): badges for others, staff and bots in discovery, connection requests and blocks, and Travel (see above). Not built: per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
 
 ## Current state
 
