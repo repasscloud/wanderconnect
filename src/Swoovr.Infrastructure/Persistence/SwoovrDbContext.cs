@@ -28,6 +28,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MemberModeIntention> MemberModeIntentions => Set<MemberModeIntention>();
     public DbSet<BadgeDefinition> BadgeDefinitions => Set<BadgeDefinition>();
     public DbSet<BotModeAuthorisation> BotModeAuthorisations => Set<BotModeAuthorisation>();
+    public DbSet<ConnectionRequest> ConnectionRequests => Set<ConnectionRequest>();
+    public DbSet<Block> Blocks => Set<Block>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -109,6 +111,27 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             authorised.Property(b => b.ModeId).HasMaxLength(32);
             authorised.HasOne<Account>().WithMany().HasForeignKey(b => b.AccountId).OnDelete(DeleteBehavior.Cascade);
             authorised.HasOne<ConnectionMode>().WithMany().HasForeignKey(b => b.ModeId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // D112: requests per pair and mode. At most one pending and one accepted per pair and mode, either direction.
+        model.Entity<ConnectionRequest>(request =>
+        {
+            request.Property(r => r.ModeId).HasMaxLength(32);
+            request.HasOne<Account>().WithMany().HasForeignKey(r => r.FromAccountId).OnDelete(DeleteBehavior.Cascade);
+            request.HasOne<Account>().WithMany().HasForeignKey(r => r.ToAccountId).OnDelete(DeleteBehavior.Cascade);
+            request.HasOne<ConnectionMode>().WithMany().HasForeignKey(r => r.ModeId).OnDelete(DeleteBehavior.Restrict);
+            request.HasIndex(r => new { r.PairLow, r.PairHigh, r.ModeId }, "ix_connection_requests_one_pending").IsUnique().HasFilter("status = 'Pending'");
+            request.HasIndex(r => new { r.PairLow, r.PairHigh, r.ModeId }, "ix_connection_requests_one_accepted").IsUnique().HasFilter("status = 'Accepted'");
+            request.HasIndex(r => new { r.ToAccountId, r.Status });
+            request.HasIndex(r => new { r.FromAccountId, r.CreatedAt });
+            request.ToTable(t => t.HasCheckConstraint("ck_connection_requests_not_self", "from_account_id <> to_account_id"));
+        });
+        model.Entity<Block>(block =>
+        {
+            block.HasKey(b => new { b.BlockerAccountId, b.BlockedAccountId });
+            block.HasOne<Account>().WithMany().HasForeignKey(b => b.BlockerAccountId).OnDelete(DeleteBehavior.Cascade);
+            block.HasOne<Account>().WithMany().HasForeignKey(b => b.BlockedAccountId).OnDelete(DeleteBehavior.Cascade);
+            block.HasIndex(b => b.BlockedAccountId);
+            block.ToTable(t => t.HasCheckConstraint("ck_blocks_not_self", "blocker_account_id <> blocked_account_id"));
         });
         model.Entity<FounderPlace>(place =>
         {

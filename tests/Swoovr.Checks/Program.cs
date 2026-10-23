@@ -8,6 +8,7 @@ AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
 ConnectionModeChecks.Run();
+ConnectionRequestChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

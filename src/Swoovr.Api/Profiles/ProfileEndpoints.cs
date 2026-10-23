@@ -92,8 +92,8 @@ public static class ProfileEndpoints
             var own = await db.MemberModes.SingleOrDefaultAsync(m => m.AccountId == viewer && m.ModeId == selected.Id, cancellationToken);
             if (own is not { Enabled: true })
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModeNotEnabled, "Turn this mode on to see who's here.");
-            var people = await Candidates(db, configuration)
-                .Where(c => c.Profile.AccountId != viewer && db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
+            var people = await Candidates(db, configuration, viewer)
+                .Where(c => db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
                     && m.ModeId == selected.Id && m.Enabled && m.Visible)
                     && (!c.Profile.Bot || db.BotModeAuthorisations.Any(b => b.AccountId == c.Profile.AccountId && b.ModeId == selected.Id)))
                 .OrderByDescending(c => db.MemberModes.Where(m => m.AccountId == c.Profile.AccountId && m.ModeId == selected.Id).Select(m => m.UpdatedAt).First())
@@ -114,23 +114,46 @@ public static class ProfileEndpoints
             if (denied is not null) return denied;
             var db = accounts.Db!;
             var viewer = current!.Profile!.AccountId;
-            var person = await Candidates(db, configuration).SingleOrDefaultAsync(c => c.Profile.PublicId == id && c.Profile.AccountId != viewer, cancellationToken);
-            // Shown only in modes both have on and the person made visible; otherwise it reads as not found.
-            var modes = await db.ConnectionModes.Where(m => m.Available).OrderBy(m => m.SortOrder).ToListAsync(cancellationToken);
-            var mine = await db.MemberModes.Where(m => m.AccountId == viewer).ToDictionaryAsync(m => m.ModeId, cancellationToken);
-            var theirs = person is null ? [] : await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId).ToDictionaryAsync(m => m.ModeId, cancellationToken);
-            var bots = person is { Profile.Bot: true } ? await BotModesAsync(db, [person.Profile.AccountId], cancellationToken) : [];
-            var shared = person is null ? [] : modes.Where(m => DiscoveryEligibility.ShownIn(m.Id, m, mine.GetValueOrDefault(m.Id), theirs.GetValueOrDefault(m.Id), person.Candidate(bots))).ToList();
+            var person = await Candidates(db, configuration, viewer).SingleOrDefaultAsync(c => c.Profile.PublicId == id, cancellationToken);
+            // Shown only in modes both have on and the person made visible; otherwise (including a block either way) it
+            // reads as not found.
+            var shared = person is null ? [] : await SharedModesAsync(db, viewer, person, cancellationToken);
             if (person is null || shared.Count == 0) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
             var chips = await IntentionLabelsAsync(db, [person.Profile.AccountId], null, cancellationToken);
+            var (low, high) = ConnectionRequest.Pair(viewer, person.Profile.AccountId);
+            var between = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high
+                && (r.Status == ConnectionRequestStatus.Pending || r.Status == ConnectionRequestStatus.Accepted)).ToListAsync(cancellationToken);
             return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, person.Profile.About,
-                shared.Select(m => new SharedModeView(m.Id, m.Label, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []))).ToList(),
+                shared.Select(m => ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between)).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken))));
         });
     }
 
+    private static SharedModeView ModeView(ConnectionMode mode, IReadOnlyList<string> chips, Guid viewer, List<ConnectionRequest> between)
+    {
+        var request = between.Where(r => r.ModeId == mode.Id).OrderBy(r => r.Status).FirstOrDefault();
+        var state = request switch
+        {
+            null => "none",
+            { Status: ConnectionRequestStatus.Accepted } => "connected",
+            _ when request.FromAccountId == viewer => "sent",
+            _ => "received",
+        };
+        return new(mode.Id, mode.Label, chips, state, request is { Status: ConnectionRequestStatus.Pending } ? request.Id : null);
+    }
+
+    /// <summary>The available modes in which the person is shown to the viewer (DiscoveryEligibility.ShownIn), in order.</summary>
+    public static async Task<List<ConnectionMode>> SharedModesAsync(SwoovrDbContext db, Guid viewer, Row person, CancellationToken cancellationToken)
+    {
+        var modes = await db.ConnectionModes.Where(m => m.Available).OrderBy(m => m.SortOrder).ToListAsync(cancellationToken);
+        var mine = await db.MemberModes.Where(m => m.AccountId == viewer).ToDictionaryAsync(m => m.ModeId, cancellationToken);
+        var theirs = await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId).ToDictionaryAsync(m => m.ModeId, cancellationToken);
+        var bots = person.Profile.Bot ? await BotModesAsync(db, [person.Profile.AccountId], cancellationToken) : [];
+        return modes.Where(m => DiscoveryEligibility.ShownIn(m.Id, m, mine.GetValueOrDefault(m.Id), theirs.GetValueOrDefault(m.Id), person.Candidate(bots))).ToList();
+    }
+
     // Member-init (not a constructor) so EF can keep composing queries over it.
-    private sealed class Row
+    public sealed class Row
     {
         public required MemberProfile Profile { get; init; }
         public AccountStatus Status { get; init; }
@@ -139,15 +162,20 @@ public static class ProfileEndpoints
             new(Status, Profile.AgeStatus, BetaActive, Profile.Bot, Profile.DisplayName, bots.GetValueOrDefault(Profile.AccountId));
     }
 
-    /// <summary>Members-realm people who pass DiscoveryEligibility.Discoverable, filtered in the database.</summary>
-    private static IQueryable<Row> Candidates(SwoovrDbContext db, IConfiguration configuration)
+    /// <summary>
+    /// Members-realm people other than the viewer who pass DiscoveryEligibility.Discoverable, filtered in the database,
+    /// leaving out anyone the viewer blocked or who blocked the viewer (D112: a block hides both people everywhere).
+    /// </summary>
+    public static IQueryable<Row> Candidates(SwoovrDbContext db, IConfiguration configuration, Guid viewer)
     {
         var betaOn = configuration.GetValue("Beta:Enabled", true);
         AgeStatus[] adult = [AgeStatus.Attested, AgeStatus.SelfDeclaredAdult, AgeStatus.Verified, AgeStatus.AdultOverride];
         return from profile in db.MemberProfiles
                join account in db.Accounts on profile.AccountId equals account.Id
                where account.Realm == AccountRealm.Members && account.Status == AccountStatus.Active
-                     && adult.Contains(profile.AgeStatus) && profile.DisplayName != null
+                     && adult.Contains(profile.AgeStatus) && profile.DisplayName != null && profile.AccountId != viewer
+                     && !db.Blocks.Any(b => b.BlockerAccountId == viewer && b.BlockedAccountId == profile.AccountId
+                         || b.BlockerAccountId == profile.AccountId && b.BlockedAccountId == viewer)
                let beta = !betaOn || db.BetaEnrolments.Any(e => e.AccountId == account.Id && e.RevokedAt == null)
                where beta
                select new Row { Profile = profile, Status = account.Status, BetaActive = beta };
@@ -167,7 +195,7 @@ public static class ProfileEndpoints
     public static async Task<HashSet<string>> BotModesAsync(SwoovrDbContext db, Guid bot, CancellationToken cancellationToken) =>
         (await db.BotModeAuthorisations.Where(b => b.AccountId == bot).Select(b => b.ModeId).ToListAsync(cancellationToken)).ToHashSet();
 
-    private static async Task<Dictionary<Guid, HashSet<string>>> BotModesAsync(SwoovrDbContext db, List<Guid> bots, CancellationToken cancellationToken) =>
+    public static async Task<Dictionary<Guid, HashSet<string>>> BotModesAsync(SwoovrDbContext db, List<Guid> bots, CancellationToken cancellationToken) =>
         bots.Count == 0 ? [] : (await db.BotModeAuthorisations.Where(b => bots.Contains(b.AccountId)).ToListAsync(cancellationToken))
             .GroupBy(b => b.AccountId).ToDictionary(g => g.Key, g => g.Select(b => b.ModeId).ToHashSet());
 

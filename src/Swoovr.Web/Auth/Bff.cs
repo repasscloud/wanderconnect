@@ -16,7 +16,10 @@ public static partial class Bff
     public const string ApiClient = "bff-api";
 
     // Member routes only, never admin ones. Mode ids and profile ids are checked again by the API.
-    [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")]
+    private const string Uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+    [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
+        + "|requests|requests/" + Uuid + "/(accept|decline|withdraw)|connections|blocks|blocks/" + Uuid + ")$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
@@ -30,6 +33,9 @@ public static partial class Bff
         app.MapMethods("/bff/{**path}", ["GET", "POST", "PUT", "DELETE"], async (string? path, HttpContext context, IHttpClientFactory clients) =>
         {
             context.Response.Headers.CacheControl = "no-store";
+            // The BFF answers with its own statuses; the site's not-found page must not replace them (a re-executed POST
+            // would otherwise fail antiforgery and turn a 401/404 into a 400).
+            if (context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodePagesFeature>() is { } pages) pages.Enabled = false;
             if (context.Request.Headers[Header] != "1") return Results.BadRequest();
             if (path is null || !Allowed().IsMatch(path)) return Results.NotFound();
             // The cookie handler has already refreshed an expiring token (MemberSignIn.RefreshWhenExpiring).

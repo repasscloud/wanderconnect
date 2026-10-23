@@ -47,6 +47,36 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<PersonProfile>> PersonAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<PersonProfile>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profiles/" + id), cancellationToken);
 
+    /// <summary>Sends a connection request in one mode to a person shown to the member (D112).</summary>
+    public Task<ApiResult<ConnectionRequestView>> SendRequestAsync(Guid to, string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/requests") { Content = JsonContent.Create(new NewConnectionRequest(to, modeId)) }, cancellationToken);
+
+    /// <summary>Answers a request: "accept" or "decline" (the recipient) or "withdraw" (the sender).</summary>
+    public Task<ApiResult<ConnectionRequestView>> AnswerRequestAsync(Guid id, string answer, CancellationToken cancellationToken = default) =>
+        SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/requests/{id}/{Uri.EscapeDataString(answer)}"), cancellationToken);
+
+    /// <summary>Pending requests in the "received" or "sent" box.</summary>
+    public Task<ApiResult<RequestPage>> RequestsAsync(string box, int page = 1, CancellationToken cancellationToken = default) =>
+        SendAsync<RequestPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/requests?box={Uri.EscapeDataString(box)}&page={page}"), cancellationToken);
+
+    public Task<ApiResult<RequestPage>> ConnectionsAsync(int page = 1, CancellationToken cancellationToken = default) =>
+        SendAsync<RequestPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/connections?page={page}"), cancellationToken);
+
+    public Task<ApiResult<List<BlockedPerson>>> BlocksAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<BlockedPerson>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/blocks"), cancellationToken);
+
+    public Task<int> BlockAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, "api/v1/blocks") { Content = JsonContent.Create(new BlockRequest(profileId)) }, cancellationToken);
+
+    public Task<int> UnblockAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/v1/blocks/{profileId}"), cancellationToken);
+
+    private async Task<int> StatusAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        using (request)
+        using (var response = await http.SendAsync(request, cancellationToken)) return (int)response.StatusCode;
+    }
+
     private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         using (request)

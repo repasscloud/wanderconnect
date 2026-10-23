@@ -232,6 +232,32 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("beta_enrolments");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Block", b =>
+                {
+                    b.Property<Guid>("BlockerAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocker_account_id");
+
+                    b.Property<Guid>("BlockedAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocked_account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.HasKey("BlockerAccountId", "BlockedAccountId")
+                        .HasName("pk_blocks");
+
+                    b.HasIndex("BlockedAccountId")
+                        .HasDatabaseName("ix_blocks_blocked_account_id");
+
+                    b.ToTable("blocks", t =>
+                        {
+                            t.HasCheckConstraint("ck_blocks_not_self", "blocker_account_id <> blocked_account_id");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BotModeAuthorisation", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -314,6 +340,81 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Business",
                             SortOrder = 4
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ConnectionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AnsweredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("answered_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("FromAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("from_account_id");
+
+                    b.Property<string>("ModeId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<Guid>("PairHigh")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pair_high");
+
+                    b.Property<Guid>("PairLow")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pair_low");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("ToAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("to_account_id");
+
+                    b.Property<Guid?>("TripId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trip_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_connection_requests");
+
+                    b.HasIndex("ModeId")
+                        .HasDatabaseName("ix_connection_requests_mode_id");
+
+                    b.HasIndex("FromAccountId", "CreatedAt")
+                        .HasDatabaseName("ix_connection_requests_from_account_id_created_at");
+
+                    b.HasIndex("ToAccountId", "Status")
+                        .HasDatabaseName("ix_connection_requests_to_account_id_status");
+
+                    b.HasIndex(new[] { "PairLow", "PairHigh", "ModeId" }, "ix_connection_requests_one_accepted")
+                        .IsUnique()
+                        .HasDatabaseName("ix_connection_requests_one_accepted")
+                        .HasFilter("status = 'Accepted'");
+
+                    b.HasIndex(new[] { "PairLow", "PairHigh", "ModeId" }, "ix_connection_requests_one_pending")
+                        .IsUnique()
+                        .HasDatabaseName("ix_connection_requests_one_pending")
+                        .HasFilter("status = 'Pending'");
+
+                    b.ToTable("connection_requests", t =>
+                        {
+                            t.HasCheckConstraint("ck_connection_requests_not_self", "from_account_id <> to_account_id");
                         });
                 });
 
@@ -1018,6 +1119,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("role_grants");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Block", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_blocks_accounts_blocked_account_id");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("BlockerAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_blocks_accounts_blocker_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BotModeAuthorisation", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1033,6 +1151,30 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_bot_mode_authorisations_connection_modes_mode_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ConnectionRequest", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("FromAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_connection_requests_accounts_from_account_id");
+
+                    b.HasOne("Swoovr.Domain.ConnectionMode", null)
+                        .WithMany()
+                        .HasForeignKey("ModeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_connection_requests_connection_modes_mode_id");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("ToAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_connection_requests_accounts_to_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>

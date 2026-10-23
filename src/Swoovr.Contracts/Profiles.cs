@@ -20,6 +20,9 @@ public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>?
 public sealed record ProfileCard(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges);
 public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People);
 
-/// <summary>A mode another member shares with the viewer, with that member's intentions in it.</summary>
-public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions);
+/// <summary>
+/// A mode another member shares with the viewer, with that member's intentions in it and where the two stand in it:
+/// Connection is "none", "sent", "received" or "connected"; RequestId is the pending request, if any (D112).
+/// </summary>
+public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions, string Connection, Guid? RequestId);
 public sealed record PersonProfile(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges);

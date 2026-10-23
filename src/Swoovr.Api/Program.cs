@@ -29,6 +29,7 @@ app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundatio
 AccountEndpoints.Map(app);
 AdminEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfileEndpoints.Map(app);
+Swoovr.Api.Connections.RequestEndpoints.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

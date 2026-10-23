@@ -151,12 +151,52 @@ static class PersistenceChecks
             db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = b, ModeId = "travel", AuthorisedAt = now });
             check("a bot can only be authorised for a real mode", await Throws(db.SaveChangesAsync()));
         }
+        // D112: one pending and one accepted request per pair and mode, whichever way; no self requests or blocks.
+        ConnectionRequest Request(Guid from, Guid to, ConnectionRequestStatus status, string mode = ConnectionModeIds.Dating)
+        {
+            var (low, high) = ConnectionRequest.Pair(from, to);
+            return new() { Id = Guid.NewGuid(), FromAccountId = from, ToAccountId = to, PairLow = low, PairHigh = high, ModeId = mode, Status = status, CreatedAt = now };
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ConnectionRequests.Add(Request(a, b, ConnectionRequestStatus.Pending));
+            db.ConnectionRequests.Add(Request(b, a, ConnectionRequestStatus.Pending, ConnectionModeIds.Friends));
+            db.ConnectionRequests.Add(Request(a, b, ConnectionRequestStatus.Declined));
+            await db.SaveChangesAsync();
+            check("a pending request per mode, and settled ones beside it", await db.ConnectionRequests.CountAsync() == 3);
+        }
+        foreach (var (what, row) in new (string, ConnectionRequest)[] { ("a second pending request the other way", Request(b, a, ConnectionRequestStatus.Pending)),
+            ("a request to oneself", Request(a, a, ConnectionRequestStatus.Pending, ConnectionModeIds.Business)) })
+            await using (var db = new SwoovrDbContext(options))
+            {
+                db.ConnectionRequests.Add(row);
+                check(what + " is refused by the database", await Throws(db.SaveChangesAsync()));
+            }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ConnectionRequests.Add(Request(a, b, ConnectionRequestStatus.Accepted, ConnectionModeIds.Activities));
+            await db.SaveChangesAsync();
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ConnectionRequests.Add(Request(b, a, ConnectionRequestStatus.Accepted, ConnectionModeIds.Activities));
+            check("one connection per pair and mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.Blocks.Add(new Block { BlockerAccountId = a, BlockedAccountId = b, CreatedAt = now });
+            db.Blocks.Add(new Block { BlockerAccountId = b, BlockedAccountId = a, CreatedAt = now });
+            await db.SaveChangesAsync();
+            db.Blocks.Add(new Block { BlockerAccountId = a, BlockedAccountId = a, CreatedAt = now });
+            check("no blocking oneself", await Throws(db.SaveChangesAsync()));
+        }
         await using (var db = new SwoovrDbContext(options))
         {
             db.Accounts.Remove(await db.Accounts.SingleAsync(x => x.Id == a));
             await db.SaveChangesAsync();
             check("mode settings, intentions and bot authorisations go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a)
                 && !await db.MemberModeIntentions.AnyAsync() && !await db.BotModeAuthorisations.AnyAsync());
+            check("requests and blocks go with either account", !await db.ConnectionRequests.AnyAsync() && !await db.Blocks.AnyAsync());
         }
     }
 

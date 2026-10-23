@@ -167,6 +167,10 @@ button.segment:focus-visible { outline: 3px solid var(--text); outline-offset: 1
 .badge-date { color: var(--muted); font-size: .75rem; margin-right: 4px; }
 .person-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .person-name h1 { margin: 0; }
+.request-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.request-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.request-person { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.request-actions { display: inline-flex; gap: 6px; margin-left: auto; }
 .badge-photo .badge-line, .badge-photo .badge-disc { stroke: var(--badge-photoVerified); }
 .badge-photo .badge-disc { fill: var(--badge-photoVerified); }
 .badge-id .badge-line, .badge-id .badge-disc { stroke: var(--badge-idVerified); }

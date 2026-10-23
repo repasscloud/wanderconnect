@@ -31,6 +31,13 @@ public static class ProblemCodes
     public const string TooManyIntentions = "too-many-intentions";
     public const string BotModeNotAuthorised = "bot-mode-not-authorised";
     public const string NotABot = "not-a-bot";
+    public const string NotAvailable = "not-available";
+    public const string BotCannotInitiate = "bot-cannot-initiate";
+    public const string AlreadyConnected = "already-connected";
+    public const string RequestPending = "request-pending";
+    public const string RecentlyDeclined = "recently-declined";
+    public const string TooManyRequests = "too-many-requests";
+    public const string RequestSettled = "request-settled";
     public const string ModeNotEnabled = "mode-not-enabled";
     public const string FounderPlacesFull = "founder-places-full";
     public const string AlreadyFounder = "already-founder";

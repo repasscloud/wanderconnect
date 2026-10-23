@@ -2,9 +2,10 @@
    the person shows themselves in; anything else reads as "not available", so the page never confirms who exists.
    Badges are the public ones the API returns, several at once in the configured order (Q11). *@
 @inject MemberClient Members
-<div class="page-heading" data-person="@(loaded ? (person is null ? "unavailable" : "ready") : "loading")">
+<div class="page-heading" data-person="@(loaded ? (blockedNow ? "blocked" : person is null ? "unavailable" : "ready") : "loading")">
     <p class="breadcrumb"><a href="/explore">Explore</a> / Profile</p>
     @if (!loaded) { <p role="status">Loading…</p> }
+    else if (blockedNow) { <h1>Blocked</h1> }
     else if (person is null)
     {
         <h1>Profile not available</h1>
@@ -35,10 +36,60 @@
             }
         </ul>
     </section>
+    <section class="card account-section" aria-labelledby="connect-heading">
+        <h2 id="connect-heading">Connect</h2>
+        <p class="field-help">A request goes to one mode at a time. Nothing connects until they accept.</p>
+        <ul class="request-list" data-connect-modes>
+            @foreach (var mode in person.Modes)
+            {
+                <li data-connect-mode="@mode.Id" data-connection="@mode.Connection">
+                    <span class="chip">@mode.Label</span>
+                    @switch (mode.Connection)
+                    {
+                        case "connected": <span class="field-help">Connected</span> break;
+                        case "sent":
+                            <span class="field-help">Request sent</span>
+                            <button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "withdraw")'>Withdraw</button>
+                            break;
+                        case "received":
+                            <button type="button" class="button" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "accept")'>Accept</button>
+                            <button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "decline")'>Decline</button>
+                            break;
+                        default:
+                            <button type="button" class="button" disabled="@busy" @onclick="() => SendAsync(mode.Id)">Send request</button>
+                            break;
+                    }
+                </li>
+            }
+        </ul>
+        <p role="status" aria-live="polite" class="field-help" data-connect-status="@connectStatus">@connectMessage</p>
+    </section>
+    <section class="card account-section" aria-labelledby="block-heading" data-block="@(confirmBlock ? "confirm" : "idle")">
+        <h2 id="block-heading">Block</h2>
+        @if (!confirmBlock)
+        {
+            <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => confirmBlock = true">Block @person.DisplayName</button>
+        }
+        else
+        {
+            <p>You won't see each other anywhere on Swoovr, and any requests between you are cancelled. They aren't told.</p>
+            <p class="account-actions">
+                <button type="button" class="button" disabled="@busy" @onclick="BlockAsync">Block</button>
+                <button type="button" class="button button-secondary" @onclick="() => confirmBlock = false">Cancel</button>
+            </p>
+        }
+    </section>
+}
+@if (blockedNow)
+{
+    <div class="card notice" data-blocked-done>
+        <p>Blocked. You won't see each other. You can unblock from <a class="link" href="/connections">Connections</a>.</p>
+    </div>
 }
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
-    private bool loaded;
+    private bool loaded, busy, confirmBlock, blockedNow;
+    private string? connectStatus, connectMessage;
     private PersonProfile? person;
 
     protected override async Task OnParametersSetAsync()
@@ -46,5 +97,41 @@
         try { person = (await Members.PersonAsync(Id)).Value; }
         catch (HttpRequestException) { person = null; }
         loaded = true;
+    }
+
+    private async Task SendAsync(string modeId)
+    {
+        busy = true;
+        var result = await Members.SendRequestAsync(Id, modeId);
+        (connectStatus, connectMessage) = result.Ok ? ("sent", "Request sent.") : (result.Code ?? "failed", result.Code switch
+        {
+            ProblemCodes.TooManyRequests => "You've sent a lot of requests today. Try again later.",
+            ProblemCodes.RecentlyDeclined => "You can't ask again in this mode yet.",
+            ProblemCodes.BotCannotInitiate => "This account can't send requests.",
+            _ => "That request couldn't be sent.",
+        });
+        await ReloadAsync();
+    }
+
+    private async Task AnswerAsync(Guid requestId, string answer)
+    {
+        busy = true;
+        var result = await Members.AnswerRequestAsync(requestId, answer);
+        (connectStatus, connectMessage) = result.Ok ? (answer, answer == "accept" ? "Connected." : answer == "decline" ? "Declined." : "Request withdrawn.")
+            : ("failed", "That request isn't available any more.");
+        await ReloadAsync();
+    }
+
+    private async Task BlockAsync()
+    {
+        busy = true;
+        if (await Members.BlockAsync(Id) == 204) (person, blockedNow) = (null, true);
+        busy = confirmBlock = false;
+    }
+
+    private async Task ReloadAsync()
+    {
+        person = (await Members.PersonAsync(Id)).Value;
+        busy = false;
     }
 }
