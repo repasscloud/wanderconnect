@@ -53,7 +53,7 @@ D55 confirms that flags are application-owned. The owner is still defining the p
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
 | Q11 | OPEN | Profile persistence and badges | Final flag set and rules: what admin verified means and its badge; founding-member criteria; employee badge = ruby "Swoovr staff" bird; several badges at once; bot/employee accounts in discovery | Use the five drawn badges; add admin verified when it is defined |
-| Q12 | OPEN | Profile, discovery and the segmented control | Final set of modes (brief: Connect / Friends & company / Travel & exploring; reference screens: Dating / Friends / Activities; owner examples: dating, friends, business) | Keep mode labels data-driven until the set is final |
+| Q12 | ANSWERED, owner 23 October 2026; D92 | Profile, discovery and the segmented control | Final set of modes (brief: Connect / Friends & company / Travel & exploring; reference screens: Dating / Friends / Activities; owner examples: dating, friends, business) | Answered: Dating, Friends, Activities and Business; Travel is a separate discovery state. See [Q12 — Connection modes, discovery and Travel state](#q12--connection-modes-discovery-and-travel-state) |
 
 ## Owner answers — 23 October 2026
 
@@ -68,7 +68,7 @@ The owner answered Q03 and Q05–Q09 below (decisions D59–D64) and part of Q11
 | Q08 | ANSWERED, owner 23 October 2026; D63 | Published by RePass Cloud Pty Ltd; Free/Plus/Premium tiers with AUD prices; Free only during beta; 1,000 founding memberships. Trademark, store and launch checks remain outstanding |
 | Q09 | ANSWERED, owner 23 October 2026; D64 | .NET 10 + MAUI for iOS and Android, built and tested locally on macOS; CI/CD only for authorised store releases. Workload installation and validation remain outstanding |
 | Q11 | PARTLY ANSWERED, owner 23 October 2026 | Employee = ruby staff bird (D57); admin verified = backend flag, no badge (D58); founding = gold Swoovr Founder badge, permanent, after onboarding and Photo and/or ID verification (Q08). Still OPEN: whether admin verified changes age status, several badges at once, bot/employee accounts in discovery |
-| Q12 | OPEN | Final set of modes |
+| Q12 | ANSWERED, owner 23 October 2026; D92 | Four connection modes (Dating, Friends, Activities, Business), several at once; Travel is an independent discovery state with a 14-day advance limit and multi-city itineraries. See [Q12 — Connection modes, discovery and Travel state](#q12--connection-modes-discovery-and-travel-state) |
 
 ### Points confirmed
 
@@ -428,6 +428,7 @@ Rules:
 Rationale: A local-first development environment provides direct control over development tooling, debugging, physical devices and application builds. Standardising on .NET 10 and compatible MAUI workloads supports shared application architecture and cross-platform development. Restricting CI/CD publishing to approved releases avoids unnecessary build infrastructure and ensures application-store submissions remain deliberate and controlled.
 
 Implementation: Configure the existing .NET 10 solution for iOS and Android MAUI targets. Install the required MAUI workloads, Android SDK, Java SDK and emulator dependencies. Validate Xcode compatibility and pin the supported SDK and workload versions. Configure local development, simulator execution and physical-device debugging. Establish repeatable build and test commands and release-only CI/CD workflows for signing, packaging and publishing to Apple App Store Connect and Google Play Console. Store release signing credentials securely and require explicit authorisation before production submission.
+
 ## Overnight build questions — 23 October 2026
 
 Raised during the unattended build (PR #24). Each has a recommended default; none blocks the merged slices.
@@ -437,3 +438,34 @@ Raised during the unattended build (PR #24). Each has a recommended default; non
 | Q13 | ANSWERED, owner 23 October 2026 → D89 | Which artwork should the app icon use? The iOS/Android icon is still the MAUI template (purple ".NET" square) | Any TestFlight or store build (D62 iOS beta) | Owner: the Swoovr bird in white on a black background. The owner also asked whether members could choose a different icon in Settings (answered in D89) |
 | Q14 | ANSWERED, owner 23 October 2026 → D90 | Where do founding-member benefits (3 months of Plus, then 50% off) live before billing exists? | Founder activation after verification (Q04) | Owner: an entitlement record that sets flags or "instructions" on accounts, designed so later programmes and sales can apply to everyone or to selected members; the builder chooses the long-term design |
 | Q15 | ANSWERED, owner 23 October 2026 → D91 | Should the swoovr.com/beta form enrol people automatically or feed a review queue? | Beta intake (issue #25) | Owner: a review queue in a Supabase database, owned by the separate swoovr.com project. Swoovr staff review it, then invite and onboard people through the Swoovr UI/API; joining the queue never guarantees access |
+
+### Q12 — Connection modes, discovery and Travel state
+
+Status: ANSWERED, owner 23 October 2026
+
+Decision: Swoovr supports four independent connection modes: Dating, Friends, Activities and Business. Users may enable multiple connection modes simultaneously, with each mode controlling its own discovery preferences, filters, compatibility criteria and relevant profile information. Travel is not a connection mode; it is an independent, optional discovery state that allows users to become discoverable in other locations before arriving, across any combination of their enabled connection modes.
+
+Rules:
+
+1. **Connection modes:** The four connection modes are Dating, Friends, Activities and Business. These represent the types of connections users wish to establish and are independent of their geographical discovery state.
+2. **Multiple active modes:** Users may enable any combination of connection modes simultaneously. Enabling or disabling one mode must not automatically affect the others.
+3. **Mode-specific discovery:** Each connection mode maintains its own discovery preferences, filters, compatibility criteria and profile visibility rules. Discovery results must respect the selected mode and the preferences of both users.
+4. **Mode selection:** The primary connection-mode segmented control displays Dating, Friends, Activities and Business. Travel must not appear as a fifth connection mode.
+5. **Travel independence:** Travel is a separate discovery state that changes where a user may be discovered without changing their enabled connection modes, underlying profile, compatibility criteria or connection preferences.
+6. **Remote discovery:** Users may configure a Travel destination and become discoverable to people in that location before physically arriving, subject to their enabled connection modes and discovery preferences.
+7. **Advance scheduling:** Users may activate or schedule Travel for a single destination up to 14 days before their planned arrival. Travel must not provide unrestricted indefinite visibility in remote locations.
+8. **Multi-city travel:** Users may configure multiple destinations as part of a multi-city itinerary. Subsequent destinations may extend beyond the standard 14-day advance scheduling restriction when they belong to the same itinerary.
+9. **Travel itinerary:** Each Travel destination records its intended location, arrival date, departure date and applicable discovery period. Multi-city itineraries must support sequential destinations and independently managed itinerary entries.
+10. **Multiple destinations:** A user may have multiple planned Travel destinations. Remote discovery must respect the configured itinerary and prevent unlimited or contradictory destination activation outside the supported Travel rules.
+11. **Travel cancellation:** Users may disable Travel, cancel an itinerary or remove individual destinations at any time, including when their travel plans change or they decide not to travel.
+12. **Arrival behaviour:** When a user arrives at a destination, discovery should transition to their actual location according to their location permissions and privacy settings. Travel must not require the user to remain artificially associated with a remote location after arrival.
+13. **Departure behaviour:** When a configured Travel period expires, remote discoverability for that destination must end automatically unless another valid itinerary destination or discovery state applies.
+14. **Travel visibility:** Profiles discovered through Travel must clearly indicate that the user is travelling or planning to visit, rather than implying that they are already physically present. Exact travel dates and precise locations must not be disclosed beyond the user's configured privacy permissions.
+15. **Discovery eligibility:** Remote visibility through Travel does not override blocks, account restrictions, moderation controls, age requirements, verification requirements, connection-mode eligibility or other discovery safeguards.
+16. **Single user identity:** All connection modes and Travel destinations operate against the same underlying user account and identity. Separate user accounts or duplicated profiles must not be created for individual modes or destinations.
+17. **Data-driven configuration:** Connection modes must use stable internal identifiers independent of their display labels. Display names, ordering, availability and presentation must remain configurable without changing the underlying architecture.
+18. **Travel interface:** Travel must be accessible independently of the connection-mode segmented control, through a dedicated Travel configuration interface supporting destination selection, itinerary management, scheduling and cancellation.
+
+Rationale: Connection modes define why people want to connect, while Travel defines where they want to be discovered. Separating these concerns allows someone travelling to Sydney, Melbourne or overseas to continue seeking Dating, Friends, Activities and Business connections without changing their existing preferences. The 14-day advance limit prevents indefinite remote discovery, while multi-city itinerary support accommodates legitimate extended travel involving multiple destinations. This approach keeps connection intent, geographical discovery and travel planning independently configurable and extensible.
+
+Implementation: Model connection modes using stable identifiers and per-user mode configuration, including mode-specific discovery preferences, filters, compatibility criteria and profile visibility. Implement Travel as a separate discovery state with itinerary and destination records containing location, arrival date, departure date, discovery activation and cancellation state. Enforce the standard 14-day advance limit server-side, with an explicit multi-city itinerary exception for subsequent destinations. Extend discovery queries to include eligible remote Travel destinations alongside actual-location discovery, applying the user's enabled connection modes and all existing privacy, eligibility and moderation constraints. Implement scheduled activation and expiration of Travel discovery periods, with reconciliation against actual location where permission is available. Keep the four-mode segmented control independent of Travel and provide a dedicated Travel management interface. Ensure itinerary validation, destination activation and discovery eligibility are enforced by application services rather than client-side UI rules.

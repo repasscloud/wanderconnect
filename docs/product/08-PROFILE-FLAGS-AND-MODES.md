@@ -34,15 +34,37 @@ Rules (DEFAULT unless marked):
 
 ## Modes
 
-OPEN (Q12). The final set of modes is not decided yet. Names in use so far:
+CONFIRMED, owner 23 October 2026 (D92; full rules in [Q12 — Connection modes, discovery and Travel state](../delivery/QUESTIONS.md#q12--connection-modes-discovery-and-travel-state)). Connection modes say **why** someone wants to connect; Travel says **where** they want to be discovered. The two are independent.
 
-| Source | Names |
-| --- | --- |
-| [Product brief](01-PRODUCT-BRIEF.md) (contexts) | Connect, Friends & company, Travel & exploring |
-| Reference screens (segmented control) | Dating, Friends, Activities |
-| Owner, 23 October 2026 (examples) | Dating, friends, business |
+### Connection modes
 
-Until the set is final, the segmented control and intention chips take their labels from data, and screens use the reference names only as placeholders.
+Swoovr has four connection modes: **Dating, Friends, Activities and Business**. No other connection modes exist.
+
+- **Several at once.** A member may turn on any combination of modes. Turning one on or off never changes the others.
+- **Independent per mode.** Each mode keeps its own discovery preferences, filters, compatibility criteria and profile visibility, and has its own intention chips. Discovery respects the selected mode and the preferences of both members.
+- **Intention chips are configured per mode.** For example, Dating might offer "Something serious" or "Casual", while Friends, Activities and Business offer intentions relevant to them. These are illustrations only; the final intention set for each mode is not decided.
+- **One identity.** Every mode runs on the same account and core profile. No separate accounts or duplicated profiles per mode, and switching mode never bypasses a block.
+- **Data-driven.** Modes have stable internal identifiers, separate from their display labels. Labels, order, availability and presentation are configuration, not code.
+- **Segmented control.** The primary segmented control shows the four modes: Dating, Friends, Activities, Business. Travel never appears in it.
+
+### Travel
+
+Travel is an optional, independent **discovery state**, not a fifth mode. It changes where a member can be discovered, across whichever modes they have on, without changing their modes, profile, compatibility criteria or preferences. It lets a member be discovered in a destination before arriving.
+
+- **14-day limit.** Travel for a single destination can be switched on or scheduled up to 14 days before the planned arrival. It never gives open-ended visibility somewhere else.
+- **Multi-city itineraries.** A member may plan several destinations. Later destinations in the same itinerary may fall beyond the 14-day limit. Each destination records its location, arrival date, departure date and discovery period, and can be managed on its own. Contradictory or unlimited destinations are refused.
+- **Cancel any time.** A member can turn Travel off, cancel an itinerary or remove one destination at any time.
+- **Arrival and expiry.** On arrival, discovery moves to the member's actual location, within their location permissions and privacy settings. When a destination's period ends, remote discovery there stops automatically unless another valid destination applies.
+- **Shown as travelling.** A profile found through Travel says the member is travelling or planning to visit, never that they are already there. Exact dates and precise locations are shown only as far as the member's privacy settings allow.
+- **No bypass.** Travel never overrides blocks, account restrictions, moderation, age or verification requirements, mode eligibility or any other discovery safeguard. Pre-arrival messaging follows D60: locals may start conversations; travellers may reply but not start one before arrival.
+- **Own interface.** Travel has its own screen for choosing destinations, managing the itinerary, scheduling and cancelling, separate from the segmented control.
+- **Server-side.** Itinerary checks, the 14-day limit and its multi-city exception, activation and expiry are enforced by the application, not the client.
+
+### Earlier names
+
+**Connect**, **Friends & company** and **Travel & exploring** were the [product brief](01-PRODUCT-BRIEF.md)'s original context labels. They are legacy names, not extra connection modes. "Dating, Friends, Activities" on the reference screens was a placeholder set, now replaced by the four modes above.
+
+None of this is built yet: no mode records, mode-specific discovery, intention configuration or Travel itineraries exist in the API or the apps.
 
 ## Current state
 
@@ -53,4 +75,4 @@ Until the set is final, the segmented control and intention chips take their lab
 ## Open questions
 
 - **Q11.** Remaining flag rules: whether admin verified changes age status (for example D40's staff override to adult); whether someone can show several badges at once; whether bot and employee accounts appear in discovery. Answered: founding member (D63), employee badge (D57) and admin verified (D58).
-- **Q12.** The final set of modes and how they relate to intentions and discovery contexts.
+- **Q12.** ANSWERED, owner 23 October 2026 (D92): four connection modes and Travel as a separate discovery state; see [Q12 — Connection modes, discovery and Travel state](../delivery/QUESTIONS.md#q12--connection-modes-discovery-and-travel-state). The intention set for each mode is still to be defined.

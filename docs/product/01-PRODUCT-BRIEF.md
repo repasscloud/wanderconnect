@@ -43,7 +43,7 @@ The proposed advantage is the combination of explicit exclusions, accountable pr
 
 ## 5. Product structure
 
-One account and one core profile. Contexts shape discovery: Connect, Friends & company, Travel & exploring. Do not expose sensitive romantic/sexual intentions in a platonic context without the member's explicit visibility choice. A context switch is not a second identity and cannot bypass a block.
+One account and one core profile. Connection modes shape discovery: Dating, Friends, Activities and Business, several at once; Travel is a separate discovery state across them (D92, [profile flags and modes](08-PROFILE-FLAGS-AND-MODES.md#modes)). The earlier context labels Connect, Friends & company and Travel & exploring are legacy names, not modes. Do not expose sensitive romantic/sexual intentions in a platonic mode (Friends, Activities, Business) without the member's explicit visibility choice. A mode switch or Travel is not a second identity and cannot bypass a block.
 
 Primary navigation: Explore, Connections, Chats, Me. Within Explore: People and Plans. Venue experiences appear within Plans and the plan composer rather than becoming an unrelated shopping feed. On the web, retain the same labels and concepts.
 
