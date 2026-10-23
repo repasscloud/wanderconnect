@@ -75,7 +75,9 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.equal(response.status, 200); pass();
     // The enrolment session proves only the password: the code was set up, not used to sign in,
     // so it cannot satisfy the root admin's password + OTP rule until the next sign-in.
-    assert.deepEqual(await response.json(), { realm: 'staff', method: 'emailPassword', multiFactor: !enrolling, emailVerified: true, adultAttested: false, memberArea: false }); pass();
+    // adminArea depends on the application's root-admin record (tests/auth/accounts.browser.cjs grants it), never on the token.
+    const summary = await response.json();
+    assert.deepEqual(summary, { realm: 'staff', method: 'emailPassword', multiFactor: !enrolling, emailVerified: true, adultAttested: false, memberArea: false, adminArea: summary.adminArea && !enrolling, supportArea: false, beta: 'notRequired' }); pass();
 
     // Every later sign-in asks for the code; a wrong code does not create a session.
     session = await signIn();

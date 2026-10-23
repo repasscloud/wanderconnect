@@ -4,6 +4,7 @@
     <ProjectReference Include="..\..\src\Swoovr.Contracts\Swoovr.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Swoovr.Domain\Swoovr.Domain.csproj" />
     <ProjectReference Include="..\..\src\Swoovr.Client\Swoovr.Client.csproj" />
+    <ProjectReference Include="..\..\src\Swoovr.Infrastructure\Swoovr.Infrastructure.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

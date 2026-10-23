@@ -21,7 +21,7 @@ Simulator runtime/signing arguments depend on the local platform. Do not claim t
 
 `./scripts/check.sh` also starts the built hosts briefly on loopback ports 5187/5188, verifies API JSON and web HTML, and stops them. Keep these ports free.
 
-The current portable projects have no third-party NuGet packages; local restore uses SDK assets, disables NuGet audit network access, and tolerates unavailable sources. Future dependencies need an explicit cache/restore step and later security audit; offline checks do not replace dependency vulnerability review.
+Infrastructure references Npgsql.EntityFrameworkCore.PostgreSQL and Microsoft.EntityFrameworkCore.Design (D68); the first restore needs nuget.org or a warm cache. Local restore disables NuGet audit network access and tolerates unavailable sources. Future dependencies need an explicit cache/restore step and later security audit; offline checks do not replace dependency vulnerability review.
 
 ## Design and docs
 
@@ -49,7 +49,7 @@ DEFAULT: digest-pinned Linux multi-stage builds publish API/web separately and r
 
 CONFIRMED deployment direction: all server components will be containerised on public/dev infrastructure; mobile apps remain native. These image targets prepare that path. This Compose file is local-only: Keycloak `start-dev`, embedded database, loopback HTTP and bootstrap admin must not be promoted. Public/dev deployment still needs production Keycloak/database settings, HTTPS and proxy trust, public issuer/callbacks, secret storage, persistent web data-protection keys when sessions exist, resource limits, backup/restore and readiness/security validation. No deployment is included or authorized.
 
-See [sandbox evidence and investigation matrix](PHASE-1-KEYCLOAK-SANDBOX.md). No PostgreSQL app service is added because the app still has no persistence adapter. No SMTP, social provider, application OAuth client or fake authorization adapter is configured. Linux containers cannot validate iOS/Xcode tooling.
+See [sandbox evidence and investigation matrix](PHASE-1-KEYCLOAK-SANDBOX.md). PostgreSQL 17 is the application database (D68): Compose service `postgres`, database `swoovr`, published only on 127.0.0.1:5433, password generated into `.local/docker.env` as `SWOOVR_DB_PASSWORD`. No social provider, application OAuth client or fake authorization adapter is configured. Linux containers cannot validate iOS/Xcode tooling.
 
 ## Member sign-in (local Keycloak)
 
@@ -113,3 +113,20 @@ Optional provider mutation checks: [signing rotation](PHASE-1-SIGNING-ROTATION.m
 ## Swoovr naming transition — 22 October 2026
 
 Use `Swoovr.Local.sln`, `src/Swoovr.*`, the `swoovr-dev` realm and `SWOOVR_*` browser variables. The renamed Compose project uses a separate volume and `.local/swoovr-auth-fixture.json`. Before restarting retained sandbox work, follow the [migration steps](SWOOVR-RENAME-2026-10-22.md#local-migration-and-compatibility); old volumes and fixtures must not be mixed or deleted. See [current status](STATUS.md) for what is connected.
+
+## Application database — 23 October 2026
+
+`./scripts/docker-local.sh init` adds `SWOOVR_DB_PASSWORD` and `SWOOVR_FOUNDER_SECRET_V1` to an existing `.local/docker.env`; `up` starts PostgreSQL with the rest of the stack (to start only it: `docker compose --env-file .local/docker.env up -d --wait postgres mailpit`). Run the API from the repository root with the connection string; Development applies migrations on start:
+
+```sh
+ConnectionStrings__Swoovr="Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=$(grep '^SWOOVR_DB_PASSWORD=' .local/docker.env | cut -d= -f2)" \
+  ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://127.0.0.1:5080
+```
+
+Run the API through `dotnet run --project` (or from its output folder): started from the repository root, the built DLL does not find `appsettings.Development.json`, so Keycloak validation stays unconfigured and every token gets 401.
+
+Operator commands use the same configuration: `dotnet run --project src/Swoovr.Api -- migrate`, `-- root-admin grant <staff-realm subject>` (D71) and `-- beta add <email>...`, `-- beta add --file containers/postgres/beta-enrolment.fictional.txt`, `-- beta revoke <email>`, `-- beta list` (D76). The members area needs an enrolment for the account's verified email (D62, D78); `tests/auth/members.browser.cjs` and `tests/auth/accounts.browser.cjs` enrol their own fictional addresses. `./scripts/check.sh` runs the persistence checks in a throwaway database when the container is reachable and prints a SKIP line otherwise.
+
+`tests/auth/accounts.browser.cjs` (Edge and Playwright, as above) creates fictional members through the local Keycloak admin API, signs them in for real tokens and exercises the account, age and admin routes. It needs the enrolled fictional root admin from `tests/auth/root-admin.browser.cjs` and a Debug build of the API for the operator commands.
+
+If Keycloak pages appear in the stock Keycloak theme, Docker Desktop's bind mount of `containers/keycloak/themes` has gone stale (the folder is empty inside the container). Recreate only that container: `docker compose --env-file .local/docker.env up -d --force-recreate --wait keycloak`, then `./scripts/docker-local.sh realms`.

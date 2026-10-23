@@ -304,7 +304,7 @@ Rules:
 
 #### Founder recovery token
 
-Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification and review answers of the same day. Not implemented. Privacy follow-up: [issue #22](https://github.com/repasscloud/wanderconnect/issues/22).
+Status: CONFIRMED design, owner 23 October 2026 (D65), with the owner's clarification and review answers of the same day. Implemented locally on 23 October 2026 (D79–D81, admin-granted until verification exists); follow-ups in [issue #26](https://github.com/repasscloud/wanderconnect/issues/26). Privacy follow-up: [issue #22](https://github.com/repasscloud/wanderconnect/issues/22).
 
 Founding status survives account deletion through a token that Swoovr stores and the member keeps, so Swoovr need not keep the deleted profile.
 
@@ -428,3 +428,12 @@ Rules:
 Rationale: A local-first development environment provides direct control over development tooling, debugging, physical devices and application builds. Standardising on .NET 10 and compatible MAUI workloads supports shared application architecture and cross-platform development. Restricting CI/CD publishing to approved releases avoids unnecessary build infrastructure and ensures application-store submissions remain deliberate and controlled.
 
 Implementation: Configure the existing .NET 10 solution for iOS and Android MAUI targets. Install the required MAUI workloads, Android SDK, Java SDK and emulator dependencies. Validate Xcode compatibility and pin the supported SDK and workload versions. Configure local development, simulator execution and physical-device debugging. Establish repeatable build and test commands and release-only CI/CD workflows for signing, packaging and publishing to Apple App Store Connect and Google Play Console. Store release signing credentials securely and require explicit authorisation before production submission.
+## Overnight build questions — 23 October 2026
+
+Raised during the unattended build (PR #24). Each has a recommended default; none blocks the merged slices.
+
+| ID | Status | Question | Earliest blocker | Recommended default |
+| --- | --- | --- | --- | --- |
+| Q13 | ANSWERED, owner 23 October 2026 → D89 | Which artwork should the app icon use? The iOS/Android icon is still the MAUI template (purple ".NET" square) | Any TestFlight or store build (D62 iOS beta) | Owner: the Swoovr bird in white on a black background. The owner also asked whether members could choose a different icon in Settings (answered in D89) |
+| Q14 | ANSWERED, owner 23 October 2026 → D90 | Where do founding-member benefits (3 months of Plus, then 50% off) live before billing exists? | Founder activation after verification (Q04) | Owner: an entitlement record that sets flags or "instructions" on accounts, designed so later programmes and sales can apply to everyone or to selected members; the builder chooses the long-term design |
+| Q15 | ANSWERED, owner 23 October 2026 → D91 | Should the swoovr.com/beta form enrol people automatically or feed a review queue? | Beta intake (issue #25) | Owner: a review queue in a Supabase database, owned by the separate swoovr.com project. Swoovr staff review it, then invite and onboard people through the Swoovr UI/API; joining the queue never guarantees access |

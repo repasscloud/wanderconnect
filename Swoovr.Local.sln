@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -20,6 +20,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Swoovr.Checks", "tests\Swoovr.Checks\Swoovr.Checks.csproj", "{20C42C60-1A6C-4C0F-8236-E1D0B45E1EDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Swoovr.Web.Client", "src\Swoovr.Web.Client\Swoovr.Web.Client.csproj", "{B709C781-3A16-4F74-A929-2FECD3449E39}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -115,6 +117,18 @@ Global
 		{20C42C60-1A6C-4C0F-8236-E1D0B45E1EDF}.Release|x64.Build.0 = Release|Any CPU
 		{20C42C60-1A6C-4C0F-8236-E1D0B45E1EDF}.Release|x86.ActiveCfg = Release|Any CPU
 		{20C42C60-1A6C-4C0F-8236-E1D0B45E1EDF}.Release|x86.Build.0 = Release|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Debug|x64.Build.0 = Debug|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Debug|x86.Build.0 = Debug|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Release|x64.ActiveCfg = Release|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Release|x64.Build.0 = Release|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Release|x86.ActiveCfg = Release|Any CPU
+		{B709C781-3A16-4F74-A929-2FECD3449E39}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -127,5 +141,6 @@ Global
 		{0451FAD6-8A5E-4783-8E94-05BE435707A8} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{2009050A-DCAC-403B-BFD9-87479AEF2A32} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{20C42C60-1A6C-4C0F-8236-E1D0B45E1EDF} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{B709C781-3A16-4F74-A929-2FECD3449E39} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

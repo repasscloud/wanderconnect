@@ -33,7 +33,14 @@ for relative in sorted(set(filter(None, paths))):
             failures.append(f'{relative}:{number}: legacy identifier')
 assert not failures, '\n'.join(failures)
 assert (root / 'Swoovr.sln').is_file() and (root / 'Swoovr.Local.sln').is_file()
-expected = {'Api', 'Web', 'Mobile', 'Contracts', 'Client', 'Domain', 'Infrastructure'}
+# Eight application projects: Web.Client was added for Interactive WebAssembly (Q03, D59).
+expected = {'Api', 'Web', 'Web.Client', 'Mobile', 'Contracts', 'Client', 'Domain', 'Infrastructure'}
 actual = {p.parent.name.removeprefix('Swoovr.') for p in (root / 'src').glob('*/*.csproj')}
 assert actual == expected, f'Unexpected application project set: {actual}'
-print('PASS: Swoovr source/path naming, documented historical exceptions and seven application projects.')
+# UI projects reach the server only through Client (docs/architecture/README.md): never Domain or Infrastructure.
+allowed = {'Web': {'Client', 'Web.Client'}, 'Web.Client': {'Client'}, 'Mobile': {'Client'}}
+for project, permitted in allowed.items():
+    text = (root / 'src' / f'Swoovr.{project}' / f'Swoovr.{project}.csproj').read_text()
+    references = set(re.findall(r'Include="\.\.\\Swoovr\.([A-Za-z.]+)\\', text))
+    assert references <= permitted, f'Swoovr.{project} references {sorted(references - permitted)}'
+print('PASS: Swoovr source/path naming, documented historical exceptions, eight application projects and UI project references.')

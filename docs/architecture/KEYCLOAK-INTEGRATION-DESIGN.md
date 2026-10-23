@@ -102,7 +102,7 @@ The API grants venue or staff access only when all of these hold; otherwise it d
 - AMR references are configured with a 12-hour `maxAge` (D46); Keycloak's default of 0 drops the reference from any token issued after the authentication second.
 - Freshness: privileged portal sessions last at most 12 hours (DEFAULT); sensitive actions (role grants, age overrides, data export, account deletion) require reauthentication within the last 15 minutes using OIDC `max_age` (DEFAULT). Refresh never resets freshness.
 
-IMPLEMENTED: `SessionEvidencePolicy` (Domain) maps validated token facts to method, MFA and freshness; `AccountAccessPolicy` now takes the realm and those facts instead of the reserved `HasApprovedPrivilegedEmailEvidence` verdict. Venue and staff roles, venue membership and the root-admin flag still need application persistence, so those areas remain closed in practice.
+IMPLEMENTED: `SessionEvidencePolicy` (Domain) maps validated token facts to method, MFA and freshness; `AccountAccessPolicy` now takes the realm and those facts instead of the reserved `HasApprovedPrivilegedEmailEvidence` verdict. Venue and staff roles, venue membership and the root-admin flag are application records (D70, D71); invitations bind them to `(issuer, subject)` on first sign-in (D72). The venue and staff portals are not built, and no Entra provider is configured, so only the root admin can reach staff routes locally.
 
 ## Email sign-in link
 
@@ -116,7 +116,7 @@ Design: a small Keycloak authenticator extension (Java, Keycloak SPI) added to t
 4. Keycloak atomically consumes the token, rejects reuse, expiry, wrong client or wrong realm, and completes its own authentication flow, recording an `amr` value for the email-link method.
 5. If the link is opened on a different device or browser from the one that asked, it signs in that device only after the confirmation button; the original tab is not signed in remotely (DEFAULT, simplest safe behaviour).
 
-Cost and trade-off: this is a Java (Maven) component outside the seven .NET projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. The extension must be rebuilt and retested on every Keycloak upgrade. The same extension also holds the MailerSend API email sender and, if needed, the lockout-clearing listener; it is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
+Cost and trade-off: this is a Java (Maven) component outside the .NET application projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. The extension must be rebuilt and retested on every Keycloak upgrade. The same extension also holds the MailerSend API email sender and, if needed, the lockout-clearing listener; it is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
 
 ## Account protection
 

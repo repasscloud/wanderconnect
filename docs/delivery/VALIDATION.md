@@ -298,3 +298,99 @@ Gaps: MAUI is not built or run (no MAUI workload on this machine), so the new XA
 The owner chose reference screen 13 for the chat (D56, superseding D53): their bubble is a soft grey pill with no border, the member's own reply is the primary colour, and the composer has an outlined "+" button, a soft pill input and an outline send arrow (web CSS and MAUI styles). The conversation preview shows "+" disabled because the demo has no attachments. Also recorded: employee = ruby staff bird (D57); admin verified is a backend flag with no badge that never implies ID verified (D58).
 
 Executed locally: `tests/ui/components.browser.cjs` PASS, 59 checks (now also asserting their bubble is the soft colour), `tests/prototype/conversation.browser.cjs` and `tests/appearance/web.browser.cjs` PASS; the chat was compared with screen 13 at 390 px in Standard light and dark. `./scripts/check.sh` PASS (see the commit). MAUI still not built.
+
+## Slice A: application persistence — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D67–D75 in [decisions](DECISIONS.md#accounts-beta-founder-and-webassembly-slices--23-october-2026).
+
+Changed:
+
+- **Database.** Compose service `postgres` (17.11-alpine, digest-pinned, 127.0.0.1:5433, generated password); Mailpit also publishes SMTP on 127.0.0.1:1025 for API email. `SwoovrDbContext` (EF Core 10, Npgsql) with the `InitialAccounts` migration: `accounts` (unique `(issuer, subject)`), `role_grants`, `invitations`, `member_profiles`, `audit_entries`.
+- **Domain.** `Account`, `RoleGrant`, `AuditEntry`, `EmailAddress.Normalise`, `MemberProfile` with `AgePolicy` and `BadgePolicy`, `Invitation` with `InvitationPolicy`.
+- **API.** `AccountResolver` maps each validated token to its account (created on first use, verified email cached, member profile created with the 18+ attestation status, venue/staff invitations accepted once). `/api/v1/session` now reports `adminArea` and `supportArea` from application records. New: `GET /api/v1/me`, `PUT /api/v1/me/age`, admin `POST/GET/DELETE /api/v1/admin/invitations`, `GET /api/v1/admin/accounts?email=`, `POST /api/v1/admin/accounts/{id}/adult-override`. Operator commands `migrate` and `root-admin grant`.
+
+Executed locally (macOS ARM64, .NET SDK 10.0.400, Docker Keycloak 26.8.1, PostgreSQL 17.11, headless Edge through the bundled Playwright; API and web from this branch):
+
+- `./scripts/check.sh`: PASS, including `PASS: 69 account policy cases` and `PASS: 8 persistence cases against PostgreSQL` (throwaway database per run).
+- `tests/auth/accounts.browser.cjs` (new): `PASS: 51 account checks` — one account per `(issuer, subject)`; member area only for members; DOB/age/blank entry and four invalid entries (400); age audit rows; a member gets 403 on all four admin routes and an anonymous caller 401; the root admin's staff session has no admin area until `root-admin grant` records it, then has it; granting root admin to a member subject is refused; a support invitation for a member's own email (upper-case) leaves that member with no admin or support area and the invitation pending; five invalid invitations refused; revoke and unknown-id 404; an age of 17 locks the account (`/me` and further age entry 403, member area off); exact-email account search; adult override restores access; no `@` anywhere in the audit log.
+- `tests/auth/members.browser.cjs`: PASS, 50 checks (session summary now includes `adminArea: false, supportArea: false`). `tests/auth/root-admin.browser.cjs`: PASS, 9 checks.
+
+Found while testing: Docker Desktop's bind mount of the Keycloak theme had gone empty inside the long-running container, so Keycloak served its stock theme; recreating that container fixed it (now in [local development](LOCAL-DEVELOPMENT.md#application-database--23-october-2026)).
+
+Gaps: no Entra provider, so the Entra half of invitation acceptance and the support role are covered only by domain checks; the 15-minute freshness rule for the adult override has no live negative test (it needs a 15-minute-old session); venue records, flag-setting admin routes and other members' profiles are not built; no hosted database, backup or retention policy.
+
+## Slice B: private beta enrolment — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D76–D78; follow-ups in [issue #25](https://github.com/repasscloud/wanderconnect/issues/25).
+
+Changed: `beta_enrolments` table (migration `BetaEnrolment`, unique live address); `BetaAccessPolicy` in Domain; the resolver binds the first matching enrolment to the account and `AccountResolver.Allows(Member)` requires the gate; `/api/v1/session` reports `beta`; member routes answer 403 `beta-not-enrolled`; admin `POST/GET/DELETE /api/v1/admin/beta`; operator command `beta`; `containers/postgres/beta-enrolment.fictional.txt`; the web account page shows the private-beta notice and swoovr.com/beta link (heading "Almost there") instead of "You're in".
+
+Executed locally (same environment as slice A):
+
+- `./scripts/check.sh`: PASS, including `PASS: 82 account policy cases` (13 new beta cases: verified-only match, binding survives an email change and never transfers, revocation, no database fails closed, staff and venue realms not gated) and `PASS: 10 persistence cases` (a revoked enrolment can be re-added; one live enrolment per address).
+- `tests/auth/accounts.browser.cjs`: `PASS: 76 account checks`, 25 of them new for the beta: an unenrolled member gets `memberArea: false, beta: notEnrolled`, 403 on `/me` and age entry; the web account page shows the notice, the `https://swoovr.com/beta/` link and "Not allowed"; members get 403 on the three beta admin routes; invalid address 400; admin add (upper-case, padded) normalises and returns 201, a second add 200; the member then has access and the page drops the notice; the enrolment shows `activated` and is bound to the account; revoking ends access; unknown id 404; the root admin's session reports `notRequired`; the file import prints counts with no address; an invalid address makes the command fail.
+- `tests/auth/members.browser.cjs`: PASS, 50 checks (the test now pre-authorises its fictional address and expects `beta: 'enrolled'`). The first run of this pass timed out once at the passkey sign-in (`waitForURL` after a fresh context's launch splash); the rerun passed unchanged. Watch for it as a possible flake.
+
+Gaps: no staff-portal screen; no email to testers on enrolment; no iOS distribution or market records (issue #25). The beta gate applies to the API member area; the prototype routes stay development-only demos outside it.
+
+## Slice C: founder flag and recovery token — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D79–D82; follow-ups in [issue #26](https://github.com/repasscloud/wanderconnect/issues/26) and the privacy follow-up [issue #22](https://github.com/repasscloud/wanderconnect/issues/22).
+
+Changed: migration `FounderTokens` (`founder_places`, `founder_tokens`, `member_profiles.founder_place` unique); `FounderTokenCodec` and `FounderRedeemPolicy` in Domain; `Founders` service in the API (grant under a table lock, resend, email-change reissue, secret versions from `Founders:Secrets:{n}`); routes `POST /api/v1/admin/accounts/{id}/founder`, `.../founder/resend`, `GET /api/v1/admin/founder-tokens?place=`, `POST /api/v1/admin/founder-tokens/{id}/invalidate`, `DELETE /api/v1/admin/founder-tokens/{id}`, `POST /api/v1/me/coupons`; `IEmailSender` with a loopback-only SMTP sender in Infrastructure; `./scripts/docker-local.sh init` adds `SWOOVR_FOUNDER_SECRET_V1`.
+
+Executed locally (same environment as slice A; API run with `Founders__Secrets__1` from `.local/docker.env` and `Email__Smtp__Host=127.0.0.1`, `Email__Smtp__Port=1025`):
+
+- `./scripts/check.sh`: PASS, including `PASS: 115 account policy cases` (33 new: code format, identical HMAC to the owner's sketch, version in the payload, 12 malformed codes refused, any-case input, another email/secret/version refused, invalidated/missing/mismatched rows refused, unknown secret version refused) and `PASS: 14 persistence cases` (places start at 1, a code is stored once, a token needs its place, one live account per place).
+- `tests/auth/accounts.browser.cjs`: `PASS: 106 account checks`, 30 of them new for founders: members cannot grant; the grant takes the next place and emails a `FOUNDER-V1-` code to Mailpit; a second grant is 409; the founder badge appears; the owner's own code is accepted as a no-op; another member gets the same 400 for the shared code, an ordinary coupon, an all-zero code, an unknown version and a malformed founder code, then 429 on the sixth try; changing the founder's email in Keycloak reissues a new code by email and marks the old one `email-changed`, while beta access follows the account; after deleting the account row and the Keycloak user and registering again with that address, the invalidated code is refused and the new code restores founding status on the **same** place with no new place taken; admin invalidate and delete leave the live account a founder; members get 403 on the token routes; admins never receive a code; no code or address in the audit log. The first attempt of this run stopped on a transient Keycloak admin-API timeout before reaching the API; the rerun passed unchanged.
+
+Gaps: automatic activation after verification (Q04), the deletion-request email (no deletion flow exists), founder benefits and a live places-full test are open (issue #26). Secrets are local configuration only.
+
+## Slice D: `Swoovr.Web.Client` and the backend-for-frontend — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D83–D86; follow-ups in [issue #27](https://github.com/repasscloud/wanderconnect/issues/27).
+
+Changed:
+
+- **Project.** `src/Swoovr.Web.Client` (Blazor WebAssembly, references only `Swoovr.Client`), added to both solutions. `scripts/check_naming.py` now expects eight projects and checks that Web, Web.Client and Mobile never reference Domain or Infrastructure; `scripts/check_design.py` scans Web.Client for fonts and token-only colours.
+- **Host.** Web adds `AddInteractiveWebAssemblyComponents`/`AddInteractiveWebAssemblyRenderMode`, the `/bff/` forwarder (`Auth/Bff.cs`) and references Web.Client. `Icon`, `Badge` and `ProfileTile` moved to `Swoovr.Web.Client/UI`.
+- **Account page.** `/account` is now a static shell (sign-in links when signed out; sign-out POST and settings link when signed in) around `MemberAccountPanel`, an Interactive WebAssembly component without prerendering that loads session and account through `MemberClient` (new in `Swoovr.Client`) and shows the beta notice, badges, optional DOB/age entry, the under-18 locked state and the coupon code form for founder codes.
+
+Executed locally (same environment as slice A; web on http://localhost:5081):
+
+- `./scripts/check.sh`: PASS (eight application projects and reference rules; design guard over 62 UI files and 20 web style sources).
+- `tests/auth/accounts.browser.cjs`: `PASS: 121 account checks`, 15 new for the WebAssembly page: the founder badge drawn from API data; a `.wasm` resource loaded; DOB entry saves and disables the age field; age-only entry stored as `[null, 33]`; clearing shows "No age is shown"; age 130 stopped by the browser's range check with nothing saved; an ordinary coupon refused with "That code can't be used."; BFF statuses `[400, 200, 404, 404, 404]` for no header, session, an admin route, a prototype route and health; no JWT in the page, storage or readable cookies; 401 from `/bff/` without a session cookie; an under-18 age locks the account and the locked notice survives a reload. Two test mistakes were fixed on the way (the range check never reaches the server; the coupon button now updates on input, which is also what members expect).
+- `tests/auth/members.browser.cjs`: PASS, 50 (waits for the WebAssembly panel before reading it). `tests/auth/root-admin.browser.cjs`: PASS, 9. `tests/ui/components.browser.cjs`: PASS, 59 (components now from Web.Client). `tests/appearance/web.browser.cjs`, `tests/prototype/discovery.browser.cjs`, `tests/prototype/conversation.browser.cjs`: PASS.
+- `docker build --target web -f containers/Dockerfile .`: succeeded with the WebAssembly client (image not run).
+
+Gaps: only the account page is WebAssembly; appearance sync, real Explore/profile/Chats pages and a Content Security Policy are planned in issue #27. No screen-reader or phone-device check of the new page; first load shows "Loading your account…" until WebAssembly starts (no prerendering, D85).
+
+## Slice E: MAUI on the iOS simulator — 23 October 2026
+
+Branch `feature/swoovr-accounts-beta-wasm`. Decisions D87–D88. Owner setup for the rest: [mobile tooling setup](MOBILE-TOOLING-SETUP.md).
+
+Environment: macOS 27.0.1 (26A434), Xcode 27.1 (27A9275), .NET SDK 10.0.400, `maui` workload 10.0.110 (iOS SDK pack 27.1.10018), iOS 27.0 simulator runtime. No Android SDK or JDK overnight (installed by the owner later the same day; see below).
+
+First MAUI build on this machine; three defects found and fixed:
+
+1. **Invalid XML.** `Colors.xaml` and the Android `colors.xml` are generated with a header comment containing `--write`, which is not allowed inside an XML comment, so XAML compilation failed (`MAUIG1001`). `scripts/check_design.py` now writes "in write mode" and fails the check if any MAUI `.xaml`/`.xml` file is not well-formed, so a machine without the workload catches it.
+2. **No UIScene life cycle.** The app installed but iOS refused to launch it ("UIScene life cycle is required for apps built with this SDK"). Added `Platforms/iOS/SceneDelegate.cs` and the scene manifest in `Info.plist` (D88). An incremental build kept the old `Info.plist`; a clean build was needed.
+3. **Launch splash never started.** `LaunchPage` started only on the page's `SizeChanged`, which arrives before the bird is measured, so the step 2 sequence never ran and the page sat on its static layout with no hand-off to the shell. It now also starts on the bird's `SizeChanged`.
+
+Executed locally:
+
+- `dotnet build src/Swoovr.Mobile -f net10.0-ios`: Build succeeded, 0 warnings, 0 errors (simulator, `iossimulator-arm64`, Debug).
+- `dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios -p:_DeviceName=:v2:udid=<iPhone 18 Pro simulator>`: launches. A burst of simulator screenshots shows the native ink splash, then the bird filled with "swoovr", the hairline and the "Dating · Friendship · Activities" line, the ink sheet wiping up with rounded bottom corners, and finally the shell's `MainPage` in Helvetica Neue with the `PageTitle` style. An iPad simulator also launched.
+- `python3 scripts/check_design.py --check`: PASS with the new XML guard; `./scripts/check.sh`: PASS.
+
+### Android emulator — owner run, 23 October 2026
+
+Set up by the owner with [mobile tooling setup](MOBILE-TOOLING-SETUP.md) steps 2–3: Android SDK platform `android-36`, build-tools 36.0.0, emulator 37.2.12.0, system image `android-35;google_apis;arm64-v8a` (AVD `swoovr-pixel`, Android 15), Microsoft OpenJDK 17.0.14 from `InstallAndroidDependencies`, MAUI Android pack 36.1.118.
+
+- `dotnet build src/Swoovr.Mobile -f net10.0-android` (owner): Build succeeded (Debug).
+- `dotnet build src/Swoovr.Mobile -t:Run -f net10.0-android`: first attempt failed with `XA0010: No available device` because no emulator was running (`-t:Run` does not boot one); after starting the AVD it installed and launched. Installed package `com.swoovr.app`, `minSdk=21`, `targetSdk=36`.
+- The owner saw the launch splash play and hand off. A builder `adb exec-out screencap` afterwards showed `MainActivity` resumed with the shell's `MainPage` (title bar "Swoovr", `PageTitle` heading and both placeholder lines); no crash or exception in `logcat`.
+
+Not verified on Android: the splash frame by frame (only the owner's eyes and the final state), an API 36 image (the app targets 36; the emulator runs 35), a physical device, Release/AOT, TalkBack, dark mode and reduced motion.
+
+Not run or not verified: a physical device, Release/AOT builds, reduced-motion on iOS, VoiceOver, dark mode on device, the step 3 MAUI component styles on any screen (no screen uses them yet), and mobile sign-in (Keycloak hand-off from the app is not built). The app icon is still the MAUI template (purple ".NET" square); no Swoovr icon asset has been supplied.

@@ -1,82 +1,44 @@
 @page "/account"
-@using Microsoft.AspNetCore.Authentication
-@inject SessionClient Sessions
 @inject IConfiguration Configuration
 <PageTitle>Account — Swoovr</PageTitle>
 <div class="column">
-<div class="page-heading">
-    <p class="breadcrumb"><a href="/">Me</a> / Account</p>
-    @if (signedIn)
+@if (!signedIn)
+{
+    <div class="page-heading">
+        <p class="breadcrumb"><a href="/">Me</a> / Account</p>
+        <h1>Sign in to Swoovr.</h1>
+        <p>Use your email and password or a passkey. Apple and Google sign-in arrive once their developer registrations exist.</p>
+    </div>
+    @if (!configured)
     {
-        <h1>You're in, @name.</h1>
-        <p>You're signed in to the Swoovr development preview. Profiles, matching and messages aren't connected to accounts yet.</p>
+        <p role="status" class="field-help">Sign-in isn't configured on this server. See docs/delivery/LOCAL-DEVELOPMENT.md.</p>
     }
     else
     {
-        <h1>Sign in to Swoovr.</h1>
-        <p>Use your email and password or a passkey. Apple and Google sign-in arrive once their developer registrations exist.</p>
+        <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a> <a class="button button-secondary" href="/account/create">Create an account</a></p>
     }
-</div>
-@if (!configured)
-{
-    <p role="status" class="field-help">Sign-in isn't configured on this server. See docs/delivery/LOCAL-DEVELOPMENT.md.</p>
-}
-else if (!signedIn)
-{
-    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a> <a class="button button-secondary" href="/account/create">Create an account</a></p>
 }
 else
 {
-    <section class="card account-session" aria-label="Your session">
-        @if (summary is null)
-        {
-            <p role="status">We couldn't confirm your session with the Swoovr API. Try signing in again.</p>
-        }
-        else
-        {
-            <dl>
-                <div><dt>Signed in with</dt><dd data-session-method="@summary.Method">@MethodLabel(summary.Method)@(summary.MultiFactor ? " + one-time code" : "")</dd></div>
-                <div><dt>Email</dt><dd>@(summary.EmailVerified ? "Verified" : "Not verified yet")</dd></div>
-                <div><dt>18+ confirmation</dt><dd data-adult-attested="@(summary.AdultAttested ? "true" : "false")">@(summary.AdultAttested ? "Confirmed when you joined" : "Not recorded")</dd></div>
-                <div><dt>Member area</dt><dd data-member-area="@(summary.MemberArea ? "true" : "false")">@(summary.MemberArea ? "Allowed" : "Not allowed")</dd></div>
-            </dl>
-            <p class="field-help">Confirming you're 18+ isn't age verification. Your date of birth and any ID check come later, in your profile.</p>
-        }
-        <form method="post" action="/account/sign-out">
-            <AntiforgeryToken />
-            <button type="submit" class="quiet-button">Sign out</button>
-        </form>
-    </section>
+    @* Signed-in content runs as Interactive WebAssembly (D59) and reads the API through /bff/. Not prerendered:
+       the server never renders member data into HTML, and no Interactive Server circuit is used. *@
+    <MemberAccountPanel Name="@name" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    <form method="post" action="/account/sign-out" class="account-sign-out">
+        <AntiforgeryToken />
+        <button type="submit" class="quiet-button">Sign out</button>
+    </form>
 }
 <nav class="card settings-list" aria-label="Settings"><a href="/settings/appearance">Appearance <Icon Name="back" Size="18" /></a></nav>
 </div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool configured, signedIn;
-    private string? name;
-    private SessionSummary? summary;
+    private string name = "there";
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         configured = Swoovr.Web.Auth.MemberSignIn.IsConfigured(Configuration);
         signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
-        if (!signedIn) return;
-        name = HttpContext.User.Identity!.Name ?? "there";
-        var token = await HttpContext.GetTokenAsync("access_token");
-        if (token is null) return;
-        try { summary = await Sessions.GetAsync(token); }
-        catch (HttpRequestException) { summary = null; }
+        if (signedIn) name = HttpContext.User.Identity!.Name ?? "there";
     }
-
-    private static string MethodLabel(string method) => method switch
-    {
-        // Keycloak 26.8.1 reports a passkey used on the sign-in form as the password method.
-        "emailPassword" => "Password or passkey",
-        "passkey" => "Passkey",
-        "emailLink" => "Email sign-in link",
-        "apple" => "Apple",
-        "google" => "Google",
-        // Keycloak records no method for the session it starts right after email-first sign-up.
-        _ => "New account (just created)",
-    };
 }

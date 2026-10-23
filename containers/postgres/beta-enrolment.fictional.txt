@@ -1,0 +1,6 @@
+# Fictional local beta enrolments (D62). Load with:
+#   dotnet run --project src/Swoovr.Api -- beta add --file containers/postgres/beta-enrolment.fictional.txt
+# One address per line. Never put real tester addresses in this repository; keep those in a private file.
+fictional.tester.one@example.test
+fictional.tester.two@example.test
+fictional.tester.three@example.test

@@ -1,2 +1,8 @@
 # Infrastructure
-Future persistence, Keycloak adapter, media, billing and notification integrations belong here behind domain-facing interfaces. No provider credentials or functioning authentication adapter are included.
+Persistence (`Persistence/`: `SwoovrDbContext`, EF Core migrations for PostgreSQL, D68) lives here. Media, billing and notification integrations will join it. No provider credentials are included.
+
+Add a migration after changing the model:
+
+```sh
+dotnet ef migrations add <Name> --project src/Swoovr.Infrastructure --output-dir Persistence/Migrations
+```
