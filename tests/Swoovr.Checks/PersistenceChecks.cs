@@ -136,9 +136,27 @@ static class PersistenceChecks
         }
         await using (var db = new SwoovrDbContext(options))
         {
+            var order = await db.BadgeDefinitions.OrderBy(d => d.SortOrder).Select(d => d.Badge).ToListAsync();
+            check("badge order seeded as data (Q11 rule 61)", order.SequenceEqual(BadgePolicy.DefaultOrder));
+            db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = a, ModeId = ConnectionModeIds.Dating, AuthorisedAt = now });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = a, ModeId = ConnectionModeIds.Dating, AuthorisedAt = now });
+            check("one authorisation per bot and mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = b, ModeId = "travel", AuthorisedAt = now });
+            check("a bot can only be authorised for a real mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
             db.Accounts.Remove(await db.Accounts.SingleAsync(x => x.Id == a));
             await db.SaveChangesAsync();
-            check("mode settings and intentions go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a) && !await db.MemberModeIntentions.AnyAsync());
+            check("mode settings, intentions and bot authorisations go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a)
+                && !await db.MemberModeIntentions.AnyAsync() && !await db.BotModeAuthorisations.AnyAsync());
         }
     }
 

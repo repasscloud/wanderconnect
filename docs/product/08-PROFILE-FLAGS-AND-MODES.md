@@ -18,7 +18,7 @@ CONFIRMED, owner 23 October 2026 (D55):
 | Founding member | One of the first 1,000 founding members, activated after onboarding and Photo and/or ID verification; permanent even without a paid subscription (Q08, D63) | The application, from the founding programme | Gold bird `#D4AF37` ("Swoovr Founder") | CONFIRMED (D63) |
 | Photo verified | Profile photos matched to a verification photo; does not prove age | The application, after a photo check; process OPEN | Blue `#087CFA` portrait with tick | Badge drawn; check OPEN |
 | ID verified | Government ID and age checked | The application, from the identity provider's outcome (Stripe Identity, D40) | Teal `#00AAA0` card with tick | Badge drawn; integration OPEN (Q04) |
-| Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED; how it affects age status OPEN (Q11) |
+| Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED (Q11, 24 October 2026: internal trust review, valid until revoked, never public) |
 | Bot account | An automated Swoovr account (for example a guide) | The application; never self-declared | Silver bird `#C0C0C0` ("Swoovr guide (bot)") | Badge drawn |
 | Employee account | A RePass Cloud / Swoovr employee | The application, from the staff record (staff realm invitation, D31) | Ruby bird `#E0115F` ("Swoovr staff") | CONFIRMED (D57) |
 
@@ -69,11 +69,12 @@ Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and
 ## Current state
 
 - Web: `src/Swoovr.Web.Client/UI/Badge.razor` (moved from `Swoovr.Web/Components/UI` on 23 October so WebAssembly pages can use it) draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. Admin verified has no badge by design (D58).
+- Slice K (24 October 2026, D108, D114–D116): other people's badges on Explore tiles and person pages (`BadgeRow`), several at once in the order held in `badge_definitions`; staff in discovery; bots only in admin-authorised modes with only the bot badge; admin routes for bot classification, bot modes and staff affiliation. Photo/ID verification and staff-report moderation are not built (Q04, Q20).
 - MAUI: badge colours in `Colors.xaml`; no badge drawing yet.
-- Modes (slices I, J): `connection_modes`, `mode_intentions` (forty chips, D106), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are not returned yet (Q11).
+- Modes (slices I, J): `connection_modes`, `mode_intentions` (forty chips, D106), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are returned since slice K.
 - API: `member_profiles` stores the flags, verification statuses and optional DOB/age (D69, D70); `BadgePolicy` returns the badges to show (D74) and `/api/v1/me` returns the member's own. Founding status is granted by an admin route and restorable with the recovery token (D79–D81). No other-profile endpoint, other flag-setting admin routes or verification integrations yet.
 
 ## Open questions
 
-- **Q11.** Remaining flag rules: whether admin verified changes age status (for example D40's staff override to adult); whether someone can show several badges at once; whether bot and employee accounts appear in discovery. Answered: founding member (D63), employee badge (D57) and admin verified (D58).
+- **Q11.** ANSWERED, owner 24 October 2026 (D108); see [Q11](../delivery/QUESTIONS.md#q11--profile-flags-verification-badges-founding-membership-staff-affiliation-and-official-bots).
 - **Q12.** ANSWERED, owner 23 October 2026 (D92): four connection modes and Travel as a separate discovery state; see [Q12 — Connection modes, discovery and Travel state](../delivery/QUESTIONS.md#q12--connection-modes-discovery-and-travel-state). The intention set for each mode is still to be defined.

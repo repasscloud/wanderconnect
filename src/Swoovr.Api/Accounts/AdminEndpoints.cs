@@ -205,6 +205,87 @@ public static class AdminEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.NoContent();
         });
+
+        // Q11 (D108): official bots are classified by an admin, never self-declared, and appear only in the modes an
+        // admin authorised for each bot. Staff affiliation is a revocable credential on an ordinary member account; it
+        // grants no role. All three are audited with ids and machine values only.
+        admin.MapPut("/accounts/{id:guid}/bot", async (Guid id, BotClassificationRequest request, ClaimsPrincipal user, AccountResolver accounts,
+            TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
+            if (profile is null) return Results.NotFound();
+            if (profile.Bot != request.Bot)
+            {
+                var now = clock.GetUtcNow();
+                profile.Bot = request.Bot;
+                // A bot is never staff; losing bot status removes every mode authorisation.
+                if (request.Bot && profile.Employee)
+                {
+                    profile.Employee = false;
+                    Audit.Record(db, now, current!.Account!.Id, "account", "staff.revoked", "account", id.ToString(), "bot");
+                }
+                if (!request.Bot)
+                    db.BotModeAuthorisations.RemoveRange(await db.BotModeAuthorisations.Where(b => b.AccountId == id).ToListAsync(cancellationToken));
+                Audit.Record(db, now, current!.Account!.Id, "account", request.Bot ? "bot.classified" : "bot.declassified", "account", id.ToString());
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            return Results.NoContent();
+        });
+
+        admin.MapGet("/accounts/{id:guid}/bot-modes", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (_, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            if (await db.MemberProfiles.FindAsync([id], cancellationToken) is not { Bot: true })
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotABot, "That account isn't an official bot.");
+            return Results.Ok(new BotModesView(await db.BotModeAuthorisations.Where(b => b.AccountId == id).OrderBy(b => b.ModeId).Select(b => b.ModeId).ToListAsync(cancellationToken)));
+        });
+
+        admin.MapPut("/accounts/{id:guid}/bot-modes", async (Guid id, BotModesRequest request, ClaimsPrincipal user, AccountResolver accounts,
+            TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            if (await db.MemberProfiles.FindAsync([id], cancellationToken) is not { Bot: true })
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotABot, "That account isn't an official bot.");
+            var known = await db.ConnectionModes.Select(m => m.Id).ToListAsync(cancellationToken);
+            var wanted = (request.Modes ?? []).Distinct().ToList();
+            if (wanted.Count > known.Count || wanted.Any(m => !known.Contains(m)))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.UnknownMode, "Authorise only the four connection modes.");
+            var now = clock.GetUtcNow();
+            var existing = await db.BotModeAuthorisations.Where(b => b.AccountId == id).ToListAsync(cancellationToken);
+            db.BotModeAuthorisations.RemoveRange(existing.Where(b => !wanted.Contains(b.ModeId)));
+            db.BotModeAuthorisations.AddRange(wanted.Where(m => existing.All(b => b.ModeId != m))
+                .Select(m => new BotModeAuthorisation { AccountId = id, ModeId = m, AuthorisedAt = now, AuthorisedBy = current!.Account!.Id }));
+            Audit.Record(db, now, current!.Account!.Id, "account", "bot.modes-authorised", "account", id.ToString(), string.Join(",", wanted.Order()));
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new BotModesView(wanted.Order().ToList()));
+        });
+
+        admin.MapPut("/accounts/{id:guid}/staff-affiliation", async (Guid id, StaffAffiliationRequest request, ClaimsPrincipal user, AccountResolver accounts,
+            TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
+            if (profile is null) return Results.NotFound();
+            if (request.Active && profile.Bot)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "An official bot can't hold a staff affiliation.");
+            if (profile.Employee != request.Active)
+            {
+                profile.Employee = request.Active;
+                // Revoking the badge leaves the member account and every other credential as they were (Q11 rule 44).
+                Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", request.Active ? "staff.affiliated" : "staff.revoked", "account", id.ToString());
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            return Results.NoContent();
+        });
     }
 
     /// <summary>

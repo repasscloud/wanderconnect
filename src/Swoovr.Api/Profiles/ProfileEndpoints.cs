@@ -64,6 +64,9 @@ public static class ProfileEndpoints
                 case not ModeChangeError.None:
                     return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidMode, "Check the intentions for this mode.");
             }
+            // Q11 rule 49: an official bot switches on only the modes an admin authorised for it.
+            if (update.Enabled && profile.Bot && !DiscoveryEligibility.MaySwitchOn(true, await BotModesAsync(db, profile.AccountId, cancellationToken), modeId))
+                return Problem(StatusCodes.Status403Forbidden, ProblemCodes.BotModeNotAuthorised, "This mode isn't authorised for this account.");
             var now = clock.GetUtcNow();
             var setting = await db.MemberModes.SingleOrDefaultAsync(m => m.AccountId == profile.AccountId && m.ModeId == modeId, cancellationToken);
             if (setting is null) db.MemberModes.Add(setting = new MemberMode { AccountId = profile.AccountId, ModeId = modeId });
@@ -91,16 +94,19 @@ public static class ProfileEndpoints
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModeNotEnabled, "Turn this mode on to see who's here.");
             var people = await Candidates(db, configuration)
                 .Where(c => c.Profile.AccountId != viewer && db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
-                    && m.ModeId == selected.Id && m.Enabled && m.Visible))
+                    && m.ModeId == selected.Id && m.Enabled && m.Visible)
+                    && (!c.Profile.Bot || db.BotModeAuthorisations.Any(b => b.AccountId == c.Profile.AccountId && b.ModeId == selected.Id)))
                 .OrderByDescending(c => db.MemberModes.Where(m => m.AccountId == c.Profile.AccountId && m.ModeId == selected.Id).Select(m => m.UpdatedAt).First())
                 .Take(ExploreLimit)
                 .ToListAsync(cancellationToken);
+            var bots = await BotModesAsync(db, people.Where(c => c.Profile.Bot).Select(c => c.Profile.AccountId).ToList(), cancellationToken);
             // Checked again in code with the same policy the database filter mirrors, so the rule has one source.
             var shown = people.Where(c => DiscoveryEligibility.ShownIn(selected.Id, selected, own,
-                new MemberMode { ModeId = selected.Id, Enabled = true, Visible = true }, c.Candidate())).ToList();
+                new MemberMode { ModeId = selected.Id, Enabled = true, Visible = true }, c.Candidate(bots))).ToList();
             var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
+            var order = await BadgeOrderAsync(db, cancellationToken);
             return Results.Ok(new ExploreResult(selected.Id, shown.Select(c => new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!,
-                c.Profile.Area, c.Profile.About, chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []))).ToList()));
+                c.Profile.Area, c.Profile.About, chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order))).ToList()));
         });
         api.MapGet("/profiles/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, CancellationToken cancellationToken) =>
         {
@@ -113,11 +119,13 @@ public static class ProfileEndpoints
             var modes = await db.ConnectionModes.Where(m => m.Available).OrderBy(m => m.SortOrder).ToListAsync(cancellationToken);
             var mine = await db.MemberModes.Where(m => m.AccountId == viewer).ToDictionaryAsync(m => m.ModeId, cancellationToken);
             var theirs = person is null ? [] : await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId).ToDictionaryAsync(m => m.ModeId, cancellationToken);
-            var shared = person is null ? [] : modes.Where(m => DiscoveryEligibility.ShownIn(m.Id, m, mine.GetValueOrDefault(m.Id), theirs.GetValueOrDefault(m.Id), person.Candidate())).ToList();
+            var bots = person is { Profile.Bot: true } ? await BotModesAsync(db, [person.Profile.AccountId], cancellationToken) : [];
+            var shared = person is null ? [] : modes.Where(m => DiscoveryEligibility.ShownIn(m.Id, m, mine.GetValueOrDefault(m.Id), theirs.GetValueOrDefault(m.Id), person.Candidate(bots))).ToList();
             if (person is null || shared.Count == 0) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
             var chips = await IntentionLabelsAsync(db, [person.Profile.AccountId], null, cancellationToken);
             return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, person.Profile.About,
-                shared.Select(m => new SharedModeView(m.Id, m.Label, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []))).ToList()));
+                shared.Select(m => new SharedModeView(m.Id, m.Label, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []))).ToList(),
+                Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken))));
         });
     }
 
@@ -127,7 +135,8 @@ public static class ProfileEndpoints
         public required MemberProfile Profile { get; init; }
         public AccountStatus Status { get; init; }
         public bool BetaActive { get; init; }
-        public DiscoveryCandidate Candidate() => new(Status, Profile.AgeStatus, BetaActive, Profile.Bot, Profile.Employee, Profile.DisplayName);
+        public DiscoveryCandidate Candidate(Dictionary<Guid, HashSet<string>> bots) =>
+            new(Status, Profile.AgeStatus, BetaActive, Profile.Bot, Profile.DisplayName, bots.GetValueOrDefault(Profile.AccountId));
     }
 
     /// <summary>Members-realm people who pass DiscoveryEligibility.Discoverable, filtered in the database.</summary>
@@ -138,11 +147,29 @@ public static class ProfileEndpoints
         return from profile in db.MemberProfiles
                join account in db.Accounts on profile.AccountId equals account.Id
                where account.Realm == AccountRealm.Members && account.Status == AccountStatus.Active
-                     && adult.Contains(profile.AgeStatus) && !profile.Bot && !profile.Employee && profile.DisplayName != null
+                     && adult.Contains(profile.AgeStatus) && profile.DisplayName != null
                let beta = !betaOn || db.BetaEnrolments.Any(e => e.AccountId == account.Id && e.RevokedAt == null)
                where beta
                select new Row { Profile = profile, Status = account.Status, BetaActive = beta };
     }
+
+    /// <summary>The configured badge order (Q11 rule 61); falls back to the D74 order when the table is empty.</summary>
+    public static async Task<IReadOnlyList<Badge>> BadgeOrderAsync(SwoovrDbContext db, CancellationToken cancellationToken)
+    {
+        var order = await db.BadgeDefinitions.OrderBy(b => b.SortOrder).Select(b => b.Badge).ToListAsync(cancellationToken);
+        return order.Count > 0 ? order : BadgePolicy.DefaultOrder;
+    }
+
+    /// <summary>Public badges only: never admin verified, evidence or roles (Q11 rule 64).</summary>
+    public static IReadOnlyList<BadgeView> Badges(MemberProfile profile, IReadOnlyList<Badge> order) =>
+        BadgePolicy.For(profile, order).Select(b => new BadgeView(Wire(b.Badge), b.CheckedAt)).ToList();
+
+    public static async Task<HashSet<string>> BotModesAsync(SwoovrDbContext db, Guid bot, CancellationToken cancellationToken) =>
+        (await db.BotModeAuthorisations.Where(b => b.AccountId == bot).Select(b => b.ModeId).ToListAsync(cancellationToken)).ToHashSet();
+
+    private static async Task<Dictionary<Guid, HashSet<string>>> BotModesAsync(SwoovrDbContext db, List<Guid> bots, CancellationToken cancellationToken) =>
+        bots.Count == 0 ? [] : (await db.BotModeAuthorisations.Where(b => bots.Contains(b.AccountId)).ToListAsync(cancellationToken))
+            .GroupBy(b => b.AccountId).ToDictionary(g => g.Key, g => g.Select(b => b.ModeId).ToHashSet());
 
     public static async Task<IReadOnlyList<ConnectionModeView>> CatalogueAsync(SwoovrDbContext db, CancellationToken cancellationToken)
     {

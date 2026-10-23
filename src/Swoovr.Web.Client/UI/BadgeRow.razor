@@ -1,0 +1,17 @@
+@* The public badges the API returned for one person, in the API's order (Q11 rules 57, 61). Clients never work a badge
+   out themselves (D55). On a profile page each badge can carry its check date ("checked 17 Oct 2026"). *@
+@if (Badges.Count > 0)
+{
+    <span class="badge-row" data-badges="@string.Join(" ", Badges.Select(b => b.Badge))">
+        @foreach (var badge in Badges)
+        {
+            <Badge Kind="@AccountText.BadgeKind(badge.Badge)" Size="Size" />
+            @if (Dated && badge.CheckedAt is { } at) { <span class="badge-date">checked @at.ToString("d MMM yyyy")</span> }
+        }
+    </span>
+}
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<BadgeView> Badges { get; set; } = [];
+    [Parameter] public int Size { get; set; } = 16;
+    [Parameter] public bool Dated { get; set; }
+}

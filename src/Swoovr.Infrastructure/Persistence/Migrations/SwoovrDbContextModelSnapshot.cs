@@ -141,6 +141,50 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("audit_entries");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BadgeDefinition", b =>
+                {
+                    b.Property<string>("Badge")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("badge");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Badge")
+                        .HasName("pk_badge_definitions");
+
+                    b.ToTable("badge_definitions");
+
+                    b.HasData(
+                        new
+                        {
+                            Badge = "Founder",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Badge = "PhotoVerified",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Badge = "IdVerified",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Badge = "Staff",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Badge = "Bot",
+                            SortOrder = 5
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BetaEnrolment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -186,6 +230,34 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasFilter("revoked_at IS NULL");
 
                     b.ToTable("beta_enrolments");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BotModeAuthorisation", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<DateTimeOffset>("AuthorisedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("authorised_at");
+
+                    b.Property<Guid?>("AuthorisedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("authorised_by");
+
+                    b.HasKey("AccountId", "ModeId")
+                        .HasName("pk_bot_mode_authorisations");
+
+                    b.HasIndex("ModeId")
+                        .HasDatabaseName("ix_bot_mode_authorisations_mode_id");
+
+                    b.ToTable("bot_mode_authorisations");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ConnectionMode", b =>
@@ -944,6 +1016,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("AccountId", "Role", "VenueId"), false);
 
                     b.ToTable("role_grants");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BotModeAuthorisation", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_bot_mode_authorisations_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.ConnectionMode", null)
+                        .WithMany()
+                        .HasForeignKey("ModeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_bot_mode_authorisations_connection_modes_mode_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>

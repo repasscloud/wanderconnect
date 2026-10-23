@@ -107,26 +107,32 @@ public static class ProfileTextPolicy
 
 /// <summary>
 /// What a member's own data says about whether others may find them. Facts come from application records only.
+/// BotModes holds the modes an admin authorised for an official bot (empty for people).
 /// </summary>
-public sealed record DiscoveryCandidate(AccountStatus Status, AgeStatus Age, bool BetaActive, bool Bot, bool Employee, string? DisplayName);
+public sealed record DiscoveryCandidate(AccountStatus Status, AgeStatus Age, bool BetaActive, bool Bot, string? DisplayName,
+    IReadOnlySet<string>? BotModes = null);
 
 /// <summary>
-/// Who appears in Explore and whose profile opens (DEFAULT under D92 and D62). A person is shown in a mode only if
-/// both the viewer and they have it enabled, they made it visible, their account is active and adult, they are on
-/// the beta (when it is on), and they have a display name. Bot and staff accounts stay out until Q11 decides.
-/// Blocks and moderation restrictions join this check when those records exist (none yet).
+/// Who appears in Explore and whose profile opens (D92, D62, Q11). A person is shown in a mode only if both the viewer
+/// and they have it enabled, they made it visible, their account is active and adult, they are on the beta (when it is
+/// on), and they have a display name. Staff take part like anyone else (Q11 rule 32). An official bot appears only in
+/// modes an admin authorised for it (rule 49). Intentions never exclude anyone (Q16 rule 10). Blocks and other
+/// pair rules are checked by the caller before this.
 /// </summary>
 public static class DiscoveryEligibility
 {
     public static bool Adult(AgeStatus age) => age is AgeStatus.Attested or AgeStatus.SelfDeclaredAdult or AgeStatus.Verified or AgeStatus.AdultOverride;
 
     public static bool Discoverable(DiscoveryCandidate person) =>
-        person.Status == AccountStatus.Active && Adult(person.Age) && person.BetaActive && !person.Bot && !person.Employee
-        && !string.IsNullOrWhiteSpace(person.DisplayName);
+        person.Status == AccountStatus.Active && Adult(person.Age) && person.BetaActive && !string.IsNullOrWhiteSpace(person.DisplayName);
 
     public static bool ShownIn(string modeId, ConnectionMode? mode, MemberMode? viewer, MemberMode? person, DiscoveryCandidate candidate) =>
         mode is { Available: true } && mode.Id == modeId
         && viewer is { Enabled: true } && viewer.ModeId == modeId
         && person is { Enabled: true, Visible: true } && person.ModeId == modeId
+        && (!candidate.Bot || candidate.BotModes?.Contains(modeId) == true)
         && Discoverable(candidate);
+
+    /// <summary>A bot may switch on only the modes an admin authorised for it; people may switch on any mode.</summary>
+    public static bool MaySwitchOn(bool bot, IReadOnlySet<string> botModes, string modeId) => !bot || botModes.Contains(modeId);
 }

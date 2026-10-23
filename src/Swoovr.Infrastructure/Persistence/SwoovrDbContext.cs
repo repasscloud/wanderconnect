@@ -7,7 +7,8 @@ namespace Swoovr.Infrastructure.Persistence;
 /// <summary>
 /// The application database (DEFAULT PostgreSQL). Holds what Keycloak does not (D55):
 /// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details, beta
-/// enrolments (D62), founder places and tokens (D65), connection modes and members' mode settings (D92)
+/// enrolments (D62), founder places and tokens (D65), connection modes and members' mode settings (D92), badge order
+/// and bot mode authorisations (Q11)
 /// and the audit log. Names are snake_case; enums are stored as their names
 /// so a reordered enum can never change stored meaning.
 /// </summary>
@@ -25,6 +26,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<ModeIntention> ModeIntentions => Set<ModeIntention>();
     public DbSet<MemberMode> MemberModes => Set<MemberMode>();
     public DbSet<MemberModeIntention> MemberModeIntentions => Set<MemberModeIntention>();
+    public DbSet<BadgeDefinition> BadgeDefinitions => Set<BadgeDefinition>();
+    public DbSet<BotModeAuthorisation> BotModeAuthorisations => Set<BotModeAuthorisation>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -93,6 +96,19 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             chosen.Property(m => m.ModeId).HasMaxLength(32);
             chosen.HasOne<MemberMode>().WithMany().HasForeignKey(m => new { m.AccountId, m.ModeId }).OnDelete(DeleteBehavior.Cascade);
             chosen.HasOne<ModeIntention>().WithMany().HasForeignKey(m => m.IntentionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // Q11 rule 61: badge order is data, seeded in the D74 order.
+        model.Entity<BadgeDefinition>(badge =>
+        {
+            badge.HasKey(b => b.Badge);
+            badge.HasData(BadgePolicy.DefaultOrder.Select((b, i) => new BadgeDefinition { Badge = b, SortOrder = i + 1 }));
+        });
+        model.Entity<BotModeAuthorisation>(authorised =>
+        {
+            authorised.HasKey(b => new { b.AccountId, b.ModeId });
+            authorised.Property(b => b.ModeId).HasMaxLength(32);
+            authorised.HasOne<Account>().WithMany().HasForeignKey(b => b.AccountId).OnDelete(DeleteBehavior.Cascade);
+            authorised.HasOne<ConnectionMode>().WithMany().HasForeignKey(b => b.ModeId).OnDelete(DeleteBehavior.Restrict);
         });
         model.Entity<FounderPlace>(place =>
         {

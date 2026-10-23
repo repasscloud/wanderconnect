@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Contracts;
 using Swoovr.Domain;
+using static Swoovr.Api.Profiles.ProfileEndpoints;
 
 namespace Swoovr.Api.Accounts;
 
@@ -30,7 +31,7 @@ public static class AccountEndpoints
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
-            return denied ?? Results.Ok(View(current!.Profile!, Today(clock)));
+            return denied ?? Results.Ok(View(current!.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken)));
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -59,7 +60,7 @@ public static class AccountEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return change.LocksAccount
                 ? Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountLocked, "This account is locked.")
-                : Results.Ok(View(profile, Today(clock)));
+                : Results.Ok(View(profile, Today(clock), await BadgeOrderAsync(db, cancellationToken)));
         });
     }
 
@@ -108,7 +109,7 @@ public static class AccountEndpoints
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.CouponInvalid, "That code can't be used.");
             }
         }
-        return Results.Ok(View(profile, DateOnly.FromDateTime(now.UtcDateTime)));
+        return Results.Ok(View(profile, DateOnly.FromDateTime(now.UtcDateTime), await BadgeOrderAsync(db, cancellationToken)));
     }
 
     /// <summary>The caller as an active member with a profile, or the response that refuses them.</summary>
@@ -126,9 +127,9 @@ public static class AccountEndpoints
         return (current, null);
     }
 
-    public static MemberAccount View(MemberProfile profile, DateOnly today) => new(
+    public static MemberAccount View(MemberProfile profile, DateOnly today, IReadOnlyList<Badge> badgeOrder) => new(
         Wire(profile.AgeStatus), AgePolicy.CurrentAge(profile, today), profile.DateOfBirth, profile.DeclaredAge,
-        BadgePolicy.For(profile).Select(b => new BadgeView(Wire(b.Badge), b.CheckedAt)).ToList());
+        Swoovr.Api.Profiles.ProfileEndpoints.Badges(profile, badgeOrder));
 
     private static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 }

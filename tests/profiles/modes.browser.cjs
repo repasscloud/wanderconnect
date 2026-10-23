@@ -95,7 +95,8 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'area', 'displayName', 'id', 'intentions']); pass(); // no age, email, account id or badges
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'area', 'badges', 'displayName', 'id', 'intentions']); pass(); // no age, email or account id
+    assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.
     await save('ben', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 4), chip('dating', 2)] });
     let benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
@@ -143,7 +144,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     await call(tokens.ben, '/api/v1/session'); // binds the new enrolment
     assert.ok(ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
     await sql(`UPDATE member_profiles SET bot = true WHERE public_id = '${benCard.id}'`);
-    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: bots stay out
+    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
     await sql(`UPDATE member_profiles SET bot = false WHERE public_id = '${benCard.id}'`);
     await call(tokens.ben, '/api/v1/me/age', { method: 'PUT', body: { age: 16 } }); // fictional under-18 entry locks the account (D40)
     assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
@@ -223,7 +224,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     await guest.goto(web + '/explore');
     assert.match(await guest.locator('main').innerText(), /Sign in to see who's on Swoovr/); pass();
     await context.close();
-    console.log(`PASS: connection modes acceptance, ${passed} checks (catalogue from data, forty intention chips with the five limit, retired chips kept and hidden, chips on tiles and profiles, own profile and text limits, several independent modes, unknown/Travel modes and made-up intentions refused, Explore both-ways visibility, public ids, account state and beta always win, Q11 bot exclusion, WebAssembly profile/Explore/person pages through /bff/ only).`);
+    console.log(`PASS: connection modes acceptance, ${passed} checks (catalogue from data, forty intention chips with the five limit, retired chips kept and hidden, chips on tiles and profiles, own profile and text limits, several independent modes, unknown/Travel modes and made-up intentions refused, Explore both-ways visibility, public ids, account state and beta always win, unauthorised bots excluded, WebAssembly profile/Explore/person pages through /bff/ only).`);
   } finally {
     await browser.close();
   }

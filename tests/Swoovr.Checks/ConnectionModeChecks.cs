@@ -60,13 +60,13 @@ static class ConnectionModeChecks
         Expect(ProfileTextPolicy.Check("Sam\u0007", null, null) == ProfileTextError.ControlCharacters, "control characters in name");
         Expect(ProfileTextPolicy.Check("Sam", "Adel\naide", null) == ProfileTextError.ControlCharacters, "line break in area");
 
-        var person = new DiscoveryCandidate(AccountStatus.Active, AgeStatus.Attested, BetaActive: true, Bot: false, Employee: false, DisplayName: "Fictional Sam");
+        var person = new DiscoveryCandidate(AccountStatus.Active, AgeStatus.Attested, BetaActive: true, Bot: false, DisplayName: "Fictional Sam");
         Expect(DiscoveryEligibility.Discoverable(person), "active adult on the beta with a name");
         foreach (var (label, changed) in new (string, DiscoveryCandidate)[] {
             ("locked", person with { Status = AccountStatus.Locked }), ("suspended", person with { Status = AccountStatus.Suspended }),
             ("underage", person with { Age = AgeStatus.Underage }), ("no 18+ record", person with { Age = AgeStatus.Unconfirmed }),
             ("age check pending", person with { Age = AgeStatus.NeedsVerification }), ("not on the beta", person with { BetaActive = false }),
-            ("bot (Q11)", person with { Bot = true }), ("staff (Q11)", person with { Employee = true }), ("no name", person with { DisplayName = " " }) })
+            ("no name", person with { DisplayName = " " }) })
             Expect(!DiscoveryEligibility.Discoverable(changed), label + " is never shown");
         foreach (var age in new[] { AgeStatus.SelfDeclaredAdult, AgeStatus.Verified, AgeStatus.AdultOverride })
             Expect(DiscoveryEligibility.Discoverable(person with { Age = age }), age + " counts as adult");
@@ -81,6 +81,18 @@ static class ConnectionModeChecks
         Expect(!DiscoveryEligibility.ShownIn("dating", new ConnectionMode { Id = "dating", Available = false }, On(), On(), person), "mode switched off in configuration");
         Expect(!DiscoveryEligibility.ShownIn("dating", dating, On(), On(), person with { BetaActive = false }), "mode never bypasses the gate");
 
-        Console.WriteLine($"PASS: {checks} connection mode cases (four stable ids, per-mode intentions and the five limit, retired chips kept (D113), the forty seeded chips, profile text limits, discovery eligibility both ways).");
+        // Q11: staff are ordinary members (there is no staff exclusion to pass); bots only in authorised modes.
+        var botPerson = person with { Bot = true, BotModes = new HashSet<string> { "dating" } };
+        Expect(DiscoveryEligibility.ShownIn("dating", dating, On(), On(), botPerson), "bot in an authorised mode");
+        Expect(!DiscoveryEligibility.ShownIn("dating", dating, On(), On(), botPerson with { BotModes = new HashSet<string> { "friends" } }), "bot in a mode not authorised");
+        Expect(!DiscoveryEligibility.ShownIn("dating", dating, On(), On(), person with { Bot = true }), "bot with no authorisations");
+        Expect(!DiscoveryEligibility.ShownIn("dating", dating, On(), On(visible: false), botPerson), "authorised but switched off by the bot");
+        Expect(!DiscoveryEligibility.ShownIn("dating", dating, On(), On(), botPerson with { Status = AccountStatus.Suspended }), "authorisation never bypasses account state");
+        Expect(DiscoveryEligibility.ShownIn("dating", dating, On(), On(), person with { BotModes = new HashSet<string>() }), "bot authorisations mean nothing for people");
+        Expect(DiscoveryEligibility.MaySwitchOn(true, new HashSet<string> { "dating" }, "dating") && !DiscoveryEligibility.MaySwitchOn(true, new HashSet<string> { "dating" }, "business"),
+            "a bot switches on only authorised modes");
+        Expect(DiscoveryEligibility.MaySwitchOn(false, new HashSet<string>(), "business"), "people switch on any mode");
+
+        Console.WriteLine($"PASS: {checks} connection mode cases (four stable ids, per-mode intentions and the five limit, retired chips kept (D113), the forty seeded chips, profile text limits, discovery eligibility both ways, staff included, bots only where authorised).");
     }
 }

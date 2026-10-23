@@ -29,6 +29,8 @@ public static class ProblemCodes
     public const string UnknownMode = "unknown-mode";
     public const string InvalidMode = "invalid-mode";
     public const string TooManyIntentions = "too-many-intentions";
+    public const string BotModeNotAuthorised = "bot-mode-not-authorised";
+    public const string NotABot = "not-a-bot";
     public const string ModeNotEnabled = "mode-not-enabled";
     public const string FounderPlacesFull = "founder-places-full";
     public const string AlreadyFounder = "already-founder";
@@ -51,3 +53,9 @@ public sealed record InvitationView(Guid Id, string Email, string Realm, string 
 
 /// <summary>An account as staff see it in search results. No email, issuer or subject.</summary>
 public sealed record AccountView(Guid Id, string Realm, string Status, string? StatusReason, string? AgeStatus, DateTimeOffset CreatedAt);
+
+/// <summary>Admin requests for official bots and staff affiliation (Q11, D108).</summary>
+public sealed record BotClassificationRequest(bool Bot);
+public sealed record BotModesRequest(IReadOnlyList<string>? Modes);
+public sealed record BotModesView(IReadOnlyList<string> Modes);
+public sealed record StaffAffiliationRequest(bool Active);

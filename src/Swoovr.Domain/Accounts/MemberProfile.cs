@@ -56,23 +56,59 @@ public enum Badge { Founder, PhotoVerified, IdVerified, Staff, Bot }
 public sealed record ShownBadge(Badge Badge, DateTimeOffset? CheckedAt);
 
 /// <summary>
-/// The badges a viewer sees (D55): clients draw only what this returns. DEFAULT while Q11 is
-/// OPEN: every applicable badge shows, in this order.
+/// The display order of public badges (Q11 rule 61, D108): one row per badge in `badge_definitions`, so the order is
+/// configuration, not code. Seeded founder, photo, ID, staff, bot (D74).
+/// </summary>
+public sealed class BadgeDefinition
+{
+    public Badge Badge { get; set; }
+    public int SortOrder { get; set; }
+}
+
+/// <summary>
+/// The badges a viewer sees (D55, Q11): clients draw only what this returns, for the member themselves and for others.
+/// Several show at once (rule 57), each from its own record (rule 58). Admin verified never shows (D58, rule 15).
+/// Official bots carry only the bot badge: no Photo or ID badge and no founding recognition (rules 54, 59). Staff and
+/// bot badges are mandatory while the record is active (rules 34, 47); there is no setting that hides a badge.
 /// </summary>
 public static class BadgePolicy
 {
-    public static IReadOnlyList<ShownBadge> For(MemberProfile? profile)
+    public static readonly IReadOnlyList<Badge> DefaultOrder = [Badge.Founder, Badge.PhotoVerified, Badge.IdVerified, Badge.Staff, Badge.Bot];
+
+    public static IReadOnlyList<ShownBadge> For(MemberProfile? profile) => For(profile, DefaultOrder);
+
+    /// <summary>In the configured order; a badge missing from the configuration still shows, after the configured ones.</summary>
+    public static IReadOnlyList<ShownBadge> For(MemberProfile? profile, IReadOnlyList<Badge> order)
     {
         if (profile is null) return [];
+        if (profile.Bot) return [new(Badge.Bot, null)];
         var badges = new List<ShownBadge>();
         if (profile.FoundingMember) badges.Add(new(Badge.Founder, null));
         if (profile.PhotoStatus == VerificationStatus.Verified) badges.Add(new(Badge.PhotoVerified, profile.PhotoCheckedAt));
         // Admin verified never stands in for ID verified (D58).
         if (profile.IdStatus == VerificationStatus.Verified) badges.Add(new(Badge.IdVerified, profile.IdCheckedAt));
         if (profile.Employee) badges.Add(new(Badge.Staff, null));
-        if (profile.Bot) badges.Add(new(Badge.Bot, null));
-        return badges;
+        int Rank(Badge badge) => order.IndexOf(badge) is >= 0 and var i ? i : order.Count + (int)badge;
+        return badges.OrderBy(b => Rank(b.Badge)).ToList();
     }
+
+    private static int IndexOf(this IReadOnlyList<Badge> order, Badge badge)
+    {
+        for (var i = 0; i < order.Count; i++) if (order[i] == badge) return i;
+        return -1;
+    }
+}
+
+/// <summary>
+/// A connection mode an admin authorised for one official bot (Q11 rules 48–49, D108). A bot appears in a mode only
+/// with this row and its own setting switched on; removing the row hides it there at once.
+/// </summary>
+public sealed class BotModeAuthorisation
+{
+    public Guid AccountId { get; set; }
+    public string ModeId { get; set; } = "";
+    public DateTimeOffset AuthorisedAt { get; set; }
+    public Guid? AuthorisedBy { get; set; }
 }
 
 public enum AgeChangeError { None, DateOfBirthInFuture, DateOfBirthTooOld, AgeOutOfRange }
