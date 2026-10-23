@@ -1,10 +1,11 @@
 namespace Swoovr.Contracts;
 
-/// <summary>An intention chip a mode offers (D92). None are configured yet.</summary>
+/// <summary>An intention chip a mode offers (Q16, D106): stable id and display label.</summary>
 public sealed record IntentionView(Guid Id, string Label);
 
-/// <summary>A connection mode as configured: stable id, display label, its intention chips, in display order.</summary>
-public sealed record ConnectionModeView(string Id, string Label, IReadOnlyList<IntentionView> Intentions);
+/// <summary>A connection mode as configured: stable id, display label, its intention chips in display order, and how many
+/// a member may pick.</summary>
+public sealed record ConnectionModeView(string Id, string Label, IReadOnlyList<IntentionView> Intentions, int MaxIntentions);
 
 /// <summary>The member's own setting for one mode.</summary>
 public sealed record MyModeView(string Id, bool Enabled, bool Visible, IReadOnlyList<Guid> Intentions);

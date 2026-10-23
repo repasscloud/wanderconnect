@@ -60,8 +60,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.Area).HasMaxLength(ProfileTextPolicy.AreaMax);
             profile.Property(p => p.About).HasMaxLength(ProfileTextPolicy.AboutMax);
         });
-        // D92: four modes with stable ids; labels, order and availability are data. No intentions are seeded
-        // because the set per mode is not decided.
+        // D92: four modes with stable ids; labels, order and availability are data. Q16: forty intention chips with
+        // fixed ids (IntentionChips, D113).
         model.Entity<ConnectionMode>(mode =>
         {
             mode.Property(m => m.Id).HasMaxLength(32);
@@ -77,6 +77,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             intention.Property(i => i.ModeId).HasMaxLength(32);
             intention.Property(i => i.Label).HasMaxLength(40);
             intention.HasOne<ConnectionMode>().WithMany().HasForeignKey(i => i.ModeId).OnDelete(DeleteBehavior.Restrict);
+            intention.HasData(IntentionChips.All);
         });
         model.Entity<MemberMode>(setting =>
         {

@@ -42,7 +42,7 @@ Swoovr has four connection modes: **Dating, Friends, Activities and Business**. 
 
 - **Several at once.** A member may turn on any combination of modes. Turning one on or off never changes the others.
 - **Independent per mode.** Each mode keeps its own discovery preferences, filters, compatibility criteria and profile visibility, and has its own intention chips. Discovery respects the selected mode and the preferences of both members.
-- **Intention chips are configured per mode.** For example, Dating might offer "Something serious" or "Casual", while Friends, Activities and Business offer intentions relevant to them. These are illustrations only; the final intention set for each mode is not decided.
+- **Intention chips are configured per mode.** CONFIRMED, owner 24 October 2026 ([Q16](../delivery/QUESTIONS.md#q16--mode-specific-intention-chips-and-selection-limits), D106): ten chips per mode, forty in all, up to five per mode. Chips never exclude anyone from discovery on their own. A chip retired after a member picked it stays stored and hidden and never blocks a save (D113, DEFAULT).
 - **One identity.** Every mode runs on the same account and core profile. No separate accounts or duplicated profiles per mode, and switching mode never bypasses a block.
 - **Data-driven.** Modes have stable internal identifiers, separate from their display labels. Labels, order, availability and presentation are configuration, not code.
 - **Segmented control.** The primary segmented control shows the four modes: Dating, Friends, Activities, Business. Travel never appears in it.
@@ -64,13 +64,13 @@ Travel is an optional, independent **discovery state**, not a fifth mode. It cha
 
 **Connect**, **Friends & company** and **Travel & exploring** were the [product brief](01-PRODUCT-BRIEF.md)'s original context labels. They are legacy names, not extra connection modes. "Dating, Friends, Activities" on the reference screens was a placeholder set, now replaced by the four modes above.
 
-Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Not built: the intention set per mode (Q16; the table is empty), per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
+Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Built on 24 October 2026 (slice J, D106, D113): the forty chips seeded with fixed ids, the "n of 5" picker on the web profile page, chips on Explore tiles and person pages. Not built: per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
 
 ## Current state
 
 - Web: `src/Swoovr.Web.Client/UI/Badge.razor` (moved from `Swoovr.Web/Components/UI` on 23 October so WebAssembly pages can use it) draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. Admin verified has no badge by design (D58).
 - MAUI: badge colours in `Colors.xaml`; no badge drawing yet.
-- Modes (slice I): `connection_modes`, `mode_intentions` (empty), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are not returned yet (Q11).
+- Modes (slices I, J): `connection_modes`, `mode_intentions` (forty chips, D106), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are not returned yet (Q11).
 - API: `member_profiles` stores the flags, verification statuses and optional DOB/age (D69, D70); `BadgePolicy` returns the badges to show (D74) and `/api/v1/me` returns the member's own. Founding status is granted by an admin route and restorable with the recovery token (D79–D81). No other-profile endpoint, other flag-setting admin routes or verification integrations yet.
 
 ## Open questions

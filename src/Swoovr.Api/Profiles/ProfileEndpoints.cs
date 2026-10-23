@@ -52,12 +52,15 @@ public static class ProfileEndpoints
             if (denied is not null) return denied;
             var (profile, db) = (current!.Profile!, accounts.Db!);
             var mode = await db.ConnectionModes.SingleOrDefaultAsync(m => m.Id == modeId, cancellationToken);
-            var intentions = (update.Intentions ?? []).Distinct().ToList();
             var offered = await db.ModeIntentions.Where(i => i.ModeId == modeId).ToListAsync(cancellationToken);
-            switch (ModeSettingsPolicy.Check(mode, intentions, offered))
+            var stored = await db.MemberModeIntentions.Where(i => i.AccountId == profile.AccountId && i.ModeId == modeId).ToListAsync(cancellationToken);
+            var change = ModeSettingsPolicy.Check(mode, update.Intentions ?? [], stored.Select(i => i.IntentionId).ToList(), offered);
+            switch (change.Error)
             {
                 case ModeChangeError.UnknownMode or ModeChangeError.ModeUnavailable:
                     return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
+                case ModeChangeError.TooManyIntentions:
+                    return Problem(StatusCodes.Status400BadRequest, ProblemCodes.TooManyIntentions, $"Pick up to {ModeSettingsPolicy.MaxIntentions} intentions.");
                 case not ModeChangeError.None:
                     return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidMode, "Check the intentions for this mode.");
             }
@@ -66,11 +69,12 @@ public static class ProfileEndpoints
             if (setting is null) db.MemberModes.Add(setting = new MemberMode { AccountId = profile.AccountId, ModeId = modeId });
             // Each mode is independent: only this row and its intentions change (Q12 rule 2).
             (setting.Enabled, setting.Visible, setting.UpdatedAt) = (update.Enabled, update.Visible, now);
-            db.MemberModeIntentions.RemoveRange(await db.MemberModeIntentions
-                .Where(i => i.AccountId == profile.AccountId && i.ModeId == modeId).ToListAsync(cancellationToken));
-            db.MemberModeIntentions.AddRange(intentions.Select(id => new MemberModeIntention { AccountId = profile.AccountId, ModeId = modeId, IntentionId = id }));
+            // Only the difference is written, so kept rows (including retired chips, D113) are never touched.
+            db.MemberModeIntentions.RemoveRange(stored.Where(i => !change.Stored.Contains(i.IntentionId)));
+            db.MemberModeIntentions.AddRange(change.Stored.Where(id => stored.All(i => i.IntentionId != id))
+                .Select(id => new MemberModeIntention { AccountId = profile.AccountId, ModeId = modeId, IntentionId = id }));
             Audit.Record(db, now, profile.AccountId, "account", "mode.updated", "connection-mode", modeId,
-                $"{(update.Enabled ? "on" : "off")}:{(update.Visible ? "visible" : "hidden")}");
+                $"{(update.Enabled ? "on" : "off")}:{(update.Visible ? "visible" : "hidden")}:intentions:{change.Stored.Count}");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });
@@ -145,14 +149,19 @@ public static class ProfileEndpoints
         var modes = await db.ConnectionModes.Where(m => m.Available).OrderBy(m => m.SortOrder).ToListAsync(cancellationToken);
         var intentions = await db.ModeIntentions.Where(i => i.Available).OrderBy(i => i.SortOrder).ToListAsync(cancellationToken);
         return modes.Select(m => new ConnectionModeView(m.Id, m.Label,
-            intentions.Where(i => i.ModeId == m.Id).Select(i => new IntentionView(i.Id, i.Label)).ToList())).ToList();
+            intentions.Where(i => i.ModeId == m.Id).Select(i => new IntentionView(i.Id, i.Label)).ToList(), ModeSettingsPolicy.MaxIntentions)).ToList();
     }
 
     private static async Task<MyProfileView> OwnAsync(SwoovrDbContext db, MemberProfile profile, CancellationToken cancellationToken)
     {
         var modes = await db.ConnectionModes.Where(m => m.Available).OrderBy(m => m.SortOrder).ToListAsync(cancellationToken);
         var settings = await db.MemberModes.Where(m => m.AccountId == profile.AccountId).ToDictionaryAsync(m => m.ModeId, cancellationToken);
-        var chosen = await db.MemberModeIntentions.Where(i => i.AccountId == profile.AccountId).ToListAsync(cancellationToken);
+        // Retired chips stay stored but hidden, from the member too (D113).
+        var chosen = await (from i in db.MemberModeIntentions
+                            join offered in db.ModeIntentions on i.IntentionId equals offered.Id
+                            where i.AccountId == profile.AccountId && offered.Available
+                            orderby offered.SortOrder
+                            select i).ToListAsync(cancellationToken);
         return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
             ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList())
             : new MyModeView(m.Id, false, false, [])).ToList());

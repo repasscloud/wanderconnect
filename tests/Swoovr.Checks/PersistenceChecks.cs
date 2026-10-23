@@ -98,7 +98,9 @@ static class PersistenceChecks
         {
             var seeded = await db.ConnectionModes.OrderBy(m => m.SortOrder).Select(m => m.Id + ":" + m.Label).ToListAsync();
             check("four modes seeded in order", seeded.SequenceEqual(["dating:Dating", "friends:Friends", "activities:Activities", "business:Business"]));
-            check("no intention chips seeded (not decided)", !await db.ModeIntentions.AnyAsync());
+            var chips = await db.ModeIntentions.OrderBy(i => i.ModeId).ThenBy(i => i.SortOrder).ToListAsync();
+            check("forty approved chips seeded with their fixed ids (Q16, D113)", chips.Count == 40
+                && chips.Select(i => (i.Id, i.Label)).ToHashSet().SetEquals(IntentionChips.All.Select(i => (i.Id, i.Label))));
             foreach (var id in new[] { a, b })
             {
                 db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "modes-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
@@ -108,10 +110,9 @@ static class PersistenceChecks
             var ids = await db.MemberProfiles.Where(p => p.AccountId == a || p.AccountId == b).Select(p => p.PublicId).ToListAsync();
             check("public ids generated and distinct", ids.All(i => i != Guid.Empty) && ids.Distinct().Count() == 2);
         }
-        var chip = Guid.NewGuid();
+        var chip = IntentionChips.Id(1, 1);
         await using (var db = new SwoovrDbContext(options))
         {
-            db.ModeIntentions.Add(new ModeIntention { Id = chip, ModeId = ConnectionModeIds.Dating, Label = "fictional chip", Available = true });
             db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Dating, Enabled = true, Visible = true, UpdatedAt = now });
             db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Friends, Enabled = true, Visible = false, UpdatedAt = now });
             db.MemberModeIntentions.Add(new MemberModeIntention { AccountId = a, ModeId = ConnectionModeIds.Dating, IntentionId = chip });

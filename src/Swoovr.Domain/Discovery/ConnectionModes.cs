@@ -12,7 +12,10 @@ public sealed class ConnectionMode
     public bool Available { get; set; }
 }
 
-/// <summary>An intention chip offered by one mode. The set per mode is not decided (D92), so none are seeded.</summary>
+/// <summary>
+/// An intention chip offered by one mode (Q16, D106): forty approved chips, ten per mode, with fixed ids (D113). Label,
+/// order and the available flag are data; a retired chip keeps its row so members' stored choices stay intact.
+/// </summary>
 public sealed class ModeIntention
 {
     public Guid Id { get; set; }
@@ -49,21 +52,33 @@ public static class ConnectionModeIds
 
 public enum ModeChangeError { None, UnknownMode, ModeUnavailable, UnknownIntention, TooManyIntentions }
 
+/// <summary>The outcome of a mode save: an error, or the intention ids to store.</summary>
+public sealed record ModeChange(ModeChangeError Error, IReadOnlyList<Guid> Stored);
+
 /// <summary>
-/// Server-side rules for a member's mode settings (Q12: enforced by the application, not the client).
-/// DEFAULT: at most five intentions per mode; a disabled mode keeps its choices but is never discoverable.
+/// Server-side rules for a member's mode settings (Q12, Q16 rule 15: enforced by the application, not the client).
+/// At most five available intentions per mode; a disabled mode keeps its choices but is never discoverable.
+/// D113 (Q16 rule 16): a chip retired after the member picked it stays stored and hidden, doesn't count towards the
+/// five and never makes a save fail; only adding a retired, unknown or other mode's id is refused.
 /// </summary>
 public static class ModeSettingsPolicy
 {
     public const int MaxIntentions = 5;
 
-    public static ModeChangeError Check(ConnectionMode? mode, IReadOnlyCollection<Guid> intentions, IReadOnlyCollection<ModeIntention> offered)
+    public static ModeChange Check(ConnectionMode? mode, IReadOnlyCollection<Guid> requested, IReadOnlyCollection<Guid> current,
+        IReadOnlyCollection<ModeIntention> offered)
     {
-        if (mode is null) return ModeChangeError.UnknownMode;
-        if (!mode.Available) return ModeChangeError.ModeUnavailable;
-        if (intentions.Count > MaxIntentions) return ModeChangeError.TooManyIntentions;
-        var allowed = offered.Where(i => i.ModeId == mode.Id && i.Available).Select(i => i.Id).ToHashSet();
-        return intentions.All(allowed.Contains) ? ModeChangeError.None : ModeChangeError.UnknownIntention;
+        if (mode is null) return new(ModeChangeError.UnknownMode, []);
+        if (!mode.Available) return new(ModeChangeError.ModeUnavailable, []);
+        var ours = offered.Where(i => i.ModeId == mode.Id).ToList();
+        var available = ours.Where(i => i.Available).Select(i => i.Id).ToHashSet();
+        var retired = ours.Where(i => !i.Available).Select(i => i.Id).ToHashSet();
+        // Retired choices the member already holds are kept whatever the client sends (it never sees them).
+        var keptRetired = current.Where(retired.Contains).Distinct().ToList();
+        var chosen = requested.Distinct().Where(id => !keptRetired.Contains(id)).ToList();
+        if (chosen.Any(id => !available.Contains(id))) return new(ModeChangeError.UnknownIntention, []);
+        if (chosen.Count > MaxIntentions) return new(ModeChangeError.TooManyIntentions, []);
+        return new(ModeChangeError.None, [.. chosen, .. keptRetired]);
     }
 }
 
@@ -71,7 +86,7 @@ public enum ProfileTextError { None, DisplayNameTooLong, AreaTooLong, AboutTooLo
 
 /// <summary>
 /// The shared core profile (one identity across modes, Q12 rule 16). DEFAULT limits; area is free text, not a
-/// location (no location data is collected yet). Blank values clear the field.
+/// location (the home city is a separate GeoNames reference, D110). Blank values clear the field.
 /// </summary>
 public static class ProfileTextPolicy
 {

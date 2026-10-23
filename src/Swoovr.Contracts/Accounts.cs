@@ -28,6 +28,7 @@ public static class ProblemCodes
     public const string InvalidProfile = "invalid-profile";
     public const string UnknownMode = "unknown-mode";
     public const string InvalidMode = "invalid-mode";
+    public const string TooManyIntentions = "too-many-intentions";
     public const string ModeNotEnabled = "mode-not-enabled";
     public const string FounderPlacesFull = "founder-places-full";
     public const string AlreadyFounder = "already-founder";

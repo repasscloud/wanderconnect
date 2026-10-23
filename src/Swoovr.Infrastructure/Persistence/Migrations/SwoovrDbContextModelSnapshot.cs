@@ -581,6 +581,328 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_mode_intentions_mode_id");
 
                     b.ToTable("mode_intentions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000001"),
+                            Available = true,
+                            Label = "Long-term relationship",
+                            ModeId = "dating",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000002"),
+                            Available = true,
+                            Label = "Short-term dating",
+                            ModeId = "dating",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000003"),
+                            Available = true,
+                            Label = "Casual dating",
+                            ModeId = "dating",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000004"),
+                            Available = true,
+                            Label = "Something casual / no strings",
+                            ModeId = "dating",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000005"),
+                            Available = true,
+                            Label = "Friends with benefits",
+                            ModeId = "dating",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000006"),
+                            Available = true,
+                            Label = "Open to exploring",
+                            ModeId = "dating",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000007"),
+                            Available = true,
+                            Label = "Marriage / life partner",
+                            ModeId = "dating",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000008"),
+                            Available = true,
+                            Label = "Intimacy / physical connection",
+                            ModeId = "dating",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000009"),
+                            Available = true,
+                            Label = "Not sure yet",
+                            ModeId = "dating",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0001-4000-8000-000000000010"),
+                            Available = true,
+                            Label = "New connections / see where it goes",
+                            ModeId = "dating",
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000001"),
+                            Available = true,
+                            Label = "New friendships",
+                            ModeId = "friends",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000002"),
+                            Available = true,
+                            Label = "Close / meaningful friendships",
+                            ModeId = "friends",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000003"),
+                            Available = true,
+                            Label = "Casual friendships",
+                            ModeId = "friends",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000004"),
+                            Available = true,
+                            Label = "Social groups / meetups",
+                            ModeId = "friends",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000005"),
+                            Available = true,
+                            Label = "Activity partners",
+                            ModeId = "friends",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000006"),
+                            Available = true,
+                            Label = "Networking / meeting people",
+                            ModeId = "friends",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000007"),
+                            Available = true,
+                            Label = "Emotional support / someone to talk to",
+                            ModeId = "friends",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000008"),
+                            Available = true,
+                            Label = "Travel companions",
+                            ModeId = "friends",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000009"),
+                            Available = true,
+                            Label = "Local connections",
+                            ModeId = "friends",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0002-4000-8000-000000000010"),
+                            Available = true,
+                            Label = "Expanding my social circle",
+                            ModeId = "friends",
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000001"),
+                            Available = true,
+                            Label = "Finding activity partners",
+                            ModeId = "activities",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000002"),
+                            Available = true,
+                            Label = "Group outings",
+                            ModeId = "activities",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000003"),
+                            Available = true,
+                            Label = "Exploring local events",
+                            ModeId = "activities",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000004"),
+                            Available = true,
+                            Label = "Trying new experiences",
+                            ModeId = "activities",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000005"),
+                            Available = true,
+                            Label = "Fitness and outdoor activities",
+                            ModeId = "activities",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000006"),
+                            Available = true,
+                            Label = "Food and dining experiences",
+                            ModeId = "activities",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000007"),
+                            Available = true,
+                            Label = "Arts, culture and entertainment",
+                            ModeId = "activities",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000008"),
+                            Available = true,
+                            Label = "Weekend adventures",
+                            ModeId = "activities",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000009"),
+                            Available = true,
+                            Label = "Travel and sightseeing",
+                            ModeId = "activities",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0003-4000-8000-000000000010"),
+                            Available = true,
+                            Label = "Spontaneous plans",
+                            ModeId = "activities",
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000001"),
+                            Available = true,
+                            Label = "Professional networking",
+                            ModeId = "business",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000002"),
+                            Available = true,
+                            Label = "Business partnerships",
+                            ModeId = "business",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000003"),
+                            Available = true,
+                            Label = "Finding clients / customers",
+                            ModeId = "business",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000004"),
+                            Available = true,
+                            Label = "Finding service providers",
+                            ModeId = "business",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000005"),
+                            Available = true,
+                            Label = "Mentorship / guidance",
+                            ModeId = "business",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000006"),
+                            Available = true,
+                            Label = "Career opportunities",
+                            ModeId = "business",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000007"),
+                            Available = true,
+                            Label = "Collaboration / projects",
+                            ModeId = "business",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000008"),
+                            Available = true,
+                            Label = "Entrepreneurship / startups",
+                            ModeId = "business",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000009"),
+                            Available = true,
+                            Label = "Industry events / meetups",
+                            ModeId = "business",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            Id = new Guid("00000016-0004-4000-8000-000000000010"),
+                            Available = true,
+                            Label = "Knowledge sharing",
+                            ModeId = "business",
+                            SortOrder = 10
+                        });
                 });
 
             modelBuilder.Entity("Swoovr.Domain.RoleGrant", b =>
