@@ -187,7 +187,7 @@ The theme was copied from `docs/design/keycloak-theme/` to `containers/keycloak/
 4. Email sign-in link extension.
 5. Venues realm and portal sign-in with invitations; MailerSend API sender.
 6. Staff realm: Entra SSO, root admin with enforced OTP, staff invitations, privileged freshness.
-7. Mobile sign-in (blocked on Q09 toolchain).
+7. Mobile sign-in. Local build done 23 October 2026 (slice F, D93–D97): public client, private-use redirect scheme until universal/app links are hosted.
 8. Age model in the API (DOB, statuses, staff override); Stripe Identity and AI review are separate later slices.
 
 Each slice updates [status](../delivery/STATUS.md), adds negative tests from [authentication](AUTHENTICATION.md#required-negative-tests-before-enabling-access) that apply, and records evidence in [validation](../delivery/VALIDATION.md).

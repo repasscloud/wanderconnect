@@ -17,9 +17,16 @@ export async function generatedProfile(name, read = path => readFile(path, 'utf8
   const realm = JSON.parse(await read(new URL(`../../containers/keycloak/realms/${name}.json`, import.meta.url)));
   return JSON.parse(realm.components['org.keycloak.userprofile.UserProfileProvider'][0].config['kc.user.profile.config'][0]);
 }
+// Public clients from the generated import (the members app, no secret). The import is IGNORE_EXISTING, so a
+// client added after the local volume was created is missing; confidential clients carry `${ENV}` secret
+// placeholders that only an import resolves, so they still need the volume recreated.
+export async function generatedPublicClients(name, read = path => readFile(path, 'utf8')) {
+  const realm = JSON.parse(await read(new URL(`../../containers/keycloak/realms/${name}.json`, import.meta.url)));
+  return realm.clients.filter(c => c.publicClient && !('secret' in c));
+}
 const profileShape = profile => JSON.stringify(profile.attributes.map(a => [a.name, a.annotations ?? {}, a.required ?? null, a.permissions]));
 
-export async function applyRealm(api, name, profile = generatedProfile) {
+export async function applyRealm(api, name, profile = generatedProfile, publicClients = generatedPublicClients) {
   const realm = await api('');
   if (realm.realm !== name || realm.attributes?.['swoovr.environment'] !== 'local-development-only')
     throw new Error('Expected a local Swoovr development realm; refusing to configure ' + name);
@@ -63,6 +70,12 @@ export async function applyRealm(api, name, profile = generatedProfile) {
   if (profileShape(currentProfile) !== profileShape(wantedProfile)) {
     await api('/users/profile', 'PUT', wantedProfile);
     changes.push('user profile');
+  }
+  for (const client of await publicClients(name)) {
+    const existing = await api('/clients?clientId=' + encodeURIComponent(client.clientId));
+    if (existing.length) continue; // Never overwrite a client someone may have changed in the console.
+    await api('/clients', 'POST', client);
+    changes.push('client ' + client.clientId);
   }
   return changes;
 }

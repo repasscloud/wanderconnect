@@ -6,10 +6,10 @@
     <a class="wordmark" href="/">Swoovr</a>
     @* Bottom tab bar on phones, top navigation on wider screens (UI-STYLE.md Layout). Connections has no screen yet. *@
     <nav class="tab-bar" aria-label="Main">
-        @Tab("Explore", "search", Prototype ? "/prototype/people" : null, Path.StartsWith("/prototype/people"))
+        @Tab("Explore", "search", "/explore", Path.StartsWith("/explore") || Path.StartsWith("/people/") || Path.StartsWith("/prototype/people"))
         @Tab("Connections", "users", null, false)
         @Tab("Chats", "chat", Prototype ? "/prototype/conversation" : null, Path.StartsWith("/prototype/conversation"))
-        @Tab("Me", "user", "/account", Path.StartsWith("/account") || Path.StartsWith("/settings"))
+        @Tab("Me", "user", "/account", Path.StartsWith("/account") || Path.StartsWith("/settings") || Path.StartsWith("/me/"))
     </nav>
 </header>
 <main id="main-content">@Body</main>

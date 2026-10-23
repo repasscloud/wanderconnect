@@ -25,6 +25,10 @@ public static class ProblemCodes
     public const string InvalidRequest = "invalid-request";
     public const string CouponInvalid = "coupon-invalid";
     public const string TooManyAttempts = "too-many-attempts";
+    public const string InvalidProfile = "invalid-profile";
+    public const string UnknownMode = "unknown-mode";
+    public const string InvalidMode = "invalid-mode";
+    public const string ModeNotEnabled = "mode-not-enabled";
     public const string FounderPlacesFull = "founder-places-full";
     public const string AlreadyFounder = "already-founder";
     public const string NoVerifiedEmail = "no-verified-email";

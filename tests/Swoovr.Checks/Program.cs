@@ -7,12 +7,14 @@ using System.Text.Json;
 AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
+ConnectionModeChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
+await NativeSignInChecks.Run();
 await PersistenceChecks.Run();
 
 var expected = new FoundationStatus("Swoovr.Api", "foundation");

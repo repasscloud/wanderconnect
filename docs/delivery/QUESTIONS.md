@@ -5,14 +5,14 @@ No answer is needed to review the phase 0 foundation. Ask these when approaching
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
 | Q01 | PARTLY ANSWERED, owner 16 October 2026 | Phase 1 live auth | Keycloak docs/source confirmed; no existing pin/realm/sandbox found. Proposed pin/realm in D13; configured session evidence still needs sandbox validation | Use official sources; keep privileged integration disabled pending validated session evidence (Q10 answered in D14) |
-| Q02 | OPEN | Phase 1 auth UX | Enable member magic links in addition to Apple/Google/email-password? What cross-device email-link behavior is expected? | Yes, if backend supports the required safe exchange |
-| Q03 | OPEN | Phase 1 web interaction | Should authenticated web use Interactive Server or justify adding WASM client? | Server initially; measure scale needs before adding project |
-| Q04 | OPEN | Phase 2 live verification | Which document/liveness provider, gate timing, retention and manual appeal route? | Gate browsing/contact; separate from Keycloak auth |
-| Q05 | OPEN | Phase 3 travel | Can travellers reply before arrival when a local initiates? | Allow only replies to local initiation, subject to privacy rules |
-| Q06 | OPEN | Phase 4 real commerce | Merchant of record, settlement, voucher benefit, refund and cancellation owner? | Sandbox only until contracts are decided |
-| Q07 | OPEN | Phase 5 pilot | Initial city/markets and staffed support/moderation coverage? | Compact pilot; owner chooses market and operations |
-| Q08 | PARTLY ANSWERED, owner 22 October 2026 | Phase 5 publishing | Swoovr is confirmed; trademark/store availability, first paid entitlements and prices remain unresolved | Use Swoovr conventions; no invented clearance or pricing |
-| Q09 | OPEN | Phase 1 mobile acceptance | Which Apple/Xcode and Android toolchain versions/devices are available? | Pin supported workload set after checking official compatibility |
+| Q02 | ANSWERED, owner 22 October 2026; D34 | Phase 1 auth UX | Enable member magic links in addition to Apple/Google/email-password? What cross-device email-link behavior is expected? | Yes, if backend supports the required safe exchange |
+| Q03 | ANSWERED, owner 23 October 2026; D59 | Phase 1 web interaction | Should authenticated web use Interactive Server or justify adding WASM client? | Server initially; measure scale needs before adding project |
+| Q04 | PARTLY ANSWERED, owner 22 October 2026; D40 (Stripe Identity) | Phase 2 live verification | Which document/liveness provider, gate timing, retention and manual appeal route? | Gate browsing/contact; separate from Keycloak auth |
+| Q05 | ANSWERED, owner 23 October 2026; D60 | Phase 3 travel | Can travellers reply before arrival when a local initiates? | Allow only replies to local initiation, subject to privacy rules |
+| Q06 | ANSWERED, owner 23 October 2026; D61 | Phase 4 real commerce | Merchant of record, settlement, voucher benefit, refund and cancellation owner? | Sandbox only until contracts are decided |
+| Q07 | ANSWERED, owner 23 October 2026; D62 | Phase 5 pilot | Initial city/markets and staffed support/moderation coverage? | Compact pilot; owner chooses market and operations |
+| Q08 | ANSWERED, owner 23 October 2026; D63 (trademark/store checks outstanding) | Phase 5 publishing | Swoovr is confirmed; trademark/store availability, first paid entitlements and prices remain unresolved | Use Swoovr conventions; no invented clearance or pricing |
+| Q09 | ANSWERED, owner 23 October 2026; D64 | Phase 1 mobile acceptance | Which Apple/Xcode and Android toolchain versions/devices are available? | Pin supported workload set after checking official compatibility |
 
 Extra social sign-in providers/passkeys are deferred. Do not reopen approved six-scheme personalisation or optional MFA as unanswered questions. See [decision process](DECISIONS.md).
 
@@ -57,7 +57,7 @@ D55 confirms that flags are application-owned. The owner is still defining the p
 
 ## Owner answers — 23 October 2026
 
-The owner answered Q03 and Q05–Q09 below (decisions D59–D64) and part of Q11 (D57, D58; the founding criteria come from the Q08 answer). The chat style is settled by D56. The tables above keep their original snapshots.
+The owner answered Q03 and Q05–Q09 below (decisions D59–D64) and part of Q11 (D57, D58; the founding criteria come from the Q08 answer). The chat style is settled by D56. The tables above keep their original questions; their status column was brought up to date on 23 October 2026.
 
 | ID | Status | Answer in brief |
 | --- | --- | --- |
@@ -469,3 +469,12 @@ Rules:
 Rationale: Connection modes define why people want to connect, while Travel defines where they want to be discovered. Separating these concerns allows someone travelling to Sydney, Melbourne or overseas to continue seeking Dating, Friends, Activities and Business connections without changing their existing preferences. The 14-day advance limit prevents indefinite remote discovery, while multi-city itinerary support accommodates legitimate extended travel involving multiple destinations. This approach keeps connection intent, geographical discovery and travel planning independently configurable and extensible.
 
 Implementation: Model connection modes using stable identifiers and per-user mode configuration, including mode-specific discovery preferences, filters, compatibility criteria and profile visibility. Implement Travel as a separate discovery state with itinerary and destination records containing location, arrival date, departure date, discovery activation and cancellation state. Enforce the standard 14-day advance limit server-side, with an explicit multi-city itinerary exception for subsequent destinations. Extend discovery queries to include eligible remote Travel destinations alongside actual-location discovery, applying the user's enabled connection modes and all existing privacy, eligibility and moderation constraints. Implement scheduled activation and expiration of Travel discovery periods, with reconciliation against actual location where permission is available. Keep the four-mode segmented control independent of Travel and provide a dedicated Travel management interface. Ensure itinerary validation, destination activation and discovery eligibility are enforced by application services rather than client-side UI rules.
+
+## Mobile sign-in, icon and modes — 23 October 2026
+
+The owner accepted the builder's defaults for slices F–I (D93–D104). These remain OPEN; neither blocks the work already built.
+
+| ID | Status | Blocks | Question / consequence | Recommended starting point |
+| --- | --- | --- | --- | --- |
+| Q16 | OPEN | Intention chips content (not the code) | Which intention chips does each mode offer (Dating, Friends, Activities, Business), and how many may a member pick? D92 gives only illustrations ("Something serious", "Casual") | Owner supplies a list per mode; it is loaded as `mode_intentions` rows. Keep the DEFAULT limit of five per mode (D105) |
+| Q17 | OPEN | Travel slice | How is a Travel destination chosen and shown: a fixed list of cities, or free search with a geocoding provider (which one)? How precisely may others see it (city only, suburb)? Do destinations need the beta's activated markets (D62 rule 2)? | A fixed list of cities to start (Adelaide, Melbourne, Sydney and so on), shown to others as the city name only, no geocoding provider until needed |

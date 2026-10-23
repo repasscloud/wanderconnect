@@ -13,6 +13,11 @@ root = Path(__file__).resolve().parents[1]
 out = root / 'containers/keycloak/realms'
 web = 'http://localhost:5081'
 api_audience = 'swoovr-api'
+# DEFAULT (owner 23 October 2026): the MAUI app returns through a private-use URI scheme (RFC 8252 7.1)
+# named after its application id. Verified universal/app links on swoovr.app replace it once hosted.
+mobile_scheme = 'com.swoovr.app'
+mobile_redirect = mobile_scheme + ':/oauth2redirect'
+mobile_signed_out = mobile_scheme + ':/signedout'
 
 # CONFIRMED D37 (revised): 3 failures -> 15-minute temporary lock; never permanent.
 brute_force = {
@@ -73,6 +78,17 @@ def web_client(client_id, secret_env, path=''):
     }
 
 
+def mobile_client():
+    # Members only (D31, D32): a public client with PKCE and no secret (design: "Mobile (members only)").
+    # Same mappers as the web client, so the API sees the same session evidence and audience.
+    value = web_client('swoovr-mobile', 'unused')
+    del value['secret']
+    value.update({'name': 'Swoovr app (local)', 'publicClient': True, 'clientAuthenticatorType': 'none',
+                  'redirectUris': [mobile_redirect]})
+    value['attributes']['post.logout.redirect.uris'] = mobile_signed_out
+    return value
+
+
 def realm(name, display, *, registration, clients, passkeys):
     value = {
         'realm': name, 'enabled': True, 'displayName': display, 'sslRequired': 'external',
@@ -102,7 +118,7 @@ def realm(name, display, *, registration, clients, passkeys):
 
 realms = {
     'swoovr-members-dev': realm('swoovr-members-dev', 'Swoovr', registration=True, passkeys=True,
-                                clients=[web_client('swoovr-web', 'SWOOVR_MEMBERS_WEB_SECRET')]),
+                                clients=[web_client('swoovr-web', 'SWOOVR_MEMBERS_WEB_SECRET'), mobile_client()]),
     # Venue accounts are created by invitation; no self-registration, no social providers (D31).
     'swoovr-venues-dev': realm('swoovr-venues-dev', 'Swoovr venues', registration=False, passkeys=False,
                                clients=[web_client('swoovr-venue-web', 'SWOOVR_VENUES_WEB_SECRET', '/venues')]),
@@ -118,12 +134,17 @@ def check(name, value):
     assert all(value[k] == v for k, v in brute_force.items()), (name, 'brute force')
     assert value['users'] == [], (name, 'no committed users')
     for client in value['clients']:
-        assert client['secret'].startswith('${') and client['secret'].endswith('}'), (name, 'secret must be a placeholder')
+        if client['publicClient']:
+            assert name == 'swoovr-members-dev' and client['clientId'] == 'swoovr-mobile', (name, 'public clients: members app only')
+            assert 'secret' not in client and client['clientAuthenticatorType'] == 'none', (name, 'no secret in the app')
+            assert client['redirectUris'] == [mobile_redirect], (name, 'app redirect only')
+        else:
+            assert client['secret'].startswith('${') and client['secret'].endswith('}'), (name, 'secret must be a placeholder')
+            assert all(uri.startswith(web + '/') for uri in client['redirectUris']), (name, 'loopback redirect only')
         assert client['standardFlowEnabled'] and not client['implicitFlowEnabled'], (name, 'code flow only')
         assert not client['directAccessGrantsEnabled'] and not client['serviceAccountsEnabled'], (name, 'no password grant or service account')
         assert client['attributes']['pkce.code.challenge.method'] == 'S256', (name, 'PKCE')
         assert client['attributes']['standard.token.exchange.enabled'] == 'false', (name, 'D35: no token exchange')
-        assert all(uri.startswith(web + '/') for uri in client['redirectUris']), (name, 'loopback redirect only')
         assert not client['fullScopeAllowed'], (name, 'no full scope')
     assert value['webAuthnPolicyPasswordlessPasskeysEnabled'] == (name == 'swoovr-members-dev'), (name, 'passkeys only where pwd is not privileged evidence')
     assert (value['attributes'].get('swoovr.registrationTerms') == 'REQUIRED') == value['registrationAllowed'], (name, 'D40: open registration needs the 18+ checkbox')
@@ -141,4 +162,4 @@ for name, value in realms.items():
         path.write_text(text)
     else:
         assert path.exists() and path.read_text() == text, f'{path.relative_to(root)} drifted; run --write'
-print(f'PASS: {len(realms)} local Keycloak realm imports (temporary lockout, code+PKCE only, no token exchange, social only in members, 18+ registration checkbox).')
+print(f'PASS: {len(realms)} local Keycloak realm imports (temporary lockout, code+PKCE only, members app client public without a secret, no token exchange, social only in members, 18+ registration checkbox).')

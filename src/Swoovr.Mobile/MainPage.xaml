@@ -1,12 +1,94 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- The signed-in account screen: the same API answers as the web account page (session, beta notice, badges, age, coupon). -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Swoovr.Mobile.MainPage" Title="Swoovr">
     <ScrollView>
-        <VerticalStackLayout Padding="24,30" Spacing="10">
-            <Label Text="Swoovr" Style="{StaticResource PageTitle}" SemanticProperties.HeadingLevel="Level1" />
-            <Label Text="Repository foundation. Member experiences and sign-in are planned, not connected." />
-            <Label Text="Eight personal appearance schemes are defined in the design specification. Runtime switching arrives in phase 2." />
+        <VerticalStackLayout Padding="24,30" Spacing="16">
+            <Label x:Name="Heading" Text="Swoovr" Style="{StaticResource PageTitle}" SemanticProperties.HeadingLevel="Level1" />
+            <Label x:Name="Intro" Style="{StaticResource Subtitle}" />
+            <Label x:Name="Status" AutomationId="Status" IsVisible="False" />
+
+            <VerticalStackLayout x:Name="SignedOutPanel" Spacing="12" IsVisible="False">
+                <Button x:Name="SignInButton" Text="Sign in" AutomationId="SignIn" Style="{StaticResource PrimaryButton}" Clicked="OnSignIn" />
+                <Label Text="You sign in on Swoovr's sign-in page in your phone's browser. Swoovr never sees your password." Style="{StaticResource FooterClaims}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout x:Name="AccountPanel" Spacing="16" IsVisible="False">
+                <Border x:Name="BetaNotice" Style="{StaticResource Card}" IsVisible="False">
+                    <VerticalStackLayout Spacing="6">
+                        <Label><Label.FormattedText><FormattedString>
+                            <Span Text="Swoovr is in private beta." FontAttributes="Bold" />
+                            <Span Text=" You're not on the list yet." />
+                        </FormattedString></Label.FormattedText></Label>
+                        <Label Text="Ask to join the beta on swoovr.com" Style="{StaticResource Link}" AutomationId="BetaLink">
+                            <Label.GestureRecognizers><TapGestureRecognizer Tapped="OnBetaLink" /></Label.GestureRecognizers>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Card}" SemanticProperties.Description="Your session">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Signed in with" Style="{StaticResource FieldLabel}" />
+                        <Label x:Name="Method" AutomationId="Method" />
+                        <Label Text="Email" Style="{StaticResource FieldLabel}" />
+                        <Label x:Name="EmailVerified" />
+                        <Label Text="18+ confirmation" Style="{StaticResource FieldLabel}" />
+                        <Label x:Name="AdultAttested" />
+                        <Label Text="Member area" Style="{StaticResource FieldLabel}" />
+                        <Label x:Name="MemberArea" AutomationId="MemberArea" />
+                        <Label Text="Confirming you're 18+ isn't age verification. ID checks come later." Style="{StaticResource FooterClaims}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border x:Name="LockedCard" Style="{StaticResource Card}" IsVisible="False">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="This account is locked." Style="{StaticResource SectionHeading}" />
+                        <Label Text="Swoovr is for adults only. If the age you entered was a mistake, contact Swoovr support to have it reviewed." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout x:Name="MemberSections" Spacing="16" IsVisible="False">
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Badges" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
+                            <VerticalStackLayout x:Name="BadgeList" Spacing="6" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Your age" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
+                            <Label Text="Both are optional. If you enter your date of birth, we work out your age from it. Entering your age isn't age verification." Style="{StaticResource FooterClaims}" />
+                            <HorizontalStackLayout Spacing="8">
+                                <Switch x:Name="UseDateOfBirth" Toggled="OnUseDateOfBirth" SemanticProperties.Description="Enter my date of birth" />
+                                <Label Text="Enter my date of birth" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <DatePicker x:Name="DateOfBirth" IsVisible="False" SemanticProperties.Description="Date of birth" />
+                            <Label x:Name="AgeLabel" Text="Or your age" Style="{StaticResource FieldLabel}" />
+                            <Border Style="{StaticResource InputBorder}" x:Name="AgeBorder">
+                                <Entry x:Name="Age" Keyboard="Numeric" Placeholder="Leave blank if you'd rather not say" SemanticProperties.Description="Your age" />
+                            </Border>
+                            <Button x:Name="SaveAge" Text="Save" Style="{StaticResource PrimaryButton}" Clicked="OnSaveAge" />
+                            <Label x:Name="AgeMessage" AutomationId="AgeMessage" Style="{StaticResource FooterClaims}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Coupon code" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
+                            <Label Text="Founding members: if you've returned to Swoovr, enter the founder code we emailed you to restore your founding status." Style="{StaticResource FooterClaims}" />
+                            <Border Style="{StaticResource InputBorder}">
+                                <Entry x:Name="Coupon" Placeholder="FOUNDER-…" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" SemanticProperties.Description="Code" />
+                            </Border>
+                            <Button x:Name="ApplyCoupon" Text="Apply code" Style="{StaticResource SecondaryButton}" Clicked="OnApplyCoupon" />
+                            <Label x:Name="CouponMessage" AutomationId="CouponMessage" Style="{StaticResource FooterClaims}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <Button Text="Sign out" AutomationId="SignOut" Style="{StaticResource SecondaryButton}" Clicked="OnSignOut" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

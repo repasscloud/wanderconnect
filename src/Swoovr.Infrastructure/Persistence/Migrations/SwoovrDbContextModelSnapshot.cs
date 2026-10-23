@@ -188,6 +188,63 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("beta_enrolments");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ConnectionMode", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Available")
+                        .HasColumnType("boolean")
+                        .HasColumnName("available");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_connection_modes");
+
+                    b.ToTable("connection_modes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "dating",
+                            Available = true,
+                            Label = "Dating",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = "friends",
+                            Available = true,
+                            Label = "Friends",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = "activities",
+                            Available = true,
+                            Label = "Activities",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = "business",
+                            Available = true,
+                            Label = "Business",
+                            SortOrder = 4
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
                 {
                     b.Property<int>("Place")
@@ -322,11 +379,72 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("invitations");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<bool>("Visible")
+                        .HasColumnType("boolean")
+                        .HasColumnName("visible");
+
+                    b.HasKey("AccountId", "ModeId")
+                        .HasName("pk_member_modes");
+
+                    b.HasIndex("ModeId", "Enabled", "Visible")
+                        .HasDatabaseName("ix_member_modes_mode_id_enabled_visible");
+
+                    b.ToTable("member_modes");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MemberModeIntention", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<Guid>("IntentionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intention_id");
+
+                    b.HasKey("AccountId", "ModeId", "IntentionId")
+                        .HasName("pk_member_mode_intentions");
+
+                    b.HasIndex("IntentionId")
+                        .HasDatabaseName("ix_member_mode_intentions_intention_id");
+
+                    b.ToTable("member_mode_intentions");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>
                 {
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
+
+                    b.Property<string>("About")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("about");
 
                     b.Property<bool>("AdminVerified")
                         .HasColumnType("boolean")
@@ -346,6 +464,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("age_status_at");
 
+                    b.Property<string>("Area")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("area");
+
                     b.Property<bool>("Bot")
                         .HasColumnType("boolean")
                         .HasColumnName("bot");
@@ -361,6 +484,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("DeclaredOn")
                         .HasColumnType("date")
                         .HasColumnName("declared_on");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("display_name");
 
                     b.Property<bool>("Employee")
                         .HasColumnType("boolean")
@@ -398,6 +526,12 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("photo_status");
 
+                    b.Property<Guid>("PublicId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
                     b.HasKey("AccountId")
                         .HasName("pk_member_profiles");
 
@@ -406,7 +540,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_member_profiles_founder_place")
                         .HasFilter("founder_place IS NOT NULL");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_member_profiles_public_id");
+
                     b.ToTable("member_profiles");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ModeIntention", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Available")
+                        .HasColumnType("boolean")
+                        .HasColumnName("available");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("ModeId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_mode_intentions");
+
+                    b.HasIndex("ModeId")
+                        .HasDatabaseName("ix_mode_intentions_mode_id");
+
+                    b.ToTable("mode_intentions");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.RoleGrant", b =>
@@ -460,6 +634,40 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_founder_tokens_founder_places_place");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_modes_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.ConnectionMode", null)
+                        .WithMany()
+                        .HasForeignKey("ModeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_modes_connection_modes_mode_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MemberModeIntention", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModeIntention", null)
+                        .WithMany()
+                        .HasForeignKey("IntentionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_mode_intentions_mode_intentions_intention_id");
+
+                    b.HasOne("Swoovr.Domain.MemberMode", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "ModeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_mode_intentions_member_modes_account_id_mode_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -468,6 +676,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_member_profiles_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ModeIntention", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ConnectionMode", null)
+                        .WithMany()
+                        .HasForeignKey("ModeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_mode_intentions_connection_modes_mode_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.RoleGrant", b =>

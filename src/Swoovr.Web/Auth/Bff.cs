@@ -15,7 +15,8 @@ public static partial class Bff
     public const string Header = "X-Swoovr-Bff";
     public const string ApiClient = "bff-api";
 
-    [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons)$")]
+    // Member routes only, never admin ones. Mode ids and profile ids are checked again by the API.
+    [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
