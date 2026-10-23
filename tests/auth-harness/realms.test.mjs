@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRealm, applyAll, amrReferences, amrMaxAgeSeconds, realms, generatedProfile } from '../../scripts/auth/realms.mjs';
+import { applyRealm, applyAll, amrReferences, amrMaxAgeSeconds, realms, generatedProfile, generatedPublicClients } from '../../scripts/auth/realms.mjs';
 
 // In-memory stand-in for the Admin REST paths realms.mjs uses; no provider is contacted.
 function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-only', foreignConfig = false } = {}) {
@@ -12,6 +12,7 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
     configs: foreignConfig ? { foreign: { id: 'foreign', alias: 'someone-else', config: {} } } : {},
     // As first imported: email before first name, no placeholders.
     profile: { attributes: [{ name: 'username' }, { name: 'email' }, { name: 'firstName' }] },
+    clients: [{ clientId: 'swoovr-web', publicClient: false }],
     writes: [],
   };
   const api = async (path, method = 'GET', body) => {
@@ -26,6 +27,9 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
       return state.action;
     }
     if (path === '/authentication/flows/browser/executions') return state.browser;
+    const clientQuery = path.match(/^\/clients\?clientId=(.+)$/);
+    if (clientQuery) return state.clients.filter(c => c.clientId === decodeURIComponent(clientQuery[1]));
+    if (path === '/clients' && method === 'POST') { state.clients.push(structuredClone(body)); return; }
     if (path === '/users/profile') { if (method === 'PUT') { state.profile = structuredClone(body); return; } return structuredClone(state.profile); }
     const execution = path.match(/^\/authentication\/executions\/(\w+)\/config$/);
     if (execution) {
@@ -53,7 +57,28 @@ test('members realm: 18+ checkbox required, terms action recorded by default, AM
     assert.equal(config['default.reference.value'], reference);
     assert.equal(config['default.reference.maxAge'], amrMaxAgeSeconds, 'AMR must outlive the authentication second');
   }
-  assert.equal(changes.length, 3 + Object.keys(amrReferences).length);
+  assert.equal(changes.length, 4 + Object.keys(amrReferences).length);
+});
+
+test('members app client: created once from the import, public, PKCE, no secret, app redirect only', async () => {
+  const { api, state } = fakeRealm('swoovr-members-dev');
+  assert.ok((await applyRealm(api, 'swoovr-members-dev')).includes('client swoovr-mobile'));
+  const mobile = state.clients.find(c => c.clientId === 'swoovr-mobile');
+  assert.equal(mobile.publicClient, true);
+  assert.equal('secret' in mobile, false);
+  assert.equal(mobile.attributes['pkce.code.challenge.method'], 'S256');
+  assert.equal(mobile.directAccessGrantsEnabled, false);
+  assert.deepEqual(mobile.redirectUris, ['com.swoovr.app:/oauth2redirect']);
+  assert.equal(mobile.protocolMappers.find(m => m.protocolMapper === 'oidc-audience-mapper').config['included.custom.audience'], 'swoovr-api');
+  // A console edit is never overwritten.
+  mobile.redirectUris = ['changed'];
+  assert.ok(!(await applyRealm(api, 'swoovr-members-dev')).some(c => c.startsWith('client')));
+  assert.deepEqual(mobile.redirectUris, ['changed']);
+});
+
+test('only the members realm has a public client', async () => {
+  assert.deepEqual((await generatedPublicClients('swoovr-members-dev')).map(c => c.clientId), ['swoovr-mobile']);
+  for (const name of ['swoovr-venues-dev', 'swoovr-staff-dev']) assert.deepEqual(await generatedPublicClients(name), []);
 });
 
 test('user profile follows the generated import: first name before email, prototype placeholders', async () => {

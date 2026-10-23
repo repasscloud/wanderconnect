@@ -84,3 +84,20 @@ A physical iPhone needs an Apple Developer account, a provisioning profile and t
 ## 5. Record the result
 
 Add the versions you installed (`dotnet workload list`, `xcodebuild -version`, `java -version`, `sdkmanager --list_installed`) and the build results to [validation](VALIDATION.md), and pin the workload set once it builds (D64: SDK pinned by `global.json` plus a workload set).
+
+## 5. Sign in against the local stack
+
+Debug builds sign in to the local members realm (D93–D95). Start the stack and the hosts, then:
+
+```sh
+./scripts/docker-local.sh up
+./scripts/docker-local.sh realms              # creates the swoovr-mobile client in an existing local realm
+# Android: the emulator reaches the Mac's localhost through adb reverse (not 10.0.2.2, which would change the token issuer)
+"$ANDROID_HOME/platform-tools/adb" reverse tcp:8180 tcp:8180
+"$ANDROID_HOME/platform-tools/adb" reverse tcp:5080 tcp:5080
+dotnet build src/Swoovr.Mobile -t:Run -f net10.0-android
+# iOS simulator: shares the Mac's loopback, nothing to forward
+dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios
+```
+
+`adb reverse` lasts until the emulator restarts. Tap **Sign in**; iOS asks "“Swoovr” Wants to Use “localhost” to Sign In" (tap Continue). Use a fictional member that is on the beta list (for example one created with `tests/auth/local-tokens.cjs` and `dotnet run --project src/Swoovr.Api -- beta add <email>`).

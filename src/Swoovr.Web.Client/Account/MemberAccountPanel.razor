@@ -34,11 +34,11 @@
                 @* D77: same words whatever the reason, so the page never says whether an address was ever enrolled. *@
                 <div class="notice" role="status" data-beta="@session.Beta">
                     <p><strong>Swoovr is in private beta.</strong> You're not on the list yet.</p>
-                    <p><a class="link" href="https://swoovr.com/beta/">Ask to join the beta on swoovr.com</a></p>
+                    <p><a class="link" href="@AccountText.BetaUrl">Ask to join the beta on swoovr.com</a></p>
                 </div>
             }
             <dl>
-                <div><dt>Signed in with</dt><dd data-session-method="@session.Method">@MethodLabel(session.Method)@(session.MultiFactor ? " + one-time code" : "")</dd></div>
+                <div><dt>Signed in with</dt><dd data-session-method="@session.Method">@AccountText.MethodLabel(session.Method)@(session.MultiFactor ? " + one-time code" : "")</dd></div>
                 <div><dt>Email</dt><dd>@(session.EmailVerified ? "Verified" : "Not verified yet")</dd></div>
                 <div><dt>18+ confirmation</dt><dd data-adult-attested="@(session.AdultAttested ? "true" : "false")">@(session.AdultAttested ? "Confirmed when you joined" : "Not recorded")</dd></div>
                 <div><dt>Member area</dt><dd data-member-area="@(session.MemberArea ? "true" : "false")">@(session.MemberArea ? "Allowed" : "Not allowed")</dd></div>
@@ -66,7 +66,7 @@
                 <ul class="badge-list" data-badges="@string.Join(" ", me.Badges.Select(b => b.Badge))">
                     @foreach (var badge in me.Badges)
                     {
-                        <li><Badge Kind="@BadgeKind(badge.Badge)" Size="20" /> @BadgeLabel(badge.Badge)@(badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : "")</li>
+                        <li><Badge Kind="@AccountText.BadgeKind(badge.Badge)" Size="20" /> @AccountText.BadgeLabel(badge.Badge)@(badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : "")</li>
                     }
                 </ul>
             }
@@ -103,7 +103,7 @@
     private DateOnly? dateOfBirth;
     private int? age;
     private string? ageMessage, coupon, couponMessage, couponResult;
-    private bool BetaBlocked => session?.Beta is "notEnrolled" or "unavailable";
+    private bool BetaBlocked => AccountText.BetaBlocked(session);
     private string AgeStatus => me?.AgeStatus ?? "";
     private static string Today => DateTime.UtcNow.ToString("yyyy-MM-dd");
 
@@ -132,9 +132,9 @@
         busy = true;
         var result = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, dateOfBirth is null ? age : null));
         busy = false;
-        if (result.Code == ProblemCodes.InvalidAge) { ageMessage = "Check the date or age: it can't be in the future or over 120."; return; }
+        if (result.Code == ProblemCodes.InvalidAge) { ageMessage = AccountText.InvalidAge; return; }
         Show(result);
-        ageMessage = locked ? null : me?.Age is { } years ? $"Saved. Your age shows as {years}." : "Saved. No age is shown.";
+        ageMessage = locked ? null : AccountText.AgeSaved(me);
     }
 
     private async Task RedeemAsync()
@@ -142,35 +142,7 @@
         busy = true;
         var result = await Members.RedeemAsync(coupon ?? "");
         busy = false;
-        (couponResult, couponMessage) = result.Code switch
-        {
-            null when result.Value is not null => ("ok", result.Value.Badges.Any(b => b.Badge == "founder") ? "Your founding status is restored." : "Code applied."),
-            ProblemCodes.TooManyAttempts => ("limited", "Too many attempts. Try again in an hour."),
-            _ => ("invalid", "That code can't be used."),
-        };
+        (couponResult, couponMessage) = AccountText.Coupon(result);
         if (result.Value is not null) { Show(result); coupon = null; }
     }
-
-    private static string BadgeKind(string badge) => badge switch
-    {
-        "founder" => "founding", "photoVerified" => "photo", "idVerified" => "id", "staff" => "staff", _ => "bot",
-    };
-
-    private static string BadgeLabel(string badge) => badge switch
-    {
-        "founder" => "Swoovr Founder", "photoVerified" => "Photo verified", "idVerified" => "ID verified",
-        "staff" => "Swoovr staff", _ => "Swoovr guide (bot)",
-    };
-
-    private static string MethodLabel(string method) => method switch
-    {
-        // Keycloak 26.8.1 reports a passkey used on the sign-in form as the password method.
-        "emailPassword" => "Password or passkey",
-        "passkey" => "Passkey",
-        "emailLink" => "Email sign-in link",
-        "apple" => "Apple",
-        "google" => "Google",
-        // Keycloak records no method for the session it starts right after email-first sign-up.
-        _ => "New account (just created)",
-    };
 }

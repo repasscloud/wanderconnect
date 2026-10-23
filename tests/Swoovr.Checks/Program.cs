@@ -13,6 +13,7 @@ PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
+await NativeSignInChecks.Run();
 await PersistenceChecks.Run();
 
 var expected = new FoundationStatus("Swoovr.Api", "foundation");
