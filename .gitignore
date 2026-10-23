@@ -493,3 +493,6 @@ scripts/__pycache__/
 
 # Generated custom brand variants (editable configs remain tracked)
 docs/design/swoovr-brand-pack/custom-assets/
+
+# Worktree files for claude
+.claude/worktrees
