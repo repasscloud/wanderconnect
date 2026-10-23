@@ -369,7 +369,7 @@ Gaps: only the account page is WebAssembly; appearance sync, real Explore/profil
 
 Branch `feature/swoovr-accounts-beta-wasm`. Decisions D87–D88. Owner setup for the rest: [mobile tooling setup](MOBILE-TOOLING-SETUP.md).
 
-Environment: macOS 27.0.1 (26A434), Xcode 27.1 (27A9275), .NET SDK 10.0.400, `maui` workload 10.0.110 (iOS SDK pack 27.1.10018), iOS 27.0 simulator runtime. No Android SDK or JDK.
+Environment: macOS 27.0.1 (26A434), Xcode 27.1 (27A9275), .NET SDK 10.0.400, `maui` workload 10.0.110 (iOS SDK pack 27.1.10018), iOS 27.0 simulator runtime. No Android SDK or JDK overnight (installed by the owner later the same day; see below).
 
 First MAUI build on this machine; three defects found and fixed:
 
@@ -383,4 +383,14 @@ Executed locally:
 - `dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios -p:_DeviceName=:v2:udid=<iPhone 18 Pro simulator>`: launches. A burst of simulator screenshots shows the native ink splash, then the bird filled with "swoovr", the hairline and the "Dating · Friendship · Activities" line, the ink sheet wiping up with rounded bottom corners, and finally the shell's `MainPage` in Helvetica Neue with the `PageTitle` style. An iPad simulator also launched.
 - `python3 scripts/check_design.py --check`: PASS with the new XML guard; `./scripts/check.sh`: PASS.
 
-Not run or not verified: Android (no SDK/JDK; see the setup guide), a physical device, Release/AOT builds, reduced-motion on iOS, VoiceOver, dark mode on device, the step 3 MAUI component styles on any screen (no screen uses them yet), and mobile sign-in (Keycloak hand-off from the app is not built). The app icon is still the MAUI template (purple ".NET" square); no Swoovr icon asset has been supplied.
+### Android emulator — owner run, 23 October 2026
+
+Set up by the owner with [mobile tooling setup](MOBILE-TOOLING-SETUP.md) steps 2–3: Android SDK platform `android-36`, build-tools 36.0.0, emulator 37.2.12.0, system image `android-35;google_apis;arm64-v8a` (AVD `swoovr-pixel`, Android 15), Microsoft OpenJDK 17.0.14 from `InstallAndroidDependencies`, MAUI Android pack 36.1.118.
+
+- `dotnet build src/Swoovr.Mobile -f net10.0-android` (owner): Build succeeded (Debug).
+- `dotnet build src/Swoovr.Mobile -t:Run -f net10.0-android`: first attempt failed with `XA0010: No available device` because no emulator was running (`-t:Run` does not boot one); after starting the AVD it installed and launched. Installed package `com.swoovr.app`, `minSdk=21`, `targetSdk=36`.
+- The owner saw the launch splash play and hand off. A builder `adb exec-out screencap` afterwards showed `MainActivity` resumed with the shell's `MainPage` (title bar "Swoovr", `PageTitle` heading and both placeholder lines); no crash or exception in `logcat`.
+
+Not verified on Android: the splash frame by frame (only the owner's eyes and the final state), an API 36 image (the app targets 36; the emulator runs 35), a physical device, Release/AOT, TalkBack, dark mode and reduced motion.
+
+Not run or not verified: a physical device, Release/AOT builds, reduced-motion on iOS, VoiceOver, dark mode on device, the step 3 MAUI component styles on any screen (no screen uses them yet), and mobile sign-in (Keycloak hand-off from the app is not built). The app icon is still the MAUI template (purple ".NET" square); no Swoovr icon asset has been supplied.

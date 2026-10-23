@@ -9,8 +9,8 @@ Written 23 October 2026 for the owner's Apple Silicon Mac (D64: .NET 10 + MAUI, 
 | .NET SDK | 10.0.400 (pinned by `global.json`) |
 | `maui` workload | 10.0.110 installed (`dotnet workload list`) |
 | Xcode | 27.1 (27A9275); iOS 27.0 simulator runtime present |
-| Android SDK | **Missing** (`~/Library/Android/sdk` does not exist) |
-| Java (JDK) | **Missing** (`/usr/libexec/java_home` finds none) |
+| Android SDK | **Missing** overnight; installed by the owner later on 23 October 2026 (see [validation](VALIDATION.md), slice E) |
+| Java (JDK) | **Missing** overnight; `InstallAndroidDependencies` then installed Microsoft OpenJDK 17.0.14 |
 
 See [validation](VALIDATION.md) (slice E) for what built with this setup.
 
@@ -67,8 +67,17 @@ Pick the system image API level that matches the Android target the build report
 dotnet build src/Swoovr.Mobile -f net10.0-ios       # iOS simulator build (no signing needed)
 dotnet build src/Swoovr.Mobile -f net10.0-android   # after steps 2–3
 dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios
+```
+
+`-t:Run` for Android installs onto a device that is already running; it does not boot an emulator and fails with `XA0010: No available device` otherwise. Start the emulator first:
+
+```sh
+"$ANDROID_HOME/emulator/emulator" -avd swoovr-pixel &
+"$ANDROID_HOME/platform-tools/adb" wait-for-device   # the emulator may still be booting after this returns
 dotnet build src/Swoovr.Mobile -t:Run -f net10.0-android
 ```
+
+If the install fails, wait for the Android home screen and run the last command again. The app targets API 36 (MAUI Android pack 36.1); the API 35 image runs it, and an API 36 image (`system-images;android-36;google_apis;arm64-v8a`) matches the target exactly.
 
 A physical iPhone needs an Apple Developer account, a provisioning profile and the bundle identifier (`com.swoovr.app` is a DEFAULT, not registered). Those belong to the store and TestFlight work (D63, D64), not this setup.
 
