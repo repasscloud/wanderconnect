@@ -101,3 +101,14 @@ dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios
 ```
 
 `adb reverse` lasts until the emulator restarts. Tap **Sign in**; iOS asks "“Swoovr” Wants to Use “localhost” to Sign In" (tap Continue). Use a fictional member that is on the beta list (for example one created with `tests/auth/local-tokens.cjs` and `dotnet run --project src/Swoovr.Api -- beta add <email>`).
+
+## 6. Profile, Explore and Travel tabs (slice N, 24 October 2026)
+
+The app now has four tabs (D123). On iOS, `-t:Run` needs a plain build first (otherwise it fails with "The app must be built before the arguments to launch the app using mlaunch can be computed"), and it stays attached until the app exits:
+
+```sh
+dotnet build src/Swoovr.Mobile -f net10.0-ios
+dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios -p:_DeviceName=:v2:udid=<simulator udid>   # or: xcrun simctl launch booted com.swoovr.app
+```
+
+Tap-through for iOS (not run by the builder): sign in on **Me** with a fictional beta member. On **Profile**, change the display name and save, type two letters in **Home city** and pick "Adelaide, South Australia, Australia", turn Dating on and pick chips until "5 of 5" (the rest go grey). On **Explore**, the four modes and nothing called Travel; a mode that's off says so; send a request. On **Travel**, add a trip (city search, arrival, departure), switch "Visible to locals" off and on, cancel it, and with an Adelaide home city check "Visiting Adelaide" lists travellers and Send request answers "Request sent". The GeoNames credit shows under each city search. Travel needs GeoNames data in the local database: `./scripts/geonames.sh download && ./scripts/geonames.sh import`.
