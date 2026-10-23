@@ -7,6 +7,7 @@ using System.Text.Json;
 AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
+ConnectionModeChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

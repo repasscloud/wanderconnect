@@ -78,6 +78,7 @@ static class PersistenceChecks
                 Check("profile and grants go with the account", !await db.MemberProfiles.AnyAsync() && !await db.RoleGrants.AnyAsync());
             }
             await Extra(options, Check);
+            await Modes(options, Check);
         }
         finally
         {
@@ -88,6 +89,58 @@ static class PersistenceChecks
     }
 
     /// <summary>Further persistence cases added by later slices.</summary>
+    /// <summary>D92 tables: seeded modes, stable keys, cascades and the public id default.</summary>
+    static async Task Modes(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
+    {
+        var now = DateTimeOffset.Parse("2026-10-23T00:00:00Z");
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        await using (var db = new SwoovrDbContext(options))
+        {
+            var seeded = await db.ConnectionModes.OrderBy(m => m.SortOrder).Select(m => m.Id + ":" + m.Label).ToListAsync();
+            check("four modes seeded in order", seeded.SequenceEqual(["dating:Dating", "friends:Friends", "activities:Activities", "business:Business"]));
+            check("no intention chips seeded (not decided)", !await db.ModeIntentions.AnyAsync());
+            foreach (var id in new[] { a, b })
+            {
+                db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "modes-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+                db.MemberProfiles.Add(new MemberProfile { AccountId = id, AgeStatus = AgeStatus.Attested });
+            }
+            await db.SaveChangesAsync();
+            var ids = await db.MemberProfiles.Where(p => p.AccountId == a || p.AccountId == b).Select(p => p.PublicId).ToListAsync();
+            check("public ids generated and distinct", ids.All(i => i != Guid.Empty) && ids.Distinct().Count() == 2);
+        }
+        var chip = Guid.NewGuid();
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ModeIntentions.Add(new ModeIntention { Id = chip, ModeId = ConnectionModeIds.Dating, Label = "fictional chip", Available = true });
+            db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Dating, Enabled = true, Visible = true, UpdatedAt = now });
+            db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Friends, Enabled = true, Visible = false, UpdatedAt = now });
+            db.MemberModeIntentions.Add(new MemberModeIntention { AccountId = a, ModeId = ConnectionModeIds.Dating, IntentionId = chip });
+            await db.SaveChangesAsync();
+            check("several modes at once", await db.MemberModes.CountAsync(m => m.AccountId == a) == 2);
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Dating, UpdatedAt = now });
+            check("one setting per member and mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.MemberModes.Add(new MemberMode { AccountId = b, ModeId = "travel", UpdatedAt = now });
+            check("no setting for a mode that does not exist (travel is not a mode)", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.MemberModeIntentions.Add(new MemberModeIntention { AccountId = b, ModeId = ConnectionModeIds.Dating, IntentionId = chip });
+            check("an intention needs the member's setting for that mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.Accounts.Remove(await db.Accounts.SingleAsync(x => x.Id == a));
+            await db.SaveChangesAsync();
+            check("mode settings and intentions go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a) && !await db.MemberModeIntentions.AnyAsync());
+        }
+    }
+
     static async Task Extra(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
     {
         var now = DateTimeOffset.Parse("2026-10-23T00:00:00Z");

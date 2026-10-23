@@ -64,12 +64,13 @@ Travel is an optional, independent **discovery state**, not a fifth mode. It cha
 
 **Connect**, **Friends & company** and **Travel & exploring** were the [product brief](01-PRODUCT-BRIEF.md)'s original context labels. They are legacy names, not extra connection modes. "Dating, Friends, Activities" on the reference screens was a placeholder set, now replaced by the four modes above.
 
-None of this is built yet: no mode records, mode-specific discovery, intention configuration or Travel itineraries exist in the API or the apps.
+Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Not built: the intention set per mode (Q16; the table is empty), per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
 
 ## Current state
 
 - Web: `src/Swoovr.Web.Client/UI/Badge.razor` (moved from `Swoovr.Web/Components/UI` on 23 October so WebAssembly pages can use it) draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. Admin verified has no badge by design (D58).
 - MAUI: badge colours in `Colors.xaml`; no badge drawing yet.
+- Modes (slice I): `connection_modes`, `mode_intentions` (empty), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are not returned yet (Q11).
 - API: `member_profiles` stores the flags, verification statuses and optional DOB/age (D69, D70); `BadgePolicy` returns the badges to show (D74) and `/api/v1/me` returns the member's own. Founding status is granted by an admin route and restorable with the recovery token (D79–D81). No other-profile endpoint, other flag-setting admin routes or verification integrations yet.
 
 ## Open questions

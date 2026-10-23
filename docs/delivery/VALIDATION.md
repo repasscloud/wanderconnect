@@ -425,3 +425,18 @@ Decision D98. `src/Swoovr.Mobile/Resources/AppIcon/appiconfg.svg` is byte-identi
 - iOS simulator (iPhone 18 Pro): the home screen shows "Swoovr" as the white bird on a black rounded square.
 
 Not checked: themed (monochrome) icons on Android 13+ (no `monochrome` layer is generated), iOS 18+ dark and tinted icon variants, the App Store 1024 px marketing icon, a physical device.
+
+## Slice I: connection modes, profile and Explore — 23 October 2026
+
+Decisions D99–D105; questions Q16 (intention chips) and Q17 (Travel). Issue [#27](https://github.com/repasscloud/wanderconnect/issues/27) item 2 starts here.
+
+Built: domain rules in `Swoovr.Domain/Discovery/ConnectionModes.cs` (`ModeSettingsPolicy`, `ProfileTextPolicy`, `DiscoveryEligibility`); the `ConnectionModes` migration (`connection_modes` seeded with the four modes, empty `mode_intentions`, `member_modes`, `member_mode_intentions`, and `public_id`/`display_name`/`area`/`about` on `member_profiles`); API routes `GET /api/v1/modes`, `GET|PUT /api/v1/me/profile`, `PUT /api/v1/me/modes/{id}`, `GET /api/v1/explore?mode=`, `GET /api/v1/profiles/{publicId}`; `MemberClient` methods; the backend-for-frontend allow-list; and three Interactive WebAssembly components (not prerendered) behind static host pages: `/me/profile`, `/explore` (four-mode segmented control) and `/people/{id}`.
+
+Executed locally (API and web hosts from the worktree, local PostgreSQL 17 and Keycloak 26.8.1):
+
+- `./scripts/check.sh`: PASS, including 37 new connection mode cases (exactly the four ids, intention checks, text limits, eligibility both ways, Q11 exclusions) and 22 persistence cases (8 new: four modes seeded in order, no chips seeded, public ids generated and distinct, several modes at once, one setting per member and mode, no setting for a `travel` mode, an intention needs its mode setting, cascades with the account).
+- The migration on the existing local database gave all 49 existing profiles distinct public ids.
+- `tests/profiles/modes.browser.cjs` (new): PASS, 65 checks against the API and in actual Edge at 390 px. Catalogue order and labels from data, no chips, no Travel; profile text trimmed and over-long/control-character input refused with nothing changed and no profile text in the audit log; modes on together and off independently; `travel`, `connect`, `DATING` and a made-up intention refused; Explore requires the viewer's mode, excludes hidden, unnamed, self, revoked-beta, bot and under-18-locked people, returns no age/email/account id/badges, and the public id differs from the account id; another profile opens only in shared modes, and hidden, unknown and own ids all read 404; non-enrolled members refused. In the browser: the profile page shows each mode's state, turning a mode on saves through the API, an over-long name is refused, Explore shows the four labels with Dating selected, equal tiles in two columns, an off mode links to the profile page, a tile opens the person page with only the shared mode, a hidden person reads "not available"; the browser never calls the API host directly; `/bff/` serves Explore but 404s admin and traversal paths and needs the header.
+- Browser suites after the change: components 59, accounts 121, members 50, mobile client 31, prototype conversation and discovery, appearance: all PASS.
+
+Not built or not run: Travel (Q17, D103); intention chip content (Q16); per-mode filters and compatibility criteria; blocks and moderation restrictions in discovery (no block records exist yet); other people's badges and bot/staff accounts in discovery (Q11); paging and rate limits; photos; the modes screens in the MAUI app (D104); an admin screen for mode labels.

@@ -28,6 +28,25 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<MemberAccount>> RedeemAsync(string code, CancellationToken cancellationToken = default) =>
         SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/coupons") { Content = JsonContent.Create(new CouponRequest(code)) }, cancellationToken);
 
+    /// <summary>The connection modes as configured (D92), in display order, with their intention chips.</summary>
+    public Task<ApiResult<List<ConnectionModeView>>> ModesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ConnectionModeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/modes"), cancellationToken);
+
+    public Task<ApiResult<MyProfileView>> ProfileAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<MyProfileView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/profile"), cancellationToken);
+
+    public Task<ApiResult<MyProfileView>> SaveProfileAsync(ProfileUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<MyProfileView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/profile") { Content = JsonContent.Create(update) }, cancellationToken);
+
+    public Task<ApiResult<MyProfileView>> SaveModeAsync(string modeId, ModeUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<MyProfileView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/modes/" + Uri.EscapeDataString(modeId)) { Content = JsonContent.Create(update) }, cancellationToken);
+
+    public Task<ApiResult<ExploreResult>> ExploreAsync(string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<ExploreResult>(new HttpRequestMessage(HttpMethod.Get, "api/v1/explore?mode=" + Uri.EscapeDataString(modeId)), cancellationToken);
+
+    public Task<ApiResult<PersonProfile>> PersonAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<PersonProfile>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profiles/" + id), cancellationToken);
+
     private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         using (request)

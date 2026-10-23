@@ -41,6 +41,15 @@ public sealed class MemberProfile
     public DateTimeOffset? AdminVerifiedAt { get; set; }
     public bool Bot { get; set; }
     public bool Employee { get; set; }
+
+    /// <summary>
+    /// The id other members see in profile links (D92 slice): random, never the account id, issuer or subject.
+    /// </summary>
+    public Guid PublicId { get; set; }
+    /// <summary>Shared core profile across every connection mode (Q12 rule 16); limits in ProfileTextPolicy.</summary>
+    public string? DisplayName { get; set; }
+    public string? Area { get; set; }
+    public string? About { get; set; }
 }
 
 public enum Badge { Founder, PhotoVerified, IdVerified, Staff, Bot }

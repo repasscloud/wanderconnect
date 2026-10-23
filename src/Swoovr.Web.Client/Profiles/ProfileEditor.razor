@@ -1,0 +1,96 @@
+@* The member's own profile (D92, Interactive WebAssembly): one core profile shared by every mode, then each mode on
+   its own card. Turning a mode on or off changes only that mode. Intention chips appear only for modes that have
+   some configured; none are configured yet (the set per mode is not decided). *@
+@inject MemberClient Members
+<div class="page-heading" data-profile-editor="@(loaded ? "ready" : "loading")">
+    <p class="breadcrumb"><a href="/account">Me</a> / Profile</p>
+    <h1>Your profile</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (refused is not null) { <p role="status" data-profile-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Your profile opens once your email is on the private beta list." : "We couldn't load your profile.")</p> }
+</div>
+@if (loaded && refused is null && profile is not null)
+{
+    <section class="card account-section" aria-labelledby="core-heading">
+        <h2 id="core-heading">About you</h2>
+        <p class="field-help">The same in every mode. Others see it only in modes you show yourself in.</p>
+        <form class="stack" @onsubmit="SaveProfileAsync" data-core-form>
+            <div class="field"><label for="display-name">Display name</label><input id="display-name" maxlength="40" @bind="displayName" autocomplete="nickname" /></div>
+            <div class="field"><label for="area">Area</label><input id="area" maxlength="60" @bind="area" placeholder="For example, Adelaide CBD" /></div>
+            <div class="field"><label for="about">About me</label><textarea id="about" maxlength="500" rows="4" @bind="about"></textarea></div>
+            <button type="submit" class="button" disabled="@busy">Save</button>
+            <p role="status" aria-live="polite" class="field-help" data-core-status="@coreStatus">@coreMessage</p>
+        </form>
+        @if (string.IsNullOrWhiteSpace(profile.DisplayName))
+        {
+            <p class="field-help" data-needs-name>Add a display name so people can find you.</p>
+        }
+    </section>
+
+    <section aria-labelledby="modes-heading" class="mode-settings">
+        <h2 id="modes-heading">Connection modes</h2>
+        <p class="field-help">Turn on any combination. Each mode keeps its own settings.</p>
+        @foreach (var mode in modes)
+        {
+            var setting = profile.Modes.FirstOrDefault(m => m.Id == mode.Id) ?? new MyModeView(mode.Id, false, false, []);
+            <article class="card account-section" data-mode-card="@mode.Id" data-mode-enabled="@(setting.Enabled ? "true" : "false")" data-mode-visible="@(setting.Visible ? "true" : "false")">
+                <h3>@mode.Label</h3>
+                <label class="option"><input type="checkbox" checked="@setting.Enabled" disabled="@busy" @onchange="e => SaveModeAsync(mode.Id, e.Value is true, setting.Visible || e.Value is true, setting.Intentions)" /> Use @mode.Label</label>
+                <label class="option"><input type="checkbox" checked="@setting.Visible" disabled="@(busy || !setting.Enabled)" @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, e.Value is true, setting.Intentions)" /> Show my profile in @mode.Label</label>
+                @if (mode.Intentions.Count > 0)
+                {
+                    <ul class="chip-row" aria-label="@($"{mode.Label} intentions")">
+                        @foreach (var intention in mode.Intentions)
+                        {
+                            var on = setting.Intentions.Contains(intention.Id);
+                            <li><button type="button" class="chip @(on ? "is-on" : null)" aria-pressed="@(on ? "true" : "false")" disabled="@busy"
+                                        @onclick="() => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, Toggle(setting.Intentions, intention.Id))">@intention.Label</button></li>
+                        }
+                    </ul>
+                }
+            </article>
+        }
+        <p role="status" aria-live="polite" class="field-help" data-mode-status>@modeMessage</p>
+    </section>
+}
+@code {
+    private bool loaded, busy;
+    private string? refused, displayName, area, about, coreMessage, coreStatus, modeMessage;
+    private List<ConnectionModeView> modes = [];
+    private MyProfileView? profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var catalogue = await Members.ModesAsync();
+            var own = await Members.ProfileAsync();
+            if (catalogue.Value is null || own.Value is null) refused = catalogue.Code ?? own.Code ?? "unavailable";
+            else { modes = catalogue.Value; Show(own.Value); }
+        }
+        catch (HttpRequestException) { refused = "unavailable"; }
+        loaded = true;
+    }
+
+    private void Show(MyProfileView value) => (profile, displayName, area, about) = (value, value.DisplayName, value.Area, value.About);
+
+    private async Task SaveProfileAsync()
+    {
+        busy = true;
+        var result = await Members.SaveProfileAsync(new ProfileUpdate(displayName, area, about));
+        busy = false;
+        if (result.Value is { } saved) { Show(saved); (coreStatus, coreMessage) = ("saved", "Saved."); }
+        else (coreStatus, coreMessage) = ("invalid", "Check the fields: no special characters, and keep within the lengths shown.");
+    }
+
+    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions)
+    {
+        busy = true;
+        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions));
+        busy = false;
+        if (result.Value is { } saved) { profile = saved; modeMessage = null; }
+        else modeMessage = "That change wasn't saved. Try again.";
+    }
+
+    private static IReadOnlyList<Guid> Toggle(IReadOnlyList<Guid> current, Guid id) =>
+        current.Contains(id) ? current.Where(x => x != id).ToList() : [.. current, id];
+}

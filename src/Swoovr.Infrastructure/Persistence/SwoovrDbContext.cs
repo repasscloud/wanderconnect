@@ -7,7 +7,8 @@ namespace Swoovr.Infrastructure.Persistence;
 /// <summary>
 /// The application database (DEFAULT PostgreSQL). Holds what Keycloak does not (D55):
 /// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details, beta
-/// enrolments (D62), founder places and tokens (D65) and the audit log. Names are snake_case; enums are stored as their names
+/// enrolments (D62), founder places and tokens (D65), connection modes and members' mode settings (D92)
+/// and the audit log. Names are snake_case; enums are stored as their names
 /// so a reordered enum can never change stored meaning.
 /// </summary>
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
@@ -20,6 +21,10 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<BetaEnrolment> BetaEnrolments => Set<BetaEnrolment>();
     public DbSet<FounderPlace> FounderPlaces => Set<FounderPlace>();
     public DbSet<FounderToken> FounderTokens => Set<FounderToken>();
+    public DbSet<ConnectionMode> ConnectionModes => Set<ConnectionMode>();
+    public DbSet<ModeIntention> ModeIntentions => Set<ModeIntention>();
+    public DbSet<MemberMode> MemberModes => Set<MemberMode>();
+    public DbSet<MemberModeIntention> MemberModeIntentions => Set<MemberModeIntention>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -48,6 +53,45 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.HasKey(p => p.AccountId);
             profile.HasOne<Account>().WithOne().HasForeignKey<MemberProfile>(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
             profile.HasIndex(p => p.FounderPlace).IsUnique().HasFilter("founder_place IS NOT NULL");
+            // Existing rows get one too; PostgreSQL 13+ has gen_random_uuid() built in.
+            profile.Property(p => p.PublicId).HasDefaultValueSql("gen_random_uuid()");
+            profile.HasIndex(p => p.PublicId).IsUnique();
+            profile.Property(p => p.DisplayName).HasMaxLength(ProfileTextPolicy.DisplayNameMax);
+            profile.Property(p => p.Area).HasMaxLength(ProfileTextPolicy.AreaMax);
+            profile.Property(p => p.About).HasMaxLength(ProfileTextPolicy.AboutMax);
+        });
+        // D92: four modes with stable ids; labels, order and availability are data. No intentions are seeded
+        // because the set per mode is not decided.
+        model.Entity<ConnectionMode>(mode =>
+        {
+            mode.Property(m => m.Id).HasMaxLength(32);
+            mode.Property(m => m.Label).HasMaxLength(40);
+            mode.HasData(
+                new ConnectionMode { Id = ConnectionModeIds.Dating, Label = "Dating", SortOrder = 1, Available = true },
+                new ConnectionMode { Id = ConnectionModeIds.Friends, Label = "Friends", SortOrder = 2, Available = true },
+                new ConnectionMode { Id = ConnectionModeIds.Activities, Label = "Activities", SortOrder = 3, Available = true },
+                new ConnectionMode { Id = ConnectionModeIds.Business, Label = "Business", SortOrder = 4, Available = true });
+        });
+        model.Entity<ModeIntention>(intention =>
+        {
+            intention.Property(i => i.ModeId).HasMaxLength(32);
+            intention.Property(i => i.Label).HasMaxLength(40);
+            intention.HasOne<ConnectionMode>().WithMany().HasForeignKey(i => i.ModeId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<MemberMode>(setting =>
+        {
+            setting.HasKey(m => new { m.AccountId, m.ModeId });
+            setting.Property(m => m.ModeId).HasMaxLength(32);
+            setting.HasOne<Account>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
+            setting.HasOne<ConnectionMode>().WithMany().HasForeignKey(m => m.ModeId).OnDelete(DeleteBehavior.Restrict);
+            setting.HasIndex(m => new { m.ModeId, m.Enabled, m.Visible });
+        });
+        model.Entity<MemberModeIntention>(chosen =>
+        {
+            chosen.HasKey(m => new { m.AccountId, m.ModeId, m.IntentionId });
+            chosen.Property(m => m.ModeId).HasMaxLength(32);
+            chosen.HasOne<MemberMode>().WithMany().HasForeignKey(m => new { m.AccountId, m.ModeId }).OnDelete(DeleteBehavior.Cascade);
+            chosen.HasOne<ModeIntention>().WithMany().HasForeignKey(m => m.IntentionId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<FounderPlace>(place =>
         {

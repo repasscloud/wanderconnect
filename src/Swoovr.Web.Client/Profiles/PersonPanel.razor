@@ -1,0 +1,50 @@
+@* Another member's profile (D92, Interactive WebAssembly). The API returns it only in modes both people have on and
+   the person shows themselves in; anything else reads as "not available", so the page never confirms who exists.
+   No badges for other people yet (Q11: several badges at once is open). *@
+@inject MemberClient Members
+<div class="page-heading" data-person="@(loaded ? (person is null ? "unavailable" : "ready") : "loading")">
+    <p class="breadcrumb"><a href="/explore">Explore</a> / Profile</p>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (person is null)
+    {
+        <h1>Profile not available</h1>
+        <p role="status">This profile isn't showing in any mode you use.</p>
+    }
+    else
+    {
+        <h1>@person.DisplayName</h1>
+        @if (person.Area is not null) { <p class="tile-area"><Icon Name="pin" Size="13" />@person.Area</p> }
+    }
+</div>
+@if (person is not null)
+{
+    @if (person.About is not null)
+    {
+        <section class="card account-section" aria-labelledby="about-heading">
+            <h2 id="about-heading">About me</h2>
+            <p class="person-about">@person.About</p>
+        </section>
+    }
+    <section class="card account-section" aria-labelledby="shared-heading">
+        <h2 id="shared-heading">Here for</h2>
+        <ul class="chip-row" data-shared-modes="@string.Join(" ", person.Modes.Select(m => m.Id))">
+            @foreach (var mode in person.Modes)
+            {
+                <li><span class="chip">@mode.Label</span></li>
+                @foreach (var intention in mode.Intentions) { <li><span class="chip is-on">@intention</span></li> }
+            }
+        </ul>
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public Guid Id { get; set; }
+    private bool loaded;
+    private PersonProfile? person;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try { person = (await Members.PersonAsync(Id)).Value; }
+        catch (HttpRequestException) { person = null; }
+        loaded = true;
+    }
+}

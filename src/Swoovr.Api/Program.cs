@@ -28,6 +28,7 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
 AdminEndpoints.Map(app);
+Swoovr.Api.Profiles.ProfileEndpoints.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

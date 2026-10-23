@@ -6,7 +6,7 @@
     {
         <div class="tile-photo">@Photo</div>
         <div class="tile-body">
-            <div class="tile-name"><h2><a href="@Href">@Name, @Age</a></h2>@Badges</div>
+            <div class="tile-name"><h2><a href="@Href">@Name@(Age is { } years ? $", {years}" : "")</a></h2>@Badges</div>
             <div class="tile-chips">@foreach (var intention in Intentions) { <span class="chip">@intention</span> }</div>
             <p class="tile-area"><Icon Name="pin" Size="11" />@Area</p>
             @ChildContent
@@ -16,14 +16,15 @@
     {
         <span class="tile-quote-mark" aria-hidden="true" data-font="quote">&ldquo;</span>
         <div class="tile-quote-box"><p class="tile-quote" data-font="quote">@Quote</p></div>
-        <div class="tile-name"><h2><a href="@Href">@Name, @Age</a></h2>@Badges</div>
+        <div class="tile-name"><h2><a href="@Href">@Name@(Age is { } years ? $", {years}" : "")</a></h2>@Badges</div>
         <p class="tile-intentions">@string.Join(" · ", Intentions)</p>
         @ChildContent
     }
 </article>
 @code {
     [Parameter, EditorRequired] public string Name { get; set; } = "";
-    [Parameter, EditorRequired] public int Age { get; set; }
+    /// <summary>Optional: member profiles show no age in Explore.</summary>
+    [Parameter] public int? Age { get; set; }
     [Parameter, EditorRequired] public string Href { get; set; } = "";
     [Parameter] public IReadOnlyList<string> Intentions { get; set; } = [];
     [Parameter] public string Area { get; set; } = "";
