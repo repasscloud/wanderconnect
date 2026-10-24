@@ -52,7 +52,7 @@ D55 confirms that flags are application-owned. The owner is still defining the p
 
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
-| Q11 | OPEN | Profile persistence and badges | Final flag set and rules: what admin verified means and its badge; founding-member criteria; employee badge = ruby "Swoovr staff" bird; several badges at once; bot/employee accounts in discovery | Use the five drawn badges; add admin verified when it is defined |
+| Q11 | ANSWERED, owner 24 October 2026; D108 | Profile persistence and badges | Final flag set and rules: what admin verified means and its badge; founding-member criteria; employee badge = ruby "Swoovr staff" bird; several badges at once; bot/employee accounts in discovery | Use the five drawn badges; add admin verified when it is defined |
 | Q12 | ANSWERED, owner 23 October 2026; D92 | Profile, discovery and the segmented control | Final set of modes (brief: Connect / Friends & company / Travel & exploring; reference screens: Dating / Friends / Activities; owner examples: dating, friends, business) | Answered: Dating, Friends, Activities and Business; Travel is a separate discovery state. See [Q12 — Connection modes, discovery and Travel state](#q12--connection-modes-discovery-and-travel-state) |
 
 ## Owner answers — 23 October 2026
@@ -67,7 +67,7 @@ The owner answered Q03 and Q05–Q09 below (decisions D59–D64) and part of Q11
 | Q07 | ANSWERED, owner 23 October 2026; D62 | Private, invitation-only beta in Adelaide (about 100 testers); business-hours support in beta, 24/7 at public launch; India-based team with escalation to RePass Cloud |
 | Q08 | ANSWERED, owner 23 October 2026; D63 | Published by RePass Cloud Pty Ltd; Free/Plus/Premium tiers with AUD prices; Free only during beta; 1,000 founding memberships. Trademark, store and launch checks remain outstanding |
 | Q09 | ANSWERED, owner 23 October 2026; D64 | .NET 10 + MAUI for iOS and Android, built and tested locally on macOS; CI/CD only for authorised store releases. Workload installation and validation remain outstanding |
-| Q11 | PARTLY ANSWERED, owner 23 October 2026 | Employee = ruby staff bird (D57); admin verified = backend flag, no badge (D58); founding = gold Swoovr Founder badge, permanent, after onboarding and Photo and/or ID verification (Q08). Still OPEN: whether admin verified changes age status, several badges at once, bot/employee accounts in discovery |
+| Q11 | ANSWERED, owner 24 October 2026; D108 (partly 23 October: D57, D58) | Employee = ruby staff bird (D57); admin verified = backend flag, no badge (D58); founding = gold Swoovr Founder badge, permanent, after onboarding and Photo and/or ID verification (Q08). 24 October: several badges show at once in a configurable order; staff take part in all four modes like anyone else and cannot hide the badge; bots appear only in modes an admin authorised, never initiate and never carry Photo/ID badges. See [Q11](#q11--profile-flags-verification-badges-founding-membership-staff-affiliation-and-official-bots) |
 | Q12 | ANSWERED, owner 23 October 2026; D92 | Four connection modes (Dating, Friends, Activities, Business), several at once; Travel is an independent discovery state with a 14-day advance limit and multi-city itineraries. See [Q12 — Connection modes, discovery and Travel state](#q12--connection-modes-discovery-and-travel-state) |
 
 ### Points confirmed
@@ -472,12 +472,12 @@ Implementation: Model connection modes using stable identifiers and per-user mod
 
 ## Mobile sign-in, icon and modes — 23 October 2026
 
-The owner accepted the builder's defaults for slices F–I (D93–D104). These remain OPEN; neither blocks the work already built.
+The owner accepted the builder's defaults for slices F–I (D93–D104). Both were answered on 24 October 2026 (full answers below); the table keeps the original questions.
 
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
-| Q16 | OPEN | Intention chips content (not the code) | Which intention chips does each mode offer (Dating, Friends, Activities, Business), and how many may a member pick? D92 gives only illustrations ("Something serious", "Casual") | Owner supplies a list per mode; it is loaded as `mode_intentions` rows. Keep the DEFAULT limit of five per mode (D105) |
-| Q17 | OPEN | Travel slice | How is a Travel destination chosen and shown: a fixed list of cities, or free search with a geocoding provider (which one)? How precisely may others see it (city only, suburb)? Do destinations need the beta's activated markets (D62 rule 2)? | A fixed list of cities to start (Adelaide, Melbourne, Sydney and so on), shown to others as the city name only, no geocoding provider until needed |
+| Q16 | ANSWERED, owner 24 October 2026; D106 | Intention chips content (not the code) | Which intention chips does each mode offer (Dating, Friends, Activities, Business), and how many may a member pick? D92 gives only illustrations ("Something serious", "Casual") | Owner supplies a list per mode; it is loaded as `mode_intentions` rows. Keep the DEFAULT limit of five per mode (D105) |
+| Q17 | ANSWERED, owner 24 October 2026; D107, D109–D111 | Travel slice | How is a Travel destination chosen and shown: a fixed list of cities, or free search with a geocoding provider (which one)? How precisely may others see it (city only, suburb)? Do destinations need the beta's activated markets (D62 rule 2)? | A fixed list of cities to start (Adelaide, Melbourne, Sydney and so on), shown to others as the city name only, no geocoding provider until needed |
 
 ### Q16 — Mode-specific intention chips and selection limits
 
@@ -872,3 +872,25 @@ Implement official bots using an explicit automated-account classification and a
 Extend the existing badge-rendering components, including the Blazor WebAssembly badge component and corresponding .NET MAUI UI, to render all approved badge types and valid combinations. Use centrally defined badge metadata for identifiers, artwork, labels, ordering, accessibility descriptions and visibility rules. Ensure badges appear consistently across discovery cards, member profiles and messaging surfaces.
 
 Public-facing APIs must derive badges from trusted current credential and account records, exclude confidential administrative states and avoid exposing verification evidence, privileged role assignments or internal moderation information. Implement automated tests covering badge eligibility, combinations, verification independence, founding-member activation and recovery, staff affiliation assignment and revocation, mandatory staff-report review, bot mode configuration, bot identification, bot-initiated interaction restrictions, public/internal data separation and cross-platform presentation consistency.
+
+## Owner follow-up answers — 24 October 2026
+
+Given by the owner in the overnight brief of 24 October 2026, after the Q16, Q17 and Q11 answers above. CONFIRMED; recorded as D109–D112.
+
+1. **Itineraries (Q17 rule 11, D109).** Trips may be grouped into an itinerary of back-to-back stops: each stop arrives on or after the previous one departs, with a gap of 14 days or less. Every stop in an itinerary becomes visible once its first stop is within 14 days of arrival. A trip outside an itinerary opens 14 days before its own arrival. Turning visibility on for a trip whose dates overlap another visible trip is refused (sharing the changeover day is fine).
+2. **Locals and markets (Q17 rules 6 and 22, D110).** The core profile gains a home city, picked from the same GeoNames search; the free-text Area stays. A `markets` table lists each market (stable id, name, active flag, centre GeoNames id, internal radius). Adelaide is the only active market. A "local" is a member whose home city is in the same active market as the trip's city. Coordinates and distances never leave the server.
+3. **GeoNames (Q17 rules 1–4, D111).** Use `cities1000` plus `admin1CodesASCII` and `countryInfo`. A script downloads them from download.geonames.org into `.local` (never committed) and imports them into a `geo_cities` table (GeoNames id as the key, name, ASCII name, alternate names for search, admin1, country, population, IANA timezone, coordinates). Tests use a small committed sample file. Autocomplete ranks by population and shows "City, Region, Country". Every screen with city search shows "Place data © GeoNames (CC BY 4.0)".
+4. **Scope (D112).** Build connection requests and blocks before Travel. Real messaging stays out (the conversation stays a prototype).
+
+## Chips, badges, requests and Travel build questions — 24 October 2026
+
+Raised during the unattended build of slices J–M. The owner accepted every recommended default on 24 October 2026 (D124).
+
+| ID | Status | Question | Earliest blocker | Recommended default (built) |
+| --- | --- | --- | --- | --- |
+| Q18 | ANSWERED, owner 24 October 2026 (defaults accepted); D121, D124 | What radius defines the Adelaide market (D110 gives each market a centre GeoNames id and an internal radius but no value)? | Who counts as a local for Travel (slice M) | 50 km around Adelaide (GeoNames 2078025): metropolitan Adelaide including Gawler and Mount Barker; Victor Harbor and the Barossa fall outside. A row value, changed without code |
+| Q19 | ANSWERED, owner 24 October 2026 (defaults accepted); D116, D124 | How do official bots sign in? Q11 rule 55 keeps bot credentials apart from member sign-in, but today a bot is a members-realm account an admin classifies (D115) | Running a real bot (guide) account | Keep admin classification of members-realm accounts for the prototype; before any real bot runs, give bots a Keycloak service client (client-credentials) in their own realm or client, with no password sign-in, and map it to the bot's account record |
+| Q20 | ANSWERED, owner 24 October 2026 (defaults accepted); D108, D124 | Photo verification, ID verification (Stripe Identity, Q04) and staff-report moderation with mandatory human review (Q11 rules 5–13, 39–43) are not built. Which comes first? | Founder activation, public Photo/ID badges, moderation | Q04 first (Stripe Identity sandbox), then reports and moderation with the staff rule; until then Photo/ID badges come only from records an admin or test sets, and nothing is labelled as live verification |
+| Q21 | ANSWERED, owner 24 October 2026 (defaults accepted); D117, D118, D124 | What request limits suit the beta: how many requests per day, and how long before someone may ask again after a decline? Should a block end an existing connection for good rather than hide it? | Abuse handling at beta scale | 20 a day per sender, a 30-day wait after a decline in that mode, and a block hides (not deletes) a connection so unblocking restores it (D117, D118) |
+| Q22 | ANSWERED, owner 24 October 2026 (defaults accepted); D120, D122, D124 | Travel limits and details not given by Q17: how far ahead a trip may start, how long it may be, how many trip changes an hour, whether other members ever see a home city, and what the feed shows of a traveller beyond name, badges, chips and the visit | Travel at beta scale | Two years ahead, at most 365 nights, 30 changes an hour, home city never shown to others, and no area or about text in the feed (D120, D122) |
+| Q23 | ANSWERED, owner 24 October 2026 (defaults accepted); D124, D124 | Q12 says discovery moves to the member's actual location on arrival, but Swoovr has no device location yet (D100/D110 use only a home city). Should arrival change anything before device location exists? | Arrival behaviour | No change on arrival: the trip stays a "Visiting" entry until it expires, and home discovery is unchanged. Device location is a separate decision with its own privacy review |

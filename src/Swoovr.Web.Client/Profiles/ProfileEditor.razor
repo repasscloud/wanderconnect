@@ -1,6 +1,6 @@
 @* The member's own profile (D92, Interactive WebAssembly): one core profile shared by every mode, then each mode on
-   its own card. Turning a mode on or off changes only that mode. Intention chips appear only for modes that have
-   some configured; none are configured yet (the set per mode is not decided). *@
+   its own card. Turning a mode on or off changes only that mode. Each mode offers its own intention chips (Q16); the
+   member picks up to the API's limit, shown as "n of 5", and the API enforces it again. Choices stay when a mode is off. *@
 @inject MemberClient Members
 <div class="page-heading" data-profile-editor="@(loaded ? "ready" : "loading")">
     <p class="breadcrumb"><a href="/account">Me</a> / Profile</p>
@@ -16,6 +16,8 @@
         <form class="stack" @onsubmit="SaveProfileAsync" data-core-form>
             <div class="field"><label for="display-name">Display name</label><input id="display-name" maxlength="40" @bind="displayName" autocomplete="nickname" /></div>
             <div class="field"><label for="area">Area</label><input id="area" maxlength="60" @bind="area" placeholder="For example, Adelaide CBD" /></div>
+            <CitySearch InputId="home-city" Label="Home city" @bind-Selected="homeCity" />
+            <p class="field-help">Only you see your home city. It decides who counts as local when people visit (Travel).</p>
             <div class="field"><label for="about">About me</label><textarea id="about" maxlength="500" rows="4" @bind="about"></textarea></div>
             <button type="submit" class="button" disabled="@busy">Save</button>
             <p role="status" aria-live="polite" class="field-help" data-core-status="@coreStatus">@coreMessage</p>
@@ -38,14 +40,19 @@
                 <label class="option"><input type="checkbox" checked="@setting.Visible" disabled="@(busy || !setting.Enabled)" @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, e.Value is true, setting.Intentions)" /> Show my profile in @mode.Label</label>
                 @if (mode.Intentions.Count > 0)
                 {
-                    <ul class="chip-row" aria-label="@($"{mode.Label} intentions")">
-                        @foreach (var intention in mode.Intentions)
-                        {
-                            var on = setting.Intentions.Contains(intention.Id);
-                            <li><button type="button" class="chip @(on ? "is-on" : null)" aria-pressed="@(on ? "true" : "false")" disabled="@busy"
-                                        @onclick="() => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, Toggle(setting.Intentions, intention.Id))">@intention.Label</button></li>
-                        }
-                    </ul>
+                    var picked = setting.Intentions.Count(id => mode.Intentions.Any(i => i.Id == id));
+                    <div class="chip-picker" data-chip-picker="@mode.Id">
+                        <p class="field-help" id="@($"chips-{mode.Id}")"><span>What you're here for</span> <span data-chip-count="@picked">@picked of @mode.MaxIntentions</span></p>
+                        <ul class="chip-row" aria-labelledby="@($"chips-{mode.Id}")">
+                            @foreach (var intention in mode.Intentions)
+                            {
+                                var on = setting.Intentions.Contains(intention.Id);
+                                <li><button type="button" class="chip @(on ? "is-on" : null)" aria-pressed="@(on ? "true" : "false")" data-chip="@intention.Id"
+                                            disabled="@(busy || !on && picked >= mode.MaxIntentions)"
+                                            @onclick="() => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, Toggle(setting.Intentions, intention.Id))">@intention.Label</button></li>
+                            }
+                        </ul>
+                    </div>
                 }
             </article>
         }
@@ -55,6 +62,7 @@
 @code {
     private bool loaded, busy;
     private string? refused, displayName, area, about, coreMessage, coreStatus, modeMessage;
+    private PlaceView? homeCity;
     private List<ConnectionModeView> modes = [];
     private MyProfileView? profile;
 
@@ -71,12 +79,12 @@
         loaded = true;
     }
 
-    private void Show(MyProfileView value) => (profile, displayName, area, about) = (value, value.DisplayName, value.Area, value.About);
+    private void Show(MyProfileView value) => (profile, displayName, area, about, homeCity) = (value, value.DisplayName, value.Area, value.About, value.HomeCity);
 
     private async Task SaveProfileAsync()
     {
         busy = true;
-        var result = await Members.SaveProfileAsync(new ProfileUpdate(displayName, area, about));
+        var result = await Members.SaveProfileAsync(new ProfileUpdate(displayName, area, about, homeCity?.Id));
         busy = false;
         if (result.Value is { } saved) { Show(saved); (coreStatus, coreMessage) = ("saved", "Saved."); }
         else (coreStatus, coreMessage) = ("invalid", "Check the fields: no special characters, and keep within the lengths shown.");
@@ -88,7 +96,7 @@
         var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions));
         busy = false;
         if (result.Value is { } saved) { profile = saved; modeMessage = null; }
-        else modeMessage = "That change wasn't saved. Try again.";
+        else modeMessage = result.Code == ProblemCodes.TooManyIntentions ? "You can pick up to five in each mode." : "That change wasn't saved. Try again.";
     }
 
     private static IReadOnlyList<Guid> Toggle(IReadOnlyList<Guid> current, Guid id) =>

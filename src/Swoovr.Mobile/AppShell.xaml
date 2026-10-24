@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
+<!-- Tabs: the account screen, the profile with its modes, Explore and Travel (D104 superseded by slice N). Travel has its
+     own tab and never appears in Explore's mode control (Q12). -->
 <Shell
     x:Class="Swoovr.Mobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:Swoovr.Mobile"
     Title="Swoovr">
-
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
-
+    <TabBar>
+        <ShellContent Title="Me" AutomationId="TabMe" ContentTemplate="{DataTemplate local:MainPage}" Route="MainPage" />
+        <ShellContent Title="Profile" AutomationId="TabProfile" ContentTemplate="{DataTemplate local:ProfilePage}" Route="ProfilePage" />
+        <ShellContent Title="Explore" AutomationId="TabExplore" ContentTemplate="{DataTemplate local:ExplorePage}" Route="ExplorePage" />
+        <ShellContent Title="Travel" AutomationId="TabTravel" ContentTemplate="{DataTemplate local:TravelPage}" Route="TravelPage" />
+    </TabBar>
 </Shell>

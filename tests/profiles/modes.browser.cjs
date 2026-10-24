@@ -16,11 +16,14 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     const tokens = {};
     for (const [key, member] of Object.entries({ ana, ben, cai, dee, eli })) tokens[key] = await memberToken(browser, member);
 
-    // Catalogue: four stable ids in order, labels from data, no intention chips yet, no Travel.
+    // Catalogue: four stable ids in order, labels from data, ten intention chips each (Q16), no Travel.
     let modes = await call(tokens.ana, '/api/v1/modes');
     assert.equal(modes.status, 200);
     assert.deepEqual(modes.body.map(m => [m.id, m.label]), [['dating', 'Dating'], ['friends', 'Friends'], ['activities', 'Activities'], ['business', 'Business']]); pass();
-    assert.ok(modes.body.every(m => m.intentions.length === 0)); pass();
+    assert.ok(modes.body.every(m => m.intentions.length === 10 && m.maxIntentions === 5)); pass();
+    assert.deepEqual([modes.body[0].intentions[0], modes.body[3].intentions[9]], [
+      { id: '00000016-0001-4000-8000-000000000001', label: 'Long-term relationship' }, { id: '00000016-0004-4000-8000-000000000010', label: 'Knowledge sharing' }]); pass();
+    const chip = (mode, n) => modes.body.find(m => m.id === mode).intentions[n - 1].id;
     assert.equal((await call(null, '/api/v1/modes')).status, 401); pass();
     assert.equal((await call(tokens.dee, '/api/v1/modes')).body.code, 'beta-not-enrolled'); pass();
 
@@ -54,6 +57,25 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-mode']); pass();
     assert.equal((await call(tokens.dee, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } })).status, 403); pass();
 
+    // Intentions (Q16): up to five per mode, only the mode's own chips, independent per mode, kept while a mode is off.
+    const save = (who, mode, body) => call(tokens[who], `/api/v1/me/modes/${mode}`, { method: 'PUT', body });
+    const datingFive = [1, 2, 3, 7, 10].map(n => chip('dating', n));
+    mine = await save('ana', 'dating', { enabled: true, visible: true, intentions: datingFive });
+    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating').intentions, datingFive); pass();
+    bad = await save('ana', 'dating', { enabled: true, visible: true, intentions: [...datingFive, chip('dating', 4)] });
+    assert.deepEqual([bad.status, bad.body.code], [400, 'too-many-intentions']); pass(); // six, past the client's limit
+    bad = await save('ana', 'dating', { enabled: true, visible: true, intentions: Array.from({ length: 400 }, (_, i) => `00000016-0001-4000-8000-${String(i).padStart(12, '0')}`) });
+    assert.equal(bad.status, 400); pass(); // a tampered body far past the limit
+    bad = await save('ana', 'dating', { enabled: true, visible: true, intentions: [chip('friends', 1)] });
+    assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-mode']); pass(); // another mode's chip
+    mine = await save('ana', 'dating', { enabled: true, visible: true, intentions: [...datingFive, datingFive[0], datingFive[1]] });
+    assert.equal(mine.status, 200); assert.equal(mine.body.modes.find(m => m.id === 'dating').intentions.length, 5); pass(); // duplicates count once
+    assert.deepEqual((await call(tokens.ana, '/api/v1/me/profile')).body.modes.find(m => m.id === 'dating').intentions, datingFive); pass(); // refusals changed nothing
+    mine = await save('ana', 'friends', { enabled: false, visible: false, intentions: [chip('friends', 1), chip('friends', 9)] });
+    assert.deepEqual(mine.body.modes.find(m => m.id === 'friends').intentions, [chip('friends', 1), chip('friends', 9)]); pass(); // chosen while off
+    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating').intentions, datingFive); pass(); // other mode untouched
+    assert.match(await sql(`SELECT detail FROM audit_entries WHERE action = 'mode.updated' AND target_id = 'friends' ORDER BY id DESC LIMIT 1`), /^off:hidden:intentions:2$/); pass();
+
     // Ben: dating on and visible. Cai: dating on but hidden. Eli: dating visible but no display name.
     await call(tokens.ben, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg' } });
     await call(tokens.ben, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
@@ -73,7 +95,31 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'area', 'displayName', 'id', 'intentions']); pass(); // no age, email, account id or badges
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'area', 'badges', 'displayName', 'id', 'intentions']); pass(); // no age, email or account id
+    assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
+    // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.
+    await save('ben', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 4), chip('dating', 2)] });
+    let benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
+    assert.deepEqual(benTile.intentions, ['Short-term dating', 'Something casual / no strings']); pass();
+    // D113: a chip retired after Ben picked it stays stored but hidden, doesn't block a save and can't be added afresh.
+    const retired = chip('dating', 4); // Ana doesn't hold this one
+    try {
+      await sql(`UPDATE mode_intentions SET available = false WHERE id = '${retired}'`);
+      benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
+      assert.deepEqual(benTile.intentions, ['Short-term dating']); pass();
+      assert.deepEqual((await call(tokens.ben, '/api/v1/me/profile')).body.modes.find(m => m.id === 'dating').intentions, [chip('dating', 2)]); pass();
+      assert.ok(!(await call(tokens.ben, '/api/v1/modes')).body[0].intentions.some(i => i.id === retired)); pass();
+      const benFive = [1, 2, 3, 5, 6].map(n => chip('dating', n));
+      assert.equal((await save('ben', 'dating', { enabled: true, visible: true, intentions: benFive })).status, 200); pass(); // five plus the hidden one
+      assert.equal(await sql(`SELECT count(*) FROM member_mode_intentions i JOIN accounts a ON a.id = i.account_id WHERE a.subject = '${claims(tokens.ben).sub}' AND i.intention_id = '${retired}'`), '1'); pass();
+      bad = await save('ana', 'dating', { enabled: true, visible: true, intentions: [retired] });
+      assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-mode']); pass(); // adding a retired chip is refused
+      await save('ben', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 2)] });
+    } finally {
+      await sql(`UPDATE mode_intentions SET available = true WHERE id = '${retired}'`);
+    }
+    benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
+    assert.deepEqual(benTile.intentions, ['Short-term dating', 'Something casual / no strings']); pass(); // reactivated, the kept choice shows again
     const benAccount = await sql(`SELECT a.id FROM accounts a WHERE a.subject = '${claims(tokens.ben).sub}'`);
     assert.notEqual(benCard.id, benAccount); pass(); // the public id is not the account id
     bad = await call(tokens.ana, '/api/v1/explore?mode=business');
@@ -98,7 +144,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     await call(tokens.ben, '/api/v1/session'); // binds the new enrolment
     assert.ok(ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
     await sql(`UPDATE member_profiles SET bot = true WHERE public_id = '${benCard.id}'`);
-    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: bots stay out
+    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
     await sql(`UPDATE member_profiles SET bot = false WHERE public_id = '${benCard.id}'`);
     await call(tokens.ben, '/api/v1/me/age', { method: 'PUT', body: { age: 16 } }); // fictional under-18 entry locks the account (D40)
     assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
@@ -106,6 +152,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
 
     // A second visible person for the pages (Ben is now locked).
     await call(tokens.eli, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.' } });
+    await save('eli', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 6), chip('dating', 1)] });
 
     // Web: the profile page, Explore and a person page in WebAssembly, through /bff/ only.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -120,7 +167,16 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.equal(await page.inputValue('#display-name'), 'Fictional Ana'); pass();
     assert.deepEqual(await page.locator('[data-mode-card]').evaluateAll(els => els.map(e => [e.dataset.modeCard, e.dataset.modeEnabled])),
       [['dating', 'true'], ['friends', 'false'], ['activities', 'false'], ['business', 'false']]); pass();
-    assert.equal(await page.locator('[data-mode-card] .chip-row').count(), 0); pass(); // no chips configured, no chip row
+    assert.equal(await page.locator('[data-chip-picker]').count(), 4); pass();
+    assert.equal(await page.locator('[data-chip-picker=dating] [data-chip-count]').innerText(), '5 of 5'); pass();
+    assert.equal(await page.locator('[data-chip-picker=friends] [data-chip-count]').innerText(), '2 of 5'); pass(); // kept while Friends is off
+    assert.equal(await page.locator('[data-chip-picker=dating] button[aria-pressed=false]:not([disabled])').count(), 0); pass(); // full: the rest are disabled
+    await page.click(`[data-chip-picker=dating] [data-chip="${chip('dating', 10)}"]`);
+    await page.waitForSelector('[data-chip-picker=dating] [data-chip-count="4"]'); pass();
+    await page.click(`[data-chip-picker=dating] [data-chip="${chip('dating', 9)}"]`);
+    await page.waitForSelector('[data-chip-picker=dating] [data-chip-count="5"]');
+    assert.deepEqual((await call(tokens.ana, '/api/v1/me/profile')).body.modes.find(m => m.id === 'dating').intentions, [1, 2, 3, 7, 9].map(n => chip('dating', n))); pass();
+    assert.equal(await page.locator('[data-chip-picker=business] [data-chip-count]').innerText(), '0 of 5'); pass();
     await page.getByLabel('Use Activities').check();
     await page.waitForSelector('[data-mode-card=activities][data-mode-enabled=true][data-mode-visible=true]');
     assert.equal((await call(tokens.ana, '/api/v1/me/profile')).body.modes.find(m => m.id === 'activities').enabled, true); pass();
@@ -143,6 +199,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.ok(hrefs.includes('/people/' + pid.eli) && !hrefs.includes('/people/' + pid.ben) && !hrefs.includes('/people/' + pid.cai)); pass();
     const tiles = await page.locator('.profile-tile').evaluateAll(els => els.map(e => [Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]));
     assert.ok(tiles.every(([w, h]) => w === tiles[0][0] && h === tiles[0][1])); pass(); // equal tiles (UI-STYLE.md)
+    assert.equal(await page.locator(`.profile-tile:has(a[href="/people/${pid.eli}"]) .tile-intentions`).innerText(), 'Long-term relationship · Open to exploring'); pass();
     if (output) await page.screenshot({ path: output + '/explore-390.png', fullPage: true });
     await page.click('.explore-modes [data-mode=business]');
     await page.waitForSelector('[data-explore-mode=business][data-explore-state=off]'); pass();
@@ -153,6 +210,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     await page.waitForSelector('[data-person=ready]', { timeout: 20000 });
     assert.equal(await page.locator('h1').innerText(), 'Fictional Eli'); pass();
     assert.equal(await page.locator('[data-shared-modes]').getAttribute('data-shared-modes'), 'dating'); pass();
+    assert.deepEqual(await page.locator('[data-shared-modes] .chip.is-on').allInnerTexts(), ['Long-term relationship', 'Open to exploring']); pass();
     await page.goto(web + `/people/${caiId}`);
     await page.waitForSelector('[data-person=unavailable]', { timeout: 20000 }); pass();
     assert.deepEqual(apiCalls, []); pass(); // the browser never calls the API directly
@@ -166,7 +224,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     await guest.goto(web + '/explore');
     assert.match(await guest.locator('main').innerText(), /Sign in to see who's on Swoovr/); pass();
     await context.close();
-    console.log(`PASS: connection modes acceptance, ${passed} checks (catalogue from data, own profile and text limits, several independent modes, unknown/Travel modes and made-up intentions refused, Explore both-ways visibility, public ids, account state and beta always win, Q11 bot exclusion, WebAssembly profile/Explore/person pages through /bff/ only).`);
+    console.log(`PASS: connection modes acceptance, ${passed} checks (catalogue from data, forty intention chips with the five limit, retired chips kept and hidden, chips on tiles and profiles, own profile and text limits, several independent modes, unknown/Travel modes and made-up intentions refused, Explore both-ways visibility, public ids, account state and beta always win, unauthorised bots excluded, WebAssembly profile/Explore/person pages through /bff/ only).`);
   } finally {
     await browser.close();
   }

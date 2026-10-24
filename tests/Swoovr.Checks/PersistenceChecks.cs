@@ -79,6 +79,7 @@ static class PersistenceChecks
             }
             await Extra(options, Check);
             await Modes(options, Check);
+            await Travel(options, Check);
         }
         finally
         {
@@ -98,7 +99,9 @@ static class PersistenceChecks
         {
             var seeded = await db.ConnectionModes.OrderBy(m => m.SortOrder).Select(m => m.Id + ":" + m.Label).ToListAsync();
             check("four modes seeded in order", seeded.SequenceEqual(["dating:Dating", "friends:Friends", "activities:Activities", "business:Business"]));
-            check("no intention chips seeded (not decided)", !await db.ModeIntentions.AnyAsync());
+            var chips = await db.ModeIntentions.OrderBy(i => i.ModeId).ThenBy(i => i.SortOrder).ToListAsync();
+            check("forty approved chips seeded with their fixed ids (Q16, D113)", chips.Count == 40
+                && chips.Select(i => (i.Id, i.Label)).ToHashSet().SetEquals(IntentionChips.All.Select(i => (i.Id, i.Label))));
             foreach (var id in new[] { a, b })
             {
                 db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "modes-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
@@ -108,10 +111,9 @@ static class PersistenceChecks
             var ids = await db.MemberProfiles.Where(p => p.AccountId == a || p.AccountId == b).Select(p => p.PublicId).ToListAsync();
             check("public ids generated and distinct", ids.All(i => i != Guid.Empty) && ids.Distinct().Count() == 2);
         }
-        var chip = Guid.NewGuid();
+        var chip = IntentionChips.Id(1, 1);
         await using (var db = new SwoovrDbContext(options))
         {
-            db.ModeIntentions.Add(new ModeIntention { Id = chip, ModeId = ConnectionModeIds.Dating, Label = "fictional chip", Available = true });
             db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Dating, Enabled = true, Visible = true, UpdatedAt = now });
             db.MemberModes.Add(new MemberMode { AccountId = a, ModeId = ConnectionModeIds.Friends, Enabled = true, Visible = false, UpdatedAt = now });
             db.MemberModeIntentions.Add(new MemberModeIntention { AccountId = a, ModeId = ConnectionModeIds.Dating, IntentionId = chip });
@@ -135,9 +137,104 @@ static class PersistenceChecks
         }
         await using (var db = new SwoovrDbContext(options))
         {
+            var order = await db.BadgeDefinitions.OrderBy(d => d.SortOrder).Select(d => d.Badge).ToListAsync();
+            check("badge order seeded as data (Q11 rule 61)", order.SequenceEqual(BadgePolicy.DefaultOrder));
+            db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = a, ModeId = ConnectionModeIds.Dating, AuthorisedAt = now });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = a, ModeId = ConnectionModeIds.Dating, AuthorisedAt = now });
+            check("one authorisation per bot and mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.BotModeAuthorisations.Add(new BotModeAuthorisation { AccountId = b, ModeId = "travel", AuthorisedAt = now });
+            check("a bot can only be authorised for a real mode", await Throws(db.SaveChangesAsync()));
+        }
+        // D112: one pending and one accepted request per pair and mode, whichever way; no self requests or blocks.
+        ConnectionRequest Request(Guid from, Guid to, ConnectionRequestStatus status, string mode = ConnectionModeIds.Dating)
+        {
+            var (low, high) = ConnectionRequest.Pair(from, to);
+            return new() { Id = Guid.NewGuid(), FromAccountId = from, ToAccountId = to, PairLow = low, PairHigh = high, ModeId = mode, Status = status, CreatedAt = now };
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ConnectionRequests.Add(Request(a, b, ConnectionRequestStatus.Pending));
+            db.ConnectionRequests.Add(Request(b, a, ConnectionRequestStatus.Pending, ConnectionModeIds.Friends));
+            db.ConnectionRequests.Add(Request(a, b, ConnectionRequestStatus.Declined));
+            await db.SaveChangesAsync();
+            check("a pending request per mode, and settled ones beside it", await db.ConnectionRequests.CountAsync() == 3);
+        }
+        foreach (var (what, row) in new (string, ConnectionRequest)[] { ("a second pending request the other way", Request(b, a, ConnectionRequestStatus.Pending)),
+            ("a request to oneself", Request(a, a, ConnectionRequestStatus.Pending, ConnectionModeIds.Business)) })
+            await using (var db = new SwoovrDbContext(options))
+            {
+                db.ConnectionRequests.Add(row);
+                check(what + " is refused by the database", await Throws(db.SaveChangesAsync()));
+            }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ConnectionRequests.Add(Request(a, b, ConnectionRequestStatus.Accepted, ConnectionModeIds.Activities));
+            await db.SaveChangesAsync();
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.ConnectionRequests.Add(Request(b, a, ConnectionRequestStatus.Accepted, ConnectionModeIds.Activities));
+            check("one connection per pair and mode", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
+            db.Blocks.Add(new Block { BlockerAccountId = a, BlockedAccountId = b, CreatedAt = now });
+            db.Blocks.Add(new Block { BlockerAccountId = b, BlockedAccountId = a, CreatedAt = now });
+            await db.SaveChangesAsync();
+            db.Blocks.Add(new Block { BlockerAccountId = a, BlockedAccountId = a, CreatedAt = now });
+            check("no blocking oneself", await Throws(db.SaveChangesAsync()));
+        }
+        await using (var db = new SwoovrDbContext(options))
+        {
             db.Accounts.Remove(await db.Accounts.SingleAsync(x => x.Id == a));
             await db.SaveChangesAsync();
-            check("mode settings and intentions go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a) && !await db.MemberModeIntentions.AnyAsync());
+            check("mode settings, intentions and bot authorisations go with the account", !await db.MemberModes.AnyAsync(m => m.AccountId == a)
+                && !await db.MemberModeIntentions.AnyAsync() && !await db.BotModeAuthorisations.AnyAsync());
+            check("requests and blocks go with either account", !await db.ConnectionRequests.AnyAsync() && !await db.Blocks.AnyAsync());
+        }
+    }
+
+    /// <summary>D110–D111: the GeoNames sample import (twice, as an upsert), search keys, the seeded market, trip constraints.</summary>
+    static async Task Travel(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
+    {
+        var folder = Path.Combine(AppContext.BaseDirectory, "geonames");
+        await using (var db = new SwoovrDbContext(options))
+        {
+            var first = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
+            var again = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
+            check("sample imported, and importing again changes nothing", first == again && await db.GeoCities.CountAsync() == first.Cities && first.Cities == 21
+                && await db.GeoCityNames.CountAsync() == first.Names);
+            var adelaide = await db.GeoCities.SingleAsync(c => c.GeoNameId == 2078025);
+            check("city with region, country and time zone", adelaide is { Name: "Adelaide", Admin1Name: "South Australia", CountryName: "Australia", TimeZone: "Australia/Adelaide" });
+            check("alternate names are searchable, folded", await db.GeoCityNames.AnyAsync(n => n.GeoNameId == 2988507 && n.Key == "parigi")
+                && await db.GeoCityNames.CountAsync(n => n.Key == "norwood") == 4);
+            var market = await db.Markets.SingleAsync();
+            check("Adelaide is the only market and active (D110)", market is { Id: "adelaide", Active: true, CentreGeoNameId: 2078025, RadiusKm: 50 });
+            var id = Guid.NewGuid();
+            var now = DateTimeOffset.Parse("2026-10-24T00:00:00Z");
+            db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "travel-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+            db.MemberProfiles.Add(new MemberProfile { AccountId = id, AgeStatus = AgeStatus.Attested, HomeGeoNameId = 2078025 });
+            db.Trips.Add(new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 3), CreatedAt = now, UpdatedAt = now });
+            await db.SaveChangesAsync();
+            check("a trip and a home city reference GeoNames ids", await db.Trips.CountAsync(t => t.AccountId == id) == 1);
+            foreach (var (what, trip) in new (string, Trip)[] {
+                ("a trip to a city that isn't in geo_cities", new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 1, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 2), CreatedAt = now, UpdatedAt = now }),
+                ("departure before arrival", new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 5), Departure = new DateOnly(2026, 11, 2), CreatedAt = now, UpdatedAt = now }) })
+                await using (var bad = new SwoovrDbContext(options))
+                {
+                    bad.Trips.Add(trip);
+                    check(what + " is refused by the database", await Throws(bad.SaveChangesAsync()));
+                }
+            db.Accounts.Remove(await db.Accounts.SingleAsync(a => a.Id == id));
+            await db.SaveChangesAsync();
+            check("trips go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id));
         }
     }
 

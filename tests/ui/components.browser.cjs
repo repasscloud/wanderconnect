@@ -51,14 +51,14 @@ const screens = ['/', '/settings/appearance', '/account', '/prototype/people', '
     assert.equal(new Set(large).size, 1, `tiles differ at 200% text: ${large}`); pass();
     await page.evaluate(() => document.documentElement.style.fontSize = '');
 
-    // Tab bar: active item per section (aria-current, bold), Connections is not a link, fixed 80px bar at the bottom on phones.
-    for (const [path, active] of [['/prototype/people', 'Explore'], ['/prototype/people/10000000-0000-0000-0000-000000000002', 'Explore'], ['/prototype/conversation', 'Chats'], ['/account', 'Me'], ['/settings/appearance', 'Me'], ['/', null]]) {
+    // Tab bar: active item per section (aria-current, bold), Connections opens requests and connections (slice L), fixed 80px bar at the bottom on phones.
+    for (const [path, active] of [['/prototype/people', 'Explore'], ['/prototype/people/10000000-0000-0000-0000-000000000002', 'Explore'], ['/prototype/conversation', 'Chats'], ['/account', 'Me'], ['/settings/appearance', 'Me'], ['/connections', 'Connections'], ['/', null]]) {
       await page.goto(base + path);
       const tabs = await page.locator('.tab-bar [data-tab]').evaluateAll(els => els.map(e => ({ tab: e.dataset.tab, link: e.tagName === 'A', current: e.getAttribute('aria-current'), weight: getComputedStyle(e).fontWeight })));
       assert.deepEqual(tabs.map(t => t.tab), ['Explore', 'Connections', 'Chats', 'Me']);
       assert.deepEqual(tabs.filter(t => t.current === 'page').map(t => t.tab), active ? [active] : [], `${path}: active tab`);
       for (const t of tabs) assert.equal(t.weight, t.current ? '700' : '400', `${path}: ${t.tab} weight`);
-      assert.equal(tabs.find(t => t.tab === 'Connections').link, false); pass();
+      assert.equal(tabs.find(t => t.tab === 'Connections').link, true); pass();
     }
     const bar = await page.locator('.tab-bar').evaluate(e => { const r = e.getBoundingClientRect(); return { position: getComputedStyle(e).position, bottom: Math.round(r.bottom), height: Math.round(r.height) }; });
     assert.deepEqual(bar, { position: 'fixed', bottom: 844, height: 80 }); pass();

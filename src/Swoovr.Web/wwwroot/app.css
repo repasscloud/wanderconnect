@@ -128,6 +128,9 @@ input[type=radio]:checked::after { transform: scale(1); }
 .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0; margin: 0 0 14px; list-style: none; }
 .chip-row .chip { font-size: .75rem; padding: 6px 10px; }
 .chip-row .hint { margin: 0 0 0 4px; }
+.chip-picker > p { display: flex; justify-content: space-between; gap: 8px; margin: 10px 0 8px; }
+button.chip { cursor: pointer; }
+button.chip:disabled { cursor: default; opacity: .45; }
 
 /* Card: surface, hairline, radius 16, no shadow. */
 .card { padding: 18px 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
@@ -160,6 +163,23 @@ button.segment:focus-visible { outline: 3px solid var(--text); outline-offset: 1
 
 /* Badges: fixed colours in every scheme. */
 .badge { flex-shrink: 0; display: inline-block; vertical-align: middle; }
+.badge-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.badge-date { color: var(--muted); font-size: .75rem; margin-right: 4px; }
+.person-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.person-name h1 { margin: 0; }
+.city-picked { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; font-weight: 700; }
+.link-button { border: 0; background: none; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; font-weight: 400; }
+.city-results { list-style: none; margin: 4px 0 0; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.city-results button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; color: var(--text); font: inherit; cursor: pointer; border-radius: 8px; }
+.city-results button:hover, .city-results button:focus-visible { background: var(--border); }
+.geonames-credit { font-size: .75rem; }
+.trip-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.trip-list li { display: grid; gap: 6px; }
+.visiting { font-weight: 700; }
+.request-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.request-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.request-person { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.request-actions { display: inline-flex; gap: 6px; margin-left: auto; }
 .badge-photo .badge-line, .badge-photo .badge-disc { stroke: var(--badge-photoVerified); }
 .badge-photo .badge-disc { fill: var(--badge-photoVerified); }
 .badge-id .badge-line, .badge-id .badge-disc { stroke: var(--badge-idVerified); }

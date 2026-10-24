@@ -4,10 +4,10 @@
 @inject NavigationManager Navigation
 <header class="app-header">
     <a class="wordmark" href="/">Swoovr</a>
-    @* Bottom tab bar on phones, top navigation on wider screens (UI-STYLE.md Layout). Connections has no screen yet. *@
+    @* Bottom tab bar on phones, top navigation on wider screens (UI-STYLE.md Layout). Connections lists requests and connections (D112). *@
     <nav class="tab-bar" aria-label="Main">
-        @Tab("Explore", "search", "/explore", Path.StartsWith("/explore") || Path.StartsWith("/people/") || Path.StartsWith("/prototype/people"))
-        @Tab("Connections", "users", null, false)
+        @Tab("Explore", "search", "/explore", Path.StartsWith("/explore") || Path.StartsWith("/travel") || Path.StartsWith("/people/") || Path.StartsWith("/prototype/people"))
+        @Tab("Connections", "users", "/connections", Path.StartsWith("/connections"))
         @Tab("Chats", "chat", Prototype ? "/prototype/conversation" : null, Path.StartsWith("/prototype/conversation"))
         @Tab("Me", "user", "/account", Path.StartsWith("/account") || Path.StartsWith("/settings") || Path.StartsWith("/me/"))
     </nav>

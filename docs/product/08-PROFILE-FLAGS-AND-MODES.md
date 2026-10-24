@@ -18,7 +18,7 @@ CONFIRMED, owner 23 October 2026 (D55):
 | Founding member | One of the first 1,000 founding members, activated after onboarding and Photo and/or ID verification; permanent even without a paid subscription (Q08, D63) | The application, from the founding programme | Gold bird `#D4AF37` ("Swoovr Founder") | CONFIRMED (D63) |
 | Photo verified | Profile photos matched to a verification photo; does not prove age | The application, after a photo check; process OPEN | Blue `#087CFA` portrait with tick | Badge drawn; check OPEN |
 | ID verified | Government ID and age checked | The application, from the identity provider's outcome (Stripe Identity, D40) | Teal `#00AAA0` card with tick | Badge drawn; integration OPEN (Q04) |
-| Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED; how it affects age status OPEN (Q11) |
+| Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED (Q11, 24 October 2026: internal trust review, valid until revoked, never public) |
 | Bot account | An automated Swoovr account (for example a guide) | The application; never self-declared | Silver bird `#C0C0C0` ("Swoovr guide (bot)") | Badge drawn |
 | Employee account | A RePass Cloud / Swoovr employee | The application, from the staff record (staff realm invitation, D31) | Ruby bird `#E0115F` ("Swoovr staff") | CONFIRMED (D57) |
 
@@ -42,7 +42,7 @@ Swoovr has four connection modes: **Dating, Friends, Activities and Business**. 
 
 - **Several at once.** A member may turn on any combination of modes. Turning one on or off never changes the others.
 - **Independent per mode.** Each mode keeps its own discovery preferences, filters, compatibility criteria and profile visibility, and has its own intention chips. Discovery respects the selected mode and the preferences of both members.
-- **Intention chips are configured per mode.** For example, Dating might offer "Something serious" or "Casual", while Friends, Activities and Business offer intentions relevant to them. These are illustrations only; the final intention set for each mode is not decided.
+- **Intention chips are configured per mode.** CONFIRMED, owner 24 October 2026 ([Q16](../delivery/QUESTIONS.md#q16--mode-specific-intention-chips-and-selection-limits), D106): ten chips per mode, forty in all, up to five per mode. Chips never exclude anyone from discovery on their own. A chip retired after a member picked it stays stored and hidden and never blocks a save (D113, DEFAULT).
 - **One identity.** Every mode runs on the same account and core profile. No separate accounts or duplicated profiles per mode, and switching mode never bypasses a block.
 - **Data-driven.** Modes have stable internal identifiers, separate from their display labels. Labels, order, availability and presentation are configuration, not code.
 - **Segmented control.** The primary segmented control shows the four modes: Dating, Friends, Activities, Business. Travel never appears in it.
@@ -60,20 +60,29 @@ Travel is an optional, independent **discovery state**, not a fifth mode. It cha
 - **Own interface.** Travel has its own screen for choosing destinations, managing the itinerary, scheduling and cancelling, separate from the segmented control.
 - **Server-side.** Itinerary checks, the 14-day limit and its multi-city exception, activation and expiry are enforced by the application, not the client.
 
+### Travel as built (slice M, 24 October 2026)
+
+Q17 and the follow-up answers (D107, D109–D111) are built as described in D120–D122: GeoNames city search, a private home city, unlimited trips with a lifecycle (planned, visible, expired, cancelled), itineraries of back-to-back stops that open together, overlap refusal for visible trips, and the destination feed in which locals of an active market (only Adelaide) see visiting travellers and may send them a request. Travellers get no feed of locals.
+
+**Traveller destination search: prerequisite only (Q17 rules 33–36, not built).** A future `GET` search for locals in a destination must take the id of one of the caller's own trips, not a free city. It is allowed only while that trip is not cancelled or expired, has both dates and references the destination's GeoNames id, and its city is in an active market. It must apply the same account, mode, block and moderation rules as Explore, and it must never add its results to the normal Explore feed. Without such a trip the answer is the same 404 as for anything not available.
+
+Not built: arrival changing discovery to a device location (Q23), traveller search (above), Travel in the MAUI app (see validation).
+
 ### Earlier names
 
 **Connect**, **Friends & company** and **Travel & exploring** were the [product brief](01-PRODUCT-BRIEF.md)'s original context labels. They are legacy names, not extra connection modes. "Dating, Friends, Activities" on the reference screens was a placeholder set, now replaced by the four modes above.
 
-Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Not built: the intention set per mode (Q16; the table is empty), per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
+Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and configurable labels, members' per-mode settings (on, visible, intentions), the shared core profile (display name, area, about), Explore for one mode and another member's profile in shared modes, on the web in Interactive WebAssembly. Built on 24 October 2026 (slice J, D106, D113): the forty chips seeded with fixed ids, the "n of 5" picker on the web profile page, chips on Explore tiles and person pages. Built on 24 October 2026 (slices K–M): badges for others, staff and bots in discovery, connection requests and blocks, and Travel (see above). Not built: per-mode filters and compatibility criteria, Travel itineraries (Q17), and the modes screens in the app.
 
 ## Current state
 
 - Web: `src/Swoovr.Web.Client/UI/Badge.razor` (moved from `Swoovr.Web/Components/UI` on 23 October so WebAssembly pages can use it) draws photo verified, ID verified, founding, staff and bot badges with fixed `--badge-*` colours. The fictional people preview shows a "simulated" ID badge only. Admin verified has no badge by design (D58).
+- Slice K (24 October 2026, D108, D114–D116): other people's badges on Explore tiles and person pages (`BadgeRow`), several at once in the order held in `badge_definitions`; staff in discovery; bots only in admin-authorised modes with only the bot badge; admin routes for bot classification, bot modes and staff affiliation. Photo/ID verification and staff-report moderation are not built (Q04, Q20).
 - MAUI: badge colours in `Colors.xaml`; no badge drawing yet.
-- Modes (slice I): `connection_modes`, `mode_intentions` (empty), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are not returned yet (Q11).
+- Modes (slices I, J): `connection_modes`, `mode_intentions` (forty chips, D106), `member_modes`, `member_mode_intentions`; routes `/api/v1/modes`, `/api/v1/me/profile`, `/api/v1/me/modes/{id}`, `/api/v1/explore`, `/api/v1/profiles/{publicId}`; web pages `/me/profile`, `/explore`, `/people/{id}`. Others' badges are returned since slice K.
 - API: `member_profiles` stores the flags, verification statuses and optional DOB/age (D69, D70); `BadgePolicy` returns the badges to show (D74) and `/api/v1/me` returns the member's own. Founding status is granted by an admin route and restorable with the recovery token (D79–D81). No other-profile endpoint, other flag-setting admin routes or verification integrations yet.
 
 ## Open questions
 
-- **Q11.** Remaining flag rules: whether admin verified changes age status (for example D40's staff override to adult); whether someone can show several badges at once; whether bot and employee accounts appear in discovery. Answered: founding member (D63), employee badge (D57) and admin verified (D58).
+- **Q11.** ANSWERED, owner 24 October 2026 (D108); see [Q11](../delivery/QUESTIONS.md#q11--profile-flags-verification-badges-founding-membership-staff-affiliation-and-official-bots).
 - **Q12.** ANSWERED, owner 23 October 2026 (D92): four connection modes and Travel as a separate discovery state; see [Q12 — Connection modes, discovery and Travel state](../delivery/QUESTIONS.md#q12--connection-modes-discovery-and-travel-state). The intention set for each mode is still to be defined.

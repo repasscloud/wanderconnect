@@ -46,13 +46,27 @@ static class AccountPolicyChecks
         Check("admin verified has no badge", BadgePolicy.For(new MemberProfile { AdminVerified = true }).Count == 0);
         foreach (var status in Enum.GetValues<VerificationStatus>().Where(s => s != VerificationStatus.Verified))
             Check($"ID {status} shows nothing", BadgePolicy.For(new MemberProfile { IdStatus = status, PhotoStatus = status }).Count == 0);
-        var all = BadgePolicy.For(new MemberProfile
+        var everything = new MemberProfile
         {
             FoundingMember = true, PhotoStatus = VerificationStatus.Verified, IdStatus = VerificationStatus.Verified,
-            IdCheckedAt = DateTimeOffset.UnixEpoch, Employee = true, Bot = true, AdminVerified = true,
-        });
-        Check("every applicable badge, in order", all.Select(b => b.Badge).SequenceEqual([Badge.Founder, Badge.PhotoVerified, Badge.IdVerified, Badge.Staff, Badge.Bot]));
+            IdCheckedAt = DateTimeOffset.UnixEpoch, Employee = true, AdminVerified = true,
+        };
+        var all = BadgePolicy.For(everything);
+        Check("several badges at once, in the D74 order (Q11 rule 57)", all.Select(b => b.Badge).SequenceEqual([Badge.Founder, Badge.PhotoVerified, Badge.IdVerified, Badge.Staff]));
         Check("checked date carried", all.Single(b => b.Badge == Badge.IdVerified).CheckedAt == DateTimeOffset.UnixEpoch);
+        Check("staff badge from the affiliation alone (rule 35: no verification implied)",
+            BadgePolicy.For(new MemberProfile { Employee = true }).Select(b => b.Badge).SequenceEqual([Badge.Staff]));
+        Check("admin verified adds nothing to staff (rule 36)", BadgePolicy.For(new MemberProfile { Employee = true, AdminVerified = true }).Count == 1);
+        // Q11 rule 61: the order is configuration. A badge left out of the configuration still shows, last.
+        Check("configured order", BadgePolicy.For(everything, [Badge.Staff, Badge.IdVerified, Badge.PhotoVerified, Badge.Founder, Badge.Bot])
+            .Select(b => b.Badge).SequenceEqual([Badge.Staff, Badge.IdVerified, Badge.PhotoVerified, Badge.Founder]));
+        Check("a badge missing from the configuration is never dropped", BadgePolicy.For(everything, [Badge.Staff])
+            .Select(b => b.Badge).SequenceEqual([Badge.Staff, Badge.Founder, Badge.PhotoVerified, Badge.IdVerified]));
+        Check("empty configuration keeps every badge", BadgePolicy.For(everything, []).Count == 4);
+        // Rules 54 and 59: an official bot shows only the bot badge, whatever else its record says.
+        var bot = BadgePolicy.For(new MemberProfile { Bot = true, FoundingMember = true, PhotoStatus = VerificationStatus.Verified,
+            IdStatus = VerificationStatus.Verified, Employee = true, AdminVerified = true });
+        Check("a bot shows only the bot badge", bot.Count == 1 && bot[0] is { Badge: Badge.Bot, CheckedAt: null });
 
         // Invitations: matched once, in the invited realm, by that realm's own sign-in method.
         var now = DateTimeOffset.Parse("2026-10-23T00:00:00Z");

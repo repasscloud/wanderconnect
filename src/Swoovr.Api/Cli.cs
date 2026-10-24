@@ -44,6 +44,14 @@ public static class Cli
         var now = DateTimeOffset.UtcNow;
         switch (args)
         {
+            // D111: GeoNames place data (cities1000, admin1CodesASCII, countryInfo) from a folder; see scripts/geonames.sh.
+            case ["geonames", "import", var folder, ..]:
+                await db.Database.MigrateAsync();
+                var (cities, names) = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
+                Audit.Record(db, now, null, "cli", "geonames.imported", null, null, $"cities:{cities}");
+                await db.SaveChangesAsync();
+                Console.WriteLine($"GeoNames: {cities} cities and {names} search names imported. Place data © GeoNames (CC BY 4.0).");
+                return 0;
             case ["migrate", ..]:
                 await db.Database.MigrateAsync();
                 Console.WriteLine("Database is up to date.");

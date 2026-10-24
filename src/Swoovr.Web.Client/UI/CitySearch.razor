@@ -1,0 +1,58 @@
+@* City autocomplete over Swoovr's own GeoNames copy (D111): type two letters, pick "City, Region, Country". The API
+   ranks by population and never returns coordinates. Every screen with this search shows the GeoNames credit. *@
+@inject MemberClient Members
+<div class="field city-search" data-city-search="@InputId">
+    <label for="@InputId">@Label</label>
+    @if (Selected is not null)
+    {
+        <p class="city-picked" data-city-picked="@Selected.Id"><span>@Selected.Label</span>
+            <button type="button" class="link-button" @onclick="ClearAsync">Change</button></p>
+    }
+    else
+    {
+        <input id="@InputId" type="search" autocomplete="off" maxlength="60" placeholder="Start typing a city" value="@query"
+               role="combobox" aria-expanded="@(results.Count > 0 ? "true" : "false")" aria-controls="@($"{InputId}-list")" @oninput="SearchAsync" />
+        @if (results.Count > 0)
+        {
+            <ul id="@($"{InputId}-list")" class="city-results" role="listbox">
+                @foreach (var place in results)
+                {
+                    <li role="option" aria-selected="false"><button type="button" data-city="@place.Id" @onclick="() => PickAsync(place)">@place.Label</button></li>
+                }
+            </ul>
+        }
+        else if (searched) { <p class="field-help" data-city-none>No matching city.</p> }
+    }
+    <p class="field-help geonames-credit">Place data © <a class="link" href="https://www.geonames.org/" rel="noopener">GeoNames</a> (CC BY 4.0)</p>
+</div>
+@code {
+    [Parameter, EditorRequired] public string InputId { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public PlaceView? Selected { get; set; }
+    [Parameter] public EventCallback<PlaceView?> SelectedChanged { get; set; }
+
+    private string query = "";
+    private bool searched;
+    private int version;
+    private IReadOnlyList<PlaceView> results = [];
+
+    private async Task SearchAsync(ChangeEventArgs e)
+    {
+        query = e.Value as string ?? "";
+        var mine = ++version;
+        if (query.Trim().Length < 2) { (results, searched) = ([], false); return; }
+        await Task.Delay(200);
+        if (mine != version) return;
+        var found = await Members.PlacesAsync(query.Trim());
+        if (mine != version) return;
+        (results, searched) = ((IReadOnlyList<PlaceView>?)found.Value ?? [], true);
+    }
+
+    private async Task PickAsync(PlaceView place)
+    {
+        (results, searched, query) = ([], false, "");
+        await SelectedChanged.InvokeAsync(place);
+    }
+
+    private Task ClearAsync() => SelectedChanged.InvokeAsync(null);
+}

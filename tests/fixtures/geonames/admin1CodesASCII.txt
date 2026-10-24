@@ -1,0 +1,15 @@
+AU.08	Western Australia	Western Australia	2058645
+AU.05	South Australia	South Australia	2061327
+AU.07	Victoria	Victoria	2145234
+AU.06	Tasmania	Tasmania	2147291
+AU.02	New South Wales	New South Wales	2155400
+CA.08	Ontario	Ontario	6093943
+FR.11	Île-de-France	Ile-de-France	3012874
+GB.ENG	England	England	6269131
+JP.40	Tokyo	Tokyo	1850144
+NZ.E7	Auckland	Auckland	2193734
+US.MO	Missouri	Missouri	4398678
+US.TX	Texas	Texas	4736286
+US.IL	Illinois	Illinois	4896861
+US.NY	New York	New York	5128638
+US.MA	Massachusetts	Massachusetts	6254926

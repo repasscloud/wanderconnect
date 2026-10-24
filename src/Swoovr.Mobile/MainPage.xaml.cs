@@ -9,7 +9,7 @@ namespace Swoovr.Mobile;
 /// </summary>
 public partial class MainPage : ContentPage
 {
-	private static readonly AppSignIn Auth = new();
+	internal static readonly AppSignIn Auth = new();
 	private bool busy;
 
 	public MainPage()

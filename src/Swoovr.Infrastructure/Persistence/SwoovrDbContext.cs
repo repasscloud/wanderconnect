@@ -7,7 +7,8 @@ namespace Swoovr.Infrastructure.Persistence;
 /// <summary>
 /// The application database (DEFAULT PostgreSQL). Holds what Keycloak does not (D55):
 /// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details, beta
-/// enrolments (D62), founder places and tokens (D65), connection modes and members' mode settings (D92)
+/// enrolments (D62), founder places and tokens (D65), connection modes and members' mode settings (D92), badge order
+/// and bot mode authorisations (Q11)
 /// and the audit log. Names are snake_case; enums are stored as their names
 /// so a reordered enum can never change stored meaning.
 /// </summary>
@@ -25,6 +26,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<ModeIntention> ModeIntentions => Set<ModeIntention>();
     public DbSet<MemberMode> MemberModes => Set<MemberMode>();
     public DbSet<MemberModeIntention> MemberModeIntentions => Set<MemberModeIntention>();
+    public DbSet<BadgeDefinition> BadgeDefinitions => Set<BadgeDefinition>();
+    public DbSet<BotModeAuthorisation> BotModeAuthorisations => Set<BotModeAuthorisation>();
+    public DbSet<ConnectionRequest> ConnectionRequests => Set<ConnectionRequest>();
+    public DbSet<Block> Blocks => Set<Block>();
+    public DbSet<GeoCity> GeoCities => Set<GeoCity>();
+    public DbSet<GeoCityName> GeoCityNames => Set<GeoCityName>();
+    public DbSet<Market> Markets => Set<Market>();
+    public DbSet<Trip> Trips => Set<Trip>();
+    public DbSet<Itinerary> Itineraries => Set<Itinerary>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -59,9 +69,10 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.DisplayName).HasMaxLength(ProfileTextPolicy.DisplayNameMax);
             profile.Property(p => p.Area).HasMaxLength(ProfileTextPolicy.AreaMax);
             profile.Property(p => p.About).HasMaxLength(ProfileTextPolicy.AboutMax);
+            profile.HasOne<GeoCity>().WithMany().HasForeignKey(p => p.HomeGeoNameId).OnDelete(DeleteBehavior.Restrict);
         });
-        // D92: four modes with stable ids; labels, order and availability are data. No intentions are seeded
-        // because the set per mode is not decided.
+        // D92: four modes with stable ids; labels, order and availability are data. Q16: forty intention chips with
+        // fixed ids (IntentionChips, D113).
         model.Entity<ConnectionMode>(mode =>
         {
             mode.Property(m => m.Id).HasMaxLength(32);
@@ -77,6 +88,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             intention.Property(i => i.ModeId).HasMaxLength(32);
             intention.Property(i => i.Label).HasMaxLength(40);
             intention.HasOne<ConnectionMode>().WithMany().HasForeignKey(i => i.ModeId).OnDelete(DeleteBehavior.Restrict);
+            intention.HasData(IntentionChips.All);
         });
         model.Entity<MemberMode>(setting =>
         {
@@ -92,6 +104,82 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             chosen.Property(m => m.ModeId).HasMaxLength(32);
             chosen.HasOne<MemberMode>().WithMany().HasForeignKey(m => new { m.AccountId, m.ModeId }).OnDelete(DeleteBehavior.Cascade);
             chosen.HasOne<ModeIntention>().WithMany().HasForeignKey(m => m.IntentionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // Q11 rule 61: badge order is data, seeded in the D74 order.
+        model.Entity<BadgeDefinition>(badge =>
+        {
+            badge.HasKey(b => b.Badge);
+            badge.HasData(BadgePolicy.DefaultOrder.Select((b, i) => new BadgeDefinition { Badge = b, SortOrder = i + 1 }));
+        });
+        model.Entity<BotModeAuthorisation>(authorised =>
+        {
+            authorised.HasKey(b => new { b.AccountId, b.ModeId });
+            authorised.Property(b => b.ModeId).HasMaxLength(32);
+            authorised.HasOne<Account>().WithMany().HasForeignKey(b => b.AccountId).OnDelete(DeleteBehavior.Cascade);
+            authorised.HasOne<ConnectionMode>().WithMany().HasForeignKey(b => b.ModeId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // D112: requests per pair and mode. At most one pending and one accepted per pair and mode, either direction.
+        model.Entity<ConnectionRequest>(request =>
+        {
+            request.Property(r => r.ModeId).HasMaxLength(32);
+            request.HasOne<Account>().WithMany().HasForeignKey(r => r.FromAccountId).OnDelete(DeleteBehavior.Cascade);
+            request.HasOne<Account>().WithMany().HasForeignKey(r => r.ToAccountId).OnDelete(DeleteBehavior.Cascade);
+            request.HasOne<ConnectionMode>().WithMany().HasForeignKey(r => r.ModeId).OnDelete(DeleteBehavior.Restrict);
+            request.HasOne<Trip>().WithMany().HasForeignKey(r => r.TripId).OnDelete(DeleteBehavior.SetNull);
+            request.HasIndex(r => new { r.PairLow, r.PairHigh, r.ModeId }, "ix_connection_requests_one_pending").IsUnique().HasFilter("status = 'Pending'");
+            request.HasIndex(r => new { r.PairLow, r.PairHigh, r.ModeId }, "ix_connection_requests_one_accepted").IsUnique().HasFilter("status = 'Accepted'");
+            request.HasIndex(r => new { r.ToAccountId, r.Status });
+            request.HasIndex(r => new { r.FromAccountId, r.CreatedAt });
+            request.ToTable(t => t.HasCheckConstraint("ck_connection_requests_not_self", "from_account_id <> to_account_id"));
+        });
+        model.Entity<Block>(block =>
+        {
+            block.HasKey(b => new { b.BlockerAccountId, b.BlockedAccountId });
+            block.HasOne<Account>().WithMany().HasForeignKey(b => b.BlockerAccountId).OnDelete(DeleteBehavior.Cascade);
+            block.HasOne<Account>().WithMany().HasForeignKey(b => b.BlockedAccountId).OnDelete(DeleteBehavior.Cascade);
+            block.HasIndex(b => b.BlockedAccountId);
+            block.ToTable(t => t.HasCheckConstraint("ck_blocks_not_self", "blocker_account_id <> blocked_account_id"));
+        });
+        // D111: GeoNames cities and their searchable spellings (prefix search on a folded key).
+        model.Entity<GeoCity>(city =>
+        {
+            city.HasKey(c => c.GeoNameId);
+            city.Property(c => c.GeoNameId).ValueGeneratedNever();
+            city.Property(c => c.Name).HasMaxLength(200);
+            city.Property(c => c.AsciiName).HasMaxLength(200);
+            city.Property(c => c.CountryCode).HasMaxLength(2);
+            city.Property(c => c.CountryName).HasMaxLength(200);
+            city.Property(c => c.Admin1Code).HasMaxLength(20);
+            city.Property(c => c.Admin1Name).HasMaxLength(200);
+            city.Property(c => c.TimeZone).HasMaxLength(40);
+        });
+        model.Entity<GeoCityName>(name =>
+        {
+            name.HasKey(n => new { n.Key, n.GeoNameId });
+            name.Property(n => n.Key).HasMaxLength(200);
+            name.HasIndex(n => n.Key, "ix_geo_city_names_key_prefix").HasOperators("text_pattern_ops");
+            name.HasOne<GeoCity>().WithMany().HasForeignKey(n => n.GeoNameId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // D110: markets are rows; Adelaide (GeoNames 2078025) is the only active one. 50 km is a DEFAULT (Q18).
+        model.Entity<Market>(market =>
+        {
+            market.Property(m => m.Id).HasMaxLength(32);
+            market.Property(m => m.Name).HasMaxLength(80);
+            market.HasData(new Market { Id = "adelaide", Name = "Adelaide", Active = true, CentreGeoNameId = 2078025, RadiusKm = 50 });
+        });
+        model.Entity<Itinerary>(itinerary =>
+        {
+            itinerary.HasOne<Account>().WithMany().HasForeignKey(i => i.AccountId).OnDelete(DeleteBehavior.Cascade);
+            itinerary.HasIndex(i => i.AccountId);
+        });
+        model.Entity<Trip>(trip =>
+        {
+            trip.HasOne<Account>().WithMany().HasForeignKey(t => t.AccountId).OnDelete(DeleteBehavior.Cascade);
+            trip.HasOne<GeoCity>().WithMany().HasForeignKey(t => t.GeoNameId).OnDelete(DeleteBehavior.Restrict);
+            trip.HasOne<Itinerary>().WithMany().HasForeignKey(t => t.ItineraryId).OnDelete(DeleteBehavior.SetNull);
+            trip.HasIndex(t => new { t.AccountId, t.Arrival });
+            trip.HasIndex(t => new { t.GeoNameId, t.Departure });
+            trip.ToTable(t => t.HasCheckConstraint("ck_trips_dates", "departure >= arrival"));
         });
         model.Entity<FounderPlace>(place =>
         {

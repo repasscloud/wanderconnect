@@ -1,9 +1,11 @@
 @* Explore (D92, Interactive WebAssembly): the four-mode segmented control, then the people the API returns for the
    selected mode. Labels and order come from the API's mode records; the API decides who appears (both have the mode
-   on, the person made it visible, adult, on the beta). Travel is not a mode and has its own screen later. *@
+   on, the person made it visible, adult, on the beta) and which badges each tile shows (Q11). Travel is not a mode and
+   has its own screen. *@
 @inject MemberClient Members
 <div class="page-heading" data-explore="@(loaded ? "ready" : "loading")">
     <h1>Explore</h1>
+    <p class="field-help"><a class="link" href="/travel" data-travel-link>Travel</a>: plan trips and see who's visiting.</p>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (refused is not null) { <p role="status" data-explore-refused="@refused">@RefusedText</p> }
 </div>
@@ -35,7 +37,9 @@
                 @foreach (var person in people)
                 {
                     <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}")" Area="@(person.Area ?? "")"
-                                 Intentions="person.Intentions" Quote="@Quote(person.About)" />
+                                 Intentions="person.Intentions" Quote="@Quote(person.About)">
+                        <Badges><BadgeRow Badges="person.Badges" /></Badges>
+                    </ProfileTile>
                 }
             </div>
         }

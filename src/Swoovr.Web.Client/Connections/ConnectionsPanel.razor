@@ -1,0 +1,121 @@
+@* Requests and connections (D112, Interactive WebAssembly): pending requests received (accept or decline) and sent
+   (withdraw), accepted connections, and the people the member blocked (unblock). The API decides every list; blocked
+   pairs and closed accounts never appear. Nothing connects until the recipient accepts. *@
+@inject MemberClient Members
+<div class="page-heading" data-connections="@(loaded ? (refused is null ? "ready" : "refused") : "loading")">
+    <h1>Connections</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (refused is not null) { <p role="status" data-connections-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Connections open once your email is on the private beta list." : "We couldn't load your connections.")</p> }
+</div>
+@if (loaded && refused is null)
+{
+    <p role="status" aria-live="polite" class="field-help" data-connections-status="@status">@message</p>
+    <section class="card account-section" aria-labelledby="received-heading" data-box="received">
+        <h2 id="received-heading">Requests for you</h2>
+        @if (received.Count == 0) { <p class="field-help">No requests waiting.</p> }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var request in received)
+                {
+                    <li data-request="@request.Id" data-request-mode="@request.Mode">
+                        @Person(request) <span class="chip">@Label(request.Mode)</span>
+                        <span class="request-actions">
+                            <button type="button" class="button" disabled="@busy" @onclick='() => AnswerAsync(request, "accept")'>Accept</button>
+                            <button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(request, "decline")'>Decline</button>
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+    <section class="card account-section" aria-labelledby="sent-heading" data-box="sent">
+        <h2 id="sent-heading">Requests you sent</h2>
+        @if (sent.Count == 0) { <p class="field-help">Nothing waiting for an answer.</p> }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var request in sent)
+                {
+                    <li data-request="@request.Id" data-request-mode="@request.Mode">
+                        @Person(request) <span class="chip">@Label(request.Mode)</span>
+                        <span class="request-actions"><button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(request, "withdraw")'>Withdraw</button></span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+    <section class="card account-section" aria-labelledby="connected-heading" data-box="connected">
+        <h2 id="connected-heading">Connected</h2>
+        @if (connected.Count == 0) { <p class="field-help">No connections yet. A connection starts when someone accepts a request.</p> }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var request in connected) { <li data-request="@request.Id" data-request-mode="@request.Mode">@Person(request) <span class="chip">@Label(request.Mode)</span></li> }
+            </ul>
+        }
+    </section>
+    <section class="card account-section" aria-labelledby="blocked-heading" data-box="blocked">
+        <h2 id="blocked-heading">Blocked</h2>
+        @if (blocked.Count == 0) { <p class="field-help">You haven't blocked anyone.</p> }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var person in blocked)
+                {
+                    <li data-blocked="@person.Id">@(person.DisplayName ?? "Someone")
+                        <span class="request-actions"><button type="button" class="button button-secondary" disabled="@busy" @onclick="() => UnblockAsync(person.Id)">Unblock</button></span></li>
+                }
+            </ul>
+        }
+    </section>
+}
+@code {
+    private bool loaded, busy;
+    private string? refused, status, message;
+    private List<ConnectionModeView> modes = [];
+    private IReadOnlyList<ConnectionRequestView> received = [], sent = [], connected = [];
+    private IReadOnlyList<BlockedPerson> blocked = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var catalogue = await Members.ModesAsync();
+            if (catalogue.Value is null) refused = catalogue.Code ?? "unavailable";
+            else { modes = catalogue.Value; await LoadAsync(); }
+        }
+        catch (HttpRequestException) { refused = "unavailable"; }
+        loaded = true;
+    }
+
+    private async Task LoadAsync()
+    {
+        var (inbox, outbox, links, blocks) = (await Members.RequestsAsync("received"), await Members.RequestsAsync("sent"), await Members.ConnectionsAsync(), await Members.BlocksAsync());
+        (received, sent, connected, blocked) = (inbox.Value?.Items ?? [], outbox.Value?.Items ?? [], links.Value?.Items ?? [], (IReadOnlyList<BlockedPerson>?)blocks.Value ?? []);
+    }
+
+    private async Task AnswerAsync(ConnectionRequestView request, string answer)
+    {
+        busy = true;
+        var result = await Members.AnswerRequestAsync(request.Id, answer);
+        (status, message) = result.Ok
+            ? (answer, answer switch { "accept" => "Connected.", "decline" => "Declined. They won't be told why.", _ => "Request withdrawn." })
+            : ("failed", "That request isn't available any more.");
+        await LoadAsync();
+        busy = false;
+    }
+
+    private async Task UnblockAsync(Guid id)
+    {
+        busy = true;
+        (status, message) = await Members.UnblockAsync(id) == 204 ? ("unblocked", "Unblocked. You may see each other again.") : ("failed", "That didn't work. Try again.");
+        await LoadAsync();
+        busy = false;
+    }
+
+    private string Label(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
+
+    private static RenderFragment Person(ConnectionRequestView request) =>
+        @<span class="request-person"><a href="@($"/people/{request.Person.Id}")">@(request.Person.DisplayName ?? "Someone")</a><BadgeRow Badges="request.Person.Badges" /></span>;
+}
