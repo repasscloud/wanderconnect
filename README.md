@@ -2,12 +2,12 @@
 
 Adult human connection platform. **Swoovr** is the confirmed product name (owner, 22 October 2026). Engineering namespaces and projects use `Swoovr`; lowercase technical identifiers use `swoovr`.
 
-This repository contains the product definition and a .NET foundation with provider-independent account and discovery access policies. It does **not** yet implement authenticated member journeys, live application sign-in, identity verification, payments or persistence. Fictional previews are explicitly simulated.
+This repository contains the product definition and a local .NET prototype: Keycloak member sign-in on web and in the MAUI app, PostgreSQL persistence, and signed-in profiles, connection modes, Explore, connection requests, blocks and Travel. It does **not** yet implement identity verification, payments, messaging, moderation or any hosted deployment. Fictional previews are explicitly simulated.
 
 ## Start here
 
 - [Documentation index](docs/README.md): what each document owns and how to keep it current.
-- [Current status](docs/delivery/STATUS.md): implemented work, evidence, gaps and next steps as of 22 October 2026.
+- [Current status](docs/delivery/STATUS.md): implemented work, evidence, gaps and next steps.
 - [Naming conventions](docs/architecture/NAMING.md) and [rename/migration record](docs/delivery/SWOOVR-RENAME-2026-10-22.md).
 
 - [Product brief](docs/product/01-PRODUCT-BRIEF.md), [behaviour](docs/product/02-BEHAVIOUR-AND-RULES.md), [screens](docs/product/03-SCREENS-AND-DESIGN.md).
@@ -40,13 +40,13 @@ scripts/                       Local checks and design synchronization
 
 Start API: `dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://localhost:5080`.
 Start web separately: `ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081`.
-API: `/health/live` and `/api/v1/status`; web: `/`. The web shell is not an API-backed member app yet.
+API: `/health/live` and `/api/v1/status`; web: `/`. Signed-in pages need the local stack and Keycloak; see [local development](docs/delivery/LOCAL-DEVELOPMENT.md).
 
 The GitHub Actions template in `.github/workflow-templates/` is fully commented out by owner request and kept outside the active workflow directory. Keep checks local until explicitly re-enabled. Open feature PRs to `main`; review before merging.
 
-Phase 1 is in progress: [account access policy slice](docs/delivery/PHASE-1-ACCESS-POLICY.md). The Domain policy is executable in local checks; no protected API or provider adapter is enabled.
+Phase 1 is in progress, starting from the [account access policy slice](docs/delivery/PHASE-1-ACCESS-POLICY.md); the API now validates Keycloak tokens and protects member routes locally (see [current status](docs/delivery/STATUS.md)).
 
-Keycloak is the confirmed authentication service following the owner correction. [Development pin, realm proposal and evidence boundaries](docs/architecture/KEYCLOAK-DEVELOPMENT.md) are documented. A [local Docker sandbox](docs/delivery/LOCAL-DEVELOPMENT.md#docker-local-stack) runs API, web and an isolated Keycloak realm; application sign-in is not connected.
+Keycloak is the confirmed authentication service following the owner correction. [Development pin, realm proposal and evidence boundaries](docs/architecture/KEYCLOAK-DEVELOPMENT.md) are documented. A [local Docker sandbox](docs/delivery/LOCAL-DEVELOPMENT.md#docker-local-stack) runs API, web, PostgreSQL and the local Keycloak realms; member sign-in works locally only.
 
 ## Requirement status
 

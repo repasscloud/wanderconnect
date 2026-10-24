@@ -15,20 +15,20 @@ CONFIRMED, owner: **Swoovr** is the product name. Use `Swoovr` for display text,
 | Required and excluded intentions | CONFIRMED | Backend enforcement |
 | Incognito acceptance by profile owner | CONFIRMED | No bypass |
 | Travel no early initiation | CONFIRMED | Presence-gated |
-| Reply to local before arrival | OPEN | Suggested permission after local initiation |
+| Reply to local before arrival | CONFIRMED, owner 23 October 2026 (D60) | Travellers may reply to a local's conversation before arrival, not start one |
 | Venue voucher experiences | CONFIRMED direction | Commercial mechanics are defaults |
 | Apple/Google sign-in and social links | CONFIRMED direction | Specific other providers/links are defaults |
-| MAUI + Blazor + shared API | CONFIRMED direction | Seven projects; validate vertical slice |
+| MAUI + Blazor + shared API | CONFIRMED direction | Eight projects since Web.Client (D59); validate vertical slice |
 | Name | CONFIRMED, owner 22 October 2026 | Swoovr; publishing clearance remains OPEN |
 | Appearance | CONFIRMED | Eight free personal schemes, light/dark; Standard + System is the default (owner design handoff, 22 October 2026) |
 | Keycloak | CONFIRMED | Authentication backend; integration contract unverified |
 | Privileged login | CONFIRMED | Venue partner/admin/support: dedicated email/password or email link; no social login |
 | MFA | CONFIRMED | Optional |
-| Member magic link | DEFAULT proposal | Apple/Google/email confirmed; extra providers OPEN |
+| Member magic link | CONFIRMED, owner 22 October 2026 (D34) | Built inside Keycloak, not yet implemented; passkeys confirmed (D33) |
 | Identity gate/method | OPEN details | Default before browsing/contact |
-| Pricing/premium allocation | OPEN | No prices approved |
-| Launch city/countries | OPEN | Compact pilot recommended |
-| Venue merchant/settlement model | OPEN | Must decide before live commerce |
+| Pricing/premium allocation | CONFIRMED, owner 23 October 2026 (D63) | Free/Plus/Premium AUD prices; Free only during beta |
+| Launch city/countries | CONFIRMED, owner 23 October 2026 (D62) | Private Adelaide beta, about 100 testers |
+| Venue merchant/settlement model | CONFIRMED direction, owner 23 October 2026 (D61) | Per-vendor models, Stripe first; real money off until validated |
 | “Whisper” comparator | UNRESOLVED | No invented identification |
 | Full requirement set | Owner review pending | Defaults permit prototype progress |
 
