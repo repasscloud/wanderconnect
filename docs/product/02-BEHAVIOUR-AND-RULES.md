@@ -22,7 +22,7 @@ Separate view rules from contact rules. Apply reciprocal demographic/preferences
 
 Evaluate authentication, adulthood/verification status, suspension, block relationship, owner view policy, current context, intentions, incognito acceptance, approximate area and sparse-profile filters before returning data. Contact additionally evaluates owner interaction policy, request limits and travel presence. Never return forbidden profiles and rely on hiding them in the client. Media, search, favourites, direct URLs, chat events and push payloads need equivalent enforcement.
 
-DEFAULT contact policy: one message request from eligible people, with accept/decline and an optional mutual-interest-only setting. No photo/link attachments in an unaccepted request. Repeated requests after decline are disabled. This policy is proposed, not owner-approved.
+DEFAULT contact policy: one message request from eligible people, with accept/decline and an optional mutual-interest-only setting. No photo/link attachments in an unaccepted request. Repeated requests after decline are disabled. This policy is proposed, not owner-approved. For connection requests the owner confirmed a 30-day wait per sender and mode after a decline and 20 requests a day (Q21, D117, D124).
 
 Connections track interest sent/received, mutual interest and optional saved profiles; no public like counts. Saving is private and does not override subsequent restrictions. Hiding is personal feed suppression; blocking prevents discovery and contact in both directions, including other contexts.
 
@@ -46,7 +46,7 @@ Maintain separate concepts: current approximate presence, home area, planned des
 
 Visitors can be shown with clear “Visiting soon” or “Visiting now” labels. Locals choose current visitors, upcoming visitors, both or neither. Do not expose precise accommodation or an itinerary trail. Future visit publication is opt-in.
 
-CONFIRMED: no traveller-initiated contact before entering the destination's eligible discovery area. DEFAULT: allow replies if a local explicitly initiated a permitted request; this is OPEN for owner confirmation. Existing accepted conversations continue after departure by default. Owner filters still apply.
+CONFIRMED: no traveller-initiated contact before entering the destination's eligible discovery area. CONFIRMED (Q05, D60): locals may start conversations with incoming travellers; travellers may reply before arrival but not start one until they arrive. Existing accepted conversations continue after departure by default. Owner filters still apply.
 
 Use fresh, consented device location, accuracy information and risk checks. Handle permission denial, stale location and suspected spoofing with an honest “location not confirmed” state; do not fabricate arrival. Exact radius, presence freshness and grace periods are configuration decisions. Browser IP alone is not reliable physical presence proof.
 
