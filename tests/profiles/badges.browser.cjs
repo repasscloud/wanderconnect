@@ -21,7 +21,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     const account = async key => sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[key]).sub}'`);
     const pid = {};
     const setUp = async (key, name, modes) => {
-      await call(tokens[key], '/api/v1/me/profile', { method: 'PUT', body: { displayName: name } });
+      await call(tokens[key], '/api/v1/me/profile', { method: 'PUT', body: { displayName: name, homeCityId: 2078025 } }); // Adelaide (D125)
       for (const mode of modes) await call(tokens[key], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[key] = (await call(tokens[key], '/api/v1/me/profile')).body.publicId;
     };
@@ -50,7 +50,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     assert.equal((await call(tokens.sam, '/api/v1/admin/beta')).status, 403); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'staff.affiliated' AND target_id = '${ids.sam}' AND detail IS NULL`), '1'); pass();
     // No member route hides a badge: a profile save carrying a made-up field changes nothing (rule 34, 63).
-    await call(tokens.sam, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Sam', badges: [], employee: false, hideBadges: true } });
+    await call(tokens.sam, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Sam', homeCityId: 2078025, badges: [], employee: false, hideBadges: true } });
     assert.deepEqual((await card('sam')).badges.map(b => b.badge), ['staff']); pass();
 
     // Several badges at once (rule 57) from records; admin verified never leaves the server (rules 15, 64).
@@ -85,6 +85,8 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     let bad = await call(root, `/api/v1/admin/accounts/${ids.bo}/bot-modes`, { method: 'PUT', body: { modes: ['dating'] } });
     assert.deepEqual([bad.status, bad.body.code], [404, 'not-a-bot']); pass(); // not a bot yet
     assert.equal((await call(root, `/api/v1/admin/accounts/${ids.bo}/bot`, { method: 'PUT', body: { bot: true } })).status, 204); pass();
+    // A bot has no home city; it appears in the markets an admin assigns (D125 rule 38, tests/discovery/market.browser.cjs).
+    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.bo}/bot-markets`, { method: 'PUT', body: { markets: ['adelaide'] } })).status, 200); pass();
     assert.equal((await call(root, `/api/v1/admin/accounts/${ids.bo}/staff-affiliation`, { method: 'PUT', body: { active: true } })).status, 409); pass(); // a bot is never staff
     bad = await call(tokens.bo, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
     assert.deepEqual([bad.status, bad.body.code], [403, 'bot-mode-not-authorised']); pass(); // nothing authorised yet

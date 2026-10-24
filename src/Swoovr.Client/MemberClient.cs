@@ -44,6 +44,10 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<ExploreResult>> ExploreAsync(string modeId, CancellationToken cancellationToken = default) =>
         SendAsync<ExploreResult>(new HttpRequestMessage(HttpMethod.Get, "api/v1/explore?mode=" + Uri.EscapeDataString(modeId)), cancellationToken);
 
+    /// <summary>Asks to hear (or stops asking) when Swoovr opens where the member lives (D125 rule 37); returns the status.</summary>
+    public Task<int> MarketInterestAsync(bool interested, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/market-interest") { Content = JsonContent.Create(new MarketInterestUpdate(interested)) }, cancellationToken);
+
     public Task<ApiResult<PersonProfile>> PersonAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<PersonProfile>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profiles/" + id), cancellationToken);
 
@@ -72,7 +76,7 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<ItineraryView>> NewItineraryAsync(CancellationToken cancellationToken = default) =>
         SendAsync<ItineraryView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/itineraries"), cancellationToken);
 
-    /// <summary>Visiting travellers for a local (Q17); 403 not-local for anyone whose home city isn't in an active market.</summary>
+    /// <summary>Visiting travellers for a local (Q17); 403 not-local for anyone whose home city isn't in an open market (D125).</summary>
     public Task<ApiResult<VisitorPage>> VisitorsAsync(string modeId, int page = 1, CancellationToken cancellationToken = default) =>
         SendAsync<VisitorPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/travel/visitors?mode={Uri.EscapeDataString(modeId)}&page={page}"), cancellationToken);
 

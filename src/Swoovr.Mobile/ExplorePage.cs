@@ -5,7 +5,8 @@ namespace Swoovr.Mobile;
 
 /// <summary>
 /// Explore (D92, Q11, D112): the four-mode control from the API's mode records, then the people the API returns for
-/// that mode with their badges and chips, and a request button. Travel is not a mode; it has its own tab.
+/// that mode with their badges and chips, and a request button. Explore is local (D125): without a home city, or
+/// outside every open market, the API refuses and the page says why. Travel is not a mode; it has its own tab.
 /// </summary>
 public sealed class ExplorePage : ContentPage
 {
@@ -15,6 +16,7 @@ public sealed class ExplorePage : ContentPage
 	private readonly Label status = Ui.Text(null, id: "ExploreStatus");
 	private List<ConnectionModeView> modes = [];
 	private string selected = "";
+	private bool interested;
 
 	public ExplorePage()
 	{
@@ -30,10 +32,11 @@ public sealed class ExplorePage : ContentPage
 		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to see who's on Swoovr.", id: "ExploreSignedOut")); return; }
 		var (catalogue, own) = (await Ui.Members!.ModesAsync(), await Ui.Members.ProfileAsync());
 		if (catalogue.Value is null || own.Value is null) { body.Children.Add(Ui.Text("We couldn't load Explore.", id: "ExploreRefused")); return; }
-		modes = catalogue.Value;
-		body.Children.Add(new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = control });
-		body.Children.Add(status);
-		body.Children.Add(results);
+		(modes, interested) = (catalogue.Value, own.Value.MarketInterest);
+		// The control, status and results are reused each time the tab appears, so detach them first (Ui.Detach).
+		body.Children.Add(new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = Ui.Detach(control) });
+		body.Children.Add(Ui.Detach(status));
+		body.Children.Add(Ui.Detach(results));
 		await SelectAsync(own.Value.Modes.FirstOrDefault(m => m.Enabled)?.Id ?? modes.FirstOrDefault()?.Id ?? "");
 	}
 
@@ -46,6 +49,19 @@ public sealed class ExplorePage : ContentPage
 		status.Text = null;
 		var result = await Ui.Members!.ExploreAsync(modeId);
 		if (result.Code == ProblemCodes.ModeNotEnabled) { results.Children.Add(Ui.Text($"{Label(modeId)} is off for you. Turn it on in the Profile tab.", id: "ExploreOff")); return; }
+		if (result.Code == ProblemCodes.HomeCityRequired) { results.Children.Add(Ui.Text("Add your home city on the Profile tab to discover people in your community.", id: "ExploreHomeCityRequired")); return; }
+		if (result.Code == ProblemCodes.MarketNotOpen)
+		{
+			results.Children.Add(Ui.Text("Swoovr isn't available in your area yet. We're expanding to new cities.", id: "ExploreMarketNotOpen"));
+			results.Children.Add(Ui.Button(interested ? "Stop telling me" : "Tell me when it opens", "MarketInterest", async () =>
+			{
+				if (await Ui.Members.MarketInterestAsync(!interested) == 204) interested = !interested;
+				await SelectAsync(modeId);
+			}, primary: !interested));
+			if (interested) results.Children.Add(Ui.Text("We'll let you know when Swoovr opens near you.", id: "MarketInterestOn"));
+			return;
+		}
+		if (result.Value?.Market is { } market) results.Children.Add(Ui.Text($"People in {market}", "FieldLabel", "ExploreMarket"));
 		var people = result.Value?.People ?? [];
 		if (people.Count == 0) results.Children.Add(Ui.Text($"No one is showing in {Label(modeId)} yet.", id: "ExploreEmpty"));
 		foreach (var person in people)

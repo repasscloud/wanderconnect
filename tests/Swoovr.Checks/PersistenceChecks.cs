@@ -216,7 +216,14 @@ static class PersistenceChecks
             check("alternate names are searchable, folded", await db.GeoCityNames.AnyAsync(n => n.GeoNameId == 2988507 && n.Key == "parigi")
                 && await db.GeoCityNames.CountAsync(n => n.Key == "norwood") == 4);
             var market = await db.Markets.SingleAsync();
-            check("Adelaide is the only market and active (D110)", market is { Id: "adelaide", Active: true, CentreGeoNameId: 2078025, RadiusKm: 50 });
+            check("Adelaide is the only market, a beta market (D110, D125)", market is { Id: "adelaide", Status: MarketStatus.Beta, Open: true });
+            check("one 50 km area around Adelaide and all four modes (D124, D146)", await db.MarketAreas.SingleAsync() is { MarketId: "adelaide", CentreGeoNameId: 2078025, RadiusKm: 50 }
+                && (await db.MarketModes.Where(m => m.MarketId == "adelaide").Select(m => m.ModeId).OrderBy(m => m).ToListAsync()).SequenceEqual(["activities", "business", "dating", "friends"]));
+            await using (var bad = new SwoovrDbContext(options))
+            {
+                bad.MarketAreas.Add(new MarketArea { MarketId = "adelaide", CentreGeoNameId = 2158177, RadiusKm = 0 });
+                check("a market area needs a positive radius", await Throws(bad.SaveChangesAsync()));
+            }
             var id = Guid.NewGuid();
             var now = DateTimeOffset.Parse("2026-10-24T00:00:00Z");
             db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "travel-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
@@ -235,6 +242,19 @@ static class PersistenceChecks
             db.Accounts.Remove(await db.Accounts.SingleAsync(a => a.Id == id));
             await db.SaveChangesAsync();
             check("trips go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id));
+            var bot = Guid.NewGuid();
+            db.Accounts.Add(new Account { Id = bot, Issuer = "https://issuer.example.test/realms/members", Subject = "bot-" + bot, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+            db.MemberProfiles.Add(new MemberProfile { AccountId = bot, AgeStatus = AgeStatus.Attested, Bot = true, HomeGeoNameId = 2078025, HomeMarketId = "adelaide" });
+            db.BotMarkets.Add(new BotMarket { AccountId = bot, MarketId = BotMarket.Everywhere, AuthorisedAt = now });
+            db.MarketInterests.Add(new MarketInterest { AccountId = bot, GeoNameId = 2158177, CreatedAt = now });
+            await db.SaveChangesAsync();
+            db.Markets.Remove(await db.Markets.SingleAsync());
+            await db.SaveChangesAsync();
+            check("removing a market leaves its members outside every market and takes its areas and modes (D146)",
+                (await db.MemberProfiles.SingleAsync(p => p.AccountId == bot)).HomeMarketId is null && !await db.MarketAreas.AnyAsync() && !await db.MarketModes.AnyAsync());
+            db.Accounts.Remove(await db.Accounts.SingleAsync(a => a.Id == bot));
+            await db.SaveChangesAsync();
+            check("bot markets and launch interest go with the account", !await db.BotMarkets.AnyAsync() && !await db.MarketInterests.AnyAsync());
         }
     }
 

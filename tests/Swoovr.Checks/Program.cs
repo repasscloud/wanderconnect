@@ -10,6 +10,7 @@ DiscoveryPolicyChecks.Run();
 ConnectionModeChecks.Run();
 ConnectionRequestChecks.Run();
 TravelChecks.Run();
+MarketChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

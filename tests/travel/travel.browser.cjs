@@ -148,16 +148,16 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     assert.equal((await call(tokens.rex, '/api/v1/me/trips')).body.items.find(t => t.id === rexTrip.id).state, 'planned'); pass(); // kept, with its dates
     await put('rex', rexTrip.id, { cityId: ADELAIDE, arrival: plus(3), departure: plus(5), visible: true, itineraryId: null });
     assert.ok(card(await visitors('loc'), 'rex')); pass();
-    // A trip outside any active market is saved but never shown; deactivating Adelaide closes the feed (D110).
+    // A trip outside any active market is saved but never shown; suspending Adelaide closes the feed (D110, D125).
     const melbourneTrip = (await call(tokens.tia, '/api/v1/me/trips')).body.items.find(t => t.city.id === SYDNEY);
     assert.equal(melbourneTrip.activeMarket, false); pass();
     try {
-      await sql(`UPDATE markets SET active = false WHERE id = 'adelaide'`);
+      await sql(`UPDATE markets SET status = 'Suspended' WHERE id = 'adelaide'`);
       assert.deepEqual(code(await visitors('loc')), [403, 'not-local']); pass();
       assert.equal((await call(tokens.rex, '/api/v1/me/trips')).body.items.find(t => t.id === rexTrip.id).activeMarket, false); pass();
       assert.equal((await trip('blk', { cityId: ADELAIDE, arrival: plus(2), departure: plus(4) })).status, 201); pass(); // still saved
     } finally {
-      await sql(`UPDATE markets SET active = true WHERE id = 'adelaide'`);
+      await sql(`UPDATE markets SET status = 'Beta' WHERE id = 'adelaide'`);
     }
     assert.ok(card(await visitors('loc'), 'blk')); pass();
     // Blocks hide travellers too, both ways.

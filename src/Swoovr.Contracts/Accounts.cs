@@ -50,6 +50,10 @@ public static class ProblemCodes
     public const string AlreadyFounder = "already-founder";
     public const string NoVerifiedEmail = "no-verified-email";
     public const string NotConfigured = "not-configured";
+    public const string HomeCityRequired = "home-city-required";
+    public const string MarketNotOpen = "market-not-open";
+    public const string HomeMarketLocked = "home-market-locked";
+    public const string UnknownMarket = "unknown-market";
 }
 
 public sealed record CouponRequest(string Code);
@@ -73,3 +77,12 @@ public sealed record BotClassificationRequest(bool Bot);
 public sealed record BotModesRequest(IReadOnlyList<string>? Modes);
 public sealed record BotModesView(IReadOnlyList<string> Modes);
 public sealed record StaffAffiliationRequest(bool Active);
+
+/// <summary>Admin view and replacement of one market (D125, D146): status planned, beta, active or suspended; one or more
+/// areas (a GeoNames city and a radius); the modes it offers. HomeMembers counts members, never names them.</summary>
+public sealed record MarketAreaView(int CentreCityId, double RadiusKm);
+public sealed record MarketAdminView(string Id, string Name, string Status, IReadOnlyList<MarketAreaView> Areas, IReadOnlyList<string> Modes, int HomeMembers);
+public sealed record MarketUpdate(string? Name, string? Status, IReadOnlyList<MarketAreaView>? Areas, IReadOnlyList<string>? Modes);
+/// <summary>The markets an official bot is assigned to; `*` is every open market (D125 rules 38–41).</summary>
+public sealed record BotMarketsRequest(IReadOnlyList<string>? Markets);
+public sealed record BotMarketsView(IReadOnlyList<string> Markets);

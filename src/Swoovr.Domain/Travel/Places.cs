@@ -26,18 +26,60 @@ public sealed class GeoCityName
     public string Key { get; set; } = "";
 }
 
+/// <summary>Where a market is in its life (D125). Only Beta and Active markets take part in discovery.</summary>
+public enum MarketStatus { Planned, Beta, Active, Suspended }
+
 /// <summary>
-/// A market (D110, D62): a stable id, a name, whether it is active, the GeoNames city at its centre and an internal
-/// radius. Adelaide is the only active market. The radius never leaves the server.
+/// A market (D110, D62, D125): a stable id, a name and a status. Its coverage is one or more MarketArea rows and its
+/// modes are MarketMode rows, so admins change all three without a release. Adelaide is the only market so far.
 /// </summary>
 public sealed class Market
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
-    public bool Active { get; set; }
+    public MarketStatus Status { get; set; }
+    /// <summary>Whether the market takes part in discovery now (D125 rules 2 and 5).</summary>
+    public bool Open => Status is MarketStatus.Beta or MarketStatus.Active;
+}
+
+/// <summary>
+/// One circle of a market's coverage: a GeoNames city at its centre and a radius (D146). A metro market has one; a
+/// regional market can have several. Coordinates and radii never leave the server.
+/// </summary>
+public sealed class MarketArea
+{
+    public string MarketId { get; set; } = "";
     public int CentreGeoNameId { get; set; }
     public double RadiusKm { get; set; }
 }
+
+/// <summary>A connection mode a market offers (D125 rule 1).</summary>
+public sealed class MarketMode
+{
+    public string MarketId { get; set; } = "";
+    public string ModeId { get; set; } = "";
+}
+
+/// <summary>A market an official bot is assigned to (D125 rules 38–41); MarketId `*` means every open market.</summary>
+public sealed class BotMarket
+{
+    public const string Everywhere = "*";
+    public Guid AccountId { get; set; }
+    public string MarketId { get; set; } = "";
+    public DateTimeOffset AuthorisedAt { get; set; }
+    public Guid? AuthorisedBy { get; set; }
+}
+
+/// <summary>A member outside every open market who asked to hear when theirs launches (D125 rule 37).</summary>
+public sealed class MarketInterest
+{
+    public Guid AccountId { get; set; }
+    public int GeoNameId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>One area of a market with its centre city, as the server works with it.</summary>
+public sealed record MarketZone(Market Market, MarketArea Area, GeoCity Centre);
 
 public static class PlaceNames
 {
@@ -62,8 +104,17 @@ public static class PlaceNames
         return 6371.0088 * 2 * Math.Asin(Math.Min(1, Math.Sqrt(a)));
     }
 
-    /// <summary>The active market a city belongs to, if any (D110): the first active market whose radius reaches it.</summary>
-    public static Market? ActiveMarketOf(GeoCity? city, IEnumerable<(Market Market, GeoCity Centre)> markets) =>
-        city is null ? null : markets.Where(m => m.Market.Active)
-            .FirstOrDefault(m => DistanceKm(city.Latitude, city.Longitude, m.Centre.Latitude, m.Centre.Longitude) <= m.Market.RadiusKm).Market;
+    /// <summary>
+    /// The market a city belongs to, whatever its status (D146): of the markets with an area that reaches the city, an
+    /// open one first, then the nearest area centre. Null outside every market.
+    /// </summary>
+    public static Market? MarketOf(GeoCity? city, IEnumerable<MarketZone> zones) =>
+        city is null ? null : zones
+            .Select(z => (z.Market, Km: DistanceKm(city.Latitude, city.Longitude, z.Centre.Latitude, z.Centre.Longitude), z.Area.RadiusKm))
+            .Where(x => x.Km <= x.RadiusKm)
+            .OrderByDescending(x => x.Market.Open).ThenBy(x => x.Km).ThenBy(x => x.Market.Id, StringComparer.Ordinal)
+            .Select(x => x.Market).FirstOrDefault();
+
+    /// <summary>The open market a city belongs to, if any (D110, D125).</summary>
+    public static Market? OpenMarketOf(GeoCity? city, IEnumerable<MarketZone> zones) => MarketOf(city, zones) is { Open: true } market ? market : null;
 }

@@ -25,7 +25,7 @@ Website DEFAULT: backend-for-frontend session using Secure/HttpOnly cookies and 
 
 ## 2. Verification
 
-DEFAULT gate: verify adulthood and identity before live profile browsing/contact; draft profile editing can happen first. Photos remain optional even when a private verification selfie is required. This gate's exact timing and fallback remain OPEN.
+CONFIRMED (Q26, D127, 25 October 2026): there is no verification gate before browsing or contact. ID verification is always optional and free (Didit, D126) and gives the ID Verified badge. An account flagged `NeedsVerification` for age assurance can't use the app until the check passes or an authorised resolution is recorded. Registration needs a verified email and, once the SMS slice exists, a verified mobile number (Q45). Photos remain optional. ~~DEFAULT gate: verify adulthood and identity before live profile browsing/contact.~~ (superseded)
 
 Provider evaluates supported document authenticity and selfie/liveness as appropriate. Store minimum outcome/reference, verified age/adulthood and timestamps; do not retain raw identity documents by default. Document provider processing, retention, data residency and exceptions. Legal identity is not public. Verification statuses: not started, pending, verified, needs action, rejected, expired/recheck. Appeal/manual fallback is necessary. No “guaranteed safe” badge; no claim ID eliminates bots.
 

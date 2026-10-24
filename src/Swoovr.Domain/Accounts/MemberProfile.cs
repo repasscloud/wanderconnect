@@ -52,6 +52,14 @@ public sealed class MemberProfile
     public string? About { get; set; }
     /// <summary>The member's home city, a GeoNames id (D110). Decides which market they are local to; private to them.</summary>
     public int? HomeGeoNameId { get; set; }
+    /// <summary>
+    /// The market the home city is in, whatever its status (D146). Worked out by the server from the home city and the
+    /// market areas, recomputed when either changes; never returned to clients.
+    /// </summary>
+    public string? HomeMarketId { get; set; }
+    /// <summary>The market the member last moved their home city into, and when (Q24 rules 28 and 34).</summary>
+    public string? HomeMarketMovedTo { get; set; }
+    public DateTimeOffset? HomeMarketMovedAt { get; set; }
 }
 
 public enum Badge { Founder, PhotoVerified, IdVerified, Staff, Bot }

@@ -258,6 +258,31 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BotMarket", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("MarketId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("market_id");
+
+                    b.Property<DateTimeOffset>("AuthorisedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("authorised_at");
+
+                    b.Property<Guid?>("AuthorisedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("authorised_by");
+
+                    b.HasKey("AccountId", "MarketId")
+                        .HasName("pk_bot_markets");
+
+                    b.ToTable("bot_markets");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BotModeAuthorisation", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -675,23 +700,17 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("id");
 
-                    b.Property<bool>("Active")
-                        .HasColumnType("boolean")
-                        .HasColumnName("active");
-
-                    b.Property<int>("CentreGeoNameId")
-                        .HasColumnType("integer")
-                        .HasColumnName("centre_geo_name_id");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("name");
 
-                    b.Property<double>("RadiusKm")
-                        .HasColumnType("double precision")
-                        .HasColumnName("radius_km");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
 
                     b.HasKey("Id")
                         .HasName("pk_markets");
@@ -702,10 +721,106 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = "adelaide",
-                            Active = true,
-                            CentreGeoNameId = 2078025,
                             Name = "Adelaide",
+                            Status = "Beta"
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MarketArea", b =>
+                {
+                    b.Property<string>("MarketId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("market_id");
+
+                    b.Property<int>("CentreGeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("centre_geo_name_id");
+
+                    b.Property<double>("RadiusKm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("radius_km");
+
+                    b.HasKey("MarketId", "CentreGeoNameId")
+                        .HasName("pk_market_areas");
+
+                    b.ToTable("market_areas", t =>
+                        {
+                            t.HasCheckConstraint("ck_market_areas_radius", "radius_km > 0 AND radius_km <= 1000");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            MarketId = "adelaide",
+                            CentreGeoNameId = 2078025,
                             RadiusKm = 50.0
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MarketInterest", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("GeoNameId")
+                        .HasColumnType("integer")
+                        .HasColumnName("geo_name_id");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_market_interests");
+
+                    b.HasIndex("GeoNameId")
+                        .HasDatabaseName("ix_market_interests_geo_name_id");
+
+                    b.ToTable("market_interests");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MarketMode", b =>
+                {
+                    b.Property<string>("MarketId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("market_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.HasKey("MarketId", "ModeId")
+                        .HasName("pk_market_modes");
+
+                    b.HasIndex("ModeId")
+                        .HasDatabaseName("ix_market_modes_mode_id");
+
+                    b.ToTable("market_modes");
+
+                    b.HasData(
+                        new
+                        {
+                            MarketId = "adelaide",
+                            ModeId = "dating"
+                        },
+                        new
+                        {
+                            MarketId = "adelaide",
+                            ModeId = "friends"
+                        },
+                        new
+                        {
+                            MarketId = "adelaide",
+                            ModeId = "activities"
+                        },
+                        new
+                        {
+                            MarketId = "adelaide",
+                            ModeId = "business"
                         });
                 });
 
@@ -840,6 +955,20 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("home_geo_name_id");
 
+                    b.Property<string>("HomeMarketId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("home_market_id");
+
+                    b.Property<DateTimeOffset?>("HomeMarketMovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("home_market_moved_at");
+
+                    b.Property<string>("HomeMarketMovedTo")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("home_market_moved_to");
+
                     b.Property<DateTimeOffset?>("IdCheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("id_checked_at");
@@ -876,6 +1005,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HomeGeoNameId")
                         .HasDatabaseName("ix_member_profiles_home_geo_name_id");
+
+                    b.HasIndex("HomeMarketId")
+                        .HasDatabaseName("ix_member_profiles_home_market_id");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
@@ -1361,6 +1493,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_blocks_accounts_blocker_account_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BotMarket", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_bot_markets_accounts_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BotModeAuthorisation", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1438,6 +1580,50 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_itineraries_accounts_account_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MarketArea", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Market", null)
+                        .WithMany()
+                        .HasForeignKey("MarketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_market_areas_markets_market_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MarketInterest", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_market_interests_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.GeoCity", null)
+                        .WithMany()
+                        .HasForeignKey("GeoNameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_market_interests_geo_cities_geo_name_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MarketMode", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Market", null)
+                        .WithMany()
+                        .HasForeignKey("MarketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_market_modes_markets_market_id");
+
+                    b.HasOne("Swoovr.Domain.ConnectionMode", null)
+                        .WithMany()
+                        .HasForeignKey("ModeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_market_modes_connection_modes_mode_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1486,6 +1672,12 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasForeignKey("HomeGeoNameId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_member_profiles_geo_cities_home_geo_name_id");
+
+                    b.HasOne("Swoovr.Domain.Market", null)
+                        .WithMany()
+                        .HasForeignKey("HomeMarketId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_member_profiles_markets_home_market_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ModeIntention", b =>

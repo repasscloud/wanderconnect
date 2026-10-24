@@ -65,24 +65,45 @@ static class TravelChecks
         Expect(!TravelPolicy.OverlapsVisible(T("2026-10-22", "2026-11-08"), [new(T("2026-10-20", "2026-10-24"), adelaide)], now), "an expired trip doesn't block");
         Expect(!TravelPolicy.OverlapsVisible(visible.Trip, [visible], now), "a trip never overlaps itself");
 
-        // Markets (D110) and who sees whom (Q17 rules 22–23).
+        // Markets (D110, D125, D146) and who sees whom (Q17 rules 22–23).
         var centre = new GeoCity { GeoNameId = 2078025, Name = "Adelaide", Latitude = -34.92866, Longitude = 138.59863 };
-        var active = new Market { Id = "adelaide", Name = "Adelaide", Active = true, CentreGeoNameId = 2078025, RadiusKm = 50 };
-        (Market, GeoCity)[] markets = [(active, centre)];
+        var active = new Market { Id = "adelaide", Name = "Adelaide", Status = MarketStatus.Beta };
+        MarketZone[] markets = [new(active, new MarketArea { MarketId = "adelaide", CentreGeoNameId = 2078025, RadiusKm = 50 }, centre)];
         GeoCity At(double lat, double lon) => new() { Latitude = lat, Longitude = lon };
-        Expect(PlaceNames.ActiveMarketOf(At(-34.60251, 138.74902), markets) == active, "Gawler (about 37 km) is in Adelaide");
-        Expect(PlaceNames.ActiveMarketOf(At(-35.55042, 138.62154), markets) is null, "Victor Harbor (about 69 km) is not");
-        Expect(PlaceNames.ActiveMarketOf(At(-37.814, 144.96332), markets) is null, "Melbourne is not");
-        Expect(PlaceNames.ActiveMarketOf(At(-34.60251, 138.74902), [(new Market { Id = "adelaide", Active = false, RadiusKm = 50 }, centre)]) is null, "an inactive market has no locals");
-        Expect(PlaceNames.ActiveMarketOf(null, markets) is null, "no home city, no market");
+        Expect(PlaceNames.OpenMarketOf(At(-34.60251, 138.74902), markets) == active, "Gawler (about 37 km) is in Adelaide");
+        Expect(PlaceNames.OpenMarketOf(At(-35.55042, 138.62154), markets) is null, "Victor Harbor (about 69 km) is not");
+        Expect(PlaceNames.OpenMarketOf(At(-37.814, 144.96332), markets) is null, "Melbourne is not");
+        foreach (var status in new[] { MarketStatus.Planned, MarketStatus.Suspended })
+        {
+            var closed = new Market { Id = "adelaide", Status = status };
+            MarketZone[] only = [new(closed, markets[0].Area, centre)];
+            Expect(PlaceNames.OpenMarketOf(At(-34.60251, 138.74902), only) is null && PlaceNames.MarketOf(At(-34.60251, 138.74902), only) == closed,
+                $"a {status} market has no locals but still is the home market");
+        }
+        Expect(new Market { Status = MarketStatus.Active }.Open && new Market { Status = MarketStatus.Beta }.Open, "beta and active markets are open");
+        Expect(PlaceNames.OpenMarketOf(null, markets) is null, "no home city, no market");
+        // A regional market of two areas, and overlap: an open market wins, then the nearest centre.
+        var murray = new GeoCity { GeoNameId = 2067070, Latitude = -35.1199, Longitude = 139.2756 };
+        var gawler = new GeoCity { GeoNameId = 2071223, Latitude = -34.60251, Longitude = 138.74902 };
+        var region = new Market { Id = "sa-regions", Status = MarketStatus.Active };
+        var planned = new Market { Id = "barossa", Status = MarketStatus.Planned };
+        MarketZone[] overlap = [.. markets, new(region, new MarketArea { MarketId = "sa-regions", CentreGeoNameId = murray.GeoNameId, RadiusKm = 30 }, murray),
+            new(region, new MarketArea { MarketId = "sa-regions", CentreGeoNameId = 1, RadiusKm = 40 }, At(-33.1, 137.5)),
+            new(planned, new MarketArea { MarketId = "barossa", CentreGeoNameId = gawler.GeoNameId, RadiusKm = 40 }, gawler)];
+        Expect(PlaceNames.MarketOf(At(-35.12, 139.27), overlap) == region, "a town in the first area of a regional market");
+        Expect(PlaceNames.MarketOf(At(-33.0, 137.6), overlap) == region, "a town in its second area");
+        Expect(PlaceNames.MarketOf(At(-34.61, 138.75), overlap) == active, "an open market wins over a planned one covering the same town");
+        Expect(PlaceNames.MarketOf(At(-34.40, 138.80), overlap) == planned, "only the planned market reaches it");
         Expect(Math.Abs(PlaceNames.DistanceKm(-34.92866, 138.59863, -37.814, 144.96332) - 654) < 10, "Adelaide to Melbourne is about 654 km");
-        Expect(TravelPolicy.ShownToLocal(TripState.Visible, active, active, null), "a visible trip to the viewer's market from elsewhere");
-        Expect(!TravelPolicy.ShownToLocal(TripState.Planned, active, active, null), "not before the window");
-        Expect(!TravelPolicy.ShownToLocal(TripState.Expired, active, active, null), "not after expiry");
+        Expect(TravelPolicy.ShownToLocal(TripState.Visible, active, "adelaide", null), "a visible trip to the viewer's market from outside every market");
+        Expect(TravelPolicy.ShownToLocal(TripState.Visible, active, "adelaide", "melbourne"), "a visible trip from another market");
+        Expect(!TravelPolicy.ShownToLocal(TripState.Planned, active, "adelaide", null), "not before the window");
+        Expect(!TravelPolicy.ShownToLocal(TripState.Expired, active, "adelaide", null), "not after expiry");
         Expect(!TravelPolicy.ShownToLocal(TripState.Visible, active, null, null), "the viewer must be local (travellers get no local feed)");
-        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, active, active, active), "a fellow local is not visiting");
-        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, null, active, null), "a trip to a city outside any active market");
-        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, active, new Market { Id = "melbourne", Active = true }, null), "another market's locals");
+        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, active, "adelaide", "adelaide"), "a fellow local is not visiting");
+        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, null, "adelaide", null), "a trip to a city outside any open market");
+        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, new Market { Id = "adelaide", Status = MarketStatus.Suspended }, "adelaide", null), "a suspended market");
+        Expect(!TravelPolicy.ShownToLocal(TripState.Visible, active, "melbourne", null), "another market's locals");
 
         // Names and labels (D111).
         Expect(PlaceNames.Key(" Zürich ") == "zurich" && PlaceNames.Key("SÃO PAULO") == PlaceNames.Key("são paulo"), "folded keys");
@@ -90,6 +111,6 @@ static class TravelChecks
         Expect(PlaceNames.Label(new GeoCity { Name = "Singapore", Admin1Name = null, CountryName = "Singapore" }) == "Singapore, Singapore", "no region");
         Expect(PlaceNames.Label(new GeoCity { Name = "Tokyo", Admin1Name = "Tokyo", CountryName = "Japan" }) == "Tokyo, Japan", "a region that repeats the city");
 
-        Console.WriteLine($"PASS: {checks} Travel cases (destination-local dates and expiry, 14-day window, itineraries back to back with every stop opening together, overlap with the shared changeover day, markets and locals, asymmetric discovery, GeoNames labels).");
+        Console.WriteLine($"PASS: {checks} Travel cases (destination-local dates and expiry, 14-day window, itineraries back to back with every stop opening together, overlap with the shared changeover day, market status, regional areas and overlap, locals, asymmetric discovery, GeoNames labels).");
     }
 }
