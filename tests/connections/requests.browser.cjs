@@ -18,7 +18,8 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     const tokens = {}, pid = {}, ids = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1) } });
+      // Everyone lives in Adelaide: Explore, profiles and requests are local to one market (D125).
+      await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: 2078025 } });
       for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = (await call(tokens[n], '/api/v1/me/profile')).body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
@@ -101,6 +102,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     const root = await rootAdminToken(browser);
     await call(root, `/api/v1/admin/accounts/${ids.dan}/bot`, { method: 'PUT', body: { bot: true } });
     await call(root, `/api/v1/admin/accounts/${ids.dan}/bot-modes`, { method: 'PUT', body: { modes: ['dating'] } });
+    await call(root, `/api/v1/admin/accounts/${ids.dan}/bot-markets`, { method: 'PUT', body: { markets: ['adelaide'] } }); // D125 rule 38
     assert.deepEqual(code(await send('dan', 'ann', 'dating')), [403, 'bot-cannot-initiate']); pass();
     assert.deepEqual(code(await send('dan', 'ann', 'friends')), [403, 'bot-cannot-initiate']); pass();
     r = await send('ann', 'dan', 'dating'); assert.equal(r.status, 201); pass();

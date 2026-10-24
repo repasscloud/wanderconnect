@@ -1,10 +1,12 @@
 @* Explore (D92, Interactive WebAssembly): the four-mode segmented control, then the people the API returns for the
    selected mode. Labels and order come from the API's mode records; the API decides who appears (both have the mode
-   on, the person made it visible, adult, on the beta) and which badges each tile shows (Q11). Travel is not a mode and
-   has its own screen. *@
+   on, the person made it visible, adult, on the beta, both living in the same open market, D125) and which badges each
+   tile shows (Q11). Without a home city, or outside every open market, the API refuses and the page says why. Travel is
+   not a mode and has its own screen. *@
 @inject MemberClient Members
 <div class="page-heading" data-explore="@(loaded ? "ready" : "loading")">
     <h1>Explore</h1>
+    @if (market is not null) { <p class="field-help" data-explore-market>People in @market</p> }
     <p class="field-help"><a class="link" href="/travel" data-travel-link>Travel</a>: plan trips and see who's visiting.</p>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (refused is not null) { <p role="status" data-explore-refused="@refused">@RefusedText</p> }
@@ -24,6 +26,29 @@
             <div class="card notice">
                 <p>@Label(selected) is off for you, so you can't see who's here.</p>
                 <p><a class="link" href="/me/profile">Turn it on in your profile</a></p>
+            </div>
+        }
+        else if (state == ProblemCodes.HomeCityRequired)
+        {
+            <div class="card notice" data-explore-local="home-city-required">
+                <p>Add your home city to discover people in your community.</p>
+                <p><a class="link" href="/me/profile">Add your home city</a></p>
+            </div>
+        }
+        else if (state == ProblemCodes.MarketNotOpen)
+        {
+            <div class="card notice" data-explore-local="market-not-open" data-interest="@(interested ? "on" : "off")">
+                <p>Swoovr isn't available in your area yet. We're expanding to new cities.</p>
+                @if (interested)
+                {
+                    <p>We'll let you know when Swoovr opens near you.</p>
+                    <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => InterestAsync(false)">Stop telling me</button>
+                }
+                else
+                {
+                    <button type="button" class="button" disabled="@busy" @onclick="() => InterestAsync(true)">Tell me when it opens</button>
+                }
+                <p class="field-help">You can still plan <a class="link" href="/travel">trips</a> to a Swoovr city.</p>
             </div>
         }
         else if (state == "loading") { <p role="status">Loading…</p> }
@@ -48,6 +73,8 @@
 @code {
     private bool loaded;
     private string? refused;
+    private string? market;
+    private bool interested, busy;
     private string selected = "";
     private string state = "loading";
     private List<ConnectionModeView> modes = [];
@@ -70,7 +97,7 @@
             if (catalogue.Value is null || profile.Value is null) refused = catalogue.Code ?? profile.Code ?? "unavailable";
             else
             {
-                (modes, mine) = (catalogue.Value, profile.Value);
+                (modes, mine, interested) = (catalogue.Value, profile.Value, profile.Value.MarketInterest);
                 // Start on the first mode the member has on, else the first one shown.
                 selected = mine.Modes.FirstOrDefault(m => m.Enabled)?.Id ?? modes.FirstOrDefault()?.Id ?? "";
             }
@@ -84,7 +111,19 @@
     {
         (selected, state, people) = (modeId, "loading", []);
         var result = await Members.ExploreAsync(modeId);
-        (state, people) = result.Code == ProblemCodes.ModeNotEnabled ? ("off", []) : ("ready", (IReadOnlyList<ProfileCard>?)result.Value?.People ?? []);
+        (state, people, market) = result.Code switch
+        {
+            ProblemCodes.ModeNotEnabled => ("off", [], market),
+            ProblemCodes.HomeCityRequired or ProblemCodes.MarketNotOpen => (result.Code, [], null),
+            _ => ("ready", (IReadOnlyList<ProfileCard>?)result.Value?.People ?? [], result.Value?.Market),
+        };
+    }
+
+    private async Task InterestAsync(bool on)
+    {
+        busy = true;
+        if (await Members.MarketInterestAsync(on) == 204) interested = on;
+        busy = false;
     }
 
     private string Label(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;

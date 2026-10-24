@@ -221,14 +221,17 @@ public static class AdminEndpoints
             {
                 var now = clock.GetUtcNow();
                 profile.Bot = request.Bot;
-                // A bot is never staff; losing bot status removes every mode authorisation.
+                // A bot is never staff; losing bot status removes every mode authorisation and market assignment (D125).
                 if (request.Bot && profile.Employee)
                 {
                     profile.Employee = false;
                     Audit.Record(db, now, current!.Account!.Id, "account", "staff.revoked", "account", id.ToString(), "bot");
                 }
                 if (!request.Bot)
+                {
                     db.BotModeAuthorisations.RemoveRange(await db.BotModeAuthorisations.Where(b => b.AccountId == id).ToListAsync(cancellationToken));
+                    db.BotMarkets.RemoveRange(await db.BotMarkets.Where(b => b.AccountId == id).ToListAsync(cancellationToken));
+                }
                 Audit.Record(db, now, current!.Account!.Id, "account", request.Bot ? "bot.classified" : "bot.declassified", "account", id.ToString());
                 await db.SaveChangesAsync(cancellationToken);
             }

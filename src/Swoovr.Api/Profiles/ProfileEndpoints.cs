@@ -11,7 +11,8 @@ namespace Swoovr.Api.Profiles;
 /// <summary>
 /// Connection modes (D92), the member's own core profile and mode settings, Explore for one mode, and another
 /// member's profile. Every rule is checked here (Q12: application services, not the client). Callers must pass the
-/// same member gate as /api/v1/me (active, adult-locked accounts refused, beta enrolled).
+/// same member gate as /api/v1/me (active, adult-locked accounts refused, beta enrolled). Explore and profiles are local
+/// to the viewer's home market (D125); MarketEndpoints holds the market lookups.
 /// </summary>
 public static class ProfileEndpoints
 {
@@ -40,11 +41,33 @@ public static class ProfileEndpoints
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, "Check the profile fields.");
             var (profile, db) = (current!.Profile!, accounts.Db!);
             // D110: the home city must be a GeoNames city from Swoovr's own copy.
-            if (update.HomeCityId is { } home && !await db.GeoCities.AnyAsync(c => c.GeoNameId == home, cancellationToken))
+            var city = update.HomeCityId is { } home ? await db.GeoCities.FindAsync([home], cancellationToken) : null;
+            if (update.HomeCityId is not null && city is null)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.UnknownPlace, "Pick your home city from the list.");
-            (profile.DisplayName, profile.Area, profile.About, profile.HomeGeoNameId) = (name, area, about, update.HomeCityId);
+            var now = clock.GetUtcNow();
+            // D125, D146: the home city decides the home market. Moving into a different market waits 30 days after the
+            // last move (Q24 rules 28 and 34); refusals and moves are audited with market ids only, never the city.
+            var market = PlaceNames.MarketOf(city, await MarketEndpoints.ZonesAsync(db, cancellationToken))?.Id;
+            if (MarketAccess.CanMoveHome(profile.HomeMarketId, market, profile.HomeMarketMovedTo, profile.HomeMarketMovedAt, now) == HomeMove.Locked)
+            {
+                Audit.Record(db, now, profile.AccountId, "account", "home-market.refused", "account", profile.AccountId.ToString(), $"{profile.HomeMarketId ?? "none"}>{market}");
+                await db.SaveChangesAsync(cancellationToken);
+                return Problem(StatusCodes.Status403Forbidden, ProblemCodes.HomeMarketLocked, "You can move your home city to another Swoovr market once every 30 days.");
+            }
+            if (market != profile.HomeMarketId)
+                Audit.Record(db, now, profile.AccountId, "account", "home-market.changed", "account", profile.AccountId.ToString(), $"{profile.HomeMarketId ?? "none"}>{market ?? "none"}");
+            if (market is not null && market != profile.HomeMarketMovedTo) (profile.HomeMarketMovedTo, profile.HomeMarketMovedAt) = (market, now);
+            (profile.DisplayName, profile.Area, profile.About, profile.HomeGeoNameId, profile.HomeMarketId) = (name, area, about, update.HomeCityId, market);
+            // Interest in a launch follows the home city; it lapses with no home city or once the home market is open.
+            if (await db.MarketInterests.FindAsync([profile.AccountId], cancellationToken) is { } interest)
+            {
+                if (city is null || market is not null && await db.Markets.AnyAsync(m => m.Id == market
+                    && (m.Status == MarketStatus.Beta || m.Status == MarketStatus.Active), cancellationToken))
+                    db.MarketInterests.Remove(interest);
+                else interest.GeoNameId = city.GeoNameId;
+            }
             // The audit records that the profile changed, never what it says.
-            Audit.Record(db, clock.GetUtcNow(), profile.AccountId, "account", "profile.updated", "account", profile.AccountId.ToString());
+            Audit.Record(db, now, profile.AccountId, "account", "profile.updated", "account", profile.AccountId.ToString());
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });
@@ -92,10 +115,14 @@ public static class ProfileEndpoints
             var selected = await db.ConnectionModes.SingleOrDefaultAsync(m => m.Id == mode && m.Available, cancellationToken);
             if (selected is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
             var viewer = current!.Profile!.AccountId;
+            // D125: Explore is local. It needs a home city in an open market that offers this mode, and lists only people
+            // whose home is in that market (or bots assigned to it). Travel is the way to see anywhere else.
+            var (market, refused) = await MarketEndpoints.LocalAsync(db, current!.Profile!, selected.Id, cancellationToken);
+            if (refused is not null) return refused;
             var own = await db.MemberModes.SingleOrDefaultAsync(m => m.AccountId == viewer && m.ModeId == selected.Id, cancellationToken);
             if (own is not { Enabled: true })
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModeNotEnabled, "Turn this mode on to see who's here.");
-            var people = await Candidates(db, configuration, viewer)
+            var people = await Candidates(db, configuration, viewer).InMarket(db, market!.Id)
                 .Where(c => db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
                     && m.ModeId == selected.Id && m.Enabled && m.Visible)
                     && (!c.Profile.Bot || db.BotModeAuthorisations.Any(b => b.AccountId == c.Profile.AccountId && b.ModeId == selected.Id)))
@@ -109,9 +136,10 @@ public static class ProfileEndpoints
             var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
             var order = await BadgeOrderAsync(db, cancellationToken);
             return Results.Ok(new ExploreResult(selected.Id, shown.Select(c => new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!,
-                c.Profile.Area, c.Profile.About, chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order))).ToList()));
+                c.Profile.Area, c.Profile.About, chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order))).ToList(), market.Name));
         });
-        api.MapGet("/profiles/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, CancellationToken cancellationToken) =>
+        api.MapGet("/profiles/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
+            CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
@@ -122,17 +150,46 @@ public static class ProfileEndpoints
             // reads as not found.
             var shared = person is null ? [] : await SharedModesAsync(db, viewer, person, cancellationToken);
             if (person is null || shared.Count == 0) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
-            var chips = await IntentionLabelsAsync(db, [person.Profile.AccountId], null, cancellationToken);
             var (low, high) = ConnectionRequest.Pair(viewer, person.Profile.AccountId);
             var between = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high
                 && (r.Status == ConnectionRequestStatus.Pending || r.Status == ConnectionRequestStatus.Accepted)).ToListAsync(cancellationToken);
+            // D125: the profile also needs the same market, an existing request or connection, or a visit to the viewer's
+            // market; anything else is the same 404, so a profile link from another market reveals nothing.
+            var reach = await ReachAsync(db, configuration, current!.Profile!, person, shared, between, clock.GetUtcNow(), cancellationToken);
+            if (!MarketAccess.ProfileOpens(reach.SameMarket, between.Count > 0, reach.VisitingModes.Count > 0))
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
+            var chips = await IntentionLabelsAsync(db, [person.Profile.AccountId], null, cancellationToken);
             return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, person.Profile.About,
-                shared.Select(m => ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between)).ToList(),
+                shared.Select(m => ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between,
+                    MarketAccess.MayRequest(reach.SameMarket && reach.MarketModes.Contains(m.Id), between.Any(r => r.Status == ConnectionRequestStatus.Accepted),
+                        reach.VisitingModes.Contains(m.Id)))).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken))));
         });
     }
 
-    private static SharedModeView ModeView(ConnectionMode mode, IReadOnlyList<string> chips, Guid viewer, List<ConnectionRequest> between)
+    /// <summary>How the viewer stands to a person under the market rules (D125): same open market, which modes the
+    /// viewer's market offers, and in which shared modes the person is visiting the viewer's market.</summary>
+    public sealed record Reach(bool SameMarket, IReadOnlyCollection<string> MarketModes, IReadOnlySet<string> VisitingModes);
+
+    public static async Task<Reach> ReachAsync(SwoovrDbContext db, IConfiguration configuration, MemberProfile viewer, Row person,
+        IReadOnlyList<ConnectionMode> shared, List<ConnectionRequest> between, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var (market, modes) = await MarketEndpoints.HomeAsync(db, viewer, cancellationToken);
+        if (market is not { Open: true } || viewer.HomeGeoNameId is null) return new(false, [], new HashSet<string>());
+        var bots = person.Profile.Bot ? await MarketEndpoints.BotMarketsAsync(db, person.Profile.AccountId, cancellationToken) : null;
+        var same = MarketAccess.SameMarket(market.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots);
+        var visiting = new HashSet<string>();
+        if (!same)
+        {
+            var zones = await MarketEndpoints.ZonesAsync(db, cancellationToken);
+            foreach (var mode in shared.Where(m => modes.Contains(m.Id)))
+                if ((await Travel.TravelEndpoints.VisitsToAsync(db, configuration, viewer.AccountId, market, zones, mode.Id, now, cancellationToken, person.Profile.AccountId)).Count > 0)
+                    visiting.Add(mode.Id);
+        }
+        return new(same, modes, visiting);
+    }
+
+    private static SharedModeView ModeView(ConnectionMode mode, IReadOnlyList<string> chips, Guid viewer, List<ConnectionRequest> between, bool canRequest)
     {
         var request = between.Where(r => r.ModeId == mode.Id).OrderBy(r => r.Status).FirstOrDefault();
         var state = request switch
@@ -142,7 +199,7 @@ public static class ProfileEndpoints
             _ when request.FromAccountId == viewer => "sent",
             _ => "received",
         };
-        return new(mode.Id, mode.Label, chips, state, request is { Status: ConnectionRequestStatus.Pending } ? request.Id : null);
+        return new(mode.Id, mode.Label, chips, state, request is { Status: ConnectionRequestStatus.Pending } ? request.Id : null, canRequest);
     }
 
     /// <summary>The available modes in which the person is shown to the viewer (DiscoveryEligibility.ShownIn), in order.</summary>
@@ -223,7 +280,8 @@ public static class ProfileEndpoints
         var home = profile.HomeGeoNameId is { } id ? await db.GeoCities.FindAsync([id], cancellationToken) : null;
         return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
             ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList())
-            : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home));
+            : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home),
+            await db.MarketInterests.AnyAsync(i => i.AccountId == profile.AccountId, cancellationToken));
     }
 
     /// <summary>Labels of the available intentions each person chose, by (account, mode).</summary>

@@ -55,6 +55,10 @@
                             <button type="button" class="button" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "accept")'>Accept</button>
                             <button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "decline")'>Decline</button>
                             break;
+                        case "none" when !mode.CanRequest:
+                            @* D125: no remote contact; the API refuses it too. *@
+                            <span class="field-help" data-request-unavailable>Requests open when you're in the same Swoovr market.</span>
+                            break;
                         default:
                             <button type="button" class="button" disabled="@busy" @onclick="() => SendAsync(mode.Id)">Send request</button>
                             break;

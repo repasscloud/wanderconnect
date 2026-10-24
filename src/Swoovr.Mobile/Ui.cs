@@ -30,6 +30,7 @@ internal static class Ui
 			case Layout layout: layout.Remove(view); break;
 			case Border border: border.Content = null; break;
 			case ContentView content: content.Content = null; break;
+			case ScrollView scroll: scroll.Content = null; break;
 		}
 		return view;
 	}

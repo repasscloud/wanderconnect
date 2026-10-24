@@ -42,7 +42,7 @@ Provide an explainable completeness checklist and preview to the owner. Let them
 
 ## 5. Travel
 
-Maintain separate concepts: current approximate presence, home area, planned destination and visit dates. Planning a destination never establishes physical presence. Support timezone-aware dates and local display; store instants in UTC where applicable.
+Local discovery is based on where a member lives: Explore, profiles and requests stay within the home market, and Travel is the only way to discover people in another market (Q24, D125). Maintain separate concepts: current approximate presence, home area, planned destination and visit dates. Planning a destination never establishes physical presence. Support timezone-aware dates and local display; store instants in UTC where applicable.
 
 Visitors can be shown with clear “Visiting soon” or “Visiting now” labels. Locals choose current visitors, upcoming visitors, both or neither. Do not expose precise accommodation or an itinerary trail. Future visit publication is opt-in.
 

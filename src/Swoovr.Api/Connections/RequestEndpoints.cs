@@ -32,19 +32,31 @@ public static class RequestEndpoints
             var mode = await db.ConnectionModes.SingleOrDefaultAsync(m => m.Id == request.Mode && m.Available, cancellationToken);
             if (mode is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
             var target = await ProfileEndpoints.Candidates(db, configuration, me.AccountId).SingleOrDefaultAsync(c => c.Profile.PublicId == request.To, cancellationToken);
-            var shown = target is not null && (await ProfileEndpoints.SharedModesAsync(db, me.AccountId, target, cancellationToken)).Any(m => m.Id == mode.Id);
-            // From the Travel feed (Q17 rule 29): the trip must be the recipient's and one the sender, a local, can see now.
-            if (request.Trip is { } tripId)
-            {
-                var markets = await Travel.TravelEndpoints.MarketsAsync(db, cancellationToken);
-                var home = me.HomeGeoNameId is { } h ? await db.GeoCities.FindAsync([h], cancellationToken) : null;
-                shown = target is not null && PlaceNames.ActiveMarketOf(home, markets) is { } market
-                    && (await Travel.TravelEndpoints.VisitsToAsync(db, configuration, me.AccountId, market, markets, mode.Id, now, cancellationToken))
-                        .Any(v => v.Trip.Id == tripId && v.Person.Profile.AccountId == target.Profile.AccountId);
-            }
+            var shared = target is null ? [] : await ProfileEndpoints.SharedModesAsync(db, me.AccountId, target, cancellationToken);
+            var shown = shared.Any(m => m.Id == mode.Id);
             var other = target?.Profile.AccountId ?? Guid.Empty;
             var (low, high) = ConnectionRequest.Pair(me.AccountId, other);
-            var between = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high && r.ModeId == mode.Id).ToListAsync(cancellationToken);
+            var pair = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high).ToListAsync(cancellationToken);
+            var between = pair.Where(r => r.ModeId == mode.Id).ToList();
+            var trip = request.Trip;
+            // D125: a request needs the same market, a pair already connected in another mode, or a local writing to a
+            // traveller visiting their market (the trip is attached). Travellers can't start contact with a destination's
+            // locals before arrival (D60, D142), and a profile link from another market changes nothing.
+            if (shown && target is not null)
+            {
+                var (market, _) = await MarketEndpoints.LocalAsync(db, me, mode.Id, cancellationToken);
+                var bots = target.Profile.Bot ? await MarketEndpoints.BotMarketsAsync(db, target.Profile.AccountId, cancellationToken) : null;
+                var same = request.Trip is null && MarketAccess.SameMarket(market?.Id, target.Profile.HomeMarketId, target.Profile.Bot, bots);
+                var connected = request.Trip is null && pair.Any(r => r.Status == ConnectionRequestStatus.Accepted);
+                var visits = same || connected || market is null ? []
+                    : await Travel.TravelEndpoints.VisitsToAsync(db, configuration, me.AccountId, market, await MarketEndpoints.ZonesAsync(db, cancellationToken),
+                        mode.Id, now, cancellationToken, target.Profile.AccountId);
+                // From the Travel feed (Q17 rule 29) the trip must be the recipient's and one the sender can see now;
+                // from a profile the visit the sender can see is attached.
+                var visit = request.Trip is { } tripId ? visits.FirstOrDefault(v => v.Trip.Id == tripId) : visits.FirstOrDefault();
+                trip = visit?.Trip.Id;
+                shown = MarketAccess.MayRequest(same, connected, visit is not null);
+            }
             var facts = new RequestFacts(
                 SenderIsBot: me.Bot,
                 SameAccount: other == me.AccountId,
@@ -75,7 +87,7 @@ public static class RequestEndpoints
             var created = new ConnectionRequest
             {
                 Id = Guid.NewGuid(), FromAccountId = me.AccountId, ToAccountId = other, PairLow = low, PairHigh = high, ModeId = mode.Id,
-                Status = ConnectionRequestStatus.Pending, CreatedAt = now, TripId = request.Trip,
+                Status = ConnectionRequestStatus.Pending, CreatedAt = now, TripId = trip,
             };
             db.ConnectionRequests.Add(created);
             Audit.Record(db, now, me.AccountId, "account", "request.sent", "connection-request", created.Id.ToString(), mode.Id);
