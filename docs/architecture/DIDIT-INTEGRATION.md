@@ -139,3 +139,21 @@ Send test webhooks from the Business Console (API & Webhooks > Try Webhook) befo
 - Use constant-time comparison to prevent timing attacks
 - Store and HMAC the raw JSON string -- never re-stringify after parsing
 - Return 2xx quickly; do heavy processing asynchronously if needed
+
+## Checked against Didit's documentation — 25 October 2026
+
+Slice P read <https://docs.didit.me/llms.txt>, the [webhooks guide](https://docs.didit.me/integration/webhooks), [create session](https://docs.didit.me/sessions-api/create-session) and [retrieve session](https://docs.didit.me/sessions-api/retrieve-session) on 25 October 2026. Differences from the console notes above, and what Swoovr does:
+
+- **Freshness.** The docs' sample checks the `X-Timestamp` header; the console notes (and D152) say never to trust it because no signature covers it. Swoovr follows D152: only the body's signed `timestamp` is checked (±5 minutes), after the signature. Didit re-signs retries with a fresh timestamp, so a retry still passes.
+- **Statuses.** The docs spell `Kyc Expired` (the notes say `KYC Expired`) and add `Awaiting User`. Swoovr maps statuses case-insensitively: both spellings mean Expired; Awaiting User and Resubmitted mean In Progress.
+- **Signatures.** X-Signature-V2 is the hex HMAC-SHA256 of canonical JSON (keys sorted recursively, compact separators, Unicode unescaped, whole floats as integers); X-Signature covers the raw bytes; X-Signature-Simple is deprecated. Swoovr accepts V2 or the raw signature and refuses Simple-only deliveries. `Swoovr.Checks` compares the C# canonical form against Didit's documented Python rules. During a secret rotation Didit also sends `-Previous` headers for 24 hours; Swoovr checks one secret only, so deliveries signed with a replaced secret are refused until `SWOOVR_DIDIT_WEBHOOK_SECRET` is updated (rotation support is a production follow-up).
+- **Retries.** Didit retries 5xx, 404, timeouts and connection failures twice (about 1 and 5 minutes later) with a 5-second timeout, and won't call private or localhost URLs (hence the tunnel). Swoovr answers 2xx for anything signed and fresh, including unknown sessions, so only real failures are retried.
+- **Sessions.** `POST https://verification.didit.me/v3/session/` with the `x-api-key` header; the response's hosted link is `url`. The return address gets `?verificationSessionId=…&status=…` appended; Swoovr ignores both and re-reads `GET /v3/session/{id}/decision/` (the key needs `read:sessions`). The docs describe a `sandbox_scenario` field for sandbox applications; Swoovr doesn't use it. Test mode is the owner's console setting (D147).
+- **Decision data.** `id_verifications[]` carries `status`, `age`, `date_of_birth`, `document_type` and more. Swoovr reads only the approved items' `age` (or, failing that, the date of birth, used and dropped) to record adult yes/no (D155, Q53).
+
+## As built — slice P, 25 October 2026
+
+- Routes: `GET/POST /api/v1/me/verification` (members, BFF allow-listed), `POST /api/v1/webhooks/didit` (anonymous, signature-checked, not on the BFF), and admin `GET /api/v1/admin/accounts/{id}/verification`, `POST …/verification/allow-again`, `POST …/verification/revoke`, `PUT …/age-assurance`.
+- Code: `Swoovr.Domain/Verification/IdVerification.cs` (rules), `Swoovr.Infrastructure/Verification/DiditClient.cs` and `DiditSignature.cs` (adapter and webhook check), `Swoovr.Api/Verification/VerificationEndpoints.cs`, web page `/me/verification` (and `/me/verification/return`).
+- Local settings: the API reads `Didit:ApiKey`, `Didit:WorkflowId` and `Didit:WebhookSecret` (from `SWOOVR_DIDIT_*` in `.local/docker.env`; `compose.yaml` passes them to the api container). Without them ID verification answers 503 and every webhook is refused.
+- Live evidence (25 October 2026, test mode): the suite created real Didit sessions; within seconds Didit's own `status.updated` delivery arrived through the quick tunnel and passed the V2 signature and timestamp checks (recorded as applied). No verification was completed at Didit: that needs a person with an ID (see the walkthrough in [LOCAL-DEVELOPMENT.md](../delivery/LOCAL-DEVELOPMENT.md#didit-test-verification-walkthrough)).

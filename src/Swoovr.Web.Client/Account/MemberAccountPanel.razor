@@ -55,6 +55,15 @@
     }
     else if (me is not null)
     {
+        @if (me.AgeStatus == "needsVerification")
+        {
+            @* D127: the rest of the app answers age-verification-required until the check passes or support resolves it. *@
+            <section class="card account-section" aria-label="Age check needed" data-age-check-required="true">
+                <h2>Please verify your age</h2>
+                <p>We need to confirm you're 18 or over before you can keep using Swoovr.</p>
+                <p><a class="button" href="/me/verification">Verify my ID</a></p>
+            </section>
+        }
         <section class="card account-section" aria-labelledby="badges-heading">
             <h2 id="badges-heading">Badges</h2>
             @if (me.Badges.Count == 0)

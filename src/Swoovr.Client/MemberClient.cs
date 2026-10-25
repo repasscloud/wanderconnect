@@ -28,6 +28,14 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<MemberAccount>> RedeemAsync(string code, CancellationToken cancellationToken = default) =>
         SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/coupons") { Content = JsonContent.Create(new CouponRequest(code)) }, cancellationToken);
 
+    /// <summary>The member's ID verification (D126); re-reads an open Didit session, so it is also the return check.</summary>
+    public Task<ApiResult<IdVerificationView>> VerificationAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/verification"), cancellationToken);
+
+    /// <summary>Starts (or shows the open) Didit session; client is "web" or "app" and only picks the return address.</summary>
+    public Task<ApiResult<IdVerificationView>> StartVerificationAsync(string client, CancellationToken cancellationToken = default) =>
+        SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification") { Content = JsonContent.Create(new StartVerification(client)) }, cancellationToken);
+
     /// <summary>The connection modes as configured (D92), in display order, with their intention chips.</summary>
     public Task<ApiResult<List<ConnectionModeView>>> ModesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ConnectionModeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/modes"), cancellationToken);

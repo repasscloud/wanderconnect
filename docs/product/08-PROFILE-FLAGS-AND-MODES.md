@@ -17,7 +17,7 @@ CONFIRMED, owner 23 October 2026 (D55):
 | --- | --- | --- | --- | --- |
 | Founding member | One of the first 1,000 founding members, activated after onboarding and Photo and/or ID verification; permanent even without a paid subscription (Q08, D63) | The application, from the founding programme | Gold bird `#D4AF37` ("Swoovr Founder") | CONFIRMED (D63) |
 | Photo verified | Profile photos matched to a verification photo; does not prove age | The application, after a photo check; process OPEN | Blue `#087CFA` portrait with tick | Badge drawn; check OPEN |
-| ID verified | Government ID and age checked | The application, from the identity provider's outcome (Stripe Identity, D40) | Teal `#00AAA0` card with tick | Badge drawn; integration OPEN (Q04) |
+| ID verified | Government ID and age checked | The application, from Didit's outcome (D126; Stripe Identity in D40 is superseded) | Teal `#00AAA0` card with tick | Built in test mode (slice P, D155); revocable by an admin (D128) |
 | Admin verified | Backend only. A Swoovr admin confirms something in person, for example an employee account or someone met in person whose age was checked (CONFIRMED, D58) | A Swoovr admin, recorded and audited in the application | **No badge.** Never shows or implies ID verified, because no identity provider checked and stored ID | CONFIRMED (Q11, 24 October 2026: internal trust review, valid until revoked, never public) |
 | Bot account | An automated Swoovr account (for example a guide) | The application; never self-declared | Silver bird `#C0C0C0` ("Swoovr guide (bot)") | Badge drawn |
 | Employee account | A RePass Cloud / Swoovr employee | The application, from the staff record (staff realm invitation, D31) | Ruby bird `#E0115F` ("Swoovr staff") | CONFIRMED (D57) |

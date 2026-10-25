@@ -104,6 +104,9 @@ public static class AdminEndpoints
             var account = await db.Accounts.FindAsync([id], cancellationToken);
             var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
             if (account is null || profile is null) return Results.NotFound();
+            // D130: an admin exception still needs ID or Photo verification and the 1,000-place limit.
+            if (profile.IdStatus != VerificationStatus.Verified && profile.PhotoStatus != VerificationStatus.Verified)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.FounderNotEligible, "Founding places need ID or Photo verification first.");
             var grant = await founders.GrantAsync(account, profile, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
             return grant.Outcome switch
             {

@@ -11,6 +11,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Swoovr: Host=postgres;Database=swoovr;Username=swoovr;Password=${SWOOVR_DB_PASSWORD:?Run ./scripts/docker-local.sh init first}
+      # D147: Didit test mode. Empty values leave ID verification unavailable (503) and every webhook refused.
+      Didit__ApiKey: ${SWOOVR_DIDIT_API_KEY:-}
+      Didit__WorkflowId: ${SWOOVR_DIDIT_WORKFLOW_ID:-}
+      Didit__WebhookSecret: ${SWOOVR_DIDIT_WEBHOOK_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -446,6 +446,39 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.DiditWebhookEvent", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("SessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("WebhookType")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("webhook_type");
+
+                    b.HasKey("EventId")
+                        .HasName("pk_didit_webhook_events");
+
+                    b.ToTable("didit_webhook_events");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
                 {
                     b.Property<int>("Place")
@@ -461,7 +494,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.ToTable("founder_places", t =>
                         {
-                            t.HasCheckConstraint("ck_founder_places_place", "place >= 1");
+                            t.HasCheckConstraint("ck_founder_places_place", "place >= 1 AND place <= 1000");
                         });
                 });
 
@@ -605,6 +638,85 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Key" }, "ix_geo_city_names_key_prefix"), new[] { "text_pattern_ops" });
 
                     b.ToTable("geo_city_names");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.IdVerificationAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<bool?>("Adult")
+                        .HasColumnType("boolean")
+                        .HasColumnName("adult");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ProviderStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("provider_status");
+
+                    b.Property<bool>("SelfService")
+                        .HasColumnType("boolean")
+                        .HasColumnName("self_service");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("session_id");
+
+                    b.Property<bool>("Started")
+                        .HasColumnType("boolean")
+                        .HasColumnName("started");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("url");
+
+                    b.Property<string>("WorkflowId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("workflow_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_id_verification_attempts");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_id_verification_attempts_session_id");
+
+                    b.HasIndex(new[] { "AccountId" }, "ix_id_verification_attempts_one_open")
+                        .IsUnique()
+                        .HasDatabaseName("ix_id_verification_attempts_one_open")
+                        .HasFilter("state IN ('Created', 'InProgress', 'InReview')");
+
+                    b.ToTable("id_verification_attempts");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Invitation", b =>
@@ -918,6 +1030,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("bot");
 
+                    b.Property<bool>("CanRequestIdVerification")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_request_id_verification");
+
                     b.Property<DateOnly?>("DateOfBirth")
                         .HasColumnType("date")
                         .HasColumnName("date_of_birth");
@@ -938,6 +1054,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Employee")
                         .HasColumnType("boolean")
                         .HasColumnName("employee");
+
+                    b.Property<DateTimeOffset?>("FounderEligibleAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("founder_eligible_at");
+
+                    b.Property<DateTimeOffset?>("FounderEntitlementFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("founder_entitlement_from");
 
                     b.Property<int?>("FounderPlace")
                         .HasColumnType("integer")
@@ -997,6 +1121,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("AccountId")
                         .HasName("pk_member_profiles");
+
+                    b.HasIndex("FounderEligibleAt")
+                        .HasDatabaseName("ix_member_profiles_founder_eligible_at")
+                        .HasFilter("founder_eligible_at IS NOT NULL AND founder_place IS NULL");
 
                     b.HasIndex("FounderPlace")
                         .IsUnique()
@@ -1568,6 +1696,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_geo_city_names_geo_cities_geo_name_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.IdVerificationAttempt", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_id_verification_attempts_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Itinerary", b =>

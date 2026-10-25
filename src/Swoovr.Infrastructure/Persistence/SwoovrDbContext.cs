@@ -39,6 +39,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<Itinerary> Itineraries => Set<Itinerary>();
+    public DbSet<IdVerificationAttempt> IdVerificationAttempts => Set<IdVerificationAttempt>();
+    public DbSet<DiditWebhookEvent> DiditWebhookEvents => Set<DiditWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -79,6 +81,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.HomeMarketMovedTo).HasMaxLength(32);
             profile.HasOne<Market>().WithMany().HasForeignKey(p => p.HomeMarketId).OnDelete(DeleteBehavior.SetNull);
             profile.HasIndex(p => p.HomeMarketId);
+            profile.HasIndex(p => p.FounderEligibleAt).HasFilter("founder_eligible_at IS NOT NULL AND founder_place IS NULL");
         });
         // D92: four modes with stable ids; labels, order and availability are data. Q16: forty intention chips with
         // fixed ids (IntentionChips, D113).
@@ -223,11 +226,33 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             trip.HasIndex(t => new { t.GeoNameId, t.Departure });
             trip.ToTable(t => t.HasCheckConstraint("ck_trips_dates", "departure >= arrival"));
         });
+        // D128: one row per Didit session, outcome and operational metadata only. At most one open attempt per member.
+        model.Entity<IdVerificationAttempt>(attempt =>
+        {
+            attempt.HasOne<Account>().WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
+            attempt.Property(a => a.SessionId).HasMaxLength(64);
+            attempt.Property(a => a.WorkflowId).HasMaxLength(64);
+            attempt.Property(a => a.ProviderStatus).HasMaxLength(32);
+            attempt.Property(a => a.Url).HasMaxLength(512);
+            attempt.HasIndex(a => a.SessionId).IsUnique();
+            attempt.HasIndex(a => a.AccountId, "ix_id_verification_attempts_one_open").IsUnique()
+                .HasFilter("state IN ('Created', 'InProgress', 'InReview')");
+        });
+        // D152: durable webhook dedupe on Didit's event id.
+        model.Entity<DiditWebhookEvent>(webhook =>
+        {
+            webhook.HasKey(w => w.EventId);
+            webhook.Property(w => w.EventId).ValueGeneratedNever();
+            webhook.Property(w => w.WebhookType).HasMaxLength(48);
+            webhook.Property(w => w.SessionId).HasMaxLength(64);
+            webhook.Property(w => w.Outcome).HasMaxLength(32);
+        });
         model.Entity<FounderPlace>(place =>
         {
             place.HasKey(p => p.Place);
             place.Property(p => p.Place).ValueGeneratedNever();
-            place.ToTable(t => t.HasCheckConstraint("ck_founder_places_place", "place >= 1"));
+            // D130: never more than 1,000 places, whatever the configuration says.
+            place.ToTable(t => t.HasCheckConstraint("ck_founder_places_place", "place >= 1 AND place <= 1000"));
         });
         // Founder tokens hold no email and no account id, so they survive account deletion (D65).
         model.Entity<FounderToken>(token =>

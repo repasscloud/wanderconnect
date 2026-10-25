@@ -1916,3 +1916,11 @@ Editorial note, builder 25 October 2026: a POST through the tunnel reached the l
 **Q51 — ANSWERED, owner 25 October 2026.** Use Cloudflare's visitor location headers in hosted environments; no IP-based geolocation locally. The approximate country or city is used only for location consistency checks. Neither the IP address nor the location derived from it is stored permanently.
 
 **Q45 provider — ANSWERED, owner 25 October 2026.** Twilio is the first SMS provider for six-digit codes, behind a provider-independent `IVerificationMessageSender`, so the provider can change and WhatsApp can be added later. Swoovr generates the codes, stores them as a keyed hash, checks them and expires them itself.
+
+## Questions raised while building P–U — 25 October 2026
+
+Raised by the builder during the overnight run (D155 onwards). None blocks the build; each recommended default is built and reversible.
+
+| ID | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Q53 | OPEN | Nothing now (R reads it) | D139 says a verified date of birth from ID verification replaces the declared one; D128 says Swoovr stores only the outcome, never document data. Should the date of birth from Didit be stored on the profile? | Storing it is document data; not storing it means an ID-verified member can still have a declared date of birth that differs from their document | Don't store it (built). Keep only adult yes/no; when the declared age and the document disagree by more than a year, flag the account for review rather than overwriting. Didit keeps the full result for 30 days (D147) | |

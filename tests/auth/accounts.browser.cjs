@@ -158,15 +158,19 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal((await call(daveToken, '/api/v1/me')).status, 200); assert.equal((await call(erinToken, '/api/v1/me')).status, 200);
     const daveId = (await call(rootToken, '/api/v1/admin/accounts?email=' + encodeURIComponent(dave.email))).body[0].id;
     assert.equal((await call(aliceToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).status, 403, 'members cannot grant'); pass();
+    // D130: an admin exception still needs ID or Photo verification. Dave's ID status is set directly (simulated for
+    // this local test only; tests/verification/didit.browser.cjs covers the real path).
+    assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'founder-not-eligible'); pass();
+    await sql(`UPDATE member_profiles SET id_status = 'Verified', id_checked_at = now() WHERE account_id = '${daveId}'`);
     const placesBefore = Number(await sql('SELECT count(*) FROM founder_places'));
-    const grant = await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' });
+    const grant =await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' });
     assert.equal(grant.status, 201); assert.equal(grant.body.emailSent, true); assert.equal(grant.body.place, placesBefore + 1); pass();
     assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'already-founder'); pass();
     let mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(dave.email); if (!mail.length) await sleep(250); }
     const firstCode = mail[0].match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
     assert.ok(firstCode, 'founder code emailed through the local mail sink'); pass();
     me = await call(daveToken, '/api/v1/me');
-    assert.deepEqual(me.body.badges.map(b => b.badge), ['founder']); pass();
+    assert.deepEqual(me.body.badges.map(b => b.badge), ['founder', 'idVerified']); pass(); // the simulated ID status above
     assert.equal((await call(daveToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode.toLowerCase() } })).status, 200, 'own code is a no-op'); pass();
     // A shared or sold code fails for anyone else, and every refusal reads the same.
     let refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });

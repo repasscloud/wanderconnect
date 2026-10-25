@@ -130,3 +130,22 @@ Operator commands use the same configuration: `dotnet run --project src/Swoovr.A
 `tests/auth/accounts.browser.cjs` (Edge and Playwright, as above) creates fictional members through the local Keycloak admin API, signs them in for real tokens and exercises the account, age and admin routes. It needs the enrolled fictional root admin from `tests/auth/root-admin.browser.cjs` and a Debug build of the API for the operator commands.
 
 If Keycloak pages appear in the stock Keycloak theme, Docker Desktop's bind mount of `containers/keycloak/themes` has gone stale (the folder is empty inside the container). Recreate only that container: `docker compose --env-file .local/docker.env up -d --force-recreate --wait keycloak`, then `./scripts/docker-local.sh realms`.
+
+## Didit ID verification (test mode) — 25 October 2026
+
+The API needs `Didit__ApiKey`, `Didit__WorkflowId` and `Didit__WebhookSecret`, taken from `SWOOVR_DIDIT_API_KEY`, `SWOOVR_DIDIT_WORKFLOW_ID` and `SWOOVR_DIDIT_WEBHOOK_SECRET` in `.local/docker.env`. `compose.yaml` passes them to the api container (recreate it after pulling: `docker compose --env-file .local/docker.env up -d --no-deps api`). A host started with `dotnet run` needs them in its environment too; `.local/run-hosts.sh` should add `Didit__ApiKey="$(val SWOOVR_DIDIT_API_KEY)" Didit__WorkflowId="$(val SWOOVR_DIDIT_WORKFLOW_ID)" Didit__WebhookSecret="$(val SWOOVR_DIDIT_WEBHOOK_SECRET)"` to the API line. Without them ID verification answers 503 and webhooks are refused.
+
+Webhooks reach whichever API listens on 127.0.0.1:5080 through the quick tunnel (`cloudflared tunnel --url http://127.0.0.1:5080`; its host changes per run, so update the Didit destination when it does). Without the tunnel, verification still completes: the member's return to `/me/verification/return` re-reads the result from Didit.
+
+Founding places are allocated by `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll founders allocate` with the API's connection string, founder secret and mail settings (D130; cron daily in hosted environments).
+
+### Didit test verification walkthrough
+
+One-time manual check by a person (the automated suite can't complete a verification; it needs a real ID and face):
+
+1. Start the stack and the tunnel; confirm the Didit console's webhook destination is `https://<tunnel host>/api/v1/webhooks/didit` (V3.0, `status.updated` and `data.updated`).
+2. Sign in at http://localhost:5081 as a fictional-named local member on the beta list with a home city, open **Me → ID verification** and choose **Verify my ID**. The page says *Test mode*.
+3. Choose **Continue on Didit** (a new tab). Complete Didit's test flow with your own document and selfie, or use Didit's test-mode options if the console offers them.
+4. Come back to the Swoovr tab and choose **Check result** (or follow Didit's redirect to `/me/verification/return`). Expected: *In review* or *Your ID is verified*; the ID Verified badge appears on the account page once approved.
+5. Evidence to record in VALIDATION.md: `SELECT state, provider_status, started, adult FROM id_verification_attempts ORDER BY created_at DESC LIMIT 1;` and `SELECT webhook_type, outcome FROM didit_webhook_events ORDER BY received_at DESC LIMIT 5;` (ids and outcomes only). Swoovr stores no document data; Didit keeps it for 30 days (D147).
+6. To try again with the same member, an admin uses `POST /api/v1/admin/accounts/{id}/verification/allow-again` (or revoke first if approved).

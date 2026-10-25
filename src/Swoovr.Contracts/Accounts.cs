@@ -54,6 +54,12 @@ public static class ProblemCodes
     public const string MarketNotOpen = "market-not-open";
     public const string HomeMarketLocked = "home-market-locked";
     public const string UnknownMarket = "unknown-market";
+    public const string AgeVerificationRequired = "age-verification-required";
+    public const string VerificationNotConfigured = "verification-not-configured";
+    public const string VerificationProviderFailed = "verification-provider-failed";
+    public const string VerificationAttemptUsed = "verification-attempt-used";
+    public const string AlreadyVerified = "already-verified";
+    public const string FounderNotEligible = "founder-not-eligible";
 }
 
 public sealed record CouponRequest(string Code);
@@ -86,3 +92,20 @@ public sealed record MarketUpdate(string? Name, string? Status, IReadOnlyList<Ma
 /// <summary>The markets an official bot is assigned to; `*` is every open market (D125 rules 38–41).</summary>
 public sealed record BotMarketsRequest(IReadOnlyList<string>? Markets);
 public sealed record BotMarketsView(IReadOnlyList<string> Markets);
+
+/// <summary>
+/// The member's ID verification (D126–D129): their status, the latest attempt's state, Didit's hosted link while a
+/// session is open, whether they may start one (or why not), and whether this is Didit's test mode (D147; never
+/// presented as a live check). AgeCheckRequired is the age-assurance gate (D127).
+/// </summary>
+public sealed record IdVerificationView(string IdStatus, DateTimeOffset? CheckedAt, string? AttemptState, string? Url, bool CanStart,
+    string? Refusal, bool Available, bool TestMode, bool AgeCheckRequired);
+/// <summary>"web" or "app": picks a configured return address, never one from the client.</summary>
+public sealed record StartVerification(string Client);
+/// <summary>An attempt as admins see it (D129): outcome and operational metadata only, never document data.</summary>
+public sealed record IdAttemptAdminView(Guid Id, string State, string ProviderStatus, bool Started, bool SelfService, bool? Adult,
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? CompletedAt);
+public sealed record AdminVerificationView(string IdStatus, bool CanRequestIdVerification, string AgeStatus, IReadOnlyList<IdAttemptAdminView> Attempts);
+public sealed record AgeAssuranceRequest(bool NeedsVerification);
+/// <summary>The founder allocation job's result (D130): counts only.</summary>
+public sealed record FounderAllocationView(int Stamped, int Allocated, int Skipped, int PlacesLeft);

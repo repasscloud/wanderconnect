@@ -30,7 +30,7 @@ public static class AccountEndpoints
         var me = app.MapGroup("/api/v1/me").RequireAuthorization();
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true);
             return denied ?? Results.Ok(View(current!.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken)));
         });
         me.MapPost("/coupons", RedeemAsync);
@@ -113,7 +113,12 @@ public static class AccountEndpoints
     }
 
     /// <summary>The caller as an active member with a profile, or the response that refuses them.</summary>
-    public static async Task<(CurrentAccount? Current, IResult? Denied)> MemberAsync(ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken)
+    /// <remarks>
+    /// D127: an account flagged NeedsVerification is refused everywhere (403 age-verification-required) except the
+    /// routes that pass <paramref name="ageGateExempt"/>: its own account summary and ID verification.
+    /// </remarks>
+    public static async Task<(CurrentAccount? Current, IResult? Denied)> MemberAsync(ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken,
+        bool ageGateExempt = false)
     {
         var current = await accounts.ResolveAsync(user, cancellationToken);
         if (current is null) return (null, Results.Unauthorized());
@@ -124,6 +129,8 @@ public static class AccountEndpoints
         if (current.Facts.Realm == AccountRealm.Members && !BetaAccessPolicy.Allows(current.Beta))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.BetaNotEnrolled, "Swoovr is in private beta."));
         if (!current.Allows(AccountRole.Member)) return (null, Results.Forbid());
+        if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
+            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
         return (current, null);
     }
 

@@ -68,6 +68,8 @@ public static class ProfileEndpoints
             }
             // The audit records that the profile changed, never what it says.
             Audit.Record(db, now, profile.AccountId, "account", "profile.updated", "account", profile.AccountId.ToString());
+            if (FounderEligibility.Stamp(profile, current.Account!.Status, now))
+                Audit.Record(db, now, null, "system", "founder.eligible", "account", profile.AccountId.ToString());
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });

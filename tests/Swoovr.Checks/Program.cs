@@ -11,6 +11,7 @@ ConnectionModeChecks.Run();
 ConnectionRequestChecks.Run();
 TravelChecks.Run();
 MarketChecks.Run();
+VerificationChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Swoovr.Contracts;
 using Swoovr.Domain;
 using Swoovr.Infrastructure.Email;
 using Swoovr.Infrastructure.Persistence;
@@ -55,21 +56,73 @@ public sealed class Founders(IServiceProvider services, IConfiguration configura
         {
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             await db.Database.ExecuteSqlRawAsync("LOCK TABLE founder_places IN EXCLUSIVE MODE", cancellationToken);
+            // Re-read under the lock: a concurrent grant or job run may have given this member a place already (D130:
+            // never two places per member).
+            if (await db.MemberProfiles.AsNoTracking().AnyAsync(p => p.AccountId == account.Id && p.FounderPlace != null, cancellationToken))
+                return (int?)0;
             var next = (await db.FounderPlaces.MaxAsync(p => (int?)p.Place, cancellationToken) ?? 0) + 1;
-            if (next > Places) return (int?)null;
+            if (next > Math.Min(Places, FounderEligibility.Places)) return (int?)null;
             db.FounderPlaces.Add(new FounderPlace { Place = next, GrantedAt = now });
             var token = NewToken(next, account.Email, version, now);
             db.FounderTokens.Add(token);
-            (profile.FoundingMember, profile.FoundingSince, profile.FounderPlace) = (true, now, next);
+            // D130: allocation time (FoundingSince) and entitlement start are kept apart; DEFAULT both now.
+            (profile.FoundingMember, profile.FoundingSince, profile.FounderPlace, profile.FounderEntitlementFrom) = (true, now, next, now);
             Audit.Record(db, now, actor, actor is null ? "system" : "account", "founder.granted", "account", account.Id.ToString(), $"place:{next}");
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return next;
         });
         if (place is null) return new(FounderGrantOutcome.PlacesFull);
+        if (place == 0) return new(FounderGrantOutcome.AlreadyFounder);
         var code = (await db.FounderTokens.FirstAsync(t => t.Place == place && t.Status == FounderTokenStatus.Valid, cancellationToken)).Code;
         var sent = await SendAsync(account, code, "granted", now, cancellationToken);
         return new(FounderGrantOutcome.Granted, place, sent);
+    }
+
+    /// <summary>
+    /// The daily founder allocation job (D130), run by cron as `founders allocate`. Stamps the eligibility time of members
+    /// who meet every condition but have none yet, then grants the remaining places one at a time in eligibility order;
+    /// each grant is its own locked transaction, the database refuses a place above 1,000 or a second place for a member,
+    /// and the run stops once every place is taken. Counts only are returned.
+    /// </summary>
+    public async Task<FounderAllocationView> AllocateAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var db = Db;
+        var stamped = 0;
+        var unstamped = await (from p in db.MemberProfiles
+                               join a in db.Accounts on p.AccountId equals a.Id
+                               where a.Realm == AccountRealm.Members && p.FounderEligibleAt == null && p.FounderPlace == null
+                                     && (p.IdStatus == VerificationStatus.Verified || p.PhotoStatus == VerificationStatus.Verified)
+                               select new { Profile = p, a.Status }).ToListAsync(cancellationToken);
+        foreach (var row in unstamped.Where(r => FounderEligibility.Stamp(r.Profile, r.Status, now)))
+        {
+            Audit.Record(db, now, null, "system", "founder.eligible", "account", row.Profile.AccountId.ToString());
+            stamped++;
+        }
+        await db.SaveChangesAsync(cancellationToken);
+        var (allocated, skipped) = (0, 0);
+        var taken = await db.FounderPlaces.CountAsync(cancellationToken);
+        if (taken < FounderEligibility.Places)
+        {
+            var queue = await (from p in db.MemberProfiles
+                               join a in db.Accounts on p.AccountId equals a.Id
+                               where a.Realm == AccountRealm.Members && p.FounderEligibleAt != null && p.FounderPlace == null
+                               select new { Profile = p, Account = a }).ToListAsync(cancellationToken);
+            var order = FounderEligibility.Allocate(queue.Select(q => (q.Profile.AccountId, q.Profile.FounderEligibleAt!.Value,
+                FounderEligibility.Meets(q.Profile, q.Account.Status), q.Profile.FoundingMember)), taken);
+            foreach (var id in order)
+            {
+                var row = queue.Single(q => q.Profile.AccountId == id);
+                var grant = await GrantAsync(row.Account, row.Profile, null, now, cancellationToken);
+                if (grant.Outcome == FounderGrantOutcome.Granted) allocated++;
+                else if (grant.Outcome == FounderGrantOutcome.PlacesFull) break;
+                else skipped++;
+            }
+        }
+        var left = FounderEligibility.Places - await db.FounderPlaces.CountAsync(cancellationToken);
+        Audit.Record(db, now, null, "cli", "founder.allocation-run", null, null, $"stamped:{stamped};allocated:{allocated};skipped:{skipped};left:{left}");
+        await db.SaveChangesAsync(cancellationToken);
+        return new(stamped, allocated, skipped, left);
     }
 
     /// <summary>Re-sends the account's current valid token (for example at a deletion request).</summary>

@@ -81,7 +81,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         if (facts.Realm == AccountRealm.Members)
         {
             profile = await Db.MemberProfiles.FindAsync([account.Id], cancellationToken)
-                ?? await CreateProfileAsync(account.Id, facts, now, cancellationToken);
+                ?? await CreateProfileAsync(account.Id, facts, email, now, cancellationToken);
             // D65: a founder whose verified email changed gets a new token; the old one stops working.
             if (emailChanged && profile.FoundingMember)
                 await services.GetRequiredService<Founders>().ReissueForEmailChangeAsync(account, profile, now, cancellationToken);
@@ -138,7 +138,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         }
     }
 
-    private async Task<MemberProfile> CreateProfileAsync(Guid accountId, ValidatedSessionFacts facts, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task<MemberProfile> CreateProfileAsync(Guid accountId, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var profile = new MemberProfile
         {
@@ -146,6 +146,16 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             AgeStatus = facts.AdultAttestedAt is null ? AgeStatus.Unconfirmed : AgeStatus.Attested,
             AgeStatusAt = facts.AdultAttestedAt ?? now,
         };
+        // D127: an age-assurance flag (or an under-18 lock) on another account with the same verified email can't be
+        // escaped by registering again; the new profile starts flagged. Matching is by address only, never a merge (D38).
+        if (email is not null && AgeAssurance.Inherits(await (from other in Db!.Accounts
+                join p in Db.MemberProfiles on other.Id equals p.AccountId
+                where other.Realm == AccountRealm.Members && other.Email == email && other.Id != accountId
+                select p.AgeStatus).ToListAsync(cancellationToken)))
+        {
+            (profile.AgeStatus, profile.AgeStatusAt) = (AgeStatus.NeedsVerification, now);
+            Audit.Record(Db, now, null, "system", "age.needs-verification", "account", accountId.ToString(), "same-email");
+        }
         Db!.MemberProfiles.Add(profile);
         try { await Db.SaveChangesAsync(cancellationToken); return profile; }
         catch (DbUpdateException)
