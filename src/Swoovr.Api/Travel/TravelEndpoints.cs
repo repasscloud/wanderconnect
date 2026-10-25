@@ -11,7 +11,7 @@ namespace Swoovr.Api.Travel;
 
 /// <summary>
 /// Travel (Q17, D107, D109–D111, D120–D122): GeoNames city search, the member's own trips and itineraries, and the
-/// destination feed in which locals of an active market see visiting travellers. Travel is asymmetric: there is no
+/// destination feed in which locals of an open market (D125) see visiting travellers. Travel is asymmetric: there is no
 /// feed of locals for travellers, and traveller search is not built (Q17 rule 36; its prerequisite is a qualifying trip
 /// for the destination's GeoNames id). Coordinates, distances and radii never leave the server. The audit log holds
 /// trip ids and visibility only, never cities or dates.
@@ -52,7 +52,7 @@ public static class TravelEndpoints
             var rows = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId where t.AccountId == me
                               orderby t.Arrival, t.Departure, t.Id select new { t, c })
                 .Skip(((page ?? 1) - 1) * PageSize).Take(PageSize + 1).ToListAsync(cancellationToken);
-            var markets = await MarketsAsync(db, cancellationToken);
+            var markets = await MarketEndpoints.ZonesAsync(db, cancellationToken);
             var siblings = await SiblingsAsync(db, rows.Select(r => r.t).ToList(), cancellationToken);
             var now = clock.GetUtcNow();
             return Results.Ok(new TripPage(rows.Take(PageSize).Select(r => View(r.t, r.c, siblings, markets, now)).ToList(), page ?? 1, rows.Count > PageSize));
@@ -117,18 +117,16 @@ public static class TravelEndpoints
             var own = await db.MemberModes.SingleOrDefaultAsync(m => m.AccountId == viewer.AccountId && m.ModeId == selected.Id, cancellationToken);
             if (own is not { Enabled: true })
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModeNotEnabled, "Turn this mode on to see who's visiting.");
-            var markets = await MarketsAsync(db, cancellationToken);
-            var home = viewer.HomeGeoNameId is { } h ? await db.GeoCities.FindAsync([h], cancellationToken) : null;
-            var market = PlaceNames.ActiveMarketOf(home, markets);
-            // Travellers get no feed of locals: only a local of an active market sees visitors (Q17 rule 23).
-            if (market is null)
+            // Travellers get no feed of locals: only a local of an open market offering the mode sees visitors (Q17 rule 23, D125).
+            var (market, refused) = await MarketEndpoints.LocalAsync(db, viewer, selected.Id, cancellationToken);
+            if (refused is not null)
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.NotLocal, "Visitors show to people whose home city is in a Swoovr market.");
-            var visits = await VisitsToAsync(db, configuration, viewer.AccountId, market, markets, selected.Id, now, cancellationToken);
+            var visits = await VisitsToAsync(db, configuration, viewer.AccountId, market!, await MarketEndpoints.ZonesAsync(db, cancellationToken), selected.Id, now, cancellationToken);
             var p = page ?? 1;
             var shown = visits.Skip((p - 1) * PageSize).Take(PageSize + 1).ToList();
             var chips = await ChipsAsync(db, shown.Select(v => v.Person.Profile.AccountId).ToList(), selected.Id, cancellationToken);
             var order = await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken);
-            return Results.Ok(new VisitorPage(selected.Id, market.Name, shown.Take(PageSize).Select(v => new VisitorCard(v.Person.Profile.PublicId,
+            return Results.Ok(new VisitorPage(selected.Id, market!.Name, shown.Take(PageSize).Select(v => new VisitorCard(v.Person.Profile.PublicId,
                 v.Person.Profile.DisplayName!, ProfileEndpoints.Badges(v.Person.Profile, order), chips.GetValueOrDefault(v.Person.Profile.AccountId, []),
                 Visit(v.Trip, v.City))).ToList(), p, shown.Count > PageSize));
         });
@@ -141,33 +139,34 @@ public static class TravelEndpoints
     /// <summary>
     /// The visiting travellers a local of the given market may see in one mode, earliest arrival first, one entry per
     /// traveller. Uses the same account, mode, bot and block rules as Explore, then TravelPolicy for the trip itself.
+    /// Only, when given, limits the search to one traveller (a profile or request check).
     /// </summary>
     public static async Task<List<Visitor>> VisitsToAsync(SwoovrDbContext db, IConfiguration configuration, Guid viewer, Market market,
-        List<(Market Market, GeoCity Centre)> markets, string modeId, DateTimeOffset now, CancellationToken cancellationToken)
+        List<MarketZone> zones, string modeId, DateTimeOffset now, CancellationToken cancellationToken, Guid? only = null)
     {
-        var centre = markets.Single(m => m.Market.Id == market.Id).Centre;
-        // A coarse box in the database, then the exact radius in code; neither leaves the server.
-        var dLat = market.RadiusKm / 110.0 + 0.1;
-        var dLon = market.RadiusKm / (111.0 * Math.Max(0.1, Math.Cos(centre.Latitude * Math.PI / 180))) + 0.1;
+        var areas = zones.Where(z => z.Market.Id == market.Id).ToList();
+        if (areas.Count == 0) return [];
+        // A coarse box around the market's areas in the database, then the exact radius in code; neither leaves the server.
+        double DLat(MarketZone z) => z.Area.RadiusKm / 110.0 + 0.1;
+        double DLon(MarketZone z) => z.Area.RadiusKm / (111.0 * Math.Max(0.1, Math.Cos(z.Centre.Latitude * Math.PI / 180))) + 0.1;
+        var (south, north) = (areas.Min(z => z.Centre.Latitude - DLat(z)), areas.Max(z => z.Centre.Latitude + DLat(z)));
+        var (west, east) = (areas.Min(z => z.Centre.Longitude - DLon(z)), areas.Max(z => z.Centre.Longitude + DLon(z)));
         var yesterday = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-1);
         var candidates = await (from t in db.Trips
                                 join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                                 join person in ProfileEndpoints.Candidates(db, configuration, viewer) on t.AccountId equals person.Profile.AccountId
-                                where t.Visible && t.CancelledAt == null && t.Departure >= yesterday
-                                      && c.Latitude >= centre.Latitude - dLat && c.Latitude <= centre.Latitude + dLat
-                                      && c.Longitude >= centre.Longitude - dLon && c.Longitude <= centre.Longitude + dLon
+                                where t.Visible && t.CancelledAt == null && t.Departure >= yesterday && (only == null || t.AccountId == only)
+                                      && c.Latitude >= south && c.Latitude <= north && c.Longitude >= west && c.Longitude <= east
                                       && db.MemberModes.Any(m => m.AccountId == t.AccountId && m.ModeId == modeId && m.Enabled && m.Visible)
                                 select new { t, c, person }).ToListAsync(cancellationToken);
         var siblings = await SiblingsAsync(db, candidates.Select(x => x.t).ToList(), cancellationToken);
-        var homes = await HomesAsync(db, candidates.Select(x => x.person.Profile.HomeGeoNameId).ToList(), cancellationToken);
         var bots = await ProfileEndpoints.BotModesAsync(db, candidates.Where(x => x.person.Profile.Bot).Select(x => x.person.Profile.AccountId).Distinct().ToList(), cancellationToken);
         var mode = await db.ConnectionModes.SingleAsync(m => m.Id == modeId, cancellationToken);
         var on = new MemberMode { ModeId = modeId, Enabled = true, Visible = true };
         return candidates
             .Where(x => DiscoveryEligibility.ShownIn(modeId, mode, on, on, x.person.Candidate(bots))
                 && TravelPolicy.ShownToLocal(TravelPolicy.State(Facts(x.t, x.c), siblings.GetValueOrDefault(x.t.ItineraryId ?? Guid.Empty, []), now),
-                    PlaceNames.ActiveMarketOf(x.c, markets), market,
-                    PlaceNames.ActiveMarketOf(x.person.Profile.HomeGeoNameId is { } h ? homes.GetValueOrDefault(h) : null, markets)))
+                    PlaceNames.OpenMarketOf(x.c, zones), market.Id, x.person.Profile.HomeMarketId))
             .GroupBy(x => x.person.Profile.AccountId).Select(g => g.OrderBy(x => x.t.Arrival).First())
             .OrderBy(x => x.t.Arrival).ThenBy(x => x.person.Profile.PublicId)
             .Select(x => new Visitor(x.person, x.t, x.c)).ToList();
@@ -217,7 +216,7 @@ public static class TravelEndpoints
             (proposed.GeoNameId, proposed.Arrival, proposed.Departure, proposed.Visible, proposed.ItineraryId, now);
         Audit.Record(db, now, me, "account", id is null ? "trip.created" : "trip.updated", "trip", trip.Id.ToString(), trip.Visible ? "visible" : "hidden");
         await db.SaveChangesAsync(cancellationToken);
-        var markets = await MarketsAsync(db, cancellationToken);
+        var markets = await MarketEndpoints.ZonesAsync(db, cancellationToken);
         var siblings = await SiblingsAsync(db, [trip], cancellationToken);
         var view = View(trip, city, siblings, markets, now);
         return id is null ? Results.Created($"/api/v1/me/trips/{trip.Id}", view) : Results.Ok(view);
@@ -225,12 +224,12 @@ public static class TravelEndpoints
 
     private static TripFacts Facts(Trip trip, GeoCity city) => new(trip, city.TimeZone);
 
-    private static TripView View(Trip trip, GeoCity city, Dictionary<Guid, List<TripFacts>> siblings, List<(Market Market, GeoCity Centre)> markets, DateTimeOffset now)
+    private static TripView View(Trip trip, GeoCity city, Dictionary<Guid, List<TripFacts>> siblings, List<MarketZone> markets, DateTimeOffset now)
     {
         var group = siblings.GetValueOrDefault(trip.ItineraryId ?? Guid.Empty, []);
         var facts = Facts(trip, city);
         return new(trip.Id, Place(city), trip.Arrival, trip.Departure, trip.Visible, Wire(TravelPolicy.State(facts, group, now)), trip.ItineraryId,
-            TravelPolicy.OpensOn(facts, group), PlaceNames.ActiveMarketOf(city, markets) is not null);
+            TravelPolicy.OpensOn(facts, group), PlaceNames.OpenMarketOf(city, markets) is not null);
     }
 
     /// <summary>Every live stop of the itineraries these trips belong to, keyed by itinerary.</summary>
@@ -241,16 +240,6 @@ public static class TravelEndpoints
         var rows = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                           where t.ItineraryId != null && groups.Contains(t.ItineraryId.Value) && t.CancelledAt == null select new { t, c }).ToListAsync(cancellationToken);
         return rows.GroupBy(r => r.t.ItineraryId!.Value).ToDictionary(g => g.Key, g => g.Select(r => Facts(r.t, r.c)).ToList());
-    }
-
-    public static async Task<List<(Market Market, GeoCity Centre)>> MarketsAsync(SwoovrDbContext db, CancellationToken cancellationToken) =>
-        (await (from m in db.Markets join c in db.GeoCities on m.CentreGeoNameId equals c.GeoNameId select new { m, c }).ToListAsync(cancellationToken))
-        .Select(x => (x.m, x.c)).ToList();
-
-    private static async Task<Dictionary<int, GeoCity>> HomesAsync(SwoovrDbContext db, List<int?> ids, CancellationToken cancellationToken)
-    {
-        var wanted = ids.Where(i => i is not null).Select(i => i!.Value).Distinct().ToList();
-        return await db.GeoCities.Where(c => wanted.Contains(c.GeoNameId)).ToDictionaryAsync(c => c.GeoNameId, cancellationToken);
     }
 
     private static async Task<Dictionary<Guid, IReadOnlyList<string>>> ChipsAsync(SwoovrDbContext db, List<Guid> people, string modeId, CancellationToken cancellationToken)

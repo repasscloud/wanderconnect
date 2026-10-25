@@ -8,7 +8,7 @@ namespace Swoovr.Infrastructure.Persistence;
 /// The application database (DEFAULT PostgreSQL). Holds what Keycloak does not (D55):
 /// accounts keyed by (issuer, subject), roles, invitations, profile flags, age details, beta
 /// enrolments (D62), founder places and tokens (D65), connection modes and members' mode settings (D92), badge order
-/// and bot mode authorisations (Q11)
+/// and bot mode authorisations (Q11), markets with their areas, modes and bot assignments (D125)
 /// and the audit log. Names are snake_case; enums are stored as their names
 /// so a reordered enum can never change stored meaning.
 /// </summary>
@@ -33,6 +33,10 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<GeoCity> GeoCities => Set<GeoCity>();
     public DbSet<GeoCityName> GeoCityNames => Set<GeoCityName>();
     public DbSet<Market> Markets => Set<Market>();
+    public DbSet<MarketArea> MarketAreas => Set<MarketArea>();
+    public DbSet<MarketMode> MarketModes => Set<MarketMode>();
+    public DbSet<BotMarket> BotMarkets => Set<BotMarket>();
+    public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<Itinerary> Itineraries => Set<Itinerary>();
 
@@ -70,6 +74,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.Area).HasMaxLength(ProfileTextPolicy.AreaMax);
             profile.Property(p => p.About).HasMaxLength(ProfileTextPolicy.AboutMax);
             profile.HasOne<GeoCity>().WithMany().HasForeignKey(p => p.HomeGeoNameId).OnDelete(DeleteBehavior.Restrict);
+            // D146: the derived home market; a market that is removed leaves the member outside every market.
+            profile.Property(p => p.HomeMarketId).HasMaxLength(32);
+            profile.Property(p => p.HomeMarketMovedTo).HasMaxLength(32);
+            profile.HasOne<Market>().WithMany().HasForeignKey(p => p.HomeMarketId).OnDelete(DeleteBehavior.SetNull);
+            profile.HasIndex(p => p.HomeMarketId);
         });
         // D92: four modes with stable ids; labels, order and availability are data. Q16: forty intention chips with
         // fixed ids (IntentionChips, D113).
@@ -160,12 +169,45 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             name.HasIndex(n => n.Key, "ix_geo_city_names_key_prefix").HasOperators("text_pattern_ops");
             name.HasOne<GeoCity>().WithMany().HasForeignKey(n => n.GeoNameId).OnDelete(DeleteBehavior.Cascade);
         });
-        // D110: markets are rows; Adelaide (GeoNames 2078025) is the only active one. 50 km is a DEFAULT (Q18).
+        // D110, D125: markets are rows with a status, areas and modes; Adelaide (one 50 km area around GeoNames 2078025,
+        // D124) is the only one, a beta market offering all four modes.
         model.Entity<Market>(market =>
         {
             market.Property(m => m.Id).HasMaxLength(32);
             market.Property(m => m.Name).HasMaxLength(80);
-            market.HasData(new Market { Id = "adelaide", Name = "Adelaide", Active = true, CentreGeoNameId = 2078025, RadiusKm = 50 });
+            market.Ignore(m => m.Open);
+            market.HasData(new Market { Id = "adelaide", Name = "Adelaide", Status = MarketStatus.Beta });
+        });
+        model.Entity<MarketArea>(area =>
+        {
+            area.HasKey(a => new { a.MarketId, a.CentreGeoNameId });
+            area.Property(a => a.MarketId).HasMaxLength(32);
+            area.HasOne<Market>().WithMany().HasForeignKey(a => a.MarketId).OnDelete(DeleteBehavior.Cascade);
+            area.ToTable(t => t.HasCheckConstraint("ck_market_areas_radius", "radius_km > 0 AND radius_km <= 1000"));
+            area.HasData(new MarketArea { MarketId = "adelaide", CentreGeoNameId = 2078025, RadiusKm = 50 });
+        });
+        model.Entity<MarketMode>(mode =>
+        {
+            mode.HasKey(m => new { m.MarketId, m.ModeId });
+            mode.Property(m => m.MarketId).HasMaxLength(32);
+            mode.Property(m => m.ModeId).HasMaxLength(32);
+            mode.HasOne<Market>().WithMany().HasForeignKey(m => m.MarketId).OnDelete(DeleteBehavior.Cascade);
+            mode.HasOne<ConnectionMode>().WithMany().HasForeignKey(m => m.ModeId).OnDelete(DeleteBehavior.Restrict);
+            mode.HasData(ConnectionModeIds.All.Select(id => new MarketMode { MarketId = "adelaide", ModeId = id }));
+        });
+        // `*` (every open market) has no market row, so this table has no foreign key to markets; the admin route checks ids.
+        model.Entity<BotMarket>(bot =>
+        {
+            bot.HasKey(b => new { b.AccountId, b.MarketId });
+            bot.Property(b => b.MarketId).HasMaxLength(32);
+            bot.HasOne<Account>().WithMany().HasForeignKey(b => b.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MarketInterest>(interest =>
+        {
+            interest.HasKey(i => i.AccountId);
+            interest.HasOne<Account>().WithMany().HasForeignKey(i => i.AccountId).OnDelete(DeleteBehavior.Cascade);
+            interest.HasOne<GeoCity>().WithMany().HasForeignKey(i => i.GeoNameId).OnDelete(DeleteBehavior.Restrict);
+            interest.HasIndex(i => i.GeoNameId);
         });
         model.Entity<Itinerary>(itinerary =>
         {

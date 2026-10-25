@@ -897,30 +897,30 @@ Raised during the unattended build of slices J–M. The owner accepted every rec
 
 ## Review and next-slices questions — 24 October 2026
 
-Raised by the builder's [review of 24 October 2026](REVIEW-2026-10-24.md) for slices O–U (order and reasons there). All OPEN. Earliest blocker first. Answer in the **Owner answer** column; "default" accepts the recommendation. Provider values (keys, secrets) never go in this file or in chat: the questions say where they should be put.
+Raised by the builder's [review of 24 October 2026](REVIEW-2026-10-24.md) for slices O–U (order and reasons there). All answered by the owner on 24–25 October 2026 under [Answers](#answers) below and recorded as D125–D144. Earliest blocker first. Answer in the **Owner answer** column; "default" accepts the recommendation. Provider values (keys, secrets) never go in this file or in chat: the questions say where they should be put.
 
 | ID | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| Q24 | OPEN | O (market-scoped home discovery) | Should Explore, opening a profile from Explore and sending a request without a trip work only between members whose home cities are in the same active market? What does a member with no home city, or one living outside every active market, see? Where do official bots appear? | Today Explore ignores markets, so a member from Sydney sees Adelaide members and can request them before arriving. That bypasses "travellers get no feed of locals" and "no traveller initiation before arrival" (Q17, D60, D122) and Q07 rule 2 | Yes. Both need a home city in the same active market (Adelaide). No home city: "Add your home city to see people near you". Outside every active market: "Swoovr isn't open where you live yet"; they can still edit their profile, plan trips, answer requests and see existing connections. Existing connections and pending requests across markets are kept. Staff follow the rule like anyone else; an official bot appears in every active market for its authorised modes | |
-| Q25 | OPEN | P (ID verification) | Which Stripe account will the Identity sandbox use (RePass Cloud Pty Ltd's, test mode only), and has its Stripe Identity application been submitted and approved? Stripe decides Identity eligibility by business location and use case, so an adult-connection app may need review. Will you put a restricted test-mode key and the webhook signing secret in `.local/docker.env` as `SWOOVR_STRIPE_SECRET_KEY` and `SWOOVR_STRIPE_WEBHOOK_SECRET`, and run `stripe login` so I can forward events with `stripe listen`? | Without your keys and an approved application no real test-mode verification can run; I won't invent either | A restricted `rk_test_` key limited to Identity verification sessions (read and write); events forwarded locally by the Stripe CLI to `http://localhost:5080/api/v1/webhooks/stripe`, with the `whsec_` secret `stripe listen` prints copied into the env file by you. Until then I build against a signed-event simulator used only by tests, shown as "Simulated — not Stripe", and report the real test-mode run as not done | |
-| Q26 | OPEN | P | In the beta, is ID verification optional (it gives the ID badge, a Verified age status and founder activation) or required before discovery and contact (the DEFAULT gate in `04-IDENTITY-TRUST-AND-SAFETY.md` §2)? Does an age review (D40 `NeedsVerification`) require it? | Decides who can browse and contact; each check is charged to your Stripe account | Optional in the beta. Required only when staff ask for an age check: that account stays out of discovery and requests until verified or overridden (as `NeedsVerification` already does). Revisit the gate before public launch | |
-| Q27 | OPEN | P | Which checks and what Swoovr keeps: document plus a matching live selfie? Which documents (passport, driver licence, national ID card)? Do we keep the verified date of birth (replacing what the member typed) or only "adult: yes" and the check date? Should Swoovr ask Stripe to redact each session, and after how long? Will you supply the consent and privacy wording shown before the check, or use my draft marked "draft — not legal advice"? | Minimum data (`04-IDENTITY…` §2, Q11 rule 65); dates of birth are sensitive; Stripe keeps documents and selfies unless redacted | Document plus live selfie, all three document types, live capture only. Keep the Stripe session id, status, error code, check time and the verified date of birth (it replaces a typed date or age; never name, document number, address or images). Redact each session 30 days after a final outcome, so support can look into a dispute in the Stripe Dashboard first. Use my draft wording until yours replaces it | |
-| Q28 | OPEN | P | How many attempts may a member start (each costs a fee)? What happens after a failure or "consent declined"? Does ID verified expire? Who handles verification appeals in the beta? | Cost control, fairness, and the manual fallback that `04-IDENTITY…` §2 says is necessary | 3 started checks per member per 30 days, then "try again later". A failure shows "Needs action" with Stripe's reason; consent declined or repeated failure points to support. The manual route is support or an admin recording Admin verified after an in-person or video check, which never gives the ID badge (D58). No expiry in the beta; staff can revoke on evidence. An under-18 result locks the account (D40) | |
-| Q29 | OPEN | P | Does the first successful ID verification activate founding membership automatically when a place is free? What is the "required profile setup" (Q11 rule 21)? Should the admin grant route (D79) still work for an account with no verification? | Q11 rule 21 and D63 make verification a condition; D79 was a stop-gap | Automatic on ID verified once the profile has a display name, a home city and at least one mode on, and a place is free (Photo verified will also count when it exists). The admin route stays for exceptions but refuses an account with neither verification. The founder offer is recorded as an entitlement (D90) with its start date; no billing | |
-| Q30 | OPEN | Q (reports and moderation) | What can members report, with which categories, is free text allowed, and what does the reporter hear back? | Shapes the report form, the queue and what personal content Swoovr stores | Report a person, a connection request or a bot. Categories: harassment or abuse; threats or violence (urgent); may be under 18 (urgent); fake profile or impersonation; scam or spam; unwanted sexual content or solicitation; hate; misrepresented intentions; something else. Optional text up to 1,000 characters, seen only by moderators. The form offers to block as well. The reporter sees "Thanks, we've received it" and later "We've reviewed your report", never the outcome. 10 reports a day per member; repeat reports join the same case | |
-| Q31 | OPEN | Later (photos); limits P and Q | Photos, private media and photo verification stay out of this run (D100)? For later: which storage provider and region (Azure Blob Storage, Australia East, given D39's Azure note?), and should Photo verified use Stripe's selfie or a separate photo matcher? | Founder activation is "Photo and/or ID"; until photos exist only ID counts, and reports can't include photos | Out of this run. Ask the provider and region again when photos are the next slice | |
-| Q32 | OPEN | Q | Which actions can moderators take, who may take each, and what does a restricted or suspended member experience? | Q07 rules 13–16 and Q11 rule 42; actions must be enforced everywhere and be appealable | Actions: dismiss, warning, restriction (hidden from discovery and can't send requests, up to 30 days), suspension (member area closed with a notice, up to 90 days), termination, and removal of staff affiliation. Support may dismiss, warn and restrict; admins may also suspend, terminate and remove affiliation. A restricted member keeps existing connections; a suspended one sees "Your account is suspended until …" with an appeal link | |
-| Q33 | OPEN | Q | For reports against staff-affiliated members (Q11 rules 39–43): who are the "designated senior reviewers", and how do we link a staff-realm sign-in to that person's own member account so nobody reviews a report about themselves? | Rule 41's conflict-of-interest check needs a staff-to-member link that doesn't exist | Only admins (not support) decide staff cases, and automated steps can't close them. When an admin grants a staff affiliation they also record which staff-realm account belongs to that member account; a reviewer linked to the reported account, or reported in the same case, is refused | |
-| Q34 | OPEN | Q | How do appeals, member notices and urgent escalation work in the beta? Email notices need MailerSend, which isn't configured (local Mailpit only). Who is the escalation contact for threats or a suspected minor outside business hours, and where should that contact live (a config value in `.local/docker.env`, not the repo)? | Q07 rules 11, 15 and 16; urgent cases must reach a person | One appeal per action within 30 days, decided by a different moderator, final. Notices are in-app; email goes to Mailpit locally until MailerSend exists. Urgent categories go to the top of the queue and email the escalation address from `SWOOVR_ESCALATION_EMAIL` in `.local/docker.env` (Mailpit locally) | |
-| Q35 | OPEN | Q | Should moderation get a minimal staff web screen now (queue, case, action, appeal) or stay API-only like the other admin routes? Staff sign in with Entra only (D32), which isn't configured, so locally only the root admin can sign in to the staff realm. May I add fictional password-based support and admin users in the **local** staff realm only, to test the role split? | The India-based team can't moderate through raw API calls; testing support versus admin needs local staff users | Build a minimal staff area in Web.Client with its own staff BFF allow-list (D84 keeps admin routes off the member BFF), and allow fictional local password users in the local staff realm only (never in UAT or production realm settings) | |
-| Q36 | OPEN | R (filters and compatibility) | Which filters belong to each mode in the beta's Free tier ("standard search filters")? Should locals also choose whether they see current visitors, upcoming visitors, both or none (`02-BEHAVIOUR…` §5), which the built feed (D122) doesn't offer? | D92 confirms per-mode filters without listing them; the Free/Plus split (Q08 matrix) depends on the list | All modes: age range, required chips (any or all), excluded chips (any), and "verified only" (ID verified). Dating adds gender and "show me" (Q37). Business adds nothing. Locals get the visitors choice (default both). Expanded (Plus) filters wait for paid tiers | |
-| Q37 | OPEN | R | Dating needs gender and "who I want to see". Which gender options (and is free text allowed), is it shown on the profile, is "show me" reciprocal, and do Friends, Activities or Business use it at all? Is sexual orientation asked at all? | No gender or orientation exists in the profile today; these are sensitive and must not become abusive filter categories (`02-BEHAVIOUR…` §2) | Gender: woman, man, non-binary, or "another" with optional text of up to 30 characters; shown only in Dating and only if the member chooses. "Show me" is multi-select and reciprocal in Dating only. Not used in other modes. Orientation is not asked | |
-| Q38 | OPEN | R | Is a member's age shown to others, and how does an age filter treat people with no age (DOB and age are optional, D69)? | An age filter is useless if most people have no age; showing age is a privacy choice | Age shows on cards and profiles unless the member turns it off; an age filter includes people with no age unless the viewer ticks "only people with an age" | |
-| Q39 | OPEN | R | The brief requires "require and exclude intentions" (`01-PRODUCT-BRIEF.md` §2, `02-BEHAVIOUR…` §1, acceptance criteria 1–2), but Q16 rule 10 says chips never exclude anyone on their own. Is it right that exclusion happens only through a viewer's own filter (Q36), applied both ways? How is compatibility shown? | The two documents conflict as written | Yes: chips alone never hide anyone; a member's required/excluded chip filters hide people both ways (if you exclude a chip, people with it don't see you either). Compatibility = the chips you share in that mode, with no score (`03-SCREENS…` §4); Explore orders by shared chips, then recency. The old intention vocabulary in `02-BEHAVIOUR…` §1 is replaced by the forty chips | |
-| Q40 | OPEN | S (MAUI parity) | What is the app's final tab bar? The product docs say Explore, Connections, Chats, Me; the app has Me, Profile, Explore, Travel (D123). And should badge artwork in the app reuse the web's drawings exactly? | Navigation must match across clients (Q11 rule 68) | Explore, Connections, Chats (shown as not built until messaging), Me, like the web. Profile and Travel move under Me and the Explore heading. Badge artwork reuses the web's shapes and fixed colours | |
-| Q41 | OPEN | T (traveller search) | Q17 rule 36 deferred traveller search; build it now? Before arrival a traveller may not start contact (D60), so what can they do from the results: only look, or also save someone or send a request? Is it basic (Free) or "extended travel discovery" (Plus)? | Decides whether the slice is worth building before messaging | Build it as recorded in `08-PROFILE-FLAGS-AND-MODES.md` (own trip id, active market, Explore's rules). Look only before arrival: no requests or saves. Free in the beta | |
-| Q42 | OPEN | U (messaging) | Lift D112 and build real messaging in this run? If yes: text only, one conversation per connected pair (across modes) or per mode, realtime (SignalR, D59), no attachments, read receipts or not, edit/delete or not? How long are messages kept, after a block, after account deletion, and can moderators read messages only when they are reported? | Messaging is the largest slice, stores private content, and changes moderation (report a message) | Yes, after slices O–T: text only, one conversation per pair across modes, SignalR, no attachments, no read receipts, delete for both within 5 minutes. D60 enforced. Bots reply only to a member-started conversation. Kept while both accounts exist; a block hides it; a reported message and the 20 before it are copied into the case; moderators see nothing else | |
-| Q43 | OPEN | Later (deletion and export) | Add account deletion and data export to this run? If yes: grace period before final deletion, what is kept and for how long (audit ids, moderation cases, founder places), and does deletion end the Keycloak account too? | App Store requirement, `04-IDENTITY…` §5, acceptance criterion 16, and D65 emails the founder token at a deletion request | After this run. Proposed later: deactivate at once, delete after 30 days, keep audit ids and moderation cases for 2 years pending legal review, delete the Keycloak user at the end, email the founder token at the request | |
+| Q24 | ANSWERED | O (market-scoped home discovery) | Should Explore, opening a profile from Explore and sending a request without a trip work only between members whose home cities are in the same active market? What does a member with no home city, or one living outside every active market, see? Where do official bots appear? | Today Explore ignores markets, so a member from Sydney sees Adelaide members and can request them before arriving. That bypasses "travellers get no feed of locals" and "no traveller initiation before arrival" (Q17, D60, D122) and Q07 rule 2 | Yes. Both need a home city in the same active market (Adelaide). No home city: "Add your home city to see people near you". Outside every active market: "Swoovr isn't open where you live yet"; they can still edit their profile, plan trips, answer requests and see existing connections. Existing connections and pending requests across markets are kept. Staff follow the rule like anyone else; an official bot appears in every active market for its authorised modes | See [Q24](#q24--market-scoped-discovery-local-connections-and-travel-access) |
+| Q25 | ANSWERED | P (ID verification) | Which Stripe account will the Identity sandbox use (RePass Cloud Pty Ltd's, test mode only), and has its Stripe Identity application been submitted and approved? Stripe decides Identity eligibility by business location and use case, so an adult-connection app may need review. Will you put a restricted test-mode key and the webhook signing secret in `.local/docker.env` as `SWOOVR_STRIPE_SECRET_KEY` and `SWOOVR_STRIPE_WEBHOOK_SECRET`, and run `stripe login` so I can forward events with `stripe listen`? | Without your keys and an approved application no real test-mode verification can run; I won't invent either | A restricted `rk_test_` key limited to Identity verification sessions (read and write); events forwarded locally by the Stripe CLI to `http://localhost:5080/api/v1/webhooks/stripe`, with the `whsec_` secret `stripe listen` prints copied into the env file by you. Until then I build against a signed-event simulator used only by tests, shown as "Simulated — not Stripe", and report the real test-mode run as not done | See [Q25](#q25--identity-verification-provider-and-integration) |
+| Q26 | ANSWERED | P | In the beta, is ID verification optional (it gives the ID badge, a Verified age status and founder activation) or required before discovery and contact (the DEFAULT gate in `04-IDENTITY-TRUST-AND-SAFETY.md` §2)? Does an age review (D40 `NeedsVerification`) require it? | Decides who can browse and contact; each check is charged to your Stripe account | Optional in the beta. Required only when staff ask for an age check: that account stays out of discovery and requests until verified or overridden (as `NeedsVerification` already does). Revisit the gate before public launch | See [Q26](#q26--optional-id-verification-and-mandatory-age-assurance) |
+| Q27 | ANSWERED | P | Which checks and what Swoovr keeps: document plus a matching live selfie? Which documents (passport, driver licence, national ID card)? Do we keep the verified date of birth (replacing what the member typed) or only "adult: yes" and the check date? Should Swoovr ask Stripe to redact each session, and after how long? Will you supply the consent and privacy wording shown before the check, or use my draft marked "draft — not legal advice"? | Minimum data (`04-IDENTITY…` §2, Q11 rule 65); dates of birth are sensitive; Stripe keeps documents and selfies unless redacted | Document plus live selfie, all three document types, live capture only. Keep the Stripe session id, status, error code, check time and the verified date of birth (it replaces a typed date or age; never name, document number, address or images). Redact each session 30 days after a final outcome, so support can look into a dispute in the Stripe Dashboard first. Use my draft wording until yours replaces it | See [Q27](#q27--identity-documents-liveness-and-verification-flags) |
+| Q28 | ANSWERED | P | How many attempts may a member start (each costs a fee)? What happens after a failure or "consent declined"? Does ID verified expire? Who handles verification appeals in the beta? | Cost control, fairness, and the manual fallback that `04-IDENTITY…` §2 says is necessary | 3 started checks per member per 30 days, then "try again later". A failure shows "Needs action" with Stripe's reason; consent declined or repeated failure points to support. The manual route is support or an admin recording Admin verified after an in-person or video check, which never gives the ID badge (D58). No expiry in the beta; staff can revoke on evidence. An under-18 result locks the account (D40) | See [Q28](#q28--verification-attempts-failures-and-administration) |
+| Q29 | ANSWERED | P | Does the first successful ID verification activate founding membership automatically when a place is free? What is the "required profile setup" (Q11 rule 21)? Should the admin grant route (D79) still work for an account with no verification? | Q11 rule 21 and D63 make verification a condition; D79 was a stop-gap | Automatic on ID verified once the profile has a display name, a home city and at least one mode on, and a place is free (Photo verified will also count when it exists). The admin route stays for exceptions but refuses an account with neither verification. The founder offer is recorded as an entitlement (D90) with its start date; no billing | See [Q29](#q29--founding-membership-activation) |
+| Q30 | ANSWERED (approved 25 October 2026, Q49) | Q (reports and moderation) | What can members report, with which categories, is free text allowed, and what does the reporter hear back? | Shapes the report form, the queue and what personal content Swoovr stores | Report a person, a connection request or a bot. Categories: harassment or abuse; threats or violence (urgent); may be under 18 (urgent); fake profile or impersonation; scam or spam; unwanted sexual content or solicitation; hate; misrepresented intentions; something else. Optional text up to 1,000 characters, seen only by moderators. The form offers to block as well. The reporter sees "Thanks, we've received it" and later "We've reviewed your report", never the outcome. 10 reports a day per member; repeat reports join the same case | See [Q30](#q30--member-reporting-categories-and-notifications) |
+| Q31 | ANSWERED | Later (photos); limits P and Q | Photos, private media and photo verification stay out of this run (D100)? For later: which storage provider and region (Azure Blob Storage, Australia East, given D39's Azure note?), and should Photo verified use Stripe's selfie or a separate photo matcher? | Founder activation is "Photo and/or ID"; until photos exist only ID counts, and reports can't include photos | Out of this run. Ask the provider and region again when photos are the next slice | See [Q31](#q31--photo-storage-regional-hosting-and-photo-verification) |
+| Q32 | ANSWERED | Q | Which actions can moderators take, who may take each, and what does a restricted or suspended member experience? | Q07 rules 13–16 and Q11 rule 42; actions must be enforced everywhere and be appealable | Actions: dismiss, warning, restriction (hidden from discovery and can't send requests, up to 30 days), suspension (member area closed with a notice, up to 90 days), termination, and removal of staff affiliation. Support may dismiss, warn and restrict; admins may also suspend, terminate and remove affiliation. A restricted member keeps existing connections; a suspended one sees "Your account is suspended until …" with an appeal link | See [Q32](#q32--moderation-actions-permissions-and-account-restrictions) |
+| Q33 | ANSWERED | Q | For reports against staff-affiliated members (Q11 rules 39–43): who are the "designated senior reviewers", and how do we link a staff-realm sign-in to that person's own member account so nobody reviews a report about themselves? | Rule 41's conflict-of-interest check needs a staff-to-member link that doesn't exist | Only admins (not support) decide staff cases, and automated steps can't close them. When an admin grants a staff affiliation they also record which staff-realm account belongs to that member account; a reviewer linked to the reported account, or reported in the same case, is refused | See [Q33](#q33--staff-affiliated-member-accounts-and-report-handling) |
+| Q34 | ANSWERED | Q | How do appeals, member notices and urgent escalation work in the beta? Email notices need MailerSend, which isn't configured (local Mailpit only). Who is the escalation contact for threats or a suspected minor outside business hours, and where should that contact live (a config value in `.local/docker.env`, not the repo)? | Q07 rules 11, 15 and 16; urgent cases must reach a person | One appeal per action within 30 days, decided by a different moderator, final. Notices are in-app; email goes to Mailpit locally until MailerSend exists. Urgent categories go to the top of the queue and email the escalation address from `SWOOVR_ESCALATION_EMAIL` in `.local/docker.env` (Mailpit locally) | See [Q34](#q34--appeals-member-notifications-and-urgent-escalation) |
+| Q35 | ANSWERED | Q | Should moderation get a minimal staff web screen now (queue, case, action, appeal) or stay API-only like the other admin routes? Staff sign in with Entra only (D32), which isn't configured, so locally only the root admin can sign in to the staff realm. May I add fictional password-based support and admin users in the **local** staff realm only, to test the role split? | The India-based team can't moderate through raw API calls; testing support versus admin needs local staff users | Build a minimal staff area in Web.Client with its own staff BFF allow-list (D84 keeps admin routes off the member BFF), and allow fictional local password users in the local staff realm only (never in UAT or production realm settings) | See [Q35](#q35--administration-interface-and-local-staff-testing) |
+| Q36 | ANSWERED | R (filters and compatibility) | Which filters belong to each mode in the beta's Free tier ("standard search filters")? Should locals also choose whether they see current visitors, upcoming visitors, both or none (`02-BEHAVIOUR…` §5), which the built feed (D122) doesn't offer? | D92 confirms per-mode filters without listing them; the Free/Plus split (Q08 matrix) depends on the list | All modes: age range, required chips (any or all), excluded chips (any), and "verified only" (ID verified). Dating adds gender and "show me" (Q37). Business adds nothing. Locals get the visitors choice (default both). Expanded (Plus) filters wait for paid tiers | See [Q36](#q36--discovery-filters-by-mode-and-subscription-tier) |
+| Q37 | ANSWERED | R | Dating needs gender and "who I want to see". Which gender options (and is free text allowed), is it shown on the profile, is "show me" reciprocal, and do Friends, Activities or Business use it at all? Is sexual orientation asked at all? | No gender or orientation exists in the profile today; these are sensitive and must not become abusive filter categories (`02-BEHAVIOUR…` §2) | Gender: woman, man, non-binary, or "another" with optional text of up to 30 characters; shown only in Dating and only if the member chooses. "Show me" is multi-select and reciprocal in Dating only. Not used in other modes. Orientation is not asked | See [Q37](#q37--gender-orientation-and-reciprocal-dating-preferences) |
+| Q38 | ANSWERED | R | Is a member's age shown to others, and how does an age filter treat people with no age (DOB and age are optional, D69)? | An age filter is useless if most people have no age; showing age is a privacy choice | Age shows on cards and profiles unless the member turns it off; an age filter includes people with no age unless the viewer ticks "only people with an age" | See [Q38](#q38--age-display-and-age-filtering) |
+| Q39 | ANSWERED | R | The brief requires "require and exclude intentions" (`01-PRODUCT-BRIEF.md` §2, `02-BEHAVIOUR…` §1, acceptance criteria 1–2), but Q16 rule 10 says chips never exclude anyone on their own. Is it right that exclusion happens only through a viewer's own filter (Q36), applied both ways? How is compatibility shown? | The two documents conflict as written | Yes: chips alone never hide anyone; a member's required/excluded chip filters hide people both ways (if you exclude a chip, people with it don't see you either). Compatibility = the chips you share in that mode, with no score (`03-SCREENS…` §4); Explore orders by shared chips, then recency. The old intention vocabulary in `02-BEHAVIOUR…` §1 is replaced by the forty chips | See [Q39](#q39--intention-chips-filtering-and-compatibility) |
+| Q40 | ANSWERED | S (MAUI parity) | What is the app's final tab bar? The product docs say Explore, Connections, Chats, Me; the app has Me, Profile, Explore, Travel (D123). And should badge artwork in the app reuse the web's drawings exactly? | Navigation must match across clients (Q11 rule 68) | Explore, Connections, Chats (shown as not built until messaging), Me, like the web. Profile and Travel move under Me and the Explore heading. Badge artwork reuses the web's shapes and fixed colours | See [Q40](#q40--maui-navigation-and-badge-consistency) |
+| Q41 | ANSWERED | T (traveller search) | Q17 rule 36 deferred traveller search; build it now? Before arrival a traveller may not start contact (D60), so what can they do from the results: only look, or also save someone or send a request? Is it basic (Free) or "extended travel discovery" (Plus)? | Decides whether the slice is worth building before messaging | Build it as recorded in `08-PROFILE-FLAGS-AND-MODES.md` (own trip id, active market, Explore's rules). Look only before arrival: no requests or saves. Free in the beta | See [Q41](#q41--traveller-search) |
+| Q42 | ANSWERED | U (messaging) | Lift D112 and build real messaging in this run? If yes: text only, one conversation per connected pair (across modes) or per mode, realtime (SignalR, D59), no attachments, read receipts or not, edit/delete or not? How long are messages kept, after a block, after account deletion, and can moderators read messages only when they are reported? | Messaging is the largest slice, stores private content, and changes moderation (report a message) | Yes, after slices O–T: text only, one conversation per pair across modes, SignalR, no attachments, no read receipts, delete for both within 5 minutes. D60 enforced. Bots reply only to a member-started conversation. Kept while both accounts exist; a block hides it; a reported message and the 20 before it are copied into the case; moderators see nothing else | See [Q42](#q42--messaging-conversations-and-retention) |
+| Q43 | ANSWERED | Later (deletion and export) | Add account deletion and data export to this run? If yes: grace period before final deletion, what is kept and for how long (audit ids, moderation cases, founder places), and does deletion end the Keycloak account too? | App Store requirement, `04-IDENTITY…` §5, acceptance criterion 16, and D65 emails the founder token at a deletion request | After this run. Proposed later: deactivate at once, delete after 30 days, keep audit ids and moderation cases for 2 years pending legal review, delete the Keycloak user at the end, email the founder token at the request | See [Q43](#q43--account-deletion-data-export-and-retention) |
 
 ### Defaults I'll use unless you object
 
@@ -939,3 +939,980 @@ DEFAULT, builder 24 October 2026. Reversible implementation choices; they become
 11. Filters are stored per member and mode (`member_mode_filters`) and applied on the server in both directions where Q39 says so; Explore stays at 50 people in a stable order.
 12. New browser suites follow `tests/connections/requests.browser.cjs`: `tests/discovery/market.browser.cjs`, `tests/verification/identity.browser.cjs`, `tests/moderation/reports.browser.cjs`, `tests/profiles/filters.browser.cjs`. Negative cases include other members' ids, blocked pairs, bots, retired and unknown ids, tampered bodies over client limits, and forged, replayed, stale and wrong-account webhook events.
 13. Problem codes stay kebab-case; limits are configuration values.
+
+## Answers
+
+### Q24 — Market-scoped discovery, local connections and travel access
+
+ANSWERED — Owner, 24 October 2026
+
+Swoovr is a local-first dating and social discovery platform. Members primarily discover and connect with people in their own community. Travel Mode allows members to discover and establish connections in other locations when they genuinely intend to visit those locations.
+
+Swoovr will launch markets progressively, beginning with Adelaide, followed by Melbourne, Sydney, other Australian locations, New Zealand and eventually international markets.
+
+The following rules apply.
+
+#### 1. Active markets
+
+1. Swoovr operates a centrally managed registry of active markets. Each market defines its geographic coverage, supported discovery modes and operational status.
+2. A market may be `Planned`, `Beta`, `Active` or `Suspended`.
+3. Adelaide is the initial active beta market. Melbourne, Sydney and subsequent markets are enabled independently when ready.
+4. A member's home city determines their home market using the market's geographic boundaries.
+5. Only markets enabled for the relevant member population and discovery mode participate in discovery.
+6. Market boundaries must be configurable without application releases. A market can cover a metropolitan area or wider region, rather than requiring an individual market for every suburb.
+7. Market activation controls new discovery, not the validity of existing relationships.
+
+#### 2. Local discovery
+
+8. Explore defaults to the member's home market.
+9. Members can discover, open profiles and initiate connections with eligible members whose home locations fall within the same active market.
+10. A member living in Adelaide cannot use ordinary Explore to discover members living in Melbourne or Sydney.
+11. Market eligibility is enforced server-side for Explore results, direct profile access and connection requests. Hiding profiles in the UI alone is insufficient.
+12. Members cannot bypass market restrictions using profile URLs, API calls, modified location parameters or alternative clients.
+13. Existing connections and conversations remain accessible when members change home cities, travel or move between markets, subject to normal account and safety restrictions.
+14. Staff-affiliated members follow the same discovery restrictions as ordinary members.
+
+#### 3. Travel Mode
+
+15. Travel Mode is the authorised mechanism for discovering people outside the member's home market.
+16. A member selects a destination in an enabled market and supplies an intended arrival and departure date.
+17. Travel visibility begins no earlier than 14 days before arrival, consistent with the existing travel policy.
+18. Members can maintain multiple planned trips to different enabled markets.
+19. Before arrival, travellers may browse eligible profiles in their destination through Traveller Search, but cannot initiate connection requests or conversations with destination locals.
+20. Once the traveller arrives and their presence is established under the existing location-verification rules, they may initiate connections with eligible people in that market.
+21. Destination locals may discover and initiate contact with eligible incoming travellers during their permitted pre-arrival visibility window, subject to both members' discovery preferences.
+22. Travel Mode must not grant unrestricted access to every market simply because a member enables it.
+23. Members cannot use an arbitrary remote-city selector in ordinary Explore to bypass market restrictions.
+
+#### 4. Remote browsing and genuine travel
+
+24. Swoovr does not require members to prove they have purchased flights, booked accommodation or provided travel documents. This would create unnecessary friction and require additional personal data.
+25. A declared trip is sufficient to enable limited pre-arrival Traveller Search, but not permission to initiate contact with destination locals.
+26. Actual arrival, rather than merely selecting a destination or changing a trip date, is required to unlock traveller-initiated contact.
+27. Members may change or cancel trips. Cancelling a trip removes its destination discovery eligibility without affecting existing connections.
+28. Repeated destination switching, implausible travel patterns or attempts to manipulate location may trigger rate limiting, additional location assurance or moderation review.
+29. Remote browsing alone is not treated as misconduct. The system prevents its misuse through discovery and initiation restrictions rather than assuming dishonest intent.
+
+Product distinction: Swoovr allows people to explore where they genuinely plan to go, without turning Travel Mode into a global catalogue of people they can contact remotely.
+
+#### 5. Members outside active markets
+
+30. Members must provide a home city before participating in discovery.
+31. Members without a home city see: "Add your home city to discover people in your community."
+32. Members living outside all enabled markets can register, complete their profiles, obtain verification, maintain existing connections and manage planned trips.
+33. Their local Explore feed displays: "Swoovr isn't available in your area yet. We're expanding to new cities."
+34. Members outside active markets cannot create an artificial home location in Adelaide or another enabled market simply to access its local discovery.
+35. They may use Travel Mode for an actual planned visit to an enabled market, subject to the same traveller restrictions.
+36. Existing connections and pending requests are preserved when a market is not active or when a member moves outside active market coverage, subject to normal account and safety rules.
+37. Members may register interest in their home market being launched, allowing Swoovr to measure demand for future expansion.
+
+#### 6. Official bots
+
+38. Official Swoovr bots may be assigned to one or multiple active markets independently of a physical home city.
+39. A centrally authorised official bot may appear in every active market for its authorised modes and functions.
+40. Bots must display the official Bot badge and must never appear to be ordinary local members.
+41. Bots cannot be used as a mechanism to expose real member profiles outside permitted markets.
+42. Staff-affiliated human accounts are not bots and receive no special market-discovery privileges.
+
+#### 7. Enforcement
+
+43. The API is authoritative for market membership, discovery eligibility, travel status and permission to initiate contact.
+44. Explore, Traveller Search, direct profile access and connection-request endpoints must use consistent eligibility rules.
+45. Market eligibility must also respect the existing mode, intention, blocking, age, visibility, verification and moderation requirements.
+46. Previously authorised connections remain available across market boundaries; market restrictions are not retroactively applied to established relationships.
+47. A suspended market stops new discovery under the configured suspension policy without automatically deleting member accounts, requests or conversations.
+48. Administrators may activate, suspend and configure markets without redeploying the applications. Any exceptional administrative access must be authorised and audited.
+
+#### Decision summary
+
+Approve Q24 with the rules above, rather than accepting the recommended default unchanged.
+
+The governing principle is:
+
+Local discovery is based on where a member lives. Remote discovery is based on legitimate travel to an enabled market. Remote contact initiation requires arrival. Existing relationships are not restricted by market boundaries.
+
+This preserves Swoovr's community-first design while supporting its planned geographic expansion and the existing Travel Mode decisions (Q17, D60, D122).
+
+One additional architectural distinction is important: markets should not be synonymous with cities. Adelaide, Melbourne and Sydney can each launch as metropolitan markets, while future regional markets might cover multiple towns or a wider geographic area. This avoids building a system that becomes cumbersome as Swoovr expands across Australia and New Zealand.
+
+### Q25 — Identity verification provider and integration
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will use [Didit](https://didit.me) instead of Stripe Identity. An account with Didit already exists.
+
+1. Use Didit's hosted identity verification workflow.
+2. The Swoovr API creates a verification session and receives a hosted URL.
+3. The member completes verification through Didit's hosted interface.
+4. Didit sends the result to Swoovr's API through a webhook.
+5. The API validates the webhook and updates the member's verification status in the database.
+6. The member's verification status and badges update in the application shortly after processing.
+7. API credentials and webhook secrets remain server-side and are never exposed to the client.
+8. The final choice between hosted redirects, embedded verification and other integration options will be determined during implementation.
+
+A hosted workflow is preferred to minimise development complexity and avoid handling sensitive identity documents directly.
+
+Didit documents hosted session URLs, server-side session creation and verification-result retrieval.
+
+### Q26 — Optional ID verification and mandatory age assurance
+
+ANSWERED — Owner, 25 October 2026
+
+ID verification is always optional, including during beta and after public launch.
+
+1. ID verification is provided free of charge to Swoovr members.
+2. Successful verification provides the public ID Verified badge and contributes to member trust.
+3. Members can participate without ID verification unless their account is specifically flagged for age or identity review.
+4. Account registration requires a valid email address and mobile phone number.
+5. Members may register using email and password, but must complete email and SMS verification before their account becomes active.
+6. A member flagged as `NeedsVerification` for age assurance cannot use the application until the required check is completed or an authorised administrative resolution is recorded.
+7. An unresolved age-verification restriction must not be bypassed through another account using the same verified email or mobile number.
+8. Accounts confirmed to belong to people under 18 are not permitted to use Swoovr.
+9. Future duplicate-account detection using AI and profile photographs is deferred.
+
+Important distinction: Optional ID verification does not mean optional compliance with mandatory age-assurance requirements when an account is flagged.
+
+### Q27 — Identity documents, liveness and verification flags
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will use Didit for document verification, liveness detection and facial matching.
+
+1. Accept passports, driving licences and other supported government-issued photographic identification.
+2. Supported documents depend on Didit's availability in each country, initially Australia and New Zealand.
+3. Didit compares the live selfie against the photograph on the identity document.
+4. Successful verification establishes that the presented document passed validation and that the live subject matched the document photograph.
+5. This does not independently establish that the photographs on the member's Swoovr profile depict the verified person.
+6. Administrators may manually review suspected mismatches, add internal account notes, revoke ID Verified status and permit re-verification.
+7. Identity documents, selfies and biometric data remain with Didit under its applicable retention and privacy policies. The intended Australian retention period is 30 days, subject to confirmation with Didit.
+8. Swoovr stores only the minimal verification outcome and operational metadata. No document photographs, document numbers, biometric templates or identity-document copies are retained.
+
+Two principal database flags govern ID verification:
+
+| Flag                       | Purpose                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| `CanRequestIdVerification` | Whether the member can initiate another verification        |
+| `IsIdVerified`             | Whether the member currently holds valid ID Verified status |
+
+Rules:
+
+- Initially: `CanRequestIdVerification = true`, `IsIdVerified = false`.
+- Once verification is attempted: `CanRequestIdVerification = false`.
+- On successful verification: `IsIdVerified = true`.
+- On failed verification: `IsIdVerified = false`.
+- Administrators may reset `CanRequestIdVerification = true` to authorise another attempt.
+- Administrators may revoke verification by setting `IsIdVerified = false`.
+- Maintain an internal attempt record containing the Didit session reference, result, timestamp and administrative changes for auditability.
+- Only successful verification results produce the public ID Verified badge.
+
+### Q28 — Verification attempts, failures and administration
+
+ANSWERED — Owner, 25 October 2026
+
+1. Members are allowed one self-service ID verification attempt.
+2. The attempt is recorded in the database and visible in the administration interface.
+3. After an attempt, members cannot initiate another verification themselves.
+4. Failed, declined or incomplete verifications are visible to authorised administrators.
+5. Administrators determine what further action is appropriate on a case-by-case basis.
+6. Administrators may authorise another attempt by resetting `CanRequestIdVerification`.
+7. ID Verified status remains valid until revoked; no automatic expiry is introduced for beta.
+8. Administrators may revoke verification following evidence of fraud, account misuse or identity mismatch.
+9. Age-assurance restrictions remain active until the required verification or an authorised resolution is completed.
+10. All administrator actions affecting verification status must be audited.
+
+A session that expires or encounters a technical failure before verification is actually attempted should be distinguishable from a completed failed check. Administrative review determines whether a new attempt is permitted.
+
+### Q29 — Founding membership activation
+
+ANSWERED — Owner, 25 October 2026
+
+Founding membership activation will be handled by a separate scheduled database process, not automatically by the verification API.
+
+1. Swoovr has exactly 1,000 founding membership positions.
+2. Members qualify after completing the required profile setup and successfully completing either ID verification or Photo Verification.
+3. Founding memberships are allocated in chronological order of the member's eligibility completion.
+4. A scheduled script queries eligible members who have not already received founding membership.
+5. The script assigns available founding membership positions and updates the appropriate SQL database records.
+6. It records founding status and the associated membership entitlements.
+7. The script may execute once daily using an external cron job or equivalent scheduler.
+8. Once all 1,000 positions are allocated, the scheduled job is disabled or stopped.
+9. Founding membership assignment must be idempotent, ensuring members cannot receive multiple positions and the allocation cannot exceed 1,000.
+10. The scheduled process must use a transaction and database constraints to prevent duplicate allocations.
+11. Administrative exceptions remain possible but must respect the verification requirement and 1,000-position limit.
+
+Existing founding benefits remain unchanged:
+
+- Permanent gold Founding Member badge.
+- Three months of Swoovr Plus, free of charge.
+- A 50% discount on Plus subscriptions for the subsequent 12 months, available for monthly or annual plans.
+- No payment method required for the three free months.
+- No automatic conversion to a paid subscription.
+- Founder recovery provisions remain applicable if a member later deletes and recreates their account using the approved recovery mechanism.
+
+Implementation note: Record the timestamp when a member first meets all founding eligibility conditions, rather than simply ordering by registration date. Allocation and entitlement activation dates must be retained independently.
+
+### Q30 — Member reporting, categories and notifications
+
+**ANSWERED — Owner, 25 October 2026** (drafted as "pending owner approval"; approved as written on 25 October 2026, [Q49](#q49--approve-the-q30-reporting-answer))
+
+Swoovr must provide a consistent reporting system across the application, allowing members to report inappropriate behaviour, suspicious accounts, unwanted content and safety concerns.
+
+Reporting is available to all members, regardless of subscription tier or verification status.
+
+#### 1. What members can report
+
+Members can submit reports from the following locations:
+
+| Location                | What can be reported                                               |
+| ----------------------- | ------------------------------------------------------------------ |
+| Member profile          | Fake identities, harassment, suspicious behaviour, profile content |
+| Connection request      | Inappropriate or unwanted requests                                 |
+| Conversation            | Harassment, threats, scams or inappropriate behaviour              |
+| Individual chat message | Specific offensive, abusive or inappropriate messages              |
+| Shared photographs      | Unwanted sexual content, inappropriate or prohibited images        |
+| Private albums          | Inappropriate content or misuse of album sharing                   |
+| Official bots           | Incorrect, harmful or inappropriate bot behaviour                  |
+
+A report should automatically identify its source and relevant member, message, photograph or conversation.
+
+Members must also be able to report someone they have already blocked, where sufficient account or conversation history remains available.
+
+#### 2. Reporting categories
+
+Use a centrally managed list of categories rather than hardcoding them into each client.
+
+| Category                                         | Priority |
+| ------------------------------------------------ | -------- |
+| Harassment, bullying or abuse                    | Normal   |
+| Threats, violence or personal safety             | Urgent   |
+| Suspected underage member                        | Urgent   |
+| Fake profile or impersonation                    | Normal   |
+| Scams, fraud or spam                             | High     |
+| Unwanted sexual content                          | High     |
+| Hate speech or discrimination                    | High     |
+| Sexual harassment or solicitation                | High     |
+| Misrepresented intentions or deceptive behaviour | Normal   |
+| Inappropriate profile or album content           | Normal   |
+| Other concern                                    | Normal   |
+
+Priority may be increased automatically based on severity, repeated incidents or account history.
+
+#### 3. Reporting form
+
+The reporting interface should be simple and consistent.
+
+1. Select a reporting category.
+2. Optionally provide additional information (maximum 2,000 characters).
+3. Include the originating content reference automatically, where available.
+4. Offer the option to block the reported member immediately.
+5. Submit the report and receive confirmation.
+
+For reports involving individual messages or photographs, preserve the relevant content as moderation evidence even if the sender subsequently deletes it, subject to retention and privacy rules.
+
+Members should not be required to confront or contact the reported person.
+
+#### 4. Reporting restrictions and duplicate reports
+
+1. Reporting is free and available to all members.
+2. Members may submit multiple reports where different incidents occur.
+3. Duplicate reports about the same incident should be consolidated into an existing case.
+4. Apply rate limiting and abuse detection to prevent malicious or automated report submissions.
+5. Do not impose a rigid limit of 10 reports per day, particularly for serious safety concerns.
+6. Repeated malicious reporting may itself trigger moderation review.
+
+#### 5. What the reporter receives
+
+Immediately after submission:
+
+> Thanks for your report. Our moderation team will review it. You can also block this member to prevent further contact.
+
+Once reviewed:
+
+> Your report has been reviewed. Thank you for helping keep Swoovr safe.
+
+The reporter should be able to see the status of their own reports:
+
+- Submitted
+- Under review
+- Reviewed
+- Closed
+
+Specific disciplinary actions, private investigation details and information about other members must not be disclosed.
+
+#### 6. Internal moderation
+
+1. Reports create a moderation case accessible through the authorised staff administration interface.
+2. Cases include the reporting member, reported member, category, priority, relevant content references, timestamps and optional explanation.
+3. Moderators may add internal notes and supporting evidence.
+4. Reports involving staff-affiliated members automatically require senior administrative review, consistent with Q11.
+5. Urgent reports must be escalated promptly to the designated safety team.
+6. All case access, status changes and disciplinary decisions must be audited.
+7. Reporters' identities must not be disclosed to reported members through reporting notifications.
+
+#### 7. Privacy and evidence retention
+
+Reports and related evidence are accessible only to authorised moderation personnel.
+
+Relevant evidence should be preserved when a report is submitted, including content that might otherwise be deleted. Retention must follow Swoovr's moderation evidence policy, which will be finalised separately.
+
+#### Q30 — My recommendations for Swoovr
+
+I would make three adjustments to Claude's proposed default:
+
+1. Don't restrict reporting to people, requests and bots. Messaging, individual photographs and private albums must be reportable once those features become available. The reporting architecture should support all these content types from the beginning, even if their interfaces are implemented later.
+
+2. Don't impose a hard 10-report daily limit. A member could encounter multiple genuine safety incidents. Rate-limit suspected abuse instead, while always accepting urgent safety reports.
+
+3. Let members see their own report history. A simple report status screen provides accountability without revealing private moderation decisions.
+
+I would also distinguish between reporting a member and blocking a member. Blocking is an immediate personal safety control; reporting initiates a moderation investigation. Neither should require the other.
+
+The above is suitable for Q30. Q32–Q35 can define moderator permissions, disciplinary actions, appeals and urgent escalation procedures without duplicating them here.
+
+### Q31 — Photo storage, regional hosting and Photo Verification
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will use Cloudflare R2 for storing member photographs, profile images, private albums and other user-uploaded media.
+
+1. Cloudflare R2 is the approved object storage provider.
+2. Storage is organised into regional buckets according to the member's registered home region.
+3. Australian member media will initially be stored in an Australia-designated bucket, subject to verification of physical data residency.
+4. As Swoovr expands into New Zealand and other countries, additional regional storage configurations will be introduced.
+5. All media access is authorised through the Swoovr API, with private buckets and short-lived signed URLs where appropriate.
+6. Private albums must never be publicly accessible through permanent URLs.
+7. Media ownership, moderation flags, classifications, storage location and access permissions are recorded in the database.
+8. Changing a member's registered country does not automatically migrate their stored media. Regional migration will be handled through a controlled process.
+9. Media scanning, sensitive-content classification and Photo Verification are deferred to a later implementation slice.
+10. Photo Verification will use a separate process for matching the member's live selfie against their profile photographs, rather than automatically treating Didit's document-to-selfie match as Photo Verification.
+
+Cloudflare consideration: R2 provides free egress, but storage and Class A/Class B operations are billable beyond free allowances ([Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/)).
+
+Cloudflare currently offers an `oc` (Oceania) location hint, but this is not a guarantee of Australian data residency. Its jurisdictional restrictions are separate from location hints. Swoovr must confirm that the chosen R2 configuration meets its Australian hosting requirement before storing production media ([Cloudflare R2 data location](https://developers.cloudflare.com/r2/reference/data-location/)).
+
+### Q32 — Moderation actions, permissions and account restrictions
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will use role-based moderation with separate permissions for support staff and administrators.
+
+| Moderation action               | Support          | Admin |
+| ------------------------------- | ---------------- | ----- |
+| Review reports and evidence     | Yes              | Yes   |
+| Dismiss reports                 | Yes              | Yes   |
+| Issue warnings                  | Yes              | Yes   |
+| Apply temporary restrictions    | Yes              | Yes   |
+| Remove temporary restrictions   | Yes              | Yes   |
+| Suspend accounts                | No               | Yes   |
+| Terminate accounts              | No               | Yes   |
+| Revoke staff affiliation        | No               | Yes   |
+| Review staff-affiliated members | No               | Yes   |
+| Handle appeals                  | Authorised cases | Yes   |
+
+Rules:
+
+1. Warnings notify members of inappropriate behaviour without immediately restricting their account.
+2. Restrictions may last up to 30 days. Restricted members are removed from discovery and cannot initiate new connection requests, but retain access to existing connections unless the specific restriction prevents it.
+3. Suspensions may last up to 90 days. Suspended members cannot access normal member functionality and receive a suspension notice with an appeal option.
+4. Termination permanently disables the account, subject to the account lifecycle and retention policies.
+5. Staff-affiliated accounts are subject to the same rules, but disciplinary decisions are handled exclusively by administrators.
+6. All moderation actions require a reason, timestamp, acting staff identity and audit record.
+7. Restrictions and suspensions must be enforced server-side across all clients, APIs and active sessions.
+8. Support staff cannot override administrator-imposed restrictions or suspensions without appropriate authorisation.
+9. Expired temporary sanctions are automatically lifted unless another active restriction applies.
+10. Members have access to the appeals process defined in Q34.
+
+Additional recommendation: moderation actions should support specific restrictions rather than only restricting the entire account. For example, temporarily preventing new connection requests or media sharing may be more appropriate than suspension for certain violations.
+
+### Q33 — Staff-affiliated member accounts and report handling
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr employees may maintain ordinary personal member accounts. Employment does not grant additional account privileges or exempt members from platform rules.
+
+1. Employee member accounts must use personal email addresses, not company-issued work email addresses.
+2. Swoovr will periodically run an SQL audit to identify member accounts registered with company email domains.
+3. Accounts identified through this audit will be reviewed with the employee directly.
+4. Employees may request the public Staff affiliation badge through HR.
+5. HR verifies employment eligibility and forwards approved requests to an administrator.
+6. Only authorised administrators may set or remove the employee affiliation flag.
+7. Staff affiliation does not provide administrative permissions, access to internal systems or special discovery privileges.
+8. Employees must complete Photo Verification and ID Verification separately if they want those badges.
+9. Reports against staff-affiliated member accounts are automatically directed to the administrator moderation queue, bypassing the normal support queue.
+10. Support personnel cannot dismiss, resolve or impose disciplinary action on staff-affiliated accounts.
+11. Administrators review those cases manually, applying the same platform rules and the higher conduct standards established in Q11.
+12. No administrator may review or decide a case involving their own member account.
+13. All affiliation changes and moderation decisions are audited.
+14. If employment ends, administrators revoke the staff affiliation without affecting the employee's ordinary membership unless a separate moderation action is warranted.
+
+The public Staff badge identifies employment affiliation only. It must not imply that the account is an official Swoovr customer-support channel.
+
+### Q34 — Appeals, member notifications and urgent escalation
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will support moderation appeals, in-app notifications and urgent incident escalation.
+
+1. Members may submit one appeal per disciplinary action within 30 days of being notified.
+2. Appeals must be reviewed by a different authorised moderator or administrator who was not responsible for the original decision.
+3. Appeals involving staff-affiliated accounts are handled exclusively by administrators.
+4. Appeal outcomes are final within Swoovr's standard internal process, without removing any external legal or regulatory rights.
+5. Members receive in-app notifications for warnings, restrictions, suspensions, terminations and appeal outcomes.
+6. Important notices may additionally be delivered by email.
+7. Local development uses Mailpit until MailerSend is configured for transactional delivery.
+8. Urgent reports, including threats of violence and suspected underage users, are prioritised and escalated immediately.
+9. Urgent incidents generate notifications to a designated escalation contact or team, including outside normal business hours.
+10. Escalation contact details are stored in secure environment configuration, initially `SWOOVR_ESCALATION_EMAIL`, and are not committed to source control.
+11. Urgent reports remain open until acknowledged by an authorised reviewer.
+12. All appeals, notifications, escalations and outcomes are recorded in the moderation audit history.
+
+Additional requirement: Email alone should not be considered sufficient for critical incidents. The production system should support an acknowledged escalation mechanism, with secondary escalation if the primary contact does not respond.
+
+### Q35 — Administration interface and local staff testing
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will implement a dedicated administration web application, separate from the public/member-facing application.
+
+1. Administration and moderation functionality will be provided through a dedicated Blazor Web App using server-side rendering.
+2. The administration interface will have its own authentication boundary, using the dedicated Keycloak staff realm and Microsoft Entra integration when available.
+3. Administrative operations remain server-side and communicate with protected administration API endpoints.
+4. The member-facing `Swoovr.Web.Client` project must not contain administration or moderation screens.
+5. The administration application will initially provide a moderation queue, case details, evidence review, moderation actions, appeals and member account management.
+6. Subsequent functions include identity verification review, staff affiliation management, subscriptions, founding memberships, market configuration and operational dashboards.
+7. Role-based access separates support personnel from administrators.
+8. Administrative API endpoints must never be accessible through the member BFF.
+9. Fictional local support and administrator accounts may be created in the local Keycloak staff realm for development and automated testing.
+10. Password-based local test accounts must not be included in UAT or production realm configurations.
+11. All sensitive administrative actions are authorised and audited server-side.
+12. The administration application may use interactive components where necessary, but administrative business logic, credentials and privileged access remain server-side.
+
+Architecture decision: A dedicated administration application is preferred over adding `/admin` routes to the member web application.
+
+This allows independent deployment, tighter network restrictions, separate session policies and reduced exposure of administrative functionality.
+
+### Q36 — Free and paid discovery filters (first version)
+
+Editorial note, builder 25 October 2026: the owner answered Q36 twice on the same day. The two versions agree; the second ([Q36 — Discovery filters by mode and subscription tier](#q36--discovery-filters-by-mode-and-subscription-tier)) adds the defaults (excluded chips match any, visitors default to both) and is the one recorded in D137. Both are kept unchanged.
+
+
+ANSWERED — Owner, 25 October 2026
+
+Swoovr will provide useful discovery filters to every member while offering additional search precision and compatibility tools through paid subscription tiers.
+
+The beta will include Free and Plus feature sets, allowing both experiences to be tested before paid subscriptions are activated.
+
+#### 1. Standard filters — Free
+
+Available across all modes:
+
+- Age range.
+- Intentions and profile chips, including required and excluded chips.
+- Verification preference (ID Verified only).
+- Local discovery within the member's active home market.
+- Visitor visibility: current visitors, upcoming visitors, both or neither.
+
+Dating also provides gender and reciprocal discovery preferences, subject to Q37.
+
+Business, Friends and Activities use their own applicable intentions and profile attributes.
+
+#### 2. Expanded filters — Plus
+
+Plus provides more precise discovery and compatibility options.
+
+| Feature                           | Free | Plus |
+| --------------------------------- | ---- | ---- |
+| Age range                         | Yes  | Yes  |
+| Gender preferences in Dating      | Yes  | Yes  |
+| Required/excluded intentions      | Yes  | Yes  |
+| Verification preference           | Yes  | Yes  |
+| Current/upcoming visitors         | Yes  | Yes  |
+| Height range (Dating)             | —    | Yes  |
+| Body type (Dating)                | —    | Yes  |
+| Distance radius within market     | —    | Yes  |
+| Lifestyle and interest filters    | —    | Yes  |
+| Education and profession filters  | —    | Yes  |
+| Advanced activity preferences     | —    | Yes  |
+| Advanced compatibility filters    | —    | Yes  |
+| Sort by compatibility             | —    | Yes  |
+| Saved searches and filter presets | —    | Yes  |
+
+Weight and other personal attributes may be considered later, subject to user disclosure preferences and the final profile schema.
+
+#### 3. Filter behaviour
+
+1. Every filter must respect the member's selected discovery mode.
+2. Filters only use information voluntarily provided by members.
+3. Missing or undisclosed attributes should not automatically exclude members unless the viewer explicitly requires that attribute.
+4. Reciprocal eligibility, safety controls and market restrictions always take precedence over subscription filters.
+5. Free members must retain meaningful discovery functionality; paid membership improves precision rather than granting access to otherwise prohibited members.
+6. Compatibility ranking and advanced filtering must be treated as separate features.
+7. Filter definitions and subscription entitlements must be configurable server-side rather than hardcoded into the clients.
+
+#### 4. Beta access and subscription testing
+
+1. Free and Plus functionality will both be available during beta.
+2. Selected beta testers may receive complimentary Plus access through promotional entitlements, coupons or zero-cost subscriptions.
+3. Stripe remains the payment and subscription provider.
+4. Test subscriptions must exercise the same feature-entitlement rules as future paid subscriptions.
+5. Beta testers must not be automatically charged when complimentary access expires.
+6. Paid subscription activation and billing will be introduced separately from feature testing.
+7. Founding members retain their previously approved three-month Plus entitlement and subsequent discount.
+8. Beta testing will assess whether expanded filters provide meaningful value before final subscription pricing and limits are established.
+
+#### 5. Compatibility
+
+The expanded search functionality will eventually integrate with Swoovr's Contextual Weighted Compatibility Algorithm.
+
+The initial beta can support shared intention and interest matching, while the advanced weighted compatibility engine is implemented in a later development slice.
+
+Compatibility calculations must remain mode-specific. A relevant compatibility factor in Dating may have no relevance in Friends, Activities or Business.
+
+### Q36 — Discovery filters by mode and subscription tier
+
+**ANSWERED — Owner, 25 October 2026**
+
+Swoovr will provide useful discovery filters to all members, with expanded filtering available to Plus and eventually Premium subscribers.
+
+**Free tier — all modes:**
+
+1. Age range.
+2. Required intention chips (match any or all).
+3. Excluded intention chips (match any).
+4. ID Verified only.
+5. Local discovery within the member's active market.
+6. Visitor visibility: current visitors, upcoming visitors, both or neither. Default is both.
+
+**Mode-specific filters:**
+
+| Mode | Additional Free filters |
+|---|---|
+| Dating | Gender and reciprocal "Show me" preferences |
+| Friends | Friendship intentions and shared interests |
+| Activities | Activity categories and interests |
+| Business | Business intentions and relevant interests |
+
+**Plus — expanded filters:**
+
+1. Distance radius within the permitted discovery market.
+2. Height and body type filters for Dating.
+3. Additional lifestyle, interests and activity filters.
+4. Education and profession filters where relevant.
+5. Advanced compatibility filtering and sorting.
+6. Saved searches and filter presets.
+7. Additional mode-specific filtering as profile fields become available.
+
+Premium may introduce additional features later, but will not be required for the initial beta.
+
+All filters are mode-specific, enforced server-side and respect privacy, blocking, market boundaries and reciprocal discovery rules.
+
+Missing profile attributes are not automatically excluded unless a filter specifically requires that information.
+
+During beta, selected testers will receive Plus entitlements through complimentary subscriptions, promotional codes or administrative grants. A zero-cost subscription may be used where appropriate. Beta testers will not be automatically charged after their complimentary access expires.
+
+The subscription entitlement system must support both complimentary and paid access without separate implementations.
+
+### Q37 — Gender, orientation and reciprocal Dating preferences
+
+**ANSWERED — Owner, 25 October 2026**
+
+Swoovr is designed for people of all genders and sexual orientations.
+
+Gender identity, sexual orientation and attraction preferences are separate profile attributes.
+
+**Gender options:**
+
+1. Man.
+2. Woman.
+3. Non-binary.
+4. Another gender (with an optional custom description).
+5. Prefer not to say.
+
+Members may optionally specify a more detailed gender identity. Pronouns are stored separately and are optional.
+
+**Sexual orientation:**
+
+Sexual orientation will be an optional profile field, using a configurable list that includes heterosexual, gay, lesbian, bisexual, pansexual, asexual, queer, questioning, another orientation and prefer not to say.
+
+Orientation may be displayed on the member's profile at their discretion. It must not be used to infer who a member wants to see.
+
+**Dating discovery:**
+
+1. Members select one or more genders they are interested in seeing.
+2. Dating discovery is reciprocal. Both members must satisfy one another's discovery preferences before appearing as eligible matches.
+3. Gender and attraction preferences apply only to Dating.
+4. Friends, Activities and Business do not use gender or sexual orientation to determine discovery eligibility.
+5. Members control whether their gender identity, orientation and pronouns are publicly displayed.
+6. Withholding public display does not automatically prevent a member from participating in reciprocal Dating discovery if the required matching preferences have been provided privately.
+7. Gender and orientation options must be data-driven and extensible without application releases.
+
+Preferences must not override explicit blocking, safety restrictions or other discovery eligibility requirements.
+
+### Q38 — Age display and age filtering
+
+**ANSWERED — Owner, 25 October 2026**
+
+Swoovr is an adults-only platform. All active members must be at least 18 years old.
+
+1. Members provide their date of birth during registration.
+2. Date of birth is never displayed publicly.
+3. A member's calculated age is displayed on discovery cards and profiles by default.
+4. Members may hide their public age.
+5. Hiding age does not remove the member from age-filtered discovery because the system still knows their age.
+6. Age filtering uses the member's privately stored date of birth, not whether their age is publicly displayed.
+7. Members with missing or invalid dates of birth cannot participate in discovery until corrected.
+8. Where ID verification provides a verified date of birth, this replaces the self-declared date for eligibility and age calculations.
+9. Members under age review remain restricted until the review is resolved.
+10. Date of birth changes require appropriate validation and may trigger administrative review.
+
+Age filtering must never return members outside the selected age range merely because they have hidden their age.
+
+Date of birth is self-declared unless independently verified. Mandatory age assurance remains separate from optional ID Verification.
+
+### Q39 — Intention chips, filtering and compatibility
+
+**ANSWERED — Owner, 25 October 2026**
+
+Swoovr distinguishes between intention chips, discovery filters and compatibility calculations.
+
+**Intention chips:**
+
+1. Chips describe a member's interests, intentions and preferences within a specific mode.
+2. Selecting a chip does not automatically exclude other members.
+3. The approved forty-chip vocabulary replaces the earlier intention vocabulary.
+4. Members may have different chips across Dating, Friends, Activities and Business.
+
+**Discovery filtering:**
+
+5. Required chips allow members to specify intentions they want prospective connections to possess.
+6. Required chips support matching any or all selected values.
+7. Excluded chips prevent discovery of members possessing explicitly excluded intentions.
+8. Explicit exclusions are reciprocal: where a member excludes an intention, members with that intention are not eligible to discover or initiate contact with them through that mode.
+9. Required chips are applied to the requesting member's discovery results. They do not automatically become reciprocal exclusions unless the member has explicitly configured that restriction.
+10. All eligibility rules are enforced by the API, including direct profile access and connection requests.
+
+**Compatibility:**
+
+11. Swoovr will develop its own Contextual Weighted Compatibility Algorithm.
+12. Compatibility is calculated independently for each mode.
+13. The initial beta may use shared chips and interests as a preliminary compatibility indicator.
+14. The full compatibility model will incorporate weighted questions, member preferences, shared values and category-specific importance.
+15. Members may eventually receive an overall compatibility percentage and a category breakdown.
+16. Missing answers must not be treated as incompatible answers.
+17. Compatibility scores are advisory and do not automatically exclude people unless explicit filters or safety rules require exclusion.
+18. Discovery may use compatibility as a ranking factor alongside relevance, activity and other permitted signals.
+
+The initial chip-based implementation must not prevent the later weighted compatibility engine from being introduced.
+
+### Q40 — MAUI navigation and badge consistency
+
+**ANSWERED — Owner, 25 October 2026**
+
+Swoovr will use consistent primary navigation across iOS, Android and Web.
+
+The primary navigation consists of:
+
+1. **Explore** — Local discovery, discovery modes and eligible profiles.
+2. **Connections** — Connection requests, accepted connections and relationship management.
+3. **Chats** — Member conversations and messaging.
+4. **Me** — Member profile, albums, settings, subscriptions, verification and Travel Mode management.
+
+Additional rules:
+
+5. Chats may initially display a not-yet-available state until messaging is implemented.
+6. Travel planning is accessible through Me, while destination discovery is accessed through Explore.
+7. Profile editing and account settings belong under Me.
+8. The navigation structure must remain consistent between MAUI and the Blazor Web App.
+9. Platform-specific visual adaptations are permitted without changing the underlying information architecture.
+10. All verification, Founder, Staff and Bot badges must use the same approved shapes, colours and meanings across clients.
+11. Shared design tokens and reference artwork must be maintained to prevent visual inconsistencies.
+
+### Q41 — Traveller Search
+
+**ANSWERED — Owner, 25 October 2026**
+
+Traveller Search will be implemented in the current development run.
+
+1. Traveller Search operates within an enabled destination market.
+2. The member must have an active or upcoming trip associated with that market.
+3. Pre-arrival discovery begins no earlier than 14 days before the declared arrival date.
+4. Before arrival, travellers may browse eligible destination profiles but cannot initiate connection requests, messages or save destination members to a personal shortlist.
+5. Destination locals may discover and initiate contact with eligible upcoming travellers, subject to the existing travel and reciprocal discovery rules.
+6. After arrival is established, travellers may initiate connections under the normal eligibility rules.
+7. Traveller Search respects blocking, profile visibility, mode compatibility, safety restrictions and the destination market's enabled status.
+8. Members cannot select arbitrary remote markets without creating a corresponding trip.
+9. Cancelling or ending a trip removes the associated destination discovery permissions without deleting existing connections.
+10. Basic Traveller Search is included in Free during beta.
+11. Plus may later offer extended travel discovery filters and planning features, but cannot bypass arrival or market restrictions.
+
+Traveller Search must not function as an unrestricted global member directory.
+
+### Q42 — Messaging, conversations and retention
+
+**ANSWERED — Owner, 25 October 2026**
+
+Lift D112 and implement real messaging after slices O–T.
+
+**Initial implementation:**
+
+1. Real-time messaging using SignalR.
+2. Text-only messages initially.
+3. One conversation per connected member pair, shared across modes.
+4. Messaging requires an accepted connection unless a separately authorised system interaction applies.
+5. No attachments, photographs, voice messages or videos in the initial implementation.
+6. No read receipts initially.
+7. No public last-online status or typing activity exposed outside the conversation.
+8. Members may delete a message for both participants within five minutes of sending it.
+9. Members may hide messages or conversations from their own view separately from deleting them for both participants.
+10. Members can report an individual message or an entire conversation.
+11. Official bots may respond only within member-initiated conversations or separately authorised system interactions and must always identify themselves as bots.
+
+**Blocking and restrictions:**
+
+12. Blocking immediately prevents new messages between the affected members.
+13. Existing conversation history becomes inaccessible to the blocking relationship through normal member interfaces.
+14. Unblocking does not automatically restore the connection or permission to message.
+15. Suspended and terminated accounts cannot participate in messaging.
+16. Server-side eligibility checks apply to every message submission.
+
+**Privacy and retention:**
+
+17. Messages are retained while the relevant accounts remain active, subject to deletion, moderation and retention rules.
+18. A reported message and a limited amount of relevant surrounding context may be preserved as moderation evidence.
+19. The initial context limit is the reported message and up to twenty preceding messages, with additional evidence access requiring authorised escalation and auditing.
+20. Moderators cannot freely browse private conversations.
+21. Only authorised personnel may access reported message evidence through an active moderation case.
+22. Message deletion does not remove evidence already preserved for a legitimate moderation investigation.
+23. Account deletion triggers the applicable message deletion and retention policies defined under Q43.
+24. Message history, deletion and moderation evidence must be handled consistently across all clients.
+
+Messaging must be designed to support attachments and private-media sharing later without requiring a complete conversation-system rewrite.
+
+### Q43 — Account deletion, data export and retention
+
+**ANSWERED — Owner, 25 October 2026**
+
+Account deletion and data export will be implemented in a later development slice, but both must be completed before public launch and any externally distributed beta requiring compliance with applicable platform policies.
+
+**Account deletion:**
+
+1. Members may request deletion directly from account settings.
+2. Deletion requests require reauthentication or equivalent account-owner confirmation.
+3. The account is immediately deactivated and removed from discovery.
+4. A 30-day recovery period applies by default.
+5. Members may cancel deletion during the recovery period after appropriate authentication.
+6. Members must also have an option to request immediate permanent deletion rather than being forced to wait 30 days, subject to necessary processing time and lawful retention obligations.
+7. At final deletion, the application removes or anonymises personal profile data, photographs, albums, ordinary messages, location information and other associated personal information.
+8. The associated Keycloak identity is deleted and active authentication sessions are revoked.
+9. Connected third-party records are deleted or disconnected where applicable.
+10. Active subscriptions and billing entitlements are handled appropriately, with clear cancellation instructions where store-managed billing cannot be cancelled automatically.
+
+**Founding membership recovery:**
+
+11. Founding membership status is permanent and may be recovered after account deletion using the approved recovery-token mechanism.
+12. The member receives their Founder recovery token before deletion is finalised.
+13. Recovery tokens are generated using the previously approved HMAC-SHA256 mechanism.
+14. The token permits restoring the original Founding Member entitlement, not allocating a second founding position.
+15. Previously assigned founding positions remain reserved and must never be reassigned merely because a member deletes their account.
+
+**Data retention:**
+
+16. Moderation evidence and security audit records may be retained where necessary for legitimate legal, safety or security purposes.
+17. A proposed retention period of up to two years for qualifying moderation and audit records is subject to legal and privacy review.
+18. Ordinary deleted account content must not be retained merely because it could theoretically be useful later.
+19. Retained records must be access-controlled, minimised and excluded from ordinary member-facing systems.
+20. Backup expiry and deletion must be covered by the formal data-retention policy.
+
+**Data export:**
+
+21. Members may request an export of their personal account data.
+22. Exports will include profile information, preferences, connections and other eligible account records.
+23. Data exports must not disclose private information belonging to other members beyond what the requesting member is entitled to receive.
+24. Exports are generated securely, with time-limited download access.
+25. Data export and deletion requests are audited.
+
+The account lifecycle must distinguish between temporary deactivation, suspension, deletion pending completion and permanently deleted accounts.
+
+---
+
+Important decisions changed from Claude's defaults:
+
+- Q37: Sexual orientation is included as an optional profile attribute. It is relevant to Swoovr, but must remain separate from reciprocal attraction preferences.
+- Q38: Date of birth is required privately; only public age display is optional. Hidden ages should still participate in age filtering.
+- Q39: The chip system is not the final compatibility algorithm. Weighted scoring remains part of the planned product.
+- Q42: Moderation evidence access is restricted and audited, and deletion for both parties is distinct from hiding a conversation.
+- Q43: Account deletion needs an immediate-deletion option and cannot simply be postponed until after public launch. Apple requires in-app account deletion, while Google Play additionally requires an accessible web deletion route.
+
+## Follow-up questions from the answers — 25 October 2026
+
+Raised by the builder while recording Q24–Q43 (D125–D146). Earliest blocker first. Each has a recommended default; a reversible default is built if no answer arrives. Provider values never go in this file or in chat.
+
+| ID | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Q44 | ANSWERED (webhook route: Q50) | P (Didit ID verification) | For the Didit account: is there a sandbox or test mode, and which workflow should Swoovr use (ID document + liveness + face match)? Will you put the API key, the webhook secret and the workflow id in `.local/docker.env` as `SWOOVR_DIDIT_API_KEY`, `SWOOVR_DIDIT_WEBHOOK_SECRET` and `SWOOVR_DIDIT_WORKFLOW_ID`? How should Didit's webhook reach a local machine: a tunnel you run (for example `cloudflared tunnel --url http://127.0.0.1:5080`) with its URL set in the Didit console, or polling the session result instead of webhooks locally? Has Didit confirmed the 30-day retention and the data region for Australia, and the price per check? | Without keys nothing can be tested against Didit; a webhook needs a public HTTPS URL; retention and cost were assumptions in Q27 and Q28 | Keys in `.local/docker.env` under those names, never committed. Locally, the API also re-reads the session result from Didit when the member returns, so verification works without a tunnel; the webhook is tested with signed fixtures and, when you run a tunnel, live. Until keys exist the slice builds against a clearly labelled simulated provider that never shows "verified" as real || See [Q44](#q44--didit-test-mode-workflow-keys-and-webhooks) |
+| Q45 | ANSWERED (provider: Twilio, 25 October 2026) | Later (registration); affects P | Q26 requires a verified mobile number by SMS before an account is active. Which SMS provider (for example Twilio Verify, MessageBird, AWS SNS) and which Keycloak approach (a Keycloak SMS authenticator extension, or the API sending codes)? Does it apply to people who sign up with Apple or Google, and to the existing beta testers? What does it cost per message in Australia? | It's a new registration gate, a new provider and a recurring cost; Keycloak has no built-in SMS | Its own slice after U: a provider you choose, codes sent by the API (not a Keycloak extension), required for every member including Apple/Google sign-ups, and existing testers asked on their next visit. Until then accounts activate as today || See [Q45](#q45--mobile-number-verification) |
+| Q46 | ANSWERED | T (Traveller Search) | Q24 rule 20 and Q41 say a traveller may initiate contact once "arrival is established under the existing location-verification rules", and rule 26 says the trip dates alone are not enough. No location check exists yet. What counts as arrival: a device location check in the app inside the destination market (web can't unlock), a check-in the member confirms, or the arrival date? | Decides whether slice T can unlock traveller-initiated contact at all, and whether the app needs location permission | Arrival = a device location check from the mobile app inside the destination market's area, on or after the arrival date, kept for that trip only; the location itself isn't stored, only "arrived at" and the market id. Until it's built, travellers can browse but not initiate || See [Q46](#q46--traveller-arrival-verification-and-contact-eligibility) |
+| Q47 | ANSWERED (IP location source: Q51) | O (does not block) | Q24 rule 34 forbids an artificial home location, but a home city is self-declared. Is limiting changes enough for the beta, or do you want stronger assurance (a device location check when the home city enters a market, or admin review of home-market changes)? | Without some check a member can declare an Adelaide home and browse Adelaide locally | Slice O builds a limit: the home city can move into a different market once every 30 days, and each move is audited with market ids only. Device-location assurance arrives with Q46's check, applied to home cities as well || See [Q47](#q47--home-city-changes-and-location-abuse-prevention) |
+| Q48 | ANSWERED | R (Plus filters in the beta) | Q36 gives selected beta testers Plus. For the first build, may an admin grant a complimentary Plus entitlement with an end date through the admin app, with Stripe test-mode subscriptions added later? If Stripe is wanted now: which Stripe account, and will the test-mode keys go in `.local/docker.env` as `SWOOVR_STRIPE_SECRET_KEY` and `SWOOVR_STRIPE_WEBHOOK_SECRET`? | Decides whether slice R needs a Stripe account and webhooks | Admin-granted complimentary entitlements first (same entitlement records a paid plan will use, D90), Stripe test-mode subscriptions in a later payment slice || See [Q48](#q48--beta-plus-access-through-administrative-grants) |
+| Q49 | ANSWERED | Q (reports and moderation) | Your Q30 answer is marked "Recommended answer — Pending owner approval". Do you approve it as written, including report targets that don't exist yet (messages, photos, albums), the 2,000-character limit and no fixed daily cap? | Slice Q builds it | Approved as written; targets that don't exist yet are in the data model but not shown until those features exist || See [Q49](#q49--approve-the-q30-reporting-answer) |
+
+### Q44 — Didit test mode, workflow, keys and webhooks
+
+**ANSWERED — Owner, 25 October 2026**
+
+Didit has a test mode, and Swoovr uses it until launch. The testing workflow is Didit's KYC workflow that matches the ID document against the member's face as they move closer to the camera. Its id, the API key and (once created) the webhook secret are in `.local/docker.env` as `SWOOVR_DIDIT_WORKFLOW_ID`, `SWOOVR_DIDIT_API_KEY` and `SWOOVR_DIDIT_WEBHOOK_SECRET`; they are never committed.
+
+1. Creating a session returns a link (or a QR code). The member opens the link, and the session is created and stored against the member's account in the API so the session and its result belong to that member.
+2. Verification happens on Didit's platform, in the member's external browser. Swoovr doesn't hold or maintain the verification data.
+3. The account has 500 scans a month. Didit keeps the data for 30 days.
+4. Each verification costs between 0.00 and 0.23 (currency as billed by Didit), charged to Swoovr's account, never to the member.
+5. Swoovr's privacy policy and terms are linked from Didit's verification pages (before launch; test mode now).
+6. The webhook isn't set up yet. The owner offered a server reachable by SSH for testing; see [Q50](#follow-up-questions-from-q44q49--25-october-2026).
+
+Didit's integration and webhook notes, as supplied by the owner from the Didit console, are kept in [DIDIT-INTEGRATION.md](../architecture/DIDIT-INTEGRATION.md).
+
+Editorial note, builder 25 October 2026: the workflow id was removed from this file; it lives only in `.local/docker.env`.
+
+### Q45 — Mobile number verification
+
+**ANSWERED — Owner, 25 October 2026.** The provider was settled the same day as Twilio ([Q50–Q52](#answers-to-q50q51--25-october-2026)).
+
+Swoovr will generate and validate its own six-digit OTP codes through the API, using a third-party messaging provider solely for SMS/WhatsApp delivery.
+
+Implement a provider-independent `ISmsSender` / `IVerificationMessageSender` abstraction, starting with SMS and adding WhatsApp support later.
+
+Members enter the received six-digit code into the mobile or web application to complete verification. The API validates the code and updates the member's mobile verification status.
+
+**Security requirements:**
+- Five-minute code expiry.
+- Maximum five incorrect attempts.
+- Resend cooldowns and rate limiting by account, phone number and IP address.
+- Single-use verification codes.
+- Store a keyed hash of the OTP, never the plaintext code.
+
+Use a separate verification record containing the phone number, keyed code hash, expiry, failed-attempt counter and delivery status. The OTP must not be stored directly on the member profile.
+
+Mobile verification is required once per account, with re-verification only when the phone number changes or a security review requires it.
+
+~~**SMS provider selection remains open.**~~ Twilio, owner 25 October 2026 (see below).
+
+### Q46 — Traveller arrival verification and contact eligibility
+
+**ANSWERED — Owner, 25 October 2026**
+
+A traveller is considered **arrived** when their declared trip has started and Swoovr has sufficient evidence that they are physically present within the destination market.
+
+Arrival is determined by the API, not simply by the member's declared arrival date.
+
+**Rules:**
+
+1. A trip must have a valid destination, arrival date and departure date within an enabled market.
+2. Before arrival, travellers may browse eligible destination profiles but cannot initiate connection requests or conversations with destination locals.
+3. Arrival requires both:
+   - The declared arrival date/time has been reached.
+   - The device's GPS location confirms presence within the destination market.
+4. Once confirmed, the trip status changes to `Arrived`, enabling traveller-initiated connections under normal discovery rules.
+5. The API validates location and trip eligibility. Client-provided arrival flags are never trusted.
+6. GPS permission is requested when the member attempts to confirm arrival, rather than requiring continuous background tracking.
+7. If GPS is unavailable, denied or inconclusive, the trip remains `Upcoming` or `ArrivalUnconfirmed`. The member may request manual review through support.
+8. IP geolocation alone is insufficient to confirm arrival.
+9. A member cannot bypass arrival verification by changing their home city, modifying trip dates or manually selecting a destination.
+10. Members can confirm arrival again if their location status becomes invalid or requires reassessment.
+11. Arrival verification records the confirmation timestamp, destination market and verification method. Precise GPS coordinates need not be retained.
+12. Once the trip ends, traveller-specific discovery and contact initiation permissions expire. Existing accepted connections and conversations remain available.
+13. Multiple trips are evaluated independently.
+14. Normal blocking, moderation, age, mode and reciprocal discovery restrictions continue to apply.
+
+**Location privacy:**
+
+- Exact device coordinates are never exposed to other members.
+- Location is processed server-side to determine market eligibility.
+- Continuous GPS tracking is not required.
+- Arrival confirmation does not automatically publish the member's precise location.
+- A successfully confirmed traveller may display an approximate status such as "Visiting Adelaide".
+
+**Implementation:** Use an explicit `ConfirmArrival` API operation that validates the trip, checks a fresh device location reading against the destination market boundary, and records the arrival confirmation. Subsequent requests use the server-side confirmed status, subject to trip expiry and safety checks.
+
+**Core principle:** A declared trip permits limited pre-arrival discovery. Confirmed physical presence permits initiating connections. Neither grants unrestricted access to other markets.
+
+One recommendation: Don't require repeated GPS verification for every connection request. Confirm arrival once, store its validity against the trip, and enforce that authorisation until the trip expires or is revoked. This avoids unnecessary friction and location tracking.
+
+Editorial notes, builder 25 October 2026:
+
+- Rule 2 matches Q41 (D142): pre-arrival browsing is Traveller Search only; there is still no feed of locals for travellers.
+- A device location comes from the member's device, so a modified device can report a false position. The API treats it as evidence checked against the trip, the date and the market's areas, not as proof; the Q47 abuse checks apply.
+- "GPS" includes the browser's location permission on the web as well as the app's, so the web isn't locked out (DEFAULT, D152).
+
+### Q47 — Home city changes and location abuse prevention
+
+**ANSWERED — Owner, 25 October 2026**
+
+A 30-day restriction on changing home cities is a useful anti-abuse measure, but is not sufficient on its own to prevent members from falsely claiming to live in Adelaide or another active market.
+
+1. Members select their home city during registration.
+2. The API uses available location signals, including GPS and approximate IP geolocation, to identify potential discrepancies.
+3. Members may change their home city once every 30 days.
+4. Changing home city does not automatically establish local residency or grant access to a new market.
+5. Where GPS is available, the API may validate that the member is physically present within their selected home market.
+6. Members whose declared home city conflicts with available location evidence may be flagged for review or classified as travelling rather than automatically treated as local residents.
+7. GPS permission is not mandatory. Members without GPS access may use their declared city, subject to additional abuse detection and review.
+8. Repeated location changes, suspicious activity or attempts to bypass market restrictions may trigger administrative review.
+9. Administrators may override the 30-day restriction for legitimate relocations or incorrect location information.
+10. Travel Mode remains the approved mechanism for accessing other markets temporarily.
+
+**Decision:** Retain the 30-day home-city change limit, supplemented by location consistency checks, server-side market eligibility and abuse detection. Location discrepancies alone must not automatically result in suspension or account termination.
+
+Editorial note, builder 25 October 2026: rule 2's IP geolocation needs a source; see [Q51](#follow-up-questions-from-q44q49--25-october-2026). The home city stays on the profile (required before discovery, as built in slice O) rather than in the Keycloak registration form (DEFAULT, D152).
+
+### Q48 — Beta Plus access through administrative grants
+
+**ANSWERED — Owner, 25 October 2026**
+
+Yes. Beta testers may receive Swoovr Plus through an **administrative entitlement grant**, without requiring Stripe integration, payment details or a subscription.
+
+**Rules:**
+
+1. Authorised administrators can grant Plus access directly through the administration interface.
+2. Grants are recorded in the database as subscription entitlements, independently of Stripe.
+3. Each grant records the member, subscription tier, activation date, expiry date, grant reason and issuing administrator.
+4. Administrators may extend, revoke or change granted entitlements.
+5. The API determines available features from the member's effective entitlement, regardless of whether access comes from an administrative grant, promotion, founding membership or paid subscription.
+6. Beta grants do not create Stripe customers, subscriptions or payment obligations.
+7. Expired or revoked grants automatically remove Plus access unless another valid entitlement exists.
+8. Members revert to Free when no active paid or complimentary entitlement remains.
+9. Members must never be automatically charged when a complimentary grant expires.
+10. All entitlement changes must be audited.
+11. The administration interface must distinguish complimentary grants from paid subscriptions.
+12. Stripe integration can be introduced later without changing how the application checks subscription entitlements.
+13. Founding membership entitlements remain separate from ordinary beta grants and retain their previously approved benefits.
+14. Where multiple entitlements overlap, the API applies the highest currently valid tier without duplicating benefits or extending unrelated entitlements.
+
+**Implementation:** Build a central entitlement service that resolves a member's effective subscription tier. Discovery filters and other Plus features must use this service rather than checking Stripe subscription records directly.
+
+**Decision:** Administrative Plus grants are approved for beta testing before Stripe integration.
+
+### Q49 — Approve the Q30 reporting answer
+
+**ANSWERED — Owner, 25 October 2026**
+
+Q30 is approved as written. D131 is CONFIRMED.
+
+## Follow-up questions from Q44–Q49 — 25 October 2026
+
+Raised by the builder while recording Q44–Q49 (D147–D152). Neither blocks a build; each default is reversible.
+
+| ID | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Q50 | ANSWERED | P (live webhook test only) | How should Didit's webhook reach the API while testing: a tunnel from this Mac, or a test server reached over SSH? | Didit only calls a public HTTPS URL. A server means deployment work this run hasn't been authorised for; a tunnel doesn't | A tunnel, no server: `brew install cloudflared`, then `cloudflared tunnel --url http://127.0.0.1:5080` while the stack runs; in the Didit console add a webhook destination `https://<tunnel host>/api/v1/webhooks/didit` subscribed to `status.updated` and `data.updated`, and put its secret in `.local/docker.env` as `SWOOVR_DIDIT_WEBHOOK_SECRET`. A quick tunnel's host changes on every run, so a named tunnel is better if testing repeats. Until then slice P reads the session result from Didit when the member returns and tests the webhook with locally signed, replayed and forged payloads || See [answers](#answers-to-q50q51--25-october-2026) |
+| Q51 | ANSWERED | T (home-city consistency checks) | Q47 rule 2 uses approximate IP geolocation. Which source: Cloudflare's visitor location headers (city level, no extra service, only where traffic passes through Cloudflare), a licensed IP database such as MaxMind GeoLite2, or none for the beta? | A database is a new provider with its own licence and update job; headers only exist in hosted environments | Cloudflare visitor location headers in hosted environments, nothing locally; the IP is never stored, only "consistent" or "inconsistent" with the home market || See [answers](#answers-to-q50q51--25-october-2026) |
+| Q52 | ANSWERED | SMS slice (later; doesn't block P–U) | Where will the Twilio test credentials go? Recommended: `.local/docker.env` as `SWOOVR_TWILIO_ACCOUNT_SID`, `SWOOVR_TWILIO_AUTH_TOKEN` and `SWOOVR_TWILIO_MESSAGING_SERVICE_SID` (or `SWOOVR_TWILIO_FROM` for a single sender number). Which sender for Australia: an alphanumeric sender id ("Swoovr", needs registration) or a Twilio number? | Twilio needs an account, a registered sender and a per-message cost before any code can be sent | Those names, never committed. Twilio Programmable Messaging (not Twilio Verify, because Swoovr generates and checks its own codes, D148), sender "Swoovr" once registered, a Twilio number for testing || Owner, 25 October 2026: the test credentials go in `.local/docker.env` once the Twilio account is set up (names as recommended, `SWOOVR_TWILIO_FROM` for the number). A Twilio phone number is the sender while prototyping; the "Swoovr" sender id isn't registered yet |
+
+### Answers to Q50–Q51 — 25 October 2026
+
+**Q50 — ANSWERED, owner 25 October 2026.** A Cloudflare quick tunnel from the owner's Mac (`cloudflared tunnel --url http://127.0.0.1:5080`). The Didit test console has a webhook destination at `https://<tunnel host>/api/v1/webhooks/didit`, webhook version V3.0, subscribed to `status.updated` and `data.updated`. Its secret is in `.local/docker.env` as `SWOOVR_DIDIT_WEBHOOK_SECRET`. The tunnel host isn't recorded here: a quick tunnel gets a new host each time it starts, and the Didit destination must then be updated.
+
+Editorial note, builder 25 October 2026: a POST through the tunnel reached the local API (404, since the route arrives with slice P).
+
+**Q51 — ANSWERED, owner 25 October 2026.** Use Cloudflare's visitor location headers in hosted environments; no IP-based geolocation locally. The approximate country or city is used only for location consistency checks. Neither the IP address nor the location derived from it is stored permanently.
+
+**Q45 provider — ANSWERED, owner 25 October 2026.** Twilio is the first SMS provider for six-digit codes, behind a provider-independent `IVerificationMessageSender`, so the provider can change and WhatsApp can be added later. Swoovr generates the codes, stores them as a keyed hash, checks them and expires them itself.

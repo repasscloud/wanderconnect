@@ -108,9 +108,9 @@ public static class TravelPolicy
 
     /// <summary>
     /// Whether a local may see this traveller through this trip (Q17 rules 22–28, 38–39): the trip is visible, its city
-    /// is in an active market, the viewer's home city is in that same market and the traveller's is not. Account, mode
+    /// is in an open market, the viewer's home market is that market and the traveller's is not (D125). Account, mode
     /// and block checks are the caller's (DiscoveryEligibility, blocks).
     /// </summary>
-    public static bool ShownToLocal(TripState state, Market? tripMarket, Market? viewerMarket, Market? travellerMarket) =>
-        state == TripState.Visible && tripMarket is { Active: true } && viewerMarket?.Id == tripMarket.Id && travellerMarket?.Id != tripMarket.Id;
+    public static bool ShownToLocal(TripState state, Market? tripMarket, string? viewerHomeMarket, string? travellerHomeMarket) =>
+        state == TripState.Visible && tripMarket is { Open: true } && viewerHomeMarket == tripMarket.Id && travellerHomeMarket != tripMarket.Id;
 }

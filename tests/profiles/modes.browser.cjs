@@ -33,7 +33,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', false, false], ['friends', false, false], ['activities', false, false], ['business', false, false]]); pass();
 
     // Core profile: trimmed, limits and control characters refused, nothing stored in the audit log.
-    mine = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', area: 'Adelaide CBD', about: 'Fictional adult.\nLikes walks.' } });
+    mine = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', area: 'Adelaide CBD', about: 'Fictional adult.\nLikes walks.', homeCityId: 2078025 } });
     assert.equal(mine.status, 200); assert.equal(mine.body.displayName, 'Fictional Ana'); pass();
     for (const body of [{ displayName: 'x'.repeat(41) }, { area: 'y'.repeat(61) }, { about: 'z'.repeat(501) }, { displayName: 'Ana\u0007' }, { area: 'Adel\naide' }]) {
       const bad = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body });
@@ -77,10 +77,10 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.match(await sql(`SELECT detail FROM audit_entries WHERE action = 'mode.updated' AND target_id = 'friends' ORDER BY id DESC LIMIT 1`), /^off:hidden:intentions:2$/); pass();
 
     // Ben: dating on and visible. Cai: dating on but hidden. Eli: dating visible but no display name.
-    await call(tokens.ben, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg' } });
+    await call(tokens.ben, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg', homeCityId: 2078025 } });
     await call(tokens.ben, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
     await call(tokens.ben, '/api/v1/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
-    await call(tokens.cai, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Cai' } });
+    await call(tokens.cai, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Cai', homeCityId: 2078025 } });
     await call(tokens.cai, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: false } });
     await call(tokens.eli, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
 
@@ -151,7 +151,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.equal((await call(tokens.ben, '/api/v1/explore?mode=dating')).body.code, 'account-locked'); pass();
 
     // A second visible person for the pages (Ben is now locked).
-    await call(tokens.eli, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.' } });
+    await call(tokens.eli, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.', homeCityId: 2078025 } });
     await save('eli', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 6), chip('dating', 1)] });
 
     // Web: the profile page, Explore and a person page in WebAssembly, through /bff/ only.
