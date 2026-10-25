@@ -88,3 +88,7 @@ Built on 23 October 2026 (slice I, D99–D105): mode records with stable ids and
 
 - **Q11.** ANSWERED, owner 24 October 2026 (D108); see [Q11](../delivery/QUESTIONS.md#q11--profile-flags-verification-badges-founding-membership-staff-affiliation-and-official-bots).
 - **Q12.** ANSWERED, owner 23 October 2026 (D92): four connection modes and Travel as a separate discovery state; see [Q12 — Connection modes, discovery and Travel state](../delivery/QUESTIONS.md#q12--connection-modes-discovery-and-travel-state). The intention chips were set on 24 October 2026 (Q16, D106).
+
+### Filters, identity and matching as built (slice R, 25 October 2026)
+
+D137–D140 are built as described in D157: a required, never-shown date of birth with the age shown unless hidden; gender, pronouns and orientation (each optional and separate, orientation never used for matching); Dating's reciprocal "show me"; per-mode filters (age range, required chips any or all, excluded chips that work both ways, ID Verified only, visitor visibility) and two Plus filters (distance between home cities, most in common first) answered by the entitlement service (D151). The page is **Me → Who I'd like to meet** (`/me/matching`). Not built: height, body type, lifestyle, education, profession, saved searches and the weighted compatibility algorithm (later, D140).

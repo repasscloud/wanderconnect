@@ -109,7 +109,8 @@ public static class ProfileEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });
-        api.MapGet("/explore", async (string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, CancellationToken cancellationToken) =>
+        api.MapGet("/explore", async (string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
+            CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
@@ -124,21 +125,44 @@ public static class ProfileEndpoints
             var own = await db.MemberModes.SingleOrDefaultAsync(m => m.AccountId == viewer && m.ModeId == selected.Id, cancellationToken);
             if (own is not { Enabled: true })
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModeNotEnabled, "Turn this mode on to see who's here.");
+            // D139: no date of birth, no discovery (either way). D138: Dating needs a gender and a "show me".
+            if (current.Profile.DateOfBirth is null)
+                return Problem(StatusCodes.Status403Forbidden, ProblemCodes.DateOfBirthRequired, "Add your date of birth to discover people.");
+            var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+            var mine = (await FactsAsync(db, [viewer], selected.Id, today, cancellationToken))[viewer];
+            if (selected.Id == ConnectionModeIds.Dating && !MatchPolicy.DatingReady(mine))
+                return Problem(StatusCodes.Status403Forbidden, ProblemCodes.DatingDetailsRequired, "Add your gender and who you'd like to see to use Dating.");
             var people = await Candidates(db, configuration, viewer).InMarket(db, market!.Id)
                 .Where(c => db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
                     && m.ModeId == selected.Id && m.Enabled && m.Visible)
                     && (!c.Profile.Bot || db.BotModeAuthorisations.Any(b => b.AccountId == c.Profile.AccountId && b.ModeId == selected.Id)))
                 .OrderByDescending(c => db.MemberModes.Where(m => m.AccountId == c.Profile.AccountId && m.ModeId == selected.Id).Select(m => m.UpdatedAt).First())
-                .Take(ExploreLimit)
+                .Take(ExploreLimit * 4)
                 .ToListAsync(cancellationToken);
             var bots = await BotModesAsync(db, people.Where(c => c.Profile.Bot).Select(c => c.Profile.AccountId).ToList(), cancellationToken);
+            // D137, D140: reciprocal rules (excluded chips both ways, Dating "show me" both ways), then the viewer's own
+            // filters; Plus filters count only while the entitlement service says Plus (D151).
+            var facts = await FactsAsync(db, people.Select(c => c.Profile.AccountId).ToList(), selected.Id, today, cancellationToken);
+            var filter = await db.ModeFilters.FindAsync([viewer, selected.Id], cancellationToken);
+            var tier = await Moderation.Entitlements.TierAsync(db, current.Profile, clock.GetUtcNow(), cancellationToken);
             // Checked again in code with the same policy the database filter mirrors, so the rule has one source.
             var shown = people.Where(c => DiscoveryEligibility.ShownIn(selected.Id, selected, own,
-                new MemberMode { ModeId = selected.Id, Enabled = true, Visible = true }, c.Candidate(bots))).ToList();
+                    new MemberMode { ModeId = selected.Id, Enabled = true, Visible = true }, c.Candidate(bots))
+                && MatchPolicy.Reciprocal(selected.Id, mine, facts[c.Profile.AccountId])
+                && MatchPolicy.FilterAllows(filter, mine, facts[c.Profile.AccountId], tier)).ToList();
+            if (filter is { Sort: ExploreSort.Compatibility } && tier >= PlanTier.Plus)
+                shown = shown.OrderByDescending(c => MatchPolicy.Shared(mine, facts[c.Profile.AccountId])).ToList();
+            shown = shown.Take(ExploreLimit).ToList();
+            var identities = await IdentitiesAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), cancellationToken);
             var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
             var order = await BadgeOrderAsync(db, cancellationToken);
-            return Results.Ok(new ExploreResult(selected.Id, shown.Select(c => new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!,
-                c.Profile.Area, c.Profile.About, chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order))).ToList(), market.Name));
+            var genders = await GenderLabelsAsync(db, cancellationToken);
+            return Results.Ok(new ExploreResult(selected.Id, shown.Select(c =>
+            {
+                var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
+                return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, c.Profile.About,
+                    chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns);
+            }).ToList(), market.Name));
         });
         api.MapGet("/profiles/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
             CancellationToken cancellationToken) =>
@@ -161,11 +185,55 @@ public static class ProfileEndpoints
             if (!MarketAccess.ProfileOpens(reach.SameMarket, between.Count > 0, reach.VisitingModes.Count > 0))
                 return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
             var chips = await IntentionLabelsAsync(db, [person.Profile.AccountId], null, cancellationToken);
+            var shownAs = Public((await IdentitiesAsync(db, [person.Profile.AccountId], cancellationToken)).GetValueOrDefault(person.Profile.AccountId),
+                person.Profile.DateOfBirth is { } dob ? AgePolicy.YearsOn(dob, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)) : null, await GenderLabelsAsync(db, cancellationToken));
             return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, person.Profile.About,
                 shared.Select(m => ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between,
                     MarketAccess.MayRequest(reach.SameMarket && reach.MarketModes.Contains(m.Id), between.Any(r => r.Status == ConnectionRequestStatus.Accepted),
                         reach.VisitingModes.Contains(m.Id)))).ToList(),
-                Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken))));
+                Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns));
+        });
+    }
+
+    /// <summary>What a person allows others to see (D138, D139): age unless hidden, gender and pronouns unless hidden.</summary>
+    private static (int? Age, string? Gender, string? Pronouns) Public(MemberIdentity? identity, int? age, IReadOnlyDictionary<string, string> genders)
+    {
+        if (identity is null) return (age, null, null);
+        var gender = identity.ShowGender && identity.GenderId is { } g
+            ? g == "another" && identity.GenderDescription is { } d ? d : genders.GetValueOrDefault(g) : null;
+        return (identity.ShowAge ? age : null, gender, identity.ShowGender ? identity.Pronouns : null);
+    }
+
+    private static async Task<Dictionary<string, string>> GenderLabelsAsync(SwoovrDbContext db, CancellationToken cancellationToken) =>
+        await db.ProfileOptions.Where(o => o.Kind == "gender").ToDictionaryAsync(o => o.Id, o => o.Label, cancellationToken);
+
+    private static async Task<Dictionary<Guid, MemberIdentity>> IdentitiesAsync(SwoovrDbContext db, List<Guid> accounts, CancellationToken cancellationToken) =>
+        await db.MemberIdentities.Where(i => accounts.Contains(i.AccountId)).ToDictionaryAsync(i => i.AccountId, cancellationToken);
+
+    /// <summary>
+    /// Matching facts (D137–D140) for each account in one mode, from application records: age from the private date of
+    /// birth, the mode's chips, the chips they excluded in that mode, ID verification, gender and "show me", and the
+    /// home city's coordinates (for the Plus distance filter). Never returned to clients.
+    /// </summary>
+    public static async Task<Dictionary<Guid, MatchFacts>> FactsAsync(SwoovrDbContext db, List<Guid> accounts, string modeId, DateOnly today, CancellationToken cancellationToken)
+    {
+        var profiles = await (from p in db.MemberProfiles
+                              where accounts.Contains(p.AccountId)
+                              join c in db.GeoCities on p.HomeGeoNameId equals (int?)c.GeoNameId into cities
+                              from city in cities.DefaultIfEmpty()
+                              select new { p.AccountId, p.DateOfBirth, p.IdStatus, p.Bot, Lat = (double?)city.Latitude, Lon = (double?)city.Longitude }).ToListAsync(cancellationToken);
+        var chips = (await db.MemberModeIntentions.Where(i => accounts.Contains(i.AccountId) && i.ModeId == modeId).ToListAsync(cancellationToken))
+            .GroupBy(i => i.AccountId).ToDictionary(g => g.Key, g => (IReadOnlySet<Guid>)g.Select(i => i.IntentionId).ToHashSet());
+        var excluded = (await db.ModeFilters.Where(f => accounts.Contains(f.AccountId) && f.ModeId == modeId).ToListAsync(cancellationToken))
+            .ToDictionary(f => f.AccountId, f => (IReadOnlySet<Guid>)f.ExcludedChips.ToHashSet());
+        var identities = await IdentitiesAsync(db, accounts, cancellationToken);
+        IReadOnlySet<Guid> none = new HashSet<Guid>();
+        return profiles.ToDictionary(p => p.AccountId, p =>
+        {
+            var identity = identities.GetValueOrDefault(p.AccountId);
+            return new MatchFacts(p.DateOfBirth is { } dob ? AgePolicy.YearsOn(dob, today) : null, chips.GetValueOrDefault(p.AccountId, none),
+                excluded.GetValueOrDefault(p.AccountId, none), p.IdStatus == VerificationStatus.Verified, identity?.GenderId,
+                (IReadOnlyCollection<string>?)identity?.DatingShowMe ?? [], p.Lat, p.Lon, p.Bot);
         });
     }
 
@@ -211,7 +279,17 @@ public static class ProfileEndpoints
         var mine = await db.MemberModes.Where(m => m.AccountId == viewer).ToDictionaryAsync(m => m.ModeId, cancellationToken);
         var theirs = await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId).ToDictionaryAsync(m => m.ModeId, cancellationToken);
         var bots = person.Profile.Bot ? await BotModesAsync(db, [person.Profile.AccountId], cancellationToken) : [];
-        return modes.Where(m => DiscoveryEligibility.ShownIn(m.Id, m, mine.GetValueOrDefault(m.Id), theirs.GetValueOrDefault(m.Id), person.Candidate(bots))).ToList();
+        var eligible = modes.Where(m => DiscoveryEligibility.ShownIn(m.Id, m, mine.GetValueOrDefault(m.Id), theirs.GetValueOrDefault(m.Id), person.Candidate(bots))).ToList();
+        // D138, D140: a mode where the reciprocal rules fail (an excluded chip either way, Dating "show me" either way)
+        // isn't shared: neither can find nor contact the other there. Date of birth is required by Candidates (D139).
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var result = new List<ConnectionMode>();
+        foreach (var mode in eligible)
+        {
+            var facts = await FactsAsync(db, [viewer, person.Profile.AccountId], mode.Id, today, cancellationToken);
+            if (facts.Count == 2 && MatchPolicy.Reciprocal(mode.Id, facts[viewer], facts[person.Profile.AccountId])) result.Add(mode);
+        }
+        return result;
     }
 
     // Member-init (not a constructor) so EF can keep composing queries over it.
@@ -236,7 +314,7 @@ public static class ProfileEndpoints
         return from profile in db.MemberProfiles
                join account in db.Accounts on profile.AccountId equals account.Id
                where account.Realm == AccountRealm.Members && account.Status == AccountStatus.Active
-                     && adult.Contains(profile.AgeStatus) && profile.DisplayName != null && profile.AccountId != viewer
+                     && adult.Contains(profile.AgeStatus) && profile.DisplayName != null && (profile.DateOfBirth != null || profile.Bot) && profile.AccountId != viewer
                      && !db.Blocks.Any(b => b.BlockerAccountId == viewer && b.BlockedAccountId == profile.AccountId
                          || b.BlockerAccountId == profile.AccountId && b.BlockedAccountId == viewer)
                      // D133: suspended, terminated and discovery-restricted accounts are out of discovery while the sanction lasts.

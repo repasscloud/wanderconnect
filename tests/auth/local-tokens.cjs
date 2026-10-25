@@ -108,6 +108,16 @@ async function fillRootAdmin(page, fixture, fixturePath, totp) {
   await page.fill('#otp', totp(fixture.totpSecret)); await page.click('#kc-login');
 }
 
+/**
+ * Completes what discovery needs since slice R (D138, D139): a fictional date of birth and, for Dating, a gender with a
+ * "show me" that includes everyone, so suites written before R keep matching. Pass options to vary them.
+ */
+async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman', showMe = ['man', 'woman', 'non-binary', 'another', 'unsaid'] } = {}) {
+  const age = await call(token, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth } });
+  const identity = await call(token, '/api/v1/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
+  return [age.status, identity.status];
+}
+
 /** Runs an API operator command with the local database connection. */
 async function cli(...args) {
   const connection = `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
@@ -145,4 +155,4 @@ async function mailTo(address) {
 }
 
 module.exports = { keycloak, api, web, admin, sleep, claims, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin,
-  cli, sql, call, membersRealm, mailTo };
+  cli, sql, call, membersRealm, mailTo, matchReady };

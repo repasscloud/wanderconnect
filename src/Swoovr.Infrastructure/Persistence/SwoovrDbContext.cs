@@ -50,6 +50,9 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MemberNotice> MemberNotices => Set<MemberNotice>();
     public DbSet<StaffMemberLink> StaffMemberLinks => Set<StaffMemberLink>();
     public DbSet<Entitlement> Entitlements => Set<Entitlement>();
+    public DbSet<ProfileOption> ProfileOptions => Set<ProfileOption>();
+    public DbSet<MemberIdentity> MemberIdentities => Set<MemberIdentity>();
+    public DbSet<ModeFilter> ModeFilters => Set<ModeFilter>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -334,6 +337,46 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             entitlement.Property(e => e.Reason).HasMaxLength(EntitlementPolicy.ReasonMax);
             entitlement.HasIndex(e => new { e.AccountId, e.RevokedAt });
             entitlement.ToTable(t => t.HasCheckConstraint("ck_entitlements_dates", "ends_at IS NULL OR ends_at > starts_at"));
+        });
+        // D138: gender and orientation option lists are data with stable ids.
+        model.Entity<ProfileOption>(option =>
+        {
+            option.HasKey(o => new { o.Kind, o.Id });
+            option.Property(o => o.Kind).HasMaxLength(16);
+            option.Property(o => o.Id).HasMaxLength(32);
+            option.Property(o => o.Label).HasMaxLength(60);
+            option.HasData(
+                new ProfileOption { Kind = "gender", Id = "man", Label = "Man", SortOrder = 1 },
+                new ProfileOption { Kind = "gender", Id = "woman", Label = "Woman", SortOrder = 2 },
+                new ProfileOption { Kind = "gender", Id = "non-binary", Label = "Non-binary", SortOrder = 3 },
+                new ProfileOption { Kind = "gender", Id = "another", Label = "Another gender", SortOrder = 4 },
+                new ProfileOption { Kind = "gender", Id = "unsaid", Label = "Prefer not to say", SortOrder = 5 },
+                new ProfileOption { Kind = "orientation", Id = "straight", Label = "Straight", SortOrder = 1 },
+                new ProfileOption { Kind = "orientation", Id = "gay", Label = "Gay", SortOrder = 2 },
+                new ProfileOption { Kind = "orientation", Id = "lesbian", Label = "Lesbian", SortOrder = 3 },
+                new ProfileOption { Kind = "orientation", Id = "bisexual", Label = "Bisexual", SortOrder = 4 },
+                new ProfileOption { Kind = "orientation", Id = "pansexual", Label = "Pansexual", SortOrder = 5 },
+                new ProfileOption { Kind = "orientation", Id = "asexual", Label = "Asexual", SortOrder = 6 },
+                new ProfileOption { Kind = "orientation", Id = "queer", Label = "Queer", SortOrder = 7 },
+                new ProfileOption { Kind = "orientation", Id = "questioning", Label = "Questioning", SortOrder = 8 },
+                new ProfileOption { Kind = "orientation", Id = "another", Label = "Another orientation", SortOrder = 9 });
+        });
+        model.Entity<MemberIdentity>(identity =>
+        {
+            identity.HasKey(i => i.AccountId);
+            identity.HasOne<Account>().WithOne().HasForeignKey<MemberIdentity>(i => i.AccountId).OnDelete(DeleteBehavior.Cascade);
+            identity.Property(i => i.GenderId).HasMaxLength(32);
+            identity.Property(i => i.OrientationId).HasMaxLength(32);
+            identity.Property(i => i.GenderDescription).HasMaxLength(MatchPolicy.TextMax);
+            identity.Property(i => i.Pronouns).HasMaxLength(MatchPolicy.TextMax);
+        });
+        model.Entity<ModeFilter>(filter =>
+        {
+            filter.HasKey(f => new { f.AccountId, f.ModeId });
+            filter.Property(f => f.ModeId).HasMaxLength(32);
+            filter.HasOne<Account>().WithMany().HasForeignKey(f => f.AccountId).OnDelete(DeleteBehavior.Cascade);
+            filter.HasOne<ConnectionMode>().WithMany().HasForeignKey(f => f.ModeId).OnDelete(DeleteBehavior.Restrict);
+            filter.ToTable(t => t.HasCheckConstraint("ck_mode_filters_ages", "(min_age IS NULL OR min_age >= 18) AND (max_age IS NULL OR max_age <= 120) AND (min_age IS NULL OR max_age IS NULL OR min_age <= max_age)"));
         });
         model.Entity<FounderPlace>(place =>
         {

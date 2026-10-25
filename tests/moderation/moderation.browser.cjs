@@ -9,7 +9,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, admin, sleep, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin, cli, sql, call, claims, mailTo } = require('../auth/local-tokens.cjs');
+const { web, admin, sleep, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin, cli, sql, call, claims, mailTo, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, MELBOURNE = 2158177;
 const ESCALATION = process.env.SWOOVR_ESCALATION_EMAIL || 'moderation-escalations@example.test';
@@ -28,6 +28,7 @@ const ESCALATION = process.env.SWOOVR_ESCALATION_EMAIL || 'moderation-escalation
       tokens[n] = await memberToken(browser, members[n]);
       const saved = await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), about: 'About ' + n, homeCityId: n === 'far' ? MELBOURNE : ADELAIDE } });
       assert.equal(saved.status, 200, n);
+      await matchReady(tokens[n]);
       await call(tokens[n], '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);

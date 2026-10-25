@@ -9,7 +9,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, web, sleep, createMember, memberToken, rootAdminToken, cli, sql, call, claims, localEnv, membersRealm } = require('../auth/local-tokens.cjs');
+const { api, web, sleep, createMember, memberToken, rootAdminToken, cli, sql, call, claims, localEnv, membersRealm, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 // Python's json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False) for the integer/string/null/object
@@ -50,6 +50,7 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
       tokens[n] = await memberToken(browser, members[n]);
       const saved = await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: ADELAIDE } });
       assert.equal(saved.status, 200, n);
+      await matchReady(tokens[n]);
       await call(tokens[n], '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);

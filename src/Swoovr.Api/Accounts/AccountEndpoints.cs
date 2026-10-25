@@ -40,6 +40,12 @@ public static class AccountEndpoints
             if (denied is not null) return denied;
             var (account, profile, db) = (current!.Account!, current.Profile!, accounts.Db!);
             var now = clock.GetUtcNow();
+            // D139 (supersedes D69): a date of birth is required; an age alone or clearing it is refused.
+            if (update.DateOfBirth is null)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.DateOfBirthRequired, "Enter your date of birth.");
+            // DEFAULT (D157): once ID verification confirmed the age, a different date of birth needs support.
+            if (profile.AgeStatus == AgeStatus.Verified && profile.DateOfBirth is not null && profile.DateOfBirth != update.DateOfBirth)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DateOfBirthLocked, "Your age was confirmed by ID verification. Contact Swoovr support to change it.");
             var change = AgePolicy.Evaluate(profile.AgeStatus, update.DateOfBirth, update.Age, DateOnly.FromDateTime(now.UtcDateTime));
             if (change.Error != AgeChangeError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidAge, "That date of birth or age can't be used.");

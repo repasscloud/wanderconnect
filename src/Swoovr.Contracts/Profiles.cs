@@ -21,7 +21,9 @@ public sealed record ProfileUpdate(string? DisplayName, string? Area, string? Ab
 public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>? Intentions);
 
 /// <summary>One person in Explore for one mode, with the public badges the API decided (Q11). No age, email or account id.</summary>
-public sealed record ProfileCard(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges);
+/// <remarks>Age, Gender and Pronouns only as the person allows (D138, D139); never the date of birth.</remarks>
+public sealed record ProfileCard(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges,
+    int? Age = null, string? Gender = null, string? Pronouns = null);
 /// <summary>Explore for one mode in the viewer's home market (D125), named by Market.</summary>
 public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null);
 
@@ -35,4 +37,5 @@ public sealed record SharedModeView(string Id, string Label, IReadOnlyList<strin
 
 /// <summary>Whether the member wants to hear when Swoovr opens where they live (D125 rule 37).</summary>
 public sealed record MarketInterestUpdate(bool Interested);
-public sealed record PersonProfile(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges);
+public sealed record PersonProfile(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges,
+    int? Age = null, string? Gender = null, string? Pronouns = null);

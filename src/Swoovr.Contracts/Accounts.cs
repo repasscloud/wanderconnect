@@ -68,6 +68,11 @@ public static class ProblemCodes
     public const string ModerationNotPermitted = "moderation-not-permitted";
     public const string AppealNotAllowed = "appeal-not-allowed";
     public const string InvalidEntitlement = "invalid-entitlement";
+    public const string DateOfBirthRequired = "date-of-birth-required";
+    public const string DateOfBirthLocked = "date-of-birth-locked";
+    public const string DatingDetailsRequired = "dating-details-required";
+    public const string InvalidFilter = "invalid-filter";
+    public const string PlusRequired = "plus-required";
 }
 
 public sealed record CouponRequest(string Code);

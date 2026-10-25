@@ -4,7 +4,7 @@
 // build for operator commands. Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, cli, sql, call, claims } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -34,6 +34,7 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
 
     // Core profile: trimmed, limits and control characters refused, nothing stored in the audit log.
     mine = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', area: 'Adelaide CBD', about: 'Fictional adult.\nLikes walks.', homeCityId: 2078025 } });
+    await matchReady(tokens.ana);
     assert.equal(mine.status, 200); assert.equal(mine.body.displayName, 'Fictional Ana'); pass();
     for (const body of [{ displayName: 'x'.repeat(41) }, { area: 'y'.repeat(61) }, { about: 'z'.repeat(501) }, { displayName: 'Ana\u0007' }, { area: 'Adel\naide' }]) {
       const bad = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body });
@@ -78,9 +79,11 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
 
     // Ben: dating on and visible. Cai: dating on but hidden. Eli: dating visible but no display name.
     await call(tokens.ben, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg', homeCityId: 2078025 } });
+    await matchReady(tokens.ben);
     await call(tokens.ben, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
     await call(tokens.ben, '/api/v1/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
     await call(tokens.cai, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Cai', homeCityId: 2078025 } });
+    await matchReady(tokens.cai);
     await call(tokens.cai, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: false } });
     await call(tokens.eli, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
 
@@ -95,7 +98,8 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'area', 'badges', 'displayName', 'id', 'intentions']); pass(); // no age, email or account id
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'gender', 'id', 'intentions', 'pronouns']); pass(); // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
+    assert.ok(!JSON.stringify(benCard).includes('1990-') && !('dateOfBirth' in benCard)); pass();
     assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.
     await save('ben', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 4), chip('dating', 2)] });
@@ -146,12 +150,13 @@ const { web, createMember, memberToken, cli, sql, call, claims } = require('../a
     await sql(`UPDATE member_profiles SET bot = true WHERE public_id = '${benCard.id}'`);
     assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
     await sql(`UPDATE member_profiles SET bot = false WHERE public_id = '${benCard.id}'`);
-    await call(tokens.ben, '/api/v1/me/age', { method: 'PUT', body: { age: 16 } }); // fictional under-18 entry locks the account (D40)
+    await call(tokens.ben, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10) } }); // fictional under-18 date locks the account (D40)
     assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
     assert.equal((await call(tokens.ben, '/api/v1/explore?mode=dating')).body.code, 'account-locked'); pass();
 
     // A second visible person for the pages (Ben is now locked).
     await call(tokens.eli, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.', homeCityId: 2078025 } });
+    await matchReady(tokens.eli);
     await save('eli', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 6), chip('dating', 1)] });
 
     // Web: the profile page, Explore and a person page in WebAssembly, through /bff/ only.

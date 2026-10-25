@@ -5,7 +5,7 @@
 // enrolled fictional root admin. Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -20,6 +20,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
       tokens[n] = await memberToken(browser, members[n]);
       // Everyone lives in Adelaide: Explore, profiles and requests are local to one market (D125).
       await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: 2078025 } });
+      await matchReady(tokens[n]);
       for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = (await call(tokens[n], '/api/v1/me/profile')).body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);

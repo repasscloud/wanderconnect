@@ -63,6 +63,23 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<PlanView>> PlanAsync(CancellationToken cancellationToken = default) =>
         SendAsync<PlanView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/plan"), cancellationToken);
 
+    /// <summary>Gender and orientation option lists (D138).</summary>
+    public Task<ApiResult<ProfileOptionsView>> ProfileOptionsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ProfileOptionsView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profile-options"), cancellationToken);
+
+    public Task<ApiResult<IdentityView>> IdentityAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<IdentityView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/identity"), cancellationToken);
+
+    public Task<ApiResult<IdentityView>> SaveIdentityAsync(IdentityUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<IdentityView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/identity") { Content = JsonContent.Create(update) }, cancellationToken);
+
+    /// <summary>One mode's filters (D137); Plus filters need Plus from the entitlement service.</summary>
+    public Task<ApiResult<FilterView>> FiltersAsync(string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<FilterView>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/me/modes/{Uri.EscapeDataString(modeId)}/filters"), cancellationToken);
+
+    public Task<ApiResult<FilterView>> SaveFiltersAsync(string modeId, FilterUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<FilterView>(new HttpRequestMessage(HttpMethod.Put, $"api/v1/me/modes/{Uri.EscapeDataString(modeId)}/filters") { Content = JsonContent.Create(update) }, cancellationToken);
+
     /// <summary>The connection modes as configured (D92), in display order, with their intention chips.</summary>
     public Task<ApiResult<List<ConnectionModeView>>> ModesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ConnectionModeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/modes"), cancellationToken);
