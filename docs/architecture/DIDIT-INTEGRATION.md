@@ -9,7 +9,7 @@ The notes below were supplied by the owner from the Didit Business Console. They
 - Test mode until launch. Values live only in `.local/docker.env` (never committed, never in chat):
   - `SWOOVR_DIDIT_API_KEY` — the API key (the console's notes call it `DIDIT_API_KEY`).
   - `SWOOVR_DIDIT_WORKFLOW_ID` — the KYC workflow (ID document matched against the face, with liveness).
-  - `SWOOVR_DIDIT_WEBHOOK_SECRET` — the webhook destination's shared secret (the console's notes call it `DIDIT_WEBHOOK_SECRET`). Not created yet; see Q50.
+  - `SWOOVR_DIDIT_WEBHOOK_SECRET` — the webhook destination's shared secret (the console's notes call it `DIDIT_WEBHOOK_SECRET`). Set; the test destination uses webhook version V3.0, `status.updated` and `data.updated`, through a Cloudflare quick tunnel (D153).
 - The API creates the session with the member's internal account id as `vendor_data`, stores the session id against that account and gives the member the hosted link. Swoovr keeps only the outcome and operational metadata (D128), never document images, numbers, selfies or biometric data.
 - The webhook reaches the API directly; it is not on the member BFF allow-list. Audit entries carry ids only.
 
