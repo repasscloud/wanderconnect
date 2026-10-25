@@ -90,8 +90,18 @@ public static class MatchPolicy
     {
         if (a.Excluded.Overlaps(b.Chips) || b.Excluded.Overlaps(a.Chips)) return false;
         if (modeId != ConnectionModeIds.Dating || a.Bot || b.Bot) return true;
-        return a.GenderId is not null && b.GenderId is not null && a.ShowMe.Contains(b.GenderId) && b.ShowMe.Contains(a.GenderId);
+        return a.GenderId is not null && b.GenderId is not null && Includes(a.ShowMe, b.GenderId) && Includes(b.ShowMe, a.GenderId);
     }
+
+    /// <summary>"Prefer not to say" is a privacy choice, not a gender: never a "show me" value (D161).</summary>
+    public const string PreferNotToSay = "unsaid";
+
+    /// <summary>
+    /// Owner answer to Q57 (D161): someone who prefers not to say stays discoverable to every "show me" (other filters
+    /// still apply); "Another gender" is an inclusive "show me" category matching people who chose it. Neither option
+    /// limits the person who chose it to others with the same option: their own "show me" decides what they see.
+    /// </summary>
+    public static bool Includes(IReadOnlyCollection<string> showMe, string gender) => gender == PreferNotToSay || showMe.Contains(gender);
 
     /// <summary>Whether a member has what Dating needs to take part (D138, D139): a gender and at least one "show me".</summary>
     public static bool DatingReady(MatchFacts facts) => facts.GenderId is not null && facts.ShowMe.Count > 0;
@@ -141,7 +151,7 @@ public static class MatchPolicy
     {
         if (identity.GenderId is { } g && !genders.Contains(g)) return FilterError.UnknownGender;
         if (identity.OrientationId is { } o && !orientations.Contains(o)) return FilterError.UnknownGender;
-        if (identity.DatingShowMe.Any(s => !genders.Contains(s))) return FilterError.UnknownGender;
+        if (identity.DatingShowMe.Any(s => !genders.Contains(s) || s == PreferNotToSay)) return FilterError.UnknownGender;
         if (identity.GenderDescription is { Length: > TextMax } || identity.Pronouns is { Length: > TextMax }) return FilterError.TextTooLong;
         return FilterError.None;
     }

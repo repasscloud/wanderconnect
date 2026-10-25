@@ -1292,6 +1292,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("date_of_birth");
 
+                    b.Property<bool>("DateOfBirthVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("date_of_birth_verified");
+
+                    b.Property<DateTimeOffset?>("DateOfBirthVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("date_of_birth_verified_at");
+
                     b.Property<int?>("DeclaredAge")
                         .HasColumnType("integer")
                         .HasColumnName("declared_age");

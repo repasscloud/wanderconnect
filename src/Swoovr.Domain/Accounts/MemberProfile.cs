@@ -41,6 +41,13 @@ public sealed class MemberProfile
     /// <see cref="IdStatus"/> == Verified.
     /// </summary>
     public bool CanRequestIdVerification { get; set; } = true;
+    /// <summary>
+    /// Owner answer to Q53 (D158): true when an approved ID check reported the same date of birth as the profile's. A
+    /// different date leaves it false; the document's date is compared and dropped, never stored. Changing the profile's
+    /// date clears it.
+    /// </summary>
+    public bool DateOfBirthVerified { get; set; }
+    public DateTimeOffset? DateOfBirthVerifiedAt { get; set; }
     /// <summary>D130: when the member first met every founding condition (FounderEligibility); never moves once set.</summary>
     public DateTimeOffset? FounderEligibleAt { get; set; }
     /// <summary>D130: when the founding benefits start, kept apart from the allocation time (<see cref="FoundingSince"/>).</summary>

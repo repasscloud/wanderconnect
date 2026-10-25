@@ -8,7 +8,7 @@ const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright')
 const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, GLENELG = 2070830, MELBOURNE = 2158177;
-const everyone = ['man', 'woman', 'non-binary', 'another', 'unsaid'];
+const everyone = ['man', 'woman', 'non-binary', 'another']; // "prefer not to say" is never a show-me value (D161)
 const todayIn = zone => new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(new Date());
 const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
 
@@ -18,7 +18,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
     const root = await rootAdminToken(browser);
-    const names = ['ana', 'bob', 'cal', 'dex', 'eve', 'fay', 'gus', 'hal', 'ivy', 'tom', 'gle'];
+    const names = ['ana', 'bob', 'cal', 'dex', 'eve', 'fay', 'gus', 'hal', 'ivy', 'tom', 'gle', 'pns', 'oth'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('match-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
     const homes = { tom: MELBOURNE, gle: GLENELG };
@@ -51,7 +51,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
 
     // Options are data (D138).
     let r = await call(tokens.ana, '/api/v1/profile-options');
-    assert.deepEqual(r.body.genders.map(g => g.id), everyone); assert.ok(r.body.orientations.length >= 5); pass();
+    assert.deepEqual(r.body.genders.map(g => g.id), [...everyone, 'unsaid']); assert.ok(r.body.orientations.length >= 5); pass();
 
     // Date of birth (D139): required, never an age alone, never shown.
     assert.deepEqual(code(await call(tokens.eve, '/api/v1/me/age', { method: 'PUT', body: { age: 30 } })), [400, 'date-of-birth-required']); pass();
@@ -73,8 +73,9 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.ok(!ids_(await explore('gus')).includes(pid.bob)); pass(); // bob is in his thirties, hidden age or not
     await filters('gus', {});
     assert.ok(ids_(await explore('gus')).includes(pid.bob)); pass();
-    // After ID verification the date of birth can't change without support (D157; the verified status is simulated here).
-    await sql(`UPDATE member_profiles SET age_status = 'Verified' WHERE account_id = '${ids.ivy}'`);
+    // A date of birth that ID verification matched can't change without support (D158; the mark is simulated here, the
+    // real path is in tests/verification/didit.browser.cjs).
+    await sql(`UPDATE member_profiles SET age_status = 'Verified', date_of_birth_verified = true WHERE account_id = '${ids.ivy}'`);
     assert.deepEqual(code(await call(tokens.ivy, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1980-01-01' } })), [409, 'date-of-birth-locked']); pass();
     assert.equal((await call(tokens.ivy, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-01-01' } })).status, 200); pass(); // the same date is fine
 
@@ -92,6 +93,20 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.deepEqual(code(await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.cal, mode: 'dating' } })), [404, 'not-available']); pass();
     assert.equal((await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.cal, mode: 'friends' } })).status, 201); pass();
     assert.equal((await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.bob, mode: 'dating' } })).status, 201); pass();
+    // Q57 (D161): "prefer not to say" is a privacy choice: never a show-me value, and discoverable to any show me;
+    // "another gender" is an inclusive show-me category; neither limits the person to others with the same option.
+    assert.deepEqual(code(await call(tokens.pns, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'woman', showGender: true, showOrientation: false, showAge: true, datingShowMe: ['unsaid'] } })), [400, 'invalid-profile']); pass();
+    await matchReady(tokens.pns, { gender: 'unsaid', showMe: ['man', 'woman'] });
+    await matchReady(tokens.oth, { gender: 'another', showMe: ['woman'] });
+    assert.ok(ids_(await explore('ana', 'dating')).includes(pid.pns)); pass(); // ana shows herself men only, yet sees someone who prefers not to say
+    assert.ok(ids_(await explore('bob', 'dating')).includes(pid.pns)); pass();
+    assert.ok(ids_(await explore('cal', 'dating')).includes(pid.pns)); pass(); // any show me includes them (cal looks for men only)
+    assert.ok(!ids_(await explore('dex', 'dating')).includes(pid.pns)); pass(); // but pns's own show me (men and women) leaves out dex (non-binary)
+    assert.ok(ids_(await explore('pns', 'dating')).includes(pid.bob)); pass(); // not limited to others who prefer not to say
+    assert.equal((await call(tokens.pns, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.bob)?.gender ?? null, null); pass(); // bob hid his gender
+    assert.ok(ids_(await explore('gus', 'dating')).includes(pid.oth)); pass(); // gus (a woman) includes "another gender"
+    assert.ok(!ids_(await explore('ana', 'dating')).includes(pid.oth)); pass(); // ana's show me leaves it out
+    assert.ok(ids_(await explore('oth', 'dating')).includes(pid.gus)); pass(); // oth sees women, not only "another"
     // Identity validation; orientation never decides who anyone sees.
     assert.deepEqual(code(await call(tokens.gus, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'robot', showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } })), [400, 'invalid-profile']); pass();
     assert.deepEqual(code(await call(tokens.gus, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'man', pronouns: 'x'.repeat(41), showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } })), [400, 'invalid-profile']); pass();

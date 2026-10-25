@@ -24,12 +24,13 @@
             <label class="check"><input type="checkbox" @bind="showOrientation" /> Show my orientation</label>
             <label class="check"><input type="checkbox" @bind="showAge" data-show-age /> Show my age</label>
             <fieldset data-show-me><legend>In Dating, show me</legend>
-                @foreach (var g in options.Genders)
+                @* D161: "Prefer not to say" is a privacy choice, not a gender, so it's never a "show me" option. *@
+                @foreach (var g in options.Genders.Where(g => g.Id != "unsaid"))
                 {
                     <label class="check"><input type="checkbox" checked="@showMe.Contains(g.Id)" @onchange="e => Toggle(showMe, g.Id, e)" data-show-me-option="@g.Id" /> @g.Label</label>
                 }
             </fieldset>
-            <p class="field-help">"Show me" works both ways: you see someone in Dating only if each of you is in the other's choice.</p>
+            <p class="field-help">"Show me" works both ways: you see someone in Dating only if each of you is in the other's choice. People who prefer not to say their gender can appear for anyone.</p>
             <button type="submit" class="button" disabled="@busy">Save</button>
             <p role="status" aria-live="polite" class="field-help" data-identity-status="@identityStatus">@identityMessage</p>
         </form>

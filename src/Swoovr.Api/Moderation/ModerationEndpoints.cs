@@ -197,17 +197,22 @@ public static class ModerationEndpoints
     private static async Task EscalateAsync(SwoovrDbContext db, ModerationCase item, string category, IConfiguration configuration, IEmailSender email,
         DateTimeOffset now, ILoggerFactory logs, CancellationToken cancellationToken)
     {
+        // D159: the primary and backup contacts (Moderation:EscalationEmail and Moderation:EscalationBackupEmail, from
+        // SWOOVR_ESCALATION_EMAIL and SWOOVR_ESCALATION_BACKUP_EMAIL); the same address twice is sent once.
         var to = configuration["Moderation:EscalationEmail"];
-        var sent = !string.IsNullOrWhiteSpace(to) && await email.SendAsync(new EmailMessage(to, "Swoovr urgent report: acknowledgement needed",
-            $"""
-            An urgent report needs review.
+        var sent = false;
+        foreach (var address in new[] { to, configuration["Moderation:EscalationBackupEmail"] }.Where(a => !string.IsNullOrWhiteSpace(a))
+                     .Select(a => a!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
+            sent |= await email.SendAsync(new EmailMessage(address, "Swoovr urgent report: acknowledgement needed",
+                $"""
+                An urgent report needs review.
 
-            Case: {item.Id}
-            Category: {category}
-            Queue: {item.Queue}
+                Case: {item.Id}
+                Category: {category}
+                Queue: {item.Queue}
 
-            Open the Swoovr admin app and acknowledge the case. It stays open until someone does.
-            """), cancellationToken);
+                Open the Swoovr admin app and acknowledge the case. It stays open until someone does.
+                """), cancellationToken);
         item.EscalatedAt = now;
         Audit.Record(db, now, null, "system", sent ? "case.escalated" : "case.escalation-failed", "moderation-case", item.Id.ToString(),
             string.IsNullOrWhiteSpace(to) ? "unconfigured" : null);
@@ -477,7 +482,6 @@ public static class ModerationEndpoints
     {
         ModerationRefusal.TooLong => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Restrictions last up to 30 days and suspensions up to 90."),
         ModerationRefusal.ReasonRequired => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Give a reason (up to 1,000 characters)."),
-        ModerationRefusal.NothingRestricted => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose what the restriction covers."),
         _ => Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModerationNotPermitted, refusal switch
         {
             ModerationRefusal.OwnAccount => "You can't decide a case about your own member account.",
@@ -515,7 +519,7 @@ public static class ModerationEndpoints
         var staffAffiliated = subject?.Employee == true || item?.Queue == CaseQueue.Admin;
         var duration = request.Days is { } days ? TimeSpan.FromDays(days) : (TimeSpan?)null;
         var refusal = ModerationPolicy.Check(action.Value, current.StaffRole, staffAffiliated, await OwnAccountAsync(db, current.Account!.Id, subjectId, cancellationToken),
-            duration, request.Reason?.Trim(), restrictsSomething: request.HideFromDiscovery || request.NoNewRequests || request.NoMessages);
+            duration, request.Reason?.Trim());
         if (refusal != ModerationRefusal.None) return Refused(refusal);
         // DEFAULT: suspension and termination need a sign-in within the last 15 minutes, like other sensitive admin actions.
         if (action is ModerationAction.Suspend or ModerationAction.Terminate && !current.RecentlyAuthenticated(now))
@@ -588,7 +592,8 @@ public static class ModerationEndpoints
             profile is null ? null : Wire(profile.IdStatus), profile?.CanRequestIdVerification ?? false, profile?.Bot ?? false, profile?.Employee ?? false,
             profile?.FoundingMember ?? false, profile?.HomeMarketId, profile?.HomeMarketMovedAt, Wire(plan), sanctions.Select(s => View(s, now)).ToList(),
             grants.Select(g => Entitlements.View(g, now)).ToList(),
-            await db.ModerationCases.CountAsync(c => c.SubjectAccountId == id && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken));
+            await db.ModerationCases.CountAsync(c => c.SubjectAccountId == id && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken),
+            profile?.DateOfBirthVerified ?? false);
     }
 }
 

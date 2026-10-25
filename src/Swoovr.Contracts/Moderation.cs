@@ -62,4 +62,4 @@ public sealed record EntitlementView(Guid Id, string Tier, string Source, DateTi
 /// <summary>One account as staff see it in the admin app (D136).</summary>
 public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, string? DisplayName, string? AgeStatus, string? IdStatus,
     bool CanRequestIdVerification, bool Bot, bool Employee, bool Founder, string? HomeMarket, DateTimeOffset? HomeMarketMovedAt, string Plan,
-    IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases);
+    IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases, bool DateOfBirthVerified = false);

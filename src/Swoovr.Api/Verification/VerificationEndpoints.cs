@@ -245,6 +245,12 @@ public static class VerificationEndpoints
                 (profile.IdStatus, profile.IdCheckedAt) = (VerificationStatus.Rejected, now);
                 Audit.Record(db, now, null, "system", "account.locked", "account", account.Id.ToString(), "underage");
             }
+            // D158: compare the document's date of birth with the profile's; only an exact match marks it verified. The
+            // document's date is dropped here; the audit says matched or not, never either date.
+            var matches = IdVerificationPolicy.DateOfBirthMatches(profile.DateOfBirth, session.DateOfBirth);
+            (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (matches, matches ? now : null);
+            Audit.Record(db, now, null, "system", matches ? "dob.verified" : "dob.not-verified", "account", account.Id.ToString(),
+                session.DateOfBirth is null ? "no-document-date" : profile.DateOfBirth is null ? "no-profile-date" : null);
             if (FounderEligibility.Stamp(profile, account.Status, now))
                 Audit.Record(db, now, null, "system", "founder.eligible", "account", account.Id.ToString());
         }

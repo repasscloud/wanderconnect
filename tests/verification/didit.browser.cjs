@@ -39,7 +39,7 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
   };
   const event = (session, status, vendor, extra = {}) => ({ event_id: crypto.randomUUID(), session_id: session, status, webhook_type: 'status.updated',
     created_at: Math.floor(Date.now() / 1000), timestamp: Math.floor(Date.now() / 1000), workflow_id: workflow, vendor_data: vendor, ...extra });
-  const approved = age => ({ decision: { id_verifications: [{ node_id: 'feature_ocr', status: 'Approved', age, document_type: 'Passport' }] } });
+  const approved = (age, dateOfBirth) => ({ decision: { id_verifications: [{ node_id: 'feature_ocr', status: 'Approved', age, document_type: 'Passport', ...(dateOfBirth ? { date_of_birth: dateOfBirth } : {}) }] } });
   try {
     const root = await rootAdminToken(browser);
     const names = ['ana', 'bel', 'cat', 'dee', 'eve', 'nev', 'web', 'bot'];
@@ -117,11 +117,14 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
     r = await hook(event(anaSession, 'In Progress', ids.ana));
     assert.deepEqual([r.status, r.body.outcome], [200, 'applied']); assert.equal(await stateOf('ana'), 'InProgress'); pass();
     assert.deepEqual([(await view('ana')).body.idStatus, (await view('ana')).body.attemptState], ['pending', 'inProgress']); pass();
-    const approval = event(anaSession, 'Approved', ids.ana, approved(30));
+    const approval = event(anaSession, 'Approved', ids.ana, approved(30, '1985-05-05')); // a different date from ana's profile (1990-01-01)
     assert.equal((await hook(approval, { sign: 'raw' })).body.outcome, 'applied'); pass();
     r = await view('ana');
     assert.deepEqual([r.body.idStatus, r.body.attemptState, r.body.url, r.body.canStart, r.body.refusal], ['verified', 'approved', null, false, 'alreadyVerified']); pass();
     assert.equal((await call(tokens.ana, '/api/v1/me')).body.ageStatus, 'verified'); pass();
+    // Q53 (D158): the document's date differs from the profile's, so the date of birth isn't marked verified, and stays editable.
+    assert.equal((await call(tokens.ana, '/api/v1/me')).body.dateOfBirthVerified, false); pass();
+    assert.equal(await sql(`SELECT date_of_birth_verified::text FROM member_profiles WHERE account_id = '${ids.ana}'`), 'false'); pass();
     assert.ok((await call(tokens.ana, '/api/v1/me')).body.badges.some(b => b.badge === 'idVerified')); pass();
     assert.ok((await call(tokens.bel, `/api/v1/profiles/${pid.ana}`)).body.badges.some(b => b.badge === 'idVerified')); pass(); // others see the badge
     assert.deepEqual((await hook(approval)).body, { duplicate: true }); pass(); // the same event id again
@@ -216,8 +219,16 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
     const restored = await fakeAttempt('dee'); // a second, admin-allowed attempt for dee ends approved
     await sql(`UPDATE id_verification_attempts SET self_service = false WHERE session_id = '${restored}'`);
     await sql(`UPDATE id_verification_attempts SET state = 'Abandoned' WHERE account_id = '${ids.dee}' AND session_id <> '${restored}'`);
-    await hook(event(restored, 'Approved', ids.dee, approved(41)));
+    await hook(event(restored, 'Approved', ids.dee, approved(36, '1990-01-01'))); // the same date as dee's profile
     assert.equal((await view('dee')).body.idStatus, 'verified'); pass();
+    let deeMe = (await call(tokens.dee, '/api/v1/me')).body;
+    assert.deepEqual([deeMe.dateOfBirthVerified, deeMe.dateOfBirth], [true, '1990-01-01']); pass(); // matched: marked verified
+    assert.deepEqual(code(await call(tokens.dee, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1991-01-01' } })), [409, 'date-of-birth-locked']); pass();
+    assert.equal((await call(tokens.dee, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-01-01' } })).status, 200); pass(); // the same date is fine
+    assert.equal((await call(tokens.ana, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-02-01' } })).status, 200); pass(); // ana's wasn't verified
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action IN ('dob.verified', 'dob.not-verified') AND (detail LIKE '%19%' OR detail ~ '[0-9]{4}-[0-9]{2}')`), '0'); pass(); // never a date
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'dob.verified' AND target_id = '${ids.dee}'`), '1'); pass();
+    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.dee}/summary`)).body.dateOfBirthVerified, true); pass();
     const placesBefore = Number(await sql(`SELECT count(*) FROM founder_places`));
     const run = await cli('founders', 'allocate');
     assert.match(run, /Founders: \d+ newly eligible, \d+ places allocated, \d+ skipped, \d+ left\./); pass();

@@ -147,7 +147,7 @@ public sealed class StaffMemberLink
 
 public enum ModerationAction { Dismiss, Warn, Restrict, Suspend, Terminate, Lift, RevokeStaffAffiliation, Acknowledge, DecideAppeal }
 
-public enum ModerationRefusal { None, NotPermitted, StaffAffiliatedCase, OwnAccount, AdminSanction, TooLong, ReasonRequired, NothingRestricted }
+public enum ModerationRefusal { None, NotPermitted, StaffAffiliatedCase, OwnAccount, AdminSanction, TooLong, ReasonRequired }
 
 /// <summary>
 /// Who may do what in moderation (D133–D135). Support reviews, dismisses, warns and applies or lifts temporary
@@ -162,7 +162,7 @@ public static class ModerationPolicy
     public const int ReasonMax = 1000;
 
     public static ModerationRefusal Check(ModerationAction action, AccountRole actor, bool staffAffiliatedSubject, bool ownAccount,
-        TimeSpan? duration = null, string? reason = null, Sanction? lifting = null, bool restrictsSomething = true)
+        TimeSpan? duration = null, string? reason = null, Sanction? lifting = null)
     {
         if (actor is not (AccountRole.Admin or AccountRole.Support)) return ModerationRefusal.NotPermitted;
         if (ownAccount) return ModerationRefusal.OwnAccount;
@@ -177,7 +177,6 @@ public static class ModerationPolicy
         if (action is ModerationAction.Warn or ModerationAction.Restrict or ModerationAction.Suspend or ModerationAction.Terminate or ModerationAction.Lift
             && string.IsNullOrWhiteSpace(reason)) return ModerationRefusal.ReasonRequired;
         if (reason is { Length: > ReasonMax }) return ModerationRefusal.ReasonRequired;
-        if (action == ModerationAction.Restrict && !restrictsSomething) return ModerationRefusal.NothingRestricted;
         if (action == ModerationAction.Restrict && (duration is null || duration <= TimeSpan.Zero || duration > MaxRestriction)) return ModerationRefusal.TooLong;
         if (action == ModerationAction.Suspend && (duration is null || duration <= TimeSpan.Zero || duration > MaxSuspension)) return ModerationRefusal.TooLong;
         return ModerationRefusal.None;
@@ -204,11 +203,18 @@ public static class ModerationPolicy
 }
 
 /// <summary>What the account's live sanctions mean right now (D133); expired or lifted ones count for nothing.</summary>
-public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFromDiscovery, bool NoNewRequests, bool NoMessages)
+/// <remarks>
+/// Owner answer to Q55 (D160): a restricted member can't do anything in the app either; restrictions are a safety
+/// concern. Restricted, suspended and terminated accounts are all barred (only their account, notices and appeals stay
+/// open, and the app shows the restricted screen); the targeted options on a restriction are kept as a record only.
+/// </remarks>
+public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFromDiscovery, bool NoNewRequests, bool NoMessages, bool Restricted = false)
 {
     public static readonly Enforcement None = new(false, false, false, false, false);
-    /// <summary>Suspended or terminated: no normal member functions.</summary>
-    public bool Barred => Suspended || Terminated;
+    /// <summary>Restricted, suspended or terminated: no normal member functions.</summary>
+    public bool Barred => Suspended || Terminated || Restricted;
+    /// <summary>The account state members and the web host see: active, restricted, suspended or terminated.</summary>
+    public string State => Terminated ? "terminated" : Suspended ? "suspended" : Restricted ? "restricted" : "active";
 
     public static bool Live(Sanction s, DateTimeOffset now) => s.LiftedAt is null && s.StartsAt <= now && (s.EndsAt is null || s.EndsAt > now);
 
@@ -217,11 +223,9 @@ public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFro
         var live = sanctions.Where(s => Live(s, now)).ToList();
         var terminated = live.Any(s => s.Kind == SanctionKind.Termination);
         var suspended = live.Any(s => s.Kind == SanctionKind.Suspension);
-        var barred = terminated || suspended;
-        return new(suspended, terminated,
-            barred || live.Any(s => s.Kind == SanctionKind.Restriction && s.HideFromDiscovery),
-            barred || live.Any(s => s.Kind == SanctionKind.Restriction && s.NoNewRequests),
-            barred || live.Any(s => s.Kind == SanctionKind.Restriction && s.NoMessages));
+        var restricted = live.Any(s => s.Kind == SanctionKind.Restriction);
+        var barred = terminated || suspended || restricted;
+        return new(suspended, terminated, barred, barred, barred, restricted);
     }
 }
 

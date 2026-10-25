@@ -53,7 +53,8 @@ public sealed class DiditWebhookEvent
 public enum IdStartRefusal { None, AlreadyVerified, AttemptUsed, InProgress, NotAMember, Bot }
 
 /// <summary>The member's side of a session, as the provider reports it (no document data reaches this record).</summary>
-public sealed record ProviderSession(string SessionId, string Status, string? VendorData, string? WorkflowId, bool? Adult, string? Url = null);
+/// <param name="DateOfBirth">The date of birth on an approved document, only for comparing with the profile (D158); never stored.</param>
+public sealed record ProviderSession(string SessionId, string Status, string? VendorData, string? WorkflowId, bool? Adult, string? Url = null, DateOnly? DateOfBirth = null);
 
 /// <summary>
 /// The provider boundary for ID verification (D126): Infrastructure implements it for Didit; tests use a fake.
@@ -144,6 +145,9 @@ public static class IdVerificationPolicy
     /// The age status after an approved check (D127, D139): an approved adult becomes Verified; a check that shows the
     /// member is under 18 makes them Underage (the account locks). Without an age result the status is unchanged.
     /// </summary>
+    /// <summary>D158: the profile's date of birth is verified only when an approved document reports exactly the same date.</summary>
+    public static bool DateOfBirthMatches(DateOnly? profile, DateOnly? document) => profile is { } p && document is { } d && p == d;
+
     public static AgeStatus AgeAfterApproval(AgeStatus current, bool? adult) =>
         adult switch { true => AgeStatus.Verified, false => AgeStatus.Underage, null => current };
 }

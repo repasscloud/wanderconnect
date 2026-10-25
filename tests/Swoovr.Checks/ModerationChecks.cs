@@ -37,7 +37,7 @@ static class ModerationChecks
         Expect(ModerationPolicy.Check(ModerationAction.Restrict, admin, false, false, TimeSpan.Zero, "r") == ModerationRefusal.TooLong, "zero days");
         Expect(ModerationPolicy.Check(ModerationAction.Warn, admin, false, false, reason: " ") == ModerationRefusal.ReasonRequired, "a reason is required");
         Expect(ModerationPolicy.Check(ModerationAction.Warn, admin, false, false, reason: new string('x', 1001)) == ModerationRefusal.ReasonRequired, "reason over 1,000");
-        Expect(ModerationPolicy.Check(ModerationAction.Restrict, admin, false, false, day, "r", restrictsSomething: false) == ModerationRefusal.NothingRestricted, "a restriction covers something");
+        Expect(ModerationPolicy.Check(ModerationAction.Restrict, support, false, false, day, "r") == ModerationRefusal.None, "a restriction needs no scope since Q55");
         // Lifting: support can't lift what an admin applied, nor a suspension.
         var byAdmin = new Sanction { Kind = SanctionKind.Restriction, CreatedByRole = admin };
         var bySupport = new Sanction { Kind = SanctionKind.Restriction, CreatedByRole = support };
@@ -61,9 +61,12 @@ static class ModerationChecks
             new() { Kind = kind, StartsAt = now.AddDays(-1), EndsAt = days is { } d ? now.AddDays(-1 + d) : null, HideFromDiscovery = hide, NoNewRequests = noRequests, LiftedAt = lifted };
         Expect(Enforcement.For([], now) == Enforcement.None, "nothing");
         Expect(Enforcement.For([S(SanctionKind.Warning, null)], now) == Enforcement.None, "a warning restricts nothing");
-        var targeted = Enforcement.For([S(SanctionKind.Restriction, 7, noRequests: true)], now);
-        Expect(targeted.NoNewRequests && !targeted.HiddenFromDiscovery && !targeted.Barred, "a targeted restriction");
-        Expect(Enforcement.For([S(SanctionKind.Restriction, 7, hide: true)], now).HiddenFromDiscovery, "out of discovery");
+        // Q55 (D160): any restriction bars the member, whatever options were ticked.
+        var restricted = Enforcement.For([S(SanctionKind.Restriction, 7, noRequests: true)], now);
+        Expect(restricted.Barred && restricted.Restricted && restricted.HiddenFromDiscovery && restricted.NoNewRequests && restricted.NoMessages, "a restriction bars everything");
+        Expect(restricted.State == "restricted" && Enforcement.None.State == "active", "restricted state");
+        Expect(Enforcement.For([S(SanctionKind.Restriction, 7), S(SanctionKind.Suspension, 7)], now).State == "suspended", "suspension outranks restriction");
+        Expect(!Enforcement.For([S(SanctionKind.Restriction, 1)], now).Barred, "an expired restriction lifts by itself");
         var suspended = Enforcement.For([S(SanctionKind.Suspension, 30)], now);
         Expect(suspended.Barred && suspended.HiddenFromDiscovery && suspended.NoNewRequests && suspended.NoMessages, "a suspension bars everything");
         Expect(Enforcement.For([S(SanctionKind.Termination, null)], now).Terminated, "termination is permanent");

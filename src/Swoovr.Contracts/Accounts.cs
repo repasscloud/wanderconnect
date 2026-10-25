@@ -4,12 +4,16 @@ namespace Swoovr.Contracts;
 public sealed record BadgeView(string Badge, DateTimeOffset? CheckedAt);
 
 /// <summary>The signed-in member's own account. Carries no email, issuer, subject or token.</summary>
+/// <param name="DateOfBirthVerified">An approved ID check reported the same date of birth (D158).</param>
+/// <param name="AccountState">active, restricted, suspended or terminated (D160); anything but active shows the restricted screen.</param>
 public sealed record MemberAccount(
     string AgeStatus,
     int? Age,
     DateOnly? DateOfBirth,
     int? DeclaredAge,
-    IReadOnlyList<BadgeView> Badges);
+    IReadOnlyList<BadgeView> Badges,
+    bool DateOfBirthVerified = false,
+    string AccountState = "active");
 
 /// <summary>Both optional; a date of birth, when given, decides the age (owner, 23 October 2026).</summary>
 public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
@@ -61,6 +65,7 @@ public static class ProblemCodes
     public const string AlreadyVerified = "already-verified";
     public const string FounderNotEligible = "founder-not-eligible";
     public const string AccountSuspended = "account-suspended";
+    public const string AccountRestricted = "account-restricted";
     public const string Restricted = "restricted";
     public const string UnknownCategory = "unknown-category";
     public const string UnsupportedSubject = "unsupported-subject";

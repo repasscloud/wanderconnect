@@ -17,6 +17,9 @@ services:
       Didit__WebhookSecret: ${SWOOVR_DIDIT_WEBHOOK_SECRET:-}
       # D136: fictional local password support/admin users (Development only; hosted staff use Entra SSO).
       Staff__LocalPasswords: "true"
+      # D135, D159: urgent-report escalation contacts, from .local/docker.env only (Mailpit catches them locally).
+      Moderation__EscalationEmail: ${SWOOVR_ESCALATION_EMAIL:-}
+      Moderation__EscalationBackupEmail: ${SWOOVR_ESCALATION_BACKUP_EMAIL:-}
     depends_on:
       postgres:
         condition: service_healthy

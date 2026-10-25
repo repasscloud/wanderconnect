@@ -63,6 +63,12 @@ static class VerificationChecks
         Expect(DiditClient.Adult(Decision("""{}""")) is null, "no document check");
         var read = DiditClient.Read(Decision("""{"session_id":"s","status":"Approved","vendor_data":"v","workflow_id":"w","decision":{"id_verifications":[{"status":"Approved","age":40,"document_number":"X"}]}}"""))!;
         Expect(read is { SessionId: "s", VendorData: "v", WorkflowId: "w", Adult: true }, "webhook envelope read");
+        // Q53 (D158): the document's date of birth is compared with the profile's; only an exact match verifies it.
+        Expect(DiditClient.DateOfBirth(Decision("""{"id_verifications":[{"status":"Declined","date_of_birth":"1990-01-01"},{"status":"Approved","date_of_birth":"1991-02-03"}]}""")) == new DateOnly(1991, 2, 3), "date from the approved document");
+        Expect(DiditClient.DateOfBirth(Decision("""{"id_verifications":[{"status":"Approved","date_of_birth":"03/02/1991"}]}""")) is null, "only ISO dates");
+        Expect(IdVerificationPolicy.DateOfBirthMatches(new DateOnly(1991, 2, 3), new DateOnly(1991, 2, 3)), "same date verifies");
+        Expect(!IdVerificationPolicy.DateOfBirthMatches(new DateOnly(1991, 2, 3), new DateOnly(1991, 3, 2)), "a different date doesn't");
+        Expect(!IdVerificationPolicy.DateOfBirthMatches(null, new DateOnly(1991, 2, 3)) && !IdVerificationPolicy.DateOfBirthMatches(new DateOnly(1991, 2, 3), null), "missing dates don't");
 
         // Founders (D130).
         var eligible = new MemberProfile { DisplayName = "A", HomeGeoNameId = 1, IdStatus = VerificationStatus.Verified, AgeStatus = AgeStatus.Verified };

@@ -46,13 +46,13 @@ else
                 <select name="ActForm.Action">
                     <option value="dismiss">Dismiss (no action)</option>
                     <option value="warn">Warn</option>
-                    <option value="restrict">Restrict (up to 30 days)</option>
+                    <option value="restrict">Restrict (up to 30 days; the member can't use the app)</option>
                     <option value="suspend">Suspend (admins, up to 90 days)</option>
                     <option value="terminate">Terminate (admins)</option>
                 </select></label>
             <label>Reason (shown to the member)<textarea name="ActForm.Reason" maxlength="1000" rows="3"></textarea></label>
             <label>Days<input name="ActForm.Days" type="number" min="1" max="90" /></label>
-            <fieldset><legend>A restriction covers</legend>
+            <fieldset><legend>Recorded with a restriction (the member is fully restricted either way, Q55)</legend>
                 <label><input type="checkbox" name="ActForm.HideFromDiscovery" value="true" /> Out of discovery</label>
                 <label><input type="checkbox" name="ActForm.NoNewRequests" value="true" /> No new requests</label>
                 <label><input type="checkbox" name="ActForm.NoMessages" value="true" /> No messages</label>

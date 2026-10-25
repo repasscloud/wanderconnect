@@ -28,7 +28,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // Own account and age entry: a date of birth is required (D139, superseding the 23 October age-alone option).
     let me = await call(aliceToken, '/api/v1/me');
     assert.equal(me.status, 200); pass();
-    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], beta: undefined }); pass();
+    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], dateOfBirthVerified: false, accountState: 'active', beta: undefined }); pass();
     me = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-05-01', age: 20 } });
     assert.equal(me.status, 200); assert.equal(me.body.ageStatus, 'selfDeclaredAdult'); assert.equal(me.body.dateOfBirth, '1990-05-01'); assert.equal(me.body.declaredAge, null); pass();
     assert.equal(me.body.age, new Date().getUTCFullYear() - 1990 - (new Date().toISOString().slice(5, 10) < '05-01' ? 1 : 0)); pass();

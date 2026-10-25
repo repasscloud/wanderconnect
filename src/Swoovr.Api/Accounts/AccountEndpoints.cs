@@ -31,7 +31,7 @@ public static class AccountEndpoints
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true);
-            return denied ?? Results.Ok(View(current!.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken)));
+            return denied ?? Results.Ok(View(current!.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), current.Enforcement.State));
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -43,9 +43,11 @@ public static class AccountEndpoints
             // D139 (supersedes D69): a date of birth is required; an age alone or clearing it is refused.
             if (update.DateOfBirth is null)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.DateOfBirthRequired, "Enter your date of birth.");
-            // DEFAULT (D157): once ID verification confirmed the age, a different date of birth needs support.
-            if (profile.AgeStatus == AgeStatus.Verified && profile.DateOfBirth is not null && profile.DateOfBirth != update.DateOfBirth)
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DateOfBirthLocked, "Your age was confirmed by ID verification. Contact Swoovr support to change it.");
+            // D158: a date of birth that ID verification matched can't change without support; any other change clears
+            // the verified mark (it no longer describes the date on file).
+            if (profile.DateOfBirthVerified && profile.DateOfBirth != update.DateOfBirth)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DateOfBirthLocked, "Your date of birth was verified with your ID. Contact Swoovr support to change it.");
+            if (profile.DateOfBirth != update.DateOfBirth) (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (false, null);
             var change = AgePolicy.Evaluate(profile.AgeStatus, update.DateOfBirth, update.Age, DateOnly.FromDateTime(now.UtcDateTime));
             if (change.Error != AgeChangeError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidAge, "That date of birth or age can't be used.");
@@ -142,17 +144,19 @@ public static class AccountEndpoints
         // Sanctions are read on every request, so an action applies at once to every client and live session (D133).
         var sanctions = await accounts.Db!.Sanctions.Where(s => s.AccountId == current.Account.Id && s.LiftedAt == null).ToListAsync(cancellationToken);
         var enforcement = Enforcement.For(sanctions, DateTimeOffset.UtcNow);
+        // D160: restricted members are barred too, with their own code so clients show the restricted screen.
         if (enforcement.Barred && !barredExempt)
-            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended,
-                enforcement.Terminated ? "This account has been closed." : "This account is suspended."));
+            return (null, enforcement.Terminated || enforcement.Suspended
+                ? Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended, enforcement.Terminated ? "This account has been closed." : "This account is suspended.")
+                : Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountRestricted, "Your account is restricted."));
         if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
         return (current with { Enforcement = enforcement }, null);
     }
 
-    public static MemberAccount View(MemberProfile profile, DateOnly today, IReadOnlyList<Badge> badgeOrder) => new(
+    public static MemberAccount View(MemberProfile profile, DateOnly today, IReadOnlyList<Badge> badgeOrder, string accountState = "active") => new(
         Wire(profile.AgeStatus), AgePolicy.CurrentAge(profile, today), profile.DateOfBirth, profile.DeclaredAge,
-        Swoovr.Api.Profiles.ProfileEndpoints.Badges(profile, badgeOrder));
+        Swoovr.Api.Profiles.ProfileEndpoints.Badges(profile, badgeOrder), profile.DateOfBirthVerified, accountState);
 
     private static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 }

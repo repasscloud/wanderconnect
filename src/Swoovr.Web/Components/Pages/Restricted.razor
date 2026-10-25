@@ -1,0 +1,27 @@
+@page "/account/restricted"
+@* D160: the restricted screen. The state in the address only picks the wording; the API decides what the member can do. *@
+<PageTitle>Account restricted — Swoovr</PageTitle>
+<div class="column">
+    <div class="page-heading" data-restricted-screen="@Kind">
+        <h1>@Title</h1>
+        <p>@Body</p>
+    </div>
+    <section class="card account-section">
+        <p>Read the notice to see why@(Kind == "terminated" ? "" : " and how long it lasts"). You can appeal within 30 days.</p>
+        <p class="account-actions"><a class="primary-link" href="/me/notices">Read the notice</a> <a class="button button-secondary" href="/account">Your account</a></p>
+    </section>
+    <form method="post" action="/account/sign-out" class="account-sign-out">
+        <AntiforgeryToken />
+        <button type="submit" class="quiet-button">Sign out</button>
+    </form>
+</div>
+@code {
+    [SupplyParameterFromQuery] public string? State { get; set; }
+    private string Kind => State is "suspended" or "terminated" ? State : "restricted";
+    private string Title => Kind switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", _ => "Your account is restricted" };
+    private string Body => Kind switch
+    {
+        "terminated" => "You can't use Swoovr with this account any more.",
+        _ => "You can't use Swoovr until this is lifted. Nothing you had is lost.",
+    };
+}

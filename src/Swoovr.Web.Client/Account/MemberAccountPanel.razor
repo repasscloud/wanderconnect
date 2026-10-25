@@ -53,6 +53,15 @@
             <p>Swoovr is for adults only. If the age you entered was a mistake, contact Swoovr support to have it reviewed.</p>
         </section>
     }
+    else if (me is not null && me.AccountState != "active")
+    {
+        @* D160: restricted, suspended or terminated: nothing else in the app until it's lifted; notices and appeals stay open. *@
+        <section class="card account-section" aria-label="Account restricted" data-restricted-screen="@me.AccountState">
+            <h2>@(me.AccountState switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", _ => "Your account is restricted" })</h2>
+            <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
+            <p><a class="button" href="/me/notices">Read the notice</a></p>
+        </section>
+    }
     else if (me is not null)
     {
         @if (me.AgeStatus == "needsVerification")
@@ -87,6 +96,7 @@
             <p class="field-help">We need your date of birth to show you in discovery. It's never shown; your age is, unless you hide it. Entering it isn't age verification.</p>
             <form class="stack" @onsubmit="SaveAgeAsync" data-age-form>
                 <div class="field"><label for="dob">Date of birth</label><input id="dob" type="date" required @bind="dateOfBirth" max="@Today" /></div>
+                @if (me.DateOfBirthVerified) { <p class="field-help" data-dob-verified="true">Verified with your ID. Contact Swoovr support to change it.</p> }
                 <button type="submit" class="button" disabled="@(busy || dateOfBirth is null)">Save</button>
                 <p role="status" aria-live="polite" class="field-help" data-age-status="@AgeStatus">@ageMessage</p>
             </form>

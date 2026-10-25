@@ -14,7 +14,7 @@ static class MatchingChecks
         HashSet<Guid> Set(params int[] n) => n.Select(C).ToHashSet();
         MatchFacts F(int? age = 30, HashSet<Guid>? chips = null, HashSet<Guid>? excluded = null, bool id = false, string? gender = "woman",
             string[]? showMe = null, double? lat = null, double? lon = null) =>
-            new(age, chips ?? [], excluded ?? [], id, gender, showMe ?? ["man", "woman", "non-binary", "another", "unsaid"], lat, lon);
+            new(age, chips ?? [], excluded ?? [], id, gender, showMe ?? ["man", "woman", "non-binary", "another"], lat, lon);
 
         // Reciprocity (D138, D140).
         Expect(MatchPolicy.Reciprocal("friends", F(), F()), "no exclusions, not Dating");
@@ -26,6 +26,13 @@ static class MatchingChecks
         Expect(!MatchPolicy.Reciprocal("dating", F(gender: null), F()), "no gender, no Dating");
         Expect(!MatchPolicy.Reciprocal("dating", F(), F(showMe: [])), "no show me, no Dating");
         Expect(MatchPolicy.Reciprocal("friends", F(gender: "woman", showMe: ["man"]), F(gender: "woman", showMe: ["man"])), "show me is Dating-only");
+        // Q57 (D161): "prefer not to say" stays discoverable to any show me; their own show me still decides what they see.
+        Expect(MatchPolicy.Reciprocal("dating", F(gender: "man", showMe: ["woman"]), F(gender: "unsaid", showMe: ["man"])), "prefer not to say is discoverable");
+        Expect(!MatchPolicy.Reciprocal("dating", F(gender: "man", showMe: ["woman"]), F(gender: "unsaid", showMe: ["woman"])), "their own show me still applies");
+        Expect(MatchPolicy.Reciprocal("dating", F(gender: "unsaid", showMe: ["woman"]), F(gender: "woman", showMe: ["man"])), "not limited to others who prefer not to say");
+        Expect(MatchPolicy.Reciprocal("dating", F(gender: "woman", showMe: ["another"]), F(gender: "another", showMe: ["woman"])), "another gender is an inclusive show me category");
+        Expect(!MatchPolicy.Reciprocal("dating", F(gender: "woman", showMe: ["man"]), F(gender: "another", showMe: ["woman"])), "another isn't in a show me that leaves it out");
+        Expect(MatchPolicy.Reciprocal("dating", F(gender: "another", showMe: ["woman"]), F(gender: "woman", showMe: ["another"])), "another isn't limited to others who chose another");
         Expect(MatchPolicy.DatingReady(F()) && !MatchPolicy.DatingReady(F(gender: null)) && !MatchPolicy.DatingReady(F(showMe: [])), "Dating readiness");
         Expect(MatchPolicy.Reciprocal("dating", F(), F(gender: null, showMe: []) with { Bot = true }), "an authorised bot needs no show me");
         Expect(!MatchPolicy.Reciprocal("dating", F(excluded: Set(1)), F(chips: Set(1)) with { Bot = true }), "excluded chips still apply to bots");
@@ -67,6 +74,8 @@ static class MatchingChecks
         Expect(MatchPolicy.Check(new MemberIdentity { GenderId = "woman", DatingShowMe = ["man"] }, genders, orientations) == FilterError.None, "valid identity");
         Expect(MatchPolicy.Check(new MemberIdentity { GenderId = "robot" }, genders, orientations) == FilterError.UnknownGender, "unknown gender");
         Expect(MatchPolicy.Check(new MemberIdentity { DatingShowMe = ["robot"] }, genders, orientations) == FilterError.UnknownGender, "unknown show me");
+        Expect(MatchPolicy.Check(new MemberIdentity { DatingShowMe = ["unsaid"] }, genders, orientations) == FilterError.UnknownGender, "prefer not to say is never a show me value");
+        Expect(MatchPolicy.Check(new MemberIdentity { GenderId = "unsaid", DatingShowMe = ["another"] }, genders, orientations) == FilterError.None, "but it's a valid gender choice");
         Expect(MatchPolicy.Check(new MemberIdentity { OrientationId = "robot" }, genders, orientations) == FilterError.UnknownGender, "unknown orientation");
         Expect(MatchPolicy.Check(new MemberIdentity { Pronouns = new string('x', 41) }, genders, orientations) == FilterError.TextTooLong, "pronouns too long");
         Expect(new MemberIdentity().ShowAge && new MemberIdentity().ShowGender && !new MemberIdentity().ShowOrientation, "defaults: age and gender shown, orientation not");

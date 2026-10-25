@@ -9,16 +9,17 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, admin, sleep, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin, cli, sql, call, claims, mailTo, matchReady } = require('../auth/local-tokens.cjs');
+const { web, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin, cli, sql, call, claims, mailTo, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, MELBOURNE = 2158177;
-const ESCALATION = process.env.SWOOVR_ESCALATION_EMAIL || 'moderation-escalations@example.test';
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   let passed = 0; const pass = () => passed++;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
+    // D159: the escalation contact comes from .local/docker.env (the hosts read the same value); Mailpit catches it locally.
+    const ESCALATION = (await localEnv('SWOOVR_ESCALATION_EMAIL')) || 'moderation-escalations@example.test';
     let root = await rootAdminToken(browser);
     const names = ['rep', 'sub', 'oth', 'stf', 'far', 'spm', 'own', 'urg', 'plus'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('mod-' + n)])));
@@ -119,16 +120,36 @@ const ESCALATION = process.env.SWOOVR_ESCALATION_EMAIL || 'moderation-escalation
     assert.deepEqual(code(await act('sup', subCase, { action: 'suspend', reason: 'x', days: 3 })), [403, 'moderation-not-permitted']); pass();
     assert.deepEqual(code(await act('sup', subCase, { action: 'restrict', reason: 'x', days: 31, noNewRequests: true })), [400, 'invalid-request']); pass();
     assert.deepEqual(code(await act('sup', subCase, { action: 'restrict', reason: ' ', days: 7, noNewRequests: true })), [400, 'invalid-request']); pass();
-    assert.deepEqual(code(await act('sup', subCase, { action: 'restrict', reason: 'x', days: 7 })), [400, 'invalid-request']); pass(); // covers nothing
     assert.deepEqual(code(await act('sup', subCase, { action: 'ban', reason: 'x' })), [400, 'invalid-request']); pass();
     const subReq = await call(tokens.rep, '/api/v1/requests', { method: 'POST', body: { to: pid.sub, mode: 'dating' } }); // before the restriction
     assert.equal(subReq.status, 201);
     r = await act('sup', subCase, { action: 'restrict', reason: 'Fictional reason: repeated rude behaviour reported.', days: 7, hideFromDiscovery: true, noNewRequests: true });
     assert.equal(r.status, 200); assert.equal(r.body.case.status, 'reviewed'); pass();
     assert.ok(!(await explore('rep')).includes(pid.sub)); pass(); // out of discovery at once
-    assert.deepEqual(code(await call(tokens.sub, '/api/v1/requests', { method: 'POST', body: { to: pid.urg, mode: 'dating' } })), [403, 'restricted']); pass();
-    assert.equal((await call(tokens.sub, `/api/v1/requests/${subReq.body.id}/accept`, { method: 'POST' })).status, 200); pass(); // existing contact continues
-    assert.equal((await call(tokens.sub, '/api/v1/explore?mode=dating')).status, 200); pass(); // a restriction isn't a suspension
+    // Q55 (D160): a restricted member can't do anything in the app until it's lifted.
+    assert.deepEqual(code(await call(tokens.sub, '/api/v1/requests', { method: 'POST', body: { to: pid.urg, mode: 'dating' } })), [403, 'account-restricted']); pass();
+    assert.deepEqual(code(await call(tokens.sub, `/api/v1/requests/${subReq.body.id}/accept`, { method: 'POST' })), [403, 'account-restricted']); pass();
+    for (const path of ['/api/v1/explore?mode=dating', '/api/v1/me/profile', '/api/v1/connections', '/api/v1/me/trips', '/api/v1/me/verification'])
+    { assert.deepEqual(code(await call(tokens.sub, path)), [403, 'account-restricted'], path); pass(); }
+    assert.equal((await call(tokens.sub, '/api/v1/me')).body.accountState, 'restricted'); pass();
+    // The web shows the restricted screen instead of member pages; the account page and notices stay open.
+    {
+      const restrictedContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      const restrictedPage = await restrictedContext.newPage();
+      await restrictedPage.goto(web + '/account/sign-in?intro=done');
+      await restrictedPage.fill('#username', members.sub.email); await restrictedPage.fill('#password', members.sub.password);
+      await Promise.all([restrictedPage.waitForURL(web + '/account'), restrictedPage.click('#kc-login')]);
+      await restrictedPage.waitForSelector('[data-restricted-screen=restricted]', { timeout: 20000 }); pass(); // on the account page
+      for (const path of ['/explore', '/connections', '/travel', `/people/${pid.rep}`, '/me/matching']) {
+        await restrictedPage.goto(web + path);
+        assert.ok(restrictedPage.url().startsWith(web + '/account/restricted'), path); pass();
+      }
+      assert.equal(await restrictedPage.locator('[data-restricted-screen]').getAttribute('data-restricted-screen'), 'restricted'); pass();
+      if (output) await restrictedPage.screenshot({ path: output + '/restricted-390.png', fullPage: true });
+      await restrictedPage.goto(web + '/me/notices');
+      await restrictedPage.waitForSelector('[data-notice-kind=restriction]', { timeout: 20000 }); pass();
+      await restrictedContext.close();
+    }
     r = await call(tokens.sub, '/api/v1/me/notices');
     assert.equal(r.body[0].kind, 'restriction'); assert.equal(r.body[0].sanction.noNewRequests, true); assert.equal(r.body[0].sanction.canAppeal, true); pass();
     assert.ok((await mailTo(members.sub.email)).some(m => m.includes('new notice') && !m.includes('rude'))); pass(); // the email only says there's a notice
@@ -159,7 +180,7 @@ const ESCALATION = process.env.SWOOVR_ESCALATION_EMAIL || 'moderation-escalation
     assert.deepEqual(code(await call(st.adm, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })), [403, 'moderation-not-permitted']); pass(); // the original decider
     assert.equal((await call(root, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'maybe' } })).status, 400); pass();
     assert.equal((await call(root, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })).status, 200); pass();
-    assert.equal((await call(tokens.sub, '/api/v1/me/profile')).status, 200); pass(); // lifted at once
+    assert.deepEqual(code(await call(tokens.sub, '/api/v1/me/profile')), [403, 'account-restricted']); pass(); // the suspension is lifted at once; the earlier restriction still stands (Q55)
     assert.ok((await call(tokens.sub, '/api/v1/me/notices')).body.some(n => n.kind === 'appealOverturned')); pass();
     assert.equal((await call(root, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'uphold' } })).status, 409); pass();
 
@@ -169,6 +190,7 @@ const ESCALATION = process.env.SWOOVR_ESCALATION_EMAIL || 'moderation-escalation
     assert.equal((await call(st.sup, `/api/v1/admin/sanctions/${restriction.id}/lift`, { method: 'POST', body: { reason: '' } })).status, 400); pass();
     assert.equal((await call(st.sup2, `/api/v1/admin/sanctions/${restriction.id}/lift`, { method: 'POST', body: { reason: 'Fictional: resolved.' } })).status, 200); pass();
     assert.ok((await explore('rep')).includes(pid.sub)); pass();
+    assert.equal((await call(tokens.sub, '/api/v1/me/profile')).status, 200); pass(); // nothing left in force: back to normal
     const adminWarn = await call(st.adm, `/api/v1/admin/accounts/${ids.sub}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional admin restriction.', days: 2, noMessages: true } });
     assert.equal(adminWarn.status, 200);
     const adminRestriction = adminWarn.body.sanctions.find(s => s.live && s.createdByRole === 'admin');

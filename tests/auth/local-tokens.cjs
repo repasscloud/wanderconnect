@@ -110,9 +110,10 @@ async function fillRootAdmin(page, fixture, fixturePath, totp) {
 
 /**
  * Completes what discovery needs since slice R (D138, D139): a fictional date of birth and, for Dating, a gender with a
- * "show me" that includes everyone, so suites written before R keep matching. Pass options to vary them.
+ * "show me" that includes everyone ("prefer not to say" is never a show-me value, D161), so suites written before R keep
+ * matching. Pass options to vary them.
  */
-async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman', showMe = ['man', 'woman', 'non-binary', 'another', 'unsaid'] } = {}) {
+async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman', showMe = ['man', 'woman', 'non-binary', 'another'] } = {}) {
   const age = await call(token, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth } });
   const identity = await call(token, '/api/v1/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
   return [age.status, identity.status];

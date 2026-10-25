@@ -65,8 +65,23 @@ public sealed class DiditClient(HttpClient http, DiditOptions options, ILogger<D
     public static ProviderSession? Read(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object || Text(root, "session_id") is not { } session) return null;
-        return new(session, Text(root, "status") ?? "", Text(root, "vendor_data"), Text(root, "workflow_id"),
-            Adult(root.TryGetProperty("decision", out var decision) ? decision : root), Text(root, "url"));
+        var decision = root.TryGetProperty("decision", out var d) ? d : root;
+        return new(session, Text(root, "status") ?? "", Text(root, "vendor_data"), Text(root, "workflow_id"), Adult(decision), Text(root, "url"), DateOfBirth(decision));
+    }
+
+    /// <summary>
+    /// The date of birth on the first approved document check, only so the caller can compare it with the profile's
+    /// (D158). The caller never stores it.
+    /// </summary>
+    public static DateOnly? DateOfBirth(JsonElement decision)
+    {
+        if (decision.ValueKind != JsonValueKind.Object || !decision.TryGetProperty("id_verifications", out var checks) || checks.ValueKind != JsonValueKind.Array)
+            return null;
+        foreach (var check in checks.EnumerateArray())
+            if (string.Equals(Text(check, "status"), "Approved", StringComparison.OrdinalIgnoreCase) && Text(check, "date_of_birth") is { } dob
+                && DateOnly.TryParseExact(dob, "yyyy-MM-dd", out var born))
+                return born;
+        return null;
     }
 
     private static string? Text(JsonElement root, string name) =>
