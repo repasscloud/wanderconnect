@@ -143,7 +143,7 @@ Founding places are allocated by `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr
 
 One-time manual check by a person (the automated suite can't complete a verification; it needs a real ID and face):
 
-1. Start the stack and the tunnel; confirm the Didit console's webhook destination is `https://<tunnel host>/api/v1/webhooks/didit` (V3.0, `status.updated` and `data.updated`).
+1. Start the stack and the tunnel, then the hosts: stop the Docker api and web (`docker compose --env-file .local/docker.env stop api web`) and run `bash .local/run-hosts.sh` from a checkout built in Debug. The Docker web container has no sign-in configured, so http://localhost:5081 must be the host from the runner. Confirm the Didit console's webhook destination is `https://<tunnel host>/api/v1/webhooks/didit` (V3.0, `status.updated` and `data.updated`). Your member email must be on the beta list (`beta add`, see Application database).
 2. Sign in at http://localhost:5081 as a fictional-named local member on the beta list with a home city, open **Me → ID verification** and choose **Verify my ID**. The page says *Test mode*.
 3. Choose **Continue on Didit** (a new tab). Complete Didit's test flow with your own document and selfie, or use Didit's test-mode options if the console offers them.
 4. Come back to the Swoovr tab and choose **Check result** (or follow Didit's redirect to `/me/verification/return`). Expected: *In review* or *Your ID is verified*; the ID Verified badge appears on the account page once approved.
