@@ -907,7 +907,7 @@ Raised by the builder's [review of 24 October 2026](REVIEW-2026-10-24.md) for sl
 | Q27 | ANSWERED | P | Which checks and what Swoovr keeps: document plus a matching live selfie? Which documents (passport, driver licence, national ID card)? Do we keep the verified date of birth (replacing what the member typed) or only "adult: yes" and the check date? Should Swoovr ask Stripe to redact each session, and after how long? Will you supply the consent and privacy wording shown before the check, or use my draft marked "draft — not legal advice"? | Minimum data (`04-IDENTITY…` §2, Q11 rule 65); dates of birth are sensitive; Stripe keeps documents and selfies unless redacted | Document plus live selfie, all three document types, live capture only. Keep the Stripe session id, status, error code, check time and the verified date of birth (it replaces a typed date or age; never name, document number, address or images). Redact each session 30 days after a final outcome, so support can look into a dispute in the Stripe Dashboard first. Use my draft wording until yours replaces it | See [Q27](#q27--identity-documents-liveness-and-verification-flags) |
 | Q28 | ANSWERED | P | How many attempts may a member start (each costs a fee)? What happens after a failure or "consent declined"? Does ID verified expire? Who handles verification appeals in the beta? | Cost control, fairness, and the manual fallback that `04-IDENTITY…` §2 says is necessary | 3 started checks per member per 30 days, then "try again later". A failure shows "Needs action" with Stripe's reason; consent declined or repeated failure points to support. The manual route is support or an admin recording Admin verified after an in-person or video check, which never gives the ID badge (D58). No expiry in the beta; staff can revoke on evidence. An under-18 result locks the account (D40) | See [Q28](#q28--verification-attempts-failures-and-administration) |
 | Q29 | ANSWERED | P | Does the first successful ID verification activate founding membership automatically when a place is free? What is the "required profile setup" (Q11 rule 21)? Should the admin grant route (D79) still work for an account with no verification? | Q11 rule 21 and D63 make verification a condition; D79 was a stop-gap | Automatic on ID verified once the profile has a display name, a home city and at least one mode on, and a place is free (Photo verified will also count when it exists). The admin route stays for exceptions but refuses an account with neither verification. The founder offer is recorded as an entitlement (D90) with its start date; no billing | See [Q29](#q29--founding-membership-activation) |
-| Q30 | ANSWERED (owner draft marked "pending owner approval"; see Q49) | Q (reports and moderation) | What can members report, with which categories, is free text allowed, and what does the reporter hear back? | Shapes the report form, the queue and what personal content Swoovr stores | Report a person, a connection request or a bot. Categories: harassment or abuse; threats or violence (urgent); may be under 18 (urgent); fake profile or impersonation; scam or spam; unwanted sexual content or solicitation; hate; misrepresented intentions; something else. Optional text up to 1,000 characters, seen only by moderators. The form offers to block as well. The reporter sees "Thanks, we've received it" and later "We've reviewed your report", never the outcome. 10 reports a day per member; repeat reports join the same case | See [Q30](#q30--member-reporting-categories-and-notifications) |
+| Q30 | ANSWERED (approved 25 October 2026, Q49) | Q (reports and moderation) | What can members report, with which categories, is free text allowed, and what does the reporter hear back? | Shapes the report form, the queue and what personal content Swoovr stores | Report a person, a connection request or a bot. Categories: harassment or abuse; threats or violence (urgent); may be under 18 (urgent); fake profile or impersonation; scam or spam; unwanted sexual content or solicitation; hate; misrepresented intentions; something else. Optional text up to 1,000 characters, seen only by moderators. The form offers to block as well. The reporter sees "Thanks, we've received it" and later "We've reviewed your report", never the outcome. 10 reports a day per member; repeat reports join the same case | See [Q30](#q30--member-reporting-categories-and-notifications) |
 | Q31 | ANSWERED | Later (photos); limits P and Q | Photos, private media and photo verification stay out of this run (D100)? For later: which storage provider and region (Azure Blob Storage, Australia East, given D39's Azure note?), and should Photo verified use Stripe's selfie or a separate photo matcher? | Founder activation is "Photo and/or ID"; until photos exist only ID counts, and reports can't include photos | Out of this run. Ask the provider and region again when photos are the next slice | See [Q31](#q31--photo-storage-regional-hosting-and-photo-verification) |
 | Q32 | ANSWERED | Q | Which actions can moderators take, who may take each, and what does a restricted or suspended member experience? | Q07 rules 13–16 and Q11 rule 42; actions must be enforced everywhere and be appealable | Actions: dismiss, warning, restriction (hidden from discovery and can't send requests, up to 30 days), suspension (member area closed with a notice, up to 90 days), termination, and removal of staff affiliation. Support may dismiss, warn and restrict; admins may also suspend, terminate and remove affiliation. A restricted member keeps existing connections; a suspended one sees "Your account is suspended until …" with an appeal link | See [Q32](#q32--moderation-actions-permissions-and-account-restrictions) |
 | Q33 | ANSWERED | Q | For reports against staff-affiliated members (Q11 rules 39–43): who are the "designated senior reviewers", and how do we link a staff-realm sign-in to that person's own member account so nobody reviews a report about themselves? | Rule 41's conflict-of-interest check needs a staff-to-member link that doesn't exist | Only admins (not support) decide staff cases, and automated steps can't close them. When an admin grants a staff affiliation they also record which staff-realm account belongs to that member account; a reviewer linked to the reported account, or reported in the same case, is refused | See [Q33](#q33--staff-affiliated-member-accounts-and-report-handling) |
@@ -1153,9 +1153,7 @@ Implementation note: Record the timestamp when a member first meets all founding
 
 ### Q30 — Member reporting, categories and notifications
 
-Recommended answer — Pending owner approval
-
-Editorial note, builder 25 October 2026: this answer is still marked pending. It is recorded as D131 and slice Q builds it as written unless the owner changes it ([Q49](#q49--approve-the-q30-reporting-answer)).
+**ANSWERED — Owner, 25 October 2026** (drafted as "pending owner approval"; approved as written on 25 October 2026, [Q49](#q49--approve-the-q30-reporting-answer))
 
 Swoovr must provide a consistent reporting system across the application, allowing members to report inappropriate behaviour, suspicious accounts, unwanted content and safety concerns.
 
@@ -1751,9 +1749,159 @@ Raised by the builder while recording Q24–Q43 (D125–D146). Earliest blocker 
 
 | ID | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
 | --- | --- | --- | --- | --- | --- | --- |
-| Q44 | OPEN | P (Didit ID verification) | For the Didit account: is there a sandbox or test mode, and which workflow should Swoovr use (ID document + liveness + face match)? Will you put the API key, the webhook secret and the workflow id in `.local/docker.env` as `SWOOVR_DIDIT_API_KEY`, `SWOOVR_DIDIT_WEBHOOK_SECRET` and `SWOOVR_DIDIT_WORKFLOW_ID`? How should Didit's webhook reach a local machine: a tunnel you run (for example `cloudflared tunnel --url http://127.0.0.1:5080`) with its URL set in the Didit console, or polling the session result instead of webhooks locally? Has Didit confirmed the 30-day retention and the data region for Australia, and the price per check? | Without keys nothing can be tested against Didit; a webhook needs a public HTTPS URL; retention and cost were assumptions in Q27 and Q28 | Keys in `.local/docker.env` under those names, never committed. Locally, the API also re-reads the session result from Didit when the member returns, so verification works without a tunnel; the webhook is tested with signed fixtures and, when you run a tunnel, live. Until keys exist the slice builds against a clearly labelled simulated provider that never shows "verified" as real | |
-| Q45 | OPEN | Later (registration); affects P | Q26 requires a verified mobile number by SMS before an account is active. Which SMS provider (for example Twilio Verify, MessageBird, AWS SNS) and which Keycloak approach (a Keycloak SMS authenticator extension, or the API sending codes)? Does it apply to people who sign up with Apple or Google, and to the existing beta testers? What does it cost per message in Australia? | It's a new registration gate, a new provider and a recurring cost; Keycloak has no built-in SMS | Its own slice after U: a provider you choose, codes sent by the API (not a Keycloak extension), required for every member including Apple/Google sign-ups, and existing testers asked on their next visit. Until then accounts activate as today | |
-| Q46 | OPEN | T (Traveller Search) | Q24 rule 20 and Q41 say a traveller may initiate contact once "arrival is established under the existing location-verification rules", and rule 26 says the trip dates alone are not enough. No location check exists yet. What counts as arrival: a device location check in the app inside the destination market (web can't unlock), a check-in the member confirms, or the arrival date? | Decides whether slice T can unlock traveller-initiated contact at all, and whether the app needs location permission | Arrival = a device location check from the mobile app inside the destination market's area, on or after the arrival date, kept for that trip only; the location itself isn't stored, only "arrived at" and the market id. Until it's built, travellers can browse but not initiate | |
-| Q47 | OPEN | O (does not block) | Q24 rule 34 forbids an artificial home location, but a home city is self-declared. Is limiting changes enough for the beta, or do you want stronger assurance (a device location check when the home city enters a market, or admin review of home-market changes)? | Without some check a member can declare an Adelaide home and browse Adelaide locally | Slice O builds a limit: the home city can move into a different market once every 30 days, and each move is audited with market ids only. Device-location assurance arrives with Q46's check, applied to home cities as well | |
-| Q48 | OPEN | R (Plus filters in the beta) | Q36 gives selected beta testers Plus. For the first build, may an admin grant a complimentary Plus entitlement with an end date through the admin app, with Stripe test-mode subscriptions added later? If Stripe is wanted now: which Stripe account, and will the test-mode keys go in `.local/docker.env` as `SWOOVR_STRIPE_SECRET_KEY` and `SWOOVR_STRIPE_WEBHOOK_SECRET`? | Decides whether slice R needs a Stripe account and webhooks | Admin-granted complimentary entitlements first (same entitlement records a paid plan will use, D90), Stripe test-mode subscriptions in a later payment slice | |
-| Q49 | OPEN | Q (reports and moderation) | Your Q30 answer is marked "Recommended answer — Pending owner approval". Do you approve it as written, including report targets that don't exist yet (messages, photos, albums), the 2,000-character limit and no fixed daily cap? | Slice Q builds it | Approved as written; targets that don't exist yet are in the data model but not shown until those features exist | |
+| Q44 | ANSWERED (webhook route: Q50) | P (Didit ID verification) | For the Didit account: is there a sandbox or test mode, and which workflow should Swoovr use (ID document + liveness + face match)? Will you put the API key, the webhook secret and the workflow id in `.local/docker.env` as `SWOOVR_DIDIT_API_KEY`, `SWOOVR_DIDIT_WEBHOOK_SECRET` and `SWOOVR_DIDIT_WORKFLOW_ID`? How should Didit's webhook reach a local machine: a tunnel you run (for example `cloudflared tunnel --url http://127.0.0.1:5080`) with its URL set in the Didit console, or polling the session result instead of webhooks locally? Has Didit confirmed the 30-day retention and the data region for Australia, and the price per check? | Without keys nothing can be tested against Didit; a webhook needs a public HTTPS URL; retention and cost were assumptions in Q27 and Q28 | Keys in `.local/docker.env` under those names, never committed. Locally, the API also re-reads the session result from Didit when the member returns, so verification works without a tunnel; the webhook is tested with signed fixtures and, when you run a tunnel, live. Until keys exist the slice builds against a clearly labelled simulated provider that never shows "verified" as real || See [Q44](#q44--didit-test-mode-workflow-keys-and-webhooks) |
+| Q45 | ANSWERED in part (provider OPEN) | Later (registration); affects P | Q26 requires a verified mobile number by SMS before an account is active. Which SMS provider (for example Twilio Verify, MessageBird, AWS SNS) and which Keycloak approach (a Keycloak SMS authenticator extension, or the API sending codes)? Does it apply to people who sign up with Apple or Google, and to the existing beta testers? What does it cost per message in Australia? | It's a new registration gate, a new provider and a recurring cost; Keycloak has no built-in SMS | Its own slice after U: a provider you choose, codes sent by the API (not a Keycloak extension), required for every member including Apple/Google sign-ups, and existing testers asked on their next visit. Until then accounts activate as today || See [Q45](#q45--mobile-number-verification) |
+| Q46 | ANSWERED | T (Traveller Search) | Q24 rule 20 and Q41 say a traveller may initiate contact once "arrival is established under the existing location-verification rules", and rule 26 says the trip dates alone are not enough. No location check exists yet. What counts as arrival: a device location check in the app inside the destination market (web can't unlock), a check-in the member confirms, or the arrival date? | Decides whether slice T can unlock traveller-initiated contact at all, and whether the app needs location permission | Arrival = a device location check from the mobile app inside the destination market's area, on or after the arrival date, kept for that trip only; the location itself isn't stored, only "arrived at" and the market id. Until it's built, travellers can browse but not initiate || See [Q46](#q46--traveller-arrival-verification-and-contact-eligibility) |
+| Q47 | ANSWERED (IP location source: Q51) | O (does not block) | Q24 rule 34 forbids an artificial home location, but a home city is self-declared. Is limiting changes enough for the beta, or do you want stronger assurance (a device location check when the home city enters a market, or admin review of home-market changes)? | Without some check a member can declare an Adelaide home and browse Adelaide locally | Slice O builds a limit: the home city can move into a different market once every 30 days, and each move is audited with market ids only. Device-location assurance arrives with Q46's check, applied to home cities as well || See [Q47](#q47--home-city-changes-and-location-abuse-prevention) |
+| Q48 | ANSWERED | R (Plus filters in the beta) | Q36 gives selected beta testers Plus. For the first build, may an admin grant a complimentary Plus entitlement with an end date through the admin app, with Stripe test-mode subscriptions added later? If Stripe is wanted now: which Stripe account, and will the test-mode keys go in `.local/docker.env` as `SWOOVR_STRIPE_SECRET_KEY` and `SWOOVR_STRIPE_WEBHOOK_SECRET`? | Decides whether slice R needs a Stripe account and webhooks | Admin-granted complimentary entitlements first (same entitlement records a paid plan will use, D90), Stripe test-mode subscriptions in a later payment slice || See [Q48](#q48--beta-plus-access-through-administrative-grants) |
+| Q49 | ANSWERED | Q (reports and moderation) | Your Q30 answer is marked "Recommended answer — Pending owner approval". Do you approve it as written, including report targets that don't exist yet (messages, photos, albums), the 2,000-character limit and no fixed daily cap? | Slice Q builds it | Approved as written; targets that don't exist yet are in the data model but not shown until those features exist || See [Q49](#q49--approve-the-q30-reporting-answer) |
+
+### Q44 — Didit test mode, workflow, keys and webhooks
+
+**ANSWERED — Owner, 25 October 2026**
+
+Didit has a test mode, and Swoovr uses it until launch. The testing workflow is Didit's KYC workflow that matches the ID document against the member's face as they move closer to the camera. Its id, the API key and (once created) the webhook secret are in `.local/docker.env` as `SWOOVR_DIDIT_WORKFLOW_ID`, `SWOOVR_DIDIT_API_KEY` and `SWOOVR_DIDIT_WEBHOOK_SECRET`; they are never committed.
+
+1. Creating a session returns a link (or a QR code). The member opens the link, and the session is created and stored against the member's account in the API so the session and its result belong to that member.
+2. Verification happens on Didit's platform, in the member's external browser. Swoovr doesn't hold or maintain the verification data.
+3. The account has 500 scans a month. Didit keeps the data for 30 days.
+4. Each verification costs between 0.00 and 0.23 (currency as billed by Didit), charged to Swoovr's account, never to the member.
+5. Swoovr's privacy policy and terms are linked from Didit's verification pages (before launch; test mode now).
+6. The webhook isn't set up yet. The owner offered a server reachable by SSH for testing; see [Q50](#follow-up-questions-from-q44q49--25-october-2026).
+
+Didit's integration and webhook notes, as supplied by the owner from the Didit console, are kept in [DIDIT-INTEGRATION.md](../architecture/DIDIT-INTEGRATION.md).
+
+Editorial note, builder 25 October 2026: the workflow id was removed from this file; it lives only in `.local/docker.env`.
+
+### Q45 — Mobile number verification
+
+**ANSWERED in part — Owner, 25 October 2026.** The SMS provider is still OPEN.
+
+Swoovr will generate and validate its own six-digit OTP codes through the API, using a third-party messaging provider solely for SMS/WhatsApp delivery.
+
+Implement a provider-independent `ISmsSender` / `IVerificationMessageSender` abstraction, starting with SMS and adding WhatsApp support later.
+
+Members enter the received six-digit code into the mobile or web application to complete verification. The API validates the code and updates the member's mobile verification status.
+
+**Security requirements:**
+- Five-minute code expiry.
+- Maximum five incorrect attempts.
+- Resend cooldowns and rate limiting by account, phone number and IP address.
+- Single-use verification codes.
+- Store a keyed hash of the OTP, never the plaintext code.
+
+Use a separate verification record containing the phone number, keyed code hash, expiry, failed-attempt counter and delivery status. The OTP must not be stored directly on the member profile.
+
+Mobile verification is required once per account, with re-verification only when the phone number changes or a security review requires it.
+
+**SMS provider selection remains open.**
+
+### Q46 — Traveller arrival verification and contact eligibility
+
+**ANSWERED — Owner, 25 October 2026**
+
+A traveller is considered **arrived** when their declared trip has started and Swoovr has sufficient evidence that they are physically present within the destination market.
+
+Arrival is determined by the API, not simply by the member's declared arrival date.
+
+**Rules:**
+
+1. A trip must have a valid destination, arrival date and departure date within an enabled market.
+2. Before arrival, travellers may browse eligible destination profiles but cannot initiate connection requests or conversations with destination locals.
+3. Arrival requires both:
+   - The declared arrival date/time has been reached.
+   - The device's GPS location confirms presence within the destination market.
+4. Once confirmed, the trip status changes to `Arrived`, enabling traveller-initiated connections under normal discovery rules.
+5. The API validates location and trip eligibility. Client-provided arrival flags are never trusted.
+6. GPS permission is requested when the member attempts to confirm arrival, rather than requiring continuous background tracking.
+7. If GPS is unavailable, denied or inconclusive, the trip remains `Upcoming` or `ArrivalUnconfirmed`. The member may request manual review through support.
+8. IP geolocation alone is insufficient to confirm arrival.
+9. A member cannot bypass arrival verification by changing their home city, modifying trip dates or manually selecting a destination.
+10. Members can confirm arrival again if their location status becomes invalid or requires reassessment.
+11. Arrival verification records the confirmation timestamp, destination market and verification method. Precise GPS coordinates need not be retained.
+12. Once the trip ends, traveller-specific discovery and contact initiation permissions expire. Existing accepted connections and conversations remain available.
+13. Multiple trips are evaluated independently.
+14. Normal blocking, moderation, age, mode and reciprocal discovery restrictions continue to apply.
+
+**Location privacy:**
+
+- Exact device coordinates are never exposed to other members.
+- Location is processed server-side to determine market eligibility.
+- Continuous GPS tracking is not required.
+- Arrival confirmation does not automatically publish the member's precise location.
+- A successfully confirmed traveller may display an approximate status such as "Visiting Adelaide".
+
+**Implementation:** Use an explicit `ConfirmArrival` API operation that validates the trip, checks a fresh device location reading against the destination market boundary, and records the arrival confirmation. Subsequent requests use the server-side confirmed status, subject to trip expiry and safety checks.
+
+**Core principle:** A declared trip permits limited pre-arrival discovery. Confirmed physical presence permits initiating connections. Neither grants unrestricted access to other markets.
+
+One recommendation: Don't require repeated GPS verification for every connection request. Confirm arrival once, store its validity against the trip, and enforce that authorisation until the trip expires or is revoked. This avoids unnecessary friction and location tracking.
+
+Editorial notes, builder 25 October 2026:
+
+- Rule 2 matches Q41 (D142): pre-arrival browsing is Traveller Search only; there is still no feed of locals for travellers.
+- A device location comes from the member's device, so a modified device can report a false position. The API treats it as evidence checked against the trip, the date and the market's areas, not as proof; the Q47 abuse checks apply.
+- "GPS" includes the browser's location permission on the web as well as the app's, so the web isn't locked out (DEFAULT, D152).
+
+### Q47 — Home city changes and location abuse prevention
+
+**ANSWERED — Owner, 25 October 2026**
+
+A 30-day restriction on changing home cities is a useful anti-abuse measure, but is not sufficient on its own to prevent members from falsely claiming to live in Adelaide or another active market.
+
+1. Members select their home city during registration.
+2. The API uses available location signals, including GPS and approximate IP geolocation, to identify potential discrepancies.
+3. Members may change their home city once every 30 days.
+4. Changing home city does not automatically establish local residency or grant access to a new market.
+5. Where GPS is available, the API may validate that the member is physically present within their selected home market.
+6. Members whose declared home city conflicts with available location evidence may be flagged for review or classified as travelling rather than automatically treated as local residents.
+7. GPS permission is not mandatory. Members without GPS access may use their declared city, subject to additional abuse detection and review.
+8. Repeated location changes, suspicious activity or attempts to bypass market restrictions may trigger administrative review.
+9. Administrators may override the 30-day restriction for legitimate relocations or incorrect location information.
+10. Travel Mode remains the approved mechanism for accessing other markets temporarily.
+
+**Decision:** Retain the 30-day home-city change limit, supplemented by location consistency checks, server-side market eligibility and abuse detection. Location discrepancies alone must not automatically result in suspension or account termination.
+
+Editorial note, builder 25 October 2026: rule 2's IP geolocation needs a source; see [Q51](#follow-up-questions-from-q44q49--25-october-2026). The home city stays on the profile (required before discovery, as built in slice O) rather than in the Keycloak registration form (DEFAULT, D152).
+
+### Q48 — Beta Plus access through administrative grants
+
+**ANSWERED — Owner, 25 October 2026**
+
+Yes. Beta testers may receive Swoovr Plus through an **administrative entitlement grant**, without requiring Stripe integration, payment details or a subscription.
+
+**Rules:**
+
+1. Authorised administrators can grant Plus access directly through the administration interface.
+2. Grants are recorded in the database as subscription entitlements, independently of Stripe.
+3. Each grant records the member, subscription tier, activation date, expiry date, grant reason and issuing administrator.
+4. Administrators may extend, revoke or change granted entitlements.
+5. The API determines available features from the member's effective entitlement, regardless of whether access comes from an administrative grant, promotion, founding membership or paid subscription.
+6. Beta grants do not create Stripe customers, subscriptions or payment obligations.
+7. Expired or revoked grants automatically remove Plus access unless another valid entitlement exists.
+8. Members revert to Free when no active paid or complimentary entitlement remains.
+9. Members must never be automatically charged when a complimentary grant expires.
+10. All entitlement changes must be audited.
+11. The administration interface must distinguish complimentary grants from paid subscriptions.
+12. Stripe integration can be introduced later without changing how the application checks subscription entitlements.
+13. Founding membership entitlements remain separate from ordinary beta grants and retain their previously approved benefits.
+14. Where multiple entitlements overlap, the API applies the highest currently valid tier without duplicating benefits or extending unrelated entitlements.
+
+**Implementation:** Build a central entitlement service that resolves a member's effective subscription tier. Discovery filters and other Plus features must use this service rather than checking Stripe subscription records directly.
+
+**Decision:** Administrative Plus grants are approved for beta testing before Stripe integration.
+
+### Q49 — Approve the Q30 reporting answer
+
+**ANSWERED — Owner, 25 October 2026**
+
+Q30 is approved as written. D131 is CONFIRMED.
+
+## Follow-up questions from Q44–Q49 — 25 October 2026
+
+Raised by the builder while recording Q44–Q49 (D147–D152). Neither blocks a build; each default is reversible.
+
+| ID | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Q50 | OPEN | P (live webhook test only) | How should Didit's webhook reach the API while testing: a tunnel from this Mac, or a test server reached over SSH? | Didit only calls a public HTTPS URL. A server means deployment work this run hasn't been authorised for; a tunnel doesn't | A tunnel, no server: `brew install cloudflared`, then `cloudflared tunnel --url http://127.0.0.1:5080` while the stack runs; in the Didit console add a webhook destination `https://<tunnel host>/api/v1/webhooks/didit` subscribed to `status.updated` and `data.updated`, and put its secret in `.local/docker.env` as `SWOOVR_DIDIT_WEBHOOK_SECRET`. A quick tunnel's host changes on every run, so a named tunnel is better if testing repeats. Until then slice P reads the session result from Didit when the member returns and tests the webhook with locally signed, replayed and forged payloads | |
+| Q51 | OPEN | T (home-city consistency checks) | Q47 rule 2 uses approximate IP geolocation. Which source: Cloudflare's visitor location headers (city level, no extra service, only where traffic passes through Cloudflare), a licensed IP database such as MaxMind GeoLite2, or none for the beta? | A database is a new provider with its own licence and update job; headers only exist in hosted environments | Cloudflare visitor location headers in hosted environments, nothing locally; the IP is never stored, only "consistent" or "inconsistent" with the home market | |
