@@ -1,0 +1,39 @@
+@page "/appeals"
+@inject AdminClient Admin
+<PageTitle>Appeals — Swoovr admin</PageTitle>
+<h1>Appeals</h1>
+<p class="help">Decided by someone other than the original decider; staff-affiliated accounts and admins' actions only by admins (D135).</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (appeals.Count == 0) { <p data-appeals="none">No appeals waiting.</p> }
+else
+{
+    <ul class="list" data-appeals="@appeals.Count">
+        @foreach (var a in appeals)
+        {
+            <li data-appeal="@a.Id">
+                <strong>@a.SanctionKind</strong> · <a href="/accounts/@a.AccountId">account</a> · @a.CreatedAt.ToString("d MMM HH:mm")
+                @if (a.Text is not null) { <blockquote>@a.Text</blockquote> }
+                <form method="post" @formname="@($"decide-{a.Id}")" @onsubmit="() => DecideAsync(a.Id)" class="row" data-enhance="false">
+                    <AntiforgeryToken />
+                    <button name="outcome" value="uphold" type="submit" class="secondary" data-decide="uphold">Uphold</button>
+                    <button name="outcome" value="overturn" type="submit" data-decide="overturn">Overturn (lift)</button>
+                </form>
+            </li>
+        }
+    </ul>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private List<AppealAdminView> appeals = [];
+    private string? message, resultCode;
+
+    protected override async Task OnInitializedAsync() => appeals = (await Admin.AppealsAsync()).Value ?? [];
+
+    private async Task DecideAsync(Guid id)
+    {
+        var result = await Admin.DecideAppealAsync(id, Context?.Request.HasFormContentType == true ? Context.Request.Form["outcome"].ToString() : "");
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? "Decided. The member has a notice." : AdminText.Refusal(result.Status, result.Code);
+        appeals = (await Admin.AppealsAsync()).Value ?? [];
+    }
+}

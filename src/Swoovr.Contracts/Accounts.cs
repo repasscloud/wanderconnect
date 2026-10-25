@@ -60,6 +60,14 @@ public static class ProblemCodes
     public const string VerificationAttemptUsed = "verification-attempt-used";
     public const string AlreadyVerified = "already-verified";
     public const string FounderNotEligible = "founder-not-eligible";
+    public const string AccountSuspended = "account-suspended";
+    public const string Restricted = "restricted";
+    public const string UnknownCategory = "unknown-category";
+    public const string UnsupportedSubject = "unsupported-subject";
+    public const string InvalidReport = "invalid-report";
+    public const string ModerationNotPermitted = "moderation-not-permitted";
+    public const string AppealNotAllowed = "appeal-not-allowed";
+    public const string InvalidEntitlement = "invalid-entitlement";
 }
 
 public sealed record CouponRequest(string Code);

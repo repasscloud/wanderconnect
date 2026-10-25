@@ -38,6 +38,7 @@ Swoovr.Api.Profiles.MarketEndpoints.Map(app);
 Swoovr.Api.Connections.RequestEndpoints.Map(app);
 Swoovr.Api.Travel.TravelEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
+Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

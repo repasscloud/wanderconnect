@@ -149,3 +149,9 @@ One-time manual check by a person (the automated suite can't complete a verifica
 4. Come back to the Swoovr tab and choose **Check result** (or follow Didit's redirect to `/me/verification/return`). Expected: *In review* or *Your ID is verified*; the ID Verified badge appears on the account page once approved.
 5. Evidence to record in VALIDATION.md: `SELECT state, provider_status, started, adult FROM id_verification_attempts ORDER BY created_at DESC LIMIT 1;` and `SELECT webhook_type, outcome FROM didit_webhook_events ORDER BY received_at DESC LIMIT 5;` (ids and outcomes only). Swoovr stores no document data; Didit keeps it for 30 days (D147).
 6. To try again with the same member, an admin uses `POST /api/v1/admin/accounts/{id}/verification/allow-again` (or revoke first if approved).
+
+## Admin app (Swoovr.Admin) — 25 October 2026
+
+The separate administration app (D136) runs on http://localhost:5082 and signs staff in through the local staff realm (`swoovr-admin-web`, redirect `http://localhost:5082/signin-oidc`; run `./scripts/docker-local.sh realms` once to move the client's redirect from the web host). Start it with `ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5082 Keycloak__Authority=http://localhost:8180/realms/swoovr-staff-dev Keycloak__ClientSecret="$(val SWOOVR_STAFF_WEB_SECRET)" Keycloak__RequireHttpsMetadata=false Api__BaseUrl=http://127.0.0.1:5080/ dotnet run --project src/Swoovr.Admin --no-launch-profile`.
+
+The API needs `Staff__LocalPasswords=true` for fictional local support/admin users with a password (Development only; `compose.yaml` sets it) and `Moderation__EscalationEmail` for urgent reports (from `SWOOVR_ESCALATION_EMAIL`; Mailpit catches it locally). Invite a support person with `POST /api/v1/admin/invitations` (`{"email": ..., "role": "support"}`) as the root admin, create the same address in the staff realm, and sign in at the admin app. The root admin signs in there with password and OTP.

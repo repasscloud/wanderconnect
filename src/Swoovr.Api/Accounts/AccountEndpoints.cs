@@ -30,7 +30,7 @@ public static class AccountEndpoints
         var me = app.MapGroup("/api/v1/me").RequireAuthorization();
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true);
             return denied ?? Results.Ok(View(current!.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken)));
         });
         me.MapPost("/coupons", RedeemAsync);
@@ -117,8 +117,12 @@ public static class AccountEndpoints
     /// D127: an account flagged NeedsVerification is refused everywhere (403 age-verification-required) except the
     /// routes that pass <paramref name="ageGateExempt"/>: its own account summary and ID verification.
     /// </remarks>
+    /// <remarks>
+    /// D133: a suspended or terminated account is refused (403 account-suspended) except where
+    /// <paramref name="barredExempt"/> is passed: its account summary, notices and appeals.
+    /// </remarks>
     public static async Task<(CurrentAccount? Current, IResult? Denied)> MemberAsync(ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken,
-        bool ageGateExempt = false)
+        bool ageGateExempt = false, bool barredExempt = false)
     {
         var current = await accounts.ResolveAsync(user, cancellationToken);
         if (current is null) return (null, Results.Unauthorized());
@@ -129,9 +133,15 @@ public static class AccountEndpoints
         if (current.Facts.Realm == AccountRealm.Members && !BetaAccessPolicy.Allows(current.Beta))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.BetaNotEnrolled, "Swoovr is in private beta."));
         if (!current.Allows(AccountRole.Member)) return (null, Results.Forbid());
+        // Sanctions are read on every request, so an action applies at once to every client and live session (D133).
+        var sanctions = await accounts.Db!.Sanctions.Where(s => s.AccountId == current.Account.Id && s.LiftedAt == null).ToListAsync(cancellationToken);
+        var enforcement = Enforcement.For(sanctions, DateTimeOffset.UtcNow);
+        if (enforcement.Barred && !barredExempt)
+            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended,
+                enforcement.Terminated ? "This account has been closed." : "This account is suspended."));
         if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
-        return (current, null);
+        return (current with { Enforcement = enforcement }, null);
     }
 
     public static MemberAccount View(MemberProfile profile, DateOnly today, IReadOnlyList<Badge> badgeOrder) => new(

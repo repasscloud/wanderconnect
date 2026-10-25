@@ -15,6 +15,8 @@ services:
       Didit__ApiKey: ${SWOOVR_DIDIT_API_KEY:-}
       Didit__WorkflowId: ${SWOOVR_DIDIT_WORKFLOW_ID:-}
       Didit__WebhookSecret: ${SWOOVR_DIDIT_WEBHOOK_SECRET:-}
+      # D136: fictional local password support/admin users (Development only; hosted staff use Entra SSO).
+      Staff__LocalPasswords: "true"
     depends_on:
       postgres:
         condition: service_healthy

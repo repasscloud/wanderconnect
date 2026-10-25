@@ -12,6 +12,8 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 out = root / 'containers/keycloak/realms'
 web = 'http://localhost:5081'
+# D136: the separate administration app (Swoovr.Admin) signs staff in on its own host.
+admin_web = 'http://localhost:5082'
 api_audience = 'swoovr-api'
 # DEFAULT (owner 23 October 2026): the MAUI app returns through a private-use URI scheme (RFC 8252 7.1)
 # named after its application id. Verified universal/app links on swoovr.app replace it once hosted.
@@ -51,14 +53,14 @@ def user_profile():
     return {'attributes': attributes, 'groups': [], 'unmanagedAttributePolicy': None}
 
 
-def web_client(client_id, secret_env, path=''):
+def web_client(client_id, secret_env, path='', base=web):
     return {
         'clientId': client_id, 'name': 'Swoovr web (local)', 'protocol': 'openid-connect', 'enabled': True,
         'publicClient': False, 'clientAuthenticatorType': 'client-secret', 'secret': '${' + secret_env + '}',
         'standardFlowEnabled': True, 'implicitFlowEnabled': False, 'directAccessGrantsEnabled': False,
         'serviceAccountsEnabled': False, 'frontchannelLogout': False,
-        'redirectUris': [web + path + '/signin-oidc'], 'webOrigins': [],
-        'attributes': {'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': web + path + '/signout-callback-oidc',
+        'redirectUris': [base + path + '/signin-oidc'], 'webOrigins': [],
+        'attributes': {'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': base + path + '/signout-callback-oidc',
                        'standard.token.exchange.enabled': 'false', 'oauth2.device.authorization.grant.enabled': 'false'},
         'fullScopeAllowed': False,
         'defaultClientScopes': ['basic', 'profile', 'email', 'acr', 'web-origins'], 'optionalClientScopes': [],
@@ -124,7 +126,7 @@ realms = {
                                clients=[web_client('swoovr-venue-web', 'SWOOVR_VENUES_WEB_SECRET', '/venues')]),
     # Employees broker from Entra ID once a tenant registration exists (D32); root admin needs OTP (D36).
     'swoovr-staff-dev': realm('swoovr-staff-dev', 'Swoovr staff', registration=False, passkeys=False,
-                              clients=[web_client('swoovr-admin-web', 'SWOOVR_STAFF_WEB_SECRET', '/admin')]),
+                              clients=[web_client('swoovr-admin-web', 'SWOOVR_STAFF_WEB_SECRET', base=admin_web)]),
 }
 realms['swoovr-staff-dev']['resetPasswordAllowed'] = False  # Entra owns employee passwords; root admin is reset by master admin.
 
@@ -140,7 +142,8 @@ def check(name, value):
             assert client['redirectUris'] == [mobile_redirect], (name, 'app redirect only')
         else:
             assert client['secret'].startswith('${') and client['secret'].endswith('}'), (name, 'secret must be a placeholder')
-            assert all(uri.startswith(web + '/') for uri in client['redirectUris']), (name, 'loopback redirect only')
+            base = admin_web if name == 'swoovr-staff-dev' else web
+            assert all(uri.startswith(base + '/') for uri in client['redirectUris']), (name, 'loopback redirect only')
         assert client['standardFlowEnabled'] and not client['implicitFlowEnabled'], (name, 'code flow only')
         assert not client['directAccessGrantsEnabled'] and not client['serviceAccountsEnabled'], (name, 'no password grant or service account')
         assert client['attributes']['pkce.code.challenge.method'] == 'S256', (name, 'PKCE')

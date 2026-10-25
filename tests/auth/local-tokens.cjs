@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { execFile } = require('node:child_process');
 
-const keycloak = 'http://localhost:8180', api = 'http://127.0.0.1:5080', web = 'http://localhost:5081';
+const keycloak = 'http://localhost:8180', api = 'http://127.0.0.1:5080', web = 'http://localhost:5081', admin = 'http://localhost:5082';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
 
@@ -26,6 +26,20 @@ async function createMember(label) {
     emailVerified: true,
     credentials: [{ type: 'password', value: password, temporary: false }],
   });
+  return { email, password };
+}
+
+/**
+ * A fictional staff-realm person (local staff realm only, D136) with a verified email and a password. A support or
+ * admin role still needs an invitation from an admin; this only creates the Keycloak user.
+ */
+async function createStaff(label) {
+  const { localRealmApi } = await import('../../scripts/auth/provision.mjs');
+  const realmApi = await localRealmApi({ realm: 'swoovr-staff-dev' });
+  const email = `fictional.staff.${label}.${Date.now()}.${crypto.randomBytes(3).toString('hex')}@example.test`;
+  const password = 'Correct-horse-' + crypto.randomBytes(6).toString('hex');
+  await realmApi('/users', 'POST', { username: email, email, firstName: 'Fictional', lastName: 'Staff', enabled: true, emailVerified: true,
+    credentials: [{ type: 'password', value: password, temporary: false }] });
   return { email, password };
 }
 
@@ -60,6 +74,12 @@ const memberToken = (browser, member) => codeToken(browser, {
   },
 });
 
+/** A staff-realm token through the admin app's client (password only; OTP is optional for staff other than the root admin). */
+const staffToken = (browser, staff) => codeToken(browser, {
+  realm: 'swoovr-staff-dev', clientId: 'swoovr-admin-web', secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
+  fill: async page => { await page.fill('#username', staff.email); await page.fill('#password', staff.password); await page.click('#kc-login'); },
+});
+
 /** The local root admin (password + OTP). Needs `./scripts/docker-local.sh root-admin` and an enrolled TOTP. */
 async function rootAdminToken(browser) {
   const { totp } = await import('../../scripts/auth/totp.mjs');
@@ -67,17 +87,25 @@ async function rootAdminToken(browser) {
   const fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'));
   if (!fixture.fictional || !fixture.totpSecret) throw new Error('Run tests/auth/root-admin.browser.cjs once to enrol the fictional root admin');
   return codeToken(browser, {
-    realm: 'swoovr-staff-dev', clientId: 'swoovr-admin-web', secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: web + '/admin/signin-oidc',
-    fill: async page => {
-      await page.fill('#username', fixture.username); await page.fill('#password', fixture.password); await page.click('#kc-login');
-      await page.waitForSelector('#otp');
-      // Keycloak refuses a code reused within its window, so wait for a fresh 30-second step.
-      while (Math.floor(Date.now() / 30000) <= (fixture.lastOtpStep ?? -1)) await sleep(500);
-      fixture.lastOtpStep = Math.floor(Date.now() / 30000);
-      await fs.writeFile(fixturePath, JSON.stringify(fixture), { mode: 0o600 });
-      await page.fill('#otp', totp(fixture.totpSecret)); await page.click('#kc-login');
-    },
+    realm: 'swoovr-staff-dev', clientId: 'swoovr-admin-web', secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
+    fill: async page => fillRootAdmin(page, fixture, fixturePath, totp),
   });
+}
+
+/** Fills the staff realm's password and OTP pages for the fictional root admin (also used to sign in to the admin app). */
+async function fillRootAdmin(page, fixture, fixturePath, totp) {
+  if (!fixture) {
+    ({ totp } = await import('../../scripts/auth/totp.mjs'));
+    fixturePath = '.local/swoovr-root-admin.json';
+    fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'));
+  }
+  await page.fill('#username', fixture.username); await page.fill('#password', fixture.password); await page.click('#kc-login');
+  await page.waitForSelector('#otp');
+  // Keycloak refuses a code reused within its window, so wait for a fresh 30-second step.
+  while (Math.floor(Date.now() / 30000) <= (fixture.lastOtpStep ?? -1)) await sleep(500);
+  fixture.lastOtpStep = Math.floor(Date.now() / 30000);
+  await fs.writeFile(fixturePath, JSON.stringify(fixture), { mode: 0o600 });
+  await page.fill('#otp', totp(fixture.totpSecret)); await page.click('#kc-login');
 }
 
 /** Runs an API operator command with the local database connection. */
@@ -116,4 +144,5 @@ async function mailTo(address) {
   return Promise.all((list.messages ?? []).map(async m => (await (await fetch(`http://127.0.0.1:8025/api/v1/message/${m.ID}`)).json()).Text));
 }
 
-module.exports = { keycloak, api, web, sleep, claims, localEnv, createMember, memberToken, rootAdminToken, cli, sql, call, membersRealm, mailTo };
+module.exports = { keycloak, api, web, admin, sleep, claims, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin,
+  cli, sql, call, membersRealm, mailTo };

@@ -1,0 +1,42 @@
+@page "/cases"
+@inject AdminClient Admin
+<PageTitle>Queue — Swoovr admin</PageTitle>
+<h1>Queue</h1>
+<nav class="filters" aria-label="Status">
+    <a href="/cases">Open</a> <a href="/cases?status=reviewed">Reviewed</a> <a href="/cases?status=closed">Closed</a> <a href="/cases?status=all">All</a>
+</nav>
+@if (refused is not null)
+{
+    <p class="notice" role="alert">@refused <a href="/sign-in?reauth=true">Sign in again</a></p>
+}
+else if (cases.Count == 0)
+{
+    <p data-cases="none">Nothing here.</p>
+}
+else
+{
+    <table data-cases="@cases.Count">
+        <thead><tr><th>Priority</th><th>Member</th><th>Reports</th><th>Queue</th><th>Status</th><th>Opened</th></tr></thead>
+        <tbody>
+            @foreach (var c in cases)
+            {
+                <tr data-case="@c.Id" data-priority="@c.Priority" data-queue="@c.Queue">
+                    <td>@c.Priority@(c.AwaitingAcknowledgement ? " · needs acknowledgement" : "")</td>
+                    <td><a href="/cases/@c.Id">@(c.SubjectName ?? "(no name)")</a></td>
+                    <td>@c.Reports</td><td>@c.Queue</td><td>@c.Status</td><td>@c.CreatedAt.ToString("d MMM HH:mm")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@code {
+    [SupplyParameterFromQuery] public string? Status { get; set; }
+    private List<CaseSummaryView> cases = [];
+    private string? refused;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.CasesAsync(null, Status);
+        if (result.Ok) cases = result.Value!; else refused = AdminText.Refusal(result.Status, result.Code);
+    }
+}

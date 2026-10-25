@@ -232,12 +232,16 @@ public static class ProfileEndpoints
     {
         var betaOn = configuration.GetValue("Beta:Enabled", true);
         AgeStatus[] adult = [AgeStatus.Attested, AgeStatus.SelfDeclaredAdult, AgeStatus.Verified, AgeStatus.AdultOverride];
+        var now = DateTimeOffset.UtcNow;
         return from profile in db.MemberProfiles
                join account in db.Accounts on profile.AccountId equals account.Id
                where account.Realm == AccountRealm.Members && account.Status == AccountStatus.Active
                      && adult.Contains(profile.AgeStatus) && profile.DisplayName != null && profile.AccountId != viewer
                      && !db.Blocks.Any(b => b.BlockerAccountId == viewer && b.BlockedAccountId == profile.AccountId
                          || b.BlockerAccountId == profile.AccountId && b.BlockedAccountId == viewer)
+                     // D133: suspended, terminated and discovery-restricted accounts are out of discovery while the sanction lasts.
+                     && !db.Sanctions.Any(s => s.AccountId == profile.AccountId && s.LiftedAt == null && s.StartsAt <= now && (s.EndsAt == null || s.EndsAt > now)
+                         && (s.Kind == SanctionKind.Suspension || s.Kind == SanctionKind.Termination || s.Kind == SanctionKind.Restriction && s.HideFromDiscovery))
                let beta = !betaOn || db.BetaEnrolments.Any(e => e.AccountId == account.Id && e.RevokedAt == null)
                where beta
                select new Row { Profile = profile, Status = account.Status, BetaActive = beta };

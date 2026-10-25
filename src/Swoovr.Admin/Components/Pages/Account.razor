@@ -1,0 +1,157 @@
+@page "/accounts/{Id:guid}"
+@inject AdminClient Admin
+<PageTitle>Account — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/accounts">Accounts</a> / Account</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id">Sign in again</a> }</p> }
+@if (account is null)
+{
+    <p data-account="missing">@(loadError ?? "Not found.")</p>
+}
+else
+{
+    <h1 data-account="@account.Id">@(account.DisplayName ?? "(no name)")</h1>
+    <dl class="facts">
+        <div><dt>Account</dt><dd>@account.Realm · @account.Status</dd></div>
+        <div><dt>Age</dt><dd data-age-status="@account.AgeStatus">@account.AgeStatus</dd></div>
+        <div><dt>ID verification</dt><dd data-id-status="@account.IdStatus">@account.IdStatus@(account.CanRequestIdVerification ? " · may start a check" : "")</dd></div>
+        <div><dt>Plan</dt><dd data-plan="@account.Plan">@account.Plan@(account.Founder ? " · founding member" : "")</dd></div>
+        <div><dt>Flags</dt><dd>@(account.Bot ? "Bot " : "")@(account.Employee ? "Staff-affiliated " : "")@(!account.Bot && !account.Employee ? "None" : "")</dd></div>
+        <div><dt>Home market</dt><dd data-home-market="@(account.HomeMarket ?? "none")">@(account.HomeMarket ?? "None")@(account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd></div>
+        <div><dt>Open cases</dt><dd>@account.OpenCases</dd></div>
+    </dl>
+
+    <section class="card">
+        <h2>ID verification (D129)</h2>
+        @if (verification is not null)
+        {
+            <ul class="list" data-attempts="@verification.Attempts.Count">
+                @foreach (var a in verification.Attempts)
+                {
+                    <li>@a.State (Didit: @a.ProviderStatus) · @(a.Started ? "started" : "never started") · @(a.SelfService ? "self-service" : "allowed by an admin") · @a.CreatedAt.ToString("d MMM yyyy")@(a.Adult is { } adult ? adult ? " · adult" : " · under 18" : "")</li>
+                }
+            </ul>
+        }
+        <form method="post" @formname="verify" @onsubmit='() => RunAsync("verify")' class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <button name="value" value="allow-again" type="submit" class="secondary" data-op="allow-again">Allow another attempt</button>
+            <button name="value" value="revoke" type="submit" class="secondary" data-op="revoke">Revoke ID Verified</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Age assurance (D127)</h2>
+        <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <button name="value" value="flag" type="submit" class="secondary" data-op="age-flag">Require an age check</button>
+            <button name="value" value="clear" type="submit" class="secondary" data-op="age-clear">Clear a flag set in error</button>
+            <button name="value" value="override" type="submit" class="secondary" data-op="adult-override">Record adult override</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Home city (D150)</h2>
+        <p class="help">Lets the member move their home city into another market now, for a genuine move or a mistake.</p>
+        <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <input name="reason" placeholder="Reason" maxlength="1000" required />
+            <button type="submit" class="secondary" data-op="home-override">Lift the 30-day wait</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Plus for testers (D151)</h2>
+        <p class="help">Complimentary: never charged. A lapsed or revoked grant falls back to Free.</p>
+        <ul class="list" data-entitlements="@account.Entitlements.Count">
+            @foreach (var e in account.Entitlements)
+            {
+                <li data-entitlement="@e.Id" data-valid="@(e.Valid ? "true" : "false")">@e.Tier (@e.Source) until @(e.EndsAt?.ToString("d MMM yyyy") ?? "open") · @e.Reason@(e.RevokedAt is not null ? " · revoked" : "")
+                    @if (e.RevokedAt is null && e.Source == "adminGrant")
+                    {
+                        <form method="post" @formname="@($"grant-{e.Id}")" @onsubmit='() => RunAsync("grant-change", e.Id)' class="row" data-enhance="false">
+                            <AntiforgeryToken />
+                            <input name="days" type="number" min="1" max="366" placeholder="Days from now" />
+                            <button name="value" value="extend" type="submit" class="secondary" data-op="extend">Set end</button>
+                            <button name="value" value="revoke" type="submit" class="secondary" data-op="revoke-grant">Revoke</button>
+                        </form>
+                    }
+                </li>
+            }
+        </ul>
+        <form method="post" @formname="grant" @onsubmit='() => RunAsync("grant")' class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <select name="tier"><option value="plus">Plus</option><option value="premium">Premium</option></select>
+            <input name="days" type="number" min="1" max="366" value="90" />
+            <input name="reason" placeholder="Reason (for example beta tester)" maxlength="500" required />
+            <button type="submit" data-op="grant">Grant</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Staff badge (D134)</h2>
+        <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <button name="value" value="on" type="submit" class="secondary" data-op="staff-on">Set Staff badge</button>
+            <button name="value" value="off" type="submit" class="secondary" data-op="staff-off">Remove Staff badge</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Act without a report (D133)</h2>
+        <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="stack" data-enhance="false">
+            <AntiforgeryToken />
+            <label>Action <select name="action"><option value="warn">Warn</option><option value="restrict">Restrict</option><option value="suspend">Suspend</option><option value="terminate">Terminate</option></select></label>
+            <label>Reason <textarea name="reason" maxlength="1000" rows="2"></textarea></label>
+            <label>Days <input name="days" type="number" min="1" max="90" /></label>
+            <label><input type="checkbox" name="hide" value="true" /> Out of discovery</label>
+            <label><input type="checkbox" name="norequests" value="true" /> No new requests</label>
+            <button type="submit" data-op="sanction">Apply</button>
+        </form>
+        <SanctionList Sanctions="account.Sanctions" ReturnUrl="@($"/accounts/{Id}")" />
+    </section>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private AccountAdminSummary? account;
+    private AdminVerificationView? verification;
+    private string? message, loadError, resultCode;
+    private bool reauth;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.AccountAsync(Id);
+        account = result.Value;
+        if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
+        else if (account!.Realm == "members") verification = (await Admin.VerificationAsync(Id)).Value;
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+    private int? Number(string name) => int.TryParse(Field(name), out var n) ? n : null;
+
+    private async Task RunAsync(string op, Guid? item = null)
+    {
+        var value = Field("value");
+        var (status, code) = op switch
+        {
+            "verify" => Of(await Admin.VerificationActionAsync(Id, value)),
+            "age" when value == "override" => (await Admin.AdultOverrideAsync(Id), null),
+            "age" => Of(await Admin.AgeAssuranceAsync(Id, value == "flag")),
+            "home" => Of(await Admin.HomeMoveOverrideAsync(Id, Field("reason"))),
+            "grant" => Of(await Admin.GrantAsync(Id, new EntitlementGrant(Field("tier"), null, DateTimeOffset.UtcNow.AddDays(Number("days") ?? 0), Field("reason")))),
+            "grant-change" when value == "revoke" => Of(await Admin.RevokeGrantAsync(item!.Value)),
+            "grant-change" => Of(await Admin.ChangeGrantAsync(item!.Value, new EntitlementChange(null, DateTimeOffset.UtcNow.AddDays(Number("days") ?? 0), null))),
+            "staff" => (await Admin.StaffAffiliationAsync(Id, value == "on"), null),
+            "sanction" => Of(await Admin.SanctionAccountAsync(Id, new ModerationActionRequest(Field("action"), Field("reason"), Number("days"),
+                Field("hide") == "true", Field("norequests") == "true", false))),
+            _ => (400, null),
+        };
+        var ok = status is >= 200 and < 300;
+        (resultCode, reauth) = (ok ? "ok" : code ?? status.ToString(), status == 401 || code == "stale-session");
+        message = ok ? "Done." : AdminText.Refusal(status, code);
+        await LoadAsync();
+    }
+
+    private static (int, string?) Of<T>(ApiResult<T> result) => (result.Status, result.Code);
+}

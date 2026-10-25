@@ -29,6 +29,9 @@ public static class RequestEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (me, db, now) = (current!.Profile!, accounts.Db!, clock.GetUtcNow());
+            // D133: a targeted restriction stops new requests; existing connections stay.
+            if (current.Enforcement.NoNewRequests)
+                return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send new requests right now.");
             var mode = await db.ConnectionModes.SingleOrDefaultAsync(m => m.Id == request.Mode && m.Available, cancellationToken);
             if (mode is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
             var target = await ProfileEndpoints.Candidates(db, configuration, me.AccountId).SingleOrDefaultAsync(c => c.Profile.PublicId == request.To, cancellationToken);
@@ -160,19 +163,7 @@ public static class RequestEndpoints
             var target = await db.MemberProfiles.SingleOrDefaultAsync(p => p.PublicId == request.ProfileId, cancellationToken);
             if (target is null || target.AccountId == me)
                 return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That profile isn't available.");
-            if (!await db.Blocks.AnyAsync(b => b.BlockerAccountId == me && b.BlockedAccountId == target.AccountId, cancellationToken))
-            {
-                db.Blocks.Add(new Block { BlockerAccountId = me, BlockedAccountId = target.AccountId, CreatedAt = now });
-                // Blocking cancels every pending request between the two, in every mode.
-                var (low, high) = ConnectionRequest.Pair(me, target.AccountId);
-                foreach (var pending in await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high && r.Status == ConnectionRequestStatus.Pending).ToListAsync(cancellationToken))
-                {
-                    (pending.Status, pending.AnsweredAt) = (ConnectionRequestStatus.Cancelled, now);
-                    Audit.Record(db, now, null, "system", "request.cancelled", "connection-request", pending.Id.ToString(), "block");
-                }
-                Audit.Record(db, now, me, "account", "block.added", "account", target.AccountId.ToString());
-                await db.SaveChangesAsync(cancellationToken);
-            }
+            if (await AddBlockAsync(db, me, target.AccountId, now, cancellationToken)) await db.SaveChangesAsync(cancellationToken);
             return Results.NoContent();
         });
 
@@ -204,6 +195,24 @@ public static class RequestEndpoints
     }
 
     /// <summary>Whether the other member can still be dealt with: their account is active and neither blocked the other.</summary>
+    /// <summary>
+    /// Adds a block (unsaved) unless it exists; blocking cancels every pending request between the two, in every mode.
+    /// Also used by a report with "block" (D131). Returns whether anything changed.
+    /// </summary>
+    public static async Task<bool> AddBlockAsync(SwoovrDbContext db, Guid me, Guid other, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await db.Blocks.AnyAsync(b => b.BlockerAccountId == me && b.BlockedAccountId == other, cancellationToken)) return false;
+        db.Blocks.Add(new Block { BlockerAccountId = me, BlockedAccountId = other, CreatedAt = now });
+        var (low, high) = ConnectionRequest.Pair(me, other);
+        foreach (var pending in await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high && r.Status == ConnectionRequestStatus.Pending).ToListAsync(cancellationToken))
+        {
+            (pending.Status, pending.AnsweredAt) = (ConnectionRequestStatus.Cancelled, now);
+            Audit.Record(db, now, null, "system", "request.cancelled", "connection-request", pending.Id.ToString(), "block");
+        }
+        Audit.Record(db, now, me, "account", "block.added", "account", other.ToString());
+        return true;
+    }
+
     public static async Task<bool> ReachableAsync(SwoovrDbContext db, Guid me, Guid other, CancellationToken cancellationToken) =>
         await db.Accounts.AnyAsync(a => a.Id == other && a.Status == AccountStatus.Active, cancellationToken)
         && !await db.Blocks.AnyAsync(b => b.BlockerAccountId == me && b.BlockedAccountId == other || b.BlockerAccountId == other && b.BlockedAccountId == me, cancellationToken);

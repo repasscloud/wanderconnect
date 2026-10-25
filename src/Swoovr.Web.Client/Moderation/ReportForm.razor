@@ -1,0 +1,61 @@
+@* Report a profile, request or bot (D131): a reason from the configured list, an optional note (up to 2,000
+   characters) and an optional block in the same step. The member sees only that it was submitted and, later, its
+   review status; never the outcome. Reporting and blocking are independent. *@
+@inject MemberClient Members
+<section class="card account-section" aria-labelledby="report-heading" data-report="@(done ? "sent" : open ? "open" : "idle")">
+    <h2 id="report-heading">Report</h2>
+    @if (done)
+    {
+        <p role="status" data-report-done>Thanks. Your report was submitted. You can follow its status under Me → Notices and reports.</p>
+    }
+    else if (!open)
+    {
+        <button type="button" class="button button-secondary" @onclick="OpenAsync" data-report-open>Report @Name</button>
+    }
+    else
+    {
+        <form class="stack" @onsubmit="SendAsync" data-report-form>
+            <div class="field"><label for="report-category">Reason</label>
+                <select id="report-category" @bind="category" required>
+                    <option value="">Choose a reason</option>
+                    @foreach (var c in categories) { <option value="@c.Id">@c.Label</option> }
+                </select></div>
+            <div class="field"><label for="report-text">Anything else we should know (optional)</label>
+                <textarea id="report-text" maxlength="2000" rows="4" @bind="text"></textarea></div>
+            <label class="check"><input type="checkbox" @bind="block" /> Also block @Name</label>
+            <p class="field-help">If someone is in immediate danger, contact emergency services (000 in Australia).</p>
+            <button type="submit" class="button" disabled="@(busy || string.IsNullOrEmpty(category))">Send report</button>
+            <p role="status" aria-live="polite" class="field-help" data-report-status="@status">@message</p>
+        </form>
+    }
+</section>
+@code {
+    [Parameter, EditorRequired] public string SubjectType { get; set; } = "profile";
+    [Parameter, EditorRequired] public string SubjectId { get; set; } = "";
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    /// <summary>Called after a report that also blocked, so the page can show the block.</summary>
+    [Parameter] public EventCallback Blocked { get; set; }
+    private bool open, busy, done, block;
+    private string? category, text, status, message;
+    private List<ReportCategoryView> categories = [];
+
+    private async Task OpenAsync()
+    {
+        categories = (await Members.ReportCategoriesAsync()).Value ?? [];
+        open = true;
+    }
+
+    private async Task SendAsync()
+    {
+        busy = true;
+        var result = await Members.ReportAsync(new NewReport(SubjectType, SubjectId, category ?? "", text, block));
+        busy = false;
+        if (result.Ok)
+        {
+            done = true;
+            if (block) await Blocked.InvokeAsync();
+            return;
+        }
+        (status, message) = (result.Code ?? "failed", result.Code == ProblemCodes.TooManyRequests ? "You've sent a lot of reports. Try again in a few minutes." : "That report couldn't be sent.");
+    }
+}

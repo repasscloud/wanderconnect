@@ -47,12 +47,12 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": false,
       "redirectUris": [
-        "http://localhost:5081/admin/signin-oidc"
+        "http://localhost:5082/signin-oidc"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5081/admin/signout-callback-oidc",
+        "post.logout.redirect.uris": "http://localhost:5082/signout-callback-oidc",
         "standard.token.exchange.enabled": "false",
         "oauth2.device.authorization.grant.enabled": "false"
       },

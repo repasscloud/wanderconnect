@@ -12,6 +12,7 @@ ConnectionRequestChecks.Run();
 TravelChecks.Run();
 MarketChecks.Run();
 VerificationChecks.Run();
+ModerationChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

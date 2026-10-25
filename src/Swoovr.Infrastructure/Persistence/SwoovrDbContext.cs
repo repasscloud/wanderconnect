@@ -41,6 +41,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<Itinerary> Itineraries => Set<Itinerary>();
     public DbSet<IdVerificationAttempt> IdVerificationAttempts => Set<IdVerificationAttempt>();
     public DbSet<DiditWebhookEvent> DiditWebhookEvents => Set<DiditWebhookEvent>();
+    public DbSet<ReportCategory> ReportCategories => Set<ReportCategory>();
+    public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ModerationCase> ModerationCases => Set<ModerationCase>();
+    public DbSet<CaseEvidence> CaseEvidence => Set<CaseEvidence>();
+    public DbSet<Sanction> Sanctions => Set<Sanction>();
+    public DbSet<Appeal> Appeals => Set<Appeal>();
+    public DbSet<MemberNotice> MemberNotices => Set<MemberNotice>();
+    public DbSet<StaffMemberLink> StaffMemberLinks => Set<StaffMemberLink>();
+    public DbSet<Entitlement> Entitlements => Set<Entitlement>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -246,6 +255,85 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             webhook.Property(w => w.WebhookType).HasMaxLength(48);
             webhook.Property(w => w.SessionId).HasMaxLength(64);
             webhook.Property(w => w.Outcome).HasMaxLength(32);
+        });
+        // D131: report categories are data with priorities; threats and suspected underage are urgent.
+        model.Entity<ReportCategory>(category =>
+        {
+            category.Property(c => c.Id).HasMaxLength(32);
+            category.Property(c => c.Label).HasMaxLength(80);
+            category.HasData(
+                new ReportCategory { Id = "threats", Label = "Threats or violence", Priority = ReportPriority.Urgent, SortOrder = 1 },
+                new ReportCategory { Id = "underage", Label = "Might be under 18", Priority = ReportPriority.Urgent, SortOrder = 2 },
+                new ReportCategory { Id = "harassment", Label = "Harassment or bullying", Priority = ReportPriority.High, SortOrder = 3 },
+                new ReportCategory { Id = "hate", Label = "Hate or discrimination", Priority = ReportPriority.High, SortOrder = 4 },
+                new ReportCategory { Id = "sexual", Label = "Unwanted sexual content or behaviour", Priority = ReportPriority.High, SortOrder = 5 },
+                new ReportCategory { Id = "scam", Label = "Scam, fraud or selling", Priority = ReportPriority.High, SortOrder = 6 },
+                new ReportCategory { Id = "fake", Label = "Fake profile or impersonation", Priority = ReportPriority.Normal, SortOrder = 7 },
+                new ReportCategory { Id = "spam", Label = "Spam", Priority = ReportPriority.Normal, SortOrder = 8 },
+                new ReportCategory { Id = "inappropriate", Label = "Inappropriate profile content", Priority = ReportPriority.Normal, SortOrder = 9 },
+                new ReportCategory { Id = "other", Label = "Something else", Priority = ReportPriority.Normal, SortOrder = 10 });
+        });
+        model.Entity<ModerationCase>(item =>
+        {
+            item.HasOne<Account>().WithMany().HasForeignKey(c => c.SubjectAccountId).OnDelete(DeleteBehavior.Cascade);
+            // One open case per subject account: new reports join it (D131: duplicates consolidated).
+            item.HasIndex(c => c.SubjectAccountId, "ix_moderation_cases_one_open").IsUnique().HasFilter("status IN ('Open', 'UnderReview')");
+            item.HasIndex(c => new { c.Queue, c.Status, c.Priority });
+        });
+        model.Entity<Report>(report =>
+        {
+            report.HasOne<Account>().WithMany().HasForeignKey(r => r.ReporterAccountId).OnDelete(DeleteBehavior.Cascade);
+            report.HasOne<Account>().WithMany().HasForeignKey(r => r.SubjectAccountId).OnDelete(DeleteBehavior.Cascade);
+            report.HasOne<ReportCategory>().WithMany().HasForeignKey(r => r.CategoryId).OnDelete(DeleteBehavior.Restrict);
+            report.HasOne<ModerationCase>().WithMany().HasForeignKey(r => r.CaseId).OnDelete(DeleteBehavior.Cascade);
+            report.Property(r => r.SubjectRef).HasMaxLength(64);
+            report.Property(r => r.CategoryId).HasMaxLength(32);
+            report.Property(r => r.Text).HasMaxLength(ReportPolicy.TextMax);
+            report.HasIndex(r => new { r.ReporterAccountId, r.CreatedAt });
+            report.HasIndex(r => r.CaseId);
+            report.ToTable(t => t.HasCheckConstraint("ck_reports_not_self", "reporter_account_id <> subject_account_id"));
+        });
+        model.Entity<CaseEvidence>(evidence =>
+        {
+            evidence.HasOne<ModerationCase>().WithMany().HasForeignKey(e => e.CaseId).OnDelete(DeleteBehavior.Cascade);
+            evidence.HasOne<Report>().WithMany().HasForeignKey(e => e.ReportId).OnDelete(DeleteBehavior.Cascade);
+            evidence.Property(e => e.Kind).HasMaxLength(32);
+            evidence.Property(e => e.Snapshot).HasMaxLength(8192);
+        });
+        model.Entity<Sanction>(sanction =>
+        {
+            sanction.HasOne<Account>().WithMany().HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Cascade);
+            sanction.HasOne<ModerationCase>().WithMany().HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.SetNull);
+            sanction.Property(s => s.Reason).HasMaxLength(ModerationPolicy.ReasonMax);
+            sanction.HasIndex(s => new { s.AccountId, s.LiftedAt });
+            sanction.ToTable(t => t.HasCheckConstraint("ck_sanctions_dates", "ends_at IS NULL OR ends_at > starts_at"));
+        });
+        model.Entity<Appeal>(appeal =>
+        {
+            appeal.HasOne<Sanction>().WithMany().HasForeignKey(a => a.SanctionId).OnDelete(DeleteBehavior.Cascade);
+            appeal.HasOne<Account>().WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
+            appeal.HasIndex(a => a.SanctionId).IsUnique(); // D135: one appeal per action
+            appeal.Property(a => a.Text).HasMaxLength(ReportPolicy.TextMax);
+        });
+        model.Entity<MemberNotice>(notice =>
+        {
+            notice.HasOne<Account>().WithMany().HasForeignKey(n => n.AccountId).OnDelete(DeleteBehavior.Cascade);
+            notice.HasOne<Sanction>().WithMany().HasForeignKey(n => n.SanctionId).OnDelete(DeleteBehavior.Cascade);
+            notice.HasIndex(n => new { n.AccountId, n.CreatedAt });
+        });
+        model.Entity<StaffMemberLink>(link =>
+        {
+            link.HasKey(l => l.StaffAccountId);
+            link.HasOne<Account>().WithMany().HasForeignKey(l => l.StaffAccountId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne<Account>().WithMany().HasForeignKey(l => l.MemberAccountId).OnDelete(DeleteBehavior.Cascade);
+            link.HasIndex(l => l.MemberAccountId).IsUnique();
+        });
+        model.Entity<Entitlement>(entitlement =>
+        {
+            entitlement.HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.Cascade);
+            entitlement.Property(e => e.Reason).HasMaxLength(EntitlementPolicy.ReasonMax);
+            entitlement.HasIndex(e => new { e.AccountId, e.RevokedAt });
+            entitlement.ToTable(t => t.HasCheckConstraint("ck_entitlements_dates", "ends_at IS NULL OR ends_at > starts_at"));
         });
         model.Entity<FounderPlace>(place =>
         {

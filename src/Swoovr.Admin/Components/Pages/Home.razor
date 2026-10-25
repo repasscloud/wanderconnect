@@ -1,0 +1,29 @@
+@page "/"
+@inject AdminClient Admin
+<PageTitle>Swoovr admin</PageTitle>
+<h1>Moderation</h1>
+@if (refused is not null)
+{
+    <p class="notice" role="alert" data-refused="@status">@refused <a href="/sign-in?reauth=true">Sign in again</a></p>
+}
+else
+{
+    <ul class="tiles" data-dashboard>
+        <li><a href="/cases"><strong data-open-cases>@open</strong> open cases</a></li>
+        <li><a href="/cases"><strong data-urgent>@urgent</strong> urgent awaiting acknowledgement</a></li>
+        <li><a href="/appeals"><strong data-pending-appeals>@appeals</strong> appeals waiting</a></li>
+    </ul>
+    <p class="help">Support sees the support queue; admins also see staff-affiliated cases (D134). Every action is recorded with its reason.</p>
+}
+@code {
+    private int open, urgent, appeals, status;
+    private string? refused;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cases = await Admin.CasesAsync();
+        if (!cases.Ok) { (status, refused) = (cases.Status, AdminText.Refusal(cases.Status, cases.Code)); return; }
+        (open, urgent) = (cases.Value!.Count, cases.Value.Count(c => c.AwaitingAcknowledgement));
+        appeals = (await Admin.AppealsAsync()).Value?.Count ?? 0;
+    }
+}

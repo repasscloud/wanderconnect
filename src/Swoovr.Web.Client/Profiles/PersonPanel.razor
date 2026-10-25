@@ -83,6 +83,8 @@
             </p>
         }
     </section>
+    <ReportForm SubjectType="@(person.Badges.Any(b => b.Badge == "bot") ? "bot" : "profile")" SubjectId="@Id.ToString()" Name="@person.DisplayName"
+                Blocked="() => { person = null; blockedNow = true; }" />
 }
 @if (blockedNow)
 {

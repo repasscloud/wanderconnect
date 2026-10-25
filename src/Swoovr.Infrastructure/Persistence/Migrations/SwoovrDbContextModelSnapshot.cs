@@ -88,6 +88,57 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("accounts");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Appeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by");
+
+                    b.Property<Guid>("SanctionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sanction_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_appeals");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_appeals_account_id");
+
+                    b.HasIndex("SanctionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_appeals_sanction_id");
+
+                    b.ToTable("appeals");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.AuditEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -311,6 +362,49 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("bot_mode_authorisations");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.CaseEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("ReportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("report_id");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("snapshot");
+
+                    b.HasKey("Id")
+                        .HasName("pk_case_evidence");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_case_evidence_case_id");
+
+                    b.HasIndex("ReportId")
+                        .HasDatabaseName("ix_case_evidence_report_id");
+
+                    b.ToTable("case_evidence");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.ConnectionMode", b =>
                 {
                     b.Property<string>("Id")
@@ -477,6 +571,71 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasName("pk_didit_webhook_events");
 
                     b.ToTable("didit_webhook_events");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<Guid?>("GrantedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("granted_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("tier");
+
+                    b.HasKey("Id")
+                        .HasName("pk_entitlements");
+
+                    b.HasIndex("AccountId", "RevokedAt")
+                        .HasDatabaseName("ix_entitlements_account_id_revoked_at");
+
+                    b.ToTable("entitlements", t =>
+                        {
+                            t.HasCheckConstraint("ck_entitlements_dates", "ends_at IS NULL OR ends_at > starts_at");
+                        });
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
@@ -992,6 +1151,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("member_mode_intentions");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<Guid?>("SanctionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sanction_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_member_notices");
+
+                    b.HasIndex("SanctionId")
+                        .HasDatabaseName("ix_member_notices_sanction_id");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_member_notices_account_id_created_at");
+
+                    b.ToTable("member_notices");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -1502,6 +1702,265 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ModerationCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acknowledged_at");
+
+                    b.Property<Guid?>("AcknowledgedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("acknowledged_by");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("EscalatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("escalated_at");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("priority");
+
+                    b.Property<string>("Queue")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("queue");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_moderation_cases");
+
+                    b.HasIndex("Queue", "Status", "Priority")
+                        .HasDatabaseName("ix_moderation_cases_queue_status_priority");
+
+                    b.HasIndex(new[] { "SubjectAccountId" }, "ix_moderation_cases_one_open")
+                        .IsUnique()
+                        .HasDatabaseName("ix_moderation_cases_one_open")
+                        .HasFilter("status IN ('Open', 'UnderReview')");
+
+                    b.ToTable("moderation_cases");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Report", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<string>("CategoryId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("priority");
+
+                    b.Property<Guid>("ReporterAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reporter_account_id");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.Property<string>("SubjectRef")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("subject_ref");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("subject_type");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reports");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_reports_case_id");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_reports_category_id");
+
+                    b.HasIndex("SubjectAccountId")
+                        .HasDatabaseName("ix_reports_subject_account_id");
+
+                    b.HasIndex("ReporterAccountId", "CreatedAt")
+                        .HasDatabaseName("ix_reports_reporter_account_id_created_at");
+
+                    b.ToTable("reports", t =>
+                        {
+                            t.HasCheckConstraint("ck_reports_not_self", "reporter_account_id <> subject_account_id");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ReportCategory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Available")
+                        .HasColumnType("boolean")
+                        .HasColumnName("available");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("priority");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_report_categories");
+
+                    b.ToTable("report_categories");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "threats",
+                            Available = true,
+                            Label = "Threats or violence",
+                            Priority = "Urgent",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = "underage",
+                            Available = true,
+                            Label = "Might be under 18",
+                            Priority = "Urgent",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = "harassment",
+                            Available = true,
+                            Label = "Harassment or bullying",
+                            Priority = "High",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = "hate",
+                            Available = true,
+                            Label = "Hate or discrimination",
+                            Priority = "High",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = "sexual",
+                            Available = true,
+                            Label = "Unwanted sexual content or behaviour",
+                            Priority = "High",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = "scam",
+                            Available = true,
+                            Label = "Scam, fraud or selling",
+                            Priority = "High",
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = "fake",
+                            Available = true,
+                            Label = "Fake profile or impersonation",
+                            Priority = "Normal",
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = "spam",
+                            Available = true,
+                            Label = "Spam",
+                            Priority = "Normal",
+                            SortOrder = 8
+                        },
+                        new
+                        {
+                            Id = "inappropriate",
+                            Available = true,
+                            Label = "Inappropriate profile content",
+                            Priority = "Normal",
+                            SortOrder = 9
+                        },
+                        new
+                        {
+                            Id = "other",
+                            Available = true,
+                            Label = "Something else",
+                            Priority = "Normal",
+                            SortOrder = 10
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.RoleGrant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1541,6 +2000,114 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("AccountId", "Role", "VenueId"), false);
 
                     b.ToTable("role_grants");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Sanction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid?>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CreatedByRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("created_by_role");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<bool>("HideFromDiscovery")
+                        .HasColumnType("boolean")
+                        .HasColumnName("hide_from_discovery");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset?>("LiftedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lifted_at");
+
+                    b.Property<Guid?>("LiftedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lifted_by");
+
+                    b.Property<bool>("NoMessages")
+                        .HasColumnType("boolean")
+                        .HasColumnName("no_messages");
+
+                    b.Property<bool>("NoNewRequests")
+                        .HasColumnType("boolean")
+                        .HasColumnName("no_new_requests");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sanctions");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_sanctions_case_id");
+
+                    b.HasIndex("AccountId", "LiftedAt")
+                        .HasDatabaseName("ix_sanctions_account_id_lifted_at");
+
+                    b.ToTable("sanctions", t =>
+                        {
+                            t.HasCheckConstraint("ck_sanctions_dates", "ends_at IS NULL OR ends_at > starts_at");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.StaffMemberLink", b =>
+                {
+                    b.Property<Guid>("StaffAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staff_account_id");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("linked_at");
+
+                    b.Property<Guid>("LinkedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_by");
+
+                    b.Property<Guid>("MemberAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_account_id");
+
+                    b.HasKey("StaffAccountId")
+                        .HasName("pk_staff_member_links");
+
+                    b.HasIndex("MemberAccountId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_staff_member_links_member_account_id");
+
+                    b.ToTable("staff_member_links");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>
@@ -1604,6 +2171,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Appeal", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_appeals_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.Sanction", null)
+                        .WithMany()
+                        .HasForeignKey("SanctionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_appeals_sanctions_sanction_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Block", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1648,6 +2232,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_bot_mode_authorisations_connection_modes_mode_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.CaseEvidence", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_case_evidence_moderation_cases_case_id");
+
+                    b.HasOne("Swoovr.Domain.Report", null)
+                        .WithMany()
+                        .HasForeignKey("ReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_case_evidence_reports_report_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.ConnectionRequest", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1676,6 +2277,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TripId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_connection_requests_trips_trip_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_entitlements_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>
@@ -1796,6 +2407,22 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_member_mode_intentions_member_modes_account_id_mode_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberNotice", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_notices_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.Sanction", null)
+                        .WithMany()
+                        .HasForeignKey("SanctionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_member_notices_sanctions_sanction_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1828,6 +2455,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_mode_intentions_connection_modes_mode_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ModerationCase", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("SubjectAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_moderation_cases_accounts_subject_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Report", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reports_moderation_cases_case_id");
+
+                    b.HasOne("Swoovr.Domain.ReportCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_reports_report_categories_category_id");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reports_accounts_reporter_account_id");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("SubjectAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reports_accounts_subject_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.RoleGrant", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -1836,6 +2504,39 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_role_grants_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Sanction", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sanctions_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_sanctions_moderation_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.StaffMemberLink", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("MemberAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_staff_member_links_accounts_member_account_id");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("StaffAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_staff_member_links_accounts_staff_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>

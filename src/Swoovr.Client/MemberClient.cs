@@ -36,6 +36,33 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<IdVerificationView>> StartVerificationAsync(string client, CancellationToken cancellationToken = default) =>
         SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification") { Content = JsonContent.Create(new StartVerification(client)) }, cancellationToken);
 
+    /// <summary>The report categories as configured (D131).</summary>
+    public Task<ApiResult<List<ReportCategoryView>>> ReportCategoriesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ReportCategoryView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/report-categories"), cancellationToken);
+
+    /// <summary>Reports a profile, request or bot (D131), optionally blocking in the same step.</summary>
+    public Task<ApiResult<MyReportView>> ReportAsync(NewReport report, CancellationToken cancellationToken = default) =>
+        SendAsync<MyReportView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/reports") { Content = JsonContent.Create(report) }, cancellationToken);
+
+    /// <summary>The member's own reports with what they may see: submitted, under review, reviewed or closed.</summary>
+    public Task<ApiResult<List<MyReportView>>> MyReportsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<MyReportView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/reports"), cancellationToken);
+
+    /// <summary>Notices about actions on the member's account (D135); open even while suspended.</summary>
+    public Task<ApiResult<List<NoticeView>>> NoticesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<NoticeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notices"), cancellationToken);
+
+    public Task<int> ReadNoticeAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notices/{id}/read"), cancellationToken);
+
+    /// <summary>Appeals one action, once, within 30 days (D135).</summary>
+    public Task<ApiResult<AppealView>> AppealAsync(Guid sanctionId, string? text, CancellationToken cancellationToken = default) =>
+        SendAsync<AppealView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/appeals") { Content = JsonContent.Create(new NewAppeal(sanctionId, text)) }, cancellationToken);
+
+    /// <summary>The member's effective plan from the entitlement service (D151).</summary>
+    public Task<ApiResult<PlanView>> PlanAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<PlanView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/plan"), cancellationToken);
+
     /// <summary>The connection modes as configured (D92), in display order, with their intention chips.</summary>
     public Task<ApiResult<List<ConnectionModeView>>> ModesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ConnectionModeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/modes"), cancellationToken);

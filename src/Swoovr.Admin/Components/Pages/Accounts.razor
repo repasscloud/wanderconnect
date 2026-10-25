@@ -1,0 +1,27 @@
+@page "/accounts"
+@inject AdminClient Admin
+<PageTitle>Accounts — Swoovr admin</PageTitle>
+<h1>Accounts</h1>
+<form method="get" action="/accounts" class="row" data-enhance="false">
+    <label>Exact email <input name="email" type="email" value="@Email" required /></label>
+    <button type="submit">Find</button>
+</form>
+@if (Email is not null)
+{
+    @if (results.Count == 0) { <p data-accounts="none">No account with that email.</p> }
+    else
+    {
+        <ul class="list" data-accounts="@results.Count">
+            @foreach (var a in results) { <li><a href="/accounts/@a.Id" data-account-link="@a.Id">@a.Realm account</a> · @a.Status · created @a.CreatedAt.ToString("d MMM yyyy")</li> }
+        </ul>
+    }
+}
+@code {
+    [SupplyParameterFromQuery] public string? Email { get; set; }
+    private List<AccountView> results = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Email)) results = (await Admin.FindAccountsAsync(Email)).Value ?? [];
+    }
+}
