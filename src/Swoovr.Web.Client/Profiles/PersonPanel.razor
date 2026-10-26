@@ -2,6 +2,7 @@
    the person shows themselves in; anything else reads as "not available", so the page never confirms who exists.
    Badges are the public ones the API returns, several at once in the configured order (Q11). *@
 @inject MemberClient Members
+@inject NavigationManager Navigation
 <div class="page-heading" data-person="@(loaded ? (blockedNow ? "blocked" : person is null ? "unavailable" : "ready") : "loading")">
     <p class="breadcrumb"><a href="/explore">Explore</a> / Profile</p>
     @if (!loaded) { <p role="status">Loading…</p> }
@@ -71,6 +72,11 @@
             }
         </ul>
         <p role="status" aria-live="polite" class="field-help" data-connect-status="@connectStatus">@connectMessage</p>
+        @if (person.Modes.Any(m => m.Connection == "connected"))
+        {
+            @* D143: one conversation per connected pair, across modes. *@
+            <button type="button" class="button" disabled="@busy" @onclick="MessageAsync" data-message-person>Message @person.DisplayName</button>
+        }
     </section>
     <section class="card account-section" aria-labelledby="block-heading" data-block="@(confirmBlock ? "confirm" : "idle")">
         <h2 id="block-heading">Block</h2>
@@ -124,6 +130,15 @@
         (connectStatus, connectMessage) = result.Ok ? (answer, answer == "accept" ? "Connected." : answer == "decline" ? "Declined." : "Request withdrawn.")
             : ("failed", "That request isn't available any more.");
         await ReloadAsync();
+    }
+
+    private async Task MessageAsync()
+    {
+        busy = true;
+        var result = await Members.StartConversationAsync(Id);
+        busy = false;
+        if (result.Value is { } conversation) Navigation.NavigateTo($"/chats/{conversation.Id}");
+        else (connectStatus, connectMessage) = ("failed", "You can message people you're connected with.");
     }
 
     private async Task BlockAsync()

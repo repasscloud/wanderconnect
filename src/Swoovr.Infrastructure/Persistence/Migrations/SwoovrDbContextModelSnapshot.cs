@@ -541,6 +541,73 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("LastMessageAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_message_at");
+
+                    b.Property<Guid>("PairHigh")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pair_high");
+
+                    b.Property<Guid>("PairLow")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pair_low");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conversations");
+
+                    b.HasIndex("PairHigh")
+                        .HasDatabaseName("ix_conversations_pair_high");
+
+                    b.HasIndex(new[] { "PairLow", "PairHigh" }, "ix_conversations_one_open")
+                        .IsUnique()
+                        .HasDatabaseName("ix_conversations_one_open")
+                        .HasFilter("closed_at IS NULL");
+
+                    b.ToTable("conversations", t =>
+                        {
+                            t.HasCheckConstraint("ck_conversations_pair", "pair_low < pair_high");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ConversationHide", b =>
+                {
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("HiddenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hidden_at");
+
+                    b.HasKey("ConversationId", "AccountId")
+                        .HasName("pk_conversation_hides");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_conversation_hides_account_id");
+
+                    b.ToTable("conversation_hides");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.DiditWebhookEvent", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -1450,6 +1517,76 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_member_profiles_public_id");
 
                     b.ToTable("member_profiles");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Message", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("SenderAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sender_account_id");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_messages");
+
+                    b.HasIndex("ConversationId", "SentAt")
+                        .HasDatabaseName("ix_messages_conversation_id_sent_at");
+
+                    b.HasIndex("SenderAccountId", "SentAt")
+                        .HasDatabaseName("ix_messages_sender_account_id_sent_at");
+
+                    b.ToTable("messages");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MessageHide", b =>
+                {
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("HiddenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hidden_at");
+
+                    b.HasKey("MessageId", "AccountId")
+                        .HasName("pk_message_hides");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_message_hides_account_id");
+
+                    b.ToTable("message_hides");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ModeFilter", b =>
@@ -2630,6 +2767,40 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_connection_requests_trips_trip_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Conversation", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("PairHigh")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conversations_accounts_pair_high");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("PairLow")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conversations_accounts_pair_low");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ConversationHide", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conversation_hides_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.Conversation", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conversation_hides_conversations_conversation_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -2814,6 +2985,40 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasForeignKey("HomeMarketId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_member_profiles_markets_home_market_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Message", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Conversation", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_messages_conversations_conversation_id");
+
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("SenderAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_messages_accounts_sender_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MessageHide", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_message_hides_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.Message", null)
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_message_hides_messages_message_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ModeFilter", b =>

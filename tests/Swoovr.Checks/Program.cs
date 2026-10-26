@@ -16,6 +16,7 @@ ModerationChecks.Run();
 MatchingChecks.Run();
 AppParityChecks.Run();
 ArrivalChecks.Run();
+MessagingChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

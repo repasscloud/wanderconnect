@@ -144,6 +144,35 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<HomeCheckView>> HomeCheckAsync(LocationCheck reading, CancellationToken cancellationToken = default) =>
         SendAsync<HomeCheckView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/home-check") { Content = JsonContent.Create(reading) }, cancellationToken);
 
+    /// <summary>The member's open conversations, most recent first (D143).</summary>
+    public Task<ApiResult<List<ConversationView>>> ConversationsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ConversationView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/conversations"), cancellationToken);
+
+    /// <summary>Opens (or returns) the conversation with a connected member.</summary>
+    public Task<ApiResult<ConversationView>> StartConversationAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/conversations") { Content = JsonContent.Create(new StartConversation(profileId)) }, cancellationToken);
+
+    public Task<ApiResult<ConversationView>> ConversationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{id}"), cancellationToken);
+
+    /// <summary>Newest first; pass the previous page's Before for older messages.</summary>
+    public Task<ApiResult<MessagePage>> MessagesAsync(Guid conversationId, DateTimeOffset? before = null, CancellationToken cancellationToken = default) =>
+        SendAsync<MessagePage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{conversationId}/messages"
+            + (before is { } b ? "?before=" + Uri.EscapeDataString(b.ToString("O")) : "")), cancellationToken);
+
+    public Task<ApiResult<MessageView>> SendMessageAsync(Guid conversationId, string text, CancellationToken cancellationToken = default) =>
+        SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/messages") { Content = JsonContent.Create(new NewMessage(text)) }, cancellationToken);
+
+    /// <summary>Delete for both, within five minutes of sending (D143).</summary>
+    public Task<int> DeleteMessageAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/v1/messages/{id}"), cancellationToken);
+
+    public Task<int> HideMessageAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/messages/{id}/hide"), cancellationToken);
+
+    public Task<int> HideConversationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{id}/hide"), cancellationToken);
+
     /// <summary>Answers a request: "accept" or "decline" (the recipient) or "withdraw" (the sender).</summary>
     public Task<ApiResult<ConnectionRequestView>> AnswerRequestAsync(Guid id, string answer, CancellationToken cancellationToken = default) =>
         SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/requests/{id}/{Uri.EscapeDataString(answer)}"), cancellationToken);

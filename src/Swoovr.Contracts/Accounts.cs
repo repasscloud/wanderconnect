@@ -90,6 +90,10 @@ public static class ProblemCodes
     public const string TripNotLive = "trip-not-live";
     /// <summary>D142: Traveller Search opens 14 days before arrival, while the trip is visible, and not in the member's own market.</summary>
     public const string SearchNotOpen = "search-not-open";
+    /// <summary>D143: a message must be 1–2,000 characters of text.</summary>
+    public const string InvalidMessage = "invalid-message";
+    /// <summary>D143: delete for both only by the sender within five minutes.</summary>
+    public const string DeleteWindowPassed = "delete-window-passed";
 }
 
 public sealed record CouponRequest(string Code);

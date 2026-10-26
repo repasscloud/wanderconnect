@@ -1,0 +1,36 @@
+@* Chats (D143, Interactive WebAssembly): the member's open conversations, most recent first. Conversations exist only
+   between connected people; a block closes one at once. No read receipts or presence. *@
+@inject MemberClient Members
+<div class="page-heading" data-chats="@(loaded ? (refused is null ? "ready" : "refused") : "loading")">
+    <h1>Chats</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (refused is not null) { <p role="status" data-chats-refused="@refused">@(MemberText.Barred(refused) ?? "We couldn't load your chats.")</p> }
+</div>
+@if (loaded && refused is null)
+{
+    @if (conversations.Count == 0)
+    {
+        <p class="field-help" data-chats-empty>No chats yet. Start one from a connection's profile or from <a class="link" href="/connections">Connections</a>.</p>
+    }
+    else
+    {
+        <ul class="request-list" data-chat-list="@conversations.Count">
+            @foreach (var c in conversations)
+            {
+                <li data-chat="@c.Id"><span class="request-person"><a href="@($"/chats/{c.Id}")">@(c.Person.DisplayName ?? "Someone")</a><BadgeRow Badges="c.Person.Badges" /></span>
+                    <span class="field-help">@(c.LastMessageAt is { } at ? at.ToLocalTime().ToString("d MMM, HH:mm") : "No messages yet")</span></li>
+            }
+        </ul>
+    }
+}
+@code {
+    private bool loaded;
+    private string? refused;
+    private List<ConversationView> conversations = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Members.ConversationsAsync();
+        (conversations, refused, loaded) = (result.Value ?? [], result.Ok ? null : result.Code ?? "unavailable", true);
+    }
+}

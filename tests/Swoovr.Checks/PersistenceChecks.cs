@@ -80,6 +80,7 @@ static class PersistenceChecks
             await Extra(options, Check);
             await Modes(options, Check);
             await Travel(options, Check);
+            await Messaging(options, Check);
         }
         finally
         {
@@ -87,6 +88,47 @@ static class PersistenceChecks
             await Execute(admin, $"DROP DATABASE IF EXISTS {name} WITH (FORCE)");
         }
         Console.WriteLine($"PASS: {count} persistence cases against PostgreSQL (migrations, keys, enums, cascades).");
+    }
+
+    /// <summary>D143: one open conversation per ordered pair; closed ones stay for evidence; messages and hides cascade.</summary>
+    static async Task Messaging(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
+    {
+        var now = DateTimeOffset.Parse("2026-10-26T00:00:00Z");
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        var (low, high) = ConnectionRequest.Pair(a, b);
+        await using var db = new SwoovrDbContext(options);
+        foreach (var id in new[] { a, b })
+            db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "chat-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+        var first = new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now };
+        db.Conversations.Add(first);
+        var message = new Message { Id = Guid.NewGuid(), ConversationId = first.Id, SenderAccountId = a, Kind = MessageKind.Text, Body = "Fictional hello", SentAt = now };
+        db.Messages.Add(message);
+        db.MessageHides.Add(new MessageHide { MessageId = message.Id, AccountId = b, HiddenAt = now });
+        db.ConversationHides.Add(new ConversationHide { ConversationId = first.Id, AccountId = b, HiddenAt = now });
+        await db.SaveChangesAsync();
+        await using (var bad = new SwoovrDbContext(options))
+        {
+            bad.Conversations.Add(new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now });
+            check("one open conversation per pair", await Throws(bad.SaveChangesAsync()));
+        }
+        await using (var bad = new SwoovrDbContext(options))
+        {
+            bad.Conversations.Add(new Conversation { Id = Guid.NewGuid(), PairLow = high, PairHigh = low, CreatedAt = now, ClosedAt = now });
+            check("the pair is stored in order", await Throws(bad.SaveChangesAsync()));
+        }
+        await using (var bad = new SwoovrDbContext(options))
+        {
+            bad.Messages.Add(new Message { Id = Guid.NewGuid(), ConversationId = first.Id, SenderAccountId = a, Body = new string('x', MessagingPolicy.TextMax + 1), SentAt = now });
+            check("a message is at most 2,000 characters", await Throws(bad.SaveChangesAsync()));
+        }
+        first.ClosedAt = now;
+        db.Conversations.Add(new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now });
+        await db.SaveChangesAsync();
+        check("a closed conversation stays and a new one can open", await db.Conversations.CountAsync(c => c.PairLow == low) == 2 && await db.Messages.AnyAsync(m => m.ConversationId == first.Id));
+        db.Accounts.Remove(await db.Accounts.SingleAsync(x => x.Id == a));
+        await db.SaveChangesAsync();
+        check("conversations, messages and hides go with the account", !await db.Conversations.AnyAsync(c => c.PairLow == low) && !await db.Messages.AnyAsync(m => m.Id == message.Id)
+            && !await db.MessageHides.AnyAsync(h => h.MessageId == message.Id) && !await db.ConversationHides.AnyAsync(h => h.ConversationId == first.Id));
     }
 
     /// <summary>Further persistence cases added by later slices.</summary>

@@ -216,6 +216,8 @@ public static class RequestEndpoints
             (pending.Status, pending.AnsweredAt) = (ConnectionRequestStatus.Cancelled, now);
             Audit.Record(db, now, null, "system", "request.cancelled", "connection-request", pending.Id.ToString(), "block");
         }
+        // Q42 rules 12–14: the block also ends accepted connections and closes the conversation; unblocking restores neither.
+        await MessagingEndpoints.CloseForBlockAsync(db, me, other, now, cancellationToken);
         Audit.Record(db, now, me, "account", "block.added", "account", other.ToString());
         return true;
     }

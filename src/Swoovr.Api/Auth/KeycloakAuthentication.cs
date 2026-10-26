@@ -60,9 +60,9 @@ public static class KeycloakAuthentication
             policy.ForwardDefaultSelector = context =>
             {
                 var header = context.Request.Headers.Authorization.ToString();
-                if (!header.StartsWith("Bearer ", StringComparison.Ordinal)) return "members";
+                var token = header.StartsWith("Bearer ", StringComparison.Ordinal) ? header["Bearer ".Length..].Trim() : HubToken(context.Request);
+                if (token is null) return "members";
                 var handler = new JsonWebTokenHandler();
-                var token = header["Bearer ".Length..].Trim();
                 string issuer;
                 try { issuer = handler.ReadJsonWebToken(token).Issuer; }
                 catch (ArgumentException) { return "members"; } // Malformed: the members scheme rejects it with 401.
@@ -86,9 +86,15 @@ public static class KeycloakAuthentication
                     ClockSkew = TimeSpan.FromSeconds(30),
                     NameClaimType = "sub",
                 };
+                // D143: WebSocket clients can't always set headers, so the messaging hub (only) also takes the token from the query.
+                jwt.Events = new JwtBearerEvents { OnMessageReceived = context => { context.Token ??= HubToken(context.Request); return Task.CompletedTask; } };
             });
         return services;
     }
+
+    /// <summary>The access_token query value on the messaging hub's paths, and nowhere else.</summary>
+    private static string? HubToken(HttpRequest request) =>
+        request.Path.StartsWithSegments("/hubs/messages") && request.Query["access_token"].ToString() is { Length: > 0 } token ? token : null;
 
     /// <summary>Reads facts from a principal the JWT handler has already validated.</summary>
     public static ValidatedSessionFacts? Facts(ClaimsPrincipal user, KeycloakOptions options)

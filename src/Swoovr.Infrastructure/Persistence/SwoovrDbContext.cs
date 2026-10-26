@@ -39,6 +39,10 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<HomeLocationCheck> HomeLocationChecks => Set<HomeLocationCheck>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageHide> MessageHides => Set<MessageHide>();
+    public DbSet<ConversationHide> ConversationHides => Set<ConversationHide>();
     public DbSet<Itinerary> Itineraries => Set<Itinerary>();
     public DbSet<IdVerificationAttempt> IdVerificationAttempts => Set<IdVerificationAttempt>();
     public DbSet<DiditWebhookEvent> DiditWebhookEvents => Set<DiditWebhookEvent>();
@@ -241,6 +245,35 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             // D149: arrival keeps the time, the market and the method; never coordinates.
             trip.Property(t => t.ArrivalMarketId).HasMaxLength(32);
             trip.HasOne<Market>().WithMany().HasForeignKey(t => t.ArrivalMarketId).OnDelete(DeleteBehavior.SetNull);
+        });
+        // D143: one open conversation per pair; a block closes it and a later reconnection opens a new one.
+        model.Entity<Conversation>(conversation =>
+        {
+            conversation.HasOne<Account>().WithMany().HasForeignKey(c => c.PairLow).OnDelete(DeleteBehavior.Cascade);
+            conversation.HasOne<Account>().WithMany().HasForeignKey(c => c.PairHigh).OnDelete(DeleteBehavior.Cascade);
+            conversation.HasIndex(c => new { c.PairLow, c.PairHigh }, "ix_conversations_one_open").IsUnique().HasFilter("closed_at IS NULL");
+            conversation.HasIndex(c => c.PairHigh);
+            conversation.ToTable(t => t.HasCheckConstraint("ck_conversations_pair", "pair_low < pair_high"));
+        });
+        model.Entity<Message>(message =>
+        {
+            message.HasOne<Conversation>().WithMany().HasForeignKey(m => m.ConversationId).OnDelete(DeleteBehavior.Cascade);
+            message.HasOne<Account>().WithMany().HasForeignKey(m => m.SenderAccountId).OnDelete(DeleteBehavior.Cascade);
+            message.Property(m => m.Body).HasMaxLength(MessagingPolicy.TextMax);
+            message.HasIndex(m => new { m.ConversationId, m.SentAt });
+            message.HasIndex(m => new { m.SenderAccountId, m.SentAt });
+        });
+        model.Entity<MessageHide>(hide =>
+        {
+            hide.HasKey(h => new { h.MessageId, h.AccountId });
+            hide.HasOne<Message>().WithMany().HasForeignKey(h => h.MessageId).OnDelete(DeleteBehavior.Cascade);
+            hide.HasOne<Account>().WithMany().HasForeignKey(h => h.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<ConversationHide>(hide =>
+        {
+            hide.HasKey(h => new { h.ConversationId, h.AccountId });
+            hide.HasOne<Conversation>().WithMany().HasForeignKey(h => h.ConversationId).OnDelete(DeleteBehavior.Cascade);
+            hide.HasOne<Account>().WithMany().HasForeignKey(h => h.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
         // D150, D153: home-location consistency checks keep the outcome only; never coordinates, IP addresses or places.
         model.Entity<HomeLocationCheck>(check =>

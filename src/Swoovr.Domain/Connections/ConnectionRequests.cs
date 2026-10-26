@@ -1,6 +1,7 @@
 namespace Swoovr.Domain;
 
-public enum ConnectionRequestStatus { Pending, Accepted, Declined, Withdrawn, Cancelled }
+/// <summary>Ended: an accepted connection a block ended (Q42 rule 14, D143); unblocking doesn't bring it back.</summary>
+public enum ConnectionRequestStatus { Pending, Accepted, Declined, Withdrawn, Cancelled, Ended }
 
 /// <summary>
 /// A request from one member to another in one connection mode (D112, Q17 rules 29–31). Nothing connects on its own:

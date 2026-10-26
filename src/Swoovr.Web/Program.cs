@@ -17,6 +17,9 @@ builder.Services.AddHttpClient<Swoovr.Client.SessionClient>(http => {
 });
 builder.Services.AddMemberSignIn(builder.Configuration, builder.Environment);
 builder.Services.AddBff(builder.Configuration);
+// D143: realtime messages reach the browser through the web host's relay; the member's token stays here.
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<Swoovr.Web.Auth.MessagesRelays>();
 
 builder.Services.AddHttpClient<Swoovr.Client.PrototypeConversationClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
@@ -43,6 +46,8 @@ app.UseRestrictionGate();
 app.MapStaticAssets();
 MemberSignIn.MapMemberSignIn(app);
 Bff.MapBff(app);
+// The hub checks the signed-in member itself, as the BFF does (this host runs UseAuthentication without UseAuthorization).
+app.MapHub<Swoovr.Web.Auth.MessagesRelayHub>("/bff/hubs/messages");
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(Swoovr.Web.Client._Imports).Assembly);

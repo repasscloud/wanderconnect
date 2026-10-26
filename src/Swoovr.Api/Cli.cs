@@ -94,12 +94,22 @@ public static class Cli
                 Console.WriteLine($"Founders: {run.Stamped} newly eligible, {run.Allocated} places allocated, {run.Skipped} skipped, {run.PlacesLeft} left.");
                 return 0;
             }
+            // D165: erases the text of messages deleted for both more than 30 days ago (kept only as report evidence until then), for cron.
+            case ["messages", "purge", ..]:
+            {
+                var purged = 0;
+                foreach (var message in await db.Messages.Where(m => m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && m.Body != "").ToListAsync())
+                    if (MessagingPolicy.Purge(message, now)) { message.Body = ""; purged++; }
+                await db.SaveChangesAsync();
+                Console.WriteLine($"Messages: {purged} deleted message texts erased.");
+                return 0;
+            }
             case ["beta", "list", ..]:
                 foreach (var e in await db.BetaEnrolments.OrderBy(e => e.CreatedAt).ToListAsync())
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge");
                 return 2;
         }
     }

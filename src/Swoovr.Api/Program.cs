@@ -20,6 +20,7 @@ builder.Services.AddHttpClient<Swoovr.Domain.IIdVerificationProvider, Swoovr.Inf
 builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
     builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
 builder.Services.AddProblemDetails();
+builder.Services.AddSignalR();
 var app = builder.Build();
 // DEFAULT: development applies migrations on start; other environments run `migrate` first.
 if (persistence && app.Environment.IsDevelopment())
@@ -38,6 +39,7 @@ Swoovr.Api.Profiles.MarketEndpoints.Map(app);
 Swoovr.Api.Connections.RequestEndpoints.Map(app);
 Swoovr.Api.Travel.TravelEndpoints.Map(app);
 Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
+Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
