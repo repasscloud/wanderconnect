@@ -641,6 +641,61 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("didit_webhook_events");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.DobReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attempt_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dob_reviews");
+
+                    b.HasIndex("AttemptId")
+                        .HasDatabaseName("ix_dob_reviews_attempt_id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_dob_reviews_created_at");
+
+                    b.HasIndex(new[] { "AccountId" }, "ix_dob_reviews_one_open")
+                        .IsUnique()
+                        .HasDatabaseName("ix_dob_reviews_one_open")
+                        .HasFilter("resolved_at IS NULL");
+
+                    b.ToTable("dob_reviews");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1421,6 +1476,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("display_name");
+
+                    b.Property<string>("DobCheck")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("dob_check");
+
+                    b.Property<DateTimeOffset?>("DobCheckAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dob_check_at");
 
                     b.Property<bool>("Employee")
                         .HasColumnType("boolean")
@@ -2799,6 +2864,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_conversation_hides_conversations_conversation_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.DobReview", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_dob_reviews_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.IdVerificationAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_dob_reviews_id_verification_attempts_attempt_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>

@@ -102,7 +102,19 @@ public partial class MainPage : ContentPage
 				},
 			});
 		if (account.DateOfBirth is { } dob) DateOfBirth.Date = dob.ToDateTime(TimeOnly.MinValue);
-		DateOfBirthVerified.IsVisible = account.DateOfBirthVerified;
+		DateOfBirthVerified.IsVisible = account.DateOfBirthVerified || account.DobCheck == "manualReview";
+		DateOfBirthVerified.Text = account.DobCheck == "manualReview"
+			? "Swoovr is checking your date of birth against your ID, so it can't be changed for now."
+			: "Verified with your ID. Contact Swoovr support to change it.";
+		SaveAge.IsEnabled = DateOfBirth.IsEnabled = account.DobCheck == "none";
+		// D166: the one-time correction pops up over Me when an approved check reported a different date of birth.
+		if (account.DobCheck == "correctionNeeded" && Navigation.ModalStack.Count == 0)
+			MainThread.BeginInvokeOnMainThread(async () => await Navigation.PushModalAsync(new DobCorrectionPage(account.DateOfBirth, async updated =>
+			{
+				ShowMember(new ApiResult<MemberAccount>(200, updated, null));
+				AgeMessage.Text = updated.DateOfBirthVerified ? "Thanks. Your date of birth now matches your ID." : "Thanks. It still differs from your ID, so Swoovr's team will check it.";
+				await Task.CompletedTask;
+			})));
 	}
 
 	private async void OnProfile(object? sender, EventArgs e) => await Ui.PushAsync(new ProfilePage());

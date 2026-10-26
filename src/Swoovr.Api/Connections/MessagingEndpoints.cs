@@ -13,8 +13,8 @@ using static Swoovr.Api.Accounts.AccountEndpoints;
 namespace Swoovr.Api.Connections;
 
 /// <summary>
-/// Messaging (Q42, D143, D165): one conversation per connected pair across modes, text only, sent through these routes
-/// and pushed to both members through the SignalR hub. Every send is checked on the server: an accepted connection, no
+/// Messaging (Q42, D143, D165, D167): one conversation per connected pair across modes, text only, sent through these
+/// routes and pushed to both members through the SignalR hub. Every send is checked on the server: an accepted connection, no
 /// block either way, both accounts able to take part, bots only replying, travellers before arrival only replying.
 /// Delete for both within five minutes; hide a message or a conversation for oneself. Moderators have no route to
 /// conversations: only report evidence reaches a case. The audit holds ids only, never message text.
@@ -89,7 +89,8 @@ public static class MessagingEndpoints
             var conversation = await OpenAsync(db, id, me, cancellationToken);
             if (conversation is null) return NotAvailable();
             var hiddenAt = await db.ConversationHides.Where(h => h.ConversationId == id && h.AccountId == me).Select(h => (DateTimeOffset?)h.HiddenAt).FirstOrDefaultAsync(cancellationToken);
-            var rows = await db.Messages.Where(m => m.ConversationId == id && m.DeletedAt == null && (before == null || m.SentAt < before)
+            // Q59, D167: messages deleted for both stay in the list as deleted, without their text.
+            var rows = await db.Messages.Where(m => m.ConversationId == id && (before == null || m.SentAt < before)
                     && (hiddenAt == null || m.SentAt > hiddenAt) && !db.MessageHides.Any(h => h.MessageId == m.Id && h.AccountId == me))
                 .OrderByDescending(m => m.SentAt).ThenByDescending(m => m.Id).Take(MessagingPolicy.PageSize + 1).ToListAsync(cancellationToken);
             var page = rows.Take(MessagingPolicy.PageSize).ToList();
@@ -178,7 +179,8 @@ public static class MessagingEndpoints
     private static IResult NotAvailable() => Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That conversation isn't available.");
 
     public static MessageView View(Message message, Guid viewer, DateTimeOffset now) =>
-        new(message.Id, message.ConversationId, message.SenderAccountId == viewer, Wire(message.Kind), message.Body, message.SentAt, MessagingPolicy.MayDeleteForBoth(message, viewer, now));
+        new(message.Id, message.ConversationId, message.SenderAccountId == viewer, Wire(message.Kind), MessagingPolicy.VisibleText(message), message.SentAt,
+            MessagingPolicy.MayDeleteForBoth(message, viewer, now), message.DeletedAt is not null);
 
     /// <summary>The member's open conversation with no block either way (rules 12–13); anything else is null, read as not available.</summary>
     public static async Task<Conversation?> OpenAsync(SwoovrDbContext db, Guid id, Guid me, CancellationToken cancellationToken) =>

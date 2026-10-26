@@ -43,7 +43,9 @@ static class MessagingChecks
         Expect(!MessagingPolicy.MayDeleteForBoth(deleted, me, now), "only once");
 
         // What a member sees (rule 9): not deleted, not hidden by them, not before they hid the conversation.
-        Expect(MessagingPolicy.Shown(M(1), false, null) && !MessagingPolicy.Shown(deleted, false, null), "deleted for both");
+        // Q59, D167: a message deleted for both stays listed as deleted, with no text; the text stays on the server.
+        Expect(MessagingPolicy.Shown(M(1), false, null) && MessagingPolicy.Shown(deleted, false, null), "deleted for both is still listed");
+        Expect(MessagingPolicy.VisibleText(deleted) == "" && deleted.Body == "text" && MessagingPolicy.VisibleText(M(1)) == "text", "as deleted, with the text kept on the server");
         Expect(!MessagingPolicy.Shown(M(1), true, null), "hidden for me");
         Expect(!MessagingPolicy.Shown(M(10), false, now.AddMinutes(-5)) && MessagingPolicy.Shown(M(1), false, now.AddMinutes(-5)), "a hidden conversation shows only newer messages");
 
@@ -58,7 +60,7 @@ static class MessagingChecks
         Expect(!MessagingPolicy.Evidence(thread.Append(new Message { Id = Guid.NewGuid(), ConversationId = Guid.NewGuid(), SentAt = reported.SentAt.AddSeconds(-1) }), reported)
             .Any(m => m.ConversationId != conversation), "only the same conversation");
 
-        // D165: deleted text kept for 30 days as evidence, then purged.
+        // D167: deleted text kept for 30 days for investigations, then purged.
         var old = M(1); old.DeletedAt = now.AddDays(-31);
         var recent = M(1); recent.DeletedAt = now.AddDays(-29);
         Expect(MessagingPolicy.Purge(old, now) && !MessagingPolicy.Purge(recent, now) && !MessagingPolicy.Purge(M(1), now), "purge after 30 days, only deleted ones");

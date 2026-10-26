@@ -39,6 +39,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<HomeLocationCheck> HomeLocationChecks => Set<HomeLocationCheck>();
+    public DbSet<DobReview> DobReviews => Set<DobReview>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageHide> MessageHides => Set<MessageHide>();
@@ -245,6 +246,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             // D149: arrival keeps the time, the market and the method; never coordinates.
             trip.Property(t => t.ArrivalMarketId).HasMaxLength(32);
             trip.HasOne<Market>().WithMany().HasForeignKey(t => t.ArrivalMarketId).OnDelete(DeleteBehavior.SetNull);
+        });
+        // D166: manual date-of-birth reviews; at most one open per member. Ids and outcomes only, never a date.
+        model.Entity<DobReview>(review =>
+        {
+            review.HasOne<Account>().WithMany().HasForeignKey(r => r.AccountId).OnDelete(DeleteBehavior.Cascade);
+            review.HasOne<IdVerificationAttempt>().WithMany().HasForeignKey(r => r.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            review.Property(r => r.Reason).HasMaxLength(32);
+            review.HasIndex(r => r.AccountId, "ix_dob_reviews_one_open").IsUnique().HasFilter("resolved_at IS NULL");
+            review.HasIndex(r => r.CreatedAt);
         });
         // D143: one open conversation per pair; a block closes it and a later reconnection opens a new one.
         model.Entity<Conversation>(conversation =>

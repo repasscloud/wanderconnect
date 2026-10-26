@@ -20,7 +20,7 @@ public static partial class Bff
 
     [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
         + "|requests|requests/" + Uuid + "/(accept|decline|withdraw)|connections|blocks|blocks/" + Uuid
-        + "|me/market-interest|me/verification|report-categories|reports|me/reports|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
+        + "|me/market-interest|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>

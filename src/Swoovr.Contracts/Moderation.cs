@@ -63,6 +63,11 @@ public sealed record EntitlementView(Guid Id, string Tier, string Source, DateTi
 public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, string? DisplayName, string? AgeStatus, string? IdStatus,
     bool CanRequestIdVerification, bool Bot, bool Employee, bool Founder, string? HomeMarket, DateTimeOffset? HomeMarketMovedAt, string Plan,
     IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases, bool DateOfBirthVerified = false,
-    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0);
+    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none");
+
+/// <summary>D166: a manual date-of-birth review in the admin queue. Never either date: the admin reads the document's in Didit's console.</summary>
+public sealed record DobReviewView(Guid Id, Guid AccountId, string? DisplayName, string Reason, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome);
+/// <summary>"verified" (the date on file matches the ID) or "notVerified", with a reason (audited, never shown publicly).</summary>
+public sealed record DobReviewDecision(string? Outcome, string? Reason);
 /// <summary>D150: an admin clears the home-location review flag after looking, with a reason (audited, never shown publicly).</summary>
 public sealed record HomeReviewClear(string? Reason);

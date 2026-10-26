@@ -63,6 +63,7 @@ else
         <section class="card" data-location-review="@(account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
             <h2>Location and arrival (D149, D150)</h2>
             <p class="help">Outcomes only: Swoovr keeps no coordinates, IP addresses or places. A flag never suspends anyone.</p>
+            <p data-dob-check="@account.DobCheck">Date of birth: @(account.DobCheck switch { "correctionNeeded" => "the member has one correction to make", "manualReview" => "waiting for review in Date of birth", _ => account.DateOfBirthVerified ? "verified with the ID" : "not verified" })</p>
             <p data-home-checks="@account.InconsistentHomeChecks">Home-location checks that disagreed in the last 30 days: @account.InconsistentHomeChecks@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged for review {flagged:d MMM yyyy}" : "")</p>
             @if (account.HomeReviewFlaggedAt is not null)
             {

@@ -94,7 +94,7 @@ public static class Cli
                 Console.WriteLine($"Founders: {run.Stamped} newly eligible, {run.Allocated} places allocated, {run.Skipped} skipped, {run.PlacesLeft} left.");
                 return 0;
             }
-            // D165: erases the text of messages deleted for both more than 30 days ago (kept only as report evidence until then), for cron.
+            // D167: erases the text of messages deleted for both more than 30 days ago (kept for investigations until then), for cron.
             case ["messages", "purge", ..]:
             {
                 var purged = 0;

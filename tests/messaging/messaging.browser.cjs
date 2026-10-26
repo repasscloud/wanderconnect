@@ -135,7 +135,12 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.deepEqual(code(await call(tokens.ana, `/api/v1/messages/${reply}`, { method: 'DELETE' })), [404, 'not-available']); pass(); // not hers
     assert.equal((await call(tokens.bob, `/api/v1/messages/${reply}`, { method: 'DELETE' })).status, 204); pass();
     assert.ok(await waitFor(() => anaHub.received.some(x => x.target === 'deleted' && x.payload.messageId === reply))); pass();
-    assert.ok(!(await list('ana', ab)).some(m => m.id === reply) && !(await list('bob', ab)).some(m => m.id === reply)); pass();
+    // Q59 (D167): it stays in both threads as deleted, without its text; the text stays on the server for 30 days.
+    for (const who of ['ana', 'bob']) {
+      const shown = (await list(who, ab)).find(m => m.id === reply);
+      assert.deepEqual([shown?.deleted, shown?.text, shown?.canDelete], [true, '', false], who); pass();
+    }
+    assert.equal(await sql(`SELECT body FROM messages WHERE id = '${reply}'`), 'Fictional reply'); pass();
     assert.deepEqual(code(await call(tokens.bob, `/api/v1/messages/${reply}`, { method: 'DELETE' })), [404, 'not-available']); pass(); // once
     const late = (await send('bob', ab, 'Fictional late')).body.id;
     await sql(`UPDATE messages SET sent_at = now() - interval '6 minutes' WHERE id = '${late}'`);
@@ -290,12 +295,13 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.ok((await list('bob', ab)).some(m => m.text === 'Fictional typed in Edge' && !m.mine)); pass();
     const typed = (await list('ana', ab)).find(m => m.text === 'Fictional typed in Edge').id;
     await page.click(`[data-delete="${typed}"]`);
-    await page.waitForSelector(`[data-message="${typed}"]`, { state: 'detached' });
-    assert.ok(!(await list('bob', ab)).some(m => m.id === typed)); pass();
-    // Bob deletes his live message: it disappears from Ana's page without a reload.
+    await page.waitForSelector(`[data-message="${typed}"][data-deleted="true"]`);
+    assert.equal(await page.locator(`[data-message="${typed}"] p`).innerText(), 'This message was deleted'); pass();
+    assert.equal((await list('bob', ab)).find(m => m.id === typed)?.deleted, true); pass();
+    // Bob deletes his live message: it shows as deleted on Ana's page without a reload.
     assert.equal((await call(tokens.bob, `/api/v1/messages/${live}`, { method: 'DELETE' })).status, 204);
-    await page.waitForSelector(`[data-message="${live}"]`, { state: 'detached', timeout: 8000 });
-    pass();
+    await page.waitForSelector(`[data-message="${live}"][data-deleted="true"]`, { timeout: 8000 });
+    assert.equal(await page.locator(`[data-message="${live}"] [data-report-message]`).count(), 0); pass(); // nothing left to report from the thread
     await page.goto(web + '/chats');
     await page.waitForSelector('[data-chats="ready"]');
     assert.ok(await page.locator(`[data-chat="${ab}"]`).count() === 1); pass();

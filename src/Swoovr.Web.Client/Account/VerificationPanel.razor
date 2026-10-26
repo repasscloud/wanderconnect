@@ -22,6 +22,7 @@
             <p>We need to confirm you're 18 or over before you can keep using Swoovr. Verify your ID below, or contact Swoovr support.</p>
         </section>
     }
+    @if (account is not null) { <DobCorrectionPrompt Account="account" Changed="a => account = a" /> }
     <section class="card account-section" aria-labelledby="id-heading">
         <h2 id="id-heading">Your ID check</h2>
         <p class="field-help">Optional and free. Didit checks a government photo ID and a live selfie. Swoovr keeps only the result, never your document or photos. The ID Verified badge says your ID was checked; it doesn't say your profile photos show you.</p>
@@ -57,10 +58,14 @@
         loaded = true;
     }
 
+    private MemberAccount? account;
+
     private async Task LoadAsync()
     {
         var result = await Members.VerificationAsync();
         (view, refused) = (result.Value, result.Code ?? (result.Ok ? null : "error"));
+        // D166: the re-read above may have just approved the check with a different date of birth.
+        account = (await Members.MeAsync()).Value;
     }
 
     private async Task StartAsync()

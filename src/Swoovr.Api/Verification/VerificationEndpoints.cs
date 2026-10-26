@@ -92,6 +92,36 @@ public static class VerificationEndpoints
             return Results.Ok(await ViewAsync(db, profile, provider, configuration, cancellationToken));
         });
 
+        // D166: the member's one correction. Their date is saved, Didit's decision is read again (no new scan), and a
+        // match marks it verified; otherwise an admin reviews it. Didit unreachable: nothing changes and they can retry.
+        me.MapPost("/date-of-birth", async (DobCorrectionRequest request, ClaimsPrincipal user, AccountResolver accounts, IIdVerificationProvider provider,
+            TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true);
+            if (denied is not null) return denied;
+            var (db, profile, now) = (accounts.Db!, current!.Profile!, clock.GetUtcNow());
+            if (profile.DobCheck != DobCheck.CorrectionNeeded)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DobCorrectionNotOpen, "There's no date of birth to correct.");
+            if (request.DateOfBirth is not { } corrected
+                || AgePolicy.Evaluate(profile.AgeStatus, corrected, null, DateOnly.FromDateTime(now.UtcDateTime)).Error != AgeChangeError.None)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidAge, "Enter the date of birth shown on your ID.");
+            var attempt = await db.IdVerificationAttempts.Where(a => a.AccountId == profile.AccountId && a.State == IdAttemptState.Approved)
+                .OrderByDescending(a => a.CompletedAt).FirstOrDefaultAsync(cancellationToken);
+            var decision = attempt is null || !provider.Configured ? null : await provider.GetDecisionAsync(attempt.SessionId, cancellationToken);
+            if (attempt is null || decision is null || decision.SessionId != attempt.SessionId || decision.VendorData != profile.AccountId.ToString())
+                return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.VerificationProviderFailed, "We couldn't check your ID just now. Try again shortly.");
+            profile.DateOfBirth = corrected;
+            profile.DeclaredAge = null;
+            var result = DobCorrectionPolicy.AfterCorrection(corrected, decision.DateOfBirth);
+            (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (result == DobCorrectionResult.Verified, result == DobCorrectionResult.Verified ? now : null);
+            (profile.DobCheck, profile.DobCheckAt) = (result == DobCorrectionResult.Verified ? DobCheck.None : DobCheck.ManualReview, now);
+            Audit.Record(db, now, profile.AccountId, "account", result == DobCorrectionResult.Verified ? "dob.verified" : "dob.review-opened", "account",
+                profile.AccountId.ToString(), "correction");
+            if (result == DobCorrectionResult.ManualReview) await OpenReviewAsync(db, profile.AccountId, attempt.Id, "still-different", now, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(AccountEndpoints.View(profile, DateOnly.FromDateTime(now.UtcDateTime), await Profiles.ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
+        });
+
         // D152: Didit calls the API directly (never through the BFF). Signature first, then the signed timestamp, then
         // a durable dedupe on event_id in the same transaction as the change.
         app.MapPost("/api/v1/webhooks/didit", async (HttpRequest http, SwoovrDbContext db, DiditOptions options, TimeProvider clock,
@@ -144,6 +174,38 @@ public static class VerificationEndpoints
                 return Results.Ok(new { outcome });
             }
         }).AllowAnonymous();
+
+        // D166: the manual date-of-birth review queue. Admins read the document's date in Didit's console and decide.
+        var reviews = app.MapGroup("/api/v1/admin/dob-reviews").RequireAuthorization();
+        reviews.MapGet("", async (bool? open, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (_, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var rows = await (from r in db.DobReviews join p in db.MemberProfiles on r.AccountId equals p.AccountId
+                              where open == false || r.ResolvedAt == null orderby r.CreatedAt select new { r, p.DisplayName }).Take(200).ToListAsync(cancellationToken);
+            return Results.Ok(rows.Select(x => ReviewView(x.r, x.DisplayName)).ToList());
+        });
+        reviews.MapPost("/{reviewId:guid}/resolve", async (Guid reviewId, DobReviewDecision request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
+            CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            if (!Enum.TryParse<DobReviewOutcome>(request.Outcome, true, out var outcome) || int.TryParse(request.Outcome, out _)
+                || string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > ModerationPolicy.ReasonMax)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose verified or not verified, with a reason.");
+            var (db, now) = (accounts.Db!, clock.GetUtcNow());
+            var review = await db.DobReviews.FindAsync([reviewId], cancellationToken);
+            if (review is null) return Results.NotFound();
+            if (review.ResolvedAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This review is already resolved.");
+            var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == review.AccountId, cancellationToken);
+            (review.ResolvedAt, review.ResolvedBy, review.Outcome) = (now, current!.Account!.Id, outcome);
+            (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (outcome == DobReviewOutcome.Verified, outcome == DobReviewOutcome.Verified ? now : null);
+            (profile.DobCheck, profile.DobCheckAt) = (DobCheck.None, now);
+            Audit.Record(db, now, current.Account.Id, "account", "dob.review-resolved", "account", review.AccountId.ToString(), Wire(outcome));
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(ReviewView(review, profile.DisplayName));
+        });
 
         var admin = app.MapGroup("/api/v1/admin/accounts/{id:guid}").RequireAuthorization();
         admin.MapGet("/verification", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
@@ -204,6 +266,16 @@ public static class VerificationEndpoints
         });
     }
 
+    /// <summary>D166: an admin-queue review for a date of birth that didn't match the ID; at most one open per member.</summary>
+    private static async Task OpenReviewAsync(SwoovrDbContext db, Guid account, Guid attempt, string reason, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await db.DobReviews.AnyAsync(r => r.AccountId == account && r.ResolvedAt == null, cancellationToken)) return;
+        db.DobReviews.Add(new DobReview { Id = Guid.NewGuid(), AccountId = account, AttemptId = attempt, Reason = reason, CreatedAt = now });
+    }
+
+    private static DobReviewView ReviewView(DobReview r, string? name) =>
+        new(r.Id, r.AccountId, name, r.Reason, r.CreatedAt, r.ResolvedAt, r.Outcome is { } o ? Wire(o) : null);
+
     private static string Short(string value, int max = 32) => value.Length <= max ? value : value[..max];
 
     private static Task<IdVerificationAttempt?> OpenAttemptAsync(SwoovrDbContext db, Guid accountId, CancellationToken cancellationToken) =>
@@ -245,12 +317,15 @@ public static class VerificationEndpoints
                 (profile.IdStatus, profile.IdCheckedAt) = (VerificationStatus.Rejected, now);
                 Audit.Record(db, now, null, "system", "account.locked", "account", account.Id.ToString(), "underage");
             }
-            // D158: compare the document's date of birth with the profile's; only an exact match marks it verified. The
-            // document's date is dropped here; the audit says matched or not, never either date.
-            var matches = IdVerificationPolicy.DateOfBirthMatches(profile.DateOfBirth, session.DateOfBirth);
-            (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (matches, matches ? now : null);
-            Audit.Record(db, now, null, "system", matches ? "dob.verified" : "dob.not-verified", "account", account.Id.ToString(),
-                session.DateOfBirth is null ? "no-document-date" : profile.DateOfBirth is null ? "no-profile-date" : null);
+            // D158, D166: compare the document's date of birth with the profile's; a match marks it verified. A different
+            // date opens the member's one correction; no date at all goes to an admin's review. ID Verified stays either
+            // way. The document's date is never stored; the audit says what happened, never either date.
+            var check = DobCorrectionPolicy.AfterApproval(profile.DateOfBirth, session.DateOfBirth);
+            (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (check == DobCheck.None, check == DobCheck.None ? now : null);
+            (profile.DobCheck, profile.DobCheckAt) = (check, check == DobCheck.None ? null : now);
+            Audit.Record(db, now, null, "system", check switch { DobCheck.None => "dob.verified", DobCheck.CorrectionNeeded => "dob.correction-needed", _ => "dob.review-opened" },
+                "account", account.Id.ToString(), session.DateOfBirth is null ? "no-document-date" : null);
+            if (check == DobCheck.ManualReview) await OpenReviewAsync(db, profile.AccountId, attempt.Id, "no-document-date", now, cancellationToken);
             if (FounderEligibility.Stamp(profile, account.Status, now))
                 Audit.Record(db, now, null, "system", "founder.eligible", "account", account.Id.ToString());
         }

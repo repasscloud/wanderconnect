@@ -64,6 +64,7 @@
     }
     else if (me is not null)
     {
+        <DobCorrectionPrompt Account="me" Changed="Corrected" />
         @if (me.AgeStatus == "needsVerification")
         {
             @* D127: the rest of the app answers age-verification-required until the check passes or support resolves it. *@
@@ -94,12 +95,19 @@
             <h2 id="age-heading">Your age</h2>
             @* D139: a date of birth is required and never shown; your age shows unless you hide it (Me → Who I'd like to meet). *@
             <p class="field-help">We need your date of birth to show you in discovery. It's never shown; your age is, unless you hide it. Entering it isn't age verification.</p>
+            @if (me.DobCheck != "none")
+            {
+                <p class="field-help" data-dob-locked="@me.DobCheck">@(me.DobCheck == "correctionNeeded" ? "Set your date of birth in the prompt above to finish ID verification." : "Swoovr is checking your date of birth, so it can't be changed for now.")</p>
+            }
+            else
+            {
             <form class="stack" @onsubmit="SaveAgeAsync" data-age-form>
                 <div class="field"><label for="dob">Date of birth</label><input id="dob" type="date" required @bind="dateOfBirth" max="@Today" /></div>
                 @if (me.DateOfBirthVerified) { <p class="field-help" data-dob-verified="true">Verified with your ID. Contact Swoovr support to change it.</p> }
                 <button type="submit" class="button" disabled="@(busy || dateOfBirth is null)">Save</button>
                 <p role="status" aria-live="polite" class="field-help" data-age-status="@AgeStatus">@ageMessage</p>
             </form>
+            }
         </section>
 
         <section class="card account-section" aria-labelledby="coupon-heading">
@@ -155,6 +163,9 @@
         Show(result);
         ageMessage = locked ? null : AccountText.AgeSaved(me);
     }
+
+    private void Corrected(MemberAccount updated) => (me, dateOfBirth, ageMessage) = (updated, updated.DateOfBirth,
+        updated.DateOfBirthVerified ? "Thanks. Your date of birth now matches your ID." : "Thanks. It still differs from your ID, so Swoovr's team will check it.");
 
     private async Task RedeemAsync()
     {

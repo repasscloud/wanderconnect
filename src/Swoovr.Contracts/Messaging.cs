@@ -6,8 +6,11 @@ namespace Swoovr.Contracts;
 /// </summary>
 public sealed record ConversationView(Guid Id, PersonSummary Person, DateTimeOffset CreatedAt, DateTimeOffset? LastMessageAt, bool CanSend);
 
-/// <summary>A message as one member sees it. CanDelete: theirs and within five minutes (delete for both, rule 8).</summary>
-public sealed record MessageView(Guid Id, Guid ConversationId, bool Mine, string Kind, string Text, DateTimeOffset SentAt, bool CanDelete);
+/// <summary>
+/// A message as one member sees it. CanDelete: theirs and within five minutes (delete for both, rule 8). Deleted: shown
+/// as deleted, with no text (Q59, D167); the text stays on the server for 30 days for investigations.
+/// </summary>
+public sealed record MessageView(Guid Id, Guid ConversationId, bool Mine, string Kind, string Text, DateTimeOffset SentAt, bool CanDelete, bool Deleted = false);
 
 /// <summary>Newest first; Before is the cursor for the next page (the oldest message's time).</summary>
 public sealed record MessagePage(IReadOnlyList<MessageView> Items, bool More, DateTimeOffset? Before);

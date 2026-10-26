@@ -83,6 +83,13 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<AccountAdminSummary>> ClearHomeReviewAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
         SendAsync<AccountAdminSummary>(HttpMethod.Post, $"api/v1/admin/accounts/{id}/home-review/clear", new HomeReviewClear(reason), cancellationToken);
 
+    /// <summary>D166: open date-of-birth reviews (admins only).</summary>
+    public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<DobReviewView>>(HttpMethod.Get, "api/v1/admin/dob-reviews", null, cancellationToken);
+
+    public Task<ApiResult<DobReviewView>> ResolveDobReviewAsync(Guid id, string outcome, string reason, CancellationToken cancellationToken = default) =>
+        SendAsync<DobReviewView>(HttpMethod.Post, $"api/v1/admin/dob-reviews/{id}/resolve", new DobReviewDecision(outcome, reason), cancellationToken);
+
     private async Task<int> StatusAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };

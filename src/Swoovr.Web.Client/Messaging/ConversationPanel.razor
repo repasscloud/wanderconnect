@@ -1,6 +1,6 @@
 @* One conversation (D143, Interactive WebAssembly): text only, newest at the bottom, sent through /bff/ (so every send
-   passes the API's checks) and received live through the web host's relay hub. Delete for both within five minutes,
-   hide a message or the whole conversation for yourself, report a message or the conversation. *@
+   passes the API's checks) and received live through the web host's relay hub. Delete for both within five minutes (it
+   then shows as deleted, Q59), hide a message or the whole conversation for yourself, report a message or the conversation. *@
 @inject MemberClient Members
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
@@ -20,12 +20,12 @@
     <ul class="chat-thread" aria-live="polite" data-messages="@messages.Count">
         @foreach (var m in messages)
         {
-            <li class="bubble @(m.Mine ? "mine" : "")" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")">
-                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span><p>@m.Text</p>
+            <li class="bubble @(m.Mine ? "mine" : "") @(m.Deleted ? "deleted" : "")" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
+                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span><p>@(m.Deleted ? "This message was deleted" : m.Text)</p>
                 <span class="request-actions">
-                    @if (m.Mine && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5)) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
+                    @if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5)) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
                     <button type="button" class="link-button" @onclick="() => HideAsync(m)" data-hide="@m.Id">Hide</button>
-                    @if (!m.Mine) { <button type="button" class="link-button" @onclick="() => reporting = m.Id" data-report-message="@m.Id">Report</button> }
+                    @if (!m.Mine && !m.Deleted) { <button type="button" class="link-button" @onclick="() => reporting = m.Id" data-report-message="@m.Id">Report</button> }
                 </span>
             </li>
         }
@@ -72,7 +72,7 @@
             (messages, more, before) = (page?.Items.Reverse().ToList() ?? [], page?.More ?? false, page?.Before);
             hub = new MessagesHubClient(new Uri(Navigation.BaseUri + "bff/hubs/messages"));
             hub.Message += m => { if (m.ConversationId == Id && messages.All(x => x.Id != m.Id)) { messages.Add(m); _ = InvokeAsync(StateHasChanged); } };
-            hub.Deleted += d => { if (d.ConversationId == Id) { messages.RemoveAll(x => x.Id == d.MessageId); _ = InvokeAsync(StateHasChanged); } };
+            hub.Deleted += d => { if (d.ConversationId == Id) { MarkDeleted(d.MessageId); _ = InvokeAsync(StateHasChanged); } };
             hub.Closed += c => { if (c.ConversationId == Id) _ = InvokeAsync(Closed); };
             try { await hub.StartAsync(); live = true; }
             catch (Exception error) when (error is HttpRequestException or InvalidOperationException) { live = false; }
@@ -115,8 +115,15 @@
     private async Task DeleteAsync(MessageView m)
     {
         var code = await Members.DeleteMessageAsync(m.Id);
-        if (code == 204) messages.RemoveAll(x => x.Id == m.Id);
+        if (code == 204) MarkDeleted(m.Id);
         (status, message) = code == 204 ? ("deleted", "Deleted for both of you.") : ("failed", "Messages can be deleted for both of you within five minutes.");
+    }
+
+    // Q59, D167: a message deleted for both stays in the thread as deleted.
+    private void MarkDeleted(Guid id)
+    {
+        var index = messages.FindIndex(x => x.Id == id);
+        if (index >= 0) messages[index] = messages[index] with { Deleted = true, Text = "", CanDelete = false };
     }
 
     private async Task HideAsync(MessageView m)

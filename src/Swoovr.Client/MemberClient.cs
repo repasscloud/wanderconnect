@@ -36,6 +36,10 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<IdVerificationView>> StartVerificationAsync(string client, CancellationToken cancellationToken = default) =>
         SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification") { Content = JsonContent.Create(new StartVerification(client)) }, cancellationToken);
 
+    /// <summary>D166: the one-time correction of the date of birth to the one on the verified ID; the API re-checks it with Didit.</summary>
+    public Task<ApiResult<MemberAccount>> CorrectDateOfBirthAsync(DateOnly? dateOfBirth, CancellationToken cancellationToken = default) =>
+        SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification/date-of-birth") { Content = JsonContent.Create(new DobCorrectionRequest(dateOfBirth)) }, cancellationToken);
+
     /// <summary>The report categories as configured (D131).</summary>
     public Task<ApiResult<List<ReportCategoryView>>> ReportCategoriesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ReportCategoryView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/report-categories"), cancellationToken);

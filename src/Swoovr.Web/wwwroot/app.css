@@ -156,6 +156,11 @@ button.segment:focus-visible { outline: 3px solid var(--text); outline-offset: 1
 .sheet[popover]::backdrop { background: var(--scrim); }
 .sheet[popover]:popover-open { animation: sheet-in .35s var(--ease); }
 @keyframes sheet-in { from { transform: translateY(100%); } }
+/* Dialog (D166 date-of-birth correction): a centred card over the scrim; it asks once, so it isn't dismissable. */
+.dialog-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: var(--gutter); background: var(--scrim); }
+.dialog { width: 100%; max-width: 440px; max-height: 90vh; overflow: auto; }
+/* Q59, D167: a message deleted for both stays in the thread as a placeholder. */
+.bubble.deleted { background: transparent; border: 1px dashed var(--border); color: var(--muted); font-style: italic; }
 .sheet-handle { display: block; width: 40px; height: 4px; margin: 0 auto 18px; border-radius: 2px; background: var(--border); }
 .sheet-title { font: 700 1.5rem/1.1 var(--font); letter-spacing: -.5px; margin-bottom: 18px; }
 .sheet-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--text); }

@@ -1,0 +1,52 @@
+@* The one-time date-of-birth correction (owner, Q58, D166): an approved ID check reported a different date of birth, so
+   the member is asked once to set theirs to the date on their ID. The API reads Didit's decision again and compares: a
+   match verifies it; otherwise an admin reviews it. Swoovr never shows or stores the document's date. *@
+@inject MemberClient Members
+@if (Account.DobCheck == "correctionNeeded" && !closed)
+{
+    <div class="dialog-backdrop" data-dob-correction="open">
+        <section class="card dialog" role="dialog" aria-modal="true" aria-labelledby="dob-correction-heading">
+            <h2 id="dob-correction-heading">Your date of birth doesn't match your ID</h2>
+            <p>Your ID check passed, but the date of birth on your ID is different from the one on your Swoovr account. Set your date of birth to the one shown on your ID to finish verification. You can do this once; if it still doesn't match, Swoovr's team will check it.</p>
+            <form class="stack" @onsubmit="SaveAsync" data-dob-correction-form>
+                <div class="field"><label for="dob-correction">Date of birth on your ID</label><input id="dob-correction" type="date" required @bind="date" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" /></div>
+                <button type="submit" class="button" disabled="@(busy || date is null)">Confirm</button>
+                <p role="status" aria-live="polite" class="field-help" data-dob-correction-status="@status">@message</p>
+            </form>
+        </section>
+    </div>
+}
+else if (Account.DobCheck == "manualReview")
+{
+    <section class="card notice" data-dob-review="open">
+        <p><strong>We're checking your date of birth.</strong> It still differs from your ID, so someone from Swoovr will review it. Your ID Verified badge stays.</p>
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public MemberAccount Account { get; set; } = default!;
+    /// <summary>Called with the updated account after the correction.</summary>
+    [Parameter] public EventCallback<MemberAccount> Changed { get; set; }
+    private DateOnly? date;
+    private bool busy, closed;
+    private string? status, message;
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        var result = await Members.CorrectDateOfBirthAsync(date);
+        busy = false;
+        if (result.Value is { } updated)
+        {
+            closed = true;
+            await Changed.InvokeAsync(updated);
+            return;
+        }
+        (status, message) = (result.Code ?? "failed", result.Code switch
+        {
+            ProblemCodes.InvalidAge => "Enter the date of birth shown on your ID.",
+            ProblemCodes.VerificationProviderFailed => "We couldn't check your ID just now. Try again shortly.",
+            ProblemCodes.DobCorrectionNotOpen => "There's nothing to correct now.",
+            _ => "That didn't work. Try again.",
+        });
+    }
+}

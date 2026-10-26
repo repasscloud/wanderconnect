@@ -47,7 +47,7 @@ public sealed class ConversationPage : ContentPage
 		{
 			hub = live;
 			hub.Message += m => MainThread.BeginInvokeOnMainThread(() => { if (m.ConversationId == id && messages.All(x => x.Id != m.Id)) { messages.Add(m); Draw(); } });
-			hub.Deleted += d => MainThread.BeginInvokeOnMainThread(() => { if (d.ConversationId == id && messages.RemoveAll(x => x.Id == d.MessageId) > 0) Draw(); });
+			hub.Deleted += d => MainThread.BeginInvokeOnMainThread(() => { if (d.ConversationId == id && MarkDeleted(d.MessageId)) Draw(); });
 			try { await hub.StartAsync(); status.Text = null; }
 			catch (Exception error) when (error is HttpRequestException or InvalidOperationException) { status.Text = "Live updates are off. Reopen the chat to see new messages."; }
 		}
@@ -64,15 +64,17 @@ public sealed class ConversationPage : ContentPage
 		thread.Children.Clear();
 		foreach (var m in messages)
 		{
-			var bubble = new Border { Style = Ui.Style(m.Mine ? "BubbleMine" : "BubbleTheirs"), AutomationId = $"Message_{m.Id}",
+			// Q59, D167: a message deleted for both stays in the thread as deleted.
+			var bubble = new Border { Style = Ui.Style(m.Mine && !m.Deleted ? "BubbleMine" : "BubbleTheirs"), AutomationId = $"Message_{m.Id}",
 				HorizontalOptions = m.Mine ? LayoutOptions.End : LayoutOptions.Start,
-				Content = new Label { Text = m.Text, Style = Ui.Style(m.Mine ? "BubbleMineText" : "BubbleText") } };
+				Content = new Label { Text = m.Deleted ? "This message was deleted" : m.Text, Style = Ui.Style(m.Mine && !m.Deleted ? "BubbleMineText" : "BubbleText"),
+					FontAttributes = m.Deleted ? FontAttributes.Italic : FontAttributes.None } };
 			var actions = new HorizontalStackLayout { Spacing = 8, HorizontalOptions = bubble.HorizontalOptions };
-			if (m.Mine && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5))
+			if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5))
 				actions.Children.Add(Ui.Button("Delete for both", $"Delete_{m.Id}", async () =>
 				{
 					var code = await Ui.Members!.DeleteMessageAsync(m.Id);
-					if (code == 204) { messages.RemoveAll(x => x.Id == m.Id); Draw(); }
+					if (code == 204 && MarkDeleted(m.Id)) Draw();
 					status.Text = code == 204 ? "Deleted for both of you." : "Messages can be deleted for both of you within five minutes.";
 				}, primary: false));
 			actions.Children.Add(Ui.Button("Hide", $"Hide_{m.Id}", async () =>
@@ -81,6 +83,14 @@ public sealed class ConversationPage : ContentPage
 			}, primary: false));
 			thread.Children.Add(new VerticalStackLayout { Spacing = 2, Children = { bubble, actions } });
 		}
+	}
+
+	private bool MarkDeleted(Guid message)
+	{
+		var index = messages.FindIndex(x => x.Id == message);
+		if (index < 0) return false;
+		messages[index] = messages[index] with { Deleted = true, Text = "", CanDelete = false };
+		return true;
 	}
 
 	private async Task SendAsync()
