@@ -2,7 +2,7 @@
 
 Adult human connection platform. **Swoovr** is the confirmed product name (owner, 22 October 2026). Engineering namespaces and projects use `Swoovr`; lowercase technical identifiers use `swoovr`.
 
-This repository contains the product definition and a local .NET prototype: Keycloak member sign-in on web and in the MAUI app, PostgreSQL persistence, and signed-in profiles, connection modes, Explore, connection requests, blocks and Travel. It does **not** yet implement identity verification, payments, messaging, moderation or any hosted deployment. Fictional previews are explicitly simulated.
+This repository contains the product definition and a local .NET prototype: Keycloak member sign-in on web and in the MAUI app, PostgreSQL persistence, and signed-in profiles, connection modes, Explore, connection requests, blocks and Travel. Since 25 October 2026 it also has optional ID verification through Didit in test mode, reports and moderation with a separate admin app (`Swoovr.Admin`), and per-mode filters with reciprocal matching. It does **not** yet implement payments, messaging, photos or any hosted deployment. Fictional previews are explicitly simulated.
 
 ## Start here
 
@@ -24,6 +24,7 @@ Swoovr.Local.sln              Server/shared/checks; no mobile workloads
 src/
   Swoovr.Mobile/              MAUI Android + iOS
   Swoovr.Web/                 Blazor Web App
+  Swoovr.Admin/               Separate administration app (Blazor SSR, staff realm)
   Swoovr.Api/                 ASP.NET Core API
   Swoovr.Contracts/           Public DTOs and stable wire types
   Swoovr.Client/              Typed HTTP clients

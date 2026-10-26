@@ -28,6 +28,20 @@
                 <p><a class="link" href="/me/profile">Turn it on in your profile</a></p>
             </div>
         }
+        else if (state == ProblemCodes.DateOfBirthRequired)
+        {
+            <div class="card notice" data-explore-local="date-of-birth-required">
+                <p>Add your date of birth to discover people. It's never shown.</p>
+                <p><a class="link" href="/account">Add your date of birth</a></p>
+            </div>
+        }
+        else if (state == ProblemCodes.DatingDetailsRequired)
+        {
+            <div class="card notice" data-explore-local="dating-details-required">
+                <p>Dating needs your gender and who you'd like to see.</p>
+                <p><a class="link" href="/me/matching">Set who you'd like to meet</a></p>
+            </div>
+        }
         else if (state == ProblemCodes.HomeCityRequired)
         {
             <div class="card notice" data-explore-local="home-city-required">
@@ -114,7 +128,7 @@
         (state, people, market) = result.Code switch
         {
             ProblemCodes.ModeNotEnabled => ("off", [], market),
-            ProblemCodes.HomeCityRequired or ProblemCodes.MarketNotOpen => (result.Code, [], null),
+            ProblemCodes.HomeCityRequired or ProblemCodes.MarketNotOpen or ProblemCodes.DateOfBirthRequired or ProblemCodes.DatingDetailsRequired => (result.Code, [], null),
             _ => ("ready", (IReadOnlyList<ProfileCard>?)result.Value?.People ?? [], result.Value?.Market),
         };
     }

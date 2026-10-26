@@ -53,8 +53,26 @@
             <p>Swoovr is for adults only. If the age you entered was a mistake, contact Swoovr support to have it reviewed.</p>
         </section>
     }
+    else if (me is not null && me.AccountState != "active")
+    {
+        @* D160: restricted, suspended or terminated: nothing else in the app until it's lifted; notices and appeals stay open. *@
+        <section class="card account-section" aria-label="Account restricted" data-restricted-screen="@me.AccountState">
+            <h2>@(me.AccountState switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", _ => "Your account is restricted" })</h2>
+            <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
+            <p><a class="button" href="/me/notices">Read the notice</a></p>
+        </section>
+    }
     else if (me is not null)
     {
+        @if (me.AgeStatus == "needsVerification")
+        {
+            @* D127: the rest of the app answers age-verification-required until the check passes or support resolves it. *@
+            <section class="card account-section" aria-label="Age check needed" data-age-check-required="true">
+                <h2>Please verify your age</h2>
+                <p>We need to confirm you're 18 or over before you can keep using Swoovr.</p>
+                <p><a class="button" href="/me/verification">Verify my ID</a></p>
+            </section>
+        }
         <section class="card account-section" aria-labelledby="badges-heading">
             <h2 id="badges-heading">Badges</h2>
             @if (me.Badges.Count == 0)
@@ -74,11 +92,12 @@
 
         <section class="card account-section" aria-labelledby="age-heading">
             <h2 id="age-heading">Your age</h2>
-            <p class="field-help">Both are optional. If you enter your date of birth, we work out your age from it. Entering your age isn't age verification.</p>
+            @* D139: a date of birth is required and never shown; your age shows unless you hide it (Me → Who I'd like to meet). *@
+            <p class="field-help">We need your date of birth to show you in discovery. It's never shown; your age is, unless you hide it. Entering it isn't age verification.</p>
             <form class="stack" @onsubmit="SaveAgeAsync" data-age-form>
-                <div class="field"><label for="dob">Date of birth</label><input id="dob" type="date" @bind="dateOfBirth" max="@Today" /></div>
-                <div class="field"><label for="age">Or your age</label><input id="age" type="number" inputmode="numeric" min="0" max="120" @bind="age" disabled="@(dateOfBirth is not null)" placeholder="Leave blank if you'd rather not say" /></div>
-                <button type="submit" class="button" disabled="@busy">Save</button>
+                <div class="field"><label for="dob">Date of birth</label><input id="dob" type="date" required @bind="dateOfBirth" max="@Today" /></div>
+                @if (me.DateOfBirthVerified) { <p class="field-help" data-dob-verified="true">Verified with your ID. Contact Swoovr support to change it.</p> }
+                <button type="submit" class="button" disabled="@(busy || dateOfBirth is null)">Save</button>
                 <p role="status" aria-live="polite" class="field-help" data-age-status="@AgeStatus">@ageMessage</p>
             </form>
         </section>
@@ -101,7 +120,6 @@
     private SessionSummary? session;
     private MemberAccount? me;
     private DateOnly? dateOfBirth;
-    private int? age;
     private string? ageMessage, coupon, couponMessage, couponResult;
     private bool BetaBlocked => AccountText.BetaBlocked(session);
     private string AgeStatus => me?.AgeStatus ?? "";
@@ -124,15 +142,16 @@
         if (result.Code == ProblemCodes.AccountLocked) { (locked, me) = (true, null); return; }
         if (result.Value is not { } account) return;
         me = account;
-        (dateOfBirth, age) = (account.DateOfBirth, account.DateOfBirth is null ? account.DeclaredAge : null);
+        dateOfBirth = account.DateOfBirth;
     }
 
     private async Task SaveAgeAsync()
     {
         busy = true;
-        var result = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, dateOfBirth is null ? age : null));
+        var result = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, null));
         busy = false;
-        if (result.Code == ProblemCodes.InvalidAge) { ageMessage = AccountText.InvalidAge; return; }
+        if (result.Code is ProblemCodes.InvalidAge or ProblemCodes.DateOfBirthRequired) { ageMessage = AccountText.InvalidAge; return; }
+        if (result.Code == ProblemCodes.DateOfBirthLocked) { ageMessage = "Your age was confirmed by ID verification. Contact Swoovr support to change it."; return; }
         Show(result);
         ageMessage = locked ? null : AccountText.AgeSaved(me);
     }

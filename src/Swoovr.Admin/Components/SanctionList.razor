@@ -1,0 +1,40 @@
+@* An account's sanctions with a lift form for live ones (D133). Lifting redirects back so the page shows fresh data. *@
+@inject AdminClient Admin
+@inject NavigationManager Navigation
+@if (error is not null) { <p class="notice" role="alert" data-lift-result="@error">@AdminText.Refusal(errorStatus, error)</p> }
+@if (Sanctions.Count == 0) { <p class="help" data-sanctions="none">None.</p> }
+else
+{
+    <ul class="list" data-sanctions="@Sanctions.Count">
+        @foreach (var s in Sanctions)
+        {
+            <li data-sanction="@s.Id" data-sanction-kind="@s.Kind" data-live="@(s.Live ? "true" : "false")">
+                <strong>@s.Kind</strong> by @s.CreatedByRole, @s.StartsAt.ToString("d MMM yyyy")@(s.EndsAt is { } end ? $" until {end:d MMM yyyy}" : "")@(s.LiftedAt is not null ? " · lifted" : s.Live ? " · in force" : " · ended")
+                @if (s.Kind == "restriction") { <span class="help"> (@string.Join(", ", new[] { s.HideFromDiscovery ? "out of discovery" : null, s.NoNewRequests ? "no new requests" : null, s.NoMessages ? "no messages" : null }.Where(x => x is not null)))</span> }
+                <blockquote>@s.Reason</blockquote>
+                @if (s.Live && s.Kind != "warning")
+                {
+                    <form method="post" @formname="@($"lift-{s.Id}")" @onsubmit="() => LiftAsync(s.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <input name="reason" placeholder="Reason for lifting" maxlength="1000" required />
+                        <button type="submit" class="secondary" data-lift="@s.Id">Lift</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SanctionView> Sanctions { get; set; } = [];
+    [Parameter, EditorRequired] public string ReturnUrl { get; set; } = "/";
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private string? error;
+    private int errorStatus;
+
+    private async Task LiftAsync(Guid id)
+    {
+        var result = await Admin.LiftAsync(id, Context?.Request.HasFormContentType == true ? Context.Request.Form["reason"].ToString() : null);
+        if (result.Ok) { Navigation.NavigateTo(ReturnUrl); return; }
+        (error, errorStatus) = (result.Code ?? result.Status.ToString(), result.Status);
+    }
+}

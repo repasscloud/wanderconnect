@@ -30,7 +30,11 @@ public sealed record AccessSession(
 /// Each area accepts only its own realm, so a member's Apple/Google session can never
 /// reach venue or staff areas. MFA stays optional except for the root admin (D36).
 /// </summary>
-public sealed class AccountAccessPolicy
+/// <param name="localPasswordStaff">
+/// D136: fictional support and admin users with a password may exist only in the local staff realm. The API passes true
+/// only when it runs in Development with Staff:LocalPasswords set; everywhere else staff need Entra SSO (D32).
+/// </param>
+public sealed class AccountAccessPolicy(bool localPasswordStaff = false)
 {
     public bool Allows(AccessSession? session, AccountRole area, Guid? venueId = null)
     {
@@ -55,6 +59,7 @@ public sealed class AccountAccessPolicy
 
         // Employees use RePass Cloud Entra SSO (D32); the root admin uses password + OTP (D36).
         return session.Method == SignInMethod.CorporateSso && !session.IsRootAdmin
+            || localPasswordStaff && !session.IsRootAdmin && session.Method == SignInMethod.EmailPassword
             || area == AccountRole.Admin && session.IsRootAdmin
                 && session.Method == SignInMethod.EmailPassword && session.MultiFactor;
     }

@@ -4,12 +4,16 @@ namespace Swoovr.Contracts;
 public sealed record BadgeView(string Badge, DateTimeOffset? CheckedAt);
 
 /// <summary>The signed-in member's own account. Carries no email, issuer, subject or token.</summary>
+/// <param name="DateOfBirthVerified">An approved ID check reported the same date of birth (D158).</param>
+/// <param name="AccountState">active, restricted, suspended or terminated (D160); anything but active shows the restricted screen.</param>
 public sealed record MemberAccount(
     string AgeStatus,
     int? Age,
     DateOnly? DateOfBirth,
     int? DeclaredAge,
-    IReadOnlyList<BadgeView> Badges);
+    IReadOnlyList<BadgeView> Badges,
+    bool DateOfBirthVerified = false,
+    string AccountState = "active");
 
 /// <summary>Both optional; a date of birth, when given, decides the age (owner, 23 October 2026).</summary>
 public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
@@ -54,6 +58,26 @@ public static class ProblemCodes
     public const string MarketNotOpen = "market-not-open";
     public const string HomeMarketLocked = "home-market-locked";
     public const string UnknownMarket = "unknown-market";
+    public const string AgeVerificationRequired = "age-verification-required";
+    public const string VerificationNotConfigured = "verification-not-configured";
+    public const string VerificationProviderFailed = "verification-provider-failed";
+    public const string VerificationAttemptUsed = "verification-attempt-used";
+    public const string AlreadyVerified = "already-verified";
+    public const string FounderNotEligible = "founder-not-eligible";
+    public const string AccountSuspended = "account-suspended";
+    public const string AccountRestricted = "account-restricted";
+    public const string Restricted = "restricted";
+    public const string UnknownCategory = "unknown-category";
+    public const string UnsupportedSubject = "unsupported-subject";
+    public const string InvalidReport = "invalid-report";
+    public const string ModerationNotPermitted = "moderation-not-permitted";
+    public const string AppealNotAllowed = "appeal-not-allowed";
+    public const string InvalidEntitlement = "invalid-entitlement";
+    public const string DateOfBirthRequired = "date-of-birth-required";
+    public const string DateOfBirthLocked = "date-of-birth-locked";
+    public const string DatingDetailsRequired = "dating-details-required";
+    public const string InvalidFilter = "invalid-filter";
+    public const string PlusRequired = "plus-required";
 }
 
 public sealed record CouponRequest(string Code);
@@ -86,3 +110,20 @@ public sealed record MarketUpdate(string? Name, string? Status, IReadOnlyList<Ma
 /// <summary>The markets an official bot is assigned to; `*` is every open market (D125 rules 38–41).</summary>
 public sealed record BotMarketsRequest(IReadOnlyList<string>? Markets);
 public sealed record BotMarketsView(IReadOnlyList<string> Markets);
+
+/// <summary>
+/// The member's ID verification (D126–D129): their status, the latest attempt's state, Didit's hosted link while a
+/// session is open, whether they may start one (or why not), and whether this is Didit's test mode (D147; never
+/// presented as a live check). AgeCheckRequired is the age-assurance gate (D127).
+/// </summary>
+public sealed record IdVerificationView(string IdStatus, DateTimeOffset? CheckedAt, string? AttemptState, string? Url, bool CanStart,
+    string? Refusal, bool Available, bool TestMode, bool AgeCheckRequired);
+/// <summary>"web" or "app": picks a configured return address, never one from the client.</summary>
+public sealed record StartVerification(string Client);
+/// <summary>An attempt as admins see it (D129): outcome and operational metadata only, never document data.</summary>
+public sealed record IdAttemptAdminView(Guid Id, string State, string ProviderStatus, bool Started, bool SelfService, bool? Adult,
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? CompletedAt);
+public sealed record AdminVerificationView(string IdStatus, bool CanRequestIdVerification, string AgeStatus, IReadOnlyList<IdAttemptAdminView> Attempts);
+public sealed record AgeAssuranceRequest(bool NeedsVerification);
+/// <summary>The founder allocation job's result (D130): counts only.</summary>
+public sealed record FounderAllocationView(int Stamped, int Allocated, int Skipped, int PlacesLeft);

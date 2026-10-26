@@ -7,7 +7,7 @@
 // Every member is a fictional adult created for this run; the test market is removed at the end.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, GLENELG = 2070830, MELBOURNE = 2158177, SYDNEY = 2147714, DARWIN = 2073124, PALMERSTON = 6301965;
 const TEST_MARKET = 'test-darwin';
@@ -33,6 +33,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
       const saved = await profile(n);
+      await matchReady(tokens[n]);
       assert.equal(saved.status, 200, n);
       for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;

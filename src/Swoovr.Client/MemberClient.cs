@@ -28,6 +28,58 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<MemberAccount>> RedeemAsync(string code, CancellationToken cancellationToken = default) =>
         SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/coupons") { Content = JsonContent.Create(new CouponRequest(code)) }, cancellationToken);
 
+    /// <summary>The member's ID verification (D126); re-reads an open Didit session, so it is also the return check.</summary>
+    public Task<ApiResult<IdVerificationView>> VerificationAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/verification"), cancellationToken);
+
+    /// <summary>Starts (or shows the open) Didit session; client is "web" or "app" and only picks the return address.</summary>
+    public Task<ApiResult<IdVerificationView>> StartVerificationAsync(string client, CancellationToken cancellationToken = default) =>
+        SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification") { Content = JsonContent.Create(new StartVerification(client)) }, cancellationToken);
+
+    /// <summary>The report categories as configured (D131).</summary>
+    public Task<ApiResult<List<ReportCategoryView>>> ReportCategoriesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ReportCategoryView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/report-categories"), cancellationToken);
+
+    /// <summary>Reports a profile, request or bot (D131), optionally blocking in the same step.</summary>
+    public Task<ApiResult<MyReportView>> ReportAsync(NewReport report, CancellationToken cancellationToken = default) =>
+        SendAsync<MyReportView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/reports") { Content = JsonContent.Create(report) }, cancellationToken);
+
+    /// <summary>The member's own reports with what they may see: submitted, under review, reviewed or closed.</summary>
+    public Task<ApiResult<List<MyReportView>>> MyReportsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<MyReportView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/reports"), cancellationToken);
+
+    /// <summary>Notices about actions on the member's account (D135); open even while suspended.</summary>
+    public Task<ApiResult<List<NoticeView>>> NoticesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<NoticeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notices"), cancellationToken);
+
+    public Task<int> ReadNoticeAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notices/{id}/read"), cancellationToken);
+
+    /// <summary>Appeals one action, once, within 30 days (D135).</summary>
+    public Task<ApiResult<AppealView>> AppealAsync(Guid sanctionId, string? text, CancellationToken cancellationToken = default) =>
+        SendAsync<AppealView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/appeals") { Content = JsonContent.Create(new NewAppeal(sanctionId, text)) }, cancellationToken);
+
+    /// <summary>The member's effective plan from the entitlement service (D151).</summary>
+    public Task<ApiResult<PlanView>> PlanAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<PlanView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/plan"), cancellationToken);
+
+    /// <summary>Gender and orientation option lists (D138).</summary>
+    public Task<ApiResult<ProfileOptionsView>> ProfileOptionsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ProfileOptionsView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profile-options"), cancellationToken);
+
+    public Task<ApiResult<IdentityView>> IdentityAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<IdentityView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/identity"), cancellationToken);
+
+    public Task<ApiResult<IdentityView>> SaveIdentityAsync(IdentityUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<IdentityView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/identity") { Content = JsonContent.Create(update) }, cancellationToken);
+
+    /// <summary>One mode's filters (D137); Plus filters need Plus from the entitlement service.</summary>
+    public Task<ApiResult<FilterView>> FiltersAsync(string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<FilterView>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/me/modes/{Uri.EscapeDataString(modeId)}/filters"), cancellationToken);
+
+    public Task<ApiResult<FilterView>> SaveFiltersAsync(string modeId, FilterUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<FilterView>(new HttpRequestMessage(HttpMethod.Put, $"api/v1/me/modes/{Uri.EscapeDataString(modeId)}/filters") { Content = JsonContent.Create(update) }, cancellationToken);
+
     /// <summary>The connection modes as configured (D92), in display order, with their intention chips.</summary>
     public Task<ApiResult<List<ConnectionModeView>>> ModesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ConnectionModeView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/modes"), cancellationToken);

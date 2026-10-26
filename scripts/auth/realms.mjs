@@ -77,6 +77,16 @@ export async function applyRealm(api, name, profile = generatedProfile, publicCl
     await api('/clients', 'POST', client);
     changes.push('client ' + client.clientId);
   }
+  // Confidential clients keep their secret; only their redirect and post-logout addresses follow the import (slice Q
+  // moved the staff client to the separate admin app, D136).
+  const generated = JSON.parse(await readFile(new URL(`../../containers/keycloak/realms/${name}.json`, import.meta.url), 'utf8'));
+  for (const wanted of generated.clients.filter(c => 'secret' in c)) {
+    const [existing] = await api('/clients?clientId=' + encodeURIComponent(wanted.clientId));
+    const logout = wanted.attributes?.['post.logout.redirect.uris'];
+    if (!existing?.id || JSON.stringify(existing.redirectUris) === JSON.stringify(wanted.redirectUris) && existing.attributes?.['post.logout.redirect.uris'] === logout) continue;
+    await api('/clients/' + existing.id, 'PUT', { ...existing, redirectUris: wanted.redirectUris, attributes: { ...existing.attributes, 'post.logout.redirect.uris': logout } });
+    changes.push('redirects ' + wanted.clientId);
+  }
   return changes;
 }
 

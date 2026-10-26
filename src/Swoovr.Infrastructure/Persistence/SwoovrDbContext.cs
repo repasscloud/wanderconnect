@@ -39,6 +39,20 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<Itinerary> Itineraries => Set<Itinerary>();
+    public DbSet<IdVerificationAttempt> IdVerificationAttempts => Set<IdVerificationAttempt>();
+    public DbSet<DiditWebhookEvent> DiditWebhookEvents => Set<DiditWebhookEvent>();
+    public DbSet<ReportCategory> ReportCategories => Set<ReportCategory>();
+    public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ModerationCase> ModerationCases => Set<ModerationCase>();
+    public DbSet<CaseEvidence> CaseEvidence => Set<CaseEvidence>();
+    public DbSet<Sanction> Sanctions => Set<Sanction>();
+    public DbSet<Appeal> Appeals => Set<Appeal>();
+    public DbSet<MemberNotice> MemberNotices => Set<MemberNotice>();
+    public DbSet<StaffMemberLink> StaffMemberLinks => Set<StaffMemberLink>();
+    public DbSet<Entitlement> Entitlements => Set<Entitlement>();
+    public DbSet<ProfileOption> ProfileOptions => Set<ProfileOption>();
+    public DbSet<MemberIdentity> MemberIdentities => Set<MemberIdentity>();
+    public DbSet<ModeFilter> ModeFilters => Set<ModeFilter>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -79,6 +93,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.HomeMarketMovedTo).HasMaxLength(32);
             profile.HasOne<Market>().WithMany().HasForeignKey(p => p.HomeMarketId).OnDelete(DeleteBehavior.SetNull);
             profile.HasIndex(p => p.HomeMarketId);
+            profile.HasIndex(p => p.FounderEligibleAt).HasFilter("founder_eligible_at IS NOT NULL AND founder_place IS NULL");
         });
         // D92: four modes with stable ids; labels, order and availability are data. Q16: forty intention chips with
         // fixed ids (IntentionChips, D113).
@@ -223,11 +238,152 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             trip.HasIndex(t => new { t.GeoNameId, t.Departure });
             trip.ToTable(t => t.HasCheckConstraint("ck_trips_dates", "departure >= arrival"));
         });
+        // D128: one row per Didit session, outcome and operational metadata only. At most one open attempt per member.
+        model.Entity<IdVerificationAttempt>(attempt =>
+        {
+            attempt.HasOne<Account>().WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
+            attempt.Property(a => a.SessionId).HasMaxLength(64);
+            attempt.Property(a => a.WorkflowId).HasMaxLength(64);
+            attempt.Property(a => a.ProviderStatus).HasMaxLength(32);
+            attempt.Property(a => a.Url).HasMaxLength(512);
+            attempt.HasIndex(a => a.SessionId).IsUnique();
+            attempt.HasIndex(a => a.AccountId, "ix_id_verification_attempts_one_open").IsUnique()
+                .HasFilter("state IN ('Created', 'InProgress', 'InReview')");
+        });
+        // D152: durable webhook dedupe on Didit's event id.
+        model.Entity<DiditWebhookEvent>(webhook =>
+        {
+            webhook.HasKey(w => w.EventId);
+            webhook.Property(w => w.EventId).ValueGeneratedNever();
+            webhook.Property(w => w.WebhookType).HasMaxLength(48);
+            webhook.Property(w => w.SessionId).HasMaxLength(64);
+            webhook.Property(w => w.Outcome).HasMaxLength(32);
+        });
+        // D131: report categories are data with priorities; threats and suspected underage are urgent.
+        model.Entity<ReportCategory>(category =>
+        {
+            category.Property(c => c.Id).HasMaxLength(32);
+            category.Property(c => c.Label).HasMaxLength(80);
+            category.HasData(
+                new ReportCategory { Id = "threats", Label = "Threats or violence", Priority = ReportPriority.Urgent, SortOrder = 1 },
+                new ReportCategory { Id = "underage", Label = "Might be under 18", Priority = ReportPriority.Urgent, SortOrder = 2 },
+                new ReportCategory { Id = "harassment", Label = "Harassment or bullying", Priority = ReportPriority.High, SortOrder = 3 },
+                new ReportCategory { Id = "hate", Label = "Hate or discrimination", Priority = ReportPriority.High, SortOrder = 4 },
+                new ReportCategory { Id = "sexual", Label = "Unwanted sexual content or behaviour", Priority = ReportPriority.High, SortOrder = 5 },
+                new ReportCategory { Id = "scam", Label = "Scam, fraud or selling", Priority = ReportPriority.High, SortOrder = 6 },
+                new ReportCategory { Id = "fake", Label = "Fake profile or impersonation", Priority = ReportPriority.Normal, SortOrder = 7 },
+                new ReportCategory { Id = "spam", Label = "Spam", Priority = ReportPriority.Normal, SortOrder = 8 },
+                new ReportCategory { Id = "inappropriate", Label = "Inappropriate profile content", Priority = ReportPriority.Normal, SortOrder = 9 },
+                new ReportCategory { Id = "other", Label = "Something else", Priority = ReportPriority.Normal, SortOrder = 10 });
+        });
+        model.Entity<ModerationCase>(item =>
+        {
+            item.HasOne<Account>().WithMany().HasForeignKey(c => c.SubjectAccountId).OnDelete(DeleteBehavior.Cascade);
+            // One open case per subject account: new reports join it (D131: duplicates consolidated).
+            item.HasIndex(c => c.SubjectAccountId, "ix_moderation_cases_one_open").IsUnique().HasFilter("status IN ('Open', 'UnderReview')");
+            item.HasIndex(c => new { c.Queue, c.Status, c.Priority });
+        });
+        model.Entity<Report>(report =>
+        {
+            report.HasOne<Account>().WithMany().HasForeignKey(r => r.ReporterAccountId).OnDelete(DeleteBehavior.Cascade);
+            report.HasOne<Account>().WithMany().HasForeignKey(r => r.SubjectAccountId).OnDelete(DeleteBehavior.Cascade);
+            report.HasOne<ReportCategory>().WithMany().HasForeignKey(r => r.CategoryId).OnDelete(DeleteBehavior.Restrict);
+            report.HasOne<ModerationCase>().WithMany().HasForeignKey(r => r.CaseId).OnDelete(DeleteBehavior.Cascade);
+            report.Property(r => r.SubjectRef).HasMaxLength(64);
+            report.Property(r => r.CategoryId).HasMaxLength(32);
+            report.Property(r => r.Text).HasMaxLength(ReportPolicy.TextMax);
+            report.HasIndex(r => new { r.ReporterAccountId, r.CreatedAt });
+            report.HasIndex(r => r.CaseId);
+            report.ToTable(t => t.HasCheckConstraint("ck_reports_not_self", "reporter_account_id <> subject_account_id"));
+        });
+        model.Entity<CaseEvidence>(evidence =>
+        {
+            evidence.HasOne<ModerationCase>().WithMany().HasForeignKey(e => e.CaseId).OnDelete(DeleteBehavior.Cascade);
+            evidence.HasOne<Report>().WithMany().HasForeignKey(e => e.ReportId).OnDelete(DeleteBehavior.Cascade);
+            evidence.Property(e => e.Kind).HasMaxLength(32);
+            evidence.Property(e => e.Snapshot).HasMaxLength(8192);
+        });
+        model.Entity<Sanction>(sanction =>
+        {
+            sanction.HasOne<Account>().WithMany().HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Cascade);
+            sanction.HasOne<ModerationCase>().WithMany().HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.SetNull);
+            sanction.Property(s => s.Reason).HasMaxLength(ModerationPolicy.ReasonMax);
+            sanction.HasIndex(s => new { s.AccountId, s.LiftedAt });
+            sanction.ToTable(t => t.HasCheckConstraint("ck_sanctions_dates", "ends_at IS NULL OR ends_at > starts_at"));
+        });
+        model.Entity<Appeal>(appeal =>
+        {
+            appeal.HasOne<Sanction>().WithMany().HasForeignKey(a => a.SanctionId).OnDelete(DeleteBehavior.Cascade);
+            appeal.HasOne<Account>().WithMany().HasForeignKey(a => a.AccountId).OnDelete(DeleteBehavior.Cascade);
+            appeal.HasIndex(a => a.SanctionId).IsUnique(); // D135: one appeal per action
+            appeal.Property(a => a.Text).HasMaxLength(ReportPolicy.TextMax);
+        });
+        model.Entity<MemberNotice>(notice =>
+        {
+            notice.HasOne<Account>().WithMany().HasForeignKey(n => n.AccountId).OnDelete(DeleteBehavior.Cascade);
+            notice.HasOne<Sanction>().WithMany().HasForeignKey(n => n.SanctionId).OnDelete(DeleteBehavior.Cascade);
+            notice.HasIndex(n => new { n.AccountId, n.CreatedAt });
+        });
+        model.Entity<StaffMemberLink>(link =>
+        {
+            link.HasKey(l => l.StaffAccountId);
+            link.HasOne<Account>().WithMany().HasForeignKey(l => l.StaffAccountId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne<Account>().WithMany().HasForeignKey(l => l.MemberAccountId).OnDelete(DeleteBehavior.Cascade);
+            link.HasIndex(l => l.MemberAccountId).IsUnique();
+        });
+        model.Entity<Entitlement>(entitlement =>
+        {
+            entitlement.HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.Cascade);
+            entitlement.Property(e => e.Reason).HasMaxLength(EntitlementPolicy.ReasonMax);
+            entitlement.HasIndex(e => new { e.AccountId, e.RevokedAt });
+            entitlement.ToTable(t => t.HasCheckConstraint("ck_entitlements_dates", "ends_at IS NULL OR ends_at > starts_at"));
+        });
+        // D138: gender and orientation option lists are data with stable ids.
+        model.Entity<ProfileOption>(option =>
+        {
+            option.HasKey(o => new { o.Kind, o.Id });
+            option.Property(o => o.Kind).HasMaxLength(16);
+            option.Property(o => o.Id).HasMaxLength(32);
+            option.Property(o => o.Label).HasMaxLength(60);
+            option.HasData(
+                new ProfileOption { Kind = "gender", Id = "man", Label = "Man", SortOrder = 1 },
+                new ProfileOption { Kind = "gender", Id = "woman", Label = "Woman", SortOrder = 2 },
+                new ProfileOption { Kind = "gender", Id = "non-binary", Label = "Non-binary", SortOrder = 3 },
+                new ProfileOption { Kind = "gender", Id = "another", Label = "Another gender", SortOrder = 4 },
+                new ProfileOption { Kind = "gender", Id = "unsaid", Label = "Prefer not to say", SortOrder = 5 },
+                new ProfileOption { Kind = "orientation", Id = "straight", Label = "Straight", SortOrder = 1 },
+                new ProfileOption { Kind = "orientation", Id = "gay", Label = "Gay", SortOrder = 2 },
+                new ProfileOption { Kind = "orientation", Id = "lesbian", Label = "Lesbian", SortOrder = 3 },
+                new ProfileOption { Kind = "orientation", Id = "bisexual", Label = "Bisexual", SortOrder = 4 },
+                new ProfileOption { Kind = "orientation", Id = "pansexual", Label = "Pansexual", SortOrder = 5 },
+                new ProfileOption { Kind = "orientation", Id = "asexual", Label = "Asexual", SortOrder = 6 },
+                new ProfileOption { Kind = "orientation", Id = "queer", Label = "Queer", SortOrder = 7 },
+                new ProfileOption { Kind = "orientation", Id = "questioning", Label = "Questioning", SortOrder = 8 },
+                new ProfileOption { Kind = "orientation", Id = "another", Label = "Another orientation", SortOrder = 9 });
+        });
+        model.Entity<MemberIdentity>(identity =>
+        {
+            identity.HasKey(i => i.AccountId);
+            identity.HasOne<Account>().WithOne().HasForeignKey<MemberIdentity>(i => i.AccountId).OnDelete(DeleteBehavior.Cascade);
+            identity.Property(i => i.GenderId).HasMaxLength(32);
+            identity.Property(i => i.OrientationId).HasMaxLength(32);
+            identity.Property(i => i.GenderDescription).HasMaxLength(MatchPolicy.TextMax);
+            identity.Property(i => i.Pronouns).HasMaxLength(MatchPolicy.TextMax);
+        });
+        model.Entity<ModeFilter>(filter =>
+        {
+            filter.HasKey(f => new { f.AccountId, f.ModeId });
+            filter.Property(f => f.ModeId).HasMaxLength(32);
+            filter.HasOne<Account>().WithMany().HasForeignKey(f => f.AccountId).OnDelete(DeleteBehavior.Cascade);
+            filter.HasOne<ConnectionMode>().WithMany().HasForeignKey(f => f.ModeId).OnDelete(DeleteBehavior.Restrict);
+            filter.ToTable(t => t.HasCheckConstraint("ck_mode_filters_ages", "(min_age IS NULL OR min_age >= 18) AND (max_age IS NULL OR max_age <= 120) AND (min_age IS NULL OR max_age IS NULL OR min_age <= max_age)"));
+        });
         model.Entity<FounderPlace>(place =>
         {
             place.HasKey(p => p.Place);
             place.Property(p => p.Place).ValueGeneratedNever();
-            place.ToTable(t => t.HasCheckConstraint("ck_founder_places_place", "place >= 1"));
+            // D130: never more than 1,000 places, whatever the configuration says.
+            place.ToTable(t => t.HasCheckConstraint("ck_founder_places_place", "place >= 1 AND place <= 1000"));
         });
         // Founder tokens hold no email and no account id, so they survive account deletion (D65).
         model.Entity<FounderToken>(token =>

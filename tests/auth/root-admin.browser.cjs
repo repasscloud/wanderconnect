@@ -7,7 +7,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
 const keycloak = 'http://localhost:8180', api = 'http://127.0.0.1:5080', realm = 'swoovr-staff-dev';
-const redirect = 'http://localhost:5081/admin/signin-oidc';
+const redirect = 'http://localhost:5082/signin-oidc';
 const fixturePath = '.local/swoovr-root-admin.json';
 const output = process.env.SWOOVR_BROWSER_OUTPUT || '.local/auth-browser';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

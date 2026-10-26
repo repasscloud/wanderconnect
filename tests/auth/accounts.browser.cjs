@@ -25,22 +25,23 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const sub = claims(aliceToken).sub;
     assert.equal(await sql(`SELECT count(*) FROM accounts WHERE subject = '${sub}' AND realm = 'Members'`), '1'); pass();
 
-    // Own account and age entry (owner, 23 October 2026): DOB decides; age alone; both blank.
+    // Own account and age entry: a date of birth is required (D139, superseding the 23 October age-alone option).
     let me = await call(aliceToken, '/api/v1/me');
     assert.equal(me.status, 200); pass();
-    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], beta: undefined }); pass();
+    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], dateOfBirthVerified: false, accountState: 'active', beta: undefined }); pass();
     me = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-05-01', age: 20 } });
     assert.equal(me.status, 200); assert.equal(me.body.ageStatus, 'selfDeclaredAdult'); assert.equal(me.body.dateOfBirth, '1990-05-01'); assert.equal(me.body.declaredAge, null); pass();
     assert.equal(me.body.age, new Date().getUTCFullYear() - 1990 - (new Date().toISOString().slice(5, 10) < '05-01' ? 1 : 0)); pass();
-    me = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body: { age: 30 } });
-    assert.deepEqual([me.body.age, me.body.dateOfBirth, me.body.declaredAge], [30, null, 30]); pass();
-    me = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body: {} });
-    assert.deepEqual([me.body.ageStatus, me.body.age], ['attested', null]); pass();
-    for (const body of [{ dateOfBirth: '2999-01-01' }, { age: -1 }, { age: 121 }, { dateOfBirth: '1890-01-01' }]) {
+    for (const body of [{ age: 30 }, {}, { age: -1 }, { age: 121 }]) {
+      const bad = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body });
+      assert.equal(bad.status, 400, JSON.stringify(body)); assert.equal(bad.body.code, 'date-of-birth-required'); pass();
+    }
+    for (const body of [{ dateOfBirth: '2999-01-01' }, { dateOfBirth: '1890-01-01' }]) {
       const bad = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body });
       assert.equal(bad.status, 400, JSON.stringify(body)); assert.equal(bad.body.code, 'invalid-age'); pass();
     }
-    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'age.updated' AND target_id = (SELECT id::text FROM accounts WHERE subject = '${sub}')`), '3'); pass();
+    assert.equal((await call(aliceToken, '/api/v1/me')).body.dateOfBirth, '1990-05-01'); pass(); // refusals change nothing
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'age.updated' AND target_id = (SELECT id::text FROM accounts WHERE subject = '${sub}')`), '1'); pass();
 
     // A member cannot reach any admin route, whatever their email.
     for (const [method, path, body] of [['GET', '/api/v1/admin/invitations'], ['POST', '/api/v1/admin/invitations', { email: alice.email, role: 'admin' }],
@@ -85,12 +86,13 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // Under-18 entry locks the account (D40); support/admin override lifts it.
     const bobToken = await memberToken(browser, bob);
     assert.equal((await call(bobToken, '/api/v1/me')).status, 200); pass();
-    let locked = await call(bobToken, '/api/v1/me/age', { method: 'PUT', body: { age: 17 } });
+    const seventeen = new Date(Date.now() - 17.5 * 365.25 * 86400000).toISOString().slice(0, 10);
+    let locked = await call(bobToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: seventeen } });
     assert.equal(locked.status, 403); assert.equal(locked.body.code, 'account-locked'); pass();
     locked = await call(bobToken, '/api/v1/me');
     assert.equal(locked.status, 403); assert.equal(locked.body.code, 'account-locked'); pass();
     assert.equal((await call(bobToken, '/api/v1/session')).body.memberArea, false); pass();
-    assert.equal((await call(bobToken, '/api/v1/me/age', { method: 'PUT', body: { age: 40 } })).status, 403, 'a locked account cannot re-enter an age'); pass();
+    assert.equal((await call(bobToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1985-01-01' } })).status, 403, 'a locked account cannot re-enter an age'); pass();
     const found = await call(rootToken, '/api/v1/admin/accounts?email=' + encodeURIComponent(bob.email.toUpperCase()));
     assert.equal(found.status, 200); assert.equal(found.body.length, 1);
     assert.deepEqual([found.body[0].status, found.body[0].statusReason, found.body[0].ageStatus], ['locked', 'underage', 'underage']); pass();
@@ -158,15 +160,19 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal((await call(daveToken, '/api/v1/me')).status, 200); assert.equal((await call(erinToken, '/api/v1/me')).status, 200);
     const daveId = (await call(rootToken, '/api/v1/admin/accounts?email=' + encodeURIComponent(dave.email))).body[0].id;
     assert.equal((await call(aliceToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).status, 403, 'members cannot grant'); pass();
+    // D130: an admin exception still needs ID or Photo verification. Dave's ID status is set directly (simulated for
+    // this local test only; tests/verification/didit.browser.cjs covers the real path).
+    assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'founder-not-eligible'); pass();
+    await sql(`UPDATE member_profiles SET id_status = 'Verified', id_checked_at = now() WHERE account_id = '${daveId}'`);
     const placesBefore = Number(await sql('SELECT count(*) FROM founder_places'));
-    const grant = await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' });
+    const grant =await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' });
     assert.equal(grant.status, 201); assert.equal(grant.body.emailSent, true); assert.equal(grant.body.place, placesBefore + 1); pass();
     assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'already-founder'); pass();
     let mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(dave.email); if (!mail.length) await sleep(250); }
     const firstCode = mail[0].match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
     assert.ok(firstCode, 'founder code emailed through the local mail sink'); pass();
     me = await call(daveToken, '/api/v1/me');
-    assert.deepEqual(me.body.badges.map(b => b.badge), ['founder']); pass();
+    assert.deepEqual(me.body.badges.map(b => b.badge), ['founder', 'idVerified']); pass(); // the simulated ID status above
     assert.equal((await call(daveToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode.toLowerCase() } })).status, 200, 'own code is a no-op'); pass();
     // A shared or sold code fails for anyone else, and every refusal reads the same.
     let refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
@@ -226,18 +232,11 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await page.fill('#dob', '1990-05-01'); await page.click('[data-age-form] [type=submit]');
     await page.waitForSelector('[data-age-status=selfDeclaredAdult]');
     assert.match(await page.locator('[data-age-form] [role=status]').innerText(), /Saved\. Your age shows as \d+\./); pass();
-    assert.equal(await page.locator('#age').isDisabled(), true, 'a date of birth decides the age'); pass();
-    await page.fill('#dob', ''); await page.fill('#age', '33'); await page.click('[data-age-form] [type=submit]');
-    await page.waitForFunction(() => document.querySelector('[data-age-form] [role=status]')?.textContent.includes('33'));
-    assert.deepEqual(JSON.parse(await sql(`SELECT json_build_array(date_of_birth, declared_age)::text FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`)), [null, 33]); pass();
-    await page.fill('#age', ''); await page.click('[data-age-form] [type=submit]');
-    await page.waitForSelector('[data-age-status=attested]');
-    assert.match(await page.locator('[data-age-form] [role=status]').innerText(), /No age is shown/); pass();
-    // The browser's own range check stops 130 before any request (the API refuses it too, above).
-    await page.fill('#age', '130'); await page.click('[data-age-form] [type=submit]');
-    assert.equal(await page.locator('#age').evaluate(input => input.validity.rangeOverflow), true); pass();
-    assert.equal(await page.locator('[data-age-status]').getAttribute('data-age-status'), 'attested', 'nothing saved'); pass();
-    await page.fill('#age', '');
+    // D139: the date of birth is required; there's no age-only field, and an empty date can't be saved.
+    assert.equal(await page.locator('#age').count(), 0); pass();
+    await page.fill('#dob', '');
+    assert.equal(await page.locator('[data-age-form] [type=submit]').isDisabled(), true); pass();
+    assert.equal(JSON.parse(await sql(`SELECT json_build_array(date_of_birth, declared_age)::text FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`))[0], '1990-05-01'); pass();
     await page.fill('#coupon', 'WELCOME10'); await page.click('[data-coupon-form] [type=submit]');
     await page.waitForSelector('[data-coupon-result=invalid]');
     assert.equal(await page.locator('[data-coupon-form] [role=status]').innerText(), "That code can't be used."); pass();
@@ -261,7 +260,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await youngPage.waitForURL(u => u.href.includes('TERMS_AND_CONDITIONS') || u.href === web + '/account');
     if (youngPage.url().includes('TERMS_AND_CONDITIONS')) await youngPage.click('[name=accept]');
     await youngPage.waitForURL(web + '/account'); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
-    await youngPage.fill('#age', '16'); await youngPage.click('[data-age-form] [type=submit]');
+    await youngPage.fill('#dob', new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10)); await youngPage.click('[data-age-form] [type=submit]');
     await youngPage.waitForSelector('[data-account-locked=true]');
     assert.equal(await youngPage.locator('[data-age-form]').count(), 0); pass();
     await youngPage.reload(); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });

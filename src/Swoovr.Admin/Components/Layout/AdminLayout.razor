@@ -1,0 +1,11 @@
+@inherits LayoutComponentBase
+<header class="admin-header">
+    <a class="admin-brand" href="/">Swoovr admin</a>
+    <nav aria-label="Admin">
+        <a href="/cases">Queue</a>
+        <a href="/appeals">Appeals</a>
+        <a href="/accounts">Accounts</a>
+    </nav>
+    <form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form>
+</header>
+<main class="admin-main">@Body</main>

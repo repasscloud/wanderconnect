@@ -37,6 +37,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAntiforgery();
+// D160: restricted, suspended and terminated members see the restricted screen instead of member pages.
+app.UseRestrictionGate();
 
 app.MapStaticAssets();
 MemberSignIn.MapMemberSignIn(app);

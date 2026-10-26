@@ -5,7 +5,7 @@
 // and the enrolled fictional root admin. Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, cli, sql, call, claims } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, MELBOURNE = 2158177, SYDNEY = 2147714, VICTOR_HARBOR = 2059470, GLENELG = 2070830;
 const todayIn = zone => new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(new Date());
@@ -28,6 +28,7 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
       const saved = await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: homes[n] } });
+      await matchReady(tokens[n]);
       assert.equal(saved.status, 200, n);
       for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;

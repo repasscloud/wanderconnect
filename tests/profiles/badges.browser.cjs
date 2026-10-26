@@ -5,7 +5,7 @@
 // Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -22,6 +22,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     const pid = {};
     const setUp = async (key, name, modes) => {
       await call(tokens[key], '/api/v1/me/profile', { method: 'PUT', body: { displayName: name, homeCityId: 2078025 } }); // Adelaide (D125)
+      await matchReady(tokens[key]);
       for (const mode of modes) await call(tokens[key], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[key] = (await call(tokens[key], '/api/v1/me/profile')).body.publicId;
     };
@@ -62,7 +63,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims }
     let fayProfile = await call(tokens.vic, `/api/v1/profiles/${pid.fay}`);
     assert.deepEqual(fayProfile.body.badges.map(b => [b.badge, b.checkedAt?.slice(0, 10) ?? null]),
       [['founder', null], ['photoVerified', '2026-10-17'], ['idVerified', '2026-10-18']]); pass();
-    assert.deepEqual(Object.keys(fayProfile.body).sort(), ['about', 'area', 'badges', 'displayName', 'id', 'modes']); pass();
+    assert.deepEqual(Object.keys(fayProfile.body).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'gender', 'id', 'modes', 'pronouns']); pass(); // age, gender and pronouns only as allowed (D138, D139)
     assert.ok(!JSON.stringify(fayProfile.body).toLowerCase().includes('admin')); pass();
     await sql(`UPDATE member_profiles SET id_status = 'Expired' WHERE account_id = '${ids.fay}'`); // rule 13: an expired check shows nothing
     assert.deepEqual((await card('fay')).badges.map(b => b.badge), ['founder', 'photoVerified']); pass();

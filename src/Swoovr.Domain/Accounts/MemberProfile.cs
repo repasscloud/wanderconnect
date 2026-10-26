@@ -36,6 +36,22 @@ public sealed class MemberProfile
     public DateTimeOffset? PhotoCheckedAt { get; set; }
     public VerificationStatus IdStatus { get; set; }
     public DateTimeOffset? IdCheckedAt { get; set; }
+    /// <summary>
+    /// D128: starts true, false once a self-service ID check starts; an admin may set it again (D129). IsIdVerified is
+    /// <see cref="IdStatus"/> == Verified.
+    /// </summary>
+    public bool CanRequestIdVerification { get; set; } = true;
+    /// <summary>
+    /// Owner answer to Q53 (D158): true when an approved ID check reported the same date of birth as the profile's. A
+    /// different date leaves it false; the document's date is compared and dropped, never stored. Changing the profile's
+    /// date clears it.
+    /// </summary>
+    public bool DateOfBirthVerified { get; set; }
+    public DateTimeOffset? DateOfBirthVerifiedAt { get; set; }
+    /// <summary>D130: when the member first met every founding condition (FounderEligibility); never moves once set.</summary>
+    public DateTimeOffset? FounderEligibleAt { get; set; }
+    /// <summary>D130: when the founding benefits start, kept apart from the allocation time (<see cref="FoundingSince"/>).</summary>
+    public DateTimeOffset? FounderEntitlementFrom { get; set; }
     /// <summary>Backend only, never a badge and never implies ID verified (D58).</summary>
     public bool AdminVerified { get; set; }
     public DateTimeOffset? AdminVerifiedAt { get; set; }

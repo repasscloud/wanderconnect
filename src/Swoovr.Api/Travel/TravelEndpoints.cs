@@ -122,6 +122,13 @@ public static class TravelEndpoints
             if (refused is not null)
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.NotLocal, "Visitors show to people whose home city is in a Swoovr market.");
             var visits = await VisitsToAsync(db, configuration, viewer.AccountId, market!, await MarketEndpoints.ZonesAsync(db, cancellationToken), selected.Id, now, cancellationToken);
+            // D137: the viewer's visitor visibility (current, upcoming, both or neither); D138, D140: the same reciprocal
+            // rules as Explore. A stay has started once the destination's arrival date is reached.
+            var filter = await db.ModeFilters.FindAsync([viewer.AccountId, selected.Id], cancellationToken);
+            var today = DateOnly.FromDateTime(now.UtcDateTime);
+            var facts = await ProfileEndpoints.FactsAsync(db, [viewer.AccountId, .. visits.Select(v => v.Person.Profile.AccountId)], selected.Id, today, cancellationToken);
+            visits = visits.Where(v => MatchPolicy.ShowsVisitor(filter?.Visitors ?? VisitorVisibility.Both, TravelPolicy.LocalToday(v.City.TimeZone, now) >= v.Trip.Arrival)
+                && MatchPolicy.Reciprocal(selected.Id, facts[viewer.AccountId], facts[v.Person.Profile.AccountId])).ToList();
             var p = page ?? 1;
             var shown = visits.Skip((p - 1) * PageSize).Take(PageSize + 1).ToList();
             var chips = await ChipsAsync(db, shown.Select(v => v.Person.Profile.AccountId).ToList(), selected.Id, cancellationToken);

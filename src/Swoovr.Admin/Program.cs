@@ -1,0 +1,85 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Swoovr.Admin;
+using Swoovr.Admin.Components;
+
+// The administration app (D136): a separate Blazor host with server-side rendering only, signed in through the Keycloak
+// staff realm. It calls the protected admin API server-side with the staff member's token, which never reaches the
+// browser (the cookie holds only a session key). Every rule is enforced by the API; this app only presents it.
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddRazorComponents();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<TicketStore>();
+builder.Services.AddTransient<StaffTokenHandler>();
+builder.Services.AddHttpClient<Swoovr.Client.AdminClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
+    http.Timeout = TimeSpan.FromSeconds(10);
+}).AddHttpMessageHandler<StaffTokenHandler>();
+
+var cookieSecurity = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+var auth = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+});
+auth.AddCookie(options =>
+{
+    options.Cookie.Name = "swoovr.admin";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = cookieSecurity;
+    // DEFAULT: staff sessions last at most 8 hours; sensitive actions still need a sign-in within 15 minutes (API).
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = false;
+});
+builder.Services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
+    .Configure<TicketStore>((options, store) => options.SessionStore = store);
+auth.AddOpenIdConnect(options =>
+{
+    options.Authority = builder.Configuration["Keycloak:Authority"] ?? "http://localhost:8180/realms/swoovr-staff-dev";
+    options.ClientId = builder.Configuration["Keycloak:ClientId"] ?? "swoovr-admin-web";
+    options.ClientSecret = builder.Configuration["Keycloak:ClientSecret"];
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment() || builder.Configuration.GetValue("Keycloak:RequireHttpsMetadata", true);
+    options.ResponseType = OpenIdConnectResponseType.Code;
+    options.ResponseMode = OpenIdConnectResponseMode.Query;
+    options.UsePkce = true;
+    options.SaveTokens = true;
+    options.MapInboundClaims = false;
+    options.GetClaimsFromUserInfoEndpoint = false;
+    options.TokenValidationParameters.NameClaimType = "given_name";
+    options.Scope.Clear();
+    foreach (var scope in new[] { "openid", "profile", "email" }) options.Scope.Add(scope);
+    foreach (var cookie in new[] { options.CorrelationCookie, options.NonceCookie }) { cookie.SameSite = SameSiteMode.Lax; cookie.SecurePolicy = cookieSecurity; }
+    // "Sign in again" (a stale-session answer from the API) forces a fresh password + code at Keycloak.
+    options.Events.OnRedirectToIdentityProvider = context =>
+    {
+        if (context.Properties.Items.ContainsKey("reauth")) { context.ProtocolMessage.MaxAge = "0"; context.ProtocolMessage.Prompt = "login"; }
+        return Task.CompletedTask;
+    };
+});
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", createScopeForErrors: true); app.UseHsts(); }
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+app.MapStaticAssets();
+app.MapGet("/sign-in", (bool? reauth, string? returnUrl) =>
+{
+    var properties = new AuthenticationProperties { RedirectUri = returnUrl is { } r && r.StartsWith('/') && !r.StartsWith("//") ? r : "/" };
+    if (reauth == true) properties.Items["reauth"] = "1";
+    return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
+}).AllowAnonymous();
+app.MapPost("/sign-out", async (HttpContext context) =>
+{
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Redirect("/signed-out");
+}).AllowAnonymous();
+app.MapGet("/signed-out", () => Results.Content("<!doctype html><title>Signed out — Swoovr admin</title><p>You're signed out. <a href=\"/\">Sign in again</a></p>", "text/html")).AllowAnonymous();
+app.MapRazorComponents<App>().RequireAuthorization();
+app.Run();

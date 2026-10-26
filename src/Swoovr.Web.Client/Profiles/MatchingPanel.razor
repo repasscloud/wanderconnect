@@ -1,0 +1,127 @@
+@* Who the member is and who they'd like to meet (D137–D140, Interactive WebAssembly). Gender, pronouns and orientation
+   are each optional and separate; Dating needs a gender and a "show me", which is reciprocal. Orientation never
+   decides who anyone sees. Filters are per mode: the free ones for everyone, the Plus ones when the entitlement service
+   says Plus (D151). Excluded intentions work both ways: people holding one can't find or contact you in that mode. *@
+@inject MemberClient Members
+<div class="page-heading" data-matching="@(loaded ? (options is null ? "refused" : "ready") : "loading")">
+    <p class="breadcrumb"><a href="/account">Me</a> / Who I'd like to meet</p>
+    <h1>Who I'd like to meet</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (options is null) { <p role="status">This page opens once your email is on the private beta list.</p> }
+</div>
+@if (options is not null)
+{
+    <section class="card account-section" aria-labelledby="identity-heading">
+        <h2 id="identity-heading">About you</h2>
+        <form class="stack" @onsubmit="SaveIdentityAsync" data-identity-form>
+            <div class="field"><label for="gender">Gender</label>
+                <select id="gender" @bind="gender"><option value="">Not set</option>@foreach (var g in options.Genders) { <option value="@g.Id">@g.Label</option> }</select></div>
+            @if (gender == "another") { <div class="field"><label for="gender-description">Describe it (optional)</label><input id="gender-description" maxlength="40" @bind="genderDescription" /></div> }
+            <div class="field"><label for="pronouns">Pronouns (optional)</label><input id="pronouns" maxlength="40" @bind="pronouns" /></div>
+            <div class="field"><label for="orientation">Orientation (optional, never used to decide who sees you)</label>
+                <select id="orientation" @bind="orientation"><option value="">Not set</option>@foreach (var o in options.Orientations) { <option value="@o.Id">@o.Label</option> }</select></div>
+            <label class="check"><input type="checkbox" @bind="showGender" data-show-gender /> Show my gender and pronouns</label>
+            <label class="check"><input type="checkbox" @bind="showOrientation" /> Show my orientation</label>
+            <label class="check"><input type="checkbox" @bind="showAge" data-show-age /> Show my age</label>
+            <fieldset data-show-me><legend>In Dating, show me</legend>
+                @* D161: "Prefer not to say" is a privacy choice, not a gender, so it's never a "show me" option. *@
+                @foreach (var g in options.Genders.Where(g => g.Id != "unsaid"))
+                {
+                    <label class="check"><input type="checkbox" checked="@showMe.Contains(g.Id)" @onchange="e => Toggle(showMe, g.Id, e)" data-show-me-option="@g.Id" /> @g.Label</label>
+                }
+            </fieldset>
+            <p class="field-help">"Show me" works both ways: you see someone in Dating only if each of you is in the other's choice. People who prefer not to say their gender can appear for anyone.</p>
+            <button type="submit" class="button" disabled="@busy">Save</button>
+            <p role="status" aria-live="polite" class="field-help" data-identity-status="@identityStatus">@identityMessage</p>
+        </form>
+    </section>
+    <section class="card account-section" aria-labelledby="filters-heading">
+        <h2 id="filters-heading">Filters</h2>
+        <div class="field"><label for="filter-mode">Mode</label>
+            <select id="filter-mode" value="@modeId" @onchange="ChangeModeAsync">@foreach (var m in modes) { <option value="@m.Id">@m.Label</option> }</select></div>
+        @if (filter is not null)
+        {
+            <form class="stack" @onsubmit="SaveFiltersAsync" data-filter-form="@modeId">
+                <div class="field-row">
+                    <div class="field"><label for="min-age">Age from</label><input id="min-age" type="number" min="18" max="120" @bind="minAge" /></div>
+                    <div class="field"><label for="max-age">to</label><input id="max-age" type="number" min="18" max="120" @bind="maxAge" /></div>
+                </div>
+                <label class="check"><input type="checkbox" @bind="idVerifiedOnly" data-id-only /> ID Verified people only</label>
+                <fieldset><legend>Must have (up to 5)</legend>
+                    <label class="check"><input type="radio" name="match" checked="@(match == "any")" @onchange='() => match = "any"' /> Any of these</label>
+                    <label class="check"><input type="radio" name="match" checked="@(match == "all")" @onchange='() => match = "all"' /> All of these</label>
+                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@required.Contains(chip.Id)" @onchange="e => Toggle(required, chip.Id, e)" data-required-chip="@chip.Id" /> @chip.Label</label> }
+                </fieldset>
+                <fieldset><legend>Not for me (up to 10, works both ways)</legend>
+                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@excluded.Contains(chip.Id)" @onchange="e => Toggle(excluded, chip.Id, e)" data-excluded-chip="@chip.Id" /> @chip.Label</label> }
+                </fieldset>
+                <div class="field"><label for="visitors">Visitors in Travel</label>
+                    <select id="visitors" @bind="visitors"><option value="both">Here now and arriving soon</option><option value="current">Here now</option><option value="upcoming">Arriving soon</option><option value="neither">Don't show visitors</option></select></div>
+                <fieldset disabled="@(!filter.PlusAvailable)" data-plus-filters="@(filter.PlusAvailable ? "on" : "off")"><legend>Plus</legend>
+                    <div class="field"><label for="distance">Within (km of my home city)</label><input id="distance" type="number" min="1" max="500" @bind="distance" /></div>
+                    <label class="check"><input type="checkbox" checked="@(sort == "compatibility")" @onchange='e => sort = e.Value is true ? "compatibility" : "recent"' /> Most in common first</label>
+                    @if (!filter.PlusAvailable) { <p class="field-help">These filters are part of Plus.</p> }
+                </fieldset>
+                <button type="submit" class="button" disabled="@busy">Save filters</button>
+                <p role="status" aria-live="polite" class="field-help" data-filter-status="@filterStatus">@filterMessage</p>
+            </form>
+        }
+    </section>
+}
+@code {
+    private bool loaded, busy, showGender = true, showOrientation, showAge = true, idVerifiedOnly;
+    private ProfileOptionsView? options;
+    private List<ConnectionModeView> modes = [];
+    private string modeId = "dating", match = "any", visitors = "both", sort = "recent";
+    private string? gender, genderDescription, pronouns, orientation, identityStatus, identityMessage, filterStatus, filterMessage;
+    private HashSet<string> showMe = [];
+    private HashSet<Guid> required = [], excluded = [];
+    private int? minAge, maxAge, distance;
+    private FilterView? filter;
+    private IEnumerable<IntentionView> Chips => modes.FirstOrDefault(m => m.Id == modeId)?.Intentions ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        options = (await Members.ProfileOptionsAsync()).Value;
+        if (options is not null)
+        {
+            modes = (await Members.ModesAsync()).Value ?? [];
+            if ((await Members.IdentityAsync()).Value is { } i)
+                (gender, genderDescription, pronouns, orientation, showGender, showOrientation, showAge, showMe) =
+                    (i.Gender, i.GenderDescription, i.Pronouns, i.Orientation, i.ShowGender, i.ShowOrientation, i.ShowAge, i.DatingShowMe.ToHashSet());
+            await LoadFilterAsync();
+        }
+        loaded = true;
+    }
+
+    private static void Toggle<T>(HashSet<T> set, T value, ChangeEventArgs e) { if (e.Value is true) set.Add(value); else set.Remove(value); }
+
+    private async Task ChangeModeAsync(ChangeEventArgs e) { modeId = e.Value?.ToString() ?? "dating"; await LoadFilterAsync(); }
+
+    private async Task LoadFilterAsync()
+    {
+        filter = (await Members.FiltersAsync(modeId)).Value;
+        if (filter is null) return;
+        (minAge, maxAge, required, match, excluded, idVerifiedOnly, visitors, distance, sort) = (filter.MinAge, filter.MaxAge, filter.RequiredChips.ToHashSet(),
+            filter.RequiredMatch, filter.ExcludedChips.ToHashSet(), filter.IdVerifiedOnly, filter.Visitors, filter.MaxDistanceKm, filter.Sort);
+        (filterStatus, filterMessage) = (null, null);
+    }
+
+    private async Task SaveIdentityAsync()
+    {
+        busy = true;
+        var result = await Members.SaveIdentityAsync(new IdentityUpdate(gender, genderDescription, pronouns, orientation, showGender, showOrientation, showAge, showMe.ToList()));
+        busy = false;
+        (identityStatus, identityMessage) = result.Ok ? ("saved", "Saved.") : (result.Code ?? "failed", "Check the options you picked.");
+    }
+
+    private async Task SaveFiltersAsync()
+    {
+        busy = true;
+        var result = await Members.SaveFiltersAsync(modeId, new FilterUpdate(minAge, maxAge, required.ToList(), match, excluded.ToList(), idVerifiedOnly, visitors, distance, sort));
+        busy = false;
+        if (result.Value is { } saved) filter = saved;
+        (filterStatus, filterMessage) = result.Ok ? ("saved", "Filters saved.") : (result.Code ?? "failed", result.Code == ProblemCodes.PlusRequired
+            ? "That filter is part of Plus." : "Check the filters: ages 18–120, up to 5 must-haves and 10 not-for-me, never the same intention in both.");
+    }
+}

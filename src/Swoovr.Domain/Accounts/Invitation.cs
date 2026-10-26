@@ -46,7 +46,7 @@ public static class InvitationPolicy
     /// social session can never accept one, whatever its email (D31, D38).
     /// </summary>
     public static bool CanAccept(Invitation? invitation, AccountRealm realm, SignInMethod method,
-        bool emailVerified, string? verifiedEmail, DateTimeOffset now)
+        bool emailVerified, string? verifiedEmail, DateTimeOffset now, bool localPasswordStaff = false)
     {
         if (invitation is null || invitation.RevokedAt is not null || invitation.AcceptedAt is not null
             || now >= invitation.ExpiresAt || realm != invitation.Realm || realm != RealmFor(invitation.Role)
@@ -55,7 +55,8 @@ public static class InvitationPolicy
             return false;
         return realm switch
         {
-            AccountRealm.Staff => method == SignInMethod.CorporateSso,
+            // D136: local fictional password staff only when the API allows it (Development); otherwise Entra SSO.
+            AccountRealm.Staff => method == SignInMethod.CorporateSso || localPasswordStaff && method == SignInMethod.EmailPassword,
             AccountRealm.Venues => method is SignInMethod.EmailPassword or SignInMethod.EmailLink,
             _ => false,
         };
