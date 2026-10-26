@@ -592,3 +592,13 @@ Executed locally:
 - Regressions: market 146, accounts 121 (after adding the two new `/me` fields to its exact-body check), members 50, root admin 9, components 60, modes 93, badges 58, requests 100, travel 106, mobile client 31: PASS.
 
 Not run or not verified: a real Didit verification with a matching date (needs a person with an ID); escalation email beyond Mailpit (MailerSend isn't connected); the restricted screen in the app (slice S).
+
+## Didit test verification by the owner — 26 October 2026
+
+The owner completed a real Didit test-mode verification with their own ID on the local hosts (runner, PR #32 branch) through the quick tunnel. Recorded from the database (outcomes and ids only; no document data exists in Swoovr):
+
+- Attempt: Approved (Didit "Approved"), started, self-service, adult, hosted link cleared, completed about a minute after it started.
+- Webhooks: three live `status.updated` deliveries from Didit, all signature-checked, fresh and applied (In Progress, then Approved).
+- Profile: ID status Verified, age status Verified, self-service attempt used, ID Verified badge.
+- Date of birth (D158): **not verified**. Didit's decision carried an ISO `date_of_birth` on the approved document, read correctly, but it differed from the profile's date (a different year), so the mark stayed false and the audit recorded `dob.not-verified` without either date. The comparison was checked with a script that printed only match/format booleans. Either the profile date differs from the document or Didit's test mode returned a sample date; not determined.
+- Audit trail: `verification.started`, `verification.inprogress`, `verification.approved`, `age.verified`, `dob.not-verified`; no dates or document values.
