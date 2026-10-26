@@ -2,6 +2,8 @@
 
 No answer is needed to review the phase 0 foundation. Ask these when approaching their blocking phase; do not ask all at once.
 
+From 27 October 2026 (owner) every new question, and every piece of review feedback or follow-up to be factored in later, is also a GitHub issue; its row here carries the Q number and the issue link, and the issue links back here. Answers are recorded in [DECISIONS.md](DECISIONS.md) and on the issue.
+
 | ID | Status | Blocks | Question / consequence | Recommended starting point |
 | --- | --- | --- | --- | --- |
 | Q01 | PARTLY ANSWERED, owner 16 October 2026 | Phase 1 live auth | Keycloak docs/source confirmed; no existing pin/realm/sandbox found. Proposed pin/realm in D13; configured session evidence still needs sandbox validation | Use official sources; keep privileged integration disabled pending validated session evidence (Q10 answered in D14) |
@@ -1937,3 +1939,45 @@ Raised by the builder on branch `feature/swoovr-app-parity-traveller-search` (D1
 | --- | --- | --- | --- | --- | --- | --- |
 | Q58 | ANSWERED | Issue [#33](https://github.com/repasscloud/wanderconnect/issues/33) only (date-of-birth reconciliation); nothing in S–U | When an approved ID check's date of birth differs from the account's, the member is shown "Document DOB" and asked to confirm the correction. D128 says Swoovr stores no document data and D158 drops the document's date after comparing. How should the document's date be held while the correction is pending: (a) not held: the API re-reads Didit's decision each time the member or support opens the correction (Didit keeps it 30 days, D147; reading a decision is not a new scan); or (b) held in a restricted, access-controlled table only while `PendingCorrection` or `Disputed`, deleted when resolved? | (a) keeps D128 intact but stops working after Didit's 30 days and needs Didit reachable to show the screen; (b) is document data in Swoovr's database, even if short-lived, and amends D128/D158 | (a), re-read at display time. If Didit no longer has the decision, the status falls back to Unverified (badge kept, DOB unverified) and support can allow another check (`allow-again`). The correction history (original and corrected account DOB, provider session reference, time, reason) goes in its own restricted table, never in `audit_entries` || ANSWERED, owner 27 October 2026 (D166): Swoovr keeps the date of birth on the account. When it doesn't match the date Didit passes through, a one-time prompt asks the member to set it to the date on their ID to complete verification; Swoovr then checks it against Didit again. If it still doesn't match, a ticket goes to the admin queue and the date of birth isn't verified: it goes to manual review, so the member can have ID_VERIFIED but not DOB_VERIFIED while an admin inspects it |
 | Q59 | ANSWERED | Nothing (D165 built the default) | When a member deletes a message for both within five minutes, should its text be erased at once, or kept hidden for a while as moderation evidence (so a harasser can't send and delete to avoid reports)? | Rule 8 lets senders delete; rule 22 protects evidence only once preserved | Keep it hidden for 30 days, usable only through a report, then erase (`messages purge` by cron) || ANSWERED, owner 27 October 2026 (D167): keep everything on the system for 30 days so it can be retrieved if required. In the app the message appears deleted, but it stays in the back end so harassment and similar issues can be investigated |
+
+## Product review backlog (Codex, 26 October 2026) — tracked as GitHub issues
+
+The owner pasted Codex's product review and strategic roadmap on 27 October 2026. Each item is a GitHub issue labelled `product-review` (and `trust-and-safety` or `decision-needed` where relevant) for later; none is approved. Tracking issue with the review's summary and its ten recommended decisions: [#64](https://github.com/repasscloud/wanderconnect/issues/64).
+
+| Issue | Topic | Status |
+| --- | --- | --- |
+| [#35](https://github.com/repasscloud/wanderconnect/issues/35) | Groups and communities | UNDECIDED |
+| [#36](https://github.com/repasscloud/wanderconnect/issues/36) | Events, meetups and group activities | UNDECIDED |
+| [#37](https://github.com/repasscloud/wanderconnect/issues/37) | Separate personal and professional identities (mode-specific profile views and cross-mode privacy) | UNDECIDED |
+| [#38](https://github.com/repasscloud/wanderconnect/issues/38) | Connection lifecycle per mode (state machine) | UNDECIDED |
+| [#39](https://github.com/repasscloud/wanderconnect/issues/39) | In-app voice and video calls | UNDECIDED |
+| [#40](https://github.com/repasscloud/wanderconnect/issues/40) | Complete meeting-safety system | UNDECIDED |
+| [#41](https://github.com/repasscloud/wanderconnect/issues/41) | Messaging quality and conversation management | UNDECIDED |
+| [#42](https://github.com/repasscloud/wanderconnect/issues/42) | Business accounts and organisations | UNDECIDED |
+| [#43](https://github.com/repasscloud/wanderconnect/issues/43) | Discovery when the local network is small (network density) | UNDECIDED |
+| [#44](https://github.com/repasscloud/wanderconnect/issues/44) | Explainable compatibility and preference management | UNDECIDED |
+| [#45](https://github.com/repasscloud/wanderconnect/issues/45) | Places and Experiences system | UNDECIDED |
+| [#46](https://github.com/repasscloud/wanderconnect/issues/46) | Recurring social interaction (event series, following organisers) | UNDECIDED |
+| [#47](https://github.com/repasscloud/wanderconnect/issues/47) | Reputation and positive conduct signals (research first) | UNDECIDED |
+| [#48](https://github.com/repasscloud/wanderconnect/issues/48) | Accessibility as a release requirement | UNDECIDED |
+| [#49](https://github.com/repasscloud/wanderconnect/issues/49) | Notification and privacy controls | UNDECIDED |
+| [#50](https://github.com/repasscloud/wanderconnect/issues/50) | Account standing, appeals and support transparency (self-service) | UNDECIDED |
+| [#51](https://github.com/repasscloud/wanderconnect/issues/51) | Product analytics, experimentation and the beta scorecard | UNDECIDED |
+| [#52](https://github.com/repasscloud/wanderconnect/issues/52) | Commercial operations and transaction handling | UNDECIDED |
+| [#53](https://github.com/repasscloud/wanderconnect/issues/53) | Trust, safety and privacy roadmap | UNDECIDED |
+| [#54](https://github.com/repasscloud/wanderconnect/issues/54) | Decide the policy for private explicit albums against App Store and Google Play rules | UNDECIDED |
+| [#55](https://github.com/repasscloud/wanderconnect/issues/55) | Adopt the Australian Online Dating Code as a design benchmark | UNDECIDED |
+| [#56](https://github.com/repasscloud/wanderconnect/issues/56) | Platform-aware subscription billing (in-app purchase vs Stripe) in one entitlement service | UNDECIDED |
+| [#57](https://github.com/repasscloud/wanderconnect/issues/57) | Formal privacy, application-security and app-store-policy review before unrestricted external beta | UNDECIDED |
+| [#58](https://github.com/repasscloud/wanderconnect/issues/58) | Define each mode's purpose, success outcome and next improvements | UNDECIDED |
+| [#59](https://github.com/repasscloud/wanderconnect/issues/59) | New experiences: Available for…, open invitations, shared planning, travel and professional introductions | UNDECIDED |
+| [#60](https://github.com/repasscloud/wanderconnect/issues/60) | Proposed phased roadmap (Phase 0–4) for owner review | UNDECIDED |
+| [#61](https://github.com/repasscloud/wanderconnect/issues/61) | Architecture: logical domains and early cross-cutting decisions | UNDECIDED |
+| [#62](https://github.com/repasscloud/wanderconnect/issues/62) | Product principles: what Swoovr should deliberately avoid | UNDECIDED |
+
+## Other tracked issues — 27 October 2026
+
+| Issue | Topic | Status |
+| --- | --- | --- |
+| [#63](https://github.com/repasscloud/wanderconnect/issues/63) | Members suite: passkey registration callback escapes the test's route on fresh builds (bug, not caused by S–U) | OPEN |
+| [#33](https://github.com/repasscloud/wanderconnect/issues/33) | Date-of-birth reconciliation (Q58) | BUILT in PR #34 (D166); close when the owner is satisfied |
