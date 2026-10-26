@@ -103,7 +103,6 @@ public static class MemberText
     public const string RequestUnavailable = "Requests open when you're in the same Swoovr market.";
     public const string BlockExplained = "You won't see each other anywhere on Swoovr, and any requests between you are cancelled. They aren't told.";
     public const string Blocked = "Blocked. You won't see each other. You can unblock from Connections.";
-    public const string ChatsNotYet = "Chats aren't available yet. Once messaging opens, conversations with your connections appear here.";
 
     /// <summary>A notice's heading for its kind (D135).</summary>
     public static string NoticeTitle(string kind) => kind switch

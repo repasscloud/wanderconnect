@@ -28,6 +28,10 @@ public sealed class AppSignIn
 
 	public Task<bool> IsSignedInAsync() => session?.IsSignedInAsync() ?? Task.FromResult(false);
 
+	/// <summary>Live messages from the API's hub (D143) with this phone's bearer token; null when sign-in isn't available.</summary>
+	public MessagesHubClient? MessagesHub() =>
+		session is null || MobileEndpoints.Api is not { } api ? null : new MessagesHubClient(new Uri(api, "hubs/messages"), () => session.AccessTokenAsync());
+
 	/// <summary>True when signed in; false when the member closed the browser or the sign-in was refused.</summary>
 	public async Task<bool> SignInAsync()
 	{

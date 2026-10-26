@@ -142,11 +142,16 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.ok((await explore('eve')).includes(pid.fin) && (await explore('fin')).includes(pid.eve)); pass();
     assert.equal((await call(tokens.fin, `/api/v1/blocks/${pid.eve}`, { method: 'DELETE' })).status, 404); pass(); // nothing to remove
     assert.equal((await call(tokens.fin, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 404); pass(); // self
-    // A block also hides an existing connection from both lists; unblocking brings it back.
+    // A block ends an existing connection for both (Q42 rule 14, D143, since slice U); unblocking doesn't bring it back,
+    // but the pair may connect again with a new request.
     await call(tokens.ann, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.bob } });
     assert.ok(!(await connections('ann')).some(x => x.id === annBob) && !(await connections('bob')).some(x => x.id === annBob)); pass();
     await call(tokens.ann, `/api/v1/blocks/${pid.bob}`, { method: 'DELETE' });
-    assert.ok((await connections('bob')).some(x => x.id === annBob)); pass();
+    assert.ok(!(await connections('bob')).some(x => x.id === annBob) && !(await connections('ann')).some(x => x.id === annBob)); pass();
+    assert.equal(await sql(`SELECT status FROM connection_requests WHERE id = '${annBob}'`), 'Ended'); pass();
+    r = await call(tokens.ann, '/api/v1/requests', { method: 'POST', body: { to: pid.bob, mode: 'dating' } });
+    assert.equal(r.status, 201); pass();
+    assert.equal((await answer('bob', r.body.id, 'accept')).status, 200); pass();
 
     // Rate limit: 20 sends a day per sender, then 429, audited (D117).
     for (let i = 0; i < 20; i++) {

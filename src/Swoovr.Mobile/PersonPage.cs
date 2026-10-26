@@ -82,6 +82,14 @@ public sealed class PersonPage : ContentPage
 				_ => Ui.Button("Send request", $"Request_{mode.Id}", () => SendAsync(mode.Id)),
 			});
 		}
+		if (person.Modes.Any(m => m.Connection == "connected"))
+			// D143: one conversation per connected pair, across modes.
+			rows.Add(Ui.Button($"Message {person.DisplayName}", "MessagePerson", async () =>
+			{
+				var conversation = await Ui.Members!.StartConversationAsync(id);
+				if (conversation.Value is { } open) await Ui.PushAsync(new ConversationPage(open.Id));
+				else status.Text = "You can message people you're connected with.";
+			}));
 		return Ui.Card([.. rows]);
 	}
 
