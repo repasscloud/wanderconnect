@@ -8,7 +8,8 @@ namespace Swoovr.Mobile;
 /// mode with their badge artwork, chips, age, gender and pronouns as each person allows; tapping someone opens their
 /// profile. Explore is local (D125); the API also refuses a viewer without a date of birth, Dating without gender and
 /// "show me" (D139, D157), and restricted, suspended or unchecked accounts (D127, D160), and the page says why in the
-/// web's words (MemberText). Destination discovery (who's visiting) sits here too; Travel is not a mode.
+/// web's words (MemberText). Destination discovery (who's visiting, and Traveller Search through one's own trips, D142)
+/// sits here too; Travel is not a mode.
 /// </summary>
 public sealed class ExplorePage : ContentPage
 {
@@ -38,7 +39,15 @@ public sealed class ExplorePage : ContentPage
 			return;
 		}
 		(modes, interested) = (catalogue.Value, own.Value.MarketInterest);
-		body.Children.Add(Ui.Button("Who's visiting", "ExploreVisitors", () => Ui.PushAsync(new VisitorsPage()), primary: false));
+		body.Children.Add(new HorizontalStackLayout
+		{
+			Spacing = 8,
+			Children =
+			{
+				Ui.Button("Who's visiting", "ExploreVisitors", () => Ui.PushAsync(new VisitorsPage()), primary: false),
+				Ui.Button("Traveller Search", "ExploreTravellerSearch", () => Ui.PushAsync(new TravellerSearchPage(null)), primary: false),
+			},
+		});
 		// The control and results are reused each time the tab appears, so detach them first (Ui.Detach).
 		body.Children.Add(new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = Ui.Detach(control) });
 		body.Children.Add(Ui.Detach(results));

@@ -55,6 +55,45 @@ public static class MemberText
         _ => "That request couldn't be sent.",
     };
 
+    /// <summary>Why confirm-arrival didn't confirm (D149); the trip stays upcoming and the member can try again or ask support.</summary>
+    public static string ArrivalProblem(string? code) => code switch
+    {
+        ProblemCodes.ArrivalTooEarly => "You can confirm your arrival from your arrival date.",
+        ProblemCodes.LocationUnusable => "We couldn't use your location. Turn location on for Swoovr and try again, or ask Swoovr support to look.",
+        ProblemCodes.LocationOutsideMarket => "Your location isn't in this trip's city yet. Try again once you're there, or ask Swoovr support to look.",
+        ProblemCodes.TripNotLive => "This trip is cancelled, over, or somewhere Swoovr isn't open.",
+        ProblemCodes.TooManyAttempts => "That's a lot of location checks. Try again later.",
+        _ => "We couldn't confirm your arrival. Try again.",
+    };
+
+    /// <summary>A trip's arrival as its owner reads it (D149), or null before any check.</summary>
+    public static string? ArrivalState(string state) => state switch
+    {
+        "arrived" => "Arrived: you can send requests to locals.",
+        "unconfirmed" => "Arrival not confirmed yet.",
+        _ => null,
+    };
+
+    public const string Arrived = "You've arrived. You can now send requests to people here.";
+    public const string BrowsingBeforeArrival = "You're looking before you arrive. You can send requests once you've confirmed you've arrived.";
+
+    /// <summary>A home-location check's outcome (D150). An inconsistent one is never a penalty by itself.</summary>
+    public static string HomeCheck(string outcome) => outcome switch
+    {
+        "consistent" => "Thanks. Your location matches your home city.",
+        "inconsistent" => "Your location isn't in your home city's area. That's fine if you're away.",
+        _ => "Nothing to check right now.",
+    };
+
+    /// <summary>Why Traveller Search isn't open through a trip (D142).</summary>
+    public static string SearchProblem(string? code) => code switch
+    {
+        ProblemCodes.TripNotLive => "This trip is cancelled, over, or somewhere Swoovr isn't open.",
+        ProblemCodes.SearchNotOpen => "Search opens 14 days before you arrive, while the trip is visible to locals, and never in your own city.",
+        ProblemCodes.MarketNotOpen => "Swoovr doesn't offer this mode there.",
+        _ => ExploreNotice(code, "This mode") ?? Barred(code) ?? "We couldn't search there. Try again later.",
+    };
+
     /// <summary>What happened after accept, decline or withdraw; the same words on Connections and person pages.</summary>
     public static string Answered(string answer, bool ok) => !ok ? "That request isn't available any more." : answer switch
     {

@@ -80,6 +80,16 @@ public static class ProblemCodes
     public const string PlusRequired = "plus-required";
     /// <summary>D142, D149: a traveller may browse a destination but not start contact there until arrival is confirmed.</summary>
     public const string ArrivalRequired = "arrival-required";
+    /// <summary>D149: the trip's arrival date hasn't been reached at the destination.</summary>
+    public const string ArrivalTooEarly = "arrival-too-early";
+    /// <summary>D149: no usable device location (missing, stale, from the future or too inaccurate).</summary>
+    public const string LocationUnusable = "location-unusable";
+    /// <summary>D149: the device location is outside the destination market.</summary>
+    public const string LocationOutsideMarket = "location-outside-market";
+    /// <summary>D142, D149: the trip is cancelled, over, or in a market that isn't open.</summary>
+    public const string TripNotLive = "trip-not-live";
+    /// <summary>D142: Traveller Search opens 14 days before arrival, while the trip is visible, and not in the member's own market.</summary>
+    public const string SearchNotOpen = "search-not-open";
 }
 
 public sealed record CouponRequest(string Code);

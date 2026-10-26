@@ -3,6 +3,9 @@
 	<application android:allowBackup="false" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.INTERNET" />
+	<!-- D149, D150: one location reading when the member confirms arrival or checks their home city; never in the background. -->
+	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 	<!-- Android 11+ package visibility: lets WebAuthenticator find a Custom Tabs browser for sign-in. -->
 	<queries>
 		<intent>

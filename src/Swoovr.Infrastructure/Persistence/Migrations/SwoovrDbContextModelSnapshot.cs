@@ -800,6 +800,48 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("geo_city_names");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.HomeLocationCheck", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_at");
+
+                    b.Property<string>("HomeMarketId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("home_market_id");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("method");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.HasKey("Id")
+                        .HasName("pk_home_location_checks");
+
+                    b.HasIndex("AccountId", "CheckedAt")
+                        .HasDatabaseName("ix_home_location_checks_account_id_checked_at");
+
+                    b.ToTable("home_location_checks");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.IdVerificationAttempt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1354,6 +1396,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("home_market_moved_to");
+
+                    b.Property<DateTimeOffset?>("HomeReviewFlaggedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("home_review_flagged_at");
 
                     b.Property<DateTimeOffset?>("IdCheckedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2404,6 +2450,29 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("arrival");
 
+                    b.Property<DateTimeOffset?>("ArrivalCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("arrival_checked_at");
+
+                    b.Property<string>("ArrivalMarketId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("arrival_market_id");
+
+                    b.Property<string>("ArrivalMethod")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("arrival_method");
+
+                    b.Property<string>("ArrivalOutcome")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("arrival_outcome");
+
+                    b.Property<DateTimeOffset?>("ArrivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("arrived_at");
+
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
@@ -2434,6 +2503,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_trips");
+
+                    b.HasIndex("ArrivalMarketId")
+                        .HasDatabaseName("ix_trips_arrival_market_id");
 
                     b.HasIndex("ItineraryId")
                         .HasDatabaseName("ix_trips_itinerary_id");
@@ -2586,6 +2658,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_geo_city_names_geo_cities_geo_name_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.HomeLocationCheck", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_home_location_checks_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.IdVerificationAttempt", b =>
@@ -2853,6 +2935,12 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_trips_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.Market", null)
+                        .WithMany()
+                        .HasForeignKey("ArrivalMarketId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_trips_markets_arrival_market_id");
 
                     b.HasOne("Swoovr.Domain.GeoCity", null)
                         .WithMany()

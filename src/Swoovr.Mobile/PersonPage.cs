@@ -75,7 +75,9 @@ public sealed class PersonPage : ContentPage
 						Ui.Button("Decline", $"Decline_{mode.Id}", () => AnswerAsync(mode.RequestId!.Value, "decline"), primary: false),
 					},
 				},
-				// D125 and D142: no remote contact; the API refuses it too.
+				// D142, D149: a traveller may look before arriving but not start contact.
+				_ when !mode.CanRequest && mode.ArrivalRequired => Ui.Text(MemberText.RequestProblem(ProblemCodes.ArrivalRequired), "FooterClaims", $"ArrivalRequired_{mode.Id}"),
+				// D125: no remote contact; the API refuses it too.
 				_ when !mode.CanRequest => Ui.Text(MemberText.RequestUnavailable, "FooterClaims", $"RequestUnavailable_{mode.Id}"),
 				_ => Ui.Button("Send request", $"Request_{mode.Id}", () => SendAsync(mode.Id)),
 			});

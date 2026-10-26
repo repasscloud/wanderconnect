@@ -132,6 +132,21 @@ internal static class Ui
 
 	public static Task PushAsync(Page page) => Shell.Current.Navigation.PushAsync(page);
 
+	/// <summary>
+	/// One fresh device location for an explicit check (D149 confirm-arrival, D150 home check): permission is asked for
+	/// only now, nothing is watched or kept on the device, and the API decides what it means. Null when declined or unknown.
+	/// </summary>
+	public static async Task<LocationCheck?> ReadLocationAsync()
+	{
+		try
+		{
+			if (await Permissions.RequestAsync<Permissions.LocationWhenInUse>() != PermissionStatus.Granted) return null;
+			var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.High, TimeSpan.FromSeconds(20)));
+			return location is null ? null : new LocationCheck(location.Latitude, location.Longitude, location.Accuracy ?? 0, location.Timestamp);
+		}
+		catch (Exception error) when (error is FeatureNotSupportedException or FeatureNotEnabledException or PermissionException or InvalidOperationException) { return null; }
+	}
+
 	public static string Dates(DateOnly from, DateOnly to) => $"{from:d MMM yyyy} – {to:d MMM yyyy}";
 
 	public const string GeoNamesCredit = "Place data © GeoNames (CC BY 4.0)";

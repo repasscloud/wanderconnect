@@ -1,0 +1,19 @@
+@page "/travel/search/{TripId:guid}"
+<PageTitle>Traveller Search — Swoovr</PageTitle>
+<div class="column">
+@if (!signedIn)
+{
+    <div class="page-heading"><h1>Traveller Search</h1><p>Sign in to search a trip's destination.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a></p>
+}
+else
+{
+    <TravellerSearchPanel TripId="TripId" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+}
+</div>
+@code {
+    [Parameter] public Guid TripId { get; set; }
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private bool signedIn;
+    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+}

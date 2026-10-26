@@ -33,7 +33,9 @@ public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> Peopl
 /// says whether the viewer may start a request in this mode (D125: same market, already connected, or a local writing to
 /// a visiting traveller); the API checks it again on every send.
 /// </summary>
-public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions, string Connection, Guid? RequestId, bool CanRequest = true);
+/// <param name="ArrivalRequired">The viewer is a traveller browsing this person's market (D142) and may request here once arrival is confirmed (D149).</param>
+public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions, string Connection, Guid? RequestId, bool CanRequest = true,
+    bool ArrivalRequired = false);
 
 /// <summary>Whether the member wants to hear when Swoovr opens where they live (D125 rule 37).</summary>
 public sealed record MarketInterestUpdate(bool Interested);

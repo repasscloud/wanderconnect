@@ -55,9 +55,13 @@
                             <button type="button" class="button" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "accept")'>Accept</button>
                             <button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "decline")'>Decline</button>
                             break;
+                        case "none" when !mode.CanRequest && mode.ArrivalRequired:
+                            @* D142, D149: a traveller may look before arriving but not start contact. *@
+                            <span class="field-help" data-request-unavailable="arrival">@MemberText.RequestProblem(ProblemCodes.ArrivalRequired)</span>
+                            break;
                         case "none" when !mode.CanRequest:
                             @* D125: no remote contact; the API refuses it too. *@
-                            <span class="field-help" data-request-unavailable>Requests open when you're in the same Swoovr market.</span>
+                            <span class="field-help" data-request-unavailable>@MemberText.RequestUnavailable</span>
                             break;
                         default:
                             <button type="button" class="button" disabled="@busy" @onclick="() => SendAsync(mode.Id)">Send request</button>
@@ -109,13 +113,7 @@
     {
         busy = true;
         var result = await Members.SendRequestAsync(Id, modeId);
-        (connectStatus, connectMessage) = result.Ok ? ("sent", "Request sent.") : (result.Code ?? "failed", result.Code switch
-        {
-            ProblemCodes.TooManyRequests => "You've sent a lot of requests today. Try again later.",
-            ProblemCodes.RecentlyDeclined => "You can't ask again in this mode yet.",
-            ProblemCodes.BotCannotInitiate => "This account can't send requests.",
-            _ => "That request couldn't be sent.",
-        });
+        (connectStatus, connectMessage) = result.Ok ? ("sent", "Request sent.") : (result.Code ?? "failed", MemberText.RequestProblem(result.Code));
         await ReloadAsync();
     }
 

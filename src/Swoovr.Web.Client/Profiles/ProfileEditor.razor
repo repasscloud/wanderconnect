@@ -2,6 +2,7 @@
    its own card. Turning a mode on or off changes only that mode. Each mode offers its own intention chips (Q16); the
    member picks up to the API's limit, shown as "n of 5", and the API enforces it again. Choices stay when a mode is off. *@
 @inject MemberClient Members
+@inject IJSRuntime JS
 <div class="page-heading" data-profile-editor="@(loaded ? "ready" : "loading")">
     <p class="breadcrumb"><a href="/account">Me</a> / Profile</p>
     <h1>Your profile</h1>
@@ -18,6 +19,12 @@
             <div class="field"><label for="area">Area</label><input id="area" maxlength="60" @bind="area" placeholder="For example, Adelaide CBD" /></div>
             <CitySearch InputId="home-city" Label="Home city" @bind-Selected="homeCity" />
             <p class="field-help">Only you see your home city. It decides who counts as local when people visit (Travel).</p>
+            @if (profile.HomeCity is not null)
+            {
+                @* D150: optional. The browser asks for one reading; Swoovr keeps only whether it matched, never where you are. *@
+                <p class="field-help"><button type="button" class="link-button" disabled="@busy" @onclick="HomeCheckAsync" data-home-check>Check my location matches</button>
+                    <span data-home-check-result="@homeCheck">@(homeCheck is null ? "" : MemberText.HomeCheck(homeCheck))</span></p>
+            }
             <div class="field"><label for="about">About me</label><textarea id="about" maxlength="500" rows="4" @bind="about"></textarea></div>
             <button type="submit" class="button" disabled="@busy">Save</button>
             <p role="status" aria-live="polite" class="field-help" data-core-status="@coreStatus">@coreMessage</p>
@@ -63,6 +70,19 @@
     private bool loaded, busy;
     private string? refused, displayName, area, about, coreMessage, coreStatus, modeMessage;
     private PlaceView? homeCity;
+    private string? homeCheck;
+
+    private async Task HomeCheckAsync()
+    {
+        busy = true;
+        LocationCheck? reading = null;
+        try { reading = await JS.InvokeAsync<LocationCheck?>("swoovrLocation.read"); }
+        catch (JSException) { }
+        var result = reading is null ? null : await Members.HomeCheckAsync(reading);
+        homeCheck = result?.Value?.Outcome ?? "unusable";
+        if (homeCheck == "unusable") homeCheck = null;
+        busy = false;
+    }
     private List<ConnectionModeView> modes = [];
     private MyProfileView? profile;
 

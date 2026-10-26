@@ -132,6 +132,18 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<VisitorPage>> VisitorsAsync(string modeId, int page = 1, CancellationToken cancellationToken = default) =>
         SendAsync<VisitorPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/travel/visitors?mode={Uri.EscapeDataString(modeId)}&page={page}"), cancellationToken);
 
+    /// <summary>Confirm-arrival (D149): the trip's arrival date must be reached and the device's fresh location inside the destination market.</summary>
+    public Task<ApiResult<TripView>> ConfirmArrivalAsync(Guid tripId, LocationCheck? reading, CancellationToken cancellationToken = default) =>
+        SendAsync<TripView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/trips/{tripId}/arrival") { Content = JsonContent.Create(reading) }, cancellationToken);
+
+    /// <summary>Traveller Search (D142): the destination's locals in one mode, through one of the member's own trips.</summary>
+    public Task<ApiResult<TravellerSearchResult>> TravellerSearchAsync(Guid tripId, string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<TravellerSearchResult>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/travel/search?trip={tripId}&mode={Uri.EscapeDataString(modeId)}"), cancellationToken);
+
+    /// <summary>A home-location consistency check (D150): the API compares the reading with the home market and keeps only the outcome.</summary>
+    public Task<ApiResult<HomeCheckView>> HomeCheckAsync(LocationCheck reading, CancellationToken cancellationToken = default) =>
+        SendAsync<HomeCheckView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/home-check") { Content = JsonContent.Create(reading) }, cancellationToken);
+
     /// <summary>Answers a request: "accept" or "decline" (the recipient) or "withdraw" (the sender).</summary>
     public Task<ApiResult<ConnectionRequestView>> AnswerRequestAsync(Guid id, string answer, CancellationToken cancellationToken = default) =>
         SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/requests/{id}/{Uri.EscapeDataString(answer)}"), cancellationToken);

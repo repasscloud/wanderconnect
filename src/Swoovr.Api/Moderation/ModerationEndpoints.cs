@@ -581,7 +581,7 @@ public static class ModerationEndpoints
             sanctions.Select(s => View(s, now)).ToList());
     }
 
-    private static async Task<AccountAdminSummary> SummaryAsync(SwoovrDbContext db, Guid id, DateTimeOffset now, CancellationToken cancellationToken)
+    public static async Task<AccountAdminSummary> SummaryAsync(SwoovrDbContext db, Guid id, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var account = await db.Accounts.SingleAsync(a => a.Id == id, cancellationToken);
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
@@ -593,7 +593,9 @@ public static class ModerationEndpoints
             profile?.FoundingMember ?? false, profile?.HomeMarketId, profile?.HomeMarketMovedAt, Wire(plan), sanctions.Select(s => View(s, now)).ToList(),
             grants.Select(g => Entitlements.View(g, now)).ToList(),
             await db.ModerationCases.CountAsync(c => c.SubjectAccountId == id && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken),
-            profile?.DateOfBirthVerified ?? false);
+            profile?.DateOfBirthVerified ?? false, profile?.HomeReviewFlaggedAt,
+            // D150: counts only, never where; the last 30 days' device and IP checks that disagreed with the home city.
+            await db.HomeLocationChecks.CountAsync(c => c.AccountId == id && c.Outcome == HomeConsistency.Inconsistent && c.CheckedAt > now - HomeLocationPolicy.Window, cancellationToken));
     }
 }
 

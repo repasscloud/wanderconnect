@@ -11,10 +11,10 @@ namespace Swoovr.Api.Travel;
 
 /// <summary>
 /// Travel (Q17, D107, D109–D111, D120–D122): GeoNames city search, the member's own trips and itineraries, and the
-/// destination feed in which locals of an open market (D125) see visiting travellers. Travel is asymmetric: there is no
-/// feed of locals for travellers, and traveller search is not built (Q17 rule 36; its prerequisite is a qualifying trip
-/// for the destination's GeoNames id). Coordinates, distances and radii never leave the server. The audit log holds
-/// trip ids and visibility only, never cities or dates.
+/// destination feed in which locals of an open market (D125) see visiting travellers. Travellers get no feed of locals;
+/// they search a destination only through one of their own trips (Traveller Search, D142, in ArrivalEndpoints).
+/// Coordinates, distances and radii never leave the server. The audit log holds trip ids and visibility only, never
+/// cities or dates.
 /// </summary>
 public static class TravelEndpoints
 {
@@ -55,7 +55,7 @@ public static class TravelEndpoints
             var markets = await MarketEndpoints.ZonesAsync(db, cancellationToken);
             var siblings = await SiblingsAsync(db, rows.Select(r => r.t).ToList(), cancellationToken);
             var now = clock.GetUtcNow();
-            return Results.Ok(new TripPage(rows.Take(PageSize).Select(r => View(r.t, r.c, siblings, markets, now)).ToList(), page ?? 1, rows.Count > PageSize));
+            return Results.Ok(new TripPage(rows.Take(PageSize).Select(r => View(r.t, r.c, siblings, markets, now, current.Profile!.HomeMarketId)).ToList(), page ?? 1, rows.Count > PageSize));
         });
 
         api.MapPost("/me/itineraries", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -219,24 +219,36 @@ public static class TravelEndpoints
         if (proposed.Visible && TravelPolicy.OverlapsVisible(proposed, mine.Select(x => Facts(x.t, x.c)), now))
             return Problem(StatusCodes.Status409Conflict, ProblemCodes.TripOverlaps, "Another visible trip overlaps these dates.");
         if (trip is null) db.Trips.Add(trip = proposed);
-        else (trip.GeoNameId, trip.Arrival, trip.Departure, trip.Visible, trip.ItineraryId, trip.UpdatedAt) =
-            (proposed.GeoNameId, proposed.Arrival, proposed.Departure, proposed.Visible, proposed.ItineraryId, now);
+        else
+        {
+            // D149 rule 9: a new destination or new dates need a new arrival check; visibility alone doesn't.
+            if (ArrivalPolicy.ResetsArrival(trip, proposed.GeoNameId, proposed.Arrival, proposed.Departure))
+                (trip.ArrivedAt, trip.ArrivalMarketId, trip.ArrivalMethod, trip.ArrivalOutcome, trip.ArrivalCheckedAt) = (null, null, null, null, null);
+            (trip.GeoNameId, trip.Arrival, trip.Departure, trip.Visible, trip.ItineraryId, trip.UpdatedAt) =
+                (proposed.GeoNameId, proposed.Arrival, proposed.Departure, proposed.Visible, proposed.ItineraryId, now);
+        }
         Audit.Record(db, now, me, "account", id is null ? "trip.created" : "trip.updated", "trip", trip.Id.ToString(), trip.Visible ? "visible" : "hidden");
         await db.SaveChangesAsync(cancellationToken);
-        var markets = await MarketEndpoints.ZonesAsync(db, cancellationToken);
-        var siblings = await SiblingsAsync(db, [trip], cancellationToken);
-        var view = View(trip, city, siblings, markets, now);
+        var view = await ViewAsync(db, trip, city, current.Profile!, now, cancellationToken);
         return id is null ? Results.Created($"/api/v1/me/trips/{trip.Id}", view) : Results.Ok(view);
     }
 
     private static TripFacts Facts(Trip trip, GeoCity city) => new(trip, city.TimeZone);
 
-    private static TripView View(Trip trip, GeoCity city, Dictionary<Guid, List<TripFacts>> siblings, List<MarketZone> markets, DateTimeOffset now)
+    /// <summary>One trip as its owner sees it, with arrival (D149) and whether Traveller Search is open through it (D142).</summary>
+    public static async Task<TripView> ViewAsync(SwoovrDbContext db, Trip trip, GeoCity city, MemberProfile owner, DateTimeOffset now, CancellationToken cancellationToken) =>
+        View(trip, city, await SiblingsAsync(db, [trip], cancellationToken), await MarketEndpoints.ZonesAsync(db, cancellationToken), now, owner.HomeMarketId);
+
+    private static TripView View(Trip trip, GeoCity city, Dictionary<Guid, List<TripFacts>> siblings, List<MarketZone> markets, DateTimeOffset now, string? ownerHomeMarket)
     {
         var group = siblings.GetValueOrDefault(trip.ItineraryId ?? Guid.Empty, []);
         var facts = Facts(trip, city);
-        return new(trip.Id, Place(city), trip.Arrival, trip.Departure, trip.Visible, Wire(TravelPolicy.State(facts, group, now)), trip.ItineraryId,
-            TravelPolicy.OpensOn(facts, group), PlaceNames.OpenMarketOf(city, markets) is not null);
+        var state = TravelPolicy.State(facts, group, now);
+        var market = PlaceNames.MarketOf(city, markets);
+        var search = TravellerSearch.Check(trip, state, market, TravelPolicy.LocalToday(city.TimeZone, now), ownerHomeMarket);
+        return new(trip.Id, Place(city), trip.Arrival, trip.Departure, trip.Visible, Wire(state), trip.ItineraryId,
+            TravelPolicy.OpensOn(facts, group), market is { Open: true }, Wire(ArrivalPolicy.State(trip)), trip.ArrivedAt, search == SearchRefusal.None,
+            search is SearchRefusal.TripNotLive or SearchRefusal.OwnMarket ? null : trip.Arrival.AddDays(-TravelPolicy.WindowDays));
     }
 
     /// <summary>Every live stop of the itineraries these trips belong to, keyed by itinerary.</summary>

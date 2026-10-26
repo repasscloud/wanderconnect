@@ -71,6 +71,18 @@ public sealed class AdminClient(HttpClient http)
     public Task<int> StaffLinkAsync(Guid staffId, Guid? memberId, CancellationToken cancellationToken = default) =>
         StatusAsync(HttpMethod.Put, $"api/v1/admin/staff-links/{staffId}", new StaffLinkRequest(memberId), cancellationToken);
 
+    /// <summary>A member's trips as support sees them (D149 rule 7): market, dates and arrival, never the city.</summary>
+    public Task<ApiResult<List<TripAdminView>>> TripsAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<List<TripAdminView>>(HttpMethod.Get, $"api/v1/admin/accounts/{id}/trips", null, cancellationToken);
+
+    /// <summary>Support confirms an arrival after a review, with a reason (D149 rule 7).</summary>
+    public Task<int> ConfirmArrivalAsync(Guid tripId, string reason, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Post, $"api/v1/admin/trips/{tripId}/arrival", new ArrivalReview(reason), cancellationToken);
+
+    /// <summary>An admin clears the home-location review after looking (D150).</summary>
+    public Task<ApiResult<AccountAdminSummary>> ClearHomeReviewAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountAdminSummary>(HttpMethod.Post, $"api/v1/admin/accounts/{id}/home-review/clear", new HomeReviewClear(reason), cancellationToken);
+
     private async Task<int> StatusAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };

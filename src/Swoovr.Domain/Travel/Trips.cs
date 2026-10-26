@@ -18,6 +18,13 @@ public sealed class Trip
     public DateTimeOffset? CancelledAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+    /// <summary>D149: when arrival was confirmed, for which market and how. Never coordinates.</summary>
+    public DateTimeOffset? ArrivedAt { get; set; }
+    public string? ArrivalMarketId { get; set; }
+    public ArrivalMethod? ArrivalMethod { get; set; }
+    /// <summary>The last check that didn't confirm, so the trip can show "arrival unconfirmed" (rule 7).</summary>
+    public ArrivalOutcome? ArrivalOutcome { get; set; }
+    public DateTimeOffset? ArrivalCheckedAt { get; set; }
 }
 
 /// <summary>A group of back-to-back stops (D109). Its stops open together once the first is within 14 days.</summary>

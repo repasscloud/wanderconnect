@@ -58,6 +58,38 @@ else
         </form>
     </section>
 
+    @if (account.Realm == "members")
+    {
+        <section class="card" data-location-review="@(account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
+            <h2>Location and arrival (D149, D150)</h2>
+            <p class="help">Outcomes only: Swoovr keeps no coordinates, IP addresses or places. A flag never suspends anyone.</p>
+            <p data-home-checks="@account.InconsistentHomeChecks">Home-location checks that disagreed in the last 30 days: @account.InconsistentHomeChecks@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged for review {flagged:d MMM yyyy}" : "")</p>
+            @if (account.HomeReviewFlaggedAt is not null)
+            {
+                <form method="post" @formname="home-review" @onsubmit='() => RunAsync("home-review")' class="row" data-enhance="false">
+                    <AntiforgeryToken />
+                    <input name="reason" placeholder="Reason" maxlength="1000" required />
+                    <button type="submit" class="secondary" data-op="home-review-clear">Clear the review</button>
+                </form>
+            }
+            <ul class="list" data-trips="@trips.Count">
+                @foreach (var t in trips)
+                {
+                    <li data-trip="@t.Id" data-arrival="@t.ArrivalState">@(t.Market ?? "outside every market") · @t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")
+                        @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled"))
+                        {
+                            <form method="post" @formname="@($"arrival-{t.Id}")" @onsubmit='() => RunAsync("arrival", t.Id)' class="row" data-enhance="false">
+                                <AntiforgeryToken />
+                                <input name="reason" placeholder="Reason" maxlength="1000" required />
+                                <button type="submit" class="secondary" data-op="confirm-arrival">Confirm arrival</button>
+                            </form>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
     <section class="card">
         <h2>Plus for testers (D151)</h2>
         <p class="help">Complimentary: never charged. A lapsed or revoked grant falls back to Free.</p>
@@ -114,6 +146,7 @@ else
     [CascadingParameter] private HttpContext? Context { get; set; }
     private AccountAdminSummary? account;
     private AdminVerificationView? verification;
+    private List<TripAdminView> trips = [];
     private string? message, loadError, resultCode;
     private bool reauth;
 
@@ -124,7 +157,11 @@ else
         var result = await Admin.AccountAsync(Id);
         account = result.Value;
         if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
-        else if (account!.Realm == "members") verification = (await Admin.VerificationAsync(Id)).Value;
+        else if (account!.Realm == "members")
+        {
+            verification = (await Admin.VerificationAsync(Id)).Value;
+            trips = (await Admin.TripsAsync(Id)).Value ?? [];
+        }
     }
 
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
@@ -139,6 +176,8 @@ else
             "age" when value == "override" => (await Admin.AdultOverrideAsync(Id), null),
             "age" => Of(await Admin.AgeAssuranceAsync(Id, value == "flag")),
             "home" => Of(await Admin.HomeMoveOverrideAsync(Id, Field("reason"))),
+            "home-review" => Of(await Admin.ClearHomeReviewAsync(Id, Field("reason"))),
+            "arrival" => (await Admin.ConfirmArrivalAsync(item!.Value, Field("reason")), null),
             "grant" => Of(await Admin.GrantAsync(Id, new EntitlementGrant(Field("tier"), null, DateTimeOffset.UtcNow.AddDays(Number("days") ?? 0), Field("reason")))),
             "grant-change" when value == "revoke" => Of(await Admin.RevokeGrantAsync(item!.Value)),
             "grant-change" => Of(await Admin.ChangeGrantAsync(item!.Value, new EntitlementChange(null, DateTimeOffset.UtcNow.AddDays(Number("days") ?? 0), null))),

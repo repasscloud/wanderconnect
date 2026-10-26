@@ -38,6 +38,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<BotMarket> BotMarkets => Set<BotMarket>();
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
+    public DbSet<HomeLocationCheck> HomeLocationChecks => Set<HomeLocationCheck>();
     public DbSet<Itinerary> Itineraries => Set<Itinerary>();
     public DbSet<IdVerificationAttempt> IdVerificationAttempts => Set<IdVerificationAttempt>();
     public DbSet<DiditWebhookEvent> DiditWebhookEvents => Set<DiditWebhookEvent>();
@@ -237,6 +238,16 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             trip.HasIndex(t => new { t.AccountId, t.Arrival });
             trip.HasIndex(t => new { t.GeoNameId, t.Departure });
             trip.ToTable(t => t.HasCheckConstraint("ck_trips_dates", "departure >= arrival"));
+            // D149: arrival keeps the time, the market and the method; never coordinates.
+            trip.Property(t => t.ArrivalMarketId).HasMaxLength(32);
+            trip.HasOne<Market>().WithMany().HasForeignKey(t => t.ArrivalMarketId).OnDelete(DeleteBehavior.SetNull);
+        });
+        // D150, D153: home-location consistency checks keep the outcome only; never coordinates, IP addresses or places.
+        model.Entity<HomeLocationCheck>(check =>
+        {
+            check.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);
+            check.Property(c => c.HomeMarketId).HasMaxLength(32);
+            check.HasIndex(c => new { c.AccountId, c.CheckedAt });
         });
         // D128: one row per Didit session, outcome and operational metadata only. At most one open attempt per member.
         model.Entity<IdVerificationAttempt>(attempt =>

@@ -35,16 +35,19 @@ public static class MarketAccess
 
     /// <summary>
     /// Whether another member's profile opens for the viewer (rules 11–13, 21, 46): same market, an existing request or
-    /// connection between them in any mode, or a local looking at a traveller visiting their market.
+    /// connection between them in any mode, a local looking at a traveller visiting their market, or a traveller whose
+    /// Traveller Search is open for the person's market (D142).
     /// </summary>
-    public static bool ProfileOpens(bool sameMarket, bool related, bool visiting) => sameMarket || related || visiting;
+    public static bool ProfileOpens(bool sameMarket, bool related, bool visiting, bool searching = false) => sameMarket || related || visiting || searching;
 
     /// <summary>
     /// Whether the viewer may start a request in one mode (rules 9, 19–21, 46): same market, a connected pair adding a
-    /// mode (they are already in contact), or a local writing to a traveller visiting their market in that mode.
-    /// Travellers never start contact with a destination's locals here; that waits for arrival (D142).
+    /// mode (they are already in contact), a local writing to a traveller visiting their market in that mode, or a
+    /// traveller whose arrival in the person's market is confirmed (D142, D149). Before arrival a traveller may browse
+    /// but not start contact.
     /// </summary>
-    public static bool MayRequest(bool sameMarket, bool connected, bool visitingInMode) => sameMarket || connected || visitingInMode;
+    public static bool MayRequest(bool sameMarket, bool connected, bool visitingInMode, bool arrivedInMode = false) =>
+        sameMarket || connected || visitingInMode || arrivedInMode;
 
     /// <summary>
     /// Moving the home city (rules 28 and 34): leaving every market, staying in the same one, or returning to the market

@@ -68,6 +68,18 @@ public sealed class TravelPage : ContentPage
 			status.Text = await Ui.Members!.CancelTripAsync(trip.Id) == 204 ? "Trip cancelled. It stays in your history." : "That didn't work.";
 			await LoadAsync();
 		}, primary: false));
+		if (!trip.ActiveMarket) return row;
+		// D142, D149: search the destination through this trip, and confirm arrival with one fresh location reading.
+		if (MemberText.ArrivalState(trip.ArrivalState) is { } arrival) row.Children.Add(Ui.Text(arrival, "FooterClaims", $"TripArrival_{trip.Id}"));
+		if (trip.SearchOpen) row.Children.Add(Ui.Button($"Search {trip.City.Name}", $"TripSearch_{trip.Id}", () => Ui.PushAsync(new TravellerSearchPage(trip.Id)), primary: false));
+		else if (trip.SearchOpensOn is { } opens) row.Children.Add(Ui.Text($"Search opens {opens:d MMM yyyy} while the trip is visible.", "FooterClaims", $"TripSearchOpens_{trip.Id}"));
+		if (trip.ArrivalState != "arrived")
+			row.Children.Add(Ui.Button("I've arrived", $"TripArrive_{trip.Id}", async () =>
+			{
+				var result = await Ui.Members!.ConfirmArrivalAsync(trip.Id, await Ui.ReadLocationAsync());
+				await LoadAsync();
+				status.Text = result.Ok ? MemberText.Arrived : MemberText.ArrivalProblem(result.Code);
+			}));
 		return row;
 	}
 
