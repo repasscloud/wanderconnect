@@ -78,6 +78,8 @@ public static class ProblemCodes
     public const string DatingDetailsRequired = "dating-details-required";
     public const string InvalidFilter = "invalid-filter";
     public const string PlusRequired = "plus-required";
+    /// <summary>D142, D149: a traveller may browse a destination but not start contact there until arrival is confirmed.</summary>
+    public const string ArrivalRequired = "arrival-required";
 }
 
 public sealed record CouponRequest(string Code);

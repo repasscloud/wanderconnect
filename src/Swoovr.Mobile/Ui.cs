@@ -1,5 +1,6 @@
 using Swoovr.Client;
 using Swoovr.Contracts;
+using Shapes = Microsoft.Maui.Controls.Shapes;
 
 namespace Swoovr.Mobile;
 
@@ -62,8 +63,74 @@ internal static class Ui
 	public static View Labelled(string label, View input) =>
 		new VerticalStackLayout { Spacing = 4, Children = { Text(label, "FieldLabel"), new Border { Style = Style("InputBorder"), Content = Detach(input) } } };
 
-	/// <summary>Badges as words in the API's order, as the account screen does (no MAUI badge artwork yet).</summary>
+	/// <summary>Badges as words in the API's order, for screen readers and the badge row's description.</summary>
 	public static string Badges(IReadOnlyList<BadgeView> badges) => string.Join(" · ", badges.Select(b => AccountText.BadgeLabel(b.Badge)));
+
+	/// <summary>
+	/// One badge drawn from the shared artwork (BadgeArtwork, D141), the same shapes as the web's Badge.razor, in the
+	/// Badge* colours that check_design.py generates from brand-colours.json. Each stroke is mapped from its view box to a
+	/// square of the given size, centred (BadgeArtwork.Placed).
+	/// </summary>
+	public static View BadgeIcon(string kind, double size)
+	{
+		var shape = BadgeArtwork.Shape(kind);
+		var colour = (Color)Application.Current!.Resources["Badge" + char.ToUpperInvariant(BadgeArtwork.ColourToken(kind)[0]) + BadgeArtwork.ColourToken(kind)[1..]];
+		var tick = (Color)Application.Current.Resources["BadgeTick"];
+		var scale = size / Math.Max(shape.Width, shape.Height);
+		var grid = new Grid { WidthRequest = size, HeightRequest = size, VerticalOptions = LayoutOptions.Center, AutomationId = "Badge_" + kind };
+		SemanticProperties.SetDescription(grid, BadgeArtwork.Label(kind));
+		var converter = new Shapes.PathGeometryConverter();
+		foreach (var stroke in shape.Strokes)
+		{
+			// The data is placed in the square here, not with a RenderTransform: MAUI clips a transformed path to its
+			// untransformed bounds, which cut the ID card's left edge on Android.
+			var path = new Shapes.Path
+			{
+				Data = (Shapes.Geometry)converter.ConvertFromInvariantString(BadgeArtwork.Placed(shape, stroke, size))!,
+				WidthRequest = size, HeightRequest = size, Aspect = Stretch.None,
+				StrokeLineCap = Shapes.PenLineCap.Round, StrokeLineJoin = Shapes.PenLineJoin.Round, InputTransparent = true,
+			};
+			switch (stroke.Part)
+			{
+				case "line": (path.Stroke, path.StrokeThickness) = (colour, 1.8 * scale); break;
+				case "disc": path.Fill = colour; break;
+				case "tick": (path.Stroke, path.StrokeThickness) = (tick, 1.8 * scale); break;
+				default:
+					path.Fill = colour;
+					if (path.Data is Shapes.PathGeometry bird) bird.FillRule = Shapes.FillRule.EvenOdd;
+					break;
+			}
+			grid.Children.Add(path);
+		}
+		return grid;
+	}
+
+	/// <summary>The badges the API returned for one person, in its order (Q11), drawn as artwork.</summary>
+	public static View BadgeRow(IReadOnlyList<BadgeView> badges, string id, double size = 16, bool dated = false)
+	{
+		var row = new HorizontalStackLayout { Spacing = 4, AutomationId = id, IsVisible = badges.Count > 0 };
+		SemanticProperties.SetDescription(row, Badges(badges));
+		foreach (var badge in badges)
+		{
+			row.Children.Add(BadgeIcon(AccountText.BadgeKind(badge.Badge), size));
+			if (dated && badge.CheckedAt is { } at) row.Children.Add(Text($"checked {at:d MMM yyyy}", "FooterClaims"));
+		}
+		return row;
+	}
+
+	/// <summary>A whole-screen refusal (restricted, suspended, age check, beta, locked) in the shared words, or null.</summary>
+	public static View? Barred(string? code, string id)
+	{
+		if (MemberText.Barred(code) is not { } text) return null;
+		var card = Card(Text(text, id: id));
+		if (code is ProblemCodes.AccountRestricted or ProblemCodes.AccountSuspended)
+			((VerticalStackLayout)card.Content!).Children.Add(Button("Read the notice", id + "Notices", () => PushAsync(new NoticesPage())));
+		if (code == ProblemCodes.AgeVerificationRequired)
+			((VerticalStackLayout)card.Content!).Children.Add(Button("Verify my ID", id + "Verify", () => PushAsync(new VerificationPage())));
+		return card;
+	}
+
+	public static Task PushAsync(Page page) => Shell.Current.Navigation.PushAsync(page);
 
 	public static string Dates(DateOnly from, DateOnly to) => $"{from:d MMM yyyy} – {to:d MMM yyyy}";
 

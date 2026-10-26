@@ -49,16 +49,7 @@
     private IdVerificationView? view;
     private string? refused, message, messageCode;
 
-    private string StatusText => (view!.IdStatus, view.AttemptState) switch
-    {
-        ("verified", _) => $"Your ID is verified{(view.CheckedAt is { } at ? $" (checked {at:d MMM yyyy})" : "")}.",
-        (_, "created") => "Your check is ready. Continue on Didit to start it.",
-        (_, "inProgress") => "Your check is in progress on Didit.",
-        (_, "inReview") => "Didit is reviewing your check. This can take a little while.",
-        ("rejected", _) => "Your ID couldn't be verified.",
-        (_, "expired" or "abandoned") => "Your last check wasn't finished.",
-        _ => "You haven't verified your ID.",
-    };
+    private string StatusText => MemberText.VerificationState(view!);
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,13 +70,7 @@
         busy = false;
         if (result.Value is { } started) { (view, messageCode, message) = (started, "started", "Your check is ready. It opens on Didit in a new tab."); return; }
         messageCode = result.Code;
-        message = result.Code switch
-        {
-            ProblemCodes.VerificationAttemptUsed => "You've used your ID check. Contact Swoovr support if you'd like another.",
-            ProblemCodes.AlreadyVerified => "Your ID is already verified.",
-            ProblemCodes.VerificationProviderFailed => "We couldn't start the ID check. Try again shortly.",
-            _ => "ID verification isn't available right now.",
-        };
+        message = MemberText.VerificationProblem(result.Code);
         await LoadAsync();
     }
 

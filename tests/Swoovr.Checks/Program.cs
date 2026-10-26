@@ -14,6 +14,7 @@ MarketChecks.Run();
 VerificationChecks.Run();
 ModerationChecks.Run();
 MatchingChecks.Run();
+AppParityChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();

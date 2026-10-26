@@ -48,7 +48,37 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- D160: restricted, suspended or terminated: nothing else in the app until it's lifted; notices and appeals stay open. -->
+                <Border x:Name="RestrictedCard" Style="{StaticResource Card}" IsVisible="False" AutomationId="RestrictedScreen">
+                    <VerticalStackLayout Spacing="8">
+                        <Label x:Name="RestrictedTitle" AutomationId="RestrictedTitle" Style="{StaticResource SectionHeading}" />
+                        <Label x:Name="RestrictedBody" />
+                        <Button Text="Read the notice" AutomationId="RestrictedNotices" Style="{StaticResource PrimaryButton}" Clicked="OnNotices" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <VerticalStackLayout x:Name="MemberSections" Spacing="16" IsVisible="False">
+                    <!-- D127: the rest of the app answers age-verification-required until the check passes or support resolves it. -->
+                    <Border x:Name="AgeCheckCard" Style="{StaticResource Card}" IsVisible="False" AutomationId="AgeCheckRequired">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Please verify your age" Style="{StaticResource SectionHeading}" />
+                            <Label Text="We need to confirm you're 18 or over before you can keep using Swoovr." />
+                            <Button Text="Verify my ID" AutomationId="AgeCheckVerify" Style="{StaticResource PrimaryButton}" Clicked="OnVerification" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- D141: profile, settings and Travel planning sit under Me. -->
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Your Swoovr" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
+                            <Button Text="Your profile" AutomationId="MeProfile" Style="{StaticResource SecondaryButton}" Clicked="OnProfile" />
+                            <Button Text="Who I'd like to meet" AutomationId="MeMatching" Style="{StaticResource SecondaryButton}" Clicked="OnMatching" />
+                            <Button Text="Travel" AutomationId="MeTravel" Style="{StaticResource SecondaryButton}" Clicked="OnTravel" />
+                            <Button Text="ID verification" AutomationId="MeVerification" Style="{StaticResource SecondaryButton}" Clicked="OnVerification" />
+                            <Button Text="Notices and reports" AutomationId="MeNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
+                        </VerticalStackLayout>
+                    </Border>
+
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Badges" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
@@ -59,17 +89,12 @@
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Your age" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
-                            <Label Text="Both are optional. If you enter your date of birth, we work out your age from it. Entering your age isn't age verification." Style="{StaticResource FooterClaims}" />
-                            <HorizontalStackLayout Spacing="8">
-                                <Switch x:Name="UseDateOfBirth" Toggled="OnUseDateOfBirth" SemanticProperties.Description="Enter my date of birth" />
-                                <Label Text="Enter my date of birth" VerticalOptions="Center" />
-                            </HorizontalStackLayout>
-                            <DatePicker x:Name="DateOfBirth" IsVisible="False" SemanticProperties.Description="Date of birth" />
-                            <Label x:Name="AgeLabel" Text="Or your age" Style="{StaticResource FieldLabel}" />
-                            <Border Style="{StaticResource InputBorder}" x:Name="AgeBorder">
-                                <Entry x:Name="Age" Keyboard="Numeric" Placeholder="Leave blank if you'd rather not say" SemanticProperties.Description="Your age" />
-                            </Border>
-                            <Button x:Name="SaveAge" Text="Save" Style="{StaticResource PrimaryButton}" Clicked="OnSaveAge" />
+                            <!-- D139: a date of birth is required and never shown; the age shows unless hidden (Who I'd like to meet). -->
+                            <Label Text="We need your date of birth to show you in discovery. It's never shown; your age is, unless you hide it. Entering it isn't age verification." Style="{StaticResource FooterClaims}" />
+                            <Label Text="Date of birth" Style="{StaticResource FieldLabel}" />
+                            <DatePicker x:Name="DateOfBirth" AutomationId="DateOfBirth" SemanticProperties.Description="Date of birth" />
+                            <Label x:Name="DateOfBirthVerified" AutomationId="DateOfBirthVerified" Text="Verified with your ID. Contact Swoovr support to change it." Style="{StaticResource FooterClaims}" IsVisible="False" />
+                            <Button x:Name="SaveAge" Text="Save" AutomationId="SaveAge" Style="{StaticResource PrimaryButton}" Clicked="OnSaveAge" />
                             <Label x:Name="AgeMessage" AutomationId="AgeMessage" Style="{StaticResource FooterClaims}" />
                         </VerticalStackLayout>
                     </Border>

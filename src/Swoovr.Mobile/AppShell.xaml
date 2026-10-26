@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!-- Tabs: the account screen, the profile with its modes, Explore and Travel (D104 superseded by slice N). Travel has its
-     own tab and never appears in Explore's mode control (Q12). -->
+<!-- Tabs shared with the web (D141, superseding D123): Explore (with destination discovery), Connections, Chats (not
+     available until messaging) and Me (the account, profile, matching, Travel planning, verification and notices). Travel
+     never appears in Explore's mode control (Q12). -->
 <Shell
     x:Class="Swoovr.Mobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -8,9 +9,9 @@
     xmlns:local="clr-namespace:Swoovr.Mobile"
     Title="Swoovr">
     <TabBar>
-        <ShellContent Title="Me" AutomationId="TabMe" ContentTemplate="{DataTemplate local:MainPage}" Route="MainPage" />
-        <ShellContent Title="Profile" AutomationId="TabProfile" ContentTemplate="{DataTemplate local:ProfilePage}" Route="ProfilePage" />
         <ShellContent Title="Explore" AutomationId="TabExplore" ContentTemplate="{DataTemplate local:ExplorePage}" Route="ExplorePage" />
-        <ShellContent Title="Travel" AutomationId="TabTravel" ContentTemplate="{DataTemplate local:TravelPage}" Route="TravelPage" />
+        <ShellContent Title="Connections" AutomationId="TabConnections" ContentTemplate="{DataTemplate local:ConnectionsPage}" Route="ConnectionsPage" />
+        <ShellContent Title="Chats" AutomationId="TabChats" ContentTemplate="{DataTemplate local:ChatsPage}" Route="ChatsPage" />
+        <ShellContent Title="Me" AutomationId="TabMe" ContentTemplate="{DataTemplate local:MainPage}" Route="MainPage" />
     </TabBar>
 </Shell>

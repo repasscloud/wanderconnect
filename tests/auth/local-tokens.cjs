@@ -74,6 +74,37 @@ const memberToken = (browser, member) => codeToken(browser, {
   },
 });
 
+/**
+ * A member token through the app's own client (swoovr-mobile: public, code + PKCE, com.swoovr.app redirect), the token
+ * the MAUI app sends as its bearer. The redirect never loads (the scheme is the app's), so the code is read from
+ * Keycloak's Location header.
+ */
+async function appToken(browser, member) {
+  const realm = `${keycloak}/realms/swoovr-members-dev`, redirect = 'com.swoovr.app:/oauth2redirect';
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  let code;
+  page.on('response', r => { const l = r.headers()['location']; if (l?.startsWith('com.swoovr.app:')) code = new URL(l.replace('com.swoovr.app:', 'https://app.invalid')).searchParams.get('code'); });
+  await page.goto(`${realm}/protocol/openid-connect/auth?` + new URLSearchParams({ client_id: 'swoovr-mobile', response_type: 'code', scope: 'openid profile email',
+    redirect_uri: redirect, state: 's', nonce: 'n', code_challenge: challenge, code_challenge_method: 'S256' })).catch(() => {});
+  if (!code && await page.$('#username')) {
+    await page.fill('#username', member.email); await page.fill('#password', member.password);
+    await page.click('#kc-login').catch(() => {});
+    await page.waitForLoadState().catch(() => {});
+    if (page.url().includes('execution=TERMS_AND_CONDITIONS')) await page.click('[name=accept]').catch(() => {});
+  }
+  for (let i = 0; i < 100 && !code; i++) await sleep(100);
+  await context.close();
+  if (!code) throw new Error('No app authorization code');
+  const response = await fetch(`${realm}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({
+    grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: 'swoovr-mobile', code_verifier: verifier }) });
+  const token = (await response.json()).access_token;
+  if (!token) throw new Error('App token exchange failed');
+  return token;
+}
+
 /** A staff-realm token through the admin app's client (password only; OTP is optional for staff other than the root admin). */
 const staffToken = (browser, staff) => codeToken(browser, {
   realm: 'swoovr-staff-dev', clientId: 'swoovr-admin-web', secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
@@ -155,5 +186,5 @@ async function mailTo(address) {
   return Promise.all((list.messages ?? []).map(async m => (await (await fetch(`http://127.0.0.1:8025/api/v1/message/${m.ID}`)).json()).Text));
 }
 
-module.exports = { keycloak, api, web, admin, sleep, claims, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin,
+module.exports = { keycloak, api, web, admin, sleep, claims, localEnv, createMember, createStaff, memberToken, appToken, staffToken, rootAdminToken, fillRootAdmin,
   cli, sql, call, membersRealm, mailTo, matchReady };
