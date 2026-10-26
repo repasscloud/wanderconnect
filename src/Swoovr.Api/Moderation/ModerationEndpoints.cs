@@ -126,6 +126,26 @@ public static class ModerationEndpoints
                 snapshot = new { found.ModeId, Status = found.Status.ToString(), found.CreatedAt, FromReporter = found.FromAccountId == me };
             }
         }
+        else if (subjectType is ReportSubject.Message or ReportSubject.Conversation && Guid.TryParse(request.SubjectId, out var itemId))
+        {
+            // D143 rules 10, 18–21: the member's own conversation (even after a block); a message must be the other
+            // person's. The evidence is the reported message and up to twenty before it, or the conversation's latest
+            // twenty-one; deleted messages are included while their text is still kept (D165). Never in the audit.
+            var message = subjectType == ReportSubject.Message ? await db.Messages.FindAsync([itemId], cancellationToken) : null;
+            var conversation = await db.Conversations.FindAsync([message?.ConversationId ?? itemId], cancellationToken);
+            if (conversation is not null && (conversation.PairLow == me || conversation.PairHigh == me)
+                && (subjectType == ReportSubject.Conversation || message is not null && message.SenderAccountId != me))
+            {
+                subject = await db.MemberProfiles.FindAsync([conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow], cancellationToken);
+                var all = await db.Messages.Where(m => m.ConversationId == conversation.Id).OrderByDescending(m => m.SentAt).Take(500).ToListAsync(cancellationToken);
+                var kept = message is not null ? MessagingPolicy.Evidence(all, message) : all.Take(MessagingPolicy.EvidenceBefore + 1).OrderBy(m => m.SentAt).ToList();
+                snapshot = new
+                {
+                    Conversation = conversation.Id, Reported = message?.Id,
+                    Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body }).ToList(),
+                };
+            }
+        }
         if (subject is null || subject.AccountId == me) return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That isn't available.");
 
         var recent = await db.Reports.CountAsync(r => r.ReporterAccountId == me && r.Priority != ReportPriority.Urgent && r.CreatedAt > now - ReportPolicy.BurstWindow, cancellationToken);
@@ -581,7 +601,7 @@ public static class ModerationEndpoints
             sanctions.Select(s => View(s, now)).ToList());
     }
 
-    private static async Task<AccountAdminSummary> SummaryAsync(SwoovrDbContext db, Guid id, DateTimeOffset now, CancellationToken cancellationToken)
+    public static async Task<AccountAdminSummary> SummaryAsync(SwoovrDbContext db, Guid id, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var account = await db.Accounts.SingleAsync(a => a.Id == id, cancellationToken);
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
@@ -593,7 +613,10 @@ public static class ModerationEndpoints
             profile?.FoundingMember ?? false, profile?.HomeMarketId, profile?.HomeMarketMovedAt, Wire(plan), sanctions.Select(s => View(s, now)).ToList(),
             grants.Select(g => Entitlements.View(g, now)).ToList(),
             await db.ModerationCases.CountAsync(c => c.SubjectAccountId == id && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken),
-            profile?.DateOfBirthVerified ?? false);
+            profile?.DateOfBirthVerified ?? false, profile?.HomeReviewFlaggedAt,
+            // D150: counts only, never where; the last 30 days' device and IP checks that disagreed with the home city.
+            await db.HomeLocationChecks.CountAsync(c => c.AccountId == id && c.Outcome == HomeConsistency.Inconsistent && c.CheckedAt > now - HomeLocationPolicy.Window, cancellationToken),
+            profile is null ? "none" : Wire(profile.DobCheck));
     }
 }
 

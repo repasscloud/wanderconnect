@@ -17,13 +17,13 @@
                 @foreach (var n in notices)
                 {
                     <li data-notice="@n.Id" data-notice-kind="@n.Kind">
-                        <p><strong>@Title(n)</strong> <span class="field-help">@n.CreatedAt.ToString("d MMM yyyy")</span></p>
+                        <p><strong>@MemberText.NoticeTitle(n.Kind)</strong> <span class="field-help">@n.CreatedAt.ToString("d MMM yyyy")</span></p>
                         @if (n.Sanction is { } s)
                         {
                             <p>@s.Reason</p>
                             @if (s.EndsAt is { } end && s.Live) { <p class="field-help">Until @end.ToString("d MMM yyyy").</p> }
-                            @if (s.AppealStatus is { } appeal) { <p class="field-help" data-appeal-status="@appeal">Appeal: @(appeal == "pending" ? "being reviewed" : appeal == "overturned" ? "accepted" : "not accepted")</p> }
-                            else if (s.CanAppeal && n.Kind is not ("appealUpheld" or "appealOverturned" or "sanctionLifted"))
+                            @if (s.AppealStatus is { } appeal) { <p class="field-help" data-appeal-status="@appeal">Appeal: @MemberText.AppealStatus(appeal)</p> }
+                            else if (MemberText.Appealable(n))
                             {
                                 @if (appealing == s.Id)
                                 {
@@ -47,7 +47,7 @@
         else
         {
             <ul class="request-list" data-my-reports="@reports.Count">
-                @foreach (var r in reports) { <li data-my-report="@r.Id" data-report-state="@r.Status">@r.CreatedAt.ToString("d MMM yyyy"): @StatusLabel(r.Status)</li> }
+                @foreach (var r in reports) { <li data-my-report="@r.Id" data-report-state="@r.Status">@r.CreatedAt.ToString("d MMM yyyy"): @MemberText.ReportStatus(r.Status)</li> }
             </ul>
         }
     </section>
@@ -58,20 +58,6 @@
     private List<MyReportView> reports = [];
     private Guid? appealing;
     private string? appealText, status, message;
-
-    private static string Title(NoticeView n) => n.Kind switch
-    {
-        "warning" => "A warning on your account",
-        "restriction" => "Your account is restricted",
-        "suspension" => "Your account is suspended",
-        "termination" => "Your account has been closed",
-        "appealUpheld" => "Your appeal wasn't accepted",
-        "appealOverturned" => "Your appeal was accepted",
-        "sanctionLifted" => "An action on your account was lifted",
-        _ => "Notice",
-    };
-
-    private static string StatusLabel(string s) => s switch { "submitted" => "Submitted", "underReview" => "Under review", "reviewed" => "Reviewed", _ => "Closed" };
 
     protected override async Task OnInitializedAsync()
     {

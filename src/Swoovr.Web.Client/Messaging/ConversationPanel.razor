@@ -1,0 +1,151 @@
+@* One conversation (D143, Interactive WebAssembly): text only, newest at the bottom, sent through /bff/ (so every send
+   passes the API's checks) and received live through the web host's relay hub. Delete for both within five minutes (it
+   then shows as deleted, Q59), hide a message or the whole conversation for yourself, report a message or the conversation. *@
+@inject MemberClient Members
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+<div class="chat-head" data-conversation="@(loaded ? (conversation is null ? "unavailable" : "ready") : "loading")" data-live="@(live ? "on" : "off")">
+    @if (conversation is not null)
+    {
+        <div>
+            <p class="chat-name"><a href="@($"/people/{conversation.Person.Id}")">@(conversation.Person.DisplayName ?? "Someone")</a><BadgeRow Badges="conversation.Person.Badges" /></p>
+            <p class="chat-sub"><a class="link" href="/chats">Chats</a></p>
+        </div>
+    }
+    else if (loaded) { <h1>Chat not available</h1> }
+</div>
+@if (conversation is not null)
+{
+    @if (more) { <button type="button" class="link-button" @onclick="OlderAsync" data-older>Earlier messages</button> }
+    <ul class="chat-thread" aria-live="polite" data-messages="@messages.Count">
+        @foreach (var m in messages)
+        {
+            <li class="bubble @(m.Mine ? "mine" : "") @(m.Deleted ? "deleted" : "")" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
+                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span><p>@(m.Deleted ? "This message was deleted" : m.Text)</p>
+                <span class="request-actions">
+                    @if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5)) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
+                    <button type="button" class="link-button" @onclick="() => HideAsync(m)" data-hide="@m.Id">Hide</button>
+                    @if (!m.Mine && !m.Deleted) { <button type="button" class="link-button" @onclick="() => reporting = m.Id" data-report-message="@m.Id">Report</button> }
+                </span>
+            </li>
+        }
+    </ul>
+    @if (reporting is { } reported)
+    {
+        <ReportForm SubjectType="message" SubjectId="@reported.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
+    }
+    @if (conversation.CanSend)
+    {
+        <form class="composer" @onsubmit="SendAsync" data-composer>
+            <label class="visually-hidden" for="message">Message</label>
+            <input id="message" class="composer-input" maxlength="2000" autocomplete="off" @bind="draft" @bind:event="oninput" placeholder="Message" data-message-input />
+            <button class="button" type="submit" disabled="@(busy || string.IsNullOrWhiteSpace(draft))" data-send>Send</button>
+        </form>
+    }
+    else { <p class="field-help" data-cannot-send>You can't send messages here right now.</p> }
+    <p role="status" aria-live="polite" class="field-help" data-chat-status="@status">@message</p>
+    <p class="account-actions">
+        <button type="button" class="button button-secondary" @onclick="HideConversationAsync" data-hide-conversation>Hide this chat</button>
+        <button type="button" class="button button-secondary" @onclick='() => reportingConversation = true' data-report-conversation>Report this chat</button>
+    </p>
+    @if (reportingConversation)
+    {
+        <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
+    }
+}
+@code {
+    [Parameter, EditorRequired] public Guid Id { get; set; }
+    private bool loaded, busy, more, live, reportingConversation;
+    private string? draft, status, message;
+    private Guid? reporting;
+    private DateTimeOffset? before;
+    private ConversationView? conversation;
+    private List<MessageView> messages = [];
+    private MessagesHubClient? hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        conversation = (await Members.ConversationAsync(Id)).Value;
+        if (conversation is not null)
+        {
+            var page = (await Members.MessagesAsync(Id)).Value;
+            (messages, more, before) = (page?.Items.Reverse().ToList() ?? [], page?.More ?? false, page?.Before);
+            hub = new MessagesHubClient(new Uri(Navigation.BaseUri + "bff/hubs/messages"));
+            hub.Message += m => { if (m.ConversationId == Id && messages.All(x => x.Id != m.Id)) { messages.Add(m); _ = InvokeAsync(StateHasChanged); } };
+            hub.Deleted += d => { if (d.ConversationId == Id) { MarkDeleted(d.MessageId); _ = InvokeAsync(StateHasChanged); } };
+            hub.Closed += c => { if (c.ConversationId == Id) _ = InvokeAsync(Closed); };
+            try { await hub.StartAsync(); live = true; }
+            catch (Exception error) when (error is HttpRequestException or InvalidOperationException) { live = false; }
+            // Anything sent while the live connection was opening: read the latest page again and merge.
+            foreach (var m in (await Members.MessagesAsync(Id)).Value?.Items.Reverse() ?? [])
+                if (messages.All(x => x.Id != m.Id)) messages.Add(m);
+        }
+        loaded = true;
+    }
+
+    private async Task OlderAsync()
+    {
+        var page = (await Members.MessagesAsync(Id, before)).Value;
+        if (page is null) return;
+        messages.InsertRange(0, page.Items.Reverse());
+        (more, before) = (page.More, page.Before);
+    }
+
+    private async Task SendAsync()
+    {
+        busy = true;
+        var result = await Members.SendMessageAsync(Id, draft ?? "");
+        busy = false;
+        if (result.Value is { } sent)
+        {
+            if (messages.All(x => x.Id != sent.Id)) messages.Add(sent);
+            (draft, status, message) = (null, "sent", null);
+            return;
+        }
+        (status, message) = (result.Code ?? "failed", result.Code switch
+        {
+            ProblemCodes.ArrivalRequired => "You can reply, or write first once you've confirmed you've arrived.",
+            ProblemCodes.BotCannotInitiate => "This account can't start conversations.",
+            ProblemCodes.InvalidMessage => "Write 1 to 2,000 characters.",
+            ProblemCodes.TooManyRequests => "That's a lot of messages. Slow down a little.",
+            _ => "That message couldn't be sent.",
+        });
+    }
+
+    private async Task DeleteAsync(MessageView m)
+    {
+        var code = await Members.DeleteMessageAsync(m.Id);
+        if (code == 204) MarkDeleted(m.Id);
+        (status, message) = code == 204 ? ("deleted", "Deleted for both of you.") : ("failed", "Messages can be deleted for both of you within five minutes.");
+    }
+
+    // Q59, D167: a message deleted for both stays in the thread as deleted.
+    private void MarkDeleted(Guid id)
+    {
+        var index = messages.FindIndex(x => x.Id == id);
+        if (index >= 0) messages[index] = messages[index] with { Deleted = true, Text = "", CanDelete = false };
+    }
+
+    private async Task HideAsync(MessageView m)
+    {
+        if (await Members.HideMessageAsync(m.Id) == 204) messages.RemoveAll(x => x.Id == m.Id);
+    }
+
+    private async Task HideConversationAsync()
+    {
+        if (await Members.HideConversationAsync(Id) == 204) Navigation.NavigateTo("/chats");
+    }
+
+    private Task Closed()
+    {
+        conversation = null;
+        (status, message) = ("closed", "This chat is closed.");
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hub is not null) await hub.DisposeAsync();
+    }
+}

@@ -1,0 +1,48 @@
+@page "/dob-reviews"
+@inject AdminClient Admin
+<PageTitle>Date of birth reviews — Swoovr admin</PageTitle>
+<h1>Date of birth reviews</h1>
+<p class="help">An ID check passed but the member's date of birth still differs from the document's after their one correction, or Didit gave no date (D166). Compare them in Didit's console (kept 30 days): Swoovr stores neither date here. The member keeps ID Verified either way; only the date-of-birth mark waits. A mismatch alone isn't fraud.</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (reviews.Count == 0) { <p data-dob-reviews="none">No reviews waiting.</p> }
+else
+{
+    <ul class="list" data-dob-reviews="@reviews.Count">
+        @foreach (var r in reviews)
+        {
+            <li data-dob-review="@r.Id">
+                <a href="/accounts/@r.AccountId">@(r.DisplayName ?? "account")</a> · @(r.Reason == "no-document-date" ? "Didit gave no date" : "still different after the correction") · @r.CreatedAt.ToString("d MMM HH:mm")
+                <form method="post" @formname="@($"resolve-{r.Id}")" @onsubmit="() => ResolveAsync(r.Id)" class="row" data-enhance="false">
+                    <AntiforgeryToken />
+                    <input name="reason" placeholder="Reason" maxlength="1000" required />
+                    <button name="outcome" value="verified" type="submit" data-resolve="verified">Date of birth matches the ID</button>
+                    <button name="outcome" value="notVerified" type="submit" class="secondary" data-resolve="notVerified">Leave it unverified</button>
+                </form>
+            </li>
+        }
+    </ul>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private List<DobReviewView> reviews = [];
+    private string? message, resultCode;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.DobReviewsAsync();
+        reviews = result.Value ?? [];
+        if (!result.Ok) message = AdminText.Refusal(result.Status, result.Code);
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task ResolveAsync(Guid id)
+    {
+        var result = await Admin.ResolveDobReviewAsync(id, Field("outcome"), Field("reason"));
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? "Resolved." : AdminText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+}

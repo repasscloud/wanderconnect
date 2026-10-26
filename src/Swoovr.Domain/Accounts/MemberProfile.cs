@@ -48,6 +48,9 @@ public sealed class MemberProfile
     /// </summary>
     public bool DateOfBirthVerified { get; set; }
     public DateTimeOffset? DateOfBirthVerifiedAt { get; set; }
+    /// <summary>D166: a correction or a manual review open after an approved ID check whose date differed.</summary>
+    public DobCheck DobCheck { get; set; }
+    public DateTimeOffset? DobCheckAt { get; set; }
     /// <summary>D130: when the member first met every founding condition (FounderEligibility); never moves once set.</summary>
     public DateTimeOffset? FounderEligibleAt { get; set; }
     /// <summary>D130: when the founding benefits start, kept apart from the allocation time (<see cref="FoundingSince"/>).</summary>
@@ -76,6 +79,11 @@ public sealed class MemberProfile
     /// <summary>The market the member last moved their home city into, and when (Q24 rules 28 and 34).</summary>
     public string? HomeMarketMovedTo { get; set; }
     public DateTimeOffset? HomeMarketMovedAt { get; set; }
+    /// <summary>
+    /// D150: set when home-location checks disagree with the home city often enough for an admin to look
+    /// (HomeLocationPolicy); cleared by an admin. Never suspends or hides anyone by itself, and never shown to others.
+    /// </summary>
+    public DateTimeOffset? HomeReviewFlaggedAt { get; set; }
 }
 
 public enum Badge { Founder, PhotoVerified, IdVerified, Staff, Bot }

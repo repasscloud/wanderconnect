@@ -45,6 +45,11 @@ public static class AccountEndpoints
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.DateOfBirthRequired, "Enter your date of birth.");
             // D158: a date of birth that ID verification matched can't change without support; any other change clears
             // the verified mark (it no longer describes the date on file).
+            // D166: while a correction or a manual review is open, the date only changes through the one-time prompt.
+            if (!DobCorrectionPolicy.OrdinaryChangeAllowed(profile.DobCheck))
+                return profile.DobCheck == DobCheck.CorrectionNeeded
+                    ? Problem(StatusCodes.Status409Conflict, ProblemCodes.DobCorrectionRequired, "Set your date of birth to the one on your ID to finish verification.")
+                    : Problem(StatusCodes.Status409Conflict, ProblemCodes.DobUnderReview, "Swoovr is checking your date of birth. Contact support to change it.");
             if (profile.DateOfBirthVerified && profile.DateOfBirth != update.DateOfBirth)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.DateOfBirthLocked, "Your date of birth was verified with your ID. Contact Swoovr support to change it.");
             if (profile.DateOfBirth != update.DateOfBirth) (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (false, null);
@@ -156,7 +161,7 @@ public static class AccountEndpoints
 
     public static MemberAccount View(MemberProfile profile, DateOnly today, IReadOnlyList<Badge> badgeOrder, string accountState = "active") => new(
         Wire(profile.AgeStatus), AgePolicy.CurrentAge(profile, today), profile.DateOfBirth, profile.DeclaredAge,
-        Swoovr.Api.Profiles.ProfileEndpoints.Badges(profile, badgeOrder), profile.DateOfBirthVerified, accountState);
+        Swoovr.Api.Profiles.ProfileEndpoints.Badges(profile, badgeOrder), profile.DateOfBirthVerified, accountState, Wire(profile.DobCheck));
 
     private static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 }

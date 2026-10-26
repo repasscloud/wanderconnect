@@ -22,6 +22,7 @@
             <p>We need to confirm you're 18 or over before you can keep using Swoovr. Verify your ID below, or contact Swoovr support.</p>
         </section>
     }
+    @if (account is not null) { <DobCorrectionPrompt Account="account" Changed="a => account = a" /> }
     <section class="card account-section" aria-labelledby="id-heading">
         <h2 id="id-heading">Your ID check</h2>
         <p class="field-help">Optional and free. Didit checks a government photo ID and a live selfie. Swoovr keeps only the result, never your document or photos. The ID Verified badge says your ID was checked; it doesn't say your profile photos show you.</p>
@@ -49,16 +50,7 @@
     private IdVerificationView? view;
     private string? refused, message, messageCode;
 
-    private string StatusText => (view!.IdStatus, view.AttemptState) switch
-    {
-        ("verified", _) => $"Your ID is verified{(view.CheckedAt is { } at ? $" (checked {at:d MMM yyyy})" : "")}.",
-        (_, "created") => "Your check is ready. Continue on Didit to start it.",
-        (_, "inProgress") => "Your check is in progress on Didit.",
-        (_, "inReview") => "Didit is reviewing your check. This can take a little while.",
-        ("rejected", _) => "Your ID couldn't be verified.",
-        (_, "expired" or "abandoned") => "Your last check wasn't finished.",
-        _ => "You haven't verified your ID.",
-    };
+    private string StatusText => MemberText.VerificationState(view!);
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,10 +58,14 @@
         loaded = true;
     }
 
+    private MemberAccount? account;
+
     private async Task LoadAsync()
     {
         var result = await Members.VerificationAsync();
         (view, refused) = (result.Value, result.Code ?? (result.Ok ? null : "error"));
+        // D166: the re-read above may have just approved the check with a different date of birth.
+        account = (await Members.MeAsync()).Value;
     }
 
     private async Task StartAsync()
@@ -79,13 +75,7 @@
         busy = false;
         if (result.Value is { } started) { (view, messageCode, message) = (started, "started", "Your check is ready. It opens on Didit in a new tab."); return; }
         messageCode = result.Code;
-        message = result.Code switch
-        {
-            ProblemCodes.VerificationAttemptUsed => "You've used your ID check. Contact Swoovr support if you'd like another.",
-            ProblemCodes.AlreadyVerified => "Your ID is already verified.",
-            ProblemCodes.VerificationProviderFailed => "We couldn't start the ID check. Try again shortly.",
-            _ => "ID verification isn't available right now.",
-        };
+        message = MemberText.VerificationProblem(result.Code);
         await LoadAsync();
     }
 

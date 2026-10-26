@@ -80,6 +80,7 @@ static class PersistenceChecks
             await Extra(options, Check);
             await Modes(options, Check);
             await Travel(options, Check);
+            await Messaging(options, Check);
         }
         finally
         {
@@ -87,6 +88,47 @@ static class PersistenceChecks
             await Execute(admin, $"DROP DATABASE IF EXISTS {name} WITH (FORCE)");
         }
         Console.WriteLine($"PASS: {count} persistence cases against PostgreSQL (migrations, keys, enums, cascades).");
+    }
+
+    /// <summary>D143: one open conversation per ordered pair; closed ones stay for evidence; messages and hides cascade.</summary>
+    static async Task Messaging(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
+    {
+        var now = DateTimeOffset.Parse("2026-10-26T00:00:00Z");
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        var (low, high) = ConnectionRequest.Pair(a, b);
+        await using var db = new SwoovrDbContext(options);
+        foreach (var id in new[] { a, b })
+            db.Accounts.Add(new Account { Id = id, Issuer = "https://issuer.example.test/realms/members", Subject = "chat-" + id, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
+        var first = new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now };
+        db.Conversations.Add(first);
+        var message = new Message { Id = Guid.NewGuid(), ConversationId = first.Id, SenderAccountId = a, Kind = MessageKind.Text, Body = "Fictional hello", SentAt = now };
+        db.Messages.Add(message);
+        db.MessageHides.Add(new MessageHide { MessageId = message.Id, AccountId = b, HiddenAt = now });
+        db.ConversationHides.Add(new ConversationHide { ConversationId = first.Id, AccountId = b, HiddenAt = now });
+        await db.SaveChangesAsync();
+        await using (var bad = new SwoovrDbContext(options))
+        {
+            bad.Conversations.Add(new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now });
+            check("one open conversation per pair", await Throws(bad.SaveChangesAsync()));
+        }
+        await using (var bad = new SwoovrDbContext(options))
+        {
+            bad.Conversations.Add(new Conversation { Id = Guid.NewGuid(), PairLow = high, PairHigh = low, CreatedAt = now, ClosedAt = now });
+            check("the pair is stored in order", await Throws(bad.SaveChangesAsync()));
+        }
+        await using (var bad = new SwoovrDbContext(options))
+        {
+            bad.Messages.Add(new Message { Id = Guid.NewGuid(), ConversationId = first.Id, SenderAccountId = a, Body = new string('x', MessagingPolicy.TextMax + 1), SentAt = now });
+            check("a message is at most 2,000 characters", await Throws(bad.SaveChangesAsync()));
+        }
+        first.ClosedAt = now;
+        db.Conversations.Add(new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now });
+        await db.SaveChangesAsync();
+        check("a closed conversation stays and a new one can open", await db.Conversations.CountAsync(c => c.PairLow == low) == 2 && await db.Messages.AnyAsync(m => m.ConversationId == first.Id));
+        db.Accounts.Remove(await db.Accounts.SingleAsync(x => x.Id == a));
+        await db.SaveChangesAsync();
+        check("conversations, messages and hides go with the account", !await db.Conversations.AnyAsync(c => c.PairLow == low) && !await db.Messages.AnyAsync(m => m.Id == message.Id)
+            && !await db.MessageHides.AnyAsync(h => h.MessageId == message.Id) && !await db.ConversationHides.AnyAsync(h => h.ConversationId == first.Id));
     }
 
     /// <summary>Further persistence cases added by later slices.</summary>
@@ -231,6 +273,22 @@ static class PersistenceChecks
             db.Trips.Add(new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 3), CreatedAt = now, UpdatedAt = now });
             await db.SaveChangesAsync();
             check("a trip and a home city reference GeoNames ids", await db.Trips.CountAsync(t => t.AccountId == id) == 1);
+            // D149, D150: arrival keeps the time, market and method; home checks keep the outcome. No coordinate columns exist.
+            var arrived = await db.Trips.SingleAsync(t => t.AccountId == id);
+            (arrived.ArrivedAt, arrived.ArrivalMarketId, arrived.ArrivalMethod, arrived.ArrivalOutcome) = (now, "adelaide", ArrivalMethod.DeviceLocation, ArrivalOutcome.Confirmed);
+            db.HomeLocationChecks.Add(new HomeLocationCheck { Id = Guid.NewGuid(), AccountId = id, CheckedAt = now, Method = LocationMethod.Device, HomeMarketId = "adelaide", Outcome = HomeConsistency.Inconsistent });
+            await db.SaveChangesAsync();
+            await using (var fresh = new SwoovrDbContext(options))
+                check("an arrival and a home check read back as stored", await fresh.Trips.SingleAsync(t => t.AccountId == id) is { ArrivalMarketId: "adelaide", ArrivalMethod: ArrivalMethod.DeviceLocation, ArrivalOutcome: ArrivalOutcome.Confirmed }
+                    && await fresh.HomeLocationChecks.SingleAsync(c => c.AccountId == id) is { Method: LocationMethod.Device, Outcome: HomeConsistency.Inconsistent });
+            var locationColumns = db.Model.GetEntityTypes().Where(e => e.ClrType == typeof(Trip) || e.ClrType == typeof(HomeLocationCheck))
+                .SelectMany(e => e.GetProperties()).Select(p => p.Name.ToLowerInvariant()).ToList();
+            check("no coordinates, IP addresses or places are stored for arrival or home checks", !locationColumns.Any(c => c.Contains("latitude") || c.Contains("longitude") || c.Contains("ip") || c.Contains("city") || c.Contains("accuracy")));
+            await using (var bad = new SwoovrDbContext(options))
+            {
+                bad.Trips.Add(new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 3), CreatedAt = now, UpdatedAt = now, ArrivalMarketId = "nowhere" });
+                check("an arrival names a real market", await Throws(bad.SaveChangesAsync()));
+            }
             foreach (var (what, trip) in new (string, Trip)[] {
                 ("a trip to a city that isn't in geo_cities", new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 1, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 2), CreatedAt = now, UpdatedAt = now }),
                 ("departure before arrival", new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 5), Departure = new DateOnly(2026, 11, 2), CreatedAt = now, UpdatedAt = now }) })
@@ -241,7 +299,7 @@ static class PersistenceChecks
                 }
             db.Accounts.Remove(await db.Accounts.SingleAsync(a => a.Id == id));
             await db.SaveChangesAsync();
-            check("trips go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id));
+            check("trips and home checks go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id) && !await db.HomeLocationChecks.AnyAsync(c => c.AccountId == id));
             var bot = Guid.NewGuid();
             db.Accounts.Add(new Account { Id = bot, Issuer = "https://issuer.example.test/realms/members", Subject = "bot-" + bot, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
             db.MemberProfiles.Add(new MemberProfile { AccountId = bot, AgeStatus = AgeStatus.Attested, Bot = true, HomeGeoNameId = 2078025, HomeMarketId = "adelaide" });

@@ -93,15 +93,17 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.ok((await call(tokens.ada, '/api/v1/travel/visitors?mode=dating')).body.people.some(p => p.id === pid.trv)); pass();
     r = await person('ada', 'trv');
     assert.equal(r.status, 200); assert.deepEqual(r.body.modes.map(m => [m.id, m.canRequest]), [['dating', true], ['friends', true]]); pass();
-    assert.deepEqual(code(await send('trv', 'ada')), [404, 'not-available']); pass(); // no early initiation (D60)
-    assert.equal((await person('trv', 'ada')).status, 404); pass(); // no feed or profiles of locals for travellers
+    assert.deepEqual(code(await send('trv', 'ada')), [403, 'arrival-required']); pass(); // no early initiation (D60, D149)
+    // Since slice T (D142) a traveller within 14 days of arrival may browse the destination's locals, but not request.
+    r = await person('trv', 'ada');
+    assert.equal(r.status, 200); assert.ok(r.body.modes.every(m => !m.canRequest && m.arrivalRequired)); pass();
     r = await send('ada', 'trv'); // from the profile: the visit is attached
     assert.equal(r.status, 201); assert.equal(r.body.visiting.tripId, trip.body.id); pass();
     const adaTrv = r.body.id;
     r = await person('trv', 'ada'); // a request between them opens the profile (rule 13)
     assert.equal(r.status, 200); pass();
     assert.deepEqual(r.body.modes.map(m => [m.id, m.connection, m.canRequest]), [['dating', 'received', false], ['friends', 'none', false]]); pass();
-    assert.deepEqual(code(await send('trv', 'ada', 'friends')), [404, 'not-available']); pass();
+    assert.deepEqual(code(await send('trv', 'ada', 'friends')), [403, 'arrival-required']); pass();
     assert.equal((await call(tokens.trv, `/api/v1/requests/${adaTrv}/accept`, { method: 'POST' })).status, 200); pass();
     // Another member's trip id can't be borrowed: the trip must be the recipient's and one the sender can see.
     assert.deepEqual(code(await send('gle', 'mel', 'dating', { trip: trip.body.id })), [404, 'not-available']); pass();

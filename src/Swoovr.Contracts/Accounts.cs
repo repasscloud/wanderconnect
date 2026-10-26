@@ -6,6 +6,7 @@ public sealed record BadgeView(string Badge, DateTimeOffset? CheckedAt);
 /// <summary>The signed-in member's own account. Carries no email, issuer, subject or token.</summary>
 /// <param name="DateOfBirthVerified">An approved ID check reported the same date of birth (D158).</param>
 /// <param name="AccountState">active, restricted, suspended or terminated (D160); anything but active shows the restricted screen.</param>
+/// <param name="DobCheck">"none", "correctionNeeded" (show the one-time prompt) or "manualReview" (D166).</param>
 public sealed record MemberAccount(
     string AgeStatus,
     int? Age,
@@ -13,7 +14,11 @@ public sealed record MemberAccount(
     int? DeclaredAge,
     IReadOnlyList<BadgeView> Badges,
     bool DateOfBirthVerified = false,
-    string AccountState = "active");
+    string AccountState = "active",
+    string DobCheck = "none");
+
+/// <summary>D166: the member's one correction of their date of birth to the one on their verified ID.</summary>
+public sealed record DobCorrectionRequest(DateOnly? DateOfBirth);
 
 /// <summary>Both optional; a date of birth, when given, decides the age (owner, 23 October 2026).</summary>
 public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
@@ -78,6 +83,28 @@ public static class ProblemCodes
     public const string DatingDetailsRequired = "dating-details-required";
     public const string InvalidFilter = "invalid-filter";
     public const string PlusRequired = "plus-required";
+    /// <summary>D142, D149: a traveller may browse a destination but not start contact there until arrival is confirmed.</summary>
+    public const string ArrivalRequired = "arrival-required";
+    /// <summary>D149: the trip's arrival date hasn't been reached at the destination.</summary>
+    public const string ArrivalTooEarly = "arrival-too-early";
+    /// <summary>D149: no usable device location (missing, stale, from the future or too inaccurate).</summary>
+    public const string LocationUnusable = "location-unusable";
+    /// <summary>D149: the device location is outside the destination market.</summary>
+    public const string LocationOutsideMarket = "location-outside-market";
+    /// <summary>D142, D149: the trip is cancelled, over, or in a market that isn't open.</summary>
+    public const string TripNotLive = "trip-not-live";
+    /// <summary>D142: Traveller Search opens 14 days before arrival, while the trip is visible, and not in the member's own market.</summary>
+    public const string SearchNotOpen = "search-not-open";
+    /// <summary>D143: a message must be 1–2,000 characters of text.</summary>
+    public const string InvalidMessage = "invalid-message";
+    /// <summary>D143: delete for both only by the sender within five minutes.</summary>
+    public const string DeleteWindowPassed = "delete-window-passed";
+    /// <summary>D166: there's no date-of-birth correction open for this member (none was needed, or it was used).</summary>
+    public const string DobCorrectionNotOpen = "dob-correction-not-open";
+    /// <summary>D166: the date of birth is changed through the one-time correction prompt, not the ordinary form.</summary>
+    public const string DobCorrectionRequired = "dob-correction-required";
+    /// <summary>D166: an admin is reviewing the date of birth; it can't be changed meanwhile.</summary>
+    public const string DobUnderReview = "dob-under-review";
 }
 
 public sealed record CouponRequest(string Code);

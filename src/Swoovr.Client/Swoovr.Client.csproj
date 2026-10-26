@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Swoovr.Contracts\Swoovr.Contracts.csproj" />
+    <!-- D143: realtime messages from the messaging hub (the app directly, the browser through the web host). -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
   </ItemGroup>
 
   <PropertyGroup>

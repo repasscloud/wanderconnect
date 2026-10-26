@@ -116,3 +116,15 @@ Tap-through for iOS (not run by the builder): sign in on **Me** with a fictional
 ## 7. Market-scoped Explore (slice O, 25 October 2026)
 
 To see it on iOS yourself: start the local stack and hosts, then `dotnet build src/Swoovr.Mobile -f net10.0-ios` and `dotnet build src/Swoovr.Mobile -t:Run -f net10.0-ios` (or `xcrun simctl launch booted com.swoovr.app` once installed). Sign in on Me with a fictional beta member. With a home city outside every Swoovr market, Explore says "Swoovr isn't available in your area yet." and offers "Tell me when it opens"; with no home city it asks you to add one on the Profile tab; with an Adelaide home city it shows "People in Adelaide" and only Adelaide members. Switch between tabs and back to Explore a few times: it should not crash (fixed on Android in this slice).
+
+## 8. Explore, Connections, Chats, Me (slice S, 26 October 2026)
+
+The tabs now match the web (D141, D163). Build and launch on iOS:
+
+```sh
+dotnet build src/Swoovr.Mobile -f net10.0-ios
+xcrun simctl install booted src/Swoovr.Mobile/bin/Debug/net10.0-ios/iossimulator-arm64/Swoovr.Mobile.app
+xcrun simctl launch booted com.swoovr.app
+```
+
+Tap-through for iOS (not run by the builder): sign in on **Me** with a fictional beta member who has a date of birth and an Adelaide home city. **Explore**: the four modes, people with badge artwork (bird, portrait and card shapes in the badge colours), age and gender as allowed; tap **View profile** and send a request, then **Withdraw request**; open **Report**, pick a reason and send. **Who's visiting** lists travellers for an Adelaide local. **Connections**: accept or decline a request, see **Connected**, unblock someone. **Chats** lists your conversations; open one, send a message, and a reply sent from the web appears without reopening it (slice U). **Me**: **Your profile**, **Who I'd like to meet** (save pronouns, hide your age, set an age range; the Plus filters say they're part of Plus), **Travel** (add and cancel a trip), **ID verification** (shows the test-mode label; starting a check opens Didit in Safari), **Notices and reports**. To see the restricted screen, have an admin restrict the account in the admin app (http://localhost:5082): Me shows only "Your account is restricted" with **Read the notice**, Explore and Connections show the same words, and you can appeal from the notice.

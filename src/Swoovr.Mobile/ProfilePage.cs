@@ -47,6 +47,13 @@ public sealed class ProfilePage : ContentPage
 		body.Children.Add(Ui.Card(Ui.Text("About you", "SectionHeading"), Ui.Text("The same in every mode.", "FooterClaims"),
 			Ui.Labelled("Display name", name), Ui.Labelled("Area", area), Ui.Labelled("About me", about), home,
 			Ui.Text("Only you see your home city. It decides who counts as local when people visit.", "FooterClaims"),
+			// D150: optional; one reading, and Swoovr keeps only whether it matched.
+			Ui.Button("Check my location matches", "HomeCheck", async () =>
+			{
+				var reading = await Ui.ReadLocationAsync();
+				var result = reading is null ? null : await Ui.Members!.HomeCheckAsync(reading);
+				status.Text = result?.Value is { } check ? MemberText.HomeCheck(check.Outcome) : MemberText.ArrivalProblem(ProblemCodes.LocationUnusable);
+			}, primary: false),
 			Ui.Button("Save", "SaveProfile", SaveProfileAsync), status));
 		body.Children.Add(Ui.Text("Connection modes", "SectionHeading"));
 		foreach (var mode in modes) body.Children.Add(ModeCard(mode));

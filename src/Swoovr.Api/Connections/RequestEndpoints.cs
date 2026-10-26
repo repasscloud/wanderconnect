@@ -58,7 +58,14 @@ public static class RequestEndpoints
                 // from a profile the visit the sender can see is attached.
                 var visit = request.Trip is { } tripId ? visits.FirstOrDefault(v => v.Trip.Id == tripId) : visits.FirstOrDefault();
                 trip = visit?.Trip.Id;
-                shown = MarketAccess.MayRequest(same, connected, visit is not null);
+                // D142, D149: a traveller may start contact with the destination's locals once arrival is confirmed; the
+                // request carries their own trip. Before that they may browse but not request (the person is already
+                // visible to them through Traveller Search, so saying why reveals nothing new).
+                var travel = same || connected || visit is not null ? null : await Travel.ArrivalEndpoints.ReachAsync(db, me, target, shared, now, cancellationToken);
+                if (travel?.ArrivedTrips.TryGetValue(mode.Id, out var ownTrip) == true) trip = ownTrip;
+                else if (travel?.SearchModes.Contains(mode.Id) == true)
+                    return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ArrivalRequired, "You can send requests here once you've confirmed you've arrived.");
+                shown = MarketAccess.MayRequest(same, connected, visit is not null, travel?.ArrivedTrips.ContainsKey(mode.Id) == true);
             }
             var facts = new RequestFacts(
                 SenderIsBot: me.Bot,
@@ -209,6 +216,8 @@ public static class RequestEndpoints
             (pending.Status, pending.AnsweredAt) = (ConnectionRequestStatus.Cancelled, now);
             Audit.Record(db, now, null, "system", "request.cancelled", "connection-request", pending.Id.ToString(), "block");
         }
+        // Q42 rules 12–14: the block also ends accepted connections and closes the conversation; unblocking restores neither.
+        await MessagingEndpoints.CloseForBlockAsync(db, me, other, now, cancellationToken);
         Audit.Record(db, now, me, "account", "block.added", "account", other.ToString());
         return true;
     }

@@ -1,0 +1,64 @@
+@* Traveller Search (D142, Interactive WebAssembly): the destination's locals in one mode, only through one of the
+   member's own trips (never a free choice of market), from 14 days before arrival while the trip is visible. Before
+   arrival is confirmed the traveller may look and open profiles but not send requests (D149); the API enforces both. *@
+@inject MemberClient Members
+<div class="page-heading" data-search="@(loaded ? (refused is null ? "ready" : "refused") : "loading")">
+    <p class="breadcrumb"><a href="/travel">Travel</a> / Search</p>
+    <h1>@(result is null ? "Traveller Search" : $"People in {result.Market}")</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (refused is not null) { <p role="status" data-search-refused="@refused">@MemberText.SearchProblem(refused)</p> }
+    else if (result is { CanRequest: false }) { <p class="field-help" data-arrival="before">@MemberText.BrowsingBeforeArrival</p> }
+    else if (result is { CanRequest: true }) { <p class="field-help" data-arrival="arrived">@MemberText.Arrived</p> }
+</div>
+@if (modes.Count > 0)
+{
+    <nav class="segmented explore-modes" aria-label="Connection mode" data-modes="@string.Join(" ", modes.Select(m => m.Id))">
+        @foreach (var mode in modes)
+        {
+            <button type="button" class="segment" aria-pressed="@(mode.Id == selected ? "true" : "false")" data-mode="@mode.Id" @onclick="() => SelectAsync(mode.Id)">@mode.Label</button>
+        }
+    </nav>
+}
+@if (result is not null)
+{
+    <section class="explore-results" aria-live="polite" data-search-mode="@selected" data-search-people="@result.People.Count">
+        @if (result.People.Count == 0) { <p class="field-help" data-search-empty>No one is showing here in this mode yet.</p> }
+        else
+        {
+            <div class="people-grid">
+                @foreach (var person in result.People)
+                {
+                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}")" Area="@(person.Area ?? "")" Intentions="person.Intentions" Quote="@Quote(person.About)">
+                        <Badges><BadgeRow Badges="person.Badges" /></Badges>
+                    </ProfileTile>
+                }
+            </div>
+        }
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public Guid TripId { get; set; }
+    private bool loaded;
+    private string? refused;
+    private string selected = "";
+    private List<ConnectionModeView> modes = [];
+    private TravellerSearchResult? result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var catalogue = await Members.ModesAsync();
+        var profile = await Members.ProfileAsync();
+        if (catalogue.Value is null || profile.Value is null) { (refused, loaded) = (catalogue.Code ?? profile.Code ?? "unavailable", true); return; }
+        modes = catalogue.Value;
+        await SelectAsync(profile.Value.Modes.FirstOrDefault(m => m.Enabled)?.Id ?? modes.FirstOrDefault()?.Id ?? "");
+    }
+
+    private async Task SelectAsync(string modeId)
+    {
+        selected = modeId;
+        var answer = await Members.TravellerSearchAsync(TripId, modeId);
+        (result, refused, loaded) = (answer.Value, answer.Ok ? null : answer.Code ?? "unavailable", true);
+    }
+
+    private static string Quote(string? about) => about is null ? "No about yet." : about.Length <= 90 ? about : about[..89].TrimEnd() + "…";
+}

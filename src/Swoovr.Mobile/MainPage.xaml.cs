@@ -60,7 +60,7 @@ public partial class MainPage : ContentPage
 		if (session is null)
 		{
 			(Heading.Text, Intro.Text) = ("Swoovr", "We couldn't confirm your session with the Swoovr API. Try signing in again.");
-			BetaNotice.IsVisible = LockedCard.IsVisible = MemberSections.IsVisible = false;
+			BetaNotice.IsVisible = LockedCard.IsVisible = RestrictedCard.IsVisible = MemberSections.IsVisible = false;
 			Method.Text = EmailVerified.Text = AdultAttested.Text = MemberArea.Text = "—";
 			return;
 		}
@@ -80,37 +80,48 @@ public partial class MainPage : ContentPage
 	{
 		var locked = result?.Code == ProblemCodes.AccountLocked;
 		LockedCard.IsVisible = locked;
-		MemberSections.IsVisible = !locked && result?.Value is not null;
-		if (locked || result?.Value is not { } account) return;
+		var account = locked ? null : result?.Value;
+		// D160: anything but active shows only the restricted card; notices and appeals stay open.
+		var restricted = account is not null && MemberText.RestrictedTitle(account.AccountState) is not null;
+		RestrictedCard.IsVisible = restricted;
+		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBody);
+		MemberSections.IsVisible = account is not null && !restricted;
+		if (account is null || restricted) return;
+		AgeCheckCard.IsVisible = account.AgeStatus == "needsVerification";
 		BadgeList.Children.Clear();
 		if (account.Badges.Count == 0)
-			BadgeList.Children.Add(new Label { Text = "No badges yet. Each badge shows one check, such as a photo or ID check, once it's done.", Style = (Style)Application.Current!.Resources["FooterClaims"] });
+			BadgeList.Children.Add(new Label { Text = "No badges yet. Each badge shows one check, such as a photo or ID check, once it's done.", Style = Ui.Style("FooterClaims") });
 		foreach (var badge in account.Badges)
 			BadgeList.Children.Add(new HorizontalStackLayout
 			{
 				Spacing = 8,
 				Children =
 				{
-					new Microsoft.Maui.Controls.Shapes.Ellipse { WidthRequest = 14, HeightRequest = 14, Fill = new SolidColorBrush(BadgeColour(badge.Badge)), VerticalOptions = LayoutOptions.Center },
-					new Label { Text = AccountText.BadgeLabel(badge.Badge) + (badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : "") },
+					Ui.BadgeIcon(AccountText.BadgeKind(badge.Badge), 20),
+					new Label { Text = AccountText.BadgeLabel(badge.Badge) + (badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : ""), VerticalOptions = LayoutOptions.Center },
 				},
 			});
-		UseDateOfBirth.IsToggled = account.DateOfBirth is not null;
 		if (account.DateOfBirth is { } dob) DateOfBirth.Date = dob.ToDateTime(TimeOnly.MinValue);
-		Age.Text = account.DateOfBirth is null ? account.DeclaredAge?.ToString() : null;
+		DateOfBirthVerified.IsVisible = account.DateOfBirthVerified || account.DobCheck == "manualReview";
+		DateOfBirthVerified.Text = account.DobCheck == "manualReview"
+			? "Swoovr is checking your date of birth against your ID, so it can't be changed for now."
+			: "Verified with your ID. Contact Swoovr support to change it.";
+		SaveAge.IsEnabled = DateOfBirth.IsEnabled = account.DobCheck == "none";
+		// D166: the one-time correction pops up over Me when an approved check reported a different date of birth.
+		if (account.DobCheck == "correctionNeeded" && Navigation.ModalStack.Count == 0)
+			MainThread.BeginInvokeOnMainThread(async () => await Navigation.PushModalAsync(new DobCorrectionPage(account.DateOfBirth, async updated =>
+			{
+				ShowMember(new ApiResult<MemberAccount>(200, updated, null));
+				AgeMessage.Text = updated.DateOfBirthVerified ? "Thanks. Your date of birth now matches your ID." : "Thanks. It still differs from your ID, so Swoovr's team will check it.";
+				await Task.CompletedTask;
+			})));
 	}
 
-	private static Color BadgeColour(string badge) =>
-		(Color)Application.Current!.Resources[AccountText.BadgeKind(badge) switch
-		{
-			"founding" => "BadgeFounding", "photo" => "BadgePhotoVerified", "id" => "BadgeIdVerified", "staff" => "BadgeStaff", _ => "BadgeBot",
-		}];
-
-	private void OnUseDateOfBirth(object? sender, ToggledEventArgs e)
-	{
-		DateOfBirth.IsVisible = e.Value;
-		AgeLabel.IsVisible = AgeBorder.IsVisible = !e.Value;
-	}
+	private async void OnProfile(object? sender, EventArgs e) => await Ui.PushAsync(new ProfilePage());
+	private async void OnMatching(object? sender, EventArgs e) => await Ui.PushAsync(new MatchingPage());
+	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
+	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
+	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 
 	private async void OnSignIn(object? sender, EventArgs e)
 	{
@@ -138,17 +149,12 @@ public partial class MainPage : ContentPage
 
 	private async void OnSaveAge(object? sender, EventArgs e)
 	{
-		int? age = null;
-		if (!UseDateOfBirth.IsToggled && !string.IsNullOrWhiteSpace(Age.Text))
-		{
-			if (!int.TryParse(Age.Text, out var years)) { AgeMessage.Text = AccountText.InvalidAge; return; }
-			age = years;
-		}
-		DateOnly? dob = UseDateOfBirth.IsToggled && DateOfBirth.Date is { } date ? DateOnly.FromDateTime(date) : null;
+		if (DateOfBirth.Date is not { } date) return;
 		SaveAge.IsEnabled = false;
-		var result = await Auth.Members!.SaveAgeAsync(new AgeUpdate(dob, dob is null ? age : null));
+		var result = await Auth.Members!.SaveAgeAsync(new AgeUpdate(DateOnly.FromDateTime(date), null));
 		SaveAge.IsEnabled = true;
-		if (result.Code == ProblemCodes.InvalidAge) { AgeMessage.Text = AccountText.InvalidAge; return; }
+		if (result.Code is ProblemCodes.InvalidAge or ProblemCodes.DateOfBirthRequired) { AgeMessage.Text = AccountText.InvalidAge; return; }
+		if (result.Code == ProblemCodes.DateOfBirthLocked) { AgeMessage.Text = "Your age was confirmed by ID verification. Contact Swoovr support to change it."; return; }
 		ShowMember(result);
 		AgeMessage.Text = result.Code == ProblemCodes.AccountLocked ? null : AccountText.AgeSaved(result.Value);
 	}

@@ -2,6 +2,7 @@
    trips (city, dates, visibility, lifecycle, itineraries), and for locals of an active market the travellers visiting
    it, marked "Visiting" with city, country and dates only. The API enforces every rule; this page only shows answers. *@
 @inject MemberClient Members
+@inject IJSRuntime JS
 <div class="page-heading" data-travel="@(loaded ? (refused is null ? "ready" : "refused") : "loading")">
     <p class="breadcrumb"><a href="/explore">Explore</a> / Travel</p>
     <h1>Travel</h1>
@@ -32,6 +33,19 @@
                                 <label class="option"><input type="checkbox" checked="@trip.Visible" disabled="@busy" @onchange="e => ToggleAsync(trip, e.Value is true)" /> Visible to locals</label>
                                 <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => CancelAsync(trip)">Cancel trip</button>
                             </span>
+                            @if (trip.ActiveMarket)
+                            {
+                                @* D142, D149: search the destination's locals through this trip; confirm arrival with a fresh location. *@
+                                <span class="field-help" data-arrival="@trip.ArrivalState">@MemberText.ArrivalState(trip.ArrivalState)</span>
+                                <span class="request-actions">
+                                    @if (trip.SearchOpen) { <a class="button button-secondary" href="@($"/travel/search/{trip.Id}")" data-search-trip="@trip.Id">Search @trip.City.Name</a> }
+                                    else if (trip.SearchOpensOn is { } opens) { <span class="field-help" data-search-opens>Search opens @opens.ToString("d MMM yyyy") while the trip is visible.</span> }
+                                    @if (trip.ArrivalState != "arrived")
+                                    {
+                                        <button type="button" class="button" disabled="@busy" @onclick="() => ArriveAsync(trip)" data-confirm-arrival="@trip.Id">I've arrived</button>
+                                    }
+                                </span>
+                            }
                         }
                         <span class="request-actions"><button type="button" class="link-button" disabled="@busy" @onclick="() => RemoveAsync(trip)">Remove</button></span>
                     </li>
@@ -156,6 +170,19 @@
         busy = true;
         var result = await Members.SaveTripAsync(trip.Id, new TripUpdate(trip.City.Id, trip.Arrival, trip.Departure, on, trip.ItineraryId));
         (tripStatus, tripMessage) = result.Ok ? ("saved", on ? "Visible to locals once it opens." : "Hidden. The trip is kept.") : (result.Code ?? "failed", Problem(result.Code));
+        await ReloadTripsAsync();
+        busy = false;
+    }
+
+    /// <summary>D149: asks the browser for one location reading, only now, and lets the API decide.</summary>
+    private async Task ArriveAsync(TripView trip)
+    {
+        busy = true;
+        LocationCheck? reading = null;
+        try { reading = await JS.InvokeAsync<LocationCheck?>("swoovrLocation.read"); }
+        catch (JSException) { }
+        var result = await Members.ConfirmArrivalAsync(trip.Id, reading);
+        (tripStatus, tripMessage) = result.Ok ? ("arrived", MemberText.Arrived) : (result.Code ?? "failed", MemberText.ArrivalProblem(result.Code));
         await ReloadTripsAsync();
         busy = false;
     }

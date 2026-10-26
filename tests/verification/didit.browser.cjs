@@ -122,9 +122,41 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
     r = await view('ana');
     assert.deepEqual([r.body.idStatus, r.body.attemptState, r.body.url, r.body.canStart, r.body.refusal], ['verified', 'approved', null, false, 'alreadyVerified']); pass();
     assert.equal((await call(tokens.ana, '/api/v1/me')).body.ageStatus, 'verified'); pass();
-    // Q53 (D158): the document's date differs from the profile's, so the date of birth isn't marked verified, and stays editable.
-    assert.equal((await call(tokens.ana, '/api/v1/me')).body.dateOfBirthVerified, false); pass();
+    // Q53 (D158) and Q58 (D166): the document's date differs, so the date of birth isn't verified and the member gets one
+    // correction; ID Verified stays.
+    let anaMe = (await call(tokens.ana, '/api/v1/me')).body;
+    assert.deepEqual([anaMe.dateOfBirthVerified, anaMe.dobCheck], [false, 'correctionNeeded']); pass();
     assert.equal(await sql(`SELECT date_of_birth_verified::text FROM member_profiles WHERE account_id = '${ids.ana}'`), 'false'); pass();
+    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1985-05-05' } })), [409, 'dob-correction-required']); pass();
+    assert.deepEqual(code(await call(tokens.bel, '/api/v1/me/verification/date-of-birth', { method: 'POST', body: { dateOfBirth: '1985-05-05' } })), [409, 'dob-correction-not-open']); pass(); // nothing open for bel
+    for (const bad of [{}, { dateOfBirth: '2999-01-01' }, { dateOfBirth: 'nope' }])
+    { assert.equal((await call(tokens.ana, '/api/v1/me/verification/date-of-birth', { method: 'POST', body: bad })).status, 400, JSON.stringify(bad)); pass(); }
+    assert.equal(await sql(`SELECT dob_check FROM member_profiles WHERE account_id = '${ids.ana}'`), 'CorrectionNeeded'); pass(); // refused tries don't use it
+    // The correction: the API reads Didit's decision again. This real test-mode session was never completed, so Didit has no
+    // date to compare and the date goes to an admin's review (a matching date is verified; see the checks and the owner's run).
+    r = await call(tokens.ana, '/api/v1/me/verification/date-of-birth', { method: 'POST', body: { dateOfBirth: '1985-05-05', dateOfBirthVerified: true, dobCheck: 'none' } });
+    assert.deepEqual([r.status, r.body.dateOfBirth, r.body.dateOfBirthVerified, r.body.dobCheck], [200, '1985-05-05', false, 'manualReview']); pass();
+    assert.ok((await call(tokens.ana, '/api/v1/me')).body.badges.some(b => b.badge === 'idVerified')); pass(); // ID Verified kept
+    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/verification/date-of-birth', { method: 'POST', body: { dateOfBirth: '1985-05-05' } })), [409, 'dob-correction-not-open']); pass(); // once
+    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-01-01' } })), [409, 'dob-under-review']); pass();
+    // The admin queue: admins only, ids and reasons, never a date.
+    let reviews = await call(root, '/api/v1/admin/dob-reviews');
+    const anaReview = reviews.body.find(x => x.accountId === ids.ana);
+    assert.deepEqual([reviews.status, anaReview?.reason, anaReview?.resolvedAt], [200, 'still-different', null]); pass();
+    assert.ok(!/\d{4}-\d{2}-\d{2}"(?!T)/.test(JSON.stringify(anaReview)) && !JSON.stringify(anaReview).includes('1985')); pass();
+    assert.equal((await call(tokens.ana, '/api/v1/admin/dob-reviews')).status, 403); pass();
+    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.ana}/summary`)).body.dobCheck, 'manualReview'); pass();
+    for (const body of [{ outcome: 'verified' }, { outcome: 'maybe', reason: 'x' }, { outcome: '0', reason: 'x' }])
+    { assert.equal((await call(root, `/api/v1/admin/dob-reviews/${anaReview.id}/resolve`, { method: 'POST', body })).status, 400, JSON.stringify(body)); pass(); }
+    assert.equal((await call(root, `/api/v1/admin/dob-reviews/${crypto.randomUUID()}/resolve`, { method: 'POST', body: { outcome: 'verified', reason: 'x' } })).status, 404); pass();
+    r = await call(root, `/api/v1/admin/dob-reviews/${anaReview.id}/resolve`, { method: 'POST', body: { outcome: 'verified', reason: 'Fictional: checked against the document in Didit.' } });
+    assert.deepEqual([r.status, r.body.outcome], [200, 'verified']); pass();
+    anaMe = (await call(tokens.ana, '/api/v1/me')).body;
+    assert.deepEqual([anaMe.dateOfBirthVerified, anaMe.dobCheck], [true, 'none']); pass();
+    assert.equal((await call(root, `/api/v1/admin/dob-reviews/${anaReview.id}/resolve`, { method: 'POST', body: { outcome: 'notVerified', reason: 'x' } })).status, 409); pass();
+    assert.ok(!(await call(root, '/api/v1/admin/dob-reviews')).body.some(x => x.id === anaReview.id)); pass(); // the open queue
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'dob.%' AND detail ~ '[0-9]{4}-[0-9]{2}'`), '0'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'dob_reviews' AND data_type = 'date'`), '0'); pass();
     assert.ok((await call(tokens.ana, '/api/v1/me')).body.badges.some(b => b.badge === 'idVerified')); pass();
     assert.ok((await call(tokens.bel, `/api/v1/profiles/${pid.ana}`)).body.badges.some(b => b.badge === 'idVerified')); pass(); // others see the badge
     assert.deepEqual((await hook(approval)).body, { duplicate: true }); pass(); // the same event id again
@@ -225,8 +257,8 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
     assert.deepEqual([deeMe.dateOfBirthVerified, deeMe.dateOfBirth], [true, '1990-01-01']); pass(); // matched: marked verified
     assert.deepEqual(code(await call(tokens.dee, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1991-01-01' } })), [409, 'date-of-birth-locked']); pass();
     assert.equal((await call(tokens.dee, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-01-01' } })).status, 200); pass(); // the same date is fine
-    assert.equal((await call(tokens.ana, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-02-01' } })).status, 200); pass(); // ana's wasn't verified
-    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action IN ('dob.verified', 'dob.not-verified') AND (detail LIKE '%19%' OR detail ~ '[0-9]{4}-[0-9]{2}')`), '0'); pass(); // never a date
+    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-02-01' } })), [409, 'date-of-birth-locked']); pass(); // verified by review now
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'dob.%' AND (detail LIKE '%19%' OR detail ~ '[0-9]{4}-[0-9]{2}')`), '0'); pass(); // never a date
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'dob.verified' AND target_id = '${ids.dee}'`), '1'); pass();
     assert.equal((await call(root, `/api/v1/admin/accounts/${ids.dee}/summary`)).body.dateOfBirthVerified, true); pass();
     const placesBefore = Number(await sql(`SELECT count(*) FROM founder_places`));
@@ -276,6 +308,22 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
     await hook(event(webSession, 'In Review', ids.web));
     await page.click('[data-verification-refresh]');
     await page.waitForSelector('[data-attempt-state=inReview]'); pass();
+    // Q58 (D166): approved with a different date of birth, the one-time prompt pops up; the correction goes to review
+    // here because this real test-mode session holds no date to compare.
+    await hook(event(webSession, 'Approved', ids.web, approved(30, '1970-03-03')));
+    await page.goto(web + '/me/verification');
+    await page.waitForSelector('[data-dob-correction=open]', { timeout: 20000 }); pass();
+    assert.equal(await page.locator('[role=dialog][aria-modal=true]').count(), 1); pass();
+    assert.ok(!(await page.locator('[data-dob-correction=open]').innerText()).includes('1970')); pass(); // the document's date is never shown
+    if (output) await page.screenshot({ path: output + '/dob-correction-390.png', fullPage: true });
+    await page.fill('#dob-correction', '1970-03-03');
+    await page.click('[data-dob-correction-form] button[type=submit]');
+    await page.waitForFunction(() => document.querySelector('[data-dob-review=open]') || document.querySelector('[data-dob-correction-status]:not([data-dob-correction-status=""])'), null, { timeout: 20000 });
+    assert.equal(await page.locator('[data-dob-review=open]').count(), 1, 'correction status ' + await page.locator('[data-dob-correction-status]').getAttribute('data-dob-correction-status').catch(() => 'none')); pass();
+    assert.equal(await page.locator('[data-dob-correction=open]').count(), 0); pass();
+    assert.equal((await call(root, '/api/v1/admin/dob-reviews')).body.filter(x => x.accountId === ids.web).length, 1); pass();
+    await page.goto(web + '/account');
+    await page.waitForSelector('[data-dob-locked=manualReview]', { timeout: 20000 }); pass();
     // A flagged member sees why on the account page.
     const nevContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const nevPage = await nevContext.newPage();

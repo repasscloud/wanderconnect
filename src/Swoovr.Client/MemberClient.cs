@@ -36,6 +36,10 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<IdVerificationView>> StartVerificationAsync(string client, CancellationToken cancellationToken = default) =>
         SendAsync<IdVerificationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification") { Content = JsonContent.Create(new StartVerification(client)) }, cancellationToken);
 
+    /// <summary>D166: the one-time correction of the date of birth to the one on the verified ID; the API re-checks it with Didit.</summary>
+    public Task<ApiResult<MemberAccount>> CorrectDateOfBirthAsync(DateOnly? dateOfBirth, CancellationToken cancellationToken = default) =>
+        SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification/date-of-birth") { Content = JsonContent.Create(new DobCorrectionRequest(dateOfBirth)) }, cancellationToken);
+
     /// <summary>The report categories as configured (D131).</summary>
     public Task<ApiResult<List<ReportCategoryView>>> ReportCategoriesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ReportCategoryView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/report-categories"), cancellationToken);
@@ -131,6 +135,47 @@ public sealed class MemberClient(HttpClient http)
     /// <summary>Visiting travellers for a local (Q17); 403 not-local for anyone whose home city isn't in an open market (D125).</summary>
     public Task<ApiResult<VisitorPage>> VisitorsAsync(string modeId, int page = 1, CancellationToken cancellationToken = default) =>
         SendAsync<VisitorPage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/travel/visitors?mode={Uri.EscapeDataString(modeId)}&page={page}"), cancellationToken);
+
+    /// <summary>Confirm-arrival (D149): the trip's arrival date must be reached and the device's fresh location inside the destination market.</summary>
+    public Task<ApiResult<TripView>> ConfirmArrivalAsync(Guid tripId, LocationCheck? reading, CancellationToken cancellationToken = default) =>
+        SendAsync<TripView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/trips/{tripId}/arrival") { Content = JsonContent.Create(reading) }, cancellationToken);
+
+    /// <summary>Traveller Search (D142): the destination's locals in one mode, through one of the member's own trips.</summary>
+    public Task<ApiResult<TravellerSearchResult>> TravellerSearchAsync(Guid tripId, string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<TravellerSearchResult>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/travel/search?trip={tripId}&mode={Uri.EscapeDataString(modeId)}"), cancellationToken);
+
+    /// <summary>A home-location consistency check (D150): the API compares the reading with the home market and keeps only the outcome.</summary>
+    public Task<ApiResult<HomeCheckView>> HomeCheckAsync(LocationCheck reading, CancellationToken cancellationToken = default) =>
+        SendAsync<HomeCheckView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/home-check") { Content = JsonContent.Create(reading) }, cancellationToken);
+
+    /// <summary>The member's open conversations, most recent first (D143).</summary>
+    public Task<ApiResult<List<ConversationView>>> ConversationsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ConversationView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/conversations"), cancellationToken);
+
+    /// <summary>Opens (or returns) the conversation with a connected member.</summary>
+    public Task<ApiResult<ConversationView>> StartConversationAsync(Guid profileId, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/conversations") { Content = JsonContent.Create(new StartConversation(profileId)) }, cancellationToken);
+
+    public Task<ApiResult<ConversationView>> ConversationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{id}"), cancellationToken);
+
+    /// <summary>Newest first; pass the previous page's Before for older messages.</summary>
+    public Task<ApiResult<MessagePage>> MessagesAsync(Guid conversationId, DateTimeOffset? before = null, CancellationToken cancellationToken = default) =>
+        SendAsync<MessagePage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{conversationId}/messages"
+            + (before is { } b ? "?before=" + Uri.EscapeDataString(b.ToString("O")) : "")), cancellationToken);
+
+    public Task<ApiResult<MessageView>> SendMessageAsync(Guid conversationId, string text, CancellationToken cancellationToken = default) =>
+        SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/messages") { Content = JsonContent.Create(new NewMessage(text)) }, cancellationToken);
+
+    /// <summary>Delete for both, within five minutes of sending (D143).</summary>
+    public Task<int> DeleteMessageAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/v1/messages/{id}"), cancellationToken);
+
+    public Task<int> HideMessageAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/messages/{id}/hide"), cancellationToken);
+
+    public Task<int> HideConversationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{id}/hide"), cancellationToken);
 
     /// <summary>Answers a request: "accept" or "decline" (the recipient) or "withdraw" (the sender).</summary>
     public Task<ApiResult<ConnectionRequestView>> AnswerRequestAsync(Guid id, string answer, CancellationToken cancellationToken = default) =>

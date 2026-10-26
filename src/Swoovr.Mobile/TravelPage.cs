@@ -4,9 +4,9 @@ using Swoovr.Contracts;
 namespace Swoovr.Mobile;
 
 /// <summary>
-/// Travel (Q17, D107, D109–D111) as on the web: the member's trips with visibility and cancel, a form to add one, and for
-/// locals of an active market the travellers visiting it ("Visiting", city, country and dates only). The API decides
-/// windows, lifecycle and who is local; travellers get no feed of locals.
+/// Me → Travel (Q17, D107, D109–D111, D141): the member's trips with visibility and cancel, and a form to add one. Who's
+/// visiting the member's own city is destination discovery and sits under Explore (VisitorsPage). The API decides
+/// windows, lifecycle and who is local.
 /// </summary>
 public sealed class TravelPage : ContentPage
 {
@@ -35,8 +35,8 @@ public sealed class TravelPage : ContentPage
 		body.Children.Add(Ui.Text("Travel", "PageTitle"));
 		body.Children.Add(Ui.Text("Locals can see you're visiting from 14 days before you arrive. Your modes and home discovery don't change.", "Subtitle"));
 		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to plan trips.", id: "TravelSignedOut")); return; }
-		var (trips, own) = (await Ui.Members!.TripsAsync(), await Ui.Members.ProfileAsync());
-		if (trips.Value is null || own.Value is null) { body.Children.Add(Ui.Text("We couldn't load Travel.", id: "TravelRefused")); return; }
+		var trips = await Ui.Members!.TripsAsync();
+		if (trips.Value is null) { body.Children.Add(Ui.Barred(trips.Code, "TravelBarred") ?? Ui.Text("We couldn't load Travel.", id: "TravelRefused")); return; }
 		body.Children.Add(Ui.Detach(status));
 		var list = new VerticalStackLayout { Spacing = 10, AutomationId = "TripList" };
 		if (trips.Value.Items.Count == 0) list.Children.Add(Ui.Text("No trips yet.", "FooterClaims"));
@@ -45,30 +45,6 @@ public sealed class TravelPage : ContentPage
 		body.Children.Add(Ui.Card(Ui.Text("Add a trip", "SectionHeading"), city, Ui.Labelled("Arrival", arrival), Ui.Labelled("Departure", departure),
 			new HorizontalStackLayout { Spacing = 8, Children = { Ui.Detach(visible), Ui.Text("Visible to locals when the trip opens") } },
 			Ui.Button("Save trip", "SaveTrip", AddAsync)));
-		var mode = own.Value.Modes.FirstOrDefault(m => m.Enabled)?.Id;
-		var feed = new VerticalStackLayout { Spacing = 10, AutomationId = "Visitors" };
-		var heading = Ui.Text("Visiting your city", "SectionHeading", "VisitorsHeading");
-		body.Children.Add(Ui.Card(heading, feed));
-		if (mode is null) { feed.Children.Add(Ui.Text("Turn on a mode in the Profile tab to see who's visiting.", id: "VisitorsOff")); return; }
-		var visitors = await Ui.Members.VisitorsAsync(mode);
-		if (visitors.Code == ProblemCodes.NotLocal) { feed.Children.Add(Ui.Text("Set a home city in a Swoovr market on the Profile tab to see who's visiting.", id: "VisitorsNotLocal")); return; }
-		heading.Text = $"Visiting {visitors.Value?.Market}";
-		if (visitors.Value is not { People.Count: > 0 }) { feed.Children.Add(Ui.Text("No one is visiting yet.", id: "VisitorsEmpty")); return; }
-		foreach (var person in visitors.Value.People)
-			feed.Children.Add(new VerticalStackLayout
-			{
-				Spacing = 4,
-				Children =
-				{
-					Ui.Text(person.DisplayName + (person.Badges.Count > 0 ? "  ·  " + Ui.Badges(person.Badges) : ""), "TileName", $"Visitor_{person.Id}"),
-					Ui.Text($"Visiting {person.Visiting.City}, {person.Visiting.Country} · {Ui.Dates(person.Visiting.Arrival, person.Visiting.Departure)}", id: $"Visit_{person.Id}"),
-					Ui.Button("Send request", $"VisitorRequest_{person.Id}", async () =>
-					{
-						var sent = await Ui.Members.SendRequestAsync(person.Id, mode, person.Visiting.TripId);
-						status.Text = sent.Ok ? $"Request sent to {person.DisplayName}." : "That request couldn't be sent.";
-					}, primary: false),
-				},
-			});
 	}
 
 	private View TripRow(TripView trip)
@@ -92,6 +68,18 @@ public sealed class TravelPage : ContentPage
 			status.Text = await Ui.Members!.CancelTripAsync(trip.Id) == 204 ? "Trip cancelled. It stays in your history." : "That didn't work.";
 			await LoadAsync();
 		}, primary: false));
+		if (!trip.ActiveMarket) return row;
+		// D142, D149: search the destination through this trip, and confirm arrival with one fresh location reading.
+		if (MemberText.ArrivalState(trip.ArrivalState) is { } arrival) row.Children.Add(Ui.Text(arrival, "FooterClaims", $"TripArrival_{trip.Id}"));
+		if (trip.SearchOpen) row.Children.Add(Ui.Button($"Search {trip.City.Name}", $"TripSearch_{trip.Id}", () => Ui.PushAsync(new TravellerSearchPage(trip.Id)), primary: false));
+		else if (trip.SearchOpensOn is { } opens) row.Children.Add(Ui.Text($"Search opens {opens:d MMM yyyy} while the trip is visible.", "FooterClaims", $"TripSearchOpens_{trip.Id}"));
+		if (trip.ArrivalState != "arrived")
+			row.Children.Add(Ui.Button("I've arrived", $"TripArrive_{trip.Id}", async () =>
+			{
+				var result = await Ui.Members!.ConfirmArrivalAsync(trip.Id, await Ui.ReadLocationAsync());
+				await LoadAsync();
+				status.Text = result.Ok ? MemberText.Arrived : MemberText.ArrivalProblem(result.Code);
+			}));
 		return row;
 	}
 
