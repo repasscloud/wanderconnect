@@ -15,6 +15,10 @@
     }
     else
     {
+        @if (SignIn == "retry")
+        {
+            <p role="status" class="notice" data-signin-retry>We couldn't finish signing you in. If you just created your account, it's ready: sign in again.</p>
+        }
         <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a> <a class="button button-secondary" href="/account/create">Create an account</a></p>
     }
 }
@@ -32,6 +36,7 @@ else
 </div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "signin")] public string? SignIn { get; set; }
     private bool configured, signedIn;
     private string name = "there";
 

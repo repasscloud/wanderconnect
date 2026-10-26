@@ -59,6 +59,15 @@ public static class MemberSignIn
             options.MapInboundClaims = false;
             options.GetClaimsFromUserInfoEndpoint = false;
             options.TokenValidationParameters.NameClaimType = "given_name";
+            // A sign-in that can't be finished here (most often Keycloak's email-first registration completed from the
+            // verification link in another browser or after the 15-minute correlation cookie expired) goes back to the
+            // account page to sign in again, instead of an exception page. The Keycloak account itself already exists.
+            options.Events.OnRemoteFailure = context =>
+            {
+                context.Response.Redirect("/account?signin=retry");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            };
             options.Scope.Clear();
             foreach (var scope in new[] { "openid", "profile", "email" }) options.Scope.Add(scope);
             foreach (var cookie in new[] { options.CorrelationCookie, options.NonceCookie })
