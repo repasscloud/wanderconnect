@@ -71,6 +71,8 @@ public static class ProfileEndpoints
             if (FounderEligibility.Stamp(profile, current.Account!.Status, now))
                 Audit.Record(db, now, null, "system", "founder.eligible", "account", profile.AccountId.ToString());
             await db.SaveChangesAsync(cancellationToken);
+            // #91: what others can see is versioned for moderation.
+            await ProfilePrivacy.CaptureAsync(db, profile.AccountId, now, cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });
         api.MapPut("/me/modes/{modeId}", async (string modeId, ModeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
@@ -104,6 +106,8 @@ public static class ProfileEndpoints
             if (ProfileTextPolicy.Check(null, null, about) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode's about to {ProfileTextPolicy.AboutMax} characters of plain text.");
             (setting.Enabled, setting.Visible, setting.About, setting.UpdatedAt) = (update.Enabled, update.Visible, about, now);
+            // #91: consent for the core about to show in this mode is asked, never assumed; null keeps the answer.
+            if (update.ShareCoreAbout is { } share) setting.ShareCoreAbout = share;
             // Only the difference is written, so kept rows (including retired chips, D113) are never touched.
             db.MemberModeIntentions.RemoveRange(stored.Where(i => !change.Stored.Contains(i.IntentionId)));
             db.MemberModeIntentions.AddRange(change.Stored.Where(id => stored.All(i => i.IntentionId != id))
@@ -111,6 +115,7 @@ public static class ProfileEndpoints
             Audit.Record(db, now, profile.AccountId, "account", "mode.updated", "connection-mode", modeId,
                 $"{(update.Enabled ? "on" : "off")}:{(update.Visible ? "visible" : "hidden")}:intentions:{change.Stored.Count}");
             await db.SaveChangesAsync(cancellationToken);
+            await ProfilePrivacy.CaptureAsync(db, profile.AccountId, now, cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });
         api.MapGet("/explore", async (string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
@@ -127,6 +132,8 @@ public static class ProfileEndpoints
             if (refused is not null) return refused;
             var (own, mine, notReady) = await ReadyAsync(db, current.Profile!, selected, clock.GetUtcNow(), cancellationToken);
             if (notReady is not null) return notReady;
+            // #90: searches are limited per hour so repeated queries can't triangulate anyone.
+            if (await Searches.LimitedAsync(db, current.Profile!.AccountId, "search", clock.GetUtcNow(), cancellationToken) is { } limited) return limited;
             return Results.Ok(new ExploreResult(selected.Id, await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken), market.Name));
         });
         // D175: ?mode= is the mode the profile was opened from; the view shows that mode and the modes the pair is connected in.
@@ -159,8 +166,8 @@ public static class ProfileEndpoints
             var shownAs = Public((await IdentitiesAsync(db, [person.Profile.AccountId], cancellationToken)).GetValueOrDefault(person.Profile.AccountId),
                 person.Profile.DateOfBirth is { } dob ? AgePolicy.YearsOn(dob, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)) : null, await GenderLabelsAsync(db, cancellationToken));
             var abouts = await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId && shownIds.Contains(m.ModeId))
-                .ToDictionaryAsync(m => m.ModeId, m => m.About, cancellationToken);
-            string? AboutIn(string modeId) => ModePrivacy.About(abouts.GetValueOrDefault(modeId), person.Profile.About);
+                .ToDictionaryAsync(m => m.ModeId, m => new { m.About, m.ShareCoreAbout }, cancellationToken);
+            string? AboutIn(string modeId) => abouts.GetValueOrDefault(modeId) is { } a ? ModePrivacy.About(a.About, person.Profile.About, a.ShareCoreAbout) : null;
             return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, AboutIn(shownIds[0]),
                 shared.Where(m => shownIds.Contains(m.Id)).Select(m =>
                 {
@@ -227,15 +234,18 @@ public static class ProfileEndpoints
         var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
         var shownIds = shown.Select(c => c.Profile.AccountId).ToList();
         // D175: the card shows the person's about for this mode.
-        var abouts = await db.MemberModes.Where(m => m.ModeId == selected.Id && shownIds.Contains(m.AccountId) && m.About != null)
-            .ToDictionaryAsync(m => m.AccountId, m => m.About, cancellationToken);
+        var abouts = await db.MemberModes.Where(m => m.ModeId == selected.Id && shownIds.Contains(m.AccountId) && (m.About != null || m.ShareCoreAbout == true))
+            .ToDictionaryAsync(m => m.AccountId, m => new { m.About, m.ShareCoreAbout }, cancellationToken);
         var order = await BadgeOrderAsync(db, cancellationToken);
         var genders = await GenderLabelsAsync(db, cancellationToken);
         return shown.Select(c =>
         {
             var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
-            return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, ModePrivacy.About(abouts.GetValueOrDefault(c.Profile.AccountId), c.Profile.About),
-                chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns);
+            var about = abouts.GetValueOrDefault(c.Profile.AccountId) is { } a ? ModePrivacy.About(a.About, c.Profile.About, a.ShareCoreAbout) : null;
+            // #90: a rounded band between home cities, never a distance.
+            return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, about,
+                chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
+                LocationPrivacy.Band(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId])));
         }).ToList();
     }
 
@@ -407,7 +417,7 @@ public static class ProfileEndpoints
                             select i).ToListAsync(cancellationToken);
         var home = profile.HomeGeoNameId is { } id ? await db.GeoCities.FindAsync([id], cancellationToken) : null;
         return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
-            ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList(), s.About)
+            ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList(), s.About, s.ShareCoreAbout == true)
             : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home),
             await db.MarketInterests.AnyAsync(i => i.AccountId == profile.AccountId, cancellationToken));
     }

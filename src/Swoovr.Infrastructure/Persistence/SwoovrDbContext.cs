@@ -84,6 +84,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<StaffExclusion> StaffExclusions => Set<StaffExclusion>();
     public DbSet<ExportApproval> ExportApprovals => Set<ExportApproval>();
     public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
+    public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
+    public DbSet<ProfileVersion> ProfileVersions => Set<ProfileVersion>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -264,6 +266,19 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             approval.HasOne<LegalHold>().WithMany().HasForeignKey(a => a.HoldId).OnDelete(DeleteBehavior.Restrict);
             approval.Property(a => a.Purpose).HasMaxLength(LegalHoldPolicy.TextMax);
+        });
+        // #90: search events (a day, for the hourly limits); #91: profile versions for moderation and holds.
+        model.Entity<SearchEvent>(search =>
+        {
+            search.Property(s => s.Kind).HasMaxLength(16);
+            search.HasIndex(s => new { s.AccountId, s.Kind, s.At });
+            search.HasIndex(s => s.At);
+        });
+        model.Entity<ProfileVersion>(version =>
+        {
+            version.Property(v => v.ModeId).HasMaxLength(32);
+            version.Property(v => v.ContentJson).HasMaxLength(8000);
+            version.HasIndex(v => new { v.AccountId, v.ModeId, v.CapturedAt });
         });
         // #89 (policy §12): security incidents with severity levels and the NDB assessment.
         model.Entity<SecurityIncident>(incident =>

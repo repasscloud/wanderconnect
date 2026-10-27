@@ -71,6 +71,10 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.equal(r.body.about, 'Fictional consultant, coffee meetings welcome'); pass();
     assert.equal(JSON.stringify(r.body).includes('dating'), false, 'nothing about Dating reaches a Business view'); pass();
     r = await view('bob', 'ana', 'dating');
+    // #91 (policy §6): the core about crosses into Dating only once Ana agrees.
+    assert.deepEqual([r.body.modes.map(m => m.id), r.body.about], [['dating'], null]); pass();
+    assert.equal((await call(tokens.ana, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true, shareCoreAbout: true } })).status, 200);
+    r = await view('bob', 'ana', 'dating');
     assert.deepEqual([r.body.modes.map(m => m.id), r.body.about], [['dating'], 'Core about ana']); pass();
     assert.equal(JSON.stringify(r.body).includes('consultant'), false, 'the Business about stays in Business'); pass();
     assert.equal((await view('bob', 'ana', 'activities')).status, 404, 'a mode they do not share reads as not found'); pass();
@@ -80,7 +84,7 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.deepEqual((await view('bob', 'ana')).body.modes.map(m => m.id), ['dating'], 'no mode given and not connected: the first shared mode only'); pass();
     const cards = mode => call(tokens.bob, '/api/v1/explore?mode=' + mode);
     assert.equal((await cards('business')).body.people.find(p => p.id === pid.ana).about, 'Fictional consultant, coffee meetings welcome'); pass();
-    assert.equal((await cards('friends')).body.people.find(p => p.id === pid.ana).about, 'Core about ana', 'Explore uses the mode about'); pass();
+    assert.equal((await cards('friends')).body.people.find(p => p.id === pid.ana).about, null, 'no Friends about and no consent there: nothing (#91)'); pass();
 
     // Connected in Friends and Business; the Business view now also shows Friends.
     const connect = async (from, to, mode) => {

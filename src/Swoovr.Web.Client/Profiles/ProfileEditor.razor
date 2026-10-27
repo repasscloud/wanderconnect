@@ -61,11 +61,13 @@
                         </ul>
                     </div>
                 }
-                @* D175: an about for this mode only; people in other modes never see it. Blank uses your main about. *@
+                @* D175: an about for this mode only; people in other modes never see it. #91: the main about shows here only if you say so. *@
                 <div class="field" data-mode-about="@mode.Id">
                     <label for="@($"about-{mode.Id}")">About me in @mode.Label <span class="field-help">(optional, only shown in @mode.Label)</span></label>
-                    <textarea id="@($"about-{mode.Id}")" maxlength="500" rows="3" disabled="@busy" placeholder="Uses your main about"
+                    <textarea id="@($"about-{mode.Id}")" maxlength="500" rows="3" disabled="@busy" placeholder="@(setting.ShareCoreAbout ? "Uses your main about" : "Empty: no about shows in " + mode.Label)"
                               @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, e.Value as string)">@setting.About</textarea>
+                    <label class="option"><input type="checkbox" data-share-core="@mode.Id" checked="@setting.ShareCoreAbout" disabled="@busy"
+                        @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, setting.About, e.Value is true)" /> Show my main about in @mode.Label when this is empty</label>
                 </div>
             </article>
         }
@@ -116,10 +118,10 @@
         else (coreStatus, coreMessage) = ("invalid", "Check the fields: no special characters, and keep within the lengths shown.");
     }
 
-    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about)
+    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about, bool? shareCoreAbout = null)
     {
         busy = true;
-        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about));
+        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about, shareCoreAbout));
         busy = false;
         if (result.Value is { } saved) { profile = saved; modeMessage = null; }
         else modeMessage = result.Code == ProblemCodes.TooManyIntentions ? "You can pick up to five in each mode." : "That change wasn't saved. Try again.";

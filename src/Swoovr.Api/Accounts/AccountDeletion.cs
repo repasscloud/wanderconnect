@@ -86,6 +86,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
             + await db.TerminatedPhoneHolds.Where(h => h.ExpiresAt <= now).ExecuteDeleteAsync(cancellationToken);
         // D148: phone codes (hashes only) are kept a day for the limits, then go.
         await db.PhoneCodes.Where(c => c.CreatedAt < now - PhoneVerificationPolicy.CodeRetention).ExecuteDeleteAsync(cancellationToken);
+        // #90: search events are kept a day for the hourly limits.
+        await db.SearchEvents.Where(e => e.At < now - LocationPrivacy.EventRetention).ExecuteDeleteAsync(cancellationToken);
         // D191: a terminated member's identity record goes after its two years, unless a legal hold names the account.
         kept += await db.VerifiedIdentities.CountAsync(i => i.RetainUntil <= now && held.Contains(i.AccountId), cancellationToken);
         await db.VerifiedIdentities.Where(i => i.RetainUntil <= now && !held.Contains(i.AccountId)).ExecuteDeleteAsync(cancellationToken);
@@ -179,6 +181,9 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.DataExports.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.PhoneCodes.Where(c => c.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // #90, #91: search events and profile versions go with the account (held versions were captured above).
+        await db.SearchEvents.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.ProfileVersions.Where(v => v.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         // D191: the verified identity record goes too, except a terminated member's, kept two years for ban enforcement.
         if (VerifiedIdentityPolicy.RetainAfterDeletion(terminated, now) is { } retain)
             await db.VerifiedIdentities.Where(i => i.AccountId == id).ExecuteUpdateAsync(u => u.SetProperty(i => i.RetainUntil, retain), cancellationToken);

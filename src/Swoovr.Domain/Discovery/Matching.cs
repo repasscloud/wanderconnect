@@ -123,7 +123,8 @@ public static class MatchPolicy
         if (filter.IdVerifiedOnly && !person.IdVerified) return false;
         if (tier >= PlanTier.Plus && filter.MaxDistanceKm is { } km)
         {
-            if (DistanceKm(viewer, person) is not { } d || d > km) return false;
+            // #90: compared against the band the filter falls in, never a finer distance.
+            if (DistanceKm(viewer, person) is not { } d || d > LocationPrivacy.Snap(km)) return false;
         }
         return true;
     }

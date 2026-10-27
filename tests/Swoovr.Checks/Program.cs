@@ -23,6 +23,7 @@ LegalHoldChecks.Run();
 LawEnforcementChecks.Run();
 StaffAccessChecks.Run();
 SecurityOperationsChecks.Run();
+LocationPrivacyChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();

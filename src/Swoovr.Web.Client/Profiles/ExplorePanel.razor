@@ -75,7 +75,8 @@
             <div class="people-grid">
                 @foreach (var person in people)
                 {
-                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Area="@(person.Area ?? "")"
+                    @* #90: a rounded distance band between home cities, never a distance. *@
+                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Area="@string.Join(" · ", new[] { person.Area, person.DistanceBand }.Where(x => !string.IsNullOrEmpty(x)))"
                                  Intentions="person.Intentions" Quote="@Quote(person.About)">
                         <Badges><BadgeRow Badges="person.Badges" /></Badges>
                     </ProfileTile>

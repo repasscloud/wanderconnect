@@ -136,6 +136,9 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
         {
             if (await db.Accounts.FindAsync([id], cancellationToken) is { } account) Add("account", "accounts", id.ToString(), id, account);
             if (await db.MemberProfiles.FindAsync([id], cancellationToken) is { } profile) Add("profile", "member_profiles", id.ToString(), id, profile);
+            // #91: what others could see in each mode over the period.
+            foreach (var shown in await db.ProfileVersions.Where(v => v.AccountId == id).OrderBy(v => v.CapturedAt).ToListAsync(cancellationToken))
+                if (InPeriod(shown.CapturedAt)) Add("profile-version", "profile_versions", shown.Id.ToString(), id, shown);
             foreach (var mode in await db.MemberModes.Where(m => m.AccountId == id).ToListAsync(cancellationToken))
                 Add("mode", "member_modes", $"{id:N}:{mode.ModeId}", id, new
                 {

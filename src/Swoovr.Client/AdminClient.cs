@@ -159,6 +159,10 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<StaffRevokeResult>> RevokeStaffAsync(Guid id, string? reason, CancellationToken cancellationToken = default) =>
         SendAsync<StaffRevokeResult>(HttpMethod.Post, $"api/v1/admin/staff/{id}/revoke", new StaffRevokeRequest(reason), cancellationToken);
 
+    /// <summary>#91: the subject's profile as visible when the case's first report was made.</summary>
+    public Task<ApiResult<ProfileAtReport>> ProfileAtReportAsync(Guid caseId, CancellationToken cancellationToken = default) =>
+        SendAsync<ProfileAtReport>(HttpMethod.Get, $"api/v1/admin/cases/{caseId}/profile-at-report", null, cancellationToken);
+
     // #89: security incidents.
     public Task<ApiResult<List<SecurityIncidentView>>> IncidentsAsync(string? status = null, CancellationToken cancellationToken = default) =>
         SendAsync<List<SecurityIncidentView>>(HttpMethod.Get, "api/v1/admin/security/incidents?status=" + Uri.EscapeDataString(status ?? ""), null, cancellationToken);

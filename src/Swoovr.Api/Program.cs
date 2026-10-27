@@ -50,6 +50,7 @@ Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
+Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

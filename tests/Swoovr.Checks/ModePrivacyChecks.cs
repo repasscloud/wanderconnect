@@ -26,8 +26,11 @@ static class ModePrivacyChecks
         Expect(ModePrivacy.Shown(null, shared, none).SequenceEqual(["dating"]), "no mode and no connection: only the first shared mode");
         Expect(ModePrivacy.Shown("friends", shared, new HashSet<string> { "business" }).SequenceEqual(["friends", "business"]), "a pending request's mode shows too (D182)");
         Expect(ModePrivacy.Shown(null, [], none).Count == 0, "nothing shared: nothing");
-        Expect(ModePrivacy.About("Here for coffee chats", "Main about") == "Here for coffee chats", "the mode's own about wins");
-        Expect(ModePrivacy.About(null, "Main about") == "Main about", "no mode about: the core about");
+        Expect(ModePrivacy.About("Here for coffee chats", "Main about", null) == "Here for coffee chats", "the mode's own about wins");
+        // #91 (policy §6): the core about crosses into a mode only with the member's consent.
+        Expect(ModePrivacy.About(null, "Main about", true) == "Main about", "no mode about, consent given: the core about");
+        Expect(ModePrivacy.About(null, "Main about", null) is null && ModePrivacy.About(null, "Main about", false) is null, "no consent: nothing crosses");
+        Expect(ModePrivacy.About("Mode about", "Main about", false) == "Mode about", "the mode's own about never needs consent");
 
         // D176: disconnecting without blocking.
         Guid a = Guid.NewGuid(), b = Guid.NewGuid(), stranger = Guid.NewGuid();

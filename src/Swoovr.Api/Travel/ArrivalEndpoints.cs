@@ -81,6 +81,8 @@ public static class ArrivalEndpoints
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.MarketNotOpen, "Swoovr doesn't offer this mode there.");
             var (own, mine, notReady) = await ProfileEndpoints.ReadyAsync(db, me, selected, now, cancellationToken);
             if (notReady is not null) return notReady;
+            // #90: searches are limited per hour so repeated queries can't triangulate anyone.
+            if (await Profiles.Searches.LimitedAsync(db, me.AccountId, "search", now, cancellationToken) is { } limited) return limited;
             var people = await ProfileEndpoints.PeopleAsync(db, configuration, me, selected, own!, mine!, market!.Id, now, cancellationToken);
             return Results.Ok(new TravellerSearchResult(selected.Id, market.Name, row.t.Id, Wire(ArrivalPolicy.State(row.t)),
                 ArrivalPolicy.MayInitiate(row.t, state, market), people));

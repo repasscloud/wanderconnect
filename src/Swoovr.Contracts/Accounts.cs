@@ -203,6 +203,8 @@ public static class ProblemCodes
     public const string GrantRenewalLimit = "grant-renewal-limit";
     /// <summary>#88: a bulk export needs a second officer's approval; the problem carries the pending approval's id.</summary>
     public const string BulkExportApprovalRequired = "bulk-export-approval-required";
+    /// <summary>#90: too many searches or filter changes in the last hour (so repeated queries can't locate anyone).</summary>
+    public const string SearchLimit = "search-limit";
     /// <summary>#88 (procedure §5): a conflict of interest keeps this staff member away from that member's records.</summary>
     public const string ConflictOfInterest = "conflict-of-interest";
 }

@@ -76,6 +76,8 @@ public static class MatchingEndpoints
             var (db, now, id) = (accounts.Db!, clock.GetUtcNow(), current!.Profile!.AccountId);
             if (!await db.ConnectionModes.AnyAsync(m => m.Id == modeId && m.Available, cancellationToken))
                 return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
+            // #90: filter changes are limited per hour so they can't be used to narrow down where someone lives.
+            if (await Searches.LimitedAsync(db, id, "filter", now, cancellationToken) is { } limited) return limited;
             if (!Enum.TryParse<ChipMatch>(update.RequiredMatch ?? "any", true, out var match) || !Enum.IsDefined(match)
                 || !Enum.TryParse<VisitorVisibility>(update.Visitors ?? "both", true, out var visitors) || !Enum.IsDefined(visitors)
                 || !Enum.TryParse<ExploreSort>(update.Sort ?? "recent", true, out var sort) || !Enum.IsDefined(sort)
@@ -85,7 +87,8 @@ public static class MatchingEndpoints
             {
                 AccountId = id, ModeId = modeId, MinAge = update.MinAge, MaxAge = update.MaxAge, RequiredChips = (update.RequiredChips ?? []).Distinct().ToList(),
                 RequiredMatch = match, ExcludedChips = (update.ExcludedChips ?? []).Distinct().ToList(), IdVerifiedOnly = update.IdVerifiedOnly, Visitors = visitors,
-                MaxDistanceKm = update.MaxDistanceKm, Sort = sort, UpdatedAt = now,
+                // #90: a distance snaps to its band (5, 10, 25, 50, 100, 250 or 500 km).
+                MaxDistanceKm = update.MaxDistanceKm is { } km and >= 1 and <= MatchPolicy.MaxDistanceKm ? LocationPrivacy.Snap(km) : update.MaxDistanceKm, Sort = sort, UpdatedAt = now,
             };
             var chips = (await db.ModeIntentions.Where(i => i.ModeId == modeId && i.Available).Select(i => i.Id).ToListAsync(cancellationToken)).ToHashSet();
             var tier = await Moderation.Entitlements.TierAsync(db, current.Profile, now, cancellationToken);

@@ -2476,6 +2476,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
 
+                    b.Property<bool?>("ShareCoreAbout")
+                        .HasColumnType("boolean")
+                        .HasColumnName("share_core_about");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -3537,6 +3541,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ProfileVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("content_json");
+
+                    b.Property<string>("ModeId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sha256");
+
+                    b.HasKey("Id")
+                        .HasName("pk_profile_versions");
+
+                    b.HasIndex("AccountId", "ModeId", "CapturedAt")
+                        .HasDatabaseName("ix_profile_versions_account_id_mode_id_captured_at");
+
+                    b.ToTable("profile_versions");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Report", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3920,6 +3965,41 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_sanctions_dates", "ends_at IS NULL OR ends_at > starts_at");
                         });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SearchEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.HasKey("Id")
+                        .HasName("pk_search_events");
+
+                    b.HasIndex("At")
+                        .HasDatabaseName("ix_search_events_at");
+
+                    b.HasIndex("AccountId", "Kind", "At")
+                        .HasDatabaseName("ix_search_events_account_id_kind_at");
+
+                    b.ToTable("search_events");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.SecurityIncident", b =>
