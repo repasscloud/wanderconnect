@@ -86,6 +86,9 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
     public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
     public DbSet<ProfileVersion> ProfileVersions => Set<ProfileVersion>();
+    public DbSet<MediaItem> MediaItems => Set<MediaItem>();
+    public DbSet<MediaPlacement> MediaPlacements => Set<MediaPlacement>();
+    public DbSet<MediaReviewView> MediaReviewViews => Set<MediaReviewView>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -279,6 +282,33 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             version.Property(v => v.ModeId).HasMaxLength(32);
             version.Property(v => v.ContentJson).HasMaxLength(8000);
             version.HasIndex(v => new { v.AccountId, v.ModeId, v.CapturedAt });
+        });
+        // D201, D203 (policy §5, §6): photos in quarantine, where they show, and staff views of uncertain ones. No foreign
+        // keys to accounts, so a held or blocked item outlives the account it came from.
+        model.Entity<MediaItem>(item =>
+        {
+            item.Property(i => i.ObjectKey).HasMaxLength(64);
+            item.Property(i => i.ContentType).HasMaxLength(32);
+            item.Property(i => i.LastScreenError).HasMaxLength(32);
+            item.Property(i => i.Screener).HasMaxLength(32);
+            item.Property(i => i.PolicyVersion).HasMaxLength(32);
+            item.Property(i => i.Signals).HasMaxLength(2000);
+            item.Property(i => i.ReviewReason).HasMaxLength(MediaPolicy.ReasonMax);
+            item.HasIndex(i => new { i.AccountId, i.CreatedAt });
+            item.HasIndex(i => new { i.Status, i.NextScreenAt });
+            item.HasIndex(i => i.Sha256);
+        });
+        model.Entity<MediaPlacement>(placement =>
+        {
+            placement.HasKey(p => new { p.AccountId, p.Scope, p.Position });
+            placement.Property(p => p.Scope).HasMaxLength(32);
+            placement.HasOne<MediaItem>().WithMany().HasForeignKey(p => p.MediaId).OnDelete(DeleteBehavior.Cascade);
+            placement.HasIndex(p => p.MediaId);
+        });
+        model.Entity<MediaReviewView>(view =>
+        {
+            view.Property(v => v.Purpose).HasMaxLength(MediaPolicy.PurposeMax);
+            view.HasIndex(v => new { v.MediaId, v.At });
         });
         // #89 (policy §12): security incidents with severity levels and the NDB assessment.
         model.Entity<SecurityIncident>(incident =>

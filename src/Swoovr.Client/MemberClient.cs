@@ -248,6 +248,28 @@ public sealed class MemberClient(HttpClient http)
         return new((int)response.StatusCode, await response.Content.ReadAsByteArrayAsync(cancellationToken), null);
     }
 
+    /// <summary>D203: the member's photos, main photo and per-mode photos.</summary>
+    public Task<ApiResult<MyPhotosView>> PhotosAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/photos"), cancellationToken);
+
+    /// <summary>Uploads a photo into quarantine (202, state "checking"); replaces names an approved photo it should take over from.</summary>
+    public Task<ApiResult<MyPhotoView>> UploadPhotoAsync(byte[] data, string fileName, string contentType, Guid? replaces = null, CancellationToken cancellationToken = default)
+    {
+        var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(data);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        form.Add(file, "file", string.IsNullOrWhiteSpace(fileName) ? "photo" : fileName);
+        if (replaces is { } id) form.Add(new StringContent(id.ToString()), "replaces");
+        return SendAsync<MyPhotoView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/photos") { Content = form }, cancellationToken);
+    }
+
+    public Task<ApiResult<MyPhotosView>> DeletePhotoAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Delete, $"api/v1/me/photos/{id}"), cancellationToken);
+
+    /// <summary>Scope "main" (one photo) or a mode id (up to the limit), in order.</summary>
+    public Task<ApiResult<MyPhotosView>> PlacePhotosAsync(string scope, IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/photos/placement") { Content = JsonContent.Create(new PhotoPlacementUpdate(scope, ids)) }, cancellationToken);
+
     private async Task<int> StatusAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         using (request)

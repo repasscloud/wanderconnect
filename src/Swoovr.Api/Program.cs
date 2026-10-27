@@ -14,6 +14,8 @@ builder.Services.AddScoped<AccountResolver>();
 builder.Services.AddScoped<Founders>();
 // D147, D169: Didit and the members realm's deletion client, from configuration only (locally .local/docker.env).
 builder.Services.AddSwoovrProviders(builder.Configuration);
+// D201, D203: photo storage (R2), screening (image-moderation-api) and the quarantine pipeline.
+Swoovr.Api.Media.MediaSetup.AddSwoovrMedia(builder.Services, builder.Configuration, builder.Environment, persistence);
 builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
     builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
 builder.Services.AddProblemDetails();
@@ -51,6 +53,7 @@ Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
+Swoovr.Api.Media.MediaEndpoints.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

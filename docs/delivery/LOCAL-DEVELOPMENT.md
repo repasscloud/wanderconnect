@@ -179,3 +179,13 @@ The older browser suites don't verify numbers, so run them on hosts started with
 - `accounts purge` and `messages purge` now fail closed: if hold status can't be read they purge nothing and exit 1 (D196). `accounts purge` also erases law-enforcement case records seven years after closure unless a live hold serves the case, and search events older than a day.
 - `keys status` shows which key version seals how many values in each set; `keys rotate contact-history|evidence|police|identity|all [--to n]` re-seals them after a new version (`ContactHistory:Keys:{n}`, `Evidence:Keys:{n}`, `IdentityStore:Keys:{n}`, base64 32 bytes) is configured. The founder-derived version 1 stays readable, so hosts keep working during a rotation. See the [breach-response runbook](BREACH-RESPONSE-RUNBOOK.md).
 - Elevated access (D197): opening an identity, exporting evidence and terminating need a 60-minute grant from the admin app's **Elevated access** page (or `POST /api/v1/admin/access/grants`); browser suites use `elevate()` in `tests/auth/local-tokens.cjs`.
+
+## Photos and media screening — 28 October 2026
+
+Photos (D201, D203) need the owner's screening service and storage:
+
+- **Screening**: clone https://github.com/repasscloud/image-moderation-api next to this repository and run `docker compose up -d` there (127.0.0.1:8080; `curl http://localhost:8080/ready`). Arachnid Shield runs only when its credentials are in that project's own `.env`; never copy them here. Without them the local hosts pass photos with `known_content_checked = false` (`Media__Screening__RequireKnownContentCheck=false`, Development only).
+- **Storage**: `SWOOVR_R2_ACCOUNT_ID`, `SWOOVR_R2_ACCESS_KEY_ID`, `SWOOVR_R2_SECRET_ACCESS_KEY`, `SWOOVR_R2_BUCKET` and `SWOOVR_R2_ENDPOINT` in `.local/docker.env` (private bucket). Without them a Development API stores photos under `.local/media`.
+- `.local/run-hosts.sh` passes `Media__R2__*`, `Media__Screening__BaseUrl` (default http://127.0.0.1:8080) and `Media__Screening__RequireKnownContentCheck` (default false) to the API; hosts built before the photos slice ignore them. `SWOOVR_EXTRA_API_PORT=5090 bash .local/run-hosts.sh` starts only one more API (the photos suite uses it with `Media__Screening__Simulate=uncertain|blocked`, Development only, and with an unreachable screener).
+- `accounts purge` deletes photo objects of removed, rejected and released-blocked photos (it needs the same `Media__R2__*` settings; `tests/auth/local-tokens.cjs` passes them).
+- Suites: `tests/media/photos.browser.cjs` (synthetic images only; deletes its objects at the end) and `tests/media/cleanup.browser.cjs` (removes objects left by fictional accounts after an aborted run, releasing only their `media-screening` holds).

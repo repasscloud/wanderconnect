@@ -42,12 +42,19 @@ public static class ProfilePrivacy
         var modes = await db.MemberModes.Where(m => m.AccountId == account).ToListAsync(cancellationToken);
         var chips = await (from i in db.MemberModeIntentions join o in db.ModeIntentions on i.IntentionId equals o.Id
                            where i.AccountId == account select new { i.ModeId, o.Label }).ToListAsync(cancellationToken);
-        var snapshots = new List<(string Mode, object Content)> { (ProfileVersions.Core, new { profile.DisplayName, profile.Area, profile.About }) };
+        // D203: the photos shown, by id and SHA-256 of the stored image (the main photo in core, each mode's own in the mode).
+        var photos = (await (from p in db.MediaPlacements join i in db.MediaItems on p.MediaId equals i.Id
+                             where p.AccountId == account && i.Status == MediaStatus.Passed && i.RemovedAt == null
+                             orderby p.Position select new { p.Scope, i.Id, i.Sha256 }).ToListAsync(cancellationToken))
+            .GroupBy(p => p.Scope).ToDictionary(g => g.Key, g => g.Select(p => new { p.Id, Sha256 = Convert.ToHexStringLower(p.Sha256) }).ToList());
+        var snapshots = new List<(string Mode, object Content)>
+            { (ProfileVersions.Core, new { profile.DisplayName, profile.Area, profile.About, MainPhoto = photos.GetValueOrDefault(MediaPolicy.Main)?.FirstOrDefault() }) };
         snapshots.AddRange(modes.Select(m => (m.ModeId, (object)new
         {
             m.Enabled, m.Visible, ModeAbout = m.About, ShareCoreAbout = m.ShareCoreAbout == true,
             ShownAbout = ModePrivacy.About(m.About, profile.About, m.ShareCoreAbout),
             Intentions = chips.Where(c => c.ModeId == m.ModeId).Select(c => c.Label).Order().ToList(),
+            Photos = photos.GetValueOrDefault(m.ModeId) ?? [],
         })));
         var latest = (await db.ProfileVersions.Where(v => v.AccountId == account).ToListAsync(cancellationToken))
             .GroupBy(v => v.ModeId).ToDictionary(g => g.Key, g => g.OrderByDescending(v => v.CapturedAt).First());

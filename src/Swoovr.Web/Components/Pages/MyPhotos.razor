@@ -1,0 +1,18 @@
+@page "/me/photos"
+<PageTitle>Your photos — Swoovr</PageTitle>
+<div class="column">
+@if (!signedIn)
+{
+    <div class="page-heading"><h1>Your photos</h1><p>Sign in to manage your photos.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a></p>
+}
+else
+{
+    <PhotosPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+}
+</div>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private bool signedIn;
+    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+}

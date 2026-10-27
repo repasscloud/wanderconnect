@@ -74,6 +74,7 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Your Swoovr" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
                             <Button Text="Your profile" AutomationId="MeProfile" Style="{StaticResource SecondaryButton}" Clicked="OnProfile" />
+                            <Button Text="Photos" AutomationId="MePhotos" Style="{StaticResource SecondaryButton}" Clicked="OnPhotos" />
                             <Button Text="Who I'd like to meet" AutomationId="MeMatching" Style="{StaticResource SecondaryButton}" Clicked="OnMatching" />
                             <Button Text="Travel" AutomationId="MeTravel" Style="{StaticResource SecondaryButton}" Clicked="OnTravel" />
                             <Button Text="ID verification" AutomationId="MeVerification" Style="{StaticResource SecondaryButton}" Clicked="OnVerification" />

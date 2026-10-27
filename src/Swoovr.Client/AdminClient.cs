@@ -206,6 +206,25 @@ public sealed class AdminClient(HttpClient http)
         return ((int)response.StatusCode, response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(cancellationToken) : null);
     }
 
+    /// <summary>D203: uncertain photos waiting for review (admins only).</summary>
+    public Task<ApiResult<MediaReviewQueue>> MediaReviewAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<MediaReviewQueue>(HttpMethod.Get, "api/v1/admin/media/review", null, cancellationToken);
+
+    /// <summary>A short-lived review link, recorded with the purpose in the sensitive-access log.</summary>
+    public Task<ApiResult<MediaReviewLink>> ViewMediaAsync(Guid id, string? purpose, CancellationToken cancellationToken = default) =>
+        SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/v1/admin/media/{id}/view", new MediaViewRequest(purpose), cancellationToken);
+
+    /// <summary>approve, reject or escalate; the status code only.</summary>
+    public Task<int> DecideMediaAsync(Guid id, string decision, string? reason, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Post, $"api/v1/admin/media/{id}/decision", new MediaDecision(decision, reason), cancellationToken);
+
+    /// <summary>The image behind a review link, or null.</summary>
+    public async Task<byte[]?> MediaAsync(string link, CancellationToken cancellationToken = default)
+    {
+        using var response = await http.GetAsync(link, cancellationToken);
+        return response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(cancellationToken) : null;
+    }
+
     /// <summary>The one-time evidence package (JSON bytes), or null with the API's status.</summary>
     public async Task<(int Status, byte[]? Body)> DownloadExportAsync(string token, CancellationToken cancellationToken = default)
     {

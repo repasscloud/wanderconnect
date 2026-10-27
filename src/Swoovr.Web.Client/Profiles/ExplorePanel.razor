@@ -77,7 +77,7 @@
                 {
                     @* #90: a rounded distance band between home cities, never a distance. *@
                     <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Area="@string.Join(" · ", new[] { person.Area, person.DistanceBand }.Where(x => !string.IsNullOrEmpty(x)))"
-                                 Intentions="person.Intentions" Quote="@Quote(person.About)">
+                                 Intentions="person.Intentions" Quote="@Quote(person.About)" Photo="@(person.Photo is { } photo ? TilePhoto(photo, person.DisplayName) : null)">
                         <Badges><BadgeRow Badges="person.Badges" /></Badges>
                     </ProfileTile>
                 }
@@ -145,4 +145,15 @@
 
     // Photo-free tiles show a short quote (UI-STYLE.md); photos are not part of profiles yet.
     private static string Quote(string? about) => about is null ? "No about yet." : about.Length <= 90 ? about : about[..89].TrimEnd() + "…";
+
+    // D203: an approved photo through its short-lived link.
+    private static RenderFragment TilePhoto(PhotoView photo, string name) => builder =>
+    {
+        builder.OpenElement(0, "img");
+        builder.AddAttribute(1, "src", PhotoText.Web(photo.Link));
+        builder.AddAttribute(2, "alt", $"{name}'s photo");
+        builder.AddAttribute(3, "loading", "lazy");
+        builder.AddAttribute(4, "data-tile-photo", photo.Id.ToString());
+        builder.CloseElement();
+    };
 }

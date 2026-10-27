@@ -58,6 +58,12 @@ internal static class Ui
 		return button;
 	}
 
+	/// <summary>D203: an approved photo through its short-lived signed link, straight from the API.</summary>
+	public static View Photo(string link, string id, double width, double? height = null) =>
+		MobileEndpoints.Api is not { } api ? new BoxView { HeightRequest = 0 }
+			: new Image { Source = ImageSource.FromUri(new Uri(PhotoText.App(api, link))), Aspect = Aspect.AspectFill, WidthRequest = width,
+				HeightRequest = height ?? width * 4 / 3, AutomationId = id }.WithDescription("Photo");
+
 	public static Entry Entry(string id, string placeholder, int max) => new() { AutomationId = id, Placeholder = placeholder, MaxLength = max };
 
 	public static View Labelled(string label, View input) =>

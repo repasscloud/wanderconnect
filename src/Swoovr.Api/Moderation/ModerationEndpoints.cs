@@ -328,7 +328,7 @@ public static class ModerationEndpoints
     /// D135: urgent reports go at once to SWOOVR_ESCALATION_EMAIL (configuration `Moderation:EscalationEmail`, never
     /// committed) and the case stays awaiting acknowledgement. The email carries ids and the category only.
     /// </summary>
-    private static async Task EscalateAsync(SwoovrDbContext db, ModerationCase item, string category, bool serious, IConfiguration configuration, IEmailSender email,
+    internal static async Task EscalateAsync(SwoovrDbContext db, ModerationCase item, string category, bool serious, IConfiguration configuration, IEmailSender email,
         DateTimeOffset now, ILoggerFactory logs, CancellationToken cancellationToken)
     {
         // D159: the primary and backup contacts (Moderation:EscalationEmail and Moderation:EscalationBackupEmail, from

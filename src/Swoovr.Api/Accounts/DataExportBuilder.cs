@@ -15,7 +15,7 @@ public static class DataExportBuilder
     private const string DeletedMember = "Deleted member";
 
     public static async Task<object> BuildAsync(SwoovrDbContext db, Account account, DateTimeOffset now, CancellationToken cancellationToken,
-        VerifiedIdentityFields? verifiedIdentity = null)
+        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null)
     {
         var id = account.Id;
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
@@ -77,6 +77,8 @@ public static class DataExportBuilder
             },
             modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals,
             idVerification = verification, entitlements,
+            // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
+            photos = photos ?? [],
             // D191: the member's own verified identity record, as kept (Q78: the export includes it).
             verifiedIdentity = verifiedIdentity is null ? null : new
             {

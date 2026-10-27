@@ -168,12 +168,13 @@ public static class StaffAccessPolicy
             "access" => ("access", Id(5), false),
             "staff" => ("staff", Id(4), false),
             "accounts" when parts.Length > 5 && parts[5] == "identity" => ("identity", Id(4), false),
+            "media" => ("media", Id(4), false),
             _ => null,
         };
         if (kind is not var (resource, id, export)) return null;
         var action = status is 401 or 403 ? "refused"
             : export ? "export"
-            : resource == "identity" ? "view"
+            : resource == "identity" || resource == "media" && path.EndsWith("/view") ? "view"
             : method is "GET" or "HEAD" ? (id is null ? "query" : "view")
             : "change";
         return (resource, id, action);

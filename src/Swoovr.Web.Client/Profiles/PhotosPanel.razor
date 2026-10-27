@@ -1,0 +1,123 @@
+@* The member's photos (D203; policy §5, §6, §10). Every upload is checked before anyone can see it; the page shows
+   only its state until then. One main photo is shown in every mode the member shows themselves in (D175); each mode can
+   also have its own photos, picked here (#91), never copied across modes. *@
+@inject MemberClient Members
+<div class="page-heading" data-photos-panel="@(loaded ? "ready" : "loading")">
+    <p class="breadcrumb"><a href="/account">Me</a> / <a href="/me/profile">Profile</a> / Photos</p>
+    <h1>Your photos</h1>
+    <p class="field-help">@PhotoText.Rules</p>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (refused is not null) { <p role="status" data-photos-refused="@refused">We couldn't load your photos.</p> }
+</div>
+@if (loaded && refused is null && photos is not null)
+{
+    <section class="card account-section" aria-labelledby="upload-heading">
+        <h2 id="upload-heading">Add a photo</h2>
+        <InputFile OnChange="UploadAsync" accept="image/jpeg,image/png,image/webp" disabled="@busy" data-photo-input />
+        <p class="field-help">JPEG, PNG or WebP, up to 10 MB. You can keep up to @photos.MaxKept photos.</p>
+        <p role="status" aria-live="polite" class="field-help" data-photo-status="@status">@message</p>
+    </section>
+
+    <section class="card account-section" aria-labelledby="mine-heading">
+        <h2 id="mine-heading">Your photos</h2>
+        @if (photos.Photos.Count == 0) { <p class="field-help" data-photos="none">No photos yet.</p> }
+        <ul class="photo-grid" data-photos="@photos.Photos.Count">
+            @foreach (var photo in photos.Photos)
+            {
+                <li class="photo-item" data-photo="@photo.Id" data-photo-state="@photo.State" data-photo-main="@(photos.Main == photo.Id ? "yes" : "no")">
+                    @if (photo.Link is not null) { <img src="@PhotoText.Web(photo.Link)" alt="Your photo" loading="lazy" data-photo-image="@photo.Id" /> }
+                    else { <div class="photo-placeholder" aria-hidden="true"></div> }
+                    <p class="field-help" data-photo-state-text>@PhotoText.State(photo.State)</p>
+                    @if (photo.State == "approved")
+                    {
+                        if (photos.Main == photo.Id) { <p class="field-help"><strong>Main photo</strong></p> }
+                        else { <button type="button" class="link-button" disabled="@busy" @onclick="() => PlaceAsync(MainScope, [photo.Id])" data-make-main="@photo.Id">Make main photo</button> }
+                    }
+                    <button type="button" class="link-button" disabled="@busy" @onclick="() => DeleteAsync(photo.Id)" data-delete-photo="@photo.Id">Delete</button>
+                </li>
+            }
+        </ul>
+    </section>
+
+    @if (modes.Count > 0 && Approved.Count > 0)
+    {
+        <section class="card account-section" aria-labelledby="modes-photos-heading">
+            <h2 id="modes-photos-heading">Photos for each mode</h2>
+            <p class="field-help">Your main photo shows in every mode you use. Pick extra photos for a mode here; they show only in that mode (up to @photos.MaxPerMode).</p>
+            @foreach (var mode in modes)
+            {
+                var chosen = photos.Modes.GetValueOrDefault(mode.Id) ?? [];
+                <fieldset class="stack" data-mode-photos="@mode.Id" data-mode-photo-count="@chosen.Count">
+                    <legend>@mode.Label</legend>
+                    @foreach (var photo in Approved)
+                    {
+                        var on = chosen.Contains(photo.Id);
+                        <label class="option"><input type="checkbox" checked="@on" disabled="@(busy || !on && chosen.Count >= photos.MaxPerMode)"
+                               @onchange="e => PlaceAsync(mode.Id, Toggle(chosen, photo.Id, e.Value is true))" data-mode-photo="@($"{mode.Id}:{photo.Id}")" />
+                            <img src="@PhotoText.Web(photo.Link!)" alt="" class="photo-thumb" /> Show in @mode.Label</label>
+                    }
+                </fieldset>
+            }
+        </section>
+    }
+}
+@code {
+    private const string MainScope = "main";
+    private MyPhotosView? photos;
+    private List<ConnectionModeView> modes = [];
+    private bool loaded, busy;
+    private string? refused, message, status;
+
+    private List<MyPhotoView> Approved => photos?.Photos.Where(p => p.State == "approved" && p.Link is not null).ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Members.PhotosAsync();
+        if (result.Ok) photos = result.Value; else refused = result.Code ?? result.Status.ToString();
+        if (await Members.ModesAsync() is { Ok: true } catalogue) modes = catalogue.Value!.ToList();
+        loaded = true;
+    }
+
+    private static List<Guid> Toggle(IReadOnlyList<Guid> chosen, Guid id, bool on) => on ? [.. chosen, id] : chosen.Where(c => c != id).ToList();
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        busy = true;
+        try
+        {
+            if (e.File.Size > 10 * 1024 * 1024) { (status, message) = ("photo-too-big", PhotoText.Refusal("photo-too-big")); return; }
+            using var stream = e.File.OpenReadStream(10 * 1024 * 1024);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            var result = await Members.UploadPhotoAsync(buffer.ToArray(), e.File.Name, e.File.ContentType);
+            (status, message) = result.Ok ? ("checking", "Uploaded. We're checking it now — nobody can see it until it's approved.") : (result.Code ?? "error", PhotoText.Refusal(result.Code));
+            if (result.Ok) await RefreshAsync();
+        }
+        finally { busy = false; }
+        // The check usually takes a few seconds: look again so the state updates without a reload.
+        for (var i = 0; i < 20 && photos?.Photos.Any(p => p.State == "checking") == true; i++) { await Task.Delay(1500); await RefreshAsync(); StateHasChanged(); }
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (await Members.PhotosAsync() is { Ok: true } result) photos = result.Value;
+    }
+
+    private async Task PlaceAsync(string scope, List<Guid> ids)
+    {
+        busy = true;
+        var result = await Members.PlacePhotosAsync(scope, ids);
+        if (result.Ok) (photos, status, message) = (result.Value, "saved", "Saved.");
+        else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
+        busy = false;
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        busy = true;
+        var result = await Members.DeletePhotoAsync(id);
+        if (result.Ok) (photos, status, message) = (result.Value, "deleted", "Deleted.");
+        else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
+        busy = false;
+    }
+}

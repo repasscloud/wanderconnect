@@ -20,15 +20,37 @@ public static partial class Bff
 
     [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
         + "|requests|requests/" + Uuid + "/(accept|decline|withdraw|disconnect)|connections|blocks|blocks/" + Uuid
-        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
+        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|me/photos|me/photos/placement|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
         services.AddHttpClient(ApiClient, http =>
         {
             http.BaseAddress = new Uri(configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
-            http.Timeout = TimeSpan.FromSeconds(10);
+            // D203: a photo upload may take longer than an ordinary call.
+            http.Timeout = TimeSpan.FromSeconds(60);
         }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false });
+
+    public const long PhotoUploadLimit = 10 * 1024 * 1024 + 64 * 1024;
+
+    /// <summary>
+    /// D203: a photo's short-lived signed link, passed to the API as is. The token is the permission (made after the API
+    /// checked the viewer's access), so an &lt;img&gt; can load it without the BFF header; nothing else goes through here.
+    /// </summary>
+    public static void MapMedia(WebApplication app) =>
+        app.MapGet("/media/{token}", async (string token, HttpContext context, IHttpClientFactory clients) =>
+        {
+            if (context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodePagesFeature>() is { } pages) pages.Enabled = false;
+            if (!MediaToken().IsMatch(token)) return Results.NotFound();
+            using var response = await clients.CreateClient(ApiClient).GetAsync("api/v1/media/" + token, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+            if (!response.IsSuccessStatusCode) return Results.NotFound();
+            context.Response.Headers.CacheControl = "private, max-age=300";
+            context.Response.Headers.XContentTypeOptions = "nosniff";
+            return Results.File(await response.Content.ReadAsByteArrayAsync(context.RequestAborted), "image/jpeg");
+        });
+
+    [GeneratedRegex(@"^[0-9a-f]{32}\.member\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")]
+    private static partial Regex MediaToken();
 
     public static void MapBff(WebApplication app) =>
         app.MapMethods("/bff/{**path}", ["GET", "POST", "PUT", "DELETE"], async (string? path, HttpContext context, IHttpClientFactory clients) =>
@@ -48,7 +70,9 @@ public static partial class Bff
             if (context.Connection.RemoteIpAddress is { } address) request.Headers.TryAddWithoutValidation("X-Forwarded-For", address.ToString());
             if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Count > 0)
             {
-                if (context.Request.ContentLength > 16 * 1024) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+                // D203: only the photo upload may carry a large body (10 MB plus the multipart overhead).
+                var limit = path == "api/v1/me/photos" && context.Request.Method == "POST" ? PhotoUploadLimit : 16 * 1024;
+                if (context.Request.ContentLength > limit) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 request.Content = new StreamContent(context.Request.Body);
                 if (context.Request.ContentType is { } type) request.Content.Headers.TryAddWithoutValidation("Content-Type", type);
             }

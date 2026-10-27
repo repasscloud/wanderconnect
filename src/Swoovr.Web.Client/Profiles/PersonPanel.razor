@@ -20,6 +20,17 @@
 </div>
 @if (person is not null)
 {
+    @* D203: the main photo, then each shown mode's own photos (approved only, short-lived links; never another mode's). *@
+    @if (person.Photo is not null || person.Modes.Any(m => m.Photos?.Count > 0))
+    {
+        <section class="person-photos" aria-label="Photos" data-person-photos="@((person.Photo is null ? 0 : 1) + person.Modes.Sum(m => m.Photos?.Count ?? 0))">
+            @if (person.Photo is not null) { <img src="@PhotoText.Web(person.Photo.Link)" alt="@($"{person.DisplayName}'s photo")" class="person-photo" data-person-photo="main" /> }
+            @foreach (var mode in person.Modes.Where(m => m.Photos?.Count > 0))
+            {
+                foreach (var photo in mode.Photos!) { <img src="@PhotoText.Web(photo.Link)" alt="@($"{person.DisplayName}'s photo in {mode.Label}")" class="person-photo" data-person-photo="@mode.Id" loading="lazy" /> }
+            }
+        </section>
+    }
     @* D175: each mode shows its own about (the core about where none is set); one block when they're all the same. *@
     @if (person.Modes.Select(m => m.About).Distinct().Count() > 1)
     {

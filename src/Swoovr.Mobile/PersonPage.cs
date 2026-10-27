@@ -47,6 +47,16 @@ public sealed class PersonPage : ContentPage
 			return;
 		}
 		var details = string.Join(" · ", new[] { person.Age?.ToString(), person.Gender, person.Pronouns }.Where(x => x is not null));
+		// D203: the main photo, then each shown mode's own photos (never another mode's).
+		var shown = new List<View>();
+		if (person.Photo is { } main) shown.Add(Ui.Photo(main.Link, "PersonPhoto_main", 220));
+		foreach (var mode in person.Modes) foreach (var photo in mode.Photos ?? []) shown.Add(Ui.Photo(photo.Link, $"PersonPhoto_{mode.Id}_{photo.Id}", 220));
+		if (shown.Count > 0)
+		{
+			var row = new HorizontalStackLayout { Spacing = 8 };
+			foreach (var view in shown) row.Children.Add(view);
+			body.Children.Add(new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = row, AutomationId = "PersonPhotos" });
+		}
 		body.Children.Add(Ui.Text(person.DisplayName, "PageTitle", "PersonName"));
 		body.Children.Add(Ui.BadgeRow(person.Badges, "PersonBadges", 20, dated: true));
 		if (details.Length > 0) body.Children.Add(Ui.Text(details, "FooterClaims", "PersonDetails"));

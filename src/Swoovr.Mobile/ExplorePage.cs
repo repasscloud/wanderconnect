@@ -86,6 +86,8 @@ public sealed class ExplorePage : ContentPage
 	{
 		var details = string.Join(" · ", new[] { person.Age?.ToString(), person.Gender, person.Pronouns }.Where(x => x is not null));
 		var card = Ui.Card(
+			// D203: the approved main photo (or this mode's first), through its short-lived link.
+			person.Photo is { } photo ? Ui.Photo(photo.Link, $"TilePhoto_{person.Id}", 170, 170) : new BoxView { HeightRequest = 0 },
 			new HorizontalStackLayout { Spacing = 8, Children = { Ui.Text(person.DisplayName, "TileName", $"Person_{person.Id}"), Ui.BadgeRow(person.Badges, $"Badges_{person.Id}") } },
 			Ui.Text(details.Length == 0 ? null : details, "FooterClaims", $"Details_{person.Id}"),
 			Ui.Text(string.Join(" · ", person.Intentions), "FooterClaims"),

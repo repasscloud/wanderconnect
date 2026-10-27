@@ -199,6 +199,15 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
     /// <summary>D191: the verified identity record, opened into the sealed evidence item (only `legal` can export it).</summary>
     private async Task ExtraAsync(LegalHold hold, Guid account, Action<string, string, string, Guid?, object> add, CancellationToken cancellationToken)
     {
+        // D203: every photo of the account, by hash and object key; while the hold lives no purge deletes the objects.
+        foreach (var media in await db.MediaItems.Where(i => i.AccountId == account).ToListAsync(cancellationToken))
+            add("media-item", "media_items", media.Id.ToString(), account, new
+            {
+                media.Id, media.AccountId, media.Status, Sha256 = Convert.ToHexStringLower(media.Sha256), UploadSha256 = Convert.ToHexStringLower(media.UploadSha256),
+                media.ContentType, media.Width, media.Height, media.Bytes, media.CreatedAt, media.ScreenedAt, media.Screener, media.PolicyVersion, media.Signals,
+                media.KnownContentChecked, media.ReviewedBy, media.ReviewedAt, media.ReplacesId, media.CaseId, media.RemovedAt, media.ObjectKey,
+                Placements = await db.MediaPlacements.Where(p => p.MediaId == media.Id).Select(p => p.Scope).ToListAsync(cancellationToken),
+            });
         if (await db.VerifiedIdentities.FindAsync([account], cancellationToken) is not { } record) return;
         var fields = services.GetRequiredService<Verification.VerifiedIdentityStore>().OpenForEvidence(record);
         add("identity-record", "restricted.verified_identities", account.ToString(), account, new

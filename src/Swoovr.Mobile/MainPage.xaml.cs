@@ -122,6 +122,7 @@ public partial class MainPage : ContentPage
 	}
 
 	private async void OnProfile(object? sender, EventArgs e) => await Ui.PushAsync(new ProfilePage());
+	private async void OnPhotos(object? sender, EventArgs e) => await Ui.PushAsync(new PhotosPage());
 	private async void OnMatching(object? sender, EventArgs e) => await Ui.PushAsync(new MatchingPage());
 	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());

@@ -2403,6 +2403,208 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MediaItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("Bytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("bytes");
+
+                    b.Property<Guid?>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<Guid?>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<bool>("KnownContentChecked")
+                        .HasColumnType("boolean")
+                        .HasColumnName("known_content_checked");
+
+                    b.Property<string>("LastScreenError")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("last_screen_error");
+
+                    b.Property<DateTimeOffset?>("NextScreenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_screen_at");
+
+                    b.Property<DateTimeOffset?>("ObjectDeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("object_deleted_at");
+
+                    b.Property<string>("ObjectKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("object_key");
+
+                    b.Property<string>("PolicyVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("removed_at");
+
+                    b.Property<Guid?>("ReplacesId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaces_id");
+
+                    b.Property<string>("ReviewReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("review_reason");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
+
+                    b.Property<int>("ScreenAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("screen_attempts");
+
+                    b.Property<DateTimeOffset?>("ScreenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("screened_at");
+
+                    b.Property<string>("Screener")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("screener");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sha256");
+
+                    b.Property<string>("Signals")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("signals");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<byte[]>("UploadSha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("upload_sha256");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id")
+                        .HasName("pk_media_items");
+
+                    b.HasIndex("Sha256")
+                        .HasDatabaseName("ix_media_items_sha256");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_media_items_account_id_created_at");
+
+                    b.HasIndex("Status", "NextScreenAt")
+                        .HasDatabaseName("ix_media_items_status_next_screen_at");
+
+                    b.ToTable("media_items");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaPlacement", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("scope");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.HasKey("AccountId", "Scope", "Position")
+                        .HasName("pk_media_placements");
+
+                    b.HasIndex("MediaId")
+                        .HasDatabaseName("ix_media_placements_media_id");
+
+                    b.ToTable("media_placements");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaReviewView", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.HasKey("Id")
+                        .HasName("pk_media_review_views");
+
+                    b.HasIndex("MediaId", "At")
+                        .HasDatabaseName("ix_media_review_views_media_id_at");
+
+                    b.ToTable("media_review_views");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -4791,6 +4993,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_market_modes_connection_modes_mode_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaPlacement", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MediaItem", null)
+                        .WithMany()
+                        .HasForeignKey("MediaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_placements_media_items_media_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>

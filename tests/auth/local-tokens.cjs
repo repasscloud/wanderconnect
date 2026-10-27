@@ -169,7 +169,10 @@ async function cli(...args) {
   const env = { ...process.env, ConnectionStrings__Swoovr: connection, DOTNET_ENVIRONMENT: 'Development',
     Founders__Secrets__1: process.env.Founders__Secrets__1 ?? await localEnv('SWOOVR_FOUNDER_SECRET_V1') ?? '',
     MemberAdmin__ClientSecret: await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET') ?? '',
-    Didit__ApiKey: await localEnv('SWOOVR_DIDIT_API_KEY') ?? '', Didit__WorkflowId: await localEnv('SWOOVR_DIDIT_WORKFLOW_ID') ?? '' };
+    Didit__ApiKey: await localEnv('SWOOVR_DIDIT_API_KEY') ?? '', Didit__WorkflowId: await localEnv('SWOOVR_DIDIT_WORKFLOW_ID') ?? '',
+    // D203: `accounts purge` deletes photo objects from the same R2 bucket the hosts use.
+    Media__R2__Endpoint: await localEnv('SWOOVR_R2_ENDPOINT') ?? '', Media__R2__Bucket: await localEnv('SWOOVR_R2_BUCKET') ?? '',
+    Media__R2__AccessKeyId: await localEnv('SWOOVR_R2_ACCESS_KEY_ID') ?? '', Media__R2__SecretAccessKey: await localEnv('SWOOVR_R2_SECRET_ACCESS_KEY') ?? '' };
   return new Promise((resolve, reject) => execFile('dotnet', [dll, ...args], { env,
   }, (error, stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve(stdout)));
 }
