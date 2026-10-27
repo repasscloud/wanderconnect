@@ -24,6 +24,11 @@ else
         @if (c.Status != "closed") { <button name="StepForm.Step" value="close" type="submit" class="secondary" data-step="close">Close case</button> }
     </form>
 
+    @if (c.SystemFlag is "returning-terminated-identity" or "returning-terminated-phone")
+    {
+        @* D191, #87: a lead, never proof; numbers are reassigned and names repeat. *@
+        <p class="notice" data-system-flag="@c.SystemFlag">Swoovr opened this case: this account's @(c.SystemFlag == "returning-terminated-phone" ? "verified mobile number" : "verified identity (name and date of birth)") matches a terminated member's. Nothing is blocked; a match alone doesn't prove it's the same person.</p>
+    }
     @if (c.SystemFlag == "returning-terminated")
     {
         @* D171: opened by Swoovr, not a report. Nothing is blocked; an admin decides whether this is the same person. *@

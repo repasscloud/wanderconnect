@@ -90,6 +90,14 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<DobReviewView>> ResolveDobReviewAsync(Guid id, string outcome, string reason, CancellationToken cancellationToken = default) =>
         SendAsync<DobReviewView>(HttpMethod.Post, $"api/v1/admin/dob-reviews/{id}/resolve", new DobReviewDecision(outcome, reason), cancellationToken);
 
+    /// <summary>D191: opens one verified identity record (`legal` only) with a recorded purpose.</summary>
+    public Task<ApiResult<VerifiedIdentityView>> IdentityAsync(Guid accountId, string? purpose, CancellationToken cancellationToken = default) =>
+        SendAsync<VerifiedIdentityView>(HttpMethod.Post, $"api/v1/admin/accounts/{accountId}/identity", new IdentityAccessRequest(purpose), cancellationToken);
+
+    /// <summary>D187, #87: who held a number or address and when (admins only), never the values.</summary>
+    public Task<ApiResult<ContactHistoryResult>> ContactHistoryAsync(string type, string value, CancellationToken cancellationToken = default) =>
+        SendAsync<ContactHistoryResult>(HttpMethod.Get, $"api/v1/admin/contact-history?type={Uri.EscapeDataString(type)}&value={Uri.EscapeDataString(value)}", null, cancellationToken);
+
     // Legal holds and evidence (D189): `legal` only, except the overview and an admin's provisional hold from a case.
     public Task<ApiResult<HoldOverview>> HoldOverviewAsync(CancellationToken cancellationToken = default) =>
         SendAsync<HoldOverview>(HttpMethod.Get, "api/v1/admin/holds/overview", null, cancellationToken);

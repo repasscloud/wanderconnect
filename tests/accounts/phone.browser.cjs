@@ -87,6 +87,8 @@ async function latestCode(number) {
     assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: bobCode } })), [409, 'phone-in-use']); pass();
 
     // D184: Ana changes number; verifying the new one releases the old one for someone else, and the log says "changed".
+    // #87: changing a verified number needs a fresh sign-in (slice AA).
+    tokens.ana = await memberToken(browser, members.ana);
     await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: local(103) } });
     r = await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(103), code: (await latestCode(e164(103))).code } });
     assert.deepEqual([r.status, r.body.number], [200, '+61••••••103']); pass();

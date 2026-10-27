@@ -91,6 +91,27 @@ public static class Cli
                 Console.WriteLine(args[1] == "grant" ? "Legal role granted." : "Legal role revoked.");
                 return 0;
             }
+            // D191: one-off backfill of the verified identity store for approved checks Didit still keeps (30 days). Members
+            // whose decision has gone have no record until they verify again; nobody is asked to.
+            case ["identity", "backfill", ..]:
+            {
+                var store = scope.ServiceProvider.GetRequiredService<Swoovr.Api.Verification.VerifiedIdentityStore>();
+                var provider = scope.ServiceProvider.GetRequiredService<IIdVerificationProvider>();
+                if (!store.Configured || !provider.Configured) { Console.Error.WriteLine("Identity store keys or Didit are not configured."); return 2; }
+                var (recorded, gone) = (0, 0);
+                var due = await db.IdVerificationAttempts.Where(a => a.State == IdAttemptState.Approved && a.CompletedAt > now.AddDays(-30)
+                    && !db.VerifiedIdentities.Any(i => i.AccountId == a.AccountId)).ToListAsync();
+                foreach (var attempt in due)
+                {
+                    var decision = await provider.GetDecisionAsync(attempt.SessionId, CancellationToken.None);
+                    if (decision is not null && decision.SessionId == attempt.SessionId && decision.VendorData == attempt.AccountId.ToString()
+                        && await store.RecordAsync(attempt.AccountId, attempt, decision, now, CancellationToken.None)) recorded++;
+                    else gone++;
+                }
+                await db.SaveChangesAsync();
+                Console.WriteLine($"Identity store: {recorded} recorded, {gone} without a readable decision.");
+                return 0;
+            }
             case ["beta", "add", "--file", var path, ..]:
                 // One address per line; blank lines and lines starting with # are ignored.
                 return await AddAll(db, File.ReadLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')), now);
@@ -140,7 +161,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
                 return 2;
         }
     }

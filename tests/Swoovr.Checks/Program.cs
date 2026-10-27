@@ -21,6 +21,7 @@ DobCorrectionChecks.Run();
 DeletionChecks.Run();
 LegalHoldChecks.Run();
 SeriousIncidentChecks.Run();
+IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();

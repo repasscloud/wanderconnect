@@ -19,7 +19,7 @@ public sealed record IdentityAdminOptions(string BaseUrl, string Realm, string C
 /// token endpoint, then POST /admin/realms/{realm}/users/{id}/logout and DELETE /admin/realms/{realm}/users/{id}.
 /// The user id is the token's subject. Statuses only are logged: Keycloak's error bodies can echo user data.
 /// </summary>
-public sealed class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions options, TimeProvider clock, ILogger<KeycloakIdentityAdmin> log) : IIdentityAdmin
+public sealed partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions options, TimeProvider clock, ILogger<KeycloakIdentityAdmin> log) : IIdentityAdmin
 {
     private string? token;
     private DateTimeOffset tokenExpires;
@@ -29,6 +29,34 @@ public sealed class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions 
 
     public async Task<bool> SignOutEverywhereAsync(string subject, CancellationToken cancellationToken) =>
         Guid.TryParse(subject, out var id) && await SendAsync(HttpMethod.Post, $"users/{id}/logout", "logout", notFoundIsDone: true, cancellationToken);
+
+    /// <summary>GET /admin/realms/{realm}/users/{id}/sessions, then DELETE /admin/realms/{realm}/sessions/{session} for each other one.</summary>
+    public async Task<bool> SignOutOtherSessionsAsync(string subject, string? keepSessionId, CancellationToken cancellationToken)
+    {
+        if (!Configured || !Guid.TryParse(subject, out var id)) return false;
+        try
+        {
+            var bearer = await TokenAsync(cancellationToken);
+            if (bearer is null) return false;
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{options.BaseUrl.TrimEnd('/')}/admin/realms/{options.Realm}/users/{id}/sessions");
+            request.Headers.Authorization = new("Bearer", bearer);
+            using var response = await http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode) { log.LogWarning("Keycloak sessions returned {Status}.", (int)response.StatusCode); return false; }
+            using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+            var ok = true;
+            foreach (var session in body.RootElement.EnumerateArray())
+                // Keycloak 26 session ids are URL-safe tokens, not GUIDs; anything else is skipped and reported as not done.
+                if (session.TryGetProperty("id", out var sid) && sid.GetString() is { } other && other != keepSessionId)
+                    ok &= SessionId().IsMatch(other)
+                        && await SendAsync(HttpMethod.Delete, $"sessions/{other}", "session logout", notFoundIsDone: true, cancellationToken);
+            return ok;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            log.LogWarning("Keycloak sessions failed: {Kind}.", exception.GetType().Name);
+            return false;
+        }
+    }
 
     public async Task<bool> DeleteUserAsync(string subject, CancellationToken cancellationToken) =>
         !Guid.TryParse(subject, out var id) || await SendAsync(HttpMethod.Delete, $"users/{id}", "delete", notFoundIsDone: true, cancellationToken);
@@ -79,4 +107,7 @@ public sealed class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions 
         }
         finally { gate.Release(); }
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex("^[A-Za-z0-9_-]{1,128}$")]
+    private static partial System.Text.RegularExpressions.Regex SessionId();
 }

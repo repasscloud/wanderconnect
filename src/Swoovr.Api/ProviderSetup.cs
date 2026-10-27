@@ -29,6 +29,9 @@ public static class ProviderSetup
         // D189: legal holds and the evidence store (keys from configuration, else derived from the founder secret).
         services.AddScoped<Swoovr.Api.Evidence.EvidenceKeys>();
         services.AddScoped<Swoovr.Api.Evidence.EvidencePreservation>();
+        // D191: the verified identity store and its keys.
+        services.AddScoped<Swoovr.Api.Verification.IdentityKeys>();
+        services.AddScoped<Swoovr.Api.Verification.VerifiedIdentityStore>();
         // D153, D174: Twilio only when Sms:Provider is "twilio"; otherwise the labelled simulated sender, which writes to
         // the local mail sink in Development and sends nothing anywhere else.
         var twilio = new TwilioOptions(configuration["Sms:Twilio:AccountSid"], configuration["Sms:Twilio:AuthToken"], configuration["Sms:Twilio:From"],

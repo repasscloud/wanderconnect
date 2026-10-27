@@ -110,4 +110,6 @@ public interface IVerificationMessageSender
     /// <summary>"twilio" or "simulated"; a simulated sender never claims delivery.</summary>
     string Kind { get; }
     Task<bool> SendCodeAsync(string number, string code, CancellationToken cancellationToken);
+    /// <summary>#87 (policy §4): a short security notice, for example to a number that was just replaced. Never the new number.</summary>
+    Task<bool> SendNoticeAsync(string number, string text, CancellationToken cancellationToken);
 }

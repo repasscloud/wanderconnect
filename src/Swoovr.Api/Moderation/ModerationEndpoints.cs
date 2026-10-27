@@ -730,7 +730,10 @@ public static class ModerationEndpoints
             profile?.DateOfBirthVerified ?? false, profile?.HomeReviewFlaggedAt,
             // D150: counts only, never where; the last 30 days' device and IP checks that disagreed with the home city.
             await db.HomeLocationChecks.CountAsync(c => c.AccountId == id && c.Outcome == HomeConsistency.Inconsistent && c.CheckedAt > now - HomeLocationPolicy.Window, cancellationToken),
-            profile is null ? "none" : Wire(profile.DobCheck));
+            profile is null ? "none" : Wire(profile.DobCheck),
+            // D191: only that a verified identity is on file, when and from which country; never the fields.
+            await db.VerifiedIdentities.Where(i => i.AccountId == id).Select(i => (DateTimeOffset?)i.VerifiedAt).SingleOrDefaultAsync(cancellationToken),
+            await db.VerifiedIdentities.Where(i => i.AccountId == id).Select(i => i.IssuingCountry).SingleOrDefaultAsync(cancellationToken));
     }
 }
 

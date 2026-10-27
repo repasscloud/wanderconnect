@@ -1413,6 +1413,42 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("id_verification_attempts");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.IdentityAccess", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_accesses");
+
+                    b.HasIndex("AccountId", "At")
+                        .HasDatabaseName("ix_identity_accesses_account_id_at");
+
+                    b.ToTable("identity_accesses", "restricted");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3317,6 +3353,29 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("terminated_email_holds");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TerminatedPhoneHold", b =>
+                {
+                    b.Property<byte[]>("PhoneHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("phone_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.HasKey("PhoneHash")
+                        .HasName("pk_terminated_phone_holds");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_terminated_phone_holds_expires_at");
+
+                    b.ToTable("terminated_phone_holds");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3402,6 +3461,72 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_trips_dates", "departure >= arrival");
                         });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.VerifiedIdentity", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attempt_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("decision");
+
+                    b.Property<string>("IssuingCountry")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("issuing_country");
+
+                    b.Property<byte[]>("MatchHmac")
+                        .HasColumnType("bytea")
+                        .HasColumnName("match_hmac");
+
+                    b.Property<string>("Method")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("method");
+
+                    b.Property<DateTimeOffset?>("RetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retain_until");
+
+                    b.Property<byte[]>("Sealed")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("session_id");
+
+                    b.Property<DateTimeOffset>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_verified_identities");
+
+                    b.HasIndex("MatchHmac")
+                        .HasDatabaseName("ix_verified_identities_match_hmac");
+
+                    b.HasIndex("RetainUntil")
+                        .HasDatabaseName("ix_verified_identities_retain_until");
+
+                    b.ToTable("verified_identities", "restricted");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Appeal", b =>

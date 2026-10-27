@@ -169,6 +169,8 @@ public static class ProblemCodes
     public const string DisclosureInvalid = "disclosure-invalid";
     /// <summary>D189: no evidence key is configured, so nothing can be preserved.</summary>
     public const string EvidenceNotConfigured = "evidence-not-configured";
+    /// <summary>D191: opening a verified identity record needs a recorded purpose.</summary>
+    public const string PurposeRequired = "purpose-required";
 }
 
 public sealed record CouponRequest(string Code);

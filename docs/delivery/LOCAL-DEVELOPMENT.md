@@ -164,6 +164,8 @@ Final deletion runs from `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll
 
 Legal holds (D189, D192) need an evidence key: `Evidence__Keys__1` (base64, 32 bytes) or, as locally, one derived from `Founders__Secrets__1`. The security / legal officer is a staff-realm user given the `legal` role by the root admin's invitation or by `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll legal grant <staff subject>` after their first sign-in. `tests/evidence/holds.browser.cjs` runs against the same test hosts as the deletion suite.
 
+The verified identity store (D191, D194) uses `IdentityStore__Keys__1` and `IdentityStore__HmacKey` (base64, 32 bytes) or, as locally, keys derived from `Founders__Secrets__1`; its tables are in the `restricted` schema. `Swoovr.Api.dll identity backfill` re-reads Didit for approved checks from the last 30 days (don't run it against real people's sessions). `tests/verification/identity.browser.cjs` approves fictional checks with signed webhooks (it needs `SWOOVR_DIDIT_WEBHOOK_SECRET` and `SWOOVR_DIDIT_WORKFLOW_ID`) and runs against the test hosts; `tests/moderation/serious.browser.cjs` too. The phone suite now signs Ana in again before her number change (#87).
+
 `tests/accounts/deletion.browser.cjs` expects hosts started with a short sign-in window so the stale cases don't wait five minutes: `Accounts__ReauthSeconds=45 bash .local/run-hosts.sh`, then run the suite with `SWOOVR_REAUTH_SECONDS=45`.
 
 ## Mobile number verification — 27 October 2026

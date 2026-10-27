@@ -159,8 +159,16 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
         return added;
     }
 
-    /// <summary>Further preserved records for an account (slice AA adds the verified identity record here).</summary>
-    private Task ExtraAsync(LegalHold hold, Guid account, Action<string, string, string, Guid?, object> add, CancellationToken cancellationToken) => Task.CompletedTask;
+    /// <summary>D191: the verified identity record, opened into the sealed evidence item (only `legal` can export it).</summary>
+    private async Task ExtraAsync(LegalHold hold, Guid account, Action<string, string, string, Guid?, object> add, CancellationToken cancellationToken)
+    {
+        if (await db.VerifiedIdentities.FindAsync([account], cancellationToken) is not { } record) return;
+        var fields = services.GetRequiredService<Verification.VerifiedIdentityStore>().OpenForEvidence(record);
+        add("identity-record", "restricted.verified_identities", account.ToString(), account, new
+        {
+            record.AccountId, record.SessionId, record.AttemptId, record.VerifiedAt, record.Method, record.Decision, record.IssuingCountry, record.RetainUntil, Fields = fields,
+        });
+    }
 
     /// <summary>
     /// Before final deletion erases an account's records, every live hold over it captures them again, so deletion still

@@ -38,6 +38,10 @@ public static class PhoneEndpoints
             if (PhoneVerificationPolicy.Normalise(request.Number) is not { } number)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPhone, "Enter a mobile number, for example 0412 345 678 or +61 412 345 678.");
             if (keys.Key is not { } key) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Mobile verification isn't available right now.");
+            // #87 (policy §4, §15): changing a verified number needs a fresh sign-in, like deletion (Accounts:ReauthSeconds).
+            if (await db.MemberPhones.AnyAsync(p => p.AccountId == account.Id && p.Number != number, cancellationToken)
+                && !AccountDeletionPolicy.Fresh(current.Facts.AuthenticatedAt, now, TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Accounts:ReauthSeconds", 300), 30, 900))))
+                return Problem(StatusCodes.Status403Forbidden, ProblemCodes.StaleSession, "Sign in again to change your number.");
             var address = PhoneVerificationPolicy.AddressHash(key, ClientAddress(context, configuration));
             var hour = now.AddHours(-1);
             var facts = new PhoneSendFacts(
@@ -72,7 +76,7 @@ public static class PhoneEndpoints
         });
 
         me.MapPost("/confirm", async (PhoneConfirm request, ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, PhoneKeys keys,
-            ContactHistoryKeys history, TimeProvider clock, CancellationToken cancellationToken) =>
+            ContactHistoryKeys history, IIdentityAdmin identity, AccountDeletion deletion, TimeProvider clock, ILoggerFactory logs, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
             if (denied is not null) return denied;
@@ -103,6 +107,7 @@ public static class PhoneEndpoints
             var phone = await db.MemberPhones.FindAsync([account.Id], cancellationToken);
             // D184: verifying a new number replaces (and releases) the old one; the log says it changed, never which number.
             var change = phone is null ? "first" : "changed";
+            var replaced = phone?.Number is { } old && old != number ? old : null;
             // D187 (policy §4): the previous number goes to the encrypted contact history.
             if (phone is not null && phone.Number != number && history.Record(account.Id, ContactType.Mobile, phone.Number, phone.VerifiedAt, now, account.Id, "changed") is { } previous)
                 db.ContactHistories.Add(previous);
@@ -111,6 +116,17 @@ public static class PhoneEndpoints
             Audit.Record(db, now, account.Id, "account", "phone.verified", "account", account.Id.ToString(), $"{change}:{sender.Kind}");
             try { await db.SaveChangesAsync(cancellationToken); }
             catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another."); }
+            // #87 (policy §8): a number a terminated member used is flagged to the admin queue, never refused.
+            await deletion.FlagIfReturningPhoneAsync(account.Id, number, now, cancellationToken);
+            if (replaced is not null)
+            {
+                // #87 (policy §4): tell the old number, without the new one, and end every other session of the account.
+                await sender.SendNoticeAsync(replaced, "The mobile number on your Swoovr account was just changed. If this wasn't you, contact Swoovr support straight away.", cancellationToken);
+                var others = await identity.SignOutOtherSessionsAsync(account.Subject, user.FindFirstValue("sid"), cancellationToken);
+                if (!others) logs.CreateLogger("Swoovr.Api.Accounts.Phone").LogWarning("Number change: other sessions could not be signed out.");
+                Audit.Record(db, now, account.Id, "account", "phone.change-secured", "account", account.Id.ToString(), others ? "sessions-ended" : "sessions-not-ended");
+                await db.SaveChangesAsync(cancellationToken);
+            }
             return Results.Ok(await ViewAsync(db, account.Id, sender, accounts.PhoneRequired, now, cancellationToken));
         });
     }

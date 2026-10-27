@@ -70,6 +70,9 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<CustodyEvent> CustodyEvents => Set<CustodyEvent>();
     public DbSet<EvidenceExport> EvidenceExports => Set<EvidenceExport>();
     public DbSet<Disclosure> Disclosures => Set<Disclosure>();
+    public DbSet<VerifiedIdentity> VerifiedIdentities => Set<VerifiedIdentity>();
+    public DbSet<IdentityAccess> IdentityAccesses => Set<IdentityAccess>();
+    public DbSet<TerminatedPhoneHold> TerminatedPhoneHolds => Set<TerminatedPhoneHold>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -156,6 +159,25 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             disclosure.Property(d => d.LegalBasis).HasMaxLength(32);
             disclosure.Property(d => d.VerifiedHow).HasMaxLength(200);
         });
+        // D191 (policy §2.3, §16): the verified identity store lives in its own `restricted` schema, ready for a separate
+        // database role when hosted (#89). No foreign key, so a terminated member's record can outlive the tombstone.
+        model.Entity<VerifiedIdentity>(identity =>
+        {
+            identity.ToTable("verified_identities", "restricted");
+            identity.HasKey(i => i.AccountId);
+            identity.Property(i => i.SessionId).HasMaxLength(64);
+            identity.Property(i => i.Method).HasMaxLength(32);
+            identity.Property(i => i.Decision).HasMaxLength(16);
+            identity.Property(i => i.IssuingCountry).HasMaxLength(8);
+            identity.HasIndex(i => i.MatchHmac);
+            identity.HasIndex(i => i.RetainUntil);
+        });
+        model.Entity<IdentityAccess>(access =>
+        {
+            access.ToTable("identity_accesses", "restricted");
+            access.Property(a => a.Purpose).HasMaxLength(VerifiedIdentityPolicy.PurposeMax);
+            access.HasIndex(a => new { a.AccountId, a.At });
+        });
         model.Entity<PhoneCode>(code =>
         {
             code.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -167,6 +189,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<TerminatedEmailHold>(hold =>
         {
             hold.HasKey(h => h.EmailHash);
+            hold.HasIndex(h => h.ExpiresAt);
+        });
+        model.Entity<TerminatedPhoneHold>(hold =>
+        {
+            hold.HasKey(h => h.PhoneHash);
             hold.HasIndex(h => h.ExpiresAt);
         });
         model.Entity<RoleGrant>(grant =>

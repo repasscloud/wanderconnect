@@ -22,14 +22,18 @@ public sealed class TwilioMessageSender(HttpClient http, TwilioOptions options, 
 {
     public string Kind => "twilio";
 
-    public async Task<bool> SendCodeAsync(string number, string code, CancellationToken cancellationToken)
+    public Task<bool> SendCodeAsync(string number, string code, CancellationToken cancellationToken) => SendTextAsync(number, Body(code), cancellationToken);
+
+    public Task<bool> SendNoticeAsync(string number, string text, CancellationToken cancellationToken) => SendTextAsync(number, text, cancellationToken);
+
+    private async Task<bool> SendTextAsync(string number, string body, CancellationToken cancellationToken)
     {
         if (!options.Configured) return false;
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(options.BaseUrl, $"2010-04-01/Accounts/{Uri.EscapeDataString(options.AccountSid!)}/Messages.json"))
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["To"] = number, ["From"] = options.From!, ["Body"] = Body(code),
+                ["To"] = number, ["From"] = options.From!, ["Body"] = body,
             }),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.AccountSid}:{options.AuthToken}")));
@@ -63,6 +67,11 @@ public sealed class SimulatedMessageSender(IEmailSender email, bool localSink) :
         ? Task.FromResult(false)
         : email.SendAsync(new EmailMessage(Address(number), "SIMULATED SMS (not delivered)",
             "SIMULATED: no text message was sent. This is the local development sink.\n\n" + TwilioMessageSender.Body(code)), cancellationToken);
+
+    public Task<bool> SendNoticeAsync(string number, string text, CancellationToken cancellationToken) => !localSink
+        ? Task.FromResult(false)
+        : email.SendAsync(new EmailMessage(Address(number), "SIMULATED SMS (not delivered)",
+            "SIMULATED: no text message was sent. This is the local development sink.\n\n" + text), cancellationToken);
 
     public static string Address(string number) => $"sms-{number.TrimStart('+')}@simulated.swoovr.invalid";
 }

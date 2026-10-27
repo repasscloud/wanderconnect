@@ -2023,11 +2023,11 @@ The owner added the [internal trust and safety policy](INTERNAL-TRUST-SAFETY-EVI
 
 | Issue | Topic | Status |
 | --- | --- | --- |
-| #83 | Verified identity store with field-level encryption (§2) | OPEN |
-| #84 | Legal holds, evidence preservation, law-enforcement disclosure (§3, §13) | OPEN |
+| #83 | Verified identity store with field-level encryption (§2) | BUILT in slice AA (D191, D194), PR #97; Key Vault and database roles wait for hosting |
+| #84 | Legal holds, evidence preservation, law-enforcement disclosure (§3, §13) | BUILT in slice Y (D189, D192), PR #97; the written police-contact procedure is for the owner |
 | #85 | Media quarantine and CSAM / nudity screening (§5); before photos (#76) | OPEN |
-| #86 | Serious Safety Incident pathway; reporting after block or deactivation (§9) | OPEN |
-| #87 | Contact-change security and ban tokens (§4, §8); history built (D187) | OPEN |
+| #86 | Serious Safety Incident pathway; reporting after block or deactivation (§9) | BUILT in slice Z (D190, D193), PR #97; attachments wait for #85 |
+| #87 | Contact-change security and ban tokens (§4, §8); history built (D187) | Provider-free parts BUILT in slice AA (D194), PR #97; live SMS waits for deployment (D183) |
 | #88 | Staff access controls and sensitive-access audit (§11, §15) | OPEN |
 | #89 | Security operations and breach response (§12) | OPEN |
 | #90 | Location privacy hardening (§10) | OPEN |

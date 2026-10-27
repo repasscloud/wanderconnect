@@ -34,6 +34,7 @@ DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);
 ContactHistoryEndpoints.Map(app);
 Swoovr.Api.Evidence.LegalHoldEndpoints.Map(app);
+Swoovr.Api.Verification.IdentityEndpoints.Map(app);
 AdminEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfileEndpoints.Map(app);
 Swoovr.Api.Profiles.MarketEndpoints.Map(app);

@@ -83,7 +83,15 @@ public sealed record EntitlementView(Guid Id, string Tier, string Source, DateTi
 public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, string? DisplayName, string? AgeStatus, string? IdStatus,
     bool CanRequestIdVerification, bool Bot, bool Employee, bool Founder, string? HomeMarket, DateTimeOffset? HomeMarketMovedAt, string Plan,
     IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases, bool DateOfBirthVerified = false,
-    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none");
+    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none",
+    DateTimeOffset? IdentityOnFileSince = null, string? IdentityIssuingCountry = null);
+
+/// <summary>D191: opening a verified identity record needs the `legal` role and a recorded purpose (up to 500 characters).</summary>
+public sealed record IdentityAccessRequest(string? Purpose);
+
+/// <summary>D191: the record as kept: legal names, the document's date of birth, type, issuing country (ISO alpha-3) and expiry.</summary>
+public sealed record VerifiedIdentityView(Guid AccountId, string? FirstName, string? LastName, DateOnly? DateOfBirth, string? DocumentType, string? IssuingCountry,
+    DateOnly? ExpiryDate, string? Method, DateTimeOffset VerifiedAt, string SessionId, DateTimeOffset? RetainUntil);
 
 /// <summary>D166: a manual date-of-birth review in the admin queue. Never either date: the admin reads the document's in Didit's console.</summary>
 public sealed record DobReviewView(Guid Id, Guid AccountId, string? DisplayName, string Reason, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome);
