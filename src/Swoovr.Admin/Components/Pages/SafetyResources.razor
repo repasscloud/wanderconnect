@@ -1,0 +1,96 @@
+@page "/safety"
+@page "/safety/{Code}"
+@inject AdminClient Admin
+<PageTitle>Safety resources — Swoovr admin</PageTitle>
+<h1>Safety &amp; Support resources</h1>
+<p class="help">The outside contacts members see on Safety &amp; Support, by country (issue 103). Only official sources, checked before they're marked verified. A country is launch-ready only with a verified emergency number and every contact and the pack reviewed in date. Every change is kept as a revision.</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (countries is null) { <p data-safety-admin="refused">@loadError</p> }
+else
+{
+    <ul class="list" data-safety-countries="@countries.Count">
+        @foreach (var c in countries)
+        {
+            <li data-safety-country="@c.Code" data-readiness="@c.Readiness"><a href="/safety/@c.Code">@c.Name (@c.Code)</a> · @c.Readiness · @(c.Enabled ? "offered" : "hidden") · @c.Resources contacts · v@(c.Version)
+                @if (c.LaunchProblems.Count > 0) { <div class="help" data-launch-problems="@c.Code">Not launch-ready: @string.Join(", ", c.LaunchProblems)</div> }</li>
+        }
+    </ul>
+}
+@if (country is not null)
+{
+    <h2>@country.Name</h2>
+    <form method="post" @formname="country" @onsubmit="SaveCountryAsync" class="stack" data-country-edit="@country.Code" data-enhance="false">
+        <AntiforgeryToken />
+        <label>Name<input name="name" value="@country.Name" maxlength="100" required /></label>
+        <label><input type="checkbox" name="enabled" value="true" checked="@country.Enabled" /> Offered in the country list</label>
+        <label>Readiness<select name="readiness" data-readiness-select>
+            @foreach (var r in new[] { "not-ready", "ready", "demo" }) { <option value="@r" selected="@(country.Readiness == r)">@r</option> }
+        </select></label>
+        <label>Pack last reviewed<input type="date" name="reviewed" value="@country.LastReviewedOn?.ToString("yyyy-MM-dd")" /></label>
+        <label>Next review due<input type="date" name="due" value="@country.ReviewDueOn?.ToString("yyyy-MM-dd")" /></label>
+        <label>Owner<input name="owner" value="@country.Owner" maxlength="100" /></label>
+        <label>Notes<textarea name="notes" maxlength="500">@country.Notes</textarea></label>
+        <button type="submit" data-save-country>Save country</button>
+    </form>
+    <h3>Contacts</h3>
+    <ul class="list" data-safety-resources="@resources.Count">
+        @foreach (var r in resources)
+        {
+            <li data-safety-resource="@r.Id" data-enabled="@(r.Enabled ? "yes" : "no")">
+                <strong>@r.Name</strong> · @r.Category · order @r.Order · @(r.Enabled ? "shown" : "hidden") · verified @(r.LastVerifiedOn?.ToString("d MMM yyyy") ?? "never")
+                <ResourceForm Resource="r" Country="@country.Code" FormName="@($"resource-{r.Id}")" OnSubmit="() => SaveResourceAsync(r.Id)" />
+            </li>
+        }
+    </ul>
+    <h3>Add a contact</h3>
+    <ResourceForm Country="@country.Code" FormName="new-resource" OnSubmit="() => SaveResourceAsync(null)" />
+    <h3>Revisions</h3>
+    <ul class="list" data-safety-revisions="@revisions.Count">
+        @foreach (var v in revisions.Take(30)) { <li data-revision="@v.Id">@v.At.ToLocalTime().ToString("d MMM HH:mm") · @v.Action · @(v.ResourceId?.ToString() ?? v.Country) · by @(v.Actor?.ToString() ?? "seed")</li> }
+    </ul>
+}
+@code {
+    [Parameter] public string? Code { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private List<SafetyCountryAdminView>? countries;
+    private SafetyCountryAdminView? country;
+    private List<SafetyResourceAdminView> resources = [];
+    private List<SafetyRevisionView> revisions = [];
+    private string? message, loadError, resultCode;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.SafetyCountriesAsync();
+        countries = result.Value;
+        if (!result.Ok) { loadError = AdminText.Refusal(result.Status, result.Code); return; }
+        country = countries!.FirstOrDefault(c => string.Equals(c.Code, Code, StringComparison.OrdinalIgnoreCase));
+        if (country is null) return;
+        resources = (await Admin.SafetyResourcesAsync(country.Code)).Value ?? [];
+        revisions = (await Admin.SafetyRevisionsAsync(country.Code)).Value ?? [];
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+    private DateOnly? Date(string name) => DateOnly.TryParse(Field(name), out var d) ? d : null;
+    private static string? Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private async Task SaveCountryAsync()
+    {
+        var result = await Admin.SaveSafetyCountryAsync(Code!, new SafetyCountryUpdate(Field("name"), Field("enabled") == "true", Field("readiness"), Date("reviewed"), Date("due"),
+            Blank(Field("owner")), Blank(Field("notes"))));
+        (resultCode, message) = result.Ok ? ("ok", "Saved.") : (result.Code ?? result.Status.ToString(),
+            result.Status == 409 ? "Not launch-ready yet: it needs a verified emergency number, every contact verified and reviews in date." : AdminText.Refusal(result.Status, result.Code));
+        await LoadAsync();
+    }
+
+    private async Task SaveResourceAsync(Guid? id)
+    {
+        var result = await Admin.SaveSafetyResourceAsync(id, new SafetyResourceEdit(Code, Blank(Field("region")), Blank(Field("language")), Field("category"), Field("name"),
+            Field("description"), Blank(Field("phone")), Blank(Field("phoneDisplay")), Blank(Field("website")), Field("source"), int.TryParse(Field("order"), out var o) ? o : 0,
+            Field("enabled") == "true", Date("verified"), Date("reviewDue")));
+        (resultCode, message) = result.Ok ? ("ok", "Saved.") : (result.Code ?? result.Status.ToString(),
+            result.Status == 400 ? "Check the contact: an official https source, a dialable number or an https website, and a name and description." : AdminText.Refusal(result.Status, result.Code));
+        await LoadAsync();
+    }
+}

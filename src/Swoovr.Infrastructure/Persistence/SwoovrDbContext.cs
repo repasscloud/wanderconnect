@@ -89,6 +89,9 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MediaItem> MediaItems => Set<MediaItem>();
     public DbSet<MediaPlacement> MediaPlacements => Set<MediaPlacement>();
     public DbSet<MediaReviewView> MediaReviewViews => Set<MediaReviewView>();
+    public DbSet<SafetyCountry> SafetyCountries => Set<SafetyCountry>();
+    public DbSet<SafetyResource> SafetyResources => Set<SafetyResource>();
+    public DbSet<SafetyRevision> SafetyRevisions => Set<SafetyRevision>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -309,6 +312,38 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             view.Property(v => v.Purpose).HasMaxLength(MediaPolicy.PurposeMax);
             view.HasIndex(v => new { v.MediaId, v.At });
+        });
+        // #103: country-aware Safety & Support resources as data, with an immutable revision trail.
+        model.Entity<SafetyCountry>(country =>
+        {
+            country.HasKey(c => c.Code);
+            country.Property(c => c.Code).HasMaxLength(2);
+            country.Property(c => c.Name).HasMaxLength(SafetyPolicy.NameMax);
+            country.Property(c => c.Owner).HasMaxLength(SafetyPolicy.NameMax);
+            country.Property(c => c.Notes).HasMaxLength(SafetyPolicy.NotesMax);
+            country.HasData(SafetySeed.Countries);
+        });
+        model.Entity<SafetyResource>(resource =>
+        {
+            resource.HasOne<SafetyCountry>().WithMany().HasForeignKey(r => r.CountryCode).OnDelete(DeleteBehavior.Restrict);
+            resource.Property(r => r.CountryCode).HasMaxLength(2);
+            resource.Property(r => r.RegionCode).HasMaxLength(10);
+            resource.Property(r => r.LanguageCode).HasMaxLength(8);
+            resource.Property(r => r.Name).HasMaxLength(SafetyPolicy.NameMax);
+            resource.Property(r => r.Description).HasMaxLength(SafetyPolicy.DescriptionMax);
+            resource.Property(r => r.Phone).HasMaxLength(SafetyPolicy.PhoneMax);
+            resource.Property(r => r.PhoneDisplay).HasMaxLength(SafetyPolicy.PhoneMax);
+            resource.Property(r => r.WebsiteUrl).HasMaxLength(SafetyPolicy.UrlMax);
+            resource.Property(r => r.SourceUrl).HasMaxLength(SafetyPolicy.UrlMax);
+            resource.HasIndex(r => new { r.CountryCode, r.Enabled, r.DisplayOrder });
+            resource.HasData(SafetySeed.Resources);
+        });
+        model.Entity<SafetyRevision>(revision =>
+        {
+            revision.Property(r => r.CountryCode).HasMaxLength(2);
+            revision.Property(r => r.Action).HasMaxLength(32);
+            revision.Property(r => r.SnapshotJson).HasMaxLength(4000);
+            revision.HasIndex(r => new { r.CountryCode, r.At });
         });
         // #89 (policy §12): security incidents with severity levels and the NDB assessment.
         model.Entity<SecurityIncident>(incident =>

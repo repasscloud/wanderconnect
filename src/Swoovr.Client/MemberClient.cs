@@ -248,6 +248,10 @@ public sealed class MemberClient(HttpClient http)
         return new((int)response.StatusCode, await response.Content.ReadAsByteArrayAsync(cancellationToken), null);
     }
 
+    /// <summary>#103: the Safety &amp; Support pack for a country (null: the API's default for this request).</summary>
+    public Task<ApiResult<SafetyPack>> SafetyAsync(string? country, CancellationToken cancellationToken = default) =>
+        SendAsync<SafetyPack>(new HttpRequestMessage(HttpMethod.Get, "api/v1/safety/resources" + (country is null ? "" : "?country=" + Uri.EscapeDataString(country))), cancellationToken);
+
     /// <summary>D203: the member's photos, main photo and per-mode photos.</summary>
     public Task<ApiResult<MyPhotosView>> PhotosAsync(CancellationToken cancellationToken = default) =>
         SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/photos"), cancellationToken);

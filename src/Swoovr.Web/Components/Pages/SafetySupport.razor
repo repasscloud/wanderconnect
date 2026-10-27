@@ -1,0 +1,53 @@
+@page "/safety"
+@* Country-aware Safety & Support (issue 103, D204), public and reachable signed out (Static SSR, so it works without
+   WebAssembly). The country is the visitor's choice for this browsing session (a session cookie), else Cloudflare's
+   network country when this host is behind Cloudflare and says so (D153), else this deployment's fallback (AU locally).
+   Nothing is stored about the visitor; the choice never changes a profile, home city, Travel or Explore. *@
+@inject IHttpClientFactory Clients
+@inject IConfiguration Configuration
+@inject IHostEnvironment Environment
+<PageTitle>Safety & Support — Swoovr</PageTitle>
+<div class="column">
+    <div class="page-heading" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
+        <h1>@SafetyText.Title</h1>
+        <p>Help outside Swoovr in your country, and how to report or block someone on Swoovr.</p>
+    </div>
+    <form method="get" action="/safety" class="card account-section stack" data-country-form data-enhance="false">
+        <div class="field"><label for="safety-country">Country</label>
+            <select id="safety-country" name="country" data-country-select>
+                @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
+                @foreach (var option in pack?.Countries ?? [])
+                {
+                    <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
+                }
+            </select></div>
+        <p class="field-help" data-country-hint="@source">@SafetyText.Hint(source)</p>
+        <button type="submit" class="button button-secondary">Show contacts</button>
+    </form>
+    @if (unavailable) { <p role="status" data-safety-unavailable>Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now.</p> }
+    <SafetyResources Pack="pack" />
+</div>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromQuery] public string? Country { get; set; }
+    private const string Cookie = "swoovr.safety-country";
+    private SafetyPack? pack;
+    private string source = "unknown";
+    private bool unavailable;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A manual choice lasts for the browsing session; a new choice replaces it.
+        var manual = SafetyText.Manual(Country);
+        if (manual is not null)
+            HttpContext.Response.Cookies.Append(Cookie, manual, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = HttpContext.Request.IsHttps, IsEssential = true });
+        manual ??= SafetyText.Manual(HttpContext.Request.Cookies[Cookie]);
+        var trusted = !Environment.IsDevelopment() && Configuration.GetValue("Location:CloudflareHeaders", false);
+        var (fallbackCountry, fallbackSource) = SafetyText.Default(HttpContext.Request.Headers["CF-IPCountry"], trusted, Configuration["Safety:FallbackCountry"]);
+        (var country, source) = manual is not null ? (manual, "manual") : (fallbackCountry, fallbackSource);
+        try { pack = await new SafetyClient(Clients.CreateClient(Swoovr.Web.Auth.Bff.ApiClient)).PackAsync(country ?? "XX"); }
+        catch (HttpRequestException) { }
+        catch (TaskCanceledException) { }
+        unavailable = pack is null;
+    }
+}

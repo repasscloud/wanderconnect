@@ -1,0 +1,35 @@
+@* One Safety & Support pack (issue 103, D204), the same on the public page and Me → Safety: emergency first and prominent,
+   then the other contacts with deliberate tap-to-call and website actions, the warning a pack needs, and neutral
+   guidance with no numbers when Swoovr has no pack for the country. Swoovr's own actions sit apart from external help. *@
+<section class="card account-section notice" aria-labelledby="danger-heading" data-safety-services="@(Pack?.Country ?? "none")"
+         data-safety-readiness="@(Pack?.Readiness ?? "unknown")" data-safety-stale="@(Pack?.Stale == true ? "yes" : "no")">
+    @if (Pack is null || Pack.Resources.Count == 0)
+    {
+        <h2 id="danger-heading">If you're in immediate danger</h2>
+        <p data-safety-neutral>@SafetyText.Neutral</p>
+    }
+    else
+    {
+        var emergency = Pack.Resources.Where(r => r.Category == "emergency").ToList();
+        <h2 id="danger-heading">@(emergency.FirstOrDefault() is { PhoneDisplay: { } number } ? $"If you're in immediate danger, call {number} now." : "If you're in immediate danger")</h2>
+        @if (SafetyText.Warning(Pack) is { } warning) { <p class="field-help" role="note" data-safety-warning>@warning</p> }
+        <ul class="request-list">
+            @foreach (var r in Pack.Resources)
+            {
+                <li data-service="@r.Name" data-category="@r.Category"><strong>@r.Name</strong> <span class="field-help">@SafetyText.Category(r.Category)</span><br />@r.Description
+                    @if (r.Phone is not null) { <a class="link" href="tel:@r.Phone" data-call="@r.Phone">Call @(r.PhoneDisplay ?? r.Phone)</a> }
+                    @if (r.WebsiteUrl is not null) { <a class="link" href="@r.WebsiteUrl" target="_blank" rel="noopener" data-website="@r.Name">Website</a> }</li>
+            }
+        </ul>
+        <p class="field-help">@SafetyText.External</p>
+        @if (Pack.ReviewedOn is { } reviewed) { <p class="field-help" data-safety-reviewed="@reviewed.ToString("yyyy-MM-dd")">Checked by Swoovr on @reviewed.ToString("d MMMM yyyy").</p> }
+    }
+</section>
+<section class="card account-section" aria-labelledby="swoovr-actions-heading" data-swoovr-actions>
+    <h2 id="swoovr-actions-heading">@SafetyText.SwoovrActions</h2>
+    <p class="field-help">@SafetyText.SwoovrHelp</p>
+    <p class="account-actions"><a class="button button-secondary" href="/me/safety#serious" data-serious-entry>Report a serious safety incident</a></p>
+</section>
+@code {
+    [Parameter] public SafetyPack? Pack { get; set; }
+}

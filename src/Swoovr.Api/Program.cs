@@ -54,6 +54,7 @@ Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);
+Swoovr.Api.Safety.SafetyEndpoints.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

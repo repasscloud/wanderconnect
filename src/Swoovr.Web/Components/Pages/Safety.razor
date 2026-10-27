@@ -3,16 +3,27 @@
 <div class="column">
 @if (!signedIn)
 {
-    <div class="page-heading"><h1>Safety</h1><p>If you are in immediate danger, call 000. Sign in to report a serious safety incident.</p></div>
-    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a></p>
+    <div class="page-heading"><h1>Safety</h1><p>If you're in immediate danger, contact your local emergency services now. Sign in to report a serious safety incident.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/safety" data-public-safety>Safety &amp; Support contacts</a> <a class="primary-link" href="/account/sign-in">Sign in</a></p>
 }
 else
 {
-    <SafetyPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    <SafetyPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" DefaultCountry="@defaultCountry" DefaultSource="@defaultSource" />
 }
 </div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;
-    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+    [Inject] private IConfiguration Configuration { get; set; } = default!;
+    [Inject] private IHostEnvironment Environment { get; set; } = default!;
+    private string? defaultCountry;
+    private string defaultSource = "unknown";
+
+    protected override void OnInitialized()
+    {
+        signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+        // issue 103: the host decides the default country (the API behind the BFF can't see Cloudflare's header).
+        var trusted = !Environment.IsDevelopment() && Configuration.GetValue("Location:CloudflareHeaders", false);
+        (defaultCountry, defaultSource) = SafetyText.Default(HttpContext.Request.Headers["CF-IPCountry"], trusted, Configuration["Safety:FallbackCountry"]);
+    }
 }
