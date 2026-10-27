@@ -72,7 +72,7 @@ public static class PhoneEndpoints
         });
 
         me.MapPost("/confirm", async (PhoneConfirm request, ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, PhoneKeys keys,
-            TimeProvider clock, CancellationToken cancellationToken) =>
+            ContactHistoryKeys history, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
             if (denied is not null) return denied;
@@ -103,6 +103,9 @@ public static class PhoneEndpoints
             var phone = await db.MemberPhones.FindAsync([account.Id], cancellationToken);
             // D184: verifying a new number replaces (and releases) the old one; the log says it changed, never which number.
             var change = phone is null ? "first" : "changed";
+            // D187 (policy §4): the previous number goes to the encrypted contact history.
+            if (phone is not null && phone.Number != number && history.Record(account.Id, ContactType.Mobile, phone.Number, phone.VerifiedAt, now, account.Id, "changed") is { } previous)
+                db.ContactHistories.Add(previous);
             if (phone is null) db.MemberPhones.Add(phone = new MemberPhone { AccountId = account.Id });
             (phone.Number, phone.VerifiedAt) = (number, now);
             Audit.Record(db, now, account.Id, "account", "phone.verified", "account", account.Id.ToString(), $"{change}:{sender.Kind}");

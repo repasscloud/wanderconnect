@@ -2007,12 +2007,28 @@ Raised by the builder on branch `feature/swoovr-deletion-export-mode-privacy` du
 
 | ID | Issue | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Q72 | [#79](https://github.com/repasscloud/wanderconnect/issues/79) | ANSWERED | X (built with the default) | Should a mobile number be verifiable on only one live member account at a time? | Without it one number can back many accounts (ban evasion, spam); with it the refusal must not reveal whose account holds the number | Yes (built, D181): a unique index on the verified number; a second account gets 409 `phone-in-use` with the neutral "That number can't be used. Try another." The number is released when the holding account is deleted. Support can't move a number between accounts yet. || ANSWERED, owner 27 October 2026 (D184): one active account per number; a verified number is required to finish registration (no access without it); changing number needs the new one verified, which releases the old one; log that it changed, not which number (whether to keep a keyed record of previous numbers is still open) |
+| Q72 | [#79](https://github.com/repasscloud/wanderconnect/issues/79) | ANSWERED | X (built with the default) | Should a mobile number be verifiable on only one live member account at a time? | Without it one number can back many accounts (ban evasion, spam); with it the refusal must not reveal whose account holds the number | Yes (built, D181): a unique index on the verified number; a second account gets 409 `phone-in-use` with the neutral "That number can't be used. Try another." The number is released when the holding account is deleted. Support can't move a number between accounts yet. || ANSWERED, owner 27 October 2026 (D184): one active account per number; a verified number is required to finish registration (no access without it); changing number needs the new one verified, which releases the old one; log that it changed, not which number (previous numbers kept in encrypted contact history, D187) |
 | Q73 | [#80](https://github.com/repasscloud/wanderconnect/issues/80) | ANSWERED | X going live (nothing else) | The registration gate is built behind `Phone:Required` (default off), because the only sender allowed tonight is the simulated one (D174). When should it turn on, and when may the Twilio adapter send real messages (Sms:Provider=twilio with the keys in .local/docker.env)? | Turning the gate on with the simulated sender would lock every real member out; turning on Twilio costs money and texts real phones | Keep it off locally. Turn on Twilio and the gate together in UAT once the owner confirms the Twilio account (live or test credentials) and a test handset; existing members are then asked on their next visit (Q45). || ANSWERED, owner 27 October 2026 (D183): the number is the owner's Twilio-provided number; simulate for now and finalise live sending when deployed |
-| Q74 | [#81](https://github.com/repasscloud/wanderconnect/issues/81) | OPEN (default built) | V (final deletion of Didit sessions; retries until then) | Final deletion now asks Didit to delete the member's sessions (`DELETE /v3/session/{id}/delete/`), which needs `delete:sessions` on the key. Does the current test key have it? | Without it each deletion keeps the attempt row (session id and outcome only) and `accounts purge` retries every hour | Check the key's permissions in the Didit console and add `delete:sessions`; until then deletion completes everything else and retries Didit. | |
+| Q74 | [#81](https://github.com/repasscloud/wanderconnect/issues/81) | ANSWERED | V (final deletion of Didit sessions; retries until then) | Final deletion now asks Didit to delete the member's sessions (`DELETE /v3/session/{id}/delete/`), which needs `delete:sessions` on the key. Does the current test key have it? | Without it each deletion keeps the attempt row (session id and outcome only) and `accounts purge` retries every hour | Check the key's permissions in the Didit console and add `delete:sessions`; until then deletion completes everything else and retries Didit. || ANSWERED, owner 27 October 2026 (D186): follow the internal trust and safety policy: Didit is the processor, delete its sessions at final deletion; check the key has `delete:sessions` |
 
 Feedback to factor in later:
 
 | Issue | Topic | Status |
 | --- | --- | --- |
 | [#82](https://github.com/repasscloud/wanderconnect/issues/82) | A block closes the conversation but never pushes "closed" to live clients (found building slice W) | OPEN |
+
+## Policy implementation — 27 October 2026
+
+The owner added the [internal trust and safety policy](INTERNAL-TRUST-SAFETY-EVIDENCE-PROTECTION-POLICY.md) (treated as legal-approved, D185). New work it requires is tracked as issues; tracking issue #92.
+
+| Issue | Topic | Status |
+| --- | --- | --- |
+| #83 | Verified identity store with field-level encryption (§2) | OPEN |
+| #84 | Legal holds, evidence preservation, law-enforcement disclosure (§3, §13) | OPEN |
+| #85 | Media quarantine and CSAM / nudity screening (§5); before photos (#76) | OPEN |
+| #86 | Serious Safety Incident pathway; reporting after block or deactivation (§9) | OPEN |
+| #87 | Contact-change security and ban tokens (§4, §8); history built (D187) | OPEN |
+| #88 | Staff access controls and sensitive-access audit (§11, §15) | OPEN |
+| #89 | Security operations and breach response (§12) | OPEN |
+| #90 | Location privacy hardening (§10) | OPEN |
+| #91 | Mode privacy follow-ups (§6) | OPEN |

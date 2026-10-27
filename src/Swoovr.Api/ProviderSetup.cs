@@ -25,6 +25,7 @@ public static class ProviderSetup
         services.AddHttpClient<IIdentityAdmin, KeycloakIdentityAdmin>(http => http.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<AccountDeletion>();
         services.AddScoped<PhoneKeys>();
+        services.AddScoped<ContactHistoryKeys>();
         // D153, D174: Twilio only when Sms:Provider is "twilio"; otherwise the labelled simulated sender, which writes to
         // the local mail sink in Development and sends nothing anywhere else.
         var twilio = new TwilioOptions(configuration["Sms:Twilio:AccountSid"], configuration["Sms:Twilio:AuthToken"], configuration["Sms:Twilio:From"],

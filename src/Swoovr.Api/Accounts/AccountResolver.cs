@@ -90,6 +90,9 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         if (account.Status == AccountStatus.Deleted)
             return new(facts, result, null, account, [], null, BetaAccess.NotRequired) { LocalPasswordStaff = LocalPasswordStaff };
         var emailChanged = email is not null && account.Email is not null && account.Email != email;
+        // D187 (policy §4): a verified email that changed (in Keycloak) goes to the encrypted contact history.
+        if (emailChanged && services.GetRequiredService<ContactHistoryKeys>().Record(account.Id, ContactType.Email, account.Email!, null, now, account.Id, "changed") is { } previous)
+            Db.ContactHistories.Add(previous);
         if (email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
         {
             account.Email = email ?? account.Email;

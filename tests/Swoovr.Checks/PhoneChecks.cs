@@ -82,6 +82,24 @@ static class PhoneChecks
         Expect(!await new SimulatedMessageSender(sink, localSink: false).SendCodeAsync(number, "042137", default) && sink.Sent is null, "anywhere else: nothing, and never claimed");
         Expect(MemberText.PhoneProblem(ProblemCodes.PhoneInUse) == "That number can't be used. Try another.", "an in-use number says nothing about whose");
 
+        // Contact history (policy §4, D187): encrypted value, keyed lookup, versioned key, tamper-evident.
+        var encKey = new byte[32]; encKey[1] = 9;
+        var record = ContactHistoryPolicy.Record(me, ContactType.Mobile, number, now.AddDays(-40), now, me, "changed", 1, encKey, key);
+        Expect(!System.Text.Encoding.UTF8.GetString(record.EncryptedValue).Contains("412345678"), "never stored in clear");
+        Expect(ContactHistoryPolicy.Decrypt(new Dictionary<byte, byte[]> { [1] = encKey }, record.EncryptedValue) == number, "decrypts with the right key");
+        Expect(record.RetainUntil == now + TimeSpan.FromDays(730) && record.ValidUntil == now, "kept two years from the change");
+        Expect(record.LookupHmac.SequenceEqual(ContactHistoryPolicy.Lookup(key, ContactType.Mobile, number)), "found by exact keyed lookup");
+        Expect(!record.LookupHmac.SequenceEqual(ContactHistoryPolicy.Lookup(key, ContactType.Email, number)), "lookups are per contact type");
+        Expect(ContactHistoryPolicy.Lookup(key, ContactType.Email, " Someone@Example.TEST ").SequenceEqual(ContactHistoryPolicy.Lookup(key, ContactType.Email, "someone@example.test")), "emails compared normalised");
+        var altered = (byte[])record.EncryptedValue.Clone(); altered[^1] ^= 1;
+        var tampered = false;
+        try { ContactHistoryPolicy.Decrypt(new Dictionary<byte, byte[]> { [1] = encKey }, altered); } catch (System.Security.Cryptography.CryptographicException) { tampered = true; }
+        Expect(tampered, "a changed value fails authentication");
+        var wrongKey = false;
+        try { ContactHistoryPolicy.Decrypt(new Dictionary<byte, byte[]> { [1] = key }, record.EncryptedValue); } catch (System.Security.Cryptography.CryptographicException) { wrongKey = true; }
+        Expect(wrongKey, "the wrong key reads nothing");
+        Expect(!ContactHistoryPolicy.Encrypt(1, encKey, number).SequenceEqual(ContactHistoryPolicy.Encrypt(1, encKey, number)), "a fresh nonce each time");
+
         Console.WriteLine($"PASS: mobile number verification ({checks}).");
     }
 

@@ -32,6 +32,7 @@ app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundatio
 AccountEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);
+ContactHistoryEndpoints.Map(app);
 AdminEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfileEndpoints.Map(app);
 Swoovr.Api.Profiles.MarketEndpoints.Map(app);

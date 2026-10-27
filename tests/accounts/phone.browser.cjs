@@ -5,7 +5,7 @@
 // checks the registration gate (API and web). Numbers come from Australia's reserved fictional range (0491 570 006–159).
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, sleep, createMember, memberToken, cli, sql, call, claims, matchReady, mailTo } = require('../auth/local-tokens.cjs');
+const { web, sleep, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady, mailTo } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 const local = n => `0491 570 ${String(n).padStart(3, '0')}`;
@@ -95,6 +95,16 @@ async function latestCode(number) {
     await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } });
     r = await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: (await latestCode(e164(100))).code } });
     assert.deepEqual([r.status, r.body.verified], [200, true], 'the released number can verify another account'); pass();
+    // D187 (policy §4): Ana's previous number is in the encrypted contact history; an admin can see who held it, never the value.
+    assert.equal(await sql(`SELECT count(*) FROM contact_histories WHERE account_id = '${ids.ana}' AND contact_type = 'Mobile' AND change_reason = 'changed'`), '1'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM contact_histories WHERE account_id = '${ids.ana}' AND (encode(encrypted_value, 'escape') LIKE '%491570%')`), '0', 'never stored in clear'); pass();
+    const root = await rootAdminToken(browser);
+    r = await call(root, '/api/v1/admin/contact-history?type=mobile&value=' + encodeURIComponent(local(100)));
+    assert.equal(r.status, 200); assert.equal(r.body.currentAccountId, ids.bob); assert.deepEqual(r.body.previous.map(h => [h.accountId, h.reason]).at(-1), [ids.ana, 'changed'], 'Ana is the latest previous holder (earlier runs reused the number)'); pass();
+    assert.equal(JSON.stringify(r.body).includes('491570'), false, 'no value in the answer'); pass();
+    assert.equal((await call(tokens.ana, '/api/v1/admin/contact-history?type=mobile&value=' + encodeURIComponent(local(100)))).status, 403, 'members cannot search'); pass();
+    assert.equal((await call(root, '/api/v1/admin/contact-history?type=fax&value=1')).status, 400); pass();
+    assert.equal(await sql(`SELECT detail FROM audit_entries WHERE action = 'contact-history.searched' ORDER BY id DESC LIMIT 1`), 'Mobile', 'searches are audited, without the value'); pass();
 
     // Expiry and five wrong tries.
     await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(101) } });

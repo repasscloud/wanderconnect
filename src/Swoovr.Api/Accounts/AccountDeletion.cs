@@ -68,6 +68,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         var holds = await db.TerminatedEmailHolds.Where(h => h.ExpiresAt <= now).ExecuteDeleteAsync(cancellationToken);
         // D148: phone codes (hashes only) are kept a day for the limits, then go.
         await db.PhoneCodes.Where(c => c.CreatedAt < now - PhoneVerificationPolicy.CodeRetention).ExecuteDeleteAsync(cancellationToken);
+        await db.ContactHistories.Where(h => h.RetainUntil <= now).ExecuteDeleteAsync(cancellationToken);
         return new(deleted, waiting, retries, expired, holds);
     }
 
@@ -129,6 +130,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.DataExports.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.PhoneCodes.Where(c => c.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // D187: contact history goes with the account, except a terminated member's (ban enforcement, policy §8, §13).
+        if (!terminated) await db.ContactHistories.Where(h => h.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberPhones.Where(p => p.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberProfiles.Where(p => p.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         // Kept for two years (D170): reports, moderation cases and their evidence, sanctions, appeals and audit entries.

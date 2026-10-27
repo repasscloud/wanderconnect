@@ -573,6 +573,70 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ContactHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ChangeReason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("change_reason");
+
+                    b.Property<Guid?>("ChangedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("changed_by");
+
+                    b.Property<string>("ContactType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("contact_type");
+
+                    b.Property<byte[]>("EncryptedValue")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("encrypted_value");
+
+                    b.Property<byte[]>("LookupHmac")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("lookup_hmac");
+
+                    b.Property<DateTimeOffset>("RetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retain_until");
+
+                    b.Property<DateTimeOffset?>("ValidFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_from");
+
+                    b.Property<DateTimeOffset>("ValidUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contact_histories");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_contact_histories_account_id");
+
+                    b.HasIndex("RetainUntil")
+                        .HasDatabaseName("ix_contact_histories_retain_until");
+
+                    b.HasIndex("ContactType", "LookupHmac")
+                        .HasDatabaseName("ix_contact_histories_contact_type_lookup_hmac");
+
+                    b.ToTable("contact_histories");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Conversation", b =>
                 {
                     b.Property<Guid>("Id")

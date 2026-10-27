@@ -63,6 +63,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<TerminatedEmailHold> TerminatedEmailHolds => Set<TerminatedEmailHold>();
     public DbSet<MemberPhone> MemberPhones => Set<MemberPhone>();
     public DbSet<PhoneCode> PhoneCodes => Set<PhoneCode>();
+    public DbSet<ContactHistory> ContactHistories => Set<ContactHistory>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -91,6 +92,14 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             phone.Property(p => p.Number).HasMaxLength(16);
             // DEFAULT (D181): one member account per verified number.
             phone.HasIndex(p => p.Number).IsUnique();
+        });
+        model.Entity<ContactHistory>(history =>
+        {
+            // D187: no foreign key, so a terminated member's history can outlive the tombstone's retention if needed.
+            history.HasIndex(h => new { h.ContactType, h.LookupHmac });
+            history.HasIndex(h => h.AccountId);
+            history.HasIndex(h => h.RetainUntil);
+            history.Property(h => h.ChangeReason).HasMaxLength(32);
         });
         model.Entity<PhoneCode>(code =>
         {

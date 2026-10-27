@@ -681,3 +681,14 @@ Executed locally:
 - Android emulator (`swoovr-pixel`, signed APK): signed in as a fictional member; Me shows **Mobile number** and **Your data and account**; the phone page says test mode, the code arrived in the local mail sink and the number verified (+61••••••130); Connections shows "Contact" (Business) and "Friend" (Friends) and disconnecting Friends through the dialog left Business; **Download my data** asked to sign in again, Keycloak showed "Please re-authenticate to continue", then the export opened the share sheet; **Delete my account** signed the phone out and the account became Pending deletion with 30 days to go.
 
 Not run or not verified: iOS beyond the build (owner taps through, see the PR); a real Twilio send (D174: none sent; the configured From number is not Twilio's test number, Q66, Q73); Didit session deletion against Didit (the test members had no Didit sessions; the key's `delete:sessions` permission is Q74); the admin app's case flag in a browser (the API field is tested); the web person page's per-mode about block with several different abouts in Edge (API and one-mode page tested); a block still doesn't push "closed" (#82). The owner's hosts from main read the shared database, which now holds test rows with the new status names (`PendingDeletion`, `Deleted`, `Disconnected`) that main's code can't parse; screens listing those fictional accounts may error on main until PR #78 merges.
+
+## Mobile number required, contact history (D184, D187) — 27 October 2026
+
+`Phone:Required` now defaults to true; codes stay simulated (D183). Verifying a new number releases the old one and keeps it, encrypted, in `contact_histories` (D187).
+
+- `./scripts/check.sh`: PASS. Mobile number checks 64 (new: encryption round trip, wrong key and tampering refused, fresh nonces, per-type and normalised lookups, two-year retention).
+- `tests/accounts/phone.browser.cjs`: PASS, 42 checks with the gate off and 52 with the default gate (new: a number change releases the old number to another account, the audit says `changed`, the history row is encrypted, the admin lookup returns the current and earlier holders' ids but no values, members get 403, searches are audited without the value).
+- Deletion 115, lifecycle and privacy 59, accounts 121: PASS on hosts with `Phone__Required=false` (the older suites don't verify numbers).
+- The owner verified and changed a number on the iPad simulator (27 October 2026).
+
+Not run: the full set of older suites after this change (only the account gate default and phone code changed; accounts, deletion and lifecycle were re-run); the admin app has no screen for the lookup yet (#87).
