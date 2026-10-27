@@ -497,4 +497,10 @@ docs/design/swoovr-brand-pack/custom-assets/
 # Worktree files for claude
 .claude/worktrees
 claude-update-ignore-for-now.md
+
+# Special files
 docs/ignore-this-file.txt
+
+# venv directories
+.venv-*/
+
