@@ -49,7 +49,7 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     mine = await call(tokens.ana, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', true, true], ['friends', true, false], ['activities', false, false], ['business', false, false]]); pass();
     mine = await call(tokens.ana, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
-    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [] }); pass(); // turning one off leaves the other
+    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [], about: null }); pass(); // turning one off leaves the other
     for (const id of ['travel', 'connect', 'DATING']) {
       const bad = await call(tokens.ana, `/api/v1/me/modes/${id}`, { method: 'PUT', body: { enabled: true, visible: true } });
       assert.deepEqual([bad.status, bad.body?.code], [404, 'unknown-mode'], id); pass();
@@ -200,18 +200,18 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     assert.deepEqual(await page.locator('.explore-modes [data-mode]').evaluateAll(els => els.map(e => e.textContent)), ['Dating', 'Friends', 'Activities', 'Business']); pass();
     assert.equal(await page.locator('.explore-modes [aria-pressed=true]').getAttribute('data-mode'), 'dating'); pass();
     assert.equal(await page.locator('.explore-modes').getByText('Travel').count(), 0); pass();
-    const hrefs = await page.locator('.profile-tile h2 a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+    const hrefs = await page.locator('.profile-tile h2 a').evaluateAll(els => els.map(e => e.getAttribute('href').split('?')[0])); // links carry ?mode= (D175)
     assert.ok(hrefs.includes('/people/' + pid.eli) && !hrefs.includes('/people/' + pid.ben) && !hrefs.includes('/people/' + pid.cai)); pass();
     const tiles = await page.locator('.profile-tile').evaluateAll(els => els.map(e => [Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]));
     assert.ok(tiles.every(([w, h]) => w === tiles[0][0] && h === tiles[0][1])); pass(); // equal tiles (UI-STYLE.md)
-    assert.equal(await page.locator(`.profile-tile:has(a[href="/people/${pid.eli}"]) .tile-intentions`).innerText(), 'Long-term relationship · Open to exploring'); pass();
+    assert.equal(await page.locator(`.profile-tile:has(a[href^="/people/${pid.eli}"]) .tile-intentions`).innerText(), 'Long-term relationship · Open to exploring'); pass();
     if (output) await page.screenshot({ path: output + '/explore-390.png', fullPage: true });
     await page.click('.explore-modes [data-mode=business]');
     await page.waitForSelector('[data-explore-mode=business][data-explore-state=off]'); pass();
     assert.equal(await page.locator('[data-explore-state=off] a').getAttribute('href'), '/me/profile'); pass();
     await page.click('.explore-modes [data-mode=dating]');
     await page.waitForSelector('[data-explore-mode=dating][data-explore-state=ready]');
-    await page.click(`.profile-tile a[href="/people/${pid.eli}"]`);
+    await page.click(`.profile-tile a[href^="/people/${pid.eli}"]`);
     await page.waitForSelector('[data-person=ready]', { timeout: 20000 });
     assert.equal(await page.locator('h1').innerText(), 'Fictional Eli'); pass();
     assert.equal(await page.locator('[data-shared-modes]').getAttribute('data-shared-modes'), 'dating'); pass();

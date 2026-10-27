@@ -146,8 +146,7 @@ public static class ProfileEndpoints
             var between = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high
                 && (r.Status == ConnectionRequestStatus.Pending || r.Status == ConnectionRequestStatus.Accepted)).ToListAsync(cancellationToken);
             // D175: never list the person's other modes; an unshared requested mode reads as not found.
-            var shownIds = ModePrivacy.Shown(mode, shared.Select(m => m.Id).ToList(),
-                between.Where(r => r.Status == ConnectionRequestStatus.Accepted).Select(r => r.ModeId).ToHashSet());
+            var shownIds = ModePrivacy.Shown(mode, shared.Select(m => m.Id).ToList(), between.Select(r => r.ModeId).ToHashSet());
             if (shownIds.Count == 0) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
             // D125: the profile also needs the same market, an existing request or connection, or a visit to the viewer's
             // market; anything else is the same 404, so a profile link from another market reveals nothing.

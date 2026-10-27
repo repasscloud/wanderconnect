@@ -24,6 +24,7 @@ static class ModePrivacyChecks
         Expect(ModePrivacy.Shown("made-up", shared, none).Count == 0, "an unknown mode reads as not found");
         Expect(ModePrivacy.Shown(null, shared, friends).SequenceEqual(["friends"]), "no mode given: the connected modes");
         Expect(ModePrivacy.Shown(null, shared, none).SequenceEqual(["dating"]), "no mode and no connection: only the first shared mode");
+        Expect(ModePrivacy.Shown("friends", shared, new HashSet<string> { "business" }).SequenceEqual(["friends", "business"]), "a pending request's mode shows too (D182)");
         Expect(ModePrivacy.Shown(null, [], none).Count == 0, "nothing shared: nothing");
         Expect(ModePrivacy.About("Here for coffee chats", "Main about") == "Here for coffee chats", "the mode's own about wins");
         Expect(ModePrivacy.About(null, "Main about") == "Main about", "no mode about: the core about");
