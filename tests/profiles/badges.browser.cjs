@@ -63,7 +63,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     let fayProfile = await call(tokens.vic, `/api/v1/profiles/${pid.fay}`);
     assert.deepEqual(fayProfile.body.badges.map(b => [b.badge, b.checkedAt?.slice(0, 10) ?? null]),
       [['founder', null], ['photoVerified', '2026-10-17'], ['idVerified', '2026-10-18']]); pass();
-    assert.deepEqual(Object.keys(fayProfile.body).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'gender', 'id', 'modes', 'pronouns']); pass(); // age, gender and pronouns only as allowed (D138, D139)
+    assert.deepEqual(Object.keys(fayProfile.body).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'gender', 'id', 'modes', 'photo', 'pronouns']); pass(); // D203: the main photo (null without one) // age, gender and pronouns only as allowed (D138, D139)
     assert.ok(!JSON.stringify(fayProfile.body).toLowerCase().includes('admin')); pass();
     await sql(`UPDATE member_profiles SET id_status = 'Expired' WHERE account_id = '${ids.fay}'`); // rule 13: an expired check shows nothing
     assert.deepEqual((await card('fay')).badges.map(b => b.badge), ['founder', 'photoVerified']); pass();
