@@ -13,6 +13,18 @@ public sealed class Conversation
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? LastMessageAt { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
+    /// <summary>
+    /// Why it closed: "blocked" (hidden from both for good, D143), "disconnected" (no mode connects the pair any more,
+    /// D176) or "deleted" (the other account was deleted, D170). The last two stay readable, read-only, for both.
+    /// Null for conversations closed before this was recorded (treated as blocked).
+    /// </summary>
+    public string? ClosedReason { get; set; }
+}
+
+/// <summary>Why a conversation closed (Conversation.ClosedReason).</summary>
+public static class ClosedReasons
+{
+    public const string Blocked = "blocked", Disconnected = "disconnected", Deleted = "deleted";
 }
 
 /// <summary>What a message carries. Text only for now (rule 2); attachments and private media join later (rule 5, closing paragraph).</summary>

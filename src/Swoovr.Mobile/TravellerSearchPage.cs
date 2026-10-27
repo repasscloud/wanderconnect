@@ -66,7 +66,7 @@ public sealed class TravellerSearchPage : ContentPage
 				new HorizontalStackLayout { Spacing = 8, Children = { Ui.Text(person.DisplayName, "TileName", $"SearchPerson_{person.Id}"), Ui.BadgeRow(person.Badges, $"SearchBadges_{person.Id}") } },
 				Ui.Text(details.Length == 0 ? null : details, "FooterClaims"),
 				Ui.Text(string.Join(" · ", person.Intentions), "FooterClaims"),
-				Ui.Button("View profile", $"SearchOpen_{person.Id}", () => Ui.PushAsync(new PersonPage(person.Id)), primary: false)));
+				Ui.Button("View profile", $"SearchOpen_{person.Id}", () => Ui.PushAsync(new PersonPage(person.Id, modeId)), primary: false)));
 		}
 	}
 }

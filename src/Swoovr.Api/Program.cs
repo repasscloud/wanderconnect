@@ -12,11 +12,8 @@ builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Enviro
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
 builder.Services.AddScoped<AccountResolver>();
 builder.Services.AddScoped<Founders>();
-// D147: Didit settings from configuration only (locally .local/docker.env through the host environment).
-var didit = new Swoovr.Infrastructure.Verification.DiditOptions(builder.Configuration["Didit:ApiKey"], builder.Configuration["Didit:WorkflowId"],
-    builder.Configuration["Didit:WebhookSecret"], new Uri(builder.Configuration["Didit:BaseUrl"] ?? "https://verification.didit.me/"));
-builder.Services.AddSingleton(didit);
-builder.Services.AddHttpClient<Swoovr.Domain.IIdVerificationProvider, Swoovr.Infrastructure.Verification.DiditClient>(http => http.Timeout = TimeSpan.FromSeconds(15));
+// D147, D169: Didit and the members realm's deletion client, from configuration only (locally .local/docker.env).
+builder.Services.AddSwoovrProviders(builder.Configuration);
 builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
     builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
 builder.Services.AddProblemDetails();
@@ -33,6 +30,9 @@ app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
+DeletionEndpoints.Map(app);
+PhoneEndpoints.Map(app);
+ContactHistoryEndpoints.Map(app);
 AdminEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfileEndpoints.Map(app);
 Swoovr.Api.Profiles.MarketEndpoints.Map(app);

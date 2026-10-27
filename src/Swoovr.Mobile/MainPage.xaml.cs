@@ -84,10 +84,14 @@ public partial class MainPage : ContentPage
 		// D160: anything but active shows only the restricted card; notices and appeals stay open.
 		var restricted = account is not null && MemberText.RestrictedTitle(account.AccountState) is not null;
 		RestrictedCard.IsVisible = restricted;
-		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBody);
+		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBodyFor(account?.AccountState));
+		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;
 		AgeCheckCard.IsVisible = account.AgeStatus == "needsVerification";
+		// D148: with the gate on, the phone step opens before anything else.
+		if (account.PhoneRequired && Navigation.NavigationStack.LastOrDefault() is not PhonePage)
+			MainThread.BeginInvokeOnMainThread(async () => await Ui.PushAsync(new PhonePage()));
 		BadgeList.Children.Clear();
 		if (account.Badges.Count == 0)
 			BadgeList.Children.Add(new Label { Text = "No badges yet. Each badge shows one check, such as a photo or ID check, once it's done.", Style = Ui.Style("FooterClaims") });
@@ -122,6 +126,8 @@ public partial class MainPage : ContentPage
 	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
+	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());
+	private async void OnPhone(object? sender, EventArgs e) => await Ui.PushAsync(new PhonePage());
 
 	private async void OnSignIn(object? sender, EventArgs e)
 	{

@@ -154,8 +154,13 @@ async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman',
 async function cli(...args) {
   const connection = `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
   const dll = 'src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll';
-  return new Promise((resolve, reject) => execFile('dotnet', [dll, ...args], {
-    env: { ...process.env, ConnectionStrings__Swoovr: connection, Founders__Secrets__1: process.env.Founders__Secrets__1 ?? '', DOTNET_ENVIRONMENT: 'Development' },
+  // `accounts purge` deletes Keycloak users through the API's deletion client (D169) and Didit sessions (D173), and keys
+  // terminated-email holds from the founder secret as the hosts do (D171).
+  const env = { ...process.env, ConnectionStrings__Swoovr: connection, DOTNET_ENVIRONMENT: 'Development',
+    Founders__Secrets__1: process.env.Founders__Secrets__1 ?? await localEnv('SWOOVR_FOUNDER_SECRET_V1') ?? '',
+    MemberAdmin__ClientSecret: await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET') ?? '',
+    Didit__ApiKey: await localEnv('SWOOVR_DIDIT_API_KEY') ?? '', Didit__WorkflowId: await localEnv('SWOOVR_DIDIT_WORKFLOW_ID') ?? '' };
+  return new Promise((resolve, reject) => execFile('dotnet', [dll, ...args], { env,
   }, (error, stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve(stdout)));
 }
 

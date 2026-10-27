@@ -90,9 +90,54 @@ export async function applyRealm(api, name, profile = generatedProfile, publicCl
   return changes;
 }
 
-export async function applyAll({ open = realm => localRealmApi({ realm }) } = {}) {
+// Q61 (D169): the API's service-account client for account deletion, members realm only, holding nothing but
+// realm-management view-users and manage-users. Its secret comes from .local/docker.env (SWOOVR_MEMBERS_API_ADMIN_SECRET,
+// created by `./scripts/docker-local.sh init`). It isn't in the generated import, which allows no service accounts for
+// sign-in clients; hosted environments configure it the same way, outside these local scripts.
+export const accountsClientId = 'swoovr-api-accounts';
+export const accountsClientRoles = ['view-users', 'manage-users'];
+
+export async function applyAccountsClient(api, secret) {
+  if (!secret) return ['accounts client skipped (run ./scripts/docker-local.sh init)'];
+  const changes = [];
+  let [client] = await api('/clients?clientId=' + accountsClientId);
+  const wanted = {
+    clientId: accountsClientId, name: 'Swoovr API account deletion', enabled: true, protocol: 'openid-connect', publicClient: false,
+    clientAuthenticatorType: 'client-secret', secret, serviceAccountsEnabled: true, standardFlowEnabled: false,
+    implicitFlowEnabled: false, directAccessGrantsEnabled: false, redirectUris: [], webOrigins: [],
+  };
+  if (!client) {
+    await api('/clients', 'POST', wanted);
+    [client] = await api('/clients?clientId=' + accountsClientId);
+    changes.push('client ' + accountsClientId);
+  } else if ((await api('/clients/' + client.id + '/client-secret')).value !== secret) {
+    await api('/clients/' + client.id, 'PUT', { ...client, secret });
+    changes.push('secret ' + accountsClientId);
+  }
+  const user = await api('/clients/' + client.id + '/service-account-user');
+  const [management] = await api('/clients?clientId=realm-management');
+  const held = new Set((await api('/users/' + user.id + '/role-mappings/clients/' + management.id)).map(r => r.name));
+  const missing = [];
+  for (const name of accountsClientRoles) if (!held.has(name)) missing.push(await api('/clients/' + management.id + '/roles/' + name));
+  if (missing.length) {
+    await api('/users/' + user.id + '/role-mappings/clients/' + management.id, 'POST', missing);
+    changes.push('roles ' + missing.map(r => r.name).join(' '));
+  }
+  return changes;
+}
+
+async function localSecret(key) {
+  const env = await readFile('.local/docker.env', 'utf8').catch(() => '');
+  return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
+}
+
+export async function applyAll({ open = realm => localRealmApi({ realm }), secret = () => localSecret('SWOOVR_MEMBERS_API_ADMIN_SECRET') } = {}) {
   const result = {};
-  for (const name of realms) result[name] = await applyRealm(await open(name), name);
+  for (const name of realms) {
+    const api = await open(name);
+    result[name] = await applyRealm(api, name);
+    if (name === 'swoovr-members-dev') result[name].push(...await applyAccountsClient(api, await secret()));
+  }
   return result;
 }
 

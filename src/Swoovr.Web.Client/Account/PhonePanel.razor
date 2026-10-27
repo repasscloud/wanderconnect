@@ -1,0 +1,61 @@
+@* Mobile number verification (D148, D181), Interactive WebAssembly through /bff/. Send a code, then confirm it. While
+   the sender is simulated (D174) the panel says so: nothing is texted and the code goes to the local mail sink. *@
+@inject MemberClient Members
+<section class="card account-section" aria-labelledby="phone-heading" data-phone="@(view is null ? "loading" : view.Verified ? "verified" : view.PendingNumber is not null ? "pending" : "none")"
+         data-phone-required="@(view?.Required == true ? "true" : "false")">
+    <h2 id="phone-heading">Mobile number</h2>
+    @if (view is null) { <p role="status">Loading…</p> }
+    else
+    {
+        <p class="field-help">@MemberText.PhoneIntro</p>
+        @if (view.Sender == "simulated") { <p class="field-help" data-phone-simulated="true">@MemberText.PhoneSimulated</p> }
+        @if (view.Required) { <p class="notice" role="status">Verify your mobile number to keep using Swoovr.</p> }
+        @if (view.Verified) { <p data-phone-number="@view.Number">Verified: @view.Number</p> }
+        <form class="stack" @onsubmit="SendAsync" data-phone-send>
+            <div class="field"><label for="phone-number">@(view.Verified ? "Change number" : "Mobile number")</label>
+                <input id="phone-number" type="tel" autocomplete="tel" inputmode="tel" maxlength="32" @bind="number" @bind:event="oninput" placeholder="0412 345 678" /></div>
+            <button type="submit" class="button button-secondary" disabled="@(busy || string.IsNullOrWhiteSpace(number))">Send code</button>
+        </form>
+        @if (view.PendingNumber is not null)
+        {
+            <form class="stack" @onsubmit="ConfirmAsync" data-phone-confirm>
+                <div class="field"><label for="phone-code">Code sent to @view.PendingNumber</label>
+                    <input id="phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" @bind="code" @bind:event="oninput" /></div>
+                <button type="submit" class="button" disabled="@(busy || code?.Length != 6)">Confirm</button>
+            </form>
+        }
+        <p role="status" aria-live="polite" class="field-help" data-phone-result="@result">@message</p>
+    }
+</section>
+@code {
+    [Parameter] public EventCallback<PhoneView> Changed { get; set; }
+    private PhoneView? view;
+    private bool busy;
+    private string? number, code, message, result;
+    private string? sentTo;
+
+    protected override async Task OnInitializedAsync() => view = (await Members.PhoneAsync()).Value;
+
+    private async Task SendAsync()
+    {
+        busy = true;
+        var sent = await Members.SendPhoneCodeAsync(number ?? "");
+        busy = false;
+        if (sent.Value is { } updated) { (view, sentTo, code, result, message) = (updated, number, null, "sent", "Code sent. It expires in 5 minutes."); return; }
+        (result, message) = (sent.Code ?? "failed", MemberText.PhoneProblem(sent.Code));
+    }
+
+    private async Task ConfirmAsync()
+    {
+        busy = true;
+        var confirmed = await Members.ConfirmPhoneAsync(sentTo ?? number ?? "", code ?? "");
+        busy = false;
+        if (confirmed.Value is { } updated)
+        {
+            (view, code, number, result, message) = (updated, null, null, "verified", "Your mobile number is verified.");
+            await Changed.InvokeAsync(updated);
+            return;
+        }
+        (result, message) = (confirmed.Code ?? "failed", MemberText.PhoneProblem(confirmed.Code));
+    }
+}

@@ -112,6 +112,17 @@ public static class MemberSignIn
             properties.Parameters["prompt"] = "create";
             return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
         });
+        // D169: deletion, cancelling it and the data export need a sign-in within five minutes. This asks Keycloak to sign the
+        // member in again (prompt=login: password, passkey or a linked Apple/Google identity) and returns to a local page.
+        app.MapGet("/account/reauthenticate", (string? returnUrl) =>
+        {
+            if (!configured) return Results.Redirect("/account");
+            var target = returnUrl is { Length: > 1 } url && url[0] == '/' && url[1] != '/' && url[1] != '\\' ? url : "/account";
+            var properties = new AuthenticationProperties { RedirectUri = target };
+            properties.Parameters["prompt"] = "login";
+            properties.Parameters["max_age"] = "0";
+            return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
+        });
         // POST with antiforgery: a cross-site link or image cannot sign someone out.
         // Keycloak logout runs first so it can still read the id_token hint from the ticket.
         app.MapPost("/account/sign-out", () => Results.SignOut(new AuthenticationProperties { RedirectUri = "/" }, configured

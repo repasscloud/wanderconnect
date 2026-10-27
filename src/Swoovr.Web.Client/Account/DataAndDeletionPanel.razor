@@ -1,0 +1,120 @@
+@* Download your data and delete your account (D144, D170–D173), Interactive WebAssembly through /bff/. Asking for an
+   export or a deletion, cancelling and deleting now need a sign-in within five minutes; when the API answers
+   stale-session the panel offers /account/reauthenticate, which returns here. *@
+@inject MemberClient Members
+@inject IJSRuntime JS
+<div class="page-heading" data-data-panel="@(loaded ? (view?.State ?? "error") : "loading")">
+    <p class="breadcrumb"><a href="/account">Me</a> / Data and account</p>
+    <h1>@(view?.State == "pending" ? DeletionText.PendingTitle(view) : DeletionText.Title)</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (view?.State == "pending") { <p data-deletion-due="@view.DueAt?.ToString("o")">@DeletionText.PendingBody(view)</p> }
+</div>
+@if (loaded && view is null)
+{
+    <p role="status" class="notice">@DeletionText.Failed</p>
+}
+else if (view is not null)
+{
+    @if (reauth)
+    {
+        <section class="card account-section notice" role="status" data-reauth-required="true">
+            <p>@DeletionText.SignInAgain</p>
+            <p><a class="button" href="/account/reauthenticate?returnUrl=@Uri.EscapeDataString(ReturnUrl)">Sign in again</a></p>
+        </section>
+    }
+    @if (view.State == "pending")
+    {
+        <section class="card account-section" aria-label="Pending deletion" data-pending-deletion="true">
+            @if (view.SignedOutEverywhere) { <p class="field-help">You've been signed out on your other devices.</p> }
+            @if (view.FounderCodeEmailed) { <p class="field-help" data-founder-code-emailed="true">We've emailed your founder recovery code.</p> }
+            <p class="account-actions">
+                <button type="button" class="button" disabled="@busy" @onclick="CancelAsync" data-cancel-deletion>Cancel deletion</button>
+                @if (!DeletingNow)
+                {
+                    <button type="button" class="button button-secondary" disabled="@busy" @onclick="DeleteNowAsync" data-delete-now>Delete now</button>
+                }
+            </p>
+        </section>
+    }
+    <section class="card account-section" aria-labelledby="export-heading">
+        <h2 id="export-heading">@DeletionText.ExportHeading</h2>
+        <p class="field-help">@DeletionText.ExportBody</p>
+        <button type="button" class="button button-secondary" disabled="@busy" @onclick="ExportAsync" data-export>Download my data</button>
+        <p role="status" aria-live="polite" class="field-help" data-export-result="@exportResult">@exportMessage</p>
+    </section>
+    @if (view.State != "pending")
+    {
+        <section class="card account-section" aria-labelledby="delete-heading" data-delete-form>
+            <h2 id="delete-heading">@DeletionText.DeleteHeading</h2>
+            <p>@DeletionText.DeleteBody</p>
+            <p class="field-help">@DeletionText.Kept</p>
+            <p class="field-help">@DeletionText.Subscriptions</p>
+            @if (view.Founder) { <p class="field-help" data-founder-notice="true">@DeletionText.FounderKept</p> }
+            <form class="stack" @onsubmit="RequestAsync">
+                <label class="check"><input type="checkbox" @bind="immediately" data-delete-immediately /> @DeletionText.DeleteNowOption</label>
+                @if (view.Founder) { <label class="check"><input type="checkbox" @bind="deleteFounderToken" data-delete-founder-token /> @DeletionText.FounderDeleteOption</label> }
+                <label class="check"><input type="checkbox" @bind="confirmed" data-delete-confirm /> @DeletionText.Confirm</label>
+                <button type="submit" class="button" disabled="@(busy || !confirmed)" data-delete-account>Delete my account</button>
+                <p role="status" aria-live="polite" class="field-help" data-delete-result>@deleteMessage</p>
+            </form>
+        </section>
+    }
+}
+@code {
+    private bool loaded, busy, reauth, confirmed, immediately, deleteFounderToken;
+    private DeletionView? view;
+    private string? exportMessage, exportResult, deleteMessage;
+    private string ReturnUrl => view?.State == "pending" ? "/account/deletion" : "/account/data";
+    private bool DeletingNow => view?.DueAt is { } due && due <= DateTimeOffset.UtcNow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { view = (await Members.DeletionAsync()).Value; }
+        catch (HttpRequestException) { view = null; }
+        loaded = true;
+    }
+
+    private async Task ExportAsync()
+    {
+        (busy, reauth, exportMessage, exportResult) = (true, false, null, null);
+        try
+        {
+            var ticket = await Members.RequestExportAsync();
+            if (ticket.Value is null) { Refused(ticket.Code, m => exportMessage = m); exportResult = ticket.Code ?? "failed"; return; }
+            var file = await Members.DownloadExportAsync(ticket.Value);
+            if (file.Value is null) { Refused(file.Code, m => exportMessage = m); exportResult = file.Code ?? "failed"; return; }
+            await JS.InvokeAsync<bool>("swoovrDownload.save", $"swoovr-data-{DateTime.UtcNow:yyyy-MM-dd}.json", "application/json", Convert.ToBase64String(file.Value));
+            (exportMessage, exportResult) = ("Your data was downloaded.", "downloaded");
+        }
+        finally { busy = false; }
+    }
+
+    private async Task RequestAsync()
+    {
+        (busy, reauth, deleteMessage) = (true, false, null);
+        var result = await Members.RequestDeletionAsync(new DeletionRequest(confirmed, immediately, deleteFounderToken));
+        busy = false;
+        if (result.Value is null) { Refused(result.Code, m => deleteMessage = m); return; }
+        view = result.Value;
+    }
+
+    private async Task CancelAsync() => await ChangeAsync(Members.CancelDeletionAsync);
+    private async Task DeleteNowAsync() => await ChangeAsync(Members.DeleteNowAsync);
+
+    private async Task ChangeAsync(Func<CancellationToken, Task<ApiResult<DeletionView>>> call)
+    {
+        (busy, reauth, deleteMessage) = (true, false, null);
+        var result = await call(default);
+        busy = false;
+        if (result.Value is null) { Refused(result.Code, m => deleteMessage = m); return; }
+        view = result.Value;
+        // Cancelled: the rest of the app opens again, so go back to the account page.
+        if (view.State == "none") deleteMessage = "Deletion cancelled. Your account is back.";
+    }
+
+    private void Refused(string? code, Action<string> show)
+    {
+        if (DeletionText.Refusal(code) is { } message) show(message);
+        else reauth = true;
+    }
+}

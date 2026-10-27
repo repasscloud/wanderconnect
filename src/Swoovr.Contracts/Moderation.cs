@@ -28,8 +28,15 @@ public sealed record PlanView(string Tier, string? Source, DateTimeOffset? EndsA
 
 // Staff views (admin API, D136). Ids and the minimum needed to decide; never email, tokens or verification evidence.
 
+/// <param name="SystemFlag">Set on a case Swoovr opened itself: "returning-terminated" (D171).</param>
 public sealed record CaseSummaryView(Guid Id, Guid SubjectAccountId, string? SubjectName, string Status, string Queue, string Priority,
-    int Reports, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, bool AwaitingAcknowledgement);
+    int Reports, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, bool AwaitingAcknowledgement, string? SystemFlag = null);
+/// <summary>D187: an account that used a contact value, and when (never the value itself).</summary>
+public sealed record ContactHistoryHit(Guid AccountId, DateTimeOffset? ValidFrom, DateTimeOffset ValidUntil, string Reason);
+
+/// <summary>D187: the account holding the value now (if any) and the accounts that held it before.</summary>
+public sealed record ContactHistoryResult(Guid? CurrentAccountId, IReadOnlyList<ContactHistoryHit> Previous);
+
 public sealed record CaseReportView(Guid Id, Guid ReporterAccountId, string SubjectType, string SubjectRef, string Category, string Priority,
     string? Text, DateTimeOffset CreatedAt);
 public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapshot, DateTimeOffset CapturedAt);

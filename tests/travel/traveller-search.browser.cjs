@@ -243,7 +243,7 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     await page.waitForSelector('[data-search="ready"]');
     assert.equal(await page.locator('[data-arrival]').first().getAttribute('data-arrival'), 'arrived'); pass();
     assert.match(await page.locator('h1').innerText(), /People in Adelaide/); pass();
-    assert.ok(await page.locator(`a[href="/people/${pid.lou}"]`).count() >= 1); pass();
+    assert.ok(await page.locator(`a[href^="/people/${pid.lou}"]`).count() >= 1); pass(); // links carry ?mode= (D175)
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 390)); pass();
     // Another member's trip in the address bar: refused like any other unknown trip.
     await page.goto(web + `/travel/search/${trips.trc.id}`);

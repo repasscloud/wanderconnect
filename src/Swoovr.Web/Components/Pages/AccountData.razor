@@ -1,0 +1,25 @@
+@page "/account/data"
+@page "/account/deletion"
+@* D144, D170–D173: download your data and delete your account. Under /account so restricted members and members with a
+   pending deletion can reach it (RestrictionGate keeps /account open). The API decides everything; this only hosts the panel. *@
+<PageTitle>Your data and account — Swoovr</PageTitle>
+<div class="column">
+@if (!signedIn)
+{
+    <div class="page-heading"><h1>Your data and account</h1><p>Sign in to download your data or delete your account.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a></p>
+}
+else
+{
+    <DataAndDeletionPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    <form method="post" action="/account/sign-out" class="account-sign-out">
+        <AntiforgeryToken />
+        <button type="submit" class="quiet-button">Sign out</button>
+    </form>
+}
+</div>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private bool signedIn;
+    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+}

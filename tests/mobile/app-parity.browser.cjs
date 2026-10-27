@@ -85,7 +85,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     for (const id of [pid.cal, pid.dex, '00000000-0000-0000-0000-000000000000', ids.bob /* an account id, not a public id */])
     { assert.deepEqual(code(await call(tokens.ana, `/api/v1/profiles/${id}`)), [404, 'unknown-mode'], id); pass(); }
     assert.equal((await call(tokens.ana, '/api/v1/profiles/not-a-guid')).status, 404); pass();
-    r = await call(tokens.ana, `/api/v1/profiles/${pid.bob}`);
+    r = await call(tokens.ana, `/api/v1/profiles/${pid.bob}?mode=friends`); // D175: seen from one mode
     assert.ok(r.body.modes.some(m => m.id === 'friends' && m.connection === 'none' && m.canRequest) && !('dateOfBirth' in r.body)); pass();
 
     // Requests from the person page and Connections: tampered fields ignored, unknown modes refused, other markets 404.

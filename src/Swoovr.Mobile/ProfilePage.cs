@@ -64,22 +64,26 @@ public sealed class ProfilePage : ContentPage
 		var setting = profile!.Modes.FirstOrDefault(m => m.Id == mode.Id) ?? new MyModeView(mode.Id, false, false, []);
 		var use = new Switch { IsToggled = setting.Enabled, AutomationId = $"Use_{mode.Id}" };
 		var show = new Switch { IsToggled = setting.Visible, IsEnabled = setting.Enabled, AutomationId = $"Show_{mode.Id}" };
-		use.Toggled += async (_, e) => await SaveModeAsync(mode.Id, e.Value, setting.Visible || e.Value, setting.Intentions);
-		show.Toggled += async (_, e) => await SaveModeAsync(mode.Id, setting.Enabled, e.Value, setting.Intentions);
+		use.Toggled += async (_, e) => await SaveModeAsync(mode.Id, e.Value, setting.Visible || e.Value, setting.Intentions, setting.About);
+		show.Toggled += async (_, e) => await SaveModeAsync(mode.Id, setting.Enabled, e.Value, setting.Intentions, setting.About);
+		// D175: an about for this mode only; blank uses the main about.
+		var modeAbout = new Editor { Text = setting.About, Placeholder = "Uses your main about", MaxLength = 500, AutoSize = EditorAutoSizeOption.TextChanges, AutomationId = $"ModeAbout_{mode.Id}" };
+		modeAbout.Unfocused += async (_, _) => { if ((modeAbout.Text ?? "") != (setting.About ?? "")) await SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, modeAbout.Text); };
 		var picked = setting.Intentions.Count(id => mode.Intentions.Any(i => i.Id == id));
 		var chips = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, AutomationId = $"Chips_{mode.Id}" };
 		foreach (var intention in mode.Intentions)
 		{
 			var on = setting.Intentions.Contains(intention.Id);
 			var chip = Ui.Chip(intention.Label, on, $"Chip_{intention.Id}", () => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible,
-				on ? setting.Intentions.Where(x => x != intention.Id).ToList() : [.. setting.Intentions, intention.Id]), enabled: on || picked < mode.MaxIntentions);
+				on ? setting.Intentions.Where(x => x != intention.Id).ToList() : [.. setting.Intentions, intention.Id], setting.About), enabled: on || picked < mode.MaxIntentions);
 			chip.Margin = new Thickness(0, 0, 6, 6);
 			chips.Children.Add(chip);
 		}
 		return Ui.Card(Ui.Text(mode.Label, "SectionHeading"),
 			new HorizontalStackLayout { Spacing = 8, Children = { use, Ui.Text($"Use {mode.Label}") } },
 			new HorizontalStackLayout { Spacing = 8, Children = { show, Ui.Text($"Show my profile in {mode.Label}") } },
-			Ui.Text($"{picked} of {mode.MaxIntentions}", "FieldLabel", $"ChipCount_{mode.Id}"), chips);
+			Ui.Text($"{picked} of {mode.MaxIntentions}", "FieldLabel", $"ChipCount_{mode.Id}"), chips,
+			Ui.Text($"About me in {mode.Label} (only shown in {mode.Label})", "FieldLabel"), modeAbout);
 	}
 
 	private async Task SaveProfileAsync()
@@ -88,9 +92,9 @@ public sealed class ProfilePage : ContentPage
 		status.Text = result.Ok ? "Saved." : "Check the fields: no special characters, and keep within the lengths shown.";
 	}
 
-	private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions)
+	private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about)
 	{
-		var result = await Ui.Members!.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions));
+		var result = await Ui.Members!.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about));
 		if (result.Value is null) { status.Text = "That change wasn't saved. Try again."; return; }
 		await LoadAsync();
 	}

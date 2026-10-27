@@ -33,6 +33,8 @@ public sealed class MemberMode
     public bool Enabled { get; set; }
     /// <summary>Whether others in this mode can find the member; only counts while the mode is enabled.</summary>
     public bool Visible { get; set; }
+    /// <summary>D175: an "about" for this mode only; null shows the core profile's about in this mode.</summary>
+    public string? About { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
@@ -102,6 +104,33 @@ public static class ProfileTextPolicy
         if (displayName?.Length > DisplayNameMax) return ProfileTextError.DisplayNameTooLong;
         if (area?.Length > AreaMax) return ProfileTextError.AreaTooLong;
         return about?.Length > AboutMax ? ProfileTextError.AboutTooLong : ProfileTextError.None;
+    }
+}
+
+/// <summary>
+/// Cross-mode privacy (#37, owner answer Q67, D175). A profile is seen in one mode at a time: the mode it was opened
+/// from, plus the modes in which the pair is already connected or has a pending request (both already know of those,
+/// D182); the person's other modes are never listed. Shared across
+/// every mode: display name, age (unless hidden), area, badges, gender and pronouns (under the member's own switch).
+/// Per mode: the "about" (falling back to the core about) and the intention chips. Orientation and Dating's "show me" are
+/// never shown to others; Business-only fields wait for #42. No online or last-active signal exists in any mode. The API
+/// applies this; clients only draw what it returns.
+/// </summary>
+public static class ModePrivacy
+{
+    public static string? About(string? modeAbout, string? coreAbout) => modeAbout ?? coreAbout;
+
+    /// <summary>
+    /// The modes one profile view shows, in the shared order. With a requested mode: that mode (only when shared) and the
+    /// related ones (connected or with a pending request); an unshared requested mode shows nothing (read as not found).
+    /// Without one: the related modes, or else only the first shared mode.
+    /// </summary>
+    public static IReadOnlyList<string> Shown(string? requested, IReadOnlyList<string> shared, IReadOnlySet<string> related)
+    {
+        if (requested is not null && !shared.Contains(requested)) return [];
+        var shown = shared.Where(m => m == requested || related.Contains(m)).ToList();
+        if (shown.Count == 0 && requested is null && shared.Count > 0) shown.Add(shared[0]);
+        return shown;
     }
 }
 

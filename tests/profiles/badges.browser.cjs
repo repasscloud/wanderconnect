@@ -136,11 +136,11 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
     await page.goto(web + '/explore');
     await page.waitForSelector('[data-explore-state=ready]', { timeout: 20000 });
-    const tileBadges = key => page.locator(`.profile-tile:has(a[href="/people/${pid[key]}"]) [data-badge]`).evaluateAll(els => els.map(e => e.dataset.badge));
+    const tileBadges = key => page.locator(`.profile-tile:has(a[href^="/people/${pid[key]}"]) [data-badge]`).evaluateAll(els => els.map(e => e.dataset.badge));
     assert.deepEqual(await tileBadges('fay'), ['founding', 'photo', 'id', 'staff']); pass();
     assert.deepEqual(await tileBadges('sam'), ['staff']); pass();
     assert.deepEqual(await tileBadges('bo'), ['bot']); pass();
-    assert.equal(await page.locator(`.profile-tile:has(a[href="/people/${pid.bo}"]) [data-badge=bot]`).getAttribute('aria-label'), 'Swoovr guide (bot)'); pass();
+    assert.equal(await page.locator(`.profile-tile:has(a[href^="/people/${pid.bo}"]) [data-badge=bot]`).getAttribute('aria-label'), 'Swoovr guide (bot)'); pass();
     if (output) await page.screenshot({ path: output + '/explore-badges-390.png', fullPage: true });
     await page.goto(web + `/people/${pid.fay}`);
     await page.waitForSelector('[data-person=ready]', { timeout: 20000 });

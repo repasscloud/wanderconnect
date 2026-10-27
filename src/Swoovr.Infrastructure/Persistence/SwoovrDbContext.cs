@@ -59,6 +59,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<ProfileOption> ProfileOptions => Set<ProfileOption>();
     public DbSet<MemberIdentity> MemberIdentities => Set<MemberIdentity>();
     public DbSet<ModeFilter> ModeFilters => Set<ModeFilter>();
+    public DbSet<DataExport> DataExports => Set<DataExport>();
+    public DbSet<TerminatedEmailHold> TerminatedEmailHolds => Set<TerminatedEmailHold>();
+    public DbSet<MemberPhone> MemberPhones => Set<MemberPhone>();
+    public DbSet<PhoneCode> PhoneCodes => Set<PhoneCode>();
+    public DbSet<ContactHistory> ContactHistories => Set<ContactHistory>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -71,6 +76,43 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             account.Property(a => a.Subject).HasMaxLength(255);
             account.Property(a => a.Email).HasMaxLength(254);
             account.Property(a => a.StatusReason).HasMaxLength(64);
+            // The purge job finds due deletions and expired tombstones (D170).
+            account.HasIndex(a => new { a.Status, a.DeletionDueAt });
+        });
+        model.Entity<DataExport>(export =>
+        {
+            export.HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.Cascade);
+            export.HasIndex(e => e.TokenHash).IsUnique();
+            export.HasIndex(e => new { e.AccountId, e.CreatedAt });
+        });
+        model.Entity<MemberPhone>(phone =>
+        {
+            phone.HasKey(p => p.AccountId);
+            phone.HasOne<Account>().WithOne().HasForeignKey<MemberPhone>(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+            phone.Property(p => p.Number).HasMaxLength(16);
+            // DEFAULT (D181): one member account per verified number.
+            phone.HasIndex(p => p.Number).IsUnique();
+        });
+        model.Entity<ContactHistory>(history =>
+        {
+            // D187: no foreign key, so a terminated member's history can outlive the tombstone's retention if needed.
+            history.HasIndex(h => new { h.ContactType, h.LookupHmac });
+            history.HasIndex(h => h.AccountId);
+            history.HasIndex(h => h.RetainUntil);
+            history.Property(h => h.ChangeReason).HasMaxLength(32);
+        });
+        model.Entity<PhoneCode>(code =>
+        {
+            code.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);
+            code.Property(c => c.Number).HasMaxLength(16);
+            code.HasIndex(c => new { c.AccountId, c.Number, c.CreatedAt });
+            code.HasIndex(c => new { c.Number, c.CreatedAt });
+            code.HasIndex(c => new { c.IpHash, c.CreatedAt });
+        });
+        model.Entity<TerminatedEmailHold>(hold =>
+        {
+            hold.HasKey(h => h.EmailHash);
+            hold.HasIndex(h => h.ExpiresAt);
         });
         model.Entity<RoleGrant>(grant =>
         {
@@ -123,6 +165,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<MemberMode>(setting =>
         {
             setting.HasKey(m => new { m.AccountId, m.ModeId });
+            setting.Property(m => m.About).HasMaxLength(ProfileTextPolicy.AboutMax);
             setting.Property(m => m.ModeId).HasMaxLength(32);
             setting.HasOne<Account>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
             setting.HasOne<ConnectionMode>().WithMany().HasForeignKey(m => m.ModeId).OnDelete(DeleteBehavior.Restrict);
@@ -259,6 +302,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         // D143: one open conversation per pair; a block closes it and a later reconnection opens a new one.
         model.Entity<Conversation>(conversation =>
         {
+            conversation.Property(c => c.ClosedReason).HasMaxLength(16);
             conversation.HasOne<Account>().WithMany().HasForeignKey(c => c.PairLow).OnDelete(DeleteBehavior.Cascade);
             conversation.HasOne<Account>().WithMany().HasForeignKey(c => c.PairHigh).OnDelete(DeleteBehavior.Cascade);
             conversation.HasIndex(c => new { c.PairLow, c.PairHigh }, "ix_conversations_one_open").IsUnique().HasFilter("closed_at IS NULL");
@@ -336,6 +380,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             // One open case per subject account: new reports join it (D131: duplicates consolidated).
             item.HasIndex(c => c.SubjectAccountId, "ix_moderation_cases_one_open").IsUnique().HasFilter("status IN ('Open', 'UnderReview')");
             item.HasIndex(c => new { c.Queue, c.Status, c.Priority });
+            item.Property(c => c.SystemFlag).HasMaxLength(64);
         });
         model.Entity<Report>(report =>
         {

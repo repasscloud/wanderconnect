@@ -8,7 +8,7 @@ namespace Swoovr.Web.Auth;
 /// screen until the action is lifted. Before rendering a signed-in page this asks the API for the member's account state
 /// (`/api/v1/me`, which stays open to barred members) and redirects to /account/restricted. The API refuses every other
 /// member route on its own; this only decides what the browser shows. The account page, notices (to read and appeal),
-/// sign-in and sign-out, and static files stay reachable.
+/// sign-in and sign-out, and static files stay reachable. An account pending deletion (D170) goes to /account/deletion instead.
 /// </summary>
 public static class RestrictionGate
 {
@@ -24,23 +24,28 @@ public static class RestrictionGate
             await next();
             return;
         }
-        var state = await StateAsync(context, token);
+        var (state, phoneRequired) = await StateAsync(context, token);
         if (state is "restricted" or "suspended" or "terminated") { context.Response.Redirect("/account/restricted?state=" + state); return; }
+        // D170: while deletion is pending only the deletion screen (under /account) is open.
+        if (state == "pendingDeletion") { context.Response.Redirect("/account/deletion"); return; }
+        // D148: with the gate on, the account page (where the phone step is) comes first.
+        if (phoneRequired) { context.Response.Redirect("/account?phone=required"); return; }
         await next();
     });
 
-    private static async Task<string?> StateAsync(HttpContext context, string token)
+    private static async Task<(string? State, bool PhoneRequired)> StateAsync(HttpContext context, string token)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/me");
             request.Headers.Authorization = new("Bearer", token);
             using var response = await context.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient(Bff.ApiClient).SendAsync(request, context.RequestAborted);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode) return (null, false);
             using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(context.RequestAborted), cancellationToken: context.RequestAborted);
-            return body.RootElement.TryGetProperty("accountState", out var s) ? s.GetString() : null;
+            return (body.RootElement.TryGetProperty("accountState", out var s) ? s.GetString() : null,
+                body.RootElement.TryGetProperty("phoneRequired", out var p) && p.ValueKind == JsonValueKind.True);
         }
         // The page itself still works without the API (its panels show their own errors); the API refuses barred members anyway.
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException) { return null; }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException) { return (null, false); }
     }
 }

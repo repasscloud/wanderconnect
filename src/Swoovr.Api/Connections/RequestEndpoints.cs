@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Api.Accounts;
@@ -76,7 +77,9 @@ public static class RequestEndpoints
                 Connected: between.Any(r => r.Status == ConnectionRequestStatus.Accepted),
                 Pending: between.Any(r => r.Status == ConnectionRequestStatus.Pending),
                 DeclinedAt: between.Where(r => r.Status == ConnectionRequestStatus.Declined && r.FromAccountId == me.AccountId).Max(r => r.AnsweredAt),
-                SentInWindow: await db.ConnectionRequests.CountAsync(r => r.FromAccountId == me.AccountId && r.CreatedAt > now - ConnectionRequestPolicy.Window, cancellationToken));
+                SentInWindow: await db.ConnectionRequests.CountAsync(r => r.FromAccountId == me.AccountId && r.CreatedAt > now - ConnectionRequestPolicy.Window, cancellationToken),
+                // D176: the recipient disconnected the sender in this mode.
+                DisconnectedBySenderOf: between.Where(r => r.Status == ConnectionRequestStatus.Disconnected && r.EndedBy == other).Max(r => r.EndedAt));
             switch (ConnectionRequestPolicy.CanSend(facts, now))
             {
                 case RequestRefusal.SenderIsBot:
@@ -89,6 +92,8 @@ public static class RequestEndpoints
                     return Problem(StatusCodes.Status409Conflict, ProblemCodes.RequestPending, "There's already a request between you in this mode.");
                 case RequestRefusal.RecentlyDeclined:
                     return Problem(StatusCodes.Status409Conflict, ProblemCodes.RecentlyDeclined, "You can't ask again in this mode yet.");
+                case RequestRefusal.RecentlyDisconnected:
+                    return Problem(StatusCodes.Status409Conflict, ProblemCodes.RecentlyDisconnected, "You can't ask again in this mode yet.");
                 case RequestRefusal.RateLimited:
                     Audit.Record(db, now, me.AccountId, "account", "request.rate-limited", "account", me.AccountId.ToString(), mode.Id);
                     await db.SaveChangesAsync(cancellationToken);
@@ -137,6 +142,31 @@ public static class RequestEndpoints
                 return Results.Ok(await ViewAsync(db, request, me.AccountId, cancellationToken));
             });
         }
+
+        // D176: either member ends one mode's connection without blocking. The other isn't told; it leaves both members'
+        // Connections, and the conversation closes read-only once no mode connects them.
+        api.MapPost("/requests/{id:guid}/disconnect", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, IHubContext<MessagesHub> hub, TimeProvider clock,
+            CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            if (denied is not null) return denied;
+            var (me, db, now) = (current!.Profile!, accounts.Db!, clock.GetUtcNow());
+            var request = await db.ConnectionRequests.FindAsync([id], cancellationToken);
+            if (request is null || !ConnectionRequestPolicy.MayDisconnect(request, me.AccountId)
+                || !await ReachableAsync(db, me.AccountId, request.FromAccountId == me.AccountId ? request.ToAccountId : request.FromAccountId, cancellationToken))
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That connection isn't available.");
+            if (!ConnectionRequestPolicy.Disconnect(request, me.AccountId, now))
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.NotConnected, "You aren't connected in this mode.");
+            Audit.Record(db, now, me.AccountId, "account", "request.disconnected", "connection-request", request.Id.ToString(), request.ModeId);
+            await db.SaveChangesAsync(cancellationToken);
+            var closed = await MessagingEndpoints.CloseIfUnconnectedAsync(db, request.PairLow, request.PairHigh, now, cancellationToken);
+            if (closed is not null)
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                await hub.Clients.Groups(MessagesHub.Group(closed.PairLow), MessagesHub.Group(closed.PairHigh)).SendAsync("closed", new ConversationClosed(closed.Id), cancellationToken);
+            }
+            return Results.Ok(await ViewAsync(db, request, me.AccountId, cancellationToken));
+        });
 
         // Pending requests received or sent, newest first, paged.
         api.MapGet("/requests", async (string? box, int? page, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>

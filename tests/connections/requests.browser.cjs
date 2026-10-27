@@ -42,6 +42,9 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.deepEqual(await connections('ann'), []); pass();
     assert.equal(await sql(`SELECT detail FROM audit_entries WHERE action = 'request.sent' AND target_id = '${annBob}'`), 'dating'); pass();
     let person = (await call(tokens.ann, `/api/v1/profiles/${pid.bob}`)).body;
+    // D175, D182: the pending request's mode shows; another shared mode only when the profile is opened from it.
+    assert.deepEqual(person.modes.map(m => [m.id, m.connection, m.requestId]), [['dating', 'sent', annBob]]); pass();
+    person = (await call(tokens.ann, `/api/v1/profiles/${pid.bob}?mode=friends`)).body;
     assert.deepEqual(person.modes.map(m => [m.id, m.connection, m.requestId]), [['dating', 'sent', annBob], ['friends', 'none', null]]); pass();
     assert.deepEqual((await call(tokens.bob, `/api/v1/profiles/${pid.ann}`)).body.modes.find(m => m.id === 'dating').connection, 'received'); pass();
 
@@ -194,13 +197,13 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await signIn(halPage, members.hal);
     await halPage.click('.tab-bar [data-tab=Connections]');
     await halPage.waitForSelector('[data-connections=ready]', { timeout: 20000 });
-    const incoming = halPage.locator(`[data-box=received] li:has(a[href="/people/${pid.ann}"])`);
+    const incoming = halPage.locator(`[data-box=received] li:has(a[href^="/people/${pid.ann}"])`);
     assert.equal(await incoming.getAttribute('data-request-mode'), 'dating'); pass();
     if (output) await halPage.screenshot({ path: output + '/connections-390.png', fullPage: true });
     await incoming.getByRole('button', { name: 'Accept' }).click();
     await halPage.waitForSelector('[data-connections-status=accept]'); pass();
-    assert.equal(await halPage.locator(`[data-box=connected] a[href="/people/${pid.ann}"]`).count(), 1); pass();
-    assert.equal(await halPage.locator(`[data-box=received] a[href="/people/${pid.ann}"]`).count(), 0); pass();
+    assert.equal(await halPage.locator(`[data-box=connected] a[href^="/people/${pid.ann}"]`).count(), 1); pass();
+    assert.equal(await halPage.locator(`[data-box=received] a[href^="/people/${pid.ann}"]`).count(), 0); pass();
     await page.reload(); await page.waitForSelector('[data-person=ready]', { timeout: 20000 });
     assert.equal(await page.locator('[data-connect-mode=dating]').getAttribute('data-connection'), 'connected'); pass();
     await page.getByRole('button', { name: 'Block Fictional Hal' }).click();
@@ -209,7 +212,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await page.waitForSelector('[data-person=blocked]'); pass();
     assert.ok(!(await explore('ann')).includes(pid.hal) && !(await explore('hal')).includes(pid.ann)); pass();
     await halPage.reload(); await halPage.waitForSelector('[data-connections=ready]', { timeout: 20000 });
-    assert.equal(await halPage.locator(`a[href="/people/${pid.ann}"]`).count(), 0); pass(); // gone from Hal's lists too
+    assert.equal(await halPage.locator(`a[href^="/people/${pid.ann}"]`).count(), 0); pass(); // gone from Hal's lists too
     await page.goto(web + '/connections');
     await page.waitForSelector('[data-connections=ready]', { timeout: 20000 });
     await page.locator(`[data-blocked="${pid.hal}"]`).getByRole('button', { name: 'Unblock' }).click();

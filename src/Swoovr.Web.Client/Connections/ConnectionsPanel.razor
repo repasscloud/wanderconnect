@@ -51,7 +51,24 @@
         else
         {
             <ul class="request-list">
-                @foreach (var request in connected) { <li data-request="@request.Id" data-request-mode="@request.Mode">@Person(request) <span class="chip">@Label(request.Mode)</span></li> }
+                @foreach (var request in connected)
+                {
+                    <li data-request="@request.Id" data-request-mode="@request.Mode">@Person(request) <span class="chip">@Label(request.Mode)</span>
+                        <span class="field-help" data-connection-label>@MemberText.ConnectionLabel(request.Mode)</span>
+                        @if (confirmDisconnect == request.Id)
+                        {
+                            <span class="field-help">@MemberText.DisconnectExplained</span>
+                            <span class="request-actions">
+                                <button type="button" class="button" disabled="@busy" @onclick="() => DisconnectAsync(request)" data-disconnect-confirm>Disconnect</button>
+                                <button type="button" class="button button-secondary" @onclick="() => confirmDisconnect = null">Keep</button>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="request-actions"><button type="button" class="button button-secondary" disabled="@busy" @onclick="() => confirmDisconnect = request.Id" data-disconnect>Disconnect</button></span>
+                        }
+                    </li>
+                }
             </ul>
         }
     </section>
@@ -106,6 +123,19 @@
         busy = false;
     }
 
+    private Guid? confirmDisconnect;
+
+    // D176: ends this mode's connection without blocking.
+    private async Task DisconnectAsync(ConnectionRequestView request)
+    {
+        busy = true;
+        var result = await Members.DisconnectAsync(request.Id);
+        (status, message) = result.Ok ? ("disconnected", "Disconnected. They won't be told.") : ("failed", "That connection isn't available any more.");
+        confirmDisconnect = null;
+        await LoadAsync();
+        busy = false;
+    }
+
     private async Task UnblockAsync(Guid id)
     {
         busy = true;
@@ -117,5 +147,5 @@
     private string Label(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
 
     private static RenderFragment Person(ConnectionRequestView request) =>
-        @<span class="request-person"><a href="@($"/people/{request.Person.Id}")">@(request.Person.DisplayName ?? "Someone")</a><BadgeRow Badges="request.Person.Badges" /></span>;
+        @<span class="request-person"><a href="@($"/people/{request.Person.Id}?mode={request.Mode}")">@(request.Person.DisplayName ?? "Someone")</a><BadgeRow Badges="request.Person.Badges" /></span>;
 }

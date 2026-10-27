@@ -33,10 +33,10 @@ public sealed class AppSignIn
 		session is null || MobileEndpoints.Api is not { } api ? null : new MessagesHubClient(new Uri(api, "hubs/messages"), () => session.AccessTokenAsync());
 
 	/// <summary>True when signed in; false when the member closed the browser or the sign-in was refused.</summary>
-	public async Task<bool> SignInAsync()
+	public async Task<bool> SignInAsync(bool reauthenticate = false)
 	{
 		if (signIn is null || session is null) return false;
-		var request = await signIn.BeginAsync();
+		var request = await signIn.BeginAsync(reauthenticate: reauthenticate);
 		WebAuthenticatorResult result;
 		try
 		{
@@ -49,6 +49,12 @@ public sealed class AppSignIn
 		await session.SaveAsync(await signIn.CompleteAsync(request, result.Properties));
 		return true;
 	}
+
+	/// <summary>
+	/// D170: after a deletion request Keycloak has already ended every session; this forgets the tokens on this phone
+	/// without opening the browser again.
+	/// </summary>
+	public void ForgetLocally() => session?.Forget();
 
 	/// <summary>Forgets the tokens on this phone first, then ends the Keycloak session in the browser.</summary>
 	public async Task SignOutAsync()

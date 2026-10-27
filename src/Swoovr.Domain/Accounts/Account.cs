@@ -1,6 +1,7 @@
 namespace Swoovr.Domain;
 
-public enum AccountStatus { Active, Locked, Suspended }
+/// <summary>PendingDeletion and Deleted (D144, D170): out of discovery and every member route but the deletion screen.</summary>
+public enum AccountStatus { Active, Locked, Suspended, PendingDeletion, Deleted }
 
 /// <summary>
 /// An application account keyed by the validated token's (issuer, subject) (D55). Keycloak
@@ -23,6 +24,13 @@ public sealed class Account
     public bool IsRootAdmin { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset LastSeenAt { get; set; }
+    /// <summary>Deletion (D170): when it was asked for, when final deletion runs, and the status a cancel restores.</summary>
+    public DateTimeOffset? DeletionRequestedAt { get; set; }
+    public DateTimeOffset? DeletionDueAt { get; set; }
+    public AccountStatus? DeletionRestoreStatus { get; set; }
+    /// <summary>The member also asked for their founder recovery token to go at final deletion (D173, #22).</summary>
+    public bool DeleteFounderToken { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
 }
 
 /// <summary>An application role (Admin, Support, VenuePartner). Members hold Member implicitly.</summary>

@@ -586,7 +586,7 @@ public static class ModerationEndpoints
         var counts = await db.Reports.Where(r => ids.Contains(r.CaseId)).GroupBy(r => r.CaseId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, cancellationToken);
         var names = await db.MemberProfiles.Where(p => subjects.Contains(p.AccountId)).ToDictionaryAsync(p => p.AccountId, p => p.DisplayName, cancellationToken);
         return cases.Select(c => new CaseSummaryView(c.Id, c.SubjectAccountId, names.GetValueOrDefault(c.SubjectAccountId), Wire(c.Status), Wire(c.Queue), Wire(c.Priority),
-            counts.GetValueOrDefault(c.Id), c.CreatedAt, c.UpdatedAt, c.EscalatedAt is not null && c.AcknowledgedAt is null)).ToList();
+            counts.GetValueOrDefault(c.Id), c.CreatedAt, c.UpdatedAt, c.EscalatedAt is not null && c.AcknowledgedAt is null, c.SystemFlag)).ToList();
     }
 
     private static async Task<CaseDetailView> DetailAsync(SwoovrDbContext db, ModerationCase item, DateTimeOffset now, CancellationToken cancellationToken)

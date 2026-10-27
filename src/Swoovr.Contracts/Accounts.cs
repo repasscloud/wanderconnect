@@ -5,8 +5,10 @@ public sealed record BadgeView(string Badge, DateTimeOffset? CheckedAt);
 
 /// <summary>The signed-in member's own account. Carries no email, issuer, subject or token.</summary>
 /// <param name="DateOfBirthVerified">An approved ID check reported the same date of birth (D158).</param>
-/// <param name="AccountState">active, restricted, suspended or terminated (D160); anything but active shows the restricted screen.</param>
+/// <param name="AccountState">active, restricted, suspended or terminated (D160); anything but active shows the restricted screen;
+/// pendingDeletion (D170) shows the deletion screen instead.</param>
 /// <param name="DobCheck">"none", "correctionNeeded" (show the one-time prompt) or "manualReview" (D166).</param>
+/// <param name="PhoneRequired">D148: a verified mobile number is required and missing; clients show the phone step first.</param>
 public sealed record MemberAccount(
     string AgeStatus,
     int? Age,
@@ -15,7 +17,35 @@ public sealed record MemberAccount(
     IReadOnlyList<BadgeView> Badges,
     bool DateOfBirthVerified = false,
     string AccountState = "active",
-    string DobCheck = "none");
+    string DobCheck = "none",
+    bool PhoneVerified = false,
+    bool PhoneRequired = false);
+
+/// <summary>
+/// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion
+/// runs. Founder says whether a founder recovery code applies (D173).
+/// </summary>
+public sealed record DeletionView(string State, DateTimeOffset? RequestedAt, DateTimeOffset? DueAt, bool Founder, bool DeleteFounderToken,
+    bool SignedOutEverywhere = false, bool FounderCodeEmailed = false);
+
+/// <summary>Confirm must be true. Immediately skips the 30-day recovery period; DeleteFounderToken also removes the founder token (#22).</summary>
+public sealed record DeletionRequest(bool Confirm, bool Immediately, bool DeleteFounderToken);
+
+/// <summary>
+/// The member's mobile number (D148): masked (country code and last three digits), whether it's verified, a number
+/// waiting for its code, and which sender delivers codes ("twilio", or "simulated", which never delivers, D174).
+/// </summary>
+public sealed record PhoneView(string? Number, bool Verified, DateTimeOffset? VerifiedAt, string? PendingNumber, DateTimeOffset? CodeExpiresAt,
+    string Sender, bool Required);
+
+/// <summary>Sends a code to this number (Australian 04xx or international +…).</summary>
+public sealed record PhoneStart(string? Number);
+
+/// <summary>The six-digit code for the number it was sent to.</summary>
+public sealed record PhoneConfirm(string? Number, string? Code);
+
+/// <summary>A one-time export link (D172): the path works once, before ExpiresAt, for the member who asked.</summary>
+public sealed record ExportTicket(string Path, DateTimeOffset ExpiresAt);
 
 /// <summary>D166: the member's one correction of their date of birth to the one on their verified ID.</summary>
 public sealed record DobCorrectionRequest(DateOnly? DateOfBirth);
@@ -31,6 +61,24 @@ public static class ProblemCodes
     public const string BetaNotEnrolled = "beta-not-enrolled";
     public const string InvalidAge = "invalid-age";
     public const string StaleSession = "stale-session";
+    public const string AccountDeletionPending = "account-deletion-pending";
+    public const string RecentlyDisconnected = "recently-disconnected";
+    public const string InvalidPhone = "invalid-phone";
+    public const string PhoneCodeCooldown = "phone-code-cooldown";
+    public const string PhoneCodeLimit = "phone-code-limit";
+    public const string PhoneCodeWrong = "phone-code-wrong";
+    public const string PhoneCodeExpired = "phone-code-expired";
+    public const string PhoneInUse = "phone-in-use";
+    public const string PhoneAlreadyVerified = "phone-already-verified";
+    public const string PhoneSendFailed = "phone-send-failed";
+    public const string PhoneVerificationRequired = "phone-verification-required";
+    public const string NotConnected = "not-connected";
+    public const string DeletionNotAllowed = "deletion-not-allowed";
+    public const string DeletionAlreadyPending = "deletion-already-pending";
+    public const string DeletionNotPending = "deletion-not-pending";
+    public const string ConfirmationRequired = "confirmation-required";
+    public const string ExportTooSoon = "export-too-soon";
+    public const string ExportUnavailable = "export-unavailable";
     public const string InvalidRequest = "invalid-request";
     public const string CouponInvalid = "coupon-invalid";
     public const string TooManyAttempts = "too-many-attempts";

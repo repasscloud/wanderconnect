@@ -68,6 +68,8 @@ public interface IIdVerificationProvider
     Task<ProviderSession?> CreateSessionAsync(Guid accountId, string callbackUrl, CancellationToken cancellationToken);
     /// <summary>Reads the current decision for one session. Null when the provider failed or doesn't know it.</summary>
     Task<ProviderSession?> GetDecisionAsync(string sessionId, CancellationToken cancellationToken);
+    /// <summary>Deletes a session and its data at the provider (account deletion, D173). True once it is gone (or was never known).</summary>
+    Task<bool> DeleteSessionAsync(string sessionId, CancellationToken cancellationToken);
 }
 
 /// <summary>

@@ -34,6 +34,27 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<bool>("DeleteFounderToken")
+                        .HasColumnType("boolean")
+                        .HasColumnName("delete_founder_token");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset?>("DeletionDueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletion_due_at");
+
+                    b.Property<DateTimeOffset?>("DeletionRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletion_requested_at");
+
+                    b.Property<string>("DeletionRestoreStatus")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("deletion_restore_status");
+
                     b.Property<string>("Email")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
@@ -85,6 +106,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Realm", "Email")
                         .HasDatabaseName("ix_accounts_realm_email");
+
+                    b.HasIndex("Status", "DeletionDueAt")
+                        .HasDatabaseName("ix_accounts_status_deletion_due_at");
 
                     b.ToTable("accounts");
                 });
@@ -478,6 +502,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<Guid?>("EndedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ended_by");
+
                     b.Property<Guid>("FromAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("from_account_id");
@@ -541,6 +573,70 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ContactHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ChangeReason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("change_reason");
+
+                    b.Property<Guid?>("ChangedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("changed_by");
+
+                    b.Property<string>("ContactType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("contact_type");
+
+                    b.Property<byte[]>("EncryptedValue")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("encrypted_value");
+
+                    b.Property<byte[]>("LookupHmac")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("lookup_hmac");
+
+                    b.Property<DateTimeOffset>("RetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retain_until");
+
+                    b.Property<DateTimeOffset?>("ValidFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_from");
+
+                    b.Property<DateTimeOffset>("ValidUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contact_histories");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_contact_histories_account_id");
+
+                    b.HasIndex("RetainUntil")
+                        .HasDatabaseName("ix_contact_histories_retain_until");
+
+                    b.HasIndex("ContactType", "LookupHmac")
+                        .HasDatabaseName("ix_contact_histories_contact_type_lookup_hmac");
+
+                    b.ToTable("contact_histories");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Conversation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -551,6 +647,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedReason")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("closed_reason");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -606,6 +707,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_conversation_hides_account_id");
 
                     b.ToTable("conversation_hides");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.DataExport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DownloadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("downloaded_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_data_exports");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_data_exports_token_hash");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_data_exports_account_id_created_at");
+
+                    b.ToTable("data_exports");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.DiditWebhookEvent", b =>
@@ -1324,6 +1466,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("mode_id");
 
+                    b.Property<string>("About")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("about");
+
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
@@ -1408,6 +1555,32 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_member_notices_account_id_created_at");
 
                     b.ToTable("member_notices");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MemberPhone", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("number");
+
+                    b.Property<DateTimeOffset>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_member_phones");
+
+                    b.HasIndex("Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_member_phones_number");
+
+                    b.ToTable("member_phones");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>
@@ -2136,6 +2309,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("subject_account_id");
 
+                    b.Property<string>("SystemFlag")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("system_flag");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -2152,6 +2330,64 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasFilter("status IN ('Open', 'UnderReview')");
 
                     b.ToTable("moderation_cases");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhoneCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<byte[]>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_attempts");
+
+                    b.Property<byte[]>("IpHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("ip_hash");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("number");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_phone_codes");
+
+                    b.HasIndex("IpHash", "CreatedAt")
+                        .HasDatabaseName("ix_phone_codes_ip_hash_created_at");
+
+                    b.HasIndex("Number", "CreatedAt")
+                        .HasDatabaseName("ix_phone_codes_number_created_at");
+
+                    b.HasIndex("AccountId", "Number", "CreatedAt")
+                        .HasDatabaseName("ix_phone_codes_account_id_number_created_at");
+
+                    b.ToTable("phone_codes");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ProfileOption", b =>
@@ -2637,6 +2873,29 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("staff_member_links");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TerminatedEmailHold", b =>
+                {
+                    b.Property<byte[]>("EmailHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("email_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.HasKey("EmailHash")
+                        .HasName("pk_terminated_email_holds");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_terminated_email_holds_expires_at");
+
+                    b.ToTable("terminated_email_holds");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2866,6 +3125,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_conversation_hides_conversations_conversation_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.DataExport", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_data_exports_accounts_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.DobReview", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -3047,6 +3316,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_member_notices_sanctions_sanction_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberPhone", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithOne()
+                        .HasForeignKey("Swoovr.Domain.MemberPhone", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_phones_accounts_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberProfile", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -3138,6 +3417,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_moderation_cases_accounts_subject_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhoneCode", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_phone_codes_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Report", b =>

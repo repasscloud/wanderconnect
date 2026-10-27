@@ -23,7 +23,7 @@ else
                 <tr data-case="@c.Id" data-priority="@c.Priority" data-queue="@c.Queue">
                     <td>@c.Priority@(c.AwaitingAcknowledgement ? " · needs acknowledgement" : "")</td>
                     <td><a href="/cases/@c.Id">@(c.SubjectName ?? "(no name)")</a></td>
-                    <td>@c.Reports</td><td>@c.Queue</td><td>@c.Status</td><td>@c.CreatedAt.ToString("d MMM HH:mm")</td>
+                    <td data-system-flag="@c.SystemFlag">@(c.SystemFlag == "returning-terminated" ? "No reports · same email as a terminated member who deleted their account" : c.Reports.ToString())</td><td>@c.Queue</td><td>@c.Status</td><td>@c.CreatedAt.ToString("d MMM HH:mm")</td>
                 </tr>
             }
         </tbody>

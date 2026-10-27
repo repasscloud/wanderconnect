@@ -66,7 +66,9 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
 
     // Profiles and requests across markets read as not available (rules 11–12), whatever the client sends.
     assert.equal((await person('ada', 'gle')).status, 200); pass();
-    assert.deepEqual((await person('ada', 'gle')).body.modes.map(m => [m.id, m.canRequest]), [['dating', true], ['friends', true]]); pass();
+    // D175: a profile is seen from one mode at a time.
+    assert.deepEqual((await person('ada', 'gle')).body.modes.map(m => [m.id, m.canRequest]), [['dating', true]]); pass();
+    assert.deepEqual((await call(tokens.ada, `/api/v1/profiles/${pid.gle}?mode=friends`)).body.modes.map(m => [m.id, m.canRequest]), [['friends', true]]); pass();
     for (const [who, whom] of [['mel', 'ada'], ['ada', 'mel'], ['non', 'ada'], ['syd', 'mel'], ['dar', 'ada']]) {
       assert.equal((await person(who, whom)).status, 404, `${who} opens ${whom}`); pass();
       assert.deepEqual(code(await send(who, whom)), [404, 'not-available'], `${who} asks ${whom}`); pass();
@@ -92,7 +94,8 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.ok(!(await explore('ada')).includes(pid.trv)); pass(); // the feed is separate from Explore
     assert.ok((await call(tokens.ada, '/api/v1/travel/visitors?mode=dating')).body.people.some(p => p.id === pid.trv)); pass();
     r = await person('ada', 'trv');
-    assert.equal(r.status, 200); assert.deepEqual(r.body.modes.map(m => [m.id, m.canRequest]), [['dating', true], ['friends', true]]); pass();
+    assert.equal(r.status, 200); assert.deepEqual(r.body.modes.map(m => [m.id, m.canRequest]), [['dating', true]]); pass(); // D175: one mode at a time
+    assert.deepEqual((await call(tokens.ada, `/api/v1/profiles/${pid.trv}?mode=friends`)).body.modes.map(m => [m.id, m.canRequest]), [['friends', true]]); pass();
     assert.deepEqual(code(await send('trv', 'ada')), [403, 'arrival-required']); pass(); // no early initiation (D60, D149)
     // Since slice T (D142) a traveller within 14 days of arrival may browse the destination's locals, but not request.
     r = await person('trv', 'ada');
@@ -102,6 +105,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     const adaTrv = r.body.id;
     r = await person('trv', 'ada'); // a request between them opens the profile (rule 13)
     assert.equal(r.status, 200); pass();
+    r = await call(tokens.trv, `/api/v1/profiles/${pid.ada}?mode=friends`); // D175, D182: opened from Friends, plus the request's mode
     assert.deepEqual(r.body.modes.map(m => [m.id, m.connection, m.canRequest]), [['dating', 'received', false], ['friends', 'none', false]]); pass();
     assert.deepEqual(code(await send('trv', 'ada', 'friends')), [403, 'arrival-required']); pass();
     assert.equal((await call(tokens.trv, `/api/v1/requests/${adaTrv}/accept`, { method: 'POST' })).status, 200); pass();
@@ -113,6 +117,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.ok(!(await call(tokens.ada, '/api/v1/travel/visitors?mode=dating')).body.people.some(p => p.id === pid.trv)); pass();
     r = await person('ada', 'trv');
     assert.equal(r.status, 200); pass(); // connected
+    r = await call(tokens.ada, `/api/v1/profiles/${pid.trv}?mode=friends`);
     assert.deepEqual(r.body.modes.map(m => [m.id, m.connection, m.canRequest]), [['dating', 'connected', true], ['friends', 'none', true]]); pass(); // a connected pair may add a mode
     assert.ok((await call(tokens.trv, '/api/v1/connections')).body.items.some(x => x.id === adaTrv)); pass();
 
@@ -242,7 +247,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     await page.goto(web + '/explore');
     await page.waitForSelector('[data-explore-mode=dating][data-explore-state=ready]', { timeout: 20000 });
     assert.equal(await page.locator('[data-explore-market]').innerText(), 'People in Adelaide'); pass();
-    const hrefs = await page.locator('.profile-tile h2 a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+    const hrefs = await page.locator('.profile-tile h2 a').evaluateAll(els => els.map(e => e.getAttribute('href').split('?')[0])); // links carry ?mode= (D175)
     assert.ok(hrefs.includes('/people/' + pid.gle) && !hrefs.includes('/people/' + pid.mel) && !hrefs.includes('/people/' + pid.mov)); pass();
     if (output) await page.screenshot({ path: output + '/explore-market-390.png', fullPage: true });
     await page.goto(web + `/people/${pid.mel}`);
@@ -271,7 +276,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     const trip2 = await call(tokens.trv, '/api/v1/me/trips', { method: 'POST', body: { cityId: ADELAIDE, arrival: plus(2), departure: plus(4), visible: true } });
     assert.equal(trip2.status, 201);
     r = await send('gle', 'trv', 'friends'); assert.equal(r.status, 201); pass(); // gle writes to the visitor
-    await page.goto(web + `/people/${pid.gle}`);
+    await page.goto(web + `/people/${pid.gle}?mode=dating`); // D175: opened from Dating, plus the pending Friends request
     await page.waitForSelector('[data-person=ready]', { timeout: 20000 });
     assert.equal(await page.locator('[data-connect-mode=friends]').getAttribute('data-connection'), 'received'); pass();
     assert.equal(await page.locator('[data-connect-mode=dating] [data-request-unavailable]').count(), 1); pass();

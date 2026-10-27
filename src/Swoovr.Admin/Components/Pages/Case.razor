@@ -24,6 +24,11 @@ else
         @if (c.Status != "closed") { <button name="StepForm.Step" value="close" type="submit" class="secondary" data-step="close">Close case</button> }
     </form>
 
+    @if (c.SystemFlag == "returning-terminated")
+    {
+        @* D171: opened by Swoovr, not a report. Nothing is blocked; an admin decides whether this is the same person. *@
+        <p class="notice" data-system-flag="returning-terminated">Swoovr opened this case: the account's verified email matches a terminated member who deleted their account in the last two years. Nothing is blocked automatically.</p>
+    }
     <h2>Reports (@detail.Reports.Count)</h2>
     <ul class="list" data-reports>
         @foreach (var r in detail.Reports)

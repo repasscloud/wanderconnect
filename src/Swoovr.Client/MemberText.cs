@@ -18,6 +18,8 @@ public static class MemberText
         ProblemCodes.AgeVerificationRequired => "We need to confirm you're 18 or over before you can keep using Swoovr. Verify your ID under Me.",
         ProblemCodes.BetaNotEnrolled => "This opens once your email is on the private beta list.",
         ProblemCodes.AccountLocked => "This account is locked.",
+        ProblemCodes.PhoneVerificationRequired => "Verify your mobile number under Me to keep using Swoovr.",
+        ProblemCodes.AccountDeletionPending => "Your account is being deleted. You can cancel under Me → Your data and account.",
         _ => null,
     };
 
@@ -27,10 +29,43 @@ public static class MemberText
         "active" => null,
         "suspended" => "Your account is suspended",
         "terminated" => "Your account has been closed",
+        "pendingDeletion" => "Your account is being deleted",
         _ => "Your account is restricted",
     };
 
+    /// <summary>D148: the phone step's words, shared by the web and the app.</summary>
+    public const string PhoneIntro = "We text a six-digit code to check your mobile number. Your number is never shown to other members.";
+    public const string PhoneSimulated = "Test mode: no text message is sent. The code goes to the local development mail sink.";
+
+    public static string PhoneProblem(string? code) => code switch
+    {
+        ProblemCodes.InvalidPhone => "Enter a mobile number, for example 0412 345 678 or +61 412 345 678.",
+        ProblemCodes.PhoneCodeCooldown => "Wait a minute before asking for another code.",
+        ProblemCodes.PhoneCodeLimit => "Too many codes. Try again in an hour.",
+        ProblemCodes.PhoneCodeWrong => "That code isn't right. Check it and try again.",
+        ProblemCodes.PhoneCodeExpired => "That code has expired. Ask for a new one.",
+        ProblemCodes.TooManyAttempts => "Too many wrong codes. Ask for a new one.",
+        ProblemCodes.PhoneInUse => "That number can't be used. Try another.",
+        ProblemCodes.PhoneAlreadyVerified => "That number is already verified.",
+        ProblemCodes.PhoneSendFailed => "We couldn't send a code just now. Try again.",
+        _ => "That didn't work. Try again.",
+    };
+
+    /// <summary>What a connection is called in each mode (D176); the rules are the same in every mode for now.</summary>
+    public static string ConnectionLabel(string modeId) => modeId switch
+    {
+        "dating" => "Match", "friends" => "Friend", "activities" => "Activity partner", "business" => "Contact", _ => "Connection",
+    };
+
+    /// <summary>D176: what disconnecting does, shown before the member confirms.</summary>
+    public const string DisconnectExplained = "You'll no longer be connected in this mode. They aren't told, and they can't ask again here for 30 days. If no other mode connects you, your chat closes and stays readable.";
+
     public const string RestrictedBody = "You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.";
+
+    /// <summary>D170: a pending deletion says how to change your mind instead of pointing at a notice.</summary>
+    public static string RestrictedBodyFor(string? accountState) => accountState == "pendingDeletion"
+        ? "You can still change your mind: open Your data and account to cancel."
+        : RestrictedBody;
 
     /// <summary>Why Explore shows no one for a mode (D125, D139, D157); null when the API answered with people.</summary>
     public static string? ExploreNotice(string? code, string modeLabel) => code switch

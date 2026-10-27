@@ -99,7 +99,11 @@ public static class ProfileEndpoints
             var setting = await db.MemberModes.SingleOrDefaultAsync(m => m.AccountId == profile.AccountId && m.ModeId == modeId, cancellationToken);
             if (setting is null) db.MemberModes.Add(setting = new MemberMode { AccountId = profile.AccountId, ModeId = modeId });
             // Each mode is independent: only this row and its intentions change (Q12 rule 2).
-            (setting.Enabled, setting.Visible, setting.UpdatedAt) = (update.Enabled, update.Visible, now);
+            // D175: this mode's own about (full replacement; blank shows the core about here).
+            var about = ProfileTextPolicy.Clean(update.About);
+            if (ProfileTextPolicy.Check(null, null, about) != ProfileTextError.None)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode's about to {ProfileTextPolicy.AboutMax} characters of plain text.");
+            (setting.Enabled, setting.Visible, setting.About, setting.UpdatedAt) = (update.Enabled, update.Visible, about, now);
             // Only the difference is written, so kept rows (including retired chips, D113) are never touched.
             db.MemberModeIntentions.RemoveRange(stored.Where(i => !change.Stored.Contains(i.IntentionId)));
             db.MemberModeIntentions.AddRange(change.Stored.Where(id => stored.All(i => i.IntentionId != id))
@@ -125,7 +129,8 @@ public static class ProfileEndpoints
             if (notReady is not null) return notReady;
             return Results.Ok(new ExploreResult(selected.Id, await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken), market.Name));
         });
-        api.MapGet("/profiles/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
+        // D175: ?mode= is the mode the profile was opened from; the view shows that mode and the modes the pair is connected in.
+        api.MapGet("/profiles/{id:guid}", async (Guid id, string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -140,6 +145,9 @@ public static class ProfileEndpoints
             var (low, high) = ConnectionRequest.Pair(viewer, person.Profile.AccountId);
             var between = await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high
                 && (r.Status == ConnectionRequestStatus.Pending || r.Status == ConnectionRequestStatus.Accepted)).ToListAsync(cancellationToken);
+            // D175: never list the person's other modes; an unshared requested mode reads as not found.
+            var shownIds = ModePrivacy.Shown(mode, shared.Select(m => m.Id).ToList(), between.Select(r => r.ModeId).ToHashSet());
+            if (shownIds.Count == 0) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That profile isn't available.");
             // D125: the profile also needs the same market, an existing request or connection, or a visit to the viewer's
             // market; anything else is the same 404, so a profile link from another market reveals nothing.
             var reach = await ReachAsync(db, configuration, current!.Profile!, person, shared, between, clock.GetUtcNow(), cancellationToken);
@@ -150,13 +158,17 @@ public static class ProfileEndpoints
             var chips = await IntentionLabelsAsync(db, [person.Profile.AccountId], null, cancellationToken);
             var shownAs = Public((await IdentitiesAsync(db, [person.Profile.AccountId], cancellationToken)).GetValueOrDefault(person.Profile.AccountId),
                 person.Profile.DateOfBirth is { } dob ? AgePolicy.YearsOn(dob, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)) : null, await GenderLabelsAsync(db, cancellationToken));
-            return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, person.Profile.About,
-                shared.Select(m =>
+            var abouts = await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId && shownIds.Contains(m.ModeId))
+                .ToDictionaryAsync(m => m.ModeId, m => m.About, cancellationToken);
+            string? AboutIn(string modeId) => ModePrivacy.About(abouts.GetValueOrDefault(modeId), person.Profile.About);
+            return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, AboutIn(shownIds[0]),
+                shared.Where(m => shownIds.Contains(m.Id)).Select(m =>
                 {
                     var may = MarketAccess.MayRequest(reach.SameMarket && reach.MarketModes.Contains(m.Id), between.Any(r => r.Status == ConnectionRequestStatus.Accepted),
                         reach.VisitingModes.Contains(m.Id), travel.ArrivedTrips.ContainsKey(m.Id));
                     return ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between, may) with
-                        { ArrivalRequired = !may && travel.SearchModes.Contains(m.Id) };
+                        { ArrivalRequired = !may && travel.SearchModes.Contains(m.Id), About = AboutIn(m.Id),
+                          ConnectionId = between.FirstOrDefault(r => r.ModeId == m.Id && r.Status == ConnectionRequestStatus.Accepted)?.Id };
                 }).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns));
         });
@@ -213,12 +225,16 @@ public static class ProfileEndpoints
         shown = shown.Take(ExploreLimit).ToList();
         var identities = await IdentitiesAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), cancellationToken);
         var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
+        var shownIds = shown.Select(c => c.Profile.AccountId).ToList();
+        // D175: the card shows the person's about for this mode.
+        var abouts = await db.MemberModes.Where(m => m.ModeId == selected.Id && shownIds.Contains(m.AccountId) && m.About != null)
+            .ToDictionaryAsync(m => m.AccountId, m => m.About, cancellationToken);
         var order = await BadgeOrderAsync(db, cancellationToken);
         var genders = await GenderLabelsAsync(db, cancellationToken);
         return shown.Select(c =>
         {
             var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
-            return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, c.Profile.About,
+            return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, ModePrivacy.About(abouts.GetValueOrDefault(c.Profile.AccountId), c.Profile.About),
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns);
         }).ToList();
     }
@@ -391,7 +407,7 @@ public static class ProfileEndpoints
                             select i).ToListAsync(cancellationToken);
         var home = profile.HomeGeoNameId is { } id ? await db.GeoCities.FindAsync([id], cancellationToken) : null;
         return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
-            ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList())
+            ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList(), s.About)
             : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home),
             await db.MarketInterests.AnyAsync(i => i.AccountId == profile.AccountId, cancellationToken));
     }

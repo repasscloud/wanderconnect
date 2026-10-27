@@ -53,7 +53,23 @@ public sealed class ConnectionsPage : ContentPage
 		}));
 		body.Children.Add(Section("Requests you sent", "Nothing waiting for an answer.", "Sent", outbox.Value?.Items ?? [],
 			request => Ui.Button("Withdraw", $"Withdraw_{request.Id}", () => AnswerAsync(request, "withdraw"), primary: false)));
-		body.Children.Add(Section("Connected", "No connections yet. A connection starts when someone accepts a request.", "Connected", links.Value?.Items ?? [], null));
+		// D176: each connection can be ended without blocking; the other member isn't told.
+		body.Children.Add(Section("Connected", "No connections yet. A connection starts when someone accepts a request.", "Connected", links.Value?.Items ?? [],
+			request => new HorizontalStackLayout
+			{
+				Spacing = 8,
+				Children =
+				{
+					Ui.Text(MemberText.ConnectionLabel(request.Mode), "FooterClaims", $"ConnectionLabel_{request.Id}"),
+					Ui.Button("Disconnect", $"Disconnect_{request.Id}", async () =>
+					{
+						if (!await DisplayAlertAsync("Disconnect?", MemberText.DisconnectExplained, "Disconnect", "Keep")) return;
+						var result = await Ui.Members!.DisconnectAsync(request.Id);
+						await LoadAsync();
+						status.Text = result.Ok ? "Disconnected. They won't be told." : "That connection isn't available any more.";
+					}, primary: false),
+				},
+			}));
 		var blocked = new List<View> { Ui.Text("Blocked", "SectionHeading") };
 		if (blocks.Value is not { Count: > 0 }) blocked.Add(Ui.Text("You haven't blocked anyone.", "FooterClaims", "BlockedEmpty"));
 		foreach (var person in blocks.Value ?? [])
@@ -76,7 +92,7 @@ public sealed class ConnectionsPage : ContentPage
 		foreach (var request in items)
 		{
 			var name = Ui.Text(request.Person.DisplayName ?? "Someone", "TileName", $"{id}_{request.Id}");
-			name.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(async () => await Ui.PushAsync(new PersonPage(request.Person.Id))) });
+			name.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(async () => await Ui.PushAsync(new PersonPage(request.Person.Id, request.Mode))) });
 			rows.Add(new HorizontalStackLayout { Spacing = 8, Children = { name, Ui.BadgeRow(request.Person.Badges, $"{id}Badges_{request.Id}"), Ui.Text(Label(request.Mode), "FooterClaims") } });
 			if (actions is not null) rows.Add(actions(request));
 		}

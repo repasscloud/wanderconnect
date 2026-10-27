@@ -33,16 +33,19 @@ public sealed class NativeSignIn(HttpClient http, NativeSignInOptions options, T
     private readonly TimeProvider time = clock ?? TimeProvider.System;
     private Discovery? discovery;
 
-    public async Task<SignInRequest> BeginAsync(CancellationToken cancellationToken = default)
+    /// <param name="reauthenticate">D169: ask Keycloak to sign the member in again (prompt=login, max_age=0), for deletion and export.</param>
+    public async Task<SignInRequest> BeginAsync(CancellationToken cancellationToken = default, bool reauthenticate = false)
     {
         var endpoints = await DiscoverAsync(cancellationToken);
         var (state, nonce, verifier) = (Random(32), Random(32), Random(32));
-        var query = Query(new()
+        var parameters = new Dictionary<string, string>
         {
             ["client_id"] = options.ClientId, ["response_type"] = "code", ["scope"] = options.Scope,
             ["redirect_uri"] = options.RedirectUri.ToString(), ["state"] = state, ["nonce"] = nonce,
             ["code_challenge"] = Challenge(verifier), ["code_challenge_method"] = "S256",
-        });
+        };
+        if (reauthenticate) (parameters["prompt"], parameters["max_age"]) = ("login", "0");
+        var query = Query(parameters);
         return new(new Uri(endpoints.AuthorizationEndpoint + "?" + query), state, nonce, verifier);
     }
 
