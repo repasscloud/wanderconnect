@@ -54,6 +54,8 @@ public sealed class DataPage : ContentPage
 				rows.Add(Ui.Button("Delete now", "DeletionNow", () => ChangeAsync(Ui.Members!.DeleteNowAsync), primary: false));
 			body.Children.Add(Ui.Card([.. rows]));
 		}
+		// #99: what's kept after deletion and why (draft until legal review, #57).
+		body.Children.Add(Ui.Button("Privacy notice (draft)", "DataPrivacy", () => Ui.PushAsync(new PrivacyPage()), primary: false));
 		body.Children.Add(Ui.Card(Ui.Text(DeletionText.ExportHeading, "SectionHeading"), Ui.Text(DeletionText.ExportBody, "FooterClaims"),
 			Ui.Button("Download my data", "DataExport", ExportAsync, primary: false)));
 		if (!pending)

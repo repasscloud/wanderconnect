@@ -8,6 +8,8 @@
     <h1>@(view?.State == "pending" ? DeletionText.PendingTitle(view) : DeletionText.Title)</h1>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (view?.State == "pending") { <p data-deletion-due="@view.DueAt?.ToString("o")">@DeletionText.PendingBody(view)</p> }
+    @* #99: what's kept after deletion and why is in the privacy notice (draft until legal review, #57). *@
+    <p class="field-help"><a href="/privacy" data-privacy-link>Privacy notice (draft)</a>: what we keep after deletion, for how long and why.</p>
 </div>
 @if (loaded && view is null)
 {

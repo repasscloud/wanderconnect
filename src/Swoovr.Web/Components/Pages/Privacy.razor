@@ -1,0 +1,24 @@
+@page "/privacy"
+@* #99, #22: the member-facing privacy notice, a DRAFT until legal review (#57). Text shared with the app (PrivacyNotice). *@
+@using Swoovr.Client
+<PageTitle>Privacy notice (draft) — Swoovr</PageTitle>
+<div class="column">
+    <div class="page-heading" data-privacy-notice>
+        <p class="notice" role="note" data-draft><strong>@PrivacyNotice.DraftLabel</strong></p>
+        <h1>Privacy notice</h1>
+        <p class="field-help">@PrivacyNotice.Version</p>
+    </div>
+    <nav aria-label="Sections" class="card account-section">
+        <ul>@foreach (var s in PrivacyNotice.Sections) { <li><a href="#@s.Id">@s.Title</a></li> }</ul>
+    </nav>
+    @foreach (var s in PrivacyNotice.Sections)
+    {
+        <section class="card account-section" id="@s.Id" data-privacy-section="@s.Id">
+            <h2>@s.Title</h2>
+            @foreach (var p in s.Paragraphs) { <p>@p</p> }
+            @if (s.Id == "law-enforcement") { <p><a href="/law-enforcement">Information for law enforcement</a></p> }
+            @if (s.Id == "choices") { <p><a href="/account/data">Your data and account</a></p> }
+        </section>
+    }
+    <p class="notice" role="note"><strong>@PrivacyNotice.DraftLabel</strong></p>
+</div>
