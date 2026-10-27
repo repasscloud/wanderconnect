@@ -2032,7 +2032,7 @@ The owner added the [internal trust and safety policy](INTERNAL-TRUST-SAFETY-EVI
 | #89 | Security operations and breach response (§12) | OPEN |
 | #90 | Location privacy hardening (§10) | OPEN |
 | #91 | Mode privacy follow-ups (§6) | OPEN |
-| [#99](https://github.com/repasscloud/wanderconnect/issues/99) | Privacy policy: disclose the verified identity record, ban matching and retention after termination (owner, Q78) | OPEN |
+| [#99](https://github.com/repasscloud/wanderconnect/issues/99) | Privacy policy: disclose the verified identity record, ban matching and retention after termination (owner, Q78) | OPEN; updated by the owner 27 October 2026 with the attachment [SWOOVR-POLICE-CONTACT-PROCEDURE.md](https://github.com/user-attachments/files/34006144/SWOOVR-POLICE-CONTACT-PROCEDURE.md) (the police-contact procedure #84 left to the owner; not yet folded into the repository or built against) |
 
 ## Questions before the Y–AA run — 27 October 2026
 
