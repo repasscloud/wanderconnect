@@ -23,7 +23,7 @@
             <div class="field"><label for="report-text">Anything else we should know (optional)</label>
                 <textarea id="report-text" maxlength="2000" rows="4" @bind="text"></textarea></div>
             <label class="check"><input type="checkbox" @bind="block" /> Also block @Name</label>
-            <p class="field-help">If someone is in immediate danger, contact emergency services (000 in Australia).</p>
+            <p class="field-help">If someone is in immediate danger, contact emergency services (000 in Australia). For assault, violence, threats, stalking, coercion or child exploitation, use <a class="link" href="/me/safety">Report a serious safety incident</a>.</p>
             <button type="submit" class="button" disabled="@(busy || string.IsNullOrEmpty(category))">Send report</button>
             <p role="status" aria-live="polite" class="field-help" data-report-status="@status">@message</p>
         </form>

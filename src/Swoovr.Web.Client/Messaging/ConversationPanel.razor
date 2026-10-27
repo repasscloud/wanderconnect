@@ -43,19 +43,27 @@
         </form>
     }
     else { <p class="field-help" data-cannot-send>You can't send messages here right now.</p> }
-    <p role="status" aria-live="polite" class="field-help" data-chat-status="@status">@message</p>
+    @* Policy §7: Report and Block straight from the conversation, and the Serious Safety Incident pathway (D190). *@
     <p class="account-actions">
         <button type="button" class="button button-secondary" @onclick="HideConversationAsync" data-hide-conversation>Hide this chat</button>
         <button type="button" class="button button-secondary" @onclick='() => reportingConversation = true' data-report-conversation>Report this chat</button>
+        @if (conversation.Person.Id != Guid.Empty)
+        {
+            @if (confirmBlock) { <button type="button" class="button" @onclick="BlockAsync" data-block-confirm>Block @(conversation.Person.DisplayName ?? "them")</button> }
+            else { <button type="button" class="button button-secondary" @onclick="() => confirmBlock = true" data-block-conversation>Block</button> }
+        }
+        <a class="button button-secondary" href="@($"/me/safety?type=conversation&id={Id}")" data-serious-link>Serious safety incident</a>
     </p>
     @if (reportingConversation)
     {
         <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
     }
 }
+@* Outside the conversation block, so "This chat is closed." still shows once a block or disconnect closes it (#82). *@
+<p role="status" aria-live="polite" class="field-help" data-chat-status="@status">@message</p>
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
-    private bool loaded, busy, more, live, reportingConversation;
+    private bool loaded, busy, more, live, reportingConversation, confirmBlock;
     private string? draft, status, message;
     private Guid? reporting;
     private DateTimeOffset? before;
@@ -129,6 +137,15 @@
     private async Task HideAsync(MessageView m)
     {
         if (await Members.HideMessageAsync(m.Id) == 204) messages.RemoveAll(x => x.Id == m.Id);
+    }
+
+    // The block closes the conversation; the API pushes "closed" (#82), and this window closes it at once either way.
+    private async Task BlockAsync()
+    {
+        if (conversation is null) return;
+        var code = await Members.BlockAsync(conversation.Person.Id);
+        if (code == 204) await Closed();
+        else (status, message) = ("failed", "That didn't work. Try again.");
     }
 
     private async Task HideConversationAsync()

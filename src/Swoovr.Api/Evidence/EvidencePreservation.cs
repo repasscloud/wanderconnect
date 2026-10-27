@@ -103,7 +103,7 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
             if (await db.Accounts.FindAsync([id], cancellationToken) is { } account) Add("account", "accounts", id.ToString(), id, account);
             if (await db.MemberProfiles.FindAsync([id], cancellationToken) is { } profile) Add("profile", "member_profiles", id.ToString(), id, profile);
             foreach (var mode in await db.MemberModes.Where(m => m.AccountId == id).ToListAsync(cancellationToken))
-                Add("mode", "member_modes", $"{id}:{mode.ModeId}", id, new
+                Add("mode", "member_modes", $"{id:N}:{mode.ModeId}", id, new
                 {
                     Mode = mode,
                     Intentions = await db.MemberModeIntentions.Where(i => i.AccountId == id && i.ModeId == mode.ModeId).Select(i => i.IntentionId).ToListAsync(cancellationToken),
@@ -119,7 +119,7 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
             foreach (var request in await db.ConnectionRequests.Where(r => r.FromAccountId == id || r.ToAccountId == id).ToListAsync(cancellationToken))
                 if (InPeriod(request.CreatedAt)) Add("request", "connection_requests", request.Id.ToString(), id, request);
             foreach (var block in await db.Blocks.Where(b => b.BlockerAccountId == id || b.BlockedAccountId == id).ToListAsync(cancellationToken))
-                if (InPeriod(block.CreatedAt)) Add("block", "blocks", $"{block.BlockerAccountId}:{block.BlockedAccountId}", id, block);
+                if (InPeriod(block.CreatedAt)) Add("block", "blocks", $"{block.BlockerAccountId:N}{block.BlockedAccountId:N}", id, block);
             foreach (var conversation in await db.Conversations.Where(c => (c.PairLow == id || c.PairHigh == id) && (named.Count == 0 || named.Contains(c.Id))).ToListAsync(cancellationToken))
             {
                 Add("conversation", "conversations", conversation.Id.ToString(), id, conversation);
@@ -132,7 +132,14 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                         });
             }
             foreach (var report in await db.Reports.Where(r => r.ReporterAccountId == id || r.SubjectAccountId == id).ToListAsync(cancellationToken))
-                if (InPeriod(report.CreatedAt)) Add("report", "reports", report.Id.ToString(), id, report);
+                if (InPeriod(report.CreatedAt))
+                    Add("report", "reports", report.Id.ToString(), id, new
+                    {
+                        report.Id, report.ReporterAccountId, report.SubjectAccountId, report.SubjectType, report.SubjectRef, report.CategoryId, report.Priority,
+                        report.Text, report.CaseId, report.CreatedAt, report.Police,
+                        // D190: the reporter's police reference, opened into the sealed evidence item.
+                        PoliceReference = report.PoliceReference is { } sealedReference && keys.Encryption.ContainsKey(sealedReference[0]) ? EvidenceSeal.Open(keys.Encryption, sealedReference) : null,
+                    });
             foreach (var item in await db.ModerationCases.Where(c => c.SubjectAccountId == id).ToListAsync(cancellationToken))
             {
                 Add("case", "moderation_cases", item.Id.ToString(), id, item);

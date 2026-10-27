@@ -40,6 +40,14 @@ public sealed class ConversationPage : ContentPage
 		{
 			if (await Ui.Members!.HideConversationAsync(id) == 204) await Navigation.PopAsync();
 		}, primary: false));
+		// Policy §7: Report and Block straight from the conversation; the Serious Safety Incident pathway (D190).
+		body.Children.Add(Ui.Button("Report this chat", "ReportChat", () => Ui.PushAsync(new SafetyPage("conversation", id.ToString())), primary: false));
+		if (conversation.Person.Id != Guid.Empty)
+			body.Children.Add(Ui.Button($"Block {conversation.Person.DisplayName}", "BlockChat", async () =>
+			{
+				if (await Ui.Members!.BlockAsync(conversation.Person.Id) == 204) Closed();
+				else status.Text = "That didn't work. Try again.";
+			}, primary: false));
 		messages.Clear();
 		messages.AddRange((await Ui.Members.MessagesAsync(id)).Value?.Items.Reverse() ?? []);
 		Draw();
@@ -48,6 +56,8 @@ public sealed class ConversationPage : ContentPage
 			hub = live;
 			hub.Message += m => MainThread.BeginInvokeOnMainThread(() => { if (m.ConversationId == id && messages.All(x => x.Id != m.Id)) { messages.Add(m); Draw(); } });
 			hub.Deleted += d => MainThread.BeginInvokeOnMainThread(() => { if (d.ConversationId == id && MarkDeleted(d.MessageId)) Draw(); });
+			// #82: a block, disconnect or deletion closes the chat at once.
+			hub.Closed += c => MainThread.BeginInvokeOnMainThread(() => { if (c.ConversationId == id) Closed(); });
 			try { await hub.StartAsync(); status.Text = null; }
 			catch (Exception error) when (error is HttpRequestException or InvalidOperationException) { status.Text = "Live updates are off. Reopen the chat to see new messages."; }
 		}
@@ -83,6 +93,13 @@ public sealed class ConversationPage : ContentPage
 			}, primary: false));
 			thread.Children.Add(new VerticalStackLayout { Spacing = 2, Children = { bubble, actions } });
 		}
+	}
+
+	private void Closed()
+	{
+		body.Children.Clear();
+		body.Children.Add(Ui.Text("This chat is closed.", "PageTitle", "ChatClosed"));
+		body.Children.Add(Ui.Button("Report a serious safety incident", "SeriousAfterClose", () => Ui.PushAsync(new SafetyPage("conversation", id.ToString(), "blocked")), primary: false));
 	}
 
 	private bool MarkDeleted(Guid message)

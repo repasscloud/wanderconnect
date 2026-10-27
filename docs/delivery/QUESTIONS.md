@@ -2015,7 +2015,7 @@ Feedback to factor in later:
 
 | Issue | Topic | Status |
 | --- | --- | --- |
-| [#82](https://github.com/repasscloud/wanderconnect/issues/82) | A block closes the conversation but never pushes "closed" to live clients (found building slice W) | OPEN |
+| [#82](https://github.com/repasscloud/wanderconnect/issues/82) | A block closes the conversation but never pushes "closed" to live clients (found building slice W) | BUILT in slice Z (D193), PR #97; left open for the owner to close |
 
 ## Policy implementation — 27 October 2026
 

@@ -78,6 +78,7 @@
                             <Button Text="Travel" AutomationId="MeTravel" Style="{StaticResource SecondaryButton}" Clicked="OnTravel" />
                             <Button Text="ID verification" AutomationId="MeVerification" Style="{StaticResource SecondaryButton}" Clicked="OnVerification" />
                             <Button Text="Notices and reports" AutomationId="MeNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
+                            <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
                         </VerticalStackLayout>

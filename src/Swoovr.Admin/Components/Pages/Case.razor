@@ -34,6 +34,7 @@ else
         @foreach (var r in detail.Reports)
         {
             <li data-report="@r.Id"><strong>@r.Category</strong> (@r.Priority) about a @r.SubjectType · @r.CreatedAt.ToString("d MMM HH:mm")
+                @if (r.Police is not null) { <span class="help" data-report-police="@r.Police"> · police: @(r.Police switch { "contacted" => "the reporter has contacted police", "will-contact" => "the reporter wants to contact police", _ => "not now" })</span> }
                 @if (r.Text is not null) { <blockquote>@r.Text</blockquote> }</li>
         }
     </ul>

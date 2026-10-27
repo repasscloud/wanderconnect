@@ -152,8 +152,47 @@ public static class MemberText
         _ => "Notice",
     };
 
-    /// <summary>What a member sees of their own report (D131): never the outcome.</summary>
+    /// <summary>What a member sees of their own report (D131): its review status.</summary>
     public static string ReportStatus(string status) => status switch { "submitted" => "Submitted", "underReview" => "Under review", "reviewed" => "Reviewed", _ => "Closed" };
+
+    /// <summary>D190: the general outcome of a closed report, never which action.</summary>
+    public static string ReportLine(MyReportView report) =>
+        $"{report.CreatedAt:d MMM yyyy}{(report.Serious ? " (serious incident)" : "")}: {ReportStatus(report.Status)}" + report.Outcome switch
+        {
+            "actionTaken" => ". We took action on this report.",
+            "noBreachFound" => ". We reviewed it and didn't find a breach of our rules.",
+            _ => "",
+        };
+
+    /// <summary>
+    /// D190 (policy §9): shown before the Serious Safety Incident form, on the web and in the app. Australian services
+    /// only for the Adelaide beta; the app makes the numbers tap-to-call. Swoovr never contacts police for the member.
+    /// </summary>
+    public const string ImmediateDanger = "If you're in immediate danger, call 000 now.";
+    public static readonly IReadOnlyList<(string Name, string Detail, string? Phone, string? Link)> SafetyServices =
+    [
+        ("Emergency (police, ambulance, fire)", "Call 000 if you or someone else is in danger now.", "000", null),
+        ("Police Assistance Line", "131 444, to report a crime to police when it isn't an emergency.", "131444", null),
+        ("1800RESPECT", "1800 737 732, 24/7 support for sexual assault and domestic or family violence.", "1800737732", "https://www.1800respect.org.au"),
+        ("Lifeline", "13 11 14, 24/7 crisis support.", "131114", "https://www.lifeline.org.au"),
+        ("eSafety Commissioner", "Report serious online abuse and image-based abuse.", null, "https://www.esafety.gov.au/report"),
+        ("ACCCE", "Report online child sexual exploitation to the Australian Centre to Counter Child Exploitation.", null, "https://www.accce.gov.au/report"),
+    ];
+    public const string SeriousPromise = "We'll preserve what's on Swoovr about this, review it urgently, and won't tell the other person you reported them. We don't contact police for you, but we will help police if they ask.";
+
+    public static string PoliceAnswer(string answer) => answer switch
+    {
+        "contacted" => "I've contacted police",
+        "will-contact" => "I want to contact police",
+        _ => "Not now",
+    };
+
+    /// <summary>D190: how someone the member dealt with stands now.</summary>
+    public static string SafetyState(string state) => state switch
+    {
+        "connected" => "Connected", "pending" => "Request pending", "blocked" => "Blocked", "disconnected" => "Disconnected",
+        "declined" => "Declined", "deleted" => "Account deleted", _ => "No longer connected",
+    };
 
     /// <summary>Whether a notice's action may still be appealed from it (D135).</summary>
     public static bool Appealable(NoticeView notice) => notice.Sanction is { CanAppeal: true, AppealStatus: null } && notice.Kind is not ("appealUpheld" or "appealOverturned" or "sanctionLifted");

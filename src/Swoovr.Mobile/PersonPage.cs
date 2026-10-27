@@ -60,7 +60,9 @@ public sealed class PersonPage : ContentPage
 		body.Children.Add(Ui.Detach(status));
 		body.Children.Add(BlockCard(person));
 		body.Children.Add(reporting ? await ReportCardAsync(person) : Ui.Card(Ui.Text("Report", "SectionHeading"),
-			Ui.Button($"Report {person.DisplayName}", "ReportOpen", async () => { reporting = true; await LoadAsync(); }, primary: false)));
+			Ui.Button($"Report {person.DisplayName}", "ReportOpen", async () => { reporting = true; await LoadAsync(); }, primary: false),
+			// D190: the separate Serious Safety Incident pathway.
+			Ui.Button("Report a serious safety incident", "SeriousOpen", () => Ui.PushAsync(new SafetyPage("profile", id.ToString())), primary: false)));
 	}
 
 	private View ConnectCard(PersonProfile person)
@@ -140,7 +142,7 @@ public sealed class PersonPage : ContentPage
 		var message = Ui.Text(null, id: "ReportStatus");
 		return Ui.Card(Ui.Text("Report", "SectionHeading"), Ui.Labelled("Reason", picker), Ui.Labelled("Anything else we should know (optional)", text),
 			new HorizontalStackLayout { Spacing = 8, Children = { block, Ui.Text($"Also block {person.DisplayName}") } },
-			Ui.Text("If someone is in immediate danger, contact emergency services (000 in Australia).", "FooterClaims"),
+			Ui.Text("If someone is in immediate danger, contact emergency services (000 in Australia). For assault, violence, threats, stalking, coercion or child exploitation, use Report a serious safety incident.", "FooterClaims"),
 			Ui.Button("Send report", "ReportSend", async () =>
 			{
 				if (picker.SelectedIndex < 0) { message.Text = "Choose a reason."; return; }

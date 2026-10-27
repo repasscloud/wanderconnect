@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Api.Accounts;
 using Swoovr.Contracts;
@@ -23,10 +24,12 @@ public static class ModerationEndpoints
     public static void Map(WebApplication app)
     {
         var api = app.MapGroup("/api/v1").RequireAuthorization();
-        api.MapGet("/report-categories", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        // D190: `kind=serious` lists the Serious Safety Incident categories; otherwise the routine ones.
+        api.MapGet("/report-categories", async (string? kind, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (_, denied) = await MemberAsync(user, accounts, cancellationToken);
-            return denied ?? Results.Ok(await accounts.Db!.ReportCategories.Where(c => c.Available).OrderBy(c => c.SortOrder)
+            var serious = kind == "serious";
+            return denied ?? Results.Ok(await accounts.Db!.ReportCategories.Where(c => c.Available && c.Serious == serious).OrderBy(c => c.SortOrder)
                 .Select(c => new ReportCategoryView(c.Id, c.Label)).ToListAsync(cancellationToken));
         });
         api.MapPost("/reports", ReportAsync);
@@ -35,12 +38,49 @@ public static class ModerationEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var db = accounts.Db!;
+            // D190: the general outcome once the case is closed: whether any action followed the report, never which.
             var mine = await (from r in db.Reports
                               join c in db.ModerationCases on r.CaseId equals c.Id
+                              join k in db.ReportCategories on r.CategoryId equals k.Id
                               where r.ReporterAccountId == current!.Account!.Id
                               orderby r.CreatedAt descending
-                              select new { r.Id, r.SubjectType, r.CategoryId, c.Status, r.CreatedAt }).Take(100).ToListAsync(cancellationToken);
-            return Results.Ok(mine.Select(r => new MyReportView(r.Id, Wire(r.SubjectType), r.CategoryId, ReportPolicy.ReporterStatus(r.Status), r.CreatedAt)).ToList());
+                              select new { r.Id, r.SubjectType, r.CategoryId, c.Status, r.CreatedAt, k.Serious,
+                                  Action = db.Sanctions.Any(s => s.CaseId == c.Id && s.StartsAt >= r.CreatedAt) }).Take(100).ToListAsync(cancellationToken);
+            return Results.Ok(mine.Select(r => new MyReportView(r.Id, Wire(r.SubjectType), r.CategoryId, ReportPolicy.ReporterStatus(r.Status), r.CreatedAt,
+                ReportPolicy.Outcome(r.Status, r.Action), r.Serious)).ToList());
+        });
+        // D190 (policy §9): everyone the member has dealt with, so a report stays possible after a block, a disconnect or
+        // the other account's deletion. One row per person: their conversation if there is one, else the latest request.
+        api.MapGet("/me/safety/people", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            if (denied is not null) return denied;
+            var (db, me) = (accounts.Db!, current!.Account!.Id);
+            var conversations = await db.Conversations.Where(c => c.PairLow == me || c.PairHigh == me).OrderByDescending(c => c.CreatedAt).Take(200).ToListAsync(cancellationToken);
+            var requests = await db.ConnectionRequests.Where(r => r.FromAccountId == me || r.ToAccountId == me).OrderByDescending(r => r.CreatedAt).Take(200).ToListAsync(cancellationToken);
+            var others = conversations.Select(c => c.PairLow == me ? c.PairHigh : c.PairLow).Concat(requests.Select(r => r.FromAccountId == me ? r.ToAccountId : r.FromAccountId)).Distinct().ToList();
+            var names = await db.MemberProfiles.Where(p => others.Contains(p.AccountId)).ToDictionaryAsync(p => p.AccountId, p => p.DisplayName, cancellationToken);
+            var blocked = (await db.Blocks.Where(b => b.BlockerAccountId == me && others.Contains(b.BlockedAccountId) || b.BlockedAccountId == me && others.Contains(b.BlockerAccountId))
+                .Select(b => b.BlockerAccountId == me ? b.BlockedAccountId : b.BlockerAccountId).ToListAsync(cancellationToken)).ToHashSet();
+            var people = new List<SafetyPerson>();
+            foreach (var other in others)
+            {
+                var name = names.TryGetValue(other, out var n) ? n ?? "Someone" : "Deleted member";
+                var deleted = !names.ContainsKey(other);
+                if (conversations.FirstOrDefault(c => c.PairLow == other || c.PairHigh == other) is { } c)
+                    people.Add(new("conversation", c.Id, name, deleted ? "deleted" : blocked.Contains(other) || c.ClosedReason == ClosedReasons.Blocked ? "blocked"
+                        : c.ClosedReason == ClosedReasons.Disconnected ? "disconnected" : c.ClosedAt is null ? "connected" : "ended", c.CreatedAt));
+                else if (requests.FirstOrDefault(r => r.FromAccountId == other || r.ToAccountId == other) is { } r)
+                    people.Add(new("request", r.Id, name, blocked.Contains(other) ? "blocked" : r.Status switch
+                    {
+                        ConnectionRequestStatus.Accepted => "connected",
+                        ConnectionRequestStatus.Pending => "pending",
+                        ConnectionRequestStatus.Disconnected => "disconnected",
+                        ConnectionRequestStatus.Declined => "declined",
+                        _ => "ended",
+                    }, r.CreatedAt));
+            }
+            return Results.Ok(people);
         });
         api.MapGet("/me/notices", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -88,12 +128,16 @@ public static class ModerationEndpoints
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     /// <summary>
-    /// D131: a member reports a profile, a request between them, or a bot. Optional text, an optional block in the same
-    /// step, evidence preserved, reports about one account consolidated into its open case, urgent ones escalated at once.
-    /// The reporter must be able to see the person or share a request with them; anything else reads as not available.
+    /// D131: a member reports a profile, a request between them, a bot, a conversation or a message. Optional text, an
+    /// optional block in the same step, evidence preserved, reports about one account consolidated into its open case,
+    /// urgent ones escalated at once. The reporter must be able to see the person or share a request or conversation with
+    /// them; anything else reads as not available. D190: reporting stays open after a block, disconnect or the other
+    /// account's deletion through the conversation or request they shared; a Serious Safety Incident category goes to the
+    /// admin queue, is escalated every time and places a provisional legal hold over both accounts and their conversations.
     /// </summary>
     private static async Task<IResult> ReportAsync(NewReport request, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration,
-        IEmailSender email, TimeProvider clock, ILoggerFactory logs, CancellationToken cancellationToken)
+        IEmailSender email, Evidence.EvidencePreservation evidence, Evidence.EvidenceKeys evidenceKeys, IHubContext<Connections.MessagesHub> hub,
+        TimeProvider clock, ILoggerFactory logs, CancellationToken cancellationToken)
     {
         var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
         if (denied is not null) return denied;
@@ -104,12 +148,17 @@ public static class ModerationEndpoints
             return Problem(StatusCodes.Status400BadRequest, ProblemCodes.UnsupportedSubject, "That can't be reported yet.");
         if (request.Text is { Length: > ReportPolicy.TextMax })
             return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidReport, "Keep it under 2,000 characters.");
+        if (request.Police is not null && !ReportPolicy.PoliceAnswers.Contains(request.Police) || request.PoliceReference is { Length: > ReportPolicy.PoliceReferenceMax }
+            || request.MessageIds is { Count: > ReportPolicy.ChosenMessagesMax })
+            return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidReport, "Check the police details and the messages you chose (up to 20).");
         var category = await db.ReportCategories.SingleOrDefaultAsync(c => c.Id == request.Category && c.Available, cancellationToken);
         if (category is null) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.UnknownCategory, "Pick a reason from the list.");
 
-        // Resolve the subject account and a snapshot of what the reporter saw.
+        // Resolve the subject account (its profile is gone after final deletion) and a snapshot of what the reporter saw.
+        Guid? subjectId = null;
         MemberProfile? subject = null;
         object? snapshot = null;
+        var pairConversations = new List<Guid>();
         if (subjectType is ReportSubject.Profile or ReportSubject.Bot && Guid.TryParse(request.SubjectId, out var publicId))
         {
             subject = await db.MemberProfiles.SingleOrDefaultAsync(p => p.PublicId == publicId, cancellationToken);
@@ -128,25 +177,33 @@ public static class ModerationEndpoints
         }
         else if (subjectType is ReportSubject.Message or ReportSubject.Conversation && Guid.TryParse(request.SubjectId, out var itemId))
         {
-            // D143 rules 10, 18–21: the member's own conversation (even after a block); a message must be the other
-            // person's. The evidence is the reported message and up to twenty before it, or the conversation's latest
-            // twenty-one; deleted messages are included while their text is still kept (D165). Never in the audit.
+            // D143 rules 10, 18–21: the member's own conversation (even after a block, a disconnect or the other's
+            // deletion); a message must be the other person's. The evidence is the reported message and up to twenty
+            // before it, the messages the reporter chose (D190), or the conversation's latest twenty-one; deleted messages
+            // are included while their text is still kept (D165). Never in the audit.
             var message = subjectType == ReportSubject.Message ? await db.Messages.FindAsync([itemId], cancellationToken) : null;
             var conversation = await db.Conversations.FindAsync([message?.ConversationId ?? itemId], cancellationToken);
             if (conversation is not null && (conversation.PairLow == me || conversation.PairHigh == me)
                 && (subjectType == ReportSubject.Conversation || message is not null && message.SenderAccountId != me))
             {
-                subject = await db.MemberProfiles.FindAsync([conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow], cancellationToken);
+                subjectId = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
+                subject = await db.MemberProfiles.FindAsync([subjectId], cancellationToken);
                 var all = await db.Messages.Where(m => m.ConversationId == conversation.Id).OrderByDescending(m => m.SentAt).Take(500).ToListAsync(cancellationToken);
-                var kept = message is not null ? MessagingPolicy.Evidence(all, message) : all.Take(MessagingPolicy.EvidenceBefore + 1).OrderBy(m => m.SentAt).ToList();
+                var chosen = request.MessageIds is { Count: > 0 } picks ? all.Where(m => picks.Contains(m.Id)).OrderBy(m => m.SentAt).ToList() : null;
+                if (chosen is not null && chosen.Count != request.MessageIds!.Distinct().Count())
+                    return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidReport, "Choose messages from this conversation.");
+                var kept = chosen ?? (message is not null ? MessagingPolicy.Evidence(all, message) : all.Take(MessagingPolicy.EvidenceBefore + 1).OrderBy(m => m.SentAt).ToList());
                 snapshot = new
                 {
-                    Conversation = conversation.Id, Reported = message?.Id,
+                    Conversation = conversation.Id, Reported = message?.Id, Chosen = chosen is not null, conversation.ClosedReason,
                     Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body }).ToList(),
                 };
             }
         }
-        if (subject is null || subject.AccountId == me) return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That isn't available.");
+        subjectId ??= subject?.AccountId;
+        if (subjectId is not { } subjectAccount || subjectAccount == me
+            || !await db.Accounts.AnyAsync(a => a.Id == subjectAccount && a.Realm == AccountRealm.Members, cancellationToken))
+            return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That isn't available.");
 
         var recent = await db.Reports.CountAsync(r => r.ReporterAccountId == me && r.Priority != ReportPriority.Urgent && r.CreatedAt > now - ReportPolicy.BurstWindow, cancellationToken);
         if (ReportPolicy.RateLimited(category.Priority, recent))
@@ -157,24 +214,79 @@ public static class ModerationEndpoints
         }
         var report = new Report
         {
-            Id = Guid.NewGuid(), ReporterAccountId = me, SubjectAccountId = subject.AccountId, SubjectType = subjectType, SubjectRef = request.SubjectId.Trim(),
-            CategoryId = category.Id, Priority = category.Priority, Text = Clean(request.Text), CreatedAt = now,
+            Id = Guid.NewGuid(), ReporterAccountId = me, SubjectAccountId = subjectAccount, SubjectType = subjectType, SubjectRef = request.SubjectId.Trim(),
+            CategoryId = category.Id, Priority = category.Priority, Text = Clean(request.Text), CreatedAt = now, Police = category.Serious ? request.Police : null,
         };
-        var item = await AttachAsync(db, report, subject, now, cancellationToken);
+        // D190: a police reference is kept only sealed with the evidence key, and only for serious incidents.
+        if (category.Serious && Clean(request.PoliceReference) is { } reference && evidenceKeys.CurrentVersion is { } version)
+            report.PoliceReference = EvidenceSeal.Seal(version, evidenceKeys.Encryption[version], reference);
+        var item = await AttachAsync(db, report, subjectAccount, subject?.Employee == true, category.Serious, now, cancellationToken);
         db.CaseEvidence.Add(new CaseEvidence { Id = Guid.NewGuid(), CaseId = item.Id, ReportId = report.Id, Kind = Wire(subjectType),
             Snapshot = JsonSerializer.Serialize(snapshot, SnapshotJson), CapturedAt = now });
-        Audit.Record(db, now, me, "account", "report.created", "moderation-case", item.Id.ToString(), $"{category.Id}:{category.Priority}");
-        if (request.Block) await Connections.RequestEndpoints.AddBlockAsync(db, me, subject.AccountId, now, cancellationToken);
+        Audit.Record(db, now, me, "account", category.Serious ? "report.serious" : "report.created", "moderation-case", item.Id.ToString(), $"{category.Id}:{category.Priority}");
+        var closed = new List<Conversation>();
+        if (request.Block) await Connections.RequestEndpoints.AddBlockAsync(db, me, subjectAccount, now, cancellationToken, closed);
         try { await db.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException)
         {
             // A concurrent report opened the case first; join it.
             db.ChangeTracker.Clear();
-            return await ReportAsync(request, user, accounts, configuration, email, clock, logs, cancellationToken);
+            return await ReportAsync(request, user, accounts, configuration, email, evidence, evidenceKeys, hub, clock, logs, cancellationToken);
+        }
+        // #82: a block closes the conversation for both members' open chat windows at once.
+        await Connections.MessagingEndpoints.PushClosedAsync(hub, closed, cancellationToken);
+        if (category.Serious)
+        {
+            // A preservation failure never loses the member's report: it is logged and audited for staff to place the hold.
+            try { await PreserveAsync(db, evidence, item, me, subjectAccount, category.Id, now, logs, cancellationToken); }
+            catch (Exception error) when (error is DbUpdateException or InvalidOperationException)
+            {
+                logs.CreateLogger("Swoovr.Api.Moderation").LogError(error, "Serious case {Case}: preservation failed.", item.Id);
+                db.ChangeTracker.Clear();
+                item = (await db.ModerationCases.FindAsync([item.Id], cancellationToken))!;
+                Audit.Record(db, now, null, "system", "hold.failed", "moderation-case", item.Id.ToString());
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            // Every serious report is escalated, even into a case already escalated and acknowledged.
+            (item.EscalatedAt, item.AcknowledgedAt, item.AcknowledgedBy) = (null, null, null);
         }
         if (item.Priority == ReportPriority.Urgent && item.EscalatedAt is null)
-            await EscalateAsync(db, item, category.Id, configuration, email, now, logs, cancellationToken);
-        return Results.Created($"/api/v1/me/reports/{report.Id}", new MyReportView(report.Id, Wire(subjectType), category.Id, ReportPolicy.ReporterStatus(item.Status), now));
+            await EscalateAsync(db, item, category.Id, category.Serious, configuration, email, now, logs, cancellationToken);
+        return Results.Created($"/api/v1/me/reports/{report.Id}", new MyReportView(report.Id, Wire(subjectType), category.Id, ReportPolicy.ReporterStatus(item.Status), now,
+            null, category.Serious));
+    }
+
+    /// <summary>
+    /// D190: a serious report places a provisional legal hold (Swoovr is the authoriser, `legal` confirms or releases it
+    /// within 30 days) over the reporter, the reported account and their conversations; a later serious report on the
+    /// same case and pair captures again instead of opening another hold. Without an evidence key nothing is held and
+    /// the audit says so.
+    /// </summary>
+    private static async Task PreserveAsync(SwoovrDbContext db, Evidence.EvidencePreservation evidence, ModerationCase item, Guid reporter, Guid subject,
+        string category, DateTimeOffset now, ILoggerFactory logs, CancellationToken cancellationToken)
+    {
+        if (!evidence.Configured)
+        {
+            Audit.Record(db, now, null, "system", "hold.not-placed", "moderation-case", item.Id.ToString(), "no-evidence-key");
+            await db.SaveChangesAsync(cancellationToken);
+            logs.CreateLogger("Swoovr.Api.Moderation").LogWarning("Serious case {Case}: no evidence key, nothing preserved.", item.Id);
+            return;
+        }
+        var (low, high) = ConnectionRequest.Pair(reporter, subject);
+        var conversations = await db.Conversations.Where(c => c.PairLow == low && c.PairHigh == high).Select(c => c.Id).ToListAsync(cancellationToken);
+        var existing = await (from h in db.LegalHolds join s in db.LegalHoldScopes on h.Id equals s.HoldId
+                              where h.CaseId == item.Id && h.Source == "serious-incident" && h.Status != LegalHoldStatus.Released
+                                    && s.Kind == HoldScopeKind.Account && s.TargetId == reporter select h).FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null)
+        {
+            await evidence.CaptureAsync(existing, null, now, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+        // No conversation yet: hold the two accounts without narrowing to conversations.
+        await Evidence.LegalHoldEndpoints.PlaceAsync(db, evidence, AccountRole.Unknown, null, $"Serious Safety Incident report ({category}), case {item.Id}",
+            [reporter, subject], conversations, null, null, null, "Release when the case is resolved and no investigation or request needs the records.",
+            item.Id, "serious-incident", now, cancellationToken);
     }
 
     /// <summary>A member may report someone they can see, someone they share any request with, or someone who blocked them after one.</summary>
@@ -182,6 +294,7 @@ public static class ModerationEndpoints
     {
         var (low, high) = ConnectionRequest.Pair(me, subject.AccountId);
         if (await db.ConnectionRequests.AnyAsync(r => r.PairLow == low && r.PairHigh == high, cancellationToken)) return true;
+        if (await db.Conversations.AnyAsync(c => c.PairLow == low && c.PairHigh == high, cancellationToken)) return true;
         // Otherwise exactly when the profile would open for them (shared modes and the market rule, D125).
         var row = await Profiles.ProfileEndpoints.Candidates(db, configuration, me).SingleOrDefaultAsync(c => c.Profile.AccountId == subject.AccountId, cancellationToken);
         if (row is null) return false;
@@ -192,18 +305,19 @@ public static class ModerationEndpoints
         return MarketAccess.ProfileOpens(reach.SameMarket, false, reach.VisitingModes.Count > 0);
     }
 
-    /// <summary>Joins the subject's open case or opens one; staff-affiliated subjects go to the admin queue (D134).</summary>
-    private static async Task<ModerationCase> AttachAsync(SwoovrDbContext db, Report report, MemberProfile subject, DateTimeOffset now, CancellationToken cancellationToken)
+    /// <summary>Joins the subject's open case or opens one; staff-affiliated subjects and serious incidents go to the admin queue (D134, D190).</summary>
+    private static async Task<ModerationCase> AttachAsync(SwoovrDbContext db, Report report, Guid subject, bool employee, bool serious, DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
-        var item = await db.ModerationCases.SingleOrDefaultAsync(c => c.SubjectAccountId == subject.AccountId
+        var item = await db.ModerationCases.SingleOrDefaultAsync(c => c.SubjectAccountId == subject
             && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken);
         if (item is null)
         {
-            item = new ModerationCase { Id = Guid.NewGuid(), SubjectAccountId = subject.AccountId, Status = CaseStatus.Open, Priority = report.Priority, CreatedAt = now };
+            item = new ModerationCase { Id = Guid.NewGuid(), SubjectAccountId = subject, Status = CaseStatus.Open, Priority = report.Priority, CreatedAt = now };
             db.ModerationCases.Add(item);
         }
         item.Priority = ReportPolicy.Max(item.Priority, report.Priority);
-        item.Queue = ReportPolicy.QueueFor(subject.Employee || item.Queue == CaseQueue.Admin);
+        item.Queue = ReportPolicy.QueueFor(employee || item.Queue == CaseQueue.Admin, serious);
         item.UpdatedAt = now;
         report.CaseId = item.Id;
         db.Reports.Add(report);
@@ -214,7 +328,7 @@ public static class ModerationEndpoints
     /// D135: urgent reports go at once to SWOOVR_ESCALATION_EMAIL (configuration `Moderation:EscalationEmail`, never
     /// committed) and the case stays awaiting acknowledgement. The email carries ids and the category only.
     /// </summary>
-    private static async Task EscalateAsync(SwoovrDbContext db, ModerationCase item, string category, IConfiguration configuration, IEmailSender email,
+    private static async Task EscalateAsync(SwoovrDbContext db, ModerationCase item, string category, bool serious, IConfiguration configuration, IEmailSender email,
         DateTimeOffset now, ILoggerFactory logs, CancellationToken cancellationToken)
     {
         // D159: the primary and backup contacts (Moderation:EscalationEmail and Moderation:EscalationBackupEmail, from
@@ -223,9 +337,9 @@ public static class ModerationEndpoints
         var sent = false;
         foreach (var address in new[] { to, configuration["Moderation:EscalationBackupEmail"] }.Where(a => !string.IsNullOrWhiteSpace(a))
                      .Select(a => a!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
-            sent |= await email.SendAsync(new EmailMessage(address, "Swoovr urgent report: acknowledgement needed",
+            sent |= await email.SendAsync(new EmailMessage(address, serious ? "Swoovr serious safety incident: acknowledgement needed" : "Swoovr urgent report: acknowledgement needed",
                 $"""
-                An urgent report needs review.
+                {(serious ? "A Serious Safety Incident report needs review now. If anyone may be in immediate danger, act before routine work. Evidence is preserved under a provisional legal hold." : "An urgent report needs review.")}
 
                 Case: {item.Id}
                 Category: {category}
@@ -596,7 +710,7 @@ public static class ModerationEndpoints
         var sanctions = await db.Sanctions.Where(s => s.AccountId == item.SubjectAccountId).OrderByDescending(s => s.StartsAt).ToListAsync(cancellationToken);
         var subject = await db.MemberProfiles.FindAsync([item.SubjectAccountId], cancellationToken);
         return new((await SummariesAsync(db, [item], cancellationToken))[0], subject?.Employee == true,
-            reports.Select(r => new CaseReportView(r.Id, r.ReporterAccountId, Wire(r.SubjectType), r.SubjectRef, r.CategoryId, Wire(r.Priority), r.Text, r.CreatedAt)).ToList(),
+            reports.Select(r => new CaseReportView(r.Id, r.ReporterAccountId, Wire(r.SubjectType), r.SubjectRef, r.CategoryId, Wire(r.Priority), r.Text, r.CreatedAt, r.Police)).ToList(),
             evidence.Select(e => new CaseEvidenceView(e.ReportId, e.Kind, e.Snapshot, e.CapturedAt)).ToList(),
             sanctions.Select(s => View(s, now)).ToList());
     }

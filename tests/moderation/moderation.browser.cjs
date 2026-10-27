@@ -50,7 +50,8 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
 
     // Categories are data; members never see priorities.
     let r = await call(tokens.rep, '/api/v1/report-categories');
-    assert.equal(r.status, 200); assert.ok(r.body.length >= 10 && r.body.some(c => c.id === 'threats') && r.body.some(c => c.id === 'underage')); pass();
+    // D190: threats moved to the Serious Safety Incident list; routine reports keep suspected underage as urgent.
+    assert.equal(r.status, 200); assert.ok(r.body.length >= 9 && !r.body.some(c => c.id === 'threats') && r.body.some(c => c.id === 'underage')); pass();
     assert.ok(!JSON.stringify(r.body).includes('rgent')); pass();
 
     // A report, consolidated with a second reporter's; evidence preserved; the text never reaches the audit log.
@@ -86,13 +87,13 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     // The abuse limit: ten ordinary reports in ten minutes, then 429; urgent reports are always accepted.
     for (let i = 0; i < 10; i++) assert.equal((await report('spm', 'profile', pid.sub, 'spam')).status, 201);
     assert.deepEqual(code(await report('spm', 'profile', pid.sub, 'spam')), [429, 'too-many-requests']); pass();
-    r = await report('spm', 'profile', pid.urg, 'threats');
+    r = await report('spm', 'profile', pid.urg, 'underage');
     assert.equal(r.status, 201); pass();
 
     // Urgent: escalated by email at once (ids and category only) and open until acknowledged.
     const urgCase = await caseOf('urg');
     let mail = []; for (let i = 0; i < 20 && !mail.some(m => m.includes(urgCase)); i++) { mail = await mailTo(ESCALATION); await sleep(250); }
-    assert.ok(mail.some(m => m.includes(urgCase) && m.includes('threats'))); pass();
+    assert.ok(mail.some(m => m.includes(urgCase) && m.includes('underage'))); pass();
     assert.ok(!mail.some(m => m.includes('Fictional Urg'))); pass();
     assert.equal((await call(st.sup, '/api/v1/admin/cases')).body.find(c => c.id === urgCase).awaitingAcknowledgement, true); pass();
     assert.deepEqual(code(await call(st.sup, `/api/v1/admin/cases/${urgCase}/close`, { method: 'POST' })), [409, 'invalid-request']); pass();

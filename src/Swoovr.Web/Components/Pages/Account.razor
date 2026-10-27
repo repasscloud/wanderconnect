@@ -32,7 +32,7 @@ else
         <button type="submit" class="quiet-button">Sign out</button>
     </form>
 }
-<nav class="card settings-list" aria-label="Settings">@if (signedIn) { <a href="/me/profile">Profile and modes <Icon Name="back" Size="18" /></a><a href="/me/matching">Who I'd like to meet <Icon Name="back" Size="18" /></a><a href="/travel">Travel <Icon Name="back" Size="18" /></a><a href="/me/verification">ID verification <Icon Name="back" Size="18" /></a><a href="/me/notices">Notices and reports <Icon Name="back" Size="18" /></a><a href="/account/data">Your data and account <Icon Name="back" Size="18" /></a> }<a href="/settings/appearance">Appearance <Icon Name="back" Size="18" /></a></nav>
+<nav class="card settings-list" aria-label="Settings">@if (signedIn) { <a href="/me/profile">Profile and modes <Icon Name="back" Size="18" /></a><a href="/me/matching">Who I'd like to meet <Icon Name="back" Size="18" /></a><a href="/travel">Travel <Icon Name="back" Size="18" /></a><a href="/me/verification">ID verification <Icon Name="back" Size="18" /></a><a href="/me/notices">Notices and reports <Icon Name="back" Size="18" /></a><a href="/me/safety">Safety <Icon Name="back" Size="18" /></a><a href="/account/data">Your data and account <Icon Name="back" Size="18" /></a> }<a href="/settings/appearance">Appearance <Icon Name="back" Size="18" /></a></nav>
 </div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;

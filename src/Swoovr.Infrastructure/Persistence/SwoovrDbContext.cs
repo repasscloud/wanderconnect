@@ -412,13 +412,20 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             webhook.Property(w => w.SessionId).HasMaxLength(64);
             webhook.Property(w => w.Outcome).HasMaxLength(32);
         });
-        // D131: report categories are data with priorities; threats and suspected underage are urgent.
+        // D131: report categories are data with priorities; threats and suspected underage are urgent. D190: the Serious
+        // Safety Incident categories (all urgent) are offered only in their own pathway; "threats" moved there.
         model.Entity<ReportCategory>(category =>
         {
             category.Property(c => c.Id).HasMaxLength(32);
             category.Property(c => c.Label).HasMaxLength(80);
             category.HasData(
-                new ReportCategory { Id = "threats", Label = "Threats or violence", Priority = ReportPriority.Urgent, SortOrder = 1 },
+                new ReportCategory { Id = "threats", Label = "Threats to my safety", Priority = ReportPriority.Urgent, SortOrder = 1, Serious = true },
+                new ReportCategory { Id = "sexual-assault", Label = "Sexual assault", Priority = ReportPriority.Urgent, SortOrder = 11, Serious = true },
+                new ReportCategory { Id = "violence", Label = "Physical violence", Priority = ReportPriority.Urgent, SortOrder = 12, Serious = true },
+                new ReportCategory { Id = "stalking", Label = "Stalking or being followed", Priority = ReportPriority.Urgent, SortOrder = 13, Serious = true },
+                new ReportCategory { Id = "coercion", Label = "Coercion, extortion or sextortion", Priority = ReportPriority.Urgent, SortOrder = 14, Serious = true },
+                new ReportCategory { Id = "child-exploitation", Label = "Child sexual exploitation or a suspected minor", Priority = ReportPriority.Urgent, SortOrder = 15, Serious = true },
+                new ReportCategory { Id = "danger", Label = "Other immediate danger", Priority = ReportPriority.Urgent, SortOrder = 16, Serious = true },
                 new ReportCategory { Id = "underage", Label = "Might be under 18", Priority = ReportPriority.Urgent, SortOrder = 2 },
                 new ReportCategory { Id = "harassment", Label = "Harassment or bullying", Priority = ReportPriority.High, SortOrder = 3 },
                 new ReportCategory { Id = "hate", Label = "Hate or discrimination", Priority = ReportPriority.High, SortOrder = 4 },

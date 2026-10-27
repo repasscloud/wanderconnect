@@ -192,7 +192,8 @@ public static class RequestEndpoints
             return Results.Ok(await PageAsync(db, query, me, page ?? 1, cancellationToken));
         });
 
-        api.MapPost("/blocks", async (BlockRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        api.MapPost("/blocks", async (BlockRequest request, ClaimsPrincipal user, AccountResolver accounts, IHubContext<MessagesHub> hub, TimeProvider clock,
+            CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
@@ -200,7 +201,9 @@ public static class RequestEndpoints
             var target = await db.MemberProfiles.SingleOrDefaultAsync(p => p.PublicId == request.ProfileId, cancellationToken);
             if (target is null || target.AccountId == me)
                 return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That profile isn't available.");
-            if (await AddBlockAsync(db, me, target.AccountId, now, cancellationToken)) await db.SaveChangesAsync(cancellationToken);
+            var closed = new List<Conversation>();
+            if (await AddBlockAsync(db, me, target.AccountId, now, cancellationToken, closed)) await db.SaveChangesAsync(cancellationToken);
+            await MessagingEndpoints.PushClosedAsync(hub, closed, cancellationToken);
             return Results.NoContent();
         });
 
@@ -236,7 +239,8 @@ public static class RequestEndpoints
     /// Adds a block (unsaved) unless it exists; blocking cancels every pending request between the two, in every mode.
     /// Also used by a report with "block" (D131). Returns whether anything changed.
     /// </summary>
-    public static async Task<bool> AddBlockAsync(SwoovrDbContext db, Guid me, Guid other, DateTimeOffset now, CancellationToken cancellationToken)
+    public static async Task<bool> AddBlockAsync(SwoovrDbContext db, Guid me, Guid other, DateTimeOffset now, CancellationToken cancellationToken,
+        List<Conversation>? closed = null)
     {
         if (await db.Blocks.AnyAsync(b => b.BlockerAccountId == me && b.BlockedAccountId == other, cancellationToken)) return false;
         db.Blocks.Add(new Block { BlockerAccountId = me, BlockedAccountId = other, CreatedAt = now });
@@ -247,7 +251,7 @@ public static class RequestEndpoints
             Audit.Record(db, now, null, "system", "request.cancelled", "connection-request", pending.Id.ToString(), "block");
         }
         // Q42 rules 12–14: the block also ends accepted connections and closes the conversation; unblocking restores neither.
-        await MessagingEndpoints.CloseForBlockAsync(db, me, other, now, cancellationToken);
+        if (await MessagingEndpoints.CloseForBlockAsync(db, me, other, now, cancellationToken) is { } conversation) closed?.Add(conversation);
         Audit.Record(db, now, me, "account", "block.added", "account", other.ToString());
         return true;
     }

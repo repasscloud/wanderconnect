@@ -1,0 +1,126 @@
+@* The Serious Safety Incident pathway (policy §9, owner Q77, D190), separate from routine reports. Immediate safety
+   information and Australian support services come first; then the people the member has dealt with (reportable even
+   after a block, a disconnect or their deletion) and the serious report itself: a category, what happened, whether they
+   have contacted or want to contact police (with an optional reference, kept encrypted), messages chosen as evidence
+   and an optional block. The other person is never told. Opened from a profile, a conversation or Me → Safety. *@
+@inject MemberClient Members
+@inject NavigationManager Navigation
+<div class="page-heading" data-safety="@(done ? "sent" : "ready")">
+    <p class="breadcrumb"><a href="/account">Me</a> / Safety</p>
+    <h1>Safety</h1>
+</div>
+<section class="card account-section notice" aria-labelledby="danger-heading" data-safety-services>
+    <h2 id="danger-heading">@MemberText.ImmediateDanger</h2>
+    <ul class="request-list">
+        @foreach (var s in MemberText.SafetyServices)
+        {
+            <li data-service="@s.Name"><strong>@s.Name</strong>: @s.Detail
+                @if (s.Phone is not null) { <a class="link" href="tel:@s.Phone">Call</a> }
+                @if (s.Link is not null) { <a class="link" href="@s.Link" target="_blank" rel="noopener">Website</a> }</li>
+        }
+    </ul>
+</section>
+@if (done)
+{
+    <section class="card account-section" data-serious-done>
+        <h2>Your report was sent</h2>
+        <p role="status">@MemberText.SeriousPromise</p>
+        <p>You can follow it under <a class="link" href="/me/notices">Me → Notices and reports</a>.</p>
+    </section>
+}
+else if (subjectType is not null)
+{
+    <section class="card account-section" aria-labelledby="serious-heading">
+        <h2 id="serious-heading">Report a serious safety incident</h2>
+        <p class="field-help">@MemberText.SeriousPromise</p>
+        <form class="stack" @onsubmit="SendAsync" data-serious-form>
+            <div class="field"><label for="serious-category">What happened</label>
+                <select id="serious-category" @bind="category" required data-serious-category>
+                    <option value="">Choose one</option>
+                    @foreach (var c in categories) { <option value="@c.Id">@c.Label</option> }
+                </select></div>
+            <div class="field"><label for="serious-text">Tell us what happened (optional)</label>
+                <textarea id="serious-text" maxlength="2000" rows="5" @bind="text"></textarea></div>
+            <fieldset class="field"><legend>Police</legend>
+                @foreach (var answer in new[] { "contacted", "will-contact", "not-now" })
+                {
+                    <label class="check"><input type="radio" name="police" checked="@(police == answer)" @onchange="() => police = answer" data-police="@answer" /> @MemberText.PoliceAnswer(answer)</label>
+                }
+            </fieldset>
+            @if (police == "contacted")
+            {
+                <div class="field"><label for="police-reference">Police reference (optional)</label>
+                    <input id="police-reference" maxlength="100" @bind="policeReference" data-police-reference /></div>
+            }
+            @if (messages.Count > 0)
+            {
+                <fieldset class="field" data-choose-messages="@messages.Count"><legend>Messages to include (optional, up to 20)</legend>
+                    @foreach (var m in messages.Where(m => !m.Deleted).TakeLast(50))
+                    {
+                        <label class="check"><input type="checkbox" checked="@chosen.Contains(m.Id)" @onchange="() => Toggle(m.Id)" data-choose="@m.Id" /> @(m.Mine ? "You" : "Them"): @m.Text</label>
+                    }
+                </fieldset>
+            }
+            @if (subjectType != "conversation" || personState is not ("blocked" or "deleted"))
+            {
+                <label class="check"><input type="checkbox" @bind="block" data-serious-block /> Also block them</label>
+            }
+            <button type="submit" class="button" disabled="@(busy || string.IsNullOrEmpty(category))" data-serious-send>Send serious report</button>
+            <p role="status" aria-live="polite" class="field-help" data-serious-status="@status">@message</p>
+        </form>
+    </section>
+}
+<section class="card account-section" aria-labelledby="people-heading">
+    <h2 id="people-heading">People you've dealt with</h2>
+    <p class="field-help">You can report someone even after blocking or disconnecting, or if their account was deleted.</p>
+    @if (people.Count == 0) { <p class="field-help" data-safety-people="none">No one yet.</p> }
+    else
+    {
+        <ul class="request-list" data-safety-people="@people.Count">
+            @foreach (var p in people)
+            {
+                <li data-safety-person="@p.SubjectId" data-safety-state="@p.State">@p.Name · @MemberText.SafetyState(p.State)
+                    <a class="link" href="@($"/me/safety?type={p.SubjectType}&id={p.SubjectId}&state={p.State}")" data-safety-report="@p.SubjectId">Report</a></li>
+            }
+        </ul>
+    }
+</section>
+@code {
+    private string? subjectType, subjectId, personState, category, text, police, policeReference, status, message;
+    private bool busy, done, block;
+    private List<ReportCategoryView> categories = [];
+    private List<SafetyPerson> people = [];
+    private List<MessageView> messages = [];
+    private readonly HashSet<Guid> chosen = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = new Uri(Navigation.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2)).Where(pair => pair.Length == 2).GroupBy(pair => pair[0]).ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1]));
+        if (query.GetValueOrDefault("type") is "profile" or "conversation" or "request" or "message" && query.GetValueOrDefault("id") is { } id)
+            (subjectType, subjectId, personState) = (query["type"], id, query.GetValueOrDefault("state"));
+        categories = (await Members.ReportCategoriesAsync(serious: true)).Value ?? [];
+        people = (await Members.SafetyPeopleAsync()).Value ?? [];
+        // A conversation the member can still read offers its messages as evidence; a blocked one can't be read, and its
+        // latest messages are preserved anyway.
+        if (subjectType == "conversation" && Guid.TryParse(subjectId, out var conversation))
+            messages = (await Members.MessagesAsync(conversation)).Value?.Items.Reverse().ToList() ?? [];
+    }
+
+    private void Toggle(Guid id)
+    {
+        if (!chosen.Remove(id) && chosen.Count < 20) chosen.Add(id);
+    }
+
+    private async Task SendAsync()
+    {
+        busy = true;
+        var result = await Members.ReportAsync(new NewReport(subjectType!, subjectId!, category ?? "", text, block, police, policeReference,
+            chosen.Count > 0 ? chosen.ToList() : null));
+        busy = false;
+        if (result.Ok) { done = true; return; }
+        (status, message) = (result.Code ?? "failed", result.Code == ProblemCodes.NotAvailable
+            ? "We couldn't find that conversation or person. Choose them from the list below."
+            : "That report couldn't be sent. If you're in danger, call 000.");
+    }
+}

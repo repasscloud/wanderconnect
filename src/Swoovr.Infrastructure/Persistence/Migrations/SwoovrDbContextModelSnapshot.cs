@@ -2902,6 +2902,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Police")
+                        .HasColumnType("text")
+                        .HasColumnName("police");
+
+                    b.Property<byte[]>("PoliceReference")
+                        .HasColumnType("bytea")
+                        .HasColumnName("police_reference");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -2977,6 +2985,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("priority");
 
+                    b.Property<bool>("Serious")
+                        .HasColumnType("boolean")
+                        .HasColumnName("serious");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2991,9 +3003,64 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             Id = "threats",
                             Available = true,
-                            Label = "Threats or violence",
+                            Label = "Threats to my safety",
                             Priority = "Urgent",
+                            Serious = true,
                             SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = "sexual-assault",
+                            Available = true,
+                            Label = "Sexual assault",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 11
+                        },
+                        new
+                        {
+                            Id = "violence",
+                            Available = true,
+                            Label = "Physical violence",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 12
+                        },
+                        new
+                        {
+                            Id = "stalking",
+                            Available = true,
+                            Label = "Stalking or being followed",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 13
+                        },
+                        new
+                        {
+                            Id = "coercion",
+                            Available = true,
+                            Label = "Coercion, extortion or sextortion",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 14
+                        },
+                        new
+                        {
+                            Id = "child-exploitation",
+                            Available = true,
+                            Label = "Child sexual exploitation or a suspected minor",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 15
+                        },
+                        new
+                        {
+                            Id = "danger",
+                            Available = true,
+                            Label = "Other immediate danger",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 16
                         },
                         new
                         {
@@ -3001,6 +3068,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Might be under 18",
                             Priority = "Urgent",
+                            Serious = false,
                             SortOrder = 2
                         },
                         new
@@ -3009,6 +3077,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Harassment or bullying",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 3
                         },
                         new
@@ -3017,6 +3086,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Hate or discrimination",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 4
                         },
                         new
@@ -3025,6 +3095,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Unwanted sexual content or behaviour",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 5
                         },
                         new
@@ -3033,6 +3104,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Scam, fraud or selling",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 6
                         },
                         new
@@ -3041,6 +3113,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Fake profile or impersonation",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 7
                         },
                         new
@@ -3049,6 +3122,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Spam",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 8
                         },
                         new
@@ -3057,6 +3131,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Inappropriate profile content",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 9
                         },
                         new
@@ -3065,6 +3140,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Something else",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 10
                         });
                 });

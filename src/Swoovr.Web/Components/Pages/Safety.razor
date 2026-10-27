@@ -1,0 +1,18 @@
+@page "/me/safety"
+<PageTitle>Safety — Swoovr</PageTitle>
+<div class="column">
+@if (!signedIn)
+{
+    <div class="page-heading"><h1>Safety</h1><p>If you are in immediate danger, call 000. Sign in to report a serious safety incident.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a></p>
+}
+else
+{
+    <SafetyPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+}
+</div>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private bool signedIn;
+    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+}

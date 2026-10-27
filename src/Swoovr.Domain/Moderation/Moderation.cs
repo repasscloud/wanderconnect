@@ -13,6 +13,11 @@ public sealed class ReportCategory
     public ReportPriority Priority { get; set; }
     public int SortOrder { get; set; }
     public bool Available { get; set; } = true;
+    /// <summary>
+    /// A Serious Safety Incident category (policy §9, owner Q77, D190): offered only in the separate serious-incident
+    /// pathway, always urgent, always the admin queue, escalated and preserved under a provisional legal hold.
+    /// </summary>
+    public bool Serious { get; set; }
 }
 
 /// <summary>
@@ -38,6 +43,10 @@ public sealed class Report
     public string? Text { get; set; }
     public Guid CaseId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>Serious incidents (D190): whether the reporter has contacted or wants to contact police; never acted on by Swoovr.</summary>
+    public string? Police { get; set; }
+    /// <summary>The police reference the reporter gave, sealed with the evidence key (D190); never in clear, never in the audit log.</summary>
+    public byte[]? PoliceReference { get; set; }
 }
 
 public enum CaseStatus { Open, UnderReview, Reviewed, Closed }
@@ -243,8 +252,8 @@ public static class ReportPolicy
     public static bool Supported(ReportSubject subject) => subject is ReportSubject.Profile or ReportSubject.Request or ReportSubject.Bot or ReportSubject.Conversation or ReportSubject.Message;
 
     /// <summary>
-    /// What the reporter sees (D131): Submitted, Under review, Reviewed or Closed, never the outcome. A case that ended in
-    /// action and one that was dismissed both read Reviewed until closed.
+    /// What the reporter sees (D131): Submitted, Under review, Reviewed or Closed. Since D190 a closed report also shows a
+    /// general outcome (<see cref="Outcome"/>), never the specific action.
     /// </summary>
     public static string ReporterStatus(CaseStatus status) => status switch
     {
@@ -253,6 +262,22 @@ public static class ReportPolicy
         CaseStatus.Reviewed => "reviewed",
         _ => "closed",
     };
+
+    /// <summary>
+    /// D190 (policy §9, supersedes D131's "never the outcome"): once the case is closed, "actionTaken" when any action was
+    /// taken on the case after the report, otherwise "noBreachFound"; nothing while it is open. Never which action.
+    /// </summary>
+    public static string? Outcome(CaseStatus status, bool actionAfterReport) =>
+        status != CaseStatus.Closed ? null : actionAfterReport ? "actionTaken" : "noBreachFound";
+
+    /// <summary>D190: what the reporter says about police; null when they didn't say.</summary>
+    public static readonly IReadOnlyList<string> PoliceAnswers = ["contacted", "will-contact", "not-now"];
+    public const int PoliceReferenceMax = 100;
+    /// <summary>D190: messages a reporter may pick from the conversation as evidence.</summary>
+    public const int ChosenMessagesMax = 20;
+
+    /// <summary>The queue for a case (D134, D190): staff-affiliated subjects and serious incidents go to admins.</summary>
+    public static CaseQueue QueueFor(bool staffAffiliatedSubject, bool serious) => staffAffiliatedSubject || serious ? CaseQueue.Admin : CaseQueue.Support;
 
     public static bool RateLimited(ReportPriority priority, int recentNonUrgent) => priority != ReportPriority.Urgent && recentNonUrgent >= BurstLimit;
 

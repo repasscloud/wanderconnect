@@ -20,6 +20,7 @@ MessagingChecks.Run();
 DobCorrectionChecks.Run();
 DeletionChecks.Run();
 LegalHoldChecks.Run();
+SeriousIncidentChecks.Run();
 ModePrivacyChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();
