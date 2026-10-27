@@ -35,6 +35,8 @@ public static class Cli
         // Commands print their own short results; host and SQL logging would only add noise.
         builder.Logging.ClearProviders();
         builder.Services.AddScoped<Founders>();
+        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSwoovrProviders(builder.Configuration);
         builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
             builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
         if (!builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr")))
@@ -104,12 +106,20 @@ public static class Cli
                 Console.WriteLine($"Messages: {purged} deleted message texts erased.");
                 return 0;
             }
+            // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),
+            // Didit deletions that failed before, and the end of the two-year retention of tombstones and terminated-email holds.
+            case ["accounts", "purge", ..]:
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<AccountDeletion>().PurgeAsync(now, CancellationToken.None);
+                Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} holds expired.");
+                return run.Waiting > 0 ? 1 : 0;
+            }
             case ["beta", "list", ..]:
                 foreach (var e in await db.BetaEnrolments.OrderBy(e => e.CreatedAt).ToListAsync())
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
                 return 2;
         }
     }

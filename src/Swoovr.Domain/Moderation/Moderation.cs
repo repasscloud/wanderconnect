@@ -62,6 +62,8 @@ public sealed class ModerationCase
     public Guid? AcknowledgedBy { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
     public Guid? ClosedBy { get; set; }
+    /// <summary>A case Swoovr opened itself, without a report: "returning-terminated" (D171). Null for reported cases.</summary>
+    public string? SystemFlag { get; set; }
 }
 
 /// <summary>

@@ -30,8 +30,13 @@ public static class AccountEndpoints
         var me = app.MapGroup("/api/v1/me").RequireAuthorization();
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true);
-            return denied ?? Results.Ok(View(current!.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), current.Enforcement.State));
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true, pendingDeletionExempt: true);
+            if (denied is not null) return denied;
+            // D170: a pending deletion outranks any other state; clients show the deletion screen.
+            var state = current!.Account!.Status == AccountStatus.PendingDeletion ? "pendingDeletion" : current.Enforcement.State;
+            var phone = await accounts.Db!.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken);
+            return Results.Ok(View(current.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), state) with
+                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone });
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -131,16 +136,28 @@ public static class AccountEndpoints
     /// routes that pass <paramref name="ageGateExempt"/>: its own account summary and ID verification.
     /// </remarks>
     /// <remarks>
+    /// D170: an account pending deletion is refused (403 account-deletion-pending) except where
+    /// <paramref name="pendingDeletionExempt"/> is passed (its account summary).
+    /// </remarks>
+    /// <remarks>
     /// D133: a suspended or terminated account is refused (403 account-suspended) except where
     /// <paramref name="barredExempt"/> is passed: its account summary, notices and appeals.
     /// </remarks>
     public static async Task<(CurrentAccount? Current, IResult? Denied)> MemberAsync(ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken,
-        bool ageGateExempt = false, bool barredExempt = false)
+        bool ageGateExempt = false, bool barredExempt = false, bool pendingDeletionExempt = false, bool phoneExempt = false)
     {
         var current = await accounts.ResolveAsync(user, cancellationToken);
         if (current is null) return (null, Results.Unauthorized());
         if (current.Account is null)
             return (null, Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.PersistenceUnavailable, "Accounts are not available."));
+        // D170: while deletion is pending only the account summary and the deletion routes (DeletionEndpoints) answer.
+        if (current.Account.Status == AccountStatus.PendingDeletion && current.Facts.Realm == AccountRealm.Members)
+        {
+            if (!pendingDeletionExempt)
+                return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountDeletionPending, "Your account is being deleted."));
+            if (current.Profile is null) return (null, Results.Forbid());
+            return (current, null);
+        }
         if (current.Account.Status != AccountStatus.Active && current.Facts.Realm == AccountRealm.Members)
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountLocked, "This account is locked."));
         if (current.Facts.Realm == AccountRealm.Members && !BetaAccessPolicy.Allows(current.Beta))
@@ -156,6 +173,11 @@ public static class AccountEndpoints
                 : Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountRestricted, "Your account is restricted."));
         if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
+        // D148: with the gate on, a verified mobile number comes first (the account summary, notices, appeals, deletion
+        // and the phone routes stay open).
+        if (accounts.PhoneRequired && !phoneExempt && !barredExempt && current.Facts.Realm == AccountRealm.Members
+            && !await accounts.Db.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken))
+            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.PhoneVerificationRequired, "Verify your mobile number to keep using Swoovr."));
         return (current with { Enforcement = enforcement }, null);
     }
 

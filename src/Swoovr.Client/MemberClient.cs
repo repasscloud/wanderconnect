@@ -104,8 +104,13 @@ public sealed class MemberClient(HttpClient http)
     public Task<int> MarketInterestAsync(bool interested, CancellationToken cancellationToken = default) =>
         StatusAsync(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/market-interest") { Content = JsonContent.Create(new MarketInterestUpdate(interested)) }, cancellationToken);
 
-    public Task<ApiResult<PersonProfile>> PersonAsync(Guid id, CancellationToken cancellationToken = default) =>
-        SendAsync<PersonProfile>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profiles/" + id), cancellationToken);
+    /// <summary>Another member's profile as seen from one mode (D175): that mode plus modes you're connected in.</summary>
+    public Task<ApiResult<PersonProfile>> PersonAsync(Guid id, string? mode = null, CancellationToken cancellationToken = default) =>
+        SendAsync<PersonProfile>(new HttpRequestMessage(HttpMethod.Get, "api/v1/profiles/" + id + (mode is null ? "" : "?mode=" + Uri.EscapeDataString(mode))), cancellationToken);
+
+    /// <summary>Ends one mode's connection without blocking (D176); the other member isn't told.</summary>
+    public Task<ApiResult<ConnectionRequestView>> DisconnectAsync(Guid connectionId, CancellationToken cancellationToken = default) =>
+        SendAsync<ConnectionRequestView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/requests/{connectionId}/disconnect"), cancellationToken);
 
     /// <summary>Sends a connection request in one mode to a person shown to the member (D112).</summary>
     public Task<ApiResult<ConnectionRequestView>> SendRequestAsync(Guid to, string modeId, Guid? trip = null, CancellationToken cancellationToken = default) =>
@@ -196,6 +201,48 @@ public sealed class MemberClient(HttpClient http)
 
     public Task<int> UnblockAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         StatusAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/v1/blocks/{profileId}"), cancellationToken);
+
+    /// <summary>The member's mobile number (D148): masked, verified or waiting for a code, and which sender delivers codes.</summary>
+    public Task<ApiResult<PhoneView>> PhoneAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<PhoneView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/phone"), cancellationToken);
+
+    /// <summary>Sends a six-digit code to the number (cooldown and hourly limits apply).</summary>
+    public Task<ApiResult<PhoneView>> SendPhoneCodeAsync(string number, CancellationToken cancellationToken = default) =>
+        SendAsync<PhoneView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/phone") { Content = JsonContent.Create(new PhoneStart(number)) }, cancellationToken);
+
+    /// <summary>Confirms the code sent to the number.</summary>
+    public Task<ApiResult<PhoneView>> ConfirmPhoneAsync(string number, string code, CancellationToken cancellationToken = default) =>
+        SendAsync<PhoneView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/phone/confirm") { Content = JsonContent.Create(new PhoneConfirm(number, code)) }, cancellationToken);
+
+    /// <summary>The member's account deletion state (D170).</summary>
+    public Task<ApiResult<DeletionView>> DeletionAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<DeletionView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/deletion"), cancellationToken);
+
+    /// <summary>Asks for deletion (needs a sign-in within five minutes, else 403 stale-session).</summary>
+    public Task<ApiResult<DeletionView>> RequestDeletionAsync(DeletionRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<DeletionView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/deletion") { Content = JsonContent.Create(request) }, cancellationToken);
+
+    /// <summary>Skips the rest of the 30-day recovery period: final deletion on the next purge run.</summary>
+    public Task<ApiResult<DeletionView>> DeleteNowAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<DeletionView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/deletion/now"), cancellationToken);
+
+    /// <summary>Cancels a pending deletion; the account comes back as it was.</summary>
+    public Task<ApiResult<DeletionView>> CancelDeletionAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<DeletionView>(new HttpRequestMessage(HttpMethod.Delete, "api/v1/me/deletion"), cancellationToken);
+
+    /// <summary>Asks for a one-time export link (D172): once a day, after a fresh sign-in.</summary>
+    public Task<ApiResult<ExportTicket>> RequestExportAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ExportTicket>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/export"), cancellationToken);
+
+    /// <summary>Downloads the export the ticket names (its relative path); works once.</summary>
+    public async Task<ApiResult<byte[]>> DownloadExportAsync(ExportTicket ticket, CancellationToken cancellationToken = default)
+    {
+        if (!ticket.Path.StartsWith("api/v1/me/export/", StringComparison.Ordinal)) return new(400, null, ProblemCodes.ExportUnavailable);
+        using var request = new HttpRequestMessage(HttpMethod.Get, ticket.Path);
+        using var response = await http.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode) return new((int)response.StatusCode, null, await ProblemCodeAsync(response, cancellationToken));
+        return new((int)response.StatusCode, await response.Content.ReadAsByteArrayAsync(cancellationToken), null);
+    }
 
     private async Task<int> StatusAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

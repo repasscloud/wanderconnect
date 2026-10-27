@@ -28,8 +28,9 @@ public sealed record PlanView(string Tier, string? Source, DateTimeOffset? EndsA
 
 // Staff views (admin API, D136). Ids and the minimum needed to decide; never email, tokens or verification evidence.
 
+/// <param name="SystemFlag">Set on a case Swoovr opened itself: "returning-terminated" (D171).</param>
 public sealed record CaseSummaryView(Guid Id, Guid SubjectAccountId, string? SubjectName, string Status, string Queue, string Priority,
-    int Reports, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, bool AwaitingAcknowledgement);
+    int Reports, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, bool AwaitingAcknowledgement, string? SystemFlag = null);
 public sealed record CaseReportView(Guid Id, Guid ReporterAccountId, string SubjectType, string SubjectRef, string Category, string Priority,
     string? Text, DateTimeOffset CreatedAt);
 public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapshot, DateTimeOffset CapturedAt);

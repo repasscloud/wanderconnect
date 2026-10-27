@@ -60,6 +60,8 @@ public sealed record CurrentAccount(
 public sealed class AccountResolver(IServiceProvider services, KeycloakOptions keycloak, SessionEvidencePolicy evidence,
     TimeProvider clock, IConfiguration configuration, IHostEnvironment environment, ILogger<AccountResolver> log)
 {
+    /// <summary>D148: the registration gate for a verified mobile number; off until a real sender is approved (D174).</summary>
+    public bool PhoneRequired => configuration.GetValue("Phone:Required", false);
     private bool LocalPasswordStaff => environment.IsDevelopment() && configuration.GetValue("Staff:LocalPasswords", false);
     /// <summary>The private beta gate is on unless Beta:Enabled is false (D62; turned off at public launch).</summary>
     private bool BetaEnabled => configuration.GetValue("Beta:Enabled", true);
@@ -80,6 +82,10 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         var issuer = user.FindFirstValue("iss")!;
         var account = await Db.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject, cancellationToken)
             ?? await CreateAsync(issuer, facts, email, now, cancellationToken);
+        // D170: a deleted account stays deleted. A token issued just before final deletion is still valid for a few
+        // minutes; it gets the tombstone (refused everywhere), never a new profile, and the email isn't written back.
+        if (account.Status == AccountStatus.Deleted)
+            return new(facts, result, null, account, [], null, BetaAccess.NotRequired) { LocalPasswordStaff = LocalPasswordStaff };
         var emailChanged = email is not null && account.Email is not null && account.Email != email;
         if (email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
         {
@@ -167,7 +173,13 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             Audit.Record(Db, now, null, "system", "age.needs-verification", "account", accountId.ToString(), "same-email");
         }
         Db!.MemberProfiles.Add(profile);
-        try { await Db.SaveChangesAsync(cancellationToken); return profile; }
+        try
+        {
+            await Db.SaveChangesAsync(cancellationToken);
+            // D171: a returning terminated member is flagged to the admin queue, never blocked.
+            await services.GetRequiredService<AccountDeletion>().FlagIfReturningAsync(accountId, email, now, cancellationToken);
+            return profile;
+        }
         catch (DbUpdateException)
         {
             Db.ChangeTracker.Clear();

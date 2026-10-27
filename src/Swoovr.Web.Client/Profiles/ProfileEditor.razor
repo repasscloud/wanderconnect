@@ -43,8 +43,8 @@
             var setting = profile.Modes.FirstOrDefault(m => m.Id == mode.Id) ?? new MyModeView(mode.Id, false, false, []);
             <article class="card account-section" data-mode-card="@mode.Id" data-mode-enabled="@(setting.Enabled ? "true" : "false")" data-mode-visible="@(setting.Visible ? "true" : "false")">
                 <h3>@mode.Label</h3>
-                <label class="option"><input type="checkbox" checked="@setting.Enabled" disabled="@busy" @onchange="e => SaveModeAsync(mode.Id, e.Value is true, setting.Visible || e.Value is true, setting.Intentions)" /> Use @mode.Label</label>
-                <label class="option"><input type="checkbox" checked="@setting.Visible" disabled="@(busy || !setting.Enabled)" @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, e.Value is true, setting.Intentions)" /> Show my profile in @mode.Label</label>
+                <label class="option"><input type="checkbox" checked="@setting.Enabled" disabled="@busy" @onchange="e => SaveModeAsync(mode.Id, e.Value is true, setting.Visible || e.Value is true, setting.Intentions, setting.About)" /> Use @mode.Label</label>
+                <label class="option"><input type="checkbox" checked="@setting.Visible" disabled="@(busy || !setting.Enabled)" @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, e.Value is true, setting.Intentions, setting.About)" /> Show my profile in @mode.Label</label>
                 @if (mode.Intentions.Count > 0)
                 {
                     var picked = setting.Intentions.Count(id => mode.Intentions.Any(i => i.Id == id));
@@ -56,11 +56,17 @@
                                 var on = setting.Intentions.Contains(intention.Id);
                                 <li><button type="button" class="chip @(on ? "is-on" : null)" aria-pressed="@(on ? "true" : "false")" data-chip="@intention.Id"
                                             disabled="@(busy || !on && picked >= mode.MaxIntentions)"
-                                            @onclick="() => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, Toggle(setting.Intentions, intention.Id))">@intention.Label</button></li>
+                                            @onclick="() => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, Toggle(setting.Intentions, intention.Id), setting.About)">@intention.Label</button></li>
                             }
                         </ul>
                     </div>
                 }
+                @* D175: an about for this mode only; people in other modes never see it. Blank uses your main about. *@
+                <div class="field" data-mode-about="@mode.Id">
+                    <label for="@($"about-{mode.Id}")">About me in @mode.Label <span class="field-help">(optional, only shown in @mode.Label)</span></label>
+                    <textarea id="@($"about-{mode.Id}")" maxlength="500" rows="3" disabled="@busy" placeholder="Uses your main about"
+                              @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, e.Value as string)">@setting.About</textarea>
+                </div>
             </article>
         }
         <p role="status" aria-live="polite" class="field-help" data-mode-status>@modeMessage</p>
@@ -110,10 +116,10 @@
         else (coreStatus, coreMessage) = ("invalid", "Check the fields: no special characters, and keep within the lengths shown.");
     }
 
-    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions)
+    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about)
     {
         busy = true;
-        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions));
+        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about));
         busy = false;
         if (result.Value is { } saved) { profile = saved; modeMessage = null; }
         else modeMessage = result.Code == ProblemCodes.TooManyIntentions ? "You can pick up to five in each mode." : "That change wasn't saved. Try again.";

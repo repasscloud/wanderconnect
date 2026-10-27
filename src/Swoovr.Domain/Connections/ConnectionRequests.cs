@@ -1,7 +1,8 @@
 namespace Swoovr.Domain;
 
 /// <summary>Ended: an accepted connection a block ended (Q42 rule 14, D143); unblocking doesn't bring it back.</summary>
-public enum ConnectionRequestStatus { Pending, Accepted, Declined, Withdrawn, Cancelled, Ended }
+/// <summary>Disconnected (D176): one member ended this mode's connection without blocking; Ended is a block (D143).</summary>
+public enum ConnectionRequestStatus { Pending, Accepted, Declined, Withdrawn, Cancelled, Ended, Disconnected }
 
 /// <summary>
 /// A request from one member to another in one connection mode (D112, Q17 rules 29–31). Nothing connects on its own:
@@ -21,6 +22,9 @@ public sealed class ConnectionRequest
     public DateTimeOffset? AnsweredAt { get; set; }
     /// <summary>The traveller's trip when a local sent this from the Travel feed (slice M); null from Explore.</summary>
     public Guid? TripId { get; set; }
+    /// <summary>When an accepted connection was disconnected (D176), and by whom; null otherwise.</summary>
+    public DateTimeOffset? EndedAt { get; set; }
+    public Guid? EndedBy { get; set; }
 
     public static (Guid Low, Guid High) Pair(Guid a, Guid b) => a.CompareTo(b) <= 0 ? (a, b) : (b, a);
 }
@@ -43,9 +47,10 @@ public static class BlockPolicy
         blocks.Any(x => x.BlockerAccountId == a && x.BlockedAccountId == b || x.BlockerAccountId == b && x.BlockedAccountId == a);
 }
 
-public enum RequestRefusal { None, SenderIsBot, NotAvailable, AlreadyConnected, AlreadyPending, RecentlyDeclined, RateLimited }
+public enum RequestRefusal { None, SenderIsBot, NotAvailable, AlreadyConnected, AlreadyPending, RecentlyDeclined, RateLimited, RecentlyDisconnected }
 
 /// <summary>Trusted facts about a would-be request, gathered by the API from application records.</summary>
+/// <remarks>DisconnectedBySenderOf: when the recipient last disconnected the sender in this mode (D176), if they did.</remarks>
 public sealed record RequestFacts(
     bool SenderIsBot,
     bool SameAccount,
@@ -54,7 +59,8 @@ public sealed record RequestFacts(
     bool Connected,
     bool Pending,
     DateTimeOffset? DeclinedAt,
-    int SentInWindow);
+    int SentInWindow,
+    DateTimeOffset? DisconnectedBySenderOf = null);
 
 /// <summary>
 /// Who may send a connection request (D112, D117). DEFAULT limits: 20 requests per sender in a rolling 24 hours, and
@@ -66,6 +72,7 @@ public static class ConnectionRequestPolicy
     public const int PerDay = 20;
     public static readonly TimeSpan Window = TimeSpan.FromHours(24);
     public static readonly TimeSpan AfterDecline = TimeSpan.FromDays(30);
+    public static readonly TimeSpan AfterDisconnect = TimeSpan.FromDays(30);
 
     public static RequestRefusal CanSend(RequestFacts facts, DateTimeOffset now)
     {
@@ -75,6 +82,8 @@ public static class ConnectionRequestPolicy
         if (facts.Connected) return RequestRefusal.AlreadyConnected;
         if (facts.Pending) return RequestRefusal.AlreadyPending;
         if (facts.DeclinedAt is { } declined && now - declined < AfterDecline) return RequestRefusal.RecentlyDeclined;
+        // D176: the member who was disconnected waits 30 days in that mode; the one who disconnected may ask any time.
+        if (facts.DisconnectedBySenderOf is { } ended && now - ended < AfterDisconnect) return RequestRefusal.RecentlyDisconnected;
         return facts.SentInWindow >= PerDay ? RequestRefusal.RateLimited : RequestRefusal.None;
     }
 
@@ -86,6 +95,20 @@ public static class ConnectionRequestPolicy
     /// </summary>
     public static bool MayAnswer(ConnectionRequest request, Guid caller, Answer answer) =>
         answer == Answer.Withdraw ? request.FromAccountId == caller : request.ToAccountId == caller;
+
+    /// <summary>
+    /// D176: either member may end an accepted connection in one mode without blocking. Nobody else, and nothing that
+    /// isn't an accepted connection (the API answers 404 for another member's ids, 409 for anything not connected).
+    /// </summary>
+    public static bool MayDisconnect(ConnectionRequest request, Guid caller) =>
+        request.FromAccountId == caller || request.ToAccountId == caller;
+
+    public static bool Disconnect(ConnectionRequest request, Guid caller, DateTimeOffset now)
+    {
+        if (!MayDisconnect(request, caller) || request.Status != ConnectionRequestStatus.Accepted) return false;
+        (request.Status, request.EndedAt, request.EndedBy) = (ConnectionRequestStatus.Disconnected, now, caller);
+        return true;
+    }
 
     public static ConnectionRequestStatus Outcome(Answer answer) => answer switch
     {

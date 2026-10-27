@@ -20,11 +20,23 @@
 </div>
 @if (person is not null)
 {
-    @if (person.About is not null)
+    @* D175: each mode shows its own about (the core about where none is set); one block when they're all the same. *@
+    @if (person.Modes.Select(m => m.About).Distinct().Count() > 1)
+    {
+        <section class="card account-section" aria-labelledby="about-heading" data-about="per-mode">
+            <h2 id="about-heading">About me</h2>
+            @foreach (var mode in person.Modes.Where(m => m.About is not null))
+            {
+                <p class="field-help">@mode.Label</p>
+                <p class="person-about" data-about-mode="@mode.Id">@mode.About</p>
+            }
+        </section>
+    }
+    else if (person.About is not null)
     {
         <section class="card account-section" aria-labelledby="about-heading">
             <h2 id="about-heading">About me</h2>
-            <p class="person-about">@person.About</p>
+            <p class="person-about" data-about="@person.Modes[0].Id">@person.About</p>
         </section>
     }
     <section class="card account-section" aria-labelledby="shared-heading">
@@ -47,7 +59,19 @@
                     <span class="chip">@mode.Label</span>
                     @switch (mode.Connection)
                     {
-                        case "connected": <span class="field-help">Connected</span> break;
+                        case "connected":
+                            <span class="field-help" data-connection-label>@MemberText.ConnectionLabel(mode.Id)</span>
+                            @if (confirmDisconnect == mode.Id)
+                            {
+                                <span class="field-help">@MemberText.DisconnectExplained</span>
+                                <button type="button" class="button" disabled="@busy" @onclick="() => DisconnectAsync(mode.ConnectionId!.Value)" data-disconnect-confirm>Disconnect</button>
+                                <button type="button" class="button button-secondary" @onclick="() => confirmDisconnect = null">Keep</button>
+                            }
+                            else if (mode.ConnectionId is not null)
+                            {
+                                <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => confirmDisconnect = mode.Id" data-disconnect>Disconnect</button>
+                            }
+                            break;
                         case "sent":
                             <span class="field-help">Request sent</span>
                             <button type="button" class="button button-secondary" disabled="@busy" @onclick='() => AnswerAsync(mode.RequestId!.Value, "withdraw")'>Withdraw</button>
@@ -104,13 +128,15 @@
 }
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
+    [Parameter] public string? Mode { get; set; }
+    private string? confirmDisconnect;
     private bool loaded, busy, confirmBlock, blockedNow;
     private string? connectStatus, connectMessage;
     private PersonProfile? person;
 
     protected override async Task OnParametersSetAsync()
     {
-        try { person = (await Members.PersonAsync(Id)).Value; }
+        try { person = (await Members.PersonAsync(Id, Mode)).Value; }
         catch (HttpRequestException) { person = null; }
         loaded = true;
     }
@@ -132,6 +158,15 @@
         await ReloadAsync();
     }
 
+    private async Task DisconnectAsync(Guid connectionId)
+    {
+        busy = true;
+        var result = await Members.DisconnectAsync(connectionId);
+        (connectStatus, connectMessage) = result.Ok ? ("disconnected", "Disconnected. They won't be told.") : ("failed", "That connection isn't available any more.");
+        confirmDisconnect = null;
+        await ReloadAsync();
+    }
+
     private async Task MessageAsync()
     {
         busy = true;
@@ -150,7 +185,7 @@
 
     private async Task ReloadAsync()
     {
-        person = (await Members.PersonAsync(Id)).Value;
+        person = (await Members.PersonAsync(Id, Mode)).Value;
         busy = false;
     }
 }

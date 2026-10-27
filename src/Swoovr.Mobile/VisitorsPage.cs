@@ -40,7 +40,7 @@ public sealed class VisitorsPage : ContentPage
 				new HorizontalStackLayout { Spacing = 8, Children = { Ui.Text(person.DisplayName, "TileName", $"Visitor_{person.Id}"), Ui.BadgeRow(person.Badges, $"VisitorBadges_{person.Id}") } },
 				Ui.Text($"Visiting {person.Visiting.City}, {person.Visiting.Country} · {Ui.Dates(person.Visiting.Arrival, person.Visiting.Departure)}", id: $"Visit_{person.Id}"),
 				Ui.Text(string.Join(" · ", person.Intentions), "FooterClaims"),
-				Ui.Button("View profile", $"VisitorOpen_{person.Id}", () => Ui.PushAsync(new PersonPage(person.Id)), primary: false),
+				Ui.Button("View profile", $"VisitorOpen_{person.Id}", () => Ui.PushAsync(new PersonPage(person.Id, mode)), primary: false),
 				Ui.Button("Send request", $"VisitorRequest_{person.Id}", async () =>
 				{
 					var sent = await Ui.Members.SendRequestAsync(person.Id, mode, person.Visiting.TripId);

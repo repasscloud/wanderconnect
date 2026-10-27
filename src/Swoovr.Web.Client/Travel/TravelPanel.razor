@@ -100,7 +100,7 @@
                     @foreach (var person in visitors)
                     {
                         <li data-visitor="@person.Id" data-visitor-trip="@person.Visiting.TripId">
-                            <span class="request-person"><a href="@($"/people/{person.Id}")">@person.DisplayName</a><BadgeRow Badges="person.Badges" /></span>
+                            <span class="request-person"><a href="@($"/people/{person.Id}?mode={visitorMode}")">@person.DisplayName</a><BadgeRow Badges="person.Badges" /></span>
                             <span><span class="visiting">Visiting</span> @person.Visiting.City, @person.Visiting.Country · @Dates(person.Visiting.Arrival, person.Visiting.Departure)</span>
                             @if (person.Intentions.Count > 0) { <span class="field-help">@string.Join(" · ", person.Intentions)</span> }
                             <span class="request-actions"><button type="button" class="button" disabled="@busy" @onclick="() => RequestAsync(person)">Send request</button></span>

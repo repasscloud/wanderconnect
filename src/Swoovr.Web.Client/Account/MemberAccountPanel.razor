@@ -53,6 +53,15 @@
             <p>Swoovr is for adults only. If the age you entered was a mistake, contact Swoovr support to have it reviewed.</p>
         </section>
     }
+    else if (me is not null && me.AccountState == "pendingDeletion")
+    {
+        @* D170: a pending deletion closes the rest of the app; the deletion screen offers cancel and delete now. *@
+        <section class="card account-section" aria-label="Account being deleted" data-pending-deletion="true">
+            <h2>Your account is being deleted</h2>
+            <p>You can still change your mind.</p>
+            <p><a class="button" href="/account/deletion">See deletion details</a></p>
+        </section>
+    }
     else if (me is not null && me.AccountState != "active")
     {
         @* D160: restricted, suspended or terminated: nothing else in the app until it's lifted; notices and appeals stay open. *@
@@ -65,6 +74,8 @@
     else if (me is not null)
     {
         <DobCorrectionPrompt Account="me" Changed="Corrected" />
+        @* D148: the mobile number step (first when the gate is on). *@
+        <PhonePanel />
         @if (me.AgeStatus == "needsVerification")
         {
             @* D127: the rest of the app answers age-verification-required until the check passes or support resolves it. *@

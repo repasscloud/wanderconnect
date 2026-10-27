@@ -12,14 +12,17 @@ namespace Swoovr.Mobile;
 public sealed class PersonPage : ContentPage
 {
 	private readonly Guid id;
+	// D175: the mode the profile was opened from; the API shows that mode and the modes the pair is connected in.
+	private readonly string? mode;
+	private string? confirmDisconnect;
 	private readonly VerticalStackLayout body = new() { Padding = new Thickness(24, 30), Spacing = 16 };
 	private readonly Label status = Ui.Text(null, id: "PersonStatus");
 	private PersonProfile? person;
 	private bool confirmBlock, reporting;
 
-	public PersonPage(Guid id)
+	public PersonPage(Guid id, string? mode = null)
 	{
-		this.id = id;
+		(this.id, this.mode) = (id, mode);
 		Title = "Profile";
 		Content = new ScrollView { Content = body };
 	}
@@ -32,7 +35,7 @@ public sealed class PersonPage : ContentPage
 
 	private async Task LoadAsync()
 	{
-		var result = await Ui.Members!.PersonAsync(id);
+		var result = await Ui.Members!.PersonAsync(id, mode);
 		person = result.Value;
 		body.Children.Clear();
 		if (Ui.Barred(result.Code, "PersonBarred") is { } barred) { body.Children.Add(barred); return; }
@@ -48,7 +51,11 @@ public sealed class PersonPage : ContentPage
 		body.Children.Add(Ui.BadgeRow(person.Badges, "PersonBadges", 20, dated: true));
 		if (details.Length > 0) body.Children.Add(Ui.Text(details, "FooterClaims", "PersonDetails"));
 		if (person.Area is not null) body.Children.Add(Ui.Text(person.Area, "TileArea"));
-		if (person.About is not null) body.Children.Add(Ui.Card(Ui.Text("About me", "SectionHeading"), Ui.Text(person.About, id: "PersonAbout")));
+		// D175: each mode's own about; one block when they're all the same.
+		if (person.Modes.Select(m => m.About).Distinct().Count() > 1)
+			body.Children.Add(Ui.Card([Ui.Text("About me", "SectionHeading"), .. person.Modes.Where(m => m.About is not null)
+				.SelectMany(m => new View[] { Ui.Text(m.Label, "FieldLabel"), Ui.Text(m.About, id: $"PersonAbout_{m.Id}") })]));
+		else if (person.About is not null) body.Children.Add(Ui.Card(Ui.Text("About me", "SectionHeading"), Ui.Text(person.About, id: "PersonAbout")));
 		body.Children.Add(ConnectCard(person));
 		body.Children.Add(Ui.Detach(status));
 		body.Children.Add(BlockCard(person));
@@ -64,7 +71,7 @@ public sealed class PersonPage : ContentPage
 			rows.Add(Ui.Text(mode.Label + (mode.Intentions.Count > 0 ? ": " + string.Join(" · ", mode.Intentions) : ""), "FieldLabel", $"SharedMode_{mode.Id}"));
 			rows.Add(mode.Connection switch
 			{
-				"connected" => Ui.Text("Connected", id: $"Connection_{mode.Id}"),
+				"connected" => ConnectedRow(mode),
 				"sent" => Ui.Button("Withdraw request", $"Withdraw_{mode.Id}", () => AnswerAsync(mode.RequestId!.Value, "withdraw"), primary: false),
 				"received" => new HorizontalStackLayout
 				{
@@ -91,6 +98,27 @@ public sealed class PersonPage : ContentPage
 				else status.Text = "You can message people you're connected with.";
 			}));
 		return Ui.Card([.. rows]);
+	}
+
+	// D176: the mode's connection label, and disconnecting without blocking after a confirmation.
+	private View ConnectedRow(SharedModeView shared)
+	{
+		var rows = new VerticalStackLayout { Spacing = 6, Children = { Ui.Text(MemberText.ConnectionLabel(shared.Id), id: $"Connection_{shared.Id}") } };
+		if (shared.ConnectionId is not { } connection) return rows;
+		if (confirmDisconnect == shared.Id)
+		{
+			rows.Children.Add(Ui.Text(MemberText.DisconnectExplained, "FooterClaims"));
+			rows.Children.Add(Ui.Button("Disconnect", $"DisconnectConfirm_{shared.Id}", async () =>
+			{
+				var result = await Ui.Members!.DisconnectAsync(connection);
+				confirmDisconnect = null;
+				await LoadAsync();
+				status.Text = result.Ok ? "Disconnected. They won't be told." : "That connection isn't available any more.";
+			}));
+			rows.Children.Add(Ui.Button("Keep", $"DisconnectKeep_{shared.Id}", async () => { confirmDisconnect = null; await LoadAsync(); }, primary: false));
+		}
+		else rows.Children.Add(Ui.Button("Disconnect", $"Disconnect_{shared.Id}", async () => { confirmDisconnect = shared.Id; await LoadAsync(); }, primary: false));
+		return rows;
 	}
 
 	private View BlockCard(PersonProfile person) => confirmBlock

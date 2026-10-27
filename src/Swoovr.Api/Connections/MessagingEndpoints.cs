@@ -31,7 +31,8 @@ public static class MessagingEndpoints
             if (denied is not null) return denied;
             var (db, me) = (accounts.Db!, current!.Account!.Id);
             var rows = await (from c in db.Conversations
-                              where (c.PairLow == me || c.PairHigh == me) && c.ClosedAt == null
+                              where (c.PairLow == me || c.PairHigh == me)
+                                    && (c.ClosedAt == null || c.ClosedReason == ClosedReasons.Disconnected || c.ClosedReason == ClosedReasons.Deleted)
                                     && !db.Blocks.Any(b => (b.BlockerAccountId == c.PairLow && b.BlockedAccountId == c.PairHigh) || (b.BlockerAccountId == c.PairHigh && b.BlockedAccountId == c.PairLow))
                               let hidden = db.ConversationHides.Where(h => h.ConversationId == c.Id && h.AccountId == me).Select(h => (DateTimeOffset?)h.HiddenAt).FirstOrDefault()
                               where hidden == null || (c.LastMessageAt != null && c.LastMessageAt > hidden)
@@ -76,7 +77,7 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me) = (accounts.Db!, current!.Account!.Id);
-            var conversation = await OpenAsync(db, id, me, cancellationToken);
+            var conversation = await ReadableAsync(db, id, me, cancellationToken);
             return conversation is null ? NotAvailable() : Results.Ok(await ViewAsync(db, conversation, me, cancellationToken));
         });
 
@@ -86,7 +87,7 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
-            var conversation = await OpenAsync(db, id, me, cancellationToken);
+            var conversation = await ReadableAsync(db, id, me, cancellationToken);
             if (conversation is null) return NotAvailable();
             var hiddenAt = await db.ConversationHides.Where(h => h.ConversationId == id && h.AccountId == me).Select(h => (DateTimeOffset?)h.HiddenAt).FirstOrDefaultAsync(cancellationToken);
             // Q59, D167: messages deleted for both stay in the list as deleted, without their text.
@@ -187,6 +188,17 @@ public static class MessagingEndpoints
         await db.Conversations.SingleOrDefaultAsync(c => c.Id == id && (c.PairLow == me || c.PairHigh == me) && c.ClosedAt == null
             && !db.Blocks.Any(b => (b.BlockerAccountId == c.PairLow && b.BlockedAccountId == c.PairHigh) || (b.BlockerAccountId == c.PairHigh && b.BlockedAccountId == c.PairLow)), cancellationToken);
 
+    /// <summary>
+    /// What the member may read: an open conversation, or the read-only history of one closed because no mode connects
+    /// the pair any more (D176) or the other account was deleted (D170; their messages are gone, the member keeps their
+    /// own). A block hides it for good (D143). Nothing can be sent to a closed conversation.
+    /// </summary>
+    public static async Task<Conversation?> ReadableAsync(SwoovrDbContext db, Guid id, Guid me, CancellationToken cancellationToken) =>
+        await OpenAsync(db, id, me, cancellationToken)
+        ?? await db.Conversations.SingleOrDefaultAsync(c => c.Id == id && (c.PairLow == me || c.PairHigh == me) && c.ClosedAt != null
+            && (c.ClosedReason == ClosedReasons.Disconnected || c.ClosedReason == ClosedReasons.Deleted)
+            && !db.Blocks.Any(b => (b.BlockerAccountId == c.PairLow && b.BlockedAccountId == c.PairHigh) || (b.BlockerAccountId == c.PairHigh && b.BlockedAccountId == c.PairLow)), cancellationToken);
+
     /// <summary>Rule 4: an accepted connection in any mode, and no block either way.</summary>
     public static async Task<bool> ConnectedAsync(SwoovrDbContext db, Guid me, Guid other, CancellationToken cancellationToken)
     {
@@ -218,9 +230,12 @@ public static class MessagingEndpoints
     private static async Task<ConversationView> ViewAsync(SwoovrDbContext db, Conversation conversation, Guid me, CancellationToken cancellationToken)
     {
         var otherId = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
-        var other = await db.MemberProfiles.SingleAsync(p => p.AccountId == otherId, cancellationToken);
+        var other = await db.MemberProfiles.SingleOrDefaultAsync(p => p.AccountId == otherId, cancellationToken);
+        // D170: after final deletion the other member has no profile; the conversation reads "Deleted member".
+        if (other is null) return new(conversation.Id, new PersonSummary(Guid.Empty, "Deleted member", []), conversation.CreatedAt, conversation.LastMessageAt, false);
         var person = new PersonSummary(other.PublicId, other.DisplayName, ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
-        var canSend = await ConnectedAsync(db, me, otherId, cancellationToken) && await ParticipatesAsync(db, otherId, DateTimeOffset.UtcNow, cancellationToken);
+        var canSend = conversation.ClosedAt is null && await ConnectedAsync(db, me, otherId, cancellationToken)
+            && await ParticipatesAsync(db, otherId, DateTimeOffset.UtcNow, cancellationToken);
         return new(conversation.Id, person, conversation.CreatedAt, conversation.LastMessageAt, canSend);
     }
 
@@ -239,9 +254,23 @@ public static class MessagingEndpoints
         var open = await db.Conversations.SingleOrDefaultAsync(c => c.PairLow == low && c.PairHigh == high && c.ClosedAt == null, cancellationToken);
         if (open is not null)
         {
-            open.ClosedAt = now;
+            (open.ClosedAt, open.ClosedReason) = (now, ClosedReasons.Blocked);
             Audit.Record(db, now, null, "system", "conversation.closed", "conversation", open.Id.ToString(), "block");
         }
+    }
+
+    /// <summary>
+    /// D176: after a disconnect, the open conversation closes read-only when no accepted connection in any mode is left;
+    /// it stays open while another mode still connects the pair. Returns the closed conversation, if any, for the push.
+    /// </summary>
+    public static async Task<Conversation?> CloseIfUnconnectedAsync(SwoovrDbContext db, Guid low, Guid high, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await db.ConnectionRequests.AnyAsync(r => r.PairLow == low && r.PairHigh == high && r.Status == ConnectionRequestStatus.Accepted, cancellationToken)) return null;
+        var open = await db.Conversations.SingleOrDefaultAsync(c => c.PairLow == low && c.PairHigh == high && c.ClosedAt == null, cancellationToken);
+        if (open is null) return null;
+        (open.ClosedAt, open.ClosedReason) = (now, ClosedReasons.Disconnected);
+        Audit.Record(db, now, null, "system", "conversation.closed", "conversation", open.Id.ToString(), "disconnect");
+        return open;
     }
 }
 

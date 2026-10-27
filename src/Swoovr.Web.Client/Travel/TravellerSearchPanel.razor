@@ -28,7 +28,7 @@
             <div class="people-grid">
                 @foreach (var person in result.People)
                 {
-                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}")" Area="@(person.Area ?? "")" Intentions="person.Intentions" Quote="@Quote(person.About)">
+                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Area="@(person.Area ?? "")" Intentions="person.Intentions" Quote="@Quote(person.About)">
                         <Badges><BadgeRow Badges="person.Badges" /></Badges>
                     </ProfileTile>
                 }

@@ -19,8 +19,8 @@ public static partial class Bff
     private const string Uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
     [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
-        + "|requests|requests/" + Uuid + "/(accept|decline|withdraw)|connections|blocks|blocks/" + Uuid
-        + "|me/market-interest|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
+        + "|requests|requests/" + Uuid + "/(accept|decline|withdraw|disconnect)|connections|blocks|blocks/" + Uuid
+        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
@@ -44,6 +44,8 @@ public static partial class Bff
                 return Results.Unauthorized();
             using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), path + context.Request.QueryString);
             request.Headers.Authorization = new("Bearer", token);
+            // D181: the browser's address for the API's per-address limits (believed only from a trusted proxy).
+            if (context.Connection.RemoteIpAddress is { } address) request.Headers.TryAddWithoutValidation("X-Forwarded-For", address.ToString());
             if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Count > 0)
             {
                 if (context.Request.ContentLength > 16 * 1024) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);

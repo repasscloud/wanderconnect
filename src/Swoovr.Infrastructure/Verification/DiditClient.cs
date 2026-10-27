@@ -39,6 +39,30 @@ public sealed class DiditClient(HttpClient http, DiditOptions options, ILogger<D
         return await SendAsync(request, "decision", cancellationToken);
     }
 
+    /// <summary>
+    /// DELETE /v3/session/{id}/delete/ (docs.didit.me/sessions-api/delete-session, read 27 October 2026; the key needs
+    /// `delete:sessions`). 2xx means deleted; 404 means Didit no longer has it, which is the same outcome.
+    /// </summary>
+    public async Task<bool> DeleteSessionAsync(string sessionId, CancellationToken cancellationToken)
+    {
+        if (!Configured) return false;
+        if (!Guid.TryParse(sessionId, out var id)) return true;
+        using var request = new HttpRequestMessage(HttpMethod.Delete, new Uri(options.BaseUrl, $"v3/session/{id}/delete/"));
+        request.Headers.Add("x-api-key", options.ApiKey);
+        try
+        {
+            using var response = await http.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound) return true;
+            log.LogWarning("Didit delete returned {Status}.", (int)response.StatusCode);
+            return false;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            log.LogWarning("Didit delete failed: {Kind}.", exception.GetType().Name);
+            return false;
+        }
+    }
+
     private async Task<ProviderSession?> SendAsync(HttpRequestMessage request, string what, CancellationToken cancellationToken)
     {
         request.Headers.Add("x-api-key", options.ApiKey);

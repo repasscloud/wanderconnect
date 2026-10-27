@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRealm, applyAll, amrReferences, amrMaxAgeSeconds, realms, generatedProfile, generatedPublicClients } from '../../scripts/auth/realms.mjs';
+import { applyRealm, applyAll, applyAccountsClient, accountsClientRoles, amrReferences, amrMaxAgeSeconds, realms, generatedProfile, generatedPublicClients } from '../../scripts/auth/realms.mjs';
 
 // In-memory stand-in for the Admin REST paths realms.mjs uses; no provider is contacted.
 function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-only', foreignConfig = false } = {}) {
@@ -125,7 +125,7 @@ test('never overwrites an authentication config it does not own', async () => {
 
 test('applyAll covers exactly the three realms from D31', async () => {
   const opened = [];
-  const result = await applyAll({ open: async name => { opened.push(name); return fakeRealm(name, { terms: name === 'swoovr-members-dev' ? 'REQUIRED' : 'DISABLED' }).api; } });
+  const result = await applyAll({ open: async name => { opened.push(name); return fakeRealm(name, { terms: name === 'swoovr-members-dev' ? 'REQUIRED' : 'DISABLED' }).api; }, secret: async () => undefined });
   assert.deepEqual(opened, realms);
   assert.deepEqual(Object.keys(result), ['swoovr-members-dev', 'swoovr-venues-dev', 'swoovr-staff-dev']);
 });
@@ -137,4 +137,33 @@ test('an owned config with the old zero max age is updated', async () => {
   state.configs[id].config = { 'default.reference.value': 'pwd' };
   assert.deepEqual(await applyRealm(api, 'swoovr-members-dev'), ['amr pwd on auth-username-password-form']);
   assert.equal(state.configs[id].config['default.reference.maxAge'], amrMaxAgeSeconds);
+});
+
+test('the deletion client (D169): created once with only view-users and manage-users, secret kept in step', async () => {
+  const state = { clients: [], secret: null, mappings: [], writes: [] };
+  const roles = { 'view-users': { id: 'r1', name: 'view-users' }, 'manage-users': { id: 'r2', name: 'manage-users' }, 'realm-admin': { id: 'r3', name: 'realm-admin' } };
+  const api = async (path, method = 'GET', body) => {
+    if (method !== 'GET') state.writes.push(method + ' ' + path);
+    if (path === '/clients?clientId=swoovr-api-accounts') return state.clients;
+    if (path === '/clients?clientId=realm-management') return [{ id: 'rm', clientId: 'realm-management' }];
+    if (path === '/clients' && method === 'POST') { state.clients.push({ ...structuredClone(body), id: 'acc' }); state.secret = body.secret; return; }
+    if (path === '/clients/acc/client-secret') return { value: state.secret };
+    if (path === '/clients/acc' && method === 'PUT') { state.secret = body.secret; return; }
+    if (path === '/clients/acc/service-account-user') return { id: 'sa' };
+    if (path === '/users/sa/role-mappings/clients/rm') { if (method === 'POST') { state.mappings.push(...body); return; } return state.mappings; }
+    const role = path.match(/^\/clients\/rm\/roles\/(.+)$/);
+    if (role) return roles[role[1]];
+    throw new Error('Unexpected path ' + path);
+  };
+  assert.deepEqual(await applyAccountsClient(api, undefined), ['accounts client skipped (run ./scripts/docker-local.sh init)']);
+  assert.deepEqual(state.writes, []);
+  assert.deepEqual(await applyAccountsClient(api, 's1'), ['client swoovr-api-accounts', 'roles view-users manage-users']);
+  const [client] = state.clients;
+  assert.equal(client.serviceAccountsEnabled, true);
+  assert.equal(client.publicClient, false);
+  assert.equal(client.standardFlowEnabled || client.directAccessGrantsEnabled || client.implicitFlowEnabled, false, 'no sign-in flows');
+  assert.deepEqual(state.mappings.map(r => r.name), accountsClientRoles);
+  assert.deepEqual(await applyAccountsClient(api, 's1'), [], 'idempotent');
+  assert.deepEqual(await applyAccountsClient(api, 's2'), ['secret swoovr-api-accounts']);
+  assert.equal(state.secret, 's2');
 });

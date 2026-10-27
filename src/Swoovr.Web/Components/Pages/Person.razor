@@ -8,11 +8,13 @@
 }
 else
 {
-    <PersonPanel Id="Id" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    <PersonPanel Id="Id" Mode="@Mode" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
 @code {
     [Parameter] public Guid Id { get; set; }
+    // D175: the mode the profile was opened from (Explore, Traveller Search, Who's visiting, Connections).
+    [SupplyParameterFromQuery] public string? Mode { get; set; }
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;
     protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
