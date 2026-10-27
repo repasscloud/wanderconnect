@@ -1,0 +1,236 @@
+{
+  "base_commit": "7226d52f744fac67f07bd198695b932734421772",
+  "screens": [
+    {
+      "slug": "welcome",
+      "title": "Welcome",
+      "source": "src/Swoovr.Web/Components/Pages/Home.razor",
+      "group": "Public",
+      "note": "Source markup and copy preserved, including the development notice on main (which is older than current signed-in functionality)."
+    },
+    {
+      "slug": "sign-in",
+      "title": "Welcome back.",
+      "source": "containers/keycloak/themes/swoovr/login/login.ftl",
+      "group": "Public",
+      "note": "Auth theme reconstruction using member form CSS; no Keycloak session or provider buttons simulated."
+    },
+    {
+      "slug": "register",
+      "title": "Create your account.",
+      "source": "containers/keycloak/themes/swoovr/login/register.ftl",
+      "group": "Public",
+      "note": "Auth theme reconstruction using member form CSS; no Keycloak session or provider buttons simulated."
+    },
+    {
+      "slug": "forgot",
+      "title": "Forgot password?",
+      "source": "containers/keycloak/themes/swoovr/login/login-reset-password.ftl",
+      "group": "Public",
+      "note": "Auth theme reconstruction using member form CSS; no Keycloak session or provider buttons simulated."
+    },
+    {
+      "slug": "explore",
+      "title": "Explore",
+      "source": "src/Swoovr.Web.Client/Profiles/ExplorePanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "explore-empty",
+      "title": "Explore \u00b7 empty",
+      "source": "src/Swoovr.Web.Client/Profiles/ExplorePanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "explore-unavailable",
+      "title": "Explore \u00b7 unavailable",
+      "source": "src/Swoovr.Web.Client/Profiles/ExplorePanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "person",
+      "title": "Member profile",
+      "source": "src/Swoovr.Web.Client/Profiles/PersonPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "profile-edit",
+      "title": "Your profile",
+      "source": "src/Swoovr.Web.Client/Profiles/ProfileEditor.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "matching",
+      "title": "Who I\u2019d like to meet",
+      "source": "src/Swoovr.Web.Client/Profiles/MatchingPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "connections",
+      "title": "Connections",
+      "source": "src/Swoovr.Web.Client/Connections/ConnectionsPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "connections-empty",
+      "title": "Connections \u00b7 empty",
+      "source": "src/Swoovr.Web.Client/Connections/ConnectionsPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "chats",
+      "title": "Chats",
+      "source": "src/Swoovr.Web.Client/Messaging/ChatsPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "chat",
+      "title": "Conversation",
+      "source": "src/Swoovr.Web.Client/Messaging/ConversationPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "chat-closed",
+      "title": "Conversation \u00b7 disconnected",
+      "source": "src/Swoovr.Web.Client/Messaging/ConversationPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "travel",
+      "title": "Travel",
+      "source": "src/Swoovr.Web.Client/Travel/TravelPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "traveller-search",
+      "title": "Traveller Search",
+      "source": "src/Swoovr.Web.Client/Travel/TravellerSearchPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "account",
+      "title": "Me \u00b7 account",
+      "source": "src/Swoovr.Web.Client/Account/MemberAccountPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "phone",
+      "title": "Mobile number",
+      "source": "src/Swoovr.Web.Client/Account/PhonePanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "verification",
+      "title": "ID verification",
+      "source": "src/Swoovr.Web.Client/Account/VerificationPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "dob-correction",
+      "title": "Date of birth correction",
+      "source": "src/Swoovr.Web.Client/Account/DobCorrectionPrompt.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "report",
+      "title": "Report a member",
+      "source": "src/Swoovr.Web.Client/Moderation/ReportForm.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "notices",
+      "title": "Notices and reports",
+      "source": "src/Swoovr.Web.Client/Moderation/NoticesPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "data",
+      "title": "Data and account",
+      "source": "src/Swoovr.Web.Client/Account/DataAndDeletionPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "restricted",
+      "title": "Account restricted",
+      "source": "src/Swoovr.Web.Client/Account/MemberAccountPanel.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "appearance",
+      "title": "Appearance",
+      "source": "src/Swoovr.Web/Components/Pages/Appearance.razor",
+      "group": "Member",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "admin",
+      "title": "Moderation",
+      "source": "src/Swoovr.Admin/Components/Pages/Home.razor",
+      "group": "Staff",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "queue",
+      "title": "Moderation queue",
+      "source": "src/Swoovr.Admin/Components/Pages/Cases.razor",
+      "group": "Staff",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "case",
+      "title": "Moderation case",
+      "source": "src/Swoovr.Admin/Components/Pages/Case.razor",
+      "group": "Staff",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "appeals",
+      "title": "Appeals",
+      "source": "src/Swoovr.Admin/Components/Pages/Appeals.razor",
+      "group": "Staff",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "accounts",
+      "title": "Account lookup",
+      "source": "src/Swoovr.Admin/Components/Pages/Accounts.razor",
+      "group": "Staff",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "admin-account",
+      "title": "Account tools",
+      "source": "src/Swoovr.Admin/Components/Pages/Account.razor",
+      "group": "Staff",
+      "note": "Representative excerpt of a long account-tools page; not every administrative operation is reproduced."
+    },
+    {
+      "slug": "dob-reviews",
+      "title": "Date of birth reviews",
+      "source": "src/Swoovr.Admin/Components/Pages/DobReviews.razor",
+      "group": "Staff",
+      "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    }
+  ]
+}
