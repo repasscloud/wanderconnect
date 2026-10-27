@@ -83,6 +83,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<SensitiveAccess> SensitiveAccessLog => Set<SensitiveAccess>();
     public DbSet<StaffExclusion> StaffExclusions => Set<StaffExclusion>();
     public DbSet<ExportApproval> ExportApprovals => Set<ExportApproval>();
+    public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -263,6 +264,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             approval.HasOne<LegalHold>().WithMany().HasForeignKey(a => a.HoldId).OnDelete(DeleteBehavior.Restrict);
             approval.Property(a => a.Purpose).HasMaxLength(LegalHoldPolicy.TextMax);
+        });
+        // #89 (policy §12): security incidents with severity levels and the NDB assessment.
+        model.Entity<SecurityIncident>(incident =>
+        {
+            incident.Property(i => i.Kind).HasMaxLength(32);
+            incident.Property(i => i.Summary).HasMaxLength(SecurityOperationsPolicy.SummaryMax);
+            incident.Property(i => i.AssessmentReason).HasMaxLength(SecurityOperationsPolicy.SummaryMax);
+            incident.HasIndex(i => new { i.Status, i.Severity });
+            incident.HasIndex(i => new { i.Kind, i.SubjectStaffId, i.DetectedAt });
         });
         model.Entity<EvidenceRedaction>(redaction =>
         {

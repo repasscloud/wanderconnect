@@ -159,6 +159,20 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<StaffRevokeResult>> RevokeStaffAsync(Guid id, string? reason, CancellationToken cancellationToken = default) =>
         SendAsync<StaffRevokeResult>(HttpMethod.Post, $"api/v1/admin/staff/{id}/revoke", new StaffRevokeRequest(reason), cancellationToken);
 
+    // #89: security incidents.
+    public Task<ApiResult<List<SecurityIncidentView>>> IncidentsAsync(string? status = null, CancellationToken cancellationToken = default) =>
+        SendAsync<List<SecurityIncidentView>>(HttpMethod.Get, "api/v1/admin/security/incidents?status=" + Uri.EscapeDataString(status ?? ""), null, cancellationToken);
+
+    public Task<ApiResult<SecurityIncidentView>> OpenIncidentAsync(NewSecurityIncident request, CancellationToken cancellationToken = default) =>
+        SendAsync<SecurityIncidentView>(HttpMethod.Post, "api/v1/admin/security/incidents", request, cancellationToken);
+
+    public Task<ApiResult<SecurityIncidentView>> AssessIncidentAsync(Guid id, IncidentAssessment request, CancellationToken cancellationToken = default) =>
+        SendAsync<SecurityIncidentView>(HttpMethod.Post, $"api/v1/admin/security/incidents/{id}/assess", request, cancellationToken);
+
+    /// <summary>step: contain or close.</summary>
+    public Task<ApiResult<SecurityIncidentView>> IncidentStepAsync(Guid id, string step, CancellationToken cancellationToken = default) =>
+        SendAsync<SecurityIncidentView>(HttpMethod.Post, $"api/v1/admin/security/incidents/{id}/{Uri.EscapeDataString(step)}", null, cancellationToken);
+
     // D195: law-enforcement case management (`legal` only).
     private const string Le = "api/v1/admin/law-enforcement";
 

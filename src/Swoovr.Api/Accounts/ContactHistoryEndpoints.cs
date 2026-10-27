@@ -26,7 +26,8 @@ public sealed class ContactHistoryKeys(IConfiguration configuration, Founders fo
         foreach (var entry in configuration.GetSection("ContactHistory:Keys").GetChildren())
             if (byte.TryParse(entry.Key, out var version) && entry.Value is { Length: > 0 } value && Convert.FromBase64String(value) is { Length: 32 } key)
                 keys[version] = key;
-        if (keys.Count == 0 && founders.CurrentVersion is { } v)
+        // #89: the derived key stays version 1 (still readable) after newer versions are configured, until `keys rotate`.
+        if (!keys.ContainsKey(1) && founders.CurrentVersion is { } v)
             keys[1] = HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:contact-history:encryption:v1"));
         return keys;
     }

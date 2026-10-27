@@ -1,0 +1,73 @@
+@page "/security"
+@inject AdminClient Admin
+<PageTitle>Security incidents — Swoovr admin</PageTitle>
+<h1>Security incidents</h1>
+<p class="help">Policy §12 and the <strong>breach-response runbook</strong> (docs/delivery/BREACH-RESPONSE-RUNBOOK.md). Contain first, then assess: if it may be an eligible data breach under the Notifiable Data Breaches scheme, start the assessment now and finish it within 30 days. Sev1 critical · Sev2 high · Sev3 medium · Sev4 low.</p>
+<p class="row"><a href="/security">Open</a> · <a href="/security?status=closed">Closed</a></p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (incidents is null) { <p data-incidents="refused">@loadError</p> }
+else if (incidents.Count == 0) { <p data-incidents="none">No incidents.</p> }
+else
+{
+    <ul class="list" data-incidents="@incidents.Count">
+        @foreach (var i in incidents)
+        {
+            <li data-incident="@i.Id" data-incident-kind="@i.Kind" data-incident-status="@i.Status">
+                <strong>@i.Severity</strong> · @i.Kind · @i.Status · detected @i.DetectedAt.ToLocalTime().ToString("d MMM HH:mm")
+                · assessment @(i.AssessedAt is null ? $"due {i.AssessmentDue.ToLocalTime():d MMM}" : i.Notifiable == true ? "NOTIFIABLE" : "not notifiable")
+                @if (i.AssessmentOverdue) { <strong data-assessment-overdue> overdue</strong> }
+                <div class="help">@i.SeverityMeaning</div>
+                <blockquote>@i.Summary</blockquote>
+                @if (i.Status != "closed")
+                {
+                    <form method="post" @formname="@($"assess-{i.Id}")" @onsubmit="() => AssessAsync(i.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <select name="notifiable"><option value="false">Not an eligible data breach</option><option value="true">Eligible data breach (notify OAIC and people affected)</option></select>
+                        <input name="reason" placeholder="Why" maxlength="2000" required />
+                        <button type="submit" class="secondary" data-assess="@i.Id">Record assessment</button>
+                    </form>
+                    <form method="post" @formname="@($"step-{i.Id}")" @onsubmit="() => StepAsync(i.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        @if (i.Status == "open") { <button name="step" value="contain" type="submit" class="secondary" data-contain="@i.Id">Contained</button> }
+                        <button name="step" value="close" type="submit" class="quiet" data-close-incident="@i.Id">Close</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+<h2>Open an incident</h2>
+<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-incident data-enhance="false">
+    <AntiforgeryToken />
+    <label>Severity<select name="severity"><option value="sev1">Sev1 critical</option><option value="sev2">Sev2 high</option><option value="sev3" selected>Sev3 medium</option><option value="sev4">Sev4 low</option></select></label>
+    <label>What happened (ids, not member content)<textarea name="summary" rows="3" maxlength="2000" required></textarea></label>
+    <button type="submit" data-open>Open incident</button>
+</form>
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery] public string? Status { get; set; }
+    private List<SecurityIncidentView>? incidents;
+    private string? message, loadError, resultCode;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.IncidentsAsync(Status);
+        incidents = result.Value;
+        if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task Show<T>(ApiResult<T> result, string ok)
+    {
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? ok : result.Status == 409 ? "Record the data-breach assessment before closing." : AdminText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+
+    private async Task OpenAsync() => await Show(await Admin.OpenIncidentAsync(new NewSecurityIncident(Field("severity"), Field("summary"))), "Incident opened.");
+    private async Task AssessAsync(Guid id) => await Show(await Admin.AssessIncidentAsync(id, new IncidentAssessment(Field("notifiable") == "true", Field("reason"))), "Assessment recorded.");
+    private async Task StepAsync(Guid id) => await Show(await Admin.IncidentStepAsync(id, Field("step")), Field("step") == "close" ? "Closed." : "Marked contained.");
+}

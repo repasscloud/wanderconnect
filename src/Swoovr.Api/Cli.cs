@@ -168,12 +168,40 @@ public static class Cli
                 Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} email holds expired, {run.Kept} kept under a legal hold.");
                 return run.Waiting > 0 ? 1 : 0;
             }
+            // #89: key rotation. Add the new version (for example `Evidence:Keys:2`) to configuration first, then run this;
+            // older versions stay readable until every value is re-sealed. `--to n` picks a configured version.
+            case ["keys", "rotate", var set, .. var rest] when Swoovr.Api.Security.KeyRotation.Sets.Contains(set) || set == "all":
+            {
+                byte? to = rest is ["--to", var v, ..] && byte.TryParse(v, out var parsed) ? parsed : null;
+                var rotation = scope.ServiceProvider.GetRequiredService<Swoovr.Api.Security.KeyRotation>();
+                try
+                {
+                    foreach (var name in set == "all" ? Swoovr.Api.Security.KeyRotation.Sets : [set])
+                    {
+                        var run = await rotation.RotateAsync(name, to, CancellationToken.None);
+                        Console.WriteLine($"Keys {run.Set}: {run.Resealed} re-sealed to version {run.Target}, {run.Already} already on it, {run.Unreadable} under a key that isn't configured (left as they were).");
+                    }
+                }
+                catch (InvalidOperationException exception) { Console.Error.WriteLine(exception.Message); return 2; }
+                return 0;
+            }
+            case ["keys", "status", ..]:
+            {
+                var rotation = scope.ServiceProvider.GetRequiredService<Swoovr.Api.Security.KeyRotation>();
+                foreach (var name in Swoovr.Api.Security.KeyRotation.Sets)
+                {
+                    var counts = await rotation.StatusAsync(name, CancellationToken.None);
+                    var versions = string.Join(", ", rotation.Keys(name).Keys.Order());
+                    Console.WriteLine($"Keys {name}: configured [{versions}]; values {string.Join(", ", counts.OrderBy(c => c.Key).Select(c => $"v{c.Key}={c.Value}"))}");
+                }
+                return 0;
+            }
             case ["beta", "list", ..]:
                 foreach (var e in await db.BetaEnrolments.OrderBy(e => e.CreatedAt).ToListAsync())
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
                 return 2;
         }
     }

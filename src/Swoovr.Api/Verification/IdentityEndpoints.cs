@@ -32,6 +32,8 @@ public static class IdentityEndpoints
             if (!identities.Configured) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "The identity store isn't configured.");
             var record = await accounts.Db!.VerifiedIdentities.FindAsync([id], cancellationToken);
             var fields = record is null ? null : await identities.OpenForAsync(id, current.Account.Id, request.Purpose!, clock.GetUtcNow(), cancellationToken);
+            // #89: unusual openings (or probing) alert the escalation contacts (ids only).
+            await accounts.Services.GetRequiredService<Security.SecurityAlerts>().IdentityOpenedAsync(current.Account.Id, now, cancellationToken);
             if (record is null || fields is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "No verified identity is on file for that account.");
             return Results.Ok(new VerifiedIdentityView(id, fields.FirstName, fields.LastName, fields.DateOfBirth, fields.DocumentType, fields.IssuingCountry,
                 fields.ExpiryDate, fields.Method, record.VerifiedAt, record.SessionId, record.RetainUntil));

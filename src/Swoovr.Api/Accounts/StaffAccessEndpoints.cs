@@ -79,8 +79,10 @@ public static class StaffAccessEndpoints
             if (!current!.IsRootAdmin && !current.Allows(AccountRole.Legal)) return Results.Forbid();
             var take = Math.Clamp(limit ?? 200, 1, 1000);
             var entries = (await accounts.Db!.SensitiveAccessLog.OrderByDescending(e => e.Sequence).Take(take).ToListAsync(cancellationToken)).OrderBy(e => e.Sequence).ToList();
-            return Results.Ok(new SensitiveAccessLogView(entries.Select(e => new SensitiveAccessView(e.Sequence, e.At, e.ActorAccountId, e.Action, e.Resource, e.ResourceId, e.Status)).ToList(),
-                StaffAccessPolicy.ChainIntact(entries)));
+            var intact = StaffAccessPolicy.ChainIntact(entries);
+            // #89: a broken chain is a critical security incident.
+            if (!intact) await accounts.Services.GetRequiredService<Security.SecurityAlerts>().ChainBrokenAsync("access-log-chain-broken", "The sensitive-access log's hash chain is broken.", DateTimeOffset.UtcNow, cancellationToken);
+            return Results.Ok(new SensitiveAccessLogView(entries.Select(e => new SensitiveAccessView(e.Sequence, e.At, e.ActorAccountId, e.Action, e.Resource, e.ResourceId, e.Status)).ToList(), intact));
         });
 
         access.MapGet("/exclusions", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>

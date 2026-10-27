@@ -3922,6 +3922,94 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.SecurityIncident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AssessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assessed_at");
+
+                    b.Property<Guid?>("AssessedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assessed_by");
+
+                    b.Property<DateTimeOffset>("AssessmentDue")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assessment_due");
+
+                    b.Property<string>("AssessmentReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("assessment_reason");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset?>("ContainedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("contained_at");
+
+                    b.Property<DateTimeOffset>("DetectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("detected_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<bool?>("Notifiable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("notifiable");
+
+                    b.Property<Guid?>("OpenedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("opened_by");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("SubjectStaffId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_staff_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id")
+                        .HasName("pk_security_incidents");
+
+                    b.HasIndex("Status", "Severity")
+                        .HasDatabaseName("ix_security_incidents_status_severity");
+
+                    b.HasIndex("Kind", "SubjectStaffId", "DetectedAt")
+                        .HasDatabaseName("ix_security_incidents_kind_subject_staff_id_detected_at");
+
+                    b.ToTable("security_incidents");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.SensitiveAccess", b =>
                 {
                     b.Property<long>("Sequence")

@@ -119,7 +119,11 @@ public static class LegalHoldEndpoints
             await evidence.CustodyAsync(hold!.Id, current!.Account!.Id, "viewed", null, now, cancellationToken);
             Audit.Record(db, now, current.Account.Id, "account", "hold.viewed", "legal-hold", hold.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(await DetailAsync(db, hold, now, cancellationToken));
+            var detail = await DetailAsync(db, hold, now, cancellationToken);
+            // #89: a broken custody chain is a critical security incident.
+            if (!detail.ChainIntact)
+                await accounts.Services.GetRequiredService<Security.SecurityAlerts>().ChainBrokenAsync("custody-chain-broken", $"The custody chain of hold {hold.Id} is broken.", now, cancellationToken);
+            return Results.Ok(detail);
         });
 
         admin.MapPost("/holds/{id:guid}/{step:regex(^(confirm|capture)$)}", async (Guid id, string step, ClaimsPrincipal user, AccountResolver accounts,
@@ -216,6 +220,8 @@ public static class LegalHoldEndpoints
                         db.ExportApprovals.Add(pending);
                         Audit.Record(db, now, me, "account", "evidence.bulk-requested", "legal-hold", hold.Id.ToString(), pending.Id.ToString());
                         await db.SaveChangesAsync(cancellationToken);
+                        // #89: a bulk export alerts the escalation contacts (ids only).
+                        await accounts.Services.GetRequiredService<Security.SecurityAlerts>().BulkExportAsync(me, hold.Id, pending.Id, now, cancellationToken);
                     }
                     return Results.Problem(statusCode: StatusCodes.Status409Conflict, title: "A bulk export needs another officer's approval.",
                         extensions: new Dictionary<string, object?> { ["code"] = ProblemCodes.BulkExportApprovalRequired, ["approvalId"] = pending.Id });
