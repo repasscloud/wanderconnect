@@ -169,4 +169,3 @@ Final deletion runs from `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll
 A verified mobile number is required (D184): the API refuses member routes with 403 `phone-verification-required` until the member verifies one under Account (web) or Me → Mobile number (app). Codes are simulated (D183): nothing is texted; each code lands in Mailpit (http://127.0.0.1:8025) addressed to `sms-<number>@simulated.swoovr.invalid`. Use Australia's fictional range 0491 570 006–159 for test numbers.
 
 The older browser suites don't verify numbers, so run them on hosts started with `Phone__Required=false bash .local/run-hosts.sh`; `tests/accounts/phone.browser.cjs` covers both settings.
-
