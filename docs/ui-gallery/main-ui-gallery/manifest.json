@@ -1,5 +1,5 @@
 {
-  "base_commit": "7226d52f744fac67f07bd198695b932734421772",
+  "base_commit": "86610a50b17a9896b7e858de8ec2ec702d79f01f",
   "screens": [
     {
       "slug": "welcome",
@@ -231,6 +231,76 @@
       "source": "src/Swoovr.Admin/Components/Pages/DobReviews.razor",
       "group": "Staff",
       "note": "Illustrative populated state. Layout and controls reconstructed from the referenced component; fictional data."
+    },
+    {
+      "slug": "photos",
+      "title": "Your photos",
+      "source": "src/Swoovr.Web.Client/Profiles/PhotosPanel.razor",
+      "group": "Member",
+      "note": "Illustrative states with synthetic placeholders; no upload or screening runs (D203)."
+    },
+    {
+      "slug": "person-photos",
+      "title": "Member profile \u00b7 photos",
+      "source": "src/Swoovr.Web.Client/Profiles/PersonPanel.razor",
+      "group": "Member",
+      "note": "Main photo, then the opened mode\u2019s own photos; never another mode\u2019s (D203)."
+    },
+    {
+      "slug": "safety-support",
+      "title": "Safety & Support",
+      "source": "src/Swoovr.Web/Components/Pages/SafetySupport.razor",
+      "group": "Public",
+      "note": "Public page, signed out; AU pack as seeded (D204)."
+    },
+    {
+      "slug": "safety-unsupported",
+      "title": "Safety & Support \u00b7 unsupported country",
+      "source": "src/Swoovr.Web/Components/Pages/SafetySupport.razor",
+      "group": "Public",
+      "note": "Unknown or unsupported countries never borrow another country\u2019s numbers (issue 103)."
+    },
+    {
+      "slug": "privacy",
+      "title": "Privacy notice (draft)",
+      "source": "src/Swoovr.Web/Components/Pages/Privacy.razor",
+      "group": "Public",
+      "note": "Excerpt of the draft notice (D200, D202)."
+    },
+    {
+      "slug": "media-review",
+      "title": "Photo review",
+      "source": "src/Swoovr.Admin/Components/Pages/MediaReview.razor",
+      "group": "Staff",
+      "note": "Illustrative; no image is shown in the gallery (D203)."
+    },
+    {
+      "slug": "safety-resources",
+      "title": "Safety resources",
+      "source": "src/Swoovr.Admin/Components/Pages/SafetyResources.razor",
+      "group": "Staff",
+      "note": "Countries, launch problems and the country editor (D204)."
+    },
+    {
+      "slug": "law-enforcement",
+      "title": "Law enforcement",
+      "source": "src/Swoovr.Admin/Components/Pages/LawEnforcement.razor",
+      "group": "Staff",
+      "note": "Fictional case (D196)."
+    },
+    {
+      "slug": "access",
+      "title": "Elevated access",
+      "source": "src/Swoovr.Admin/Components/Pages/Access.razor",
+      "group": "Staff",
+      "note": "Illustrative (D197)."
+    },
+    {
+      "slug": "security",
+      "title": "Security incidents",
+      "source": "src/Swoovr.Admin/Components/Pages/Security.razor",
+      "group": "Staff",
+      "note": "Illustrative (D198)."
     }
   ]
 }

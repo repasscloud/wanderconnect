@@ -13,7 +13,8 @@
 {
     <section class="card account-section" aria-labelledby="upload-heading">
         <h2 id="upload-heading">Add a photo</h2>
-        <InputFile OnChange="UploadAsync" accept="image/jpeg,image/png,image/webp" disabled="@busy" data-photo-input />
+        <label for="photo-input" class="field-help">Choose a photo</label>
+        <InputFile id="photo-input" OnChange="UploadAsync" accept="image/jpeg,image/png,image/webp" disabled="@busy" data-photo-input />
         <p class="field-help">JPEG, PNG or WebP, up to 10 MB. You can keep up to @photos.MaxKept photos.</p>
         <p role="status" aria-live="polite" class="field-help" data-photo-status="@status">@message</p>
     </section>

@@ -18,7 +18,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     assert.equal(response.status, 200); pass();
     const html = await response.text();
     assert.ok(html.includes('DRAFT') && html.includes('not in force')); pass();
-    for (const id of ['identity', 'bans', 'contact-history', 'messages', 'holds', 'founders', 'retention', 'law-enforcement', 'contact'])
+    for (const id of ['identity', 'bans', 'contact-history', 'messages', 'photos', 'holds', 'founders', 'retention', 'law-enforcement', 'contact'])
       assert.ok(html.includes(`data-privacy-section="${id}"`), id);
     pass();
     for (const phrase of ['legal first and last name', '2 years', '30 days', 'founder recovery token', 'legal hold', 'privacy@swoovr.com', 'oaic.gov.au', 'href="/law-enforcement"'])

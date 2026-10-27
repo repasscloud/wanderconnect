@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.1, 27 October 2026";
+    public const string Version = "Draft 0.2, 28 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -47,6 +47,12 @@ public static class PrivacyNotice
             "Each connection mode shows only what belongs to it. Your main about appears in a mode only if you turn on \"Show my main about\" for that mode.",
             "Others see a rounded distance band between home cities (for example \"5–10 km\"), never your exact location, and searches are limited so they can't be used to pinpoint you.",
             "We keep versions of what others could see on your profile, so our team can review a report against what was visible at the time.",
+        ]),
+        new("photos", "Your photos", [
+            "Photos you upload are kept private until they have been checked. We remove location and other hidden details (EXIF data) and keep a re-made copy, never the original file. Our own screening service checks each photo for nudity and against databases of known child sexual abuse material (through the Canadian Centre for Child Protection's Project Arachnid, which receives only a digital fingerprint of the photo, not the photo itself).",
+            "If the checks aren't sure, a trained member of our team may look at the photo, for a recorded reason that is logged. Photos are stored in our private cloud storage (Cloudflare R2) and shown to others only through short-lived links, only in the modes you choose.",
+            "When you delete a photo, or your account, we delete it, unless a legal hold requires us to keep it. If a photo matches known child abuse material, we keep it sealed as evidence, never show it to anyone, and follow the law on reporting it.",
+            "ID verification selfies and documents never go through this process; they stay with Didit.",
         ]),
         new("holds", "Evidence we must preserve", [
             "Sometimes we must preserve information, for example after a serious safety report or a verified request from police. A legal hold keeps the records it covers in a restricted, encrypted evidence store, even if you delete your account, until the hold is released.",
