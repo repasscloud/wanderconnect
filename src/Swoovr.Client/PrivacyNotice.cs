@@ -9,8 +9,8 @@ public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
     public const string Version = "Draft 0.1, 27 October 2026";
-    /// <summary>OPEN (Q80): the privacy contact address until the owner confirms it.</summary>
-    public const string Contact = "privacy@swoovr.app";
+    /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
+    public const string Contact = "privacy@swoovr.com";
 
     public sealed record Section(string Id, string Title, IReadOnlyList<string> Paragraphs);
 

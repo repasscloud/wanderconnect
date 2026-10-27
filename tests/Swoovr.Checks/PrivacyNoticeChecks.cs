@@ -27,6 +27,7 @@ static class PrivacyNoticeChecks
         Expect(Text("retention").Contains("30 days") && Text("retention").Contains("2 years"), "deletion and retention (D170)");
         Expect(Text("modes").Contains("Show my main about") && Text("modes").Contains("never your exact location"), "mode consent and distance bands (D199)");
         Expect(Text("choices").Contains("oaic.gov.au") && all.Contains(PrivacyNotice.Contact), "complaints and the contact (Q80)");
+        Expect(PrivacyNotice.Contact == "privacy@swoovr.com" && !all.Contains("privacy@swoovr.app"), "the confirmed contact (D202)");
         Expect(!all.Contains("24/7"), "no round-the-clock promise");
 
         Console.WriteLine($"PASS: privacy notice draft ({checks}).");
