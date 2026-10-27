@@ -195,7 +195,10 @@ async function secret() {
     await Promise.all([passkeyPage.waitForURL(web + '/account'), passkeyPage.click('#kc-login')]);
     await passkeyPage.route(redirect + '**', route => route.fulfill({ body: 'registered' }));
     await passkeyPage.goto(`${keycloak}/realms/${realm}/protocol/openid-connect/auth?client_id=swoovr-web&response_type=code&scope=openid&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=p&nonce=p&kc_action=webauthn-register-passwordless`);
-    await Promise.all([passkeyPage.waitForURL(url => url.href.startsWith(redirect)), passkeyPage.click('#registerWebAuthn')]);
+    // #63: page.route never sees a redirect's follow-up request, so Keycloak's 302 reaches the web host, which can't finish
+    // this hand-made sign-in (state "p") and, since f4f6239, sends it to /account?signin=retry. Either landing means
+    // Keycloak finished the registration; the stored credential below is what this step checks.
+    await Promise.all([passkeyPage.waitForURL(url => url.href.startsWith(redirect) || url.href.startsWith(web + '/account?signin=retry')), passkeyPage.click('#registerWebAuthn')]);
     const stored = (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials;
     assert.ok(stored.length === 1 && stored[0].isResidentCredential && stored[0].rpId === 'localhost', 'discoverable passkey stored for the local RP ID'); pass();
     await passkeyPage.unroute(redirect + '**');

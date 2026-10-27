@@ -2024,15 +2024,15 @@ The owner added the [internal trust and safety policy](INTERNAL-TRUST-SAFETY-EVI
 | Issue | Topic | Status |
 | --- | --- | --- |
 | #83 | Verified identity store with field-level encryption (§2) | BUILT in slice AA (D191, D194), PR #97; Key Vault and database roles wait for hosting |
-| #84 | Legal holds, evidence preservation, law-enforcement disclosure (§3, §13) | BUILT in slice Y (D189, D192), PR #97; the written police-contact procedure is for the owner |
+| #84 | Legal holds, evidence preservation, law-enforcement disclosure (§3, §13) | BUILT in slice Y (D189, D192), PR #97; the owner's police-contact procedure (D195) and law-enforcement case management in slice AB (D196), PR #101. Operational items (§15: mailbox, on-call roster, authorisers, counsel) are the owner's |
 | #85 | Media quarantine and CSAM / nudity screening (§5); before photos (#76) | OPEN |
 | #86 | Serious Safety Incident pathway; reporting after block or deactivation (§9) | BUILT in slice Z (D190, D193), PR #97; attachments wait for #85 |
 | #87 | Contact-change security and ban tokens (§4, §8); history built (D187) | Provider-free parts BUILT in slice AA (D194), PR #97; live SMS waits for deployment (D183) |
-| #88 | Staff access controls and sensitive-access audit (§11, §15) | OPEN |
-| #89 | Security operations and breach response (§12) | OPEN |
-| #90 | Location privacy hardening (§10) | OPEN |
-| #91 | Mode privacy follow-ups (§6) | OPEN |
-| [#99](https://github.com/repasscloud/wanderconnect/issues/99) | Privacy policy: disclose the verified identity record, ban matching and retention after termination (owner, Q78) | OPEN; updated by the owner 27 October 2026 with the attachment [SWOOVR-POLICE-CONTACT-PROCEDURE.md](https://github.com/user-attachments/files/34006144/SWOOVR-POLICE-CONTACT-PROCEDURE.md) (the police-contact procedure #84 left to the owner). Folded in as [POLICE-CONTACT-PROCEDURE.md](POLICE-CONTACT-PROCEDURE.md), D195 (CONFIRMED, owner Q1–Q37); built against in slice AB. The privacy notice draft is slice AF |
+| #88 | Staff access controls and sensitive-access audit (§11, §15) | BUILT in slice AC (D197), PR #101; Entra conditional access and a staff-realm Keycloak sign-out client wait for hosting |
+| #89 | Security operations and breach response (§12) | Host-free parts BUILT in slice AD (D198), PR #101: key rotation, alerts, incident severity, the breach runbook. Monitoring, backups, penetration testing, Key Vault wait for hosting |
+| #90 | Location privacy hardening (§10) | BUILT in slice AE (D199), PR #101: distance bands, search limits and a triangulation test. Venue check-ins and photo EXIF come with venues and photos (Q79) |
+| #91 | Mode privacy follow-ups (§6) | BUILT in slice AE (D199), PR #101: consent before the main about crosses modes, profile versions for moderation and holds. Per-mode photos come with photos (Q79) |
+| [#99](https://github.com/repasscloud/wanderconnect/issues/99) | Privacy policy: disclose the verified identity record, ban matching and retention after termination (owner, Q78) | OPEN; updated by the owner 27 October 2026 with the attachment [SWOOVR-POLICE-CONTACT-PROCEDURE.md](https://github.com/user-attachments/files/34006144/SWOOVR-POLICE-CONTACT-PROCEDURE.md) (the police-contact procedure #84 left to the owner). Folded in as [POLICE-CONTACT-PROCEDURE.md](POLICE-CONTACT-PROCEDURE.md), D195 (CONFIRMED, owner Q1–Q37); built against in slice AB. The privacy notice DRAFT is built in slice AF (D200), PR #101; legal review (#57) and the contact address (Q80, #102) remain |
 
 ## Questions before the Y–AA run — 27 October 2026
 

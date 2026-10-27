@@ -32,15 +32,18 @@ public sealed class SecurityAlerts(IServiceProvider services, IConfiguration con
     public Task BulkExportAsync(Guid staff, Guid hold, Guid approval, DateTimeOffset now, CancellationToken cancellationToken) =>
         RaiseAsync("bulk-export", $"Staff {staff} asked to export hold {hold} in bulk (approval {approval}).", staff, now, cancellationToken, dedupe: false);
 
+    /// <summary>Once per broken chain while its incident is open (the summary names the chain).</summary>
     public Task ChainBrokenAsync(string kind, string what, DateTimeOffset now, CancellationToken cancellationToken) =>
-        RaiseAsync(kind, what, null, now, cancellationToken);
+        RaiseAsync(kind, what, null, now, cancellationToken, dedupe: false, oncePerSummary: true);
 
     /// <summary>Opens the incident (once an hour per kind and person) and emails the escalation contacts with ids only.</summary>
-    private async Task RaiseAsync(string kind, string summary, Guid? staff, DateTimeOffset now, CancellationToken cancellationToken, bool dedupe = true)
+    private async Task RaiseAsync(string kind, string summary, Guid? staff, DateTimeOffset now, CancellationToken cancellationToken, bool dedupe = true, bool oncePerSummary = false)
     {
         try
         {
             if (dedupe && await db.SecurityIncidents.AnyAsync(i => i.Kind == kind && i.SubjectStaffId == staff && i.Status != IncidentStatus.Closed && i.DetectedAt > now.AddHours(-1), cancellationToken))
+                return;
+            if (oncePerSummary && await db.SecurityIncidents.AnyAsync(i => i.Kind == kind && i.Summary == summary && i.Status != IncidentStatus.Closed, cancellationToken))
                 return;
             var incident = SecurityOperationsPolicy.Open(kind, SecurityOperationsPolicy.SeverityFor(kind), summary, staff, null, now);
             db.SecurityIncidents.Add(incident);

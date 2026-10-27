@@ -173,3 +173,9 @@ The verified identity store (D191, D194) uses `IdentityStore__Keys__1` and `Iden
 A verified mobile number is required (D184): the API refuses member routes with 403 `phone-verification-required` until the member verifies one under Account (web) or Me → Mobile number (app). Codes are simulated (D183): nothing is texted; each code lands in Mailpit (http://127.0.0.1:8025) addressed to `sms-<number>@simulated.swoovr.invalid`. Use Australia's fictional range 0491 570 006–159 for test numbers.
 
 The older browser suites don't verify numbers, so run them on hosts started with `Phone__Required=false bash .local/run-hosts.sh`; `tests/accounts/phone.browser.cjs` covers both settings.
+
+### Security operations commands (slices AB–AD)
+
+- `accounts purge` and `messages purge` now fail closed: if hold status can't be read they purge nothing and exit 1 (D196). `accounts purge` also erases law-enforcement case records seven years after closure unless a live hold serves the case, and search events older than a day.
+- `keys status` shows which key version seals how many values in each set; `keys rotate contact-history|evidence|police|identity|all [--to n]` re-seals them after a new version (`ContactHistory:Keys:{n}`, `Evidence:Keys:{n}`, `IdentityStore:Keys:{n}`, base64 32 bytes) is configured. The founder-derived version 1 stays readable, so hosts keep working during a rotation. See the [breach-response runbook](BREACH-RESPONSE-RUNBOOK.md).
+- Elevated access (D197): opening an identity, exporting evidence and terminating need a 60-minute grant from the admin app's **Elevated access** page (or `POST /api/v1/admin/access/grants`); browser suites use `elevate()` in `tests/auth/local-tokens.cjs`.
