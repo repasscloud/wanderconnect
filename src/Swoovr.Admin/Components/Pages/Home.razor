@@ -2,7 +2,15 @@
 @inject AdminClient Admin
 <PageTitle>Swoovr admin</PageTitle>
 <h1>Moderation</h1>
-@if (refused is not null)
+@if (holds is not null)
+{
+    <ul class="tiles" data-holds-overview>
+        <li><a href="/holds"><strong data-live-holds>@holds.Live</strong> legal holds</a></li>
+        <li><a href="/holds"><strong data-overdue-holds>@holds.Overdue</strong> holds overdue for review</a></li>
+    </ul>
+}
+@if (legalOnly) { <p data-legal-home>You're signed in as the security and legal officer. <a href="/holds">Open legal holds</a> or the <a href="/disclosures">disclosure register</a>.</p> }
+else if (refused is not null)
 {
     <p class="notice" role="alert" data-refused="@status">@refused <a href="/sign-in?reauth=true">Sign in again</a></p>
 }
@@ -18,10 +26,17 @@ else
 @code {
     private int open, urgent, appeals, status;
     private string? refused;
+    private HoldOverview? holds;
+    private bool legalOnly;
 
     protected override async Task OnInitializedAsync()
     {
+        // D189: overdue hold reviews head the page for admins and the security and legal officer.
+        var overview = await Admin.HoldOverviewAsync();
+        holds = overview.Value is { Live: > 0 } ? overview.Value : null;
         var cases = await Admin.CasesAsync();
+        // The security and legal officer has no moderation queue; holds are their page.
+        if (!cases.Ok && cases.Status == 403 && overview.Ok) { legalOnly = true; return; }
         if (!cases.Ok) { (status, refused) = (cases.Status, AdminText.Refusal(cases.Status, cases.Code)); return; }
         (open, urgent) = (cases.Value!.Count, cases.Value.Count(c => c.AwaitingAcknowledgement));
         appeals = (await Admin.AppealsAsync()).Value?.Count ?? 0;

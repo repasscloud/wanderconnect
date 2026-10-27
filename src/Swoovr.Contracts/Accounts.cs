@@ -153,6 +153,24 @@ public static class ProblemCodes
     public const string DobCorrectionRequired = "dob-correction-required";
     /// <summary>D166: an admin is reviewing the date of birth; it can't be changed meanwhile.</summary>
     public const string DobUnderReview = "dob-under-review";
+    /// <summary>D189: a hold needs a reason (up to 1,000 characters).</summary>
+    public const string HoldReasonRequired = "hold-reason-required";
+    /// <summary>D189: a hold names 1–20 existing accounts; named conversations must involve one of them; an admin's only the case's people.</summary>
+    public const string HoldScopeInvalid = "hold-scope-invalid";
+    /// <summary>D189: the period must run forwards and the review fall due within a year.</summary>
+    public const string HoldDatesInvalid = "hold-dates-invalid";
+    /// <summary>D189: an admin opens only a provisional hold, and only from a case.</summary>
+    public const string HoldCaseRequired = "hold-case-required";
+    /// <summary>D189: the hold has been released.</summary>
+    public const string HoldReleased = "hold-released";
+    /// <summary>D189: only a provisional hold can be confirmed.</summary>
+    public const string HoldNotProvisional = "hold-not-provisional";
+    /// <summary>D189: an export needs a purpose; a disclosure needs agency, officer, reference, a listed legal basis and how it was verified.</summary>
+    public const string DisclosureInvalid = "disclosure-invalid";
+    /// <summary>D189: no evidence key is configured, so nothing can be preserved.</summary>
+    public const string EvidenceNotConfigured = "evidence-not-configured";
+    /// <summary>D191: opening a verified identity record needs a recorded purpose.</summary>
+    public const string PurposeRequired = "purpose-required";
 }
 
 public sealed record CouponRequest(string Code);

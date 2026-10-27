@@ -93,12 +93,24 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         // D187 (policy §4): a verified email that changed (in Keycloak) goes to the encrypted contact history.
         if (emailChanged && services.GetRequiredService<ContactHistoryKeys>().Record(account.Id, ContactType.Email, account.Email!, null, now, account.Id, "changed") is { } previous)
             Db.ContactHistories.Add(previous);
+        var previousEmail = emailChanged ? account.Email : null;
         if (email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
         {
             account.Email = email ?? account.Email;
             account.LastSeenAt = now;
             await Db.SaveChangesAsync(cancellationToken);
         }
+        // #87 (policy §4, §14): the previous address hears that it changed, never what to.
+        if (previousEmail is not null && facts.Realm == AccountRealm.Members)
+            await services.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>().SendAsync(new Swoovr.Infrastructure.Email.EmailMessage(previousEmail,
+                "Your Swoovr email address was changed",
+                """
+                The email address on your Swoovr account was just changed, so this address won't get Swoovr emails any more.
+
+                If this wasn't you, contact Swoovr support straight away.
+
+                — Swoovr (RePass Cloud Pty Ltd)
+                """), cancellationToken);
         MemberProfile? profile = null;
         if (facts.Realm == AccountRealm.Members)
         {

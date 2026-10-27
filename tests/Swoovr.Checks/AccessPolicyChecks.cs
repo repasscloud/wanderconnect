@@ -45,7 +45,7 @@ static class AccessPolicyChecks
         Check("revoked venue membership denied", false, partner with { VenueIds = none }, AccountRole.VenuePartner, venueA);
         Check("member account cannot enter venue area", false, member with { Realm = AccountRealm.Venues, Method = SignInMethod.EmailPassword }, AccountRole.VenuePartner, venueA);
 
-        foreach (var role in new[] { AccountRole.Admin, AccountRole.Support })
+        foreach (var role in new[] { AccountRole.Admin, AccountRole.Support, AccountRole.Legal })
         {
             var staff = new AccessSession(role, AccountRealm.Staff, SignInMethod.CorporateSso, false, true, true, true, false, none);
             Check($"{role} Entra SSO", true, staff, role);
@@ -73,6 +73,11 @@ static class AccessPolicyChecks
         Check("root admin stale session denied", false, root with { IsFresh = false }, AccountRole.Admin);
         Check("root admin outside staff realm denied", false, root with { Realm = AccountRealm.Members }, AccountRole.Admin);
         Check("root admin flag does not grant support", false, root with { Role = AccountRole.Support }, AccountRole.Support);
+        // D189: the root admin may hold a granted `legal` role, with the same password + OTP evidence.
+        Check("root admin with a legal grant", true, root with { Role = AccountRole.Legal }, AccountRole.Legal);
+        Check("root admin legal without OTP denied", false, root with { Role = AccountRole.Legal, MultiFactor = false }, AccountRole.Legal);
+        Check("root admin without a legal grant denied", false, root, AccountRole.Legal);
+        Check("legal is staff-realm only", false, root with { Role = AccountRole.Legal, Realm = AccountRealm.Members }, AccountRole.Legal);
         Check("unknown role denied", false, member with { Role = (AccountRole)999 }, (AccountRole)999);
         Console.WriteLine($"PASS: {count} account access policy cases (application facts only; no provider authentication).");
 

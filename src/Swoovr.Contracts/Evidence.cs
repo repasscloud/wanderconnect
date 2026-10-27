@@ -1,0 +1,45 @@
+namespace Swoovr.Contracts;
+
+// Legal holds, the evidence store and the disclosure register (policy §3, §13; D189). Admin API only (D136): never on the
+// member BFF allow-list. Only the `legal` role reads holds; an admin may open a provisional one from a case.
+
+/// <summary>
+/// A new hold. AccountIds (1–20) are application account ids; ConversationIds (optional) narrow it to those
+/// conversations; From/Until bound the preserved period; ReviewDue defaults to 90 days (at most a year). An admin must
+/// give CaseId and only that case's subject and reporters, and gets a provisional hold.
+/// </summary>
+public sealed record NewLegalHold(string? Reason, List<Guid>? AccountIds, List<Guid>? ConversationIds, DateTimeOffset? From, DateTimeOffset? Until,
+    DateTimeOffset? ReviewDue, string? ReleaseConditions, Guid? CaseId);
+
+/// <summary>Status is provisional, active or released; source is staff or serious-incident.</summary>
+public sealed record LegalHoldSummary(Guid Id, string Status, string Source, Guid? CaseId, DateTimeOffset PlacedAt, DateTimeOffset ReviewDue, bool Overdue,
+    int Accounts, int Items);
+
+/// <summary>Item metadata only (kind, provenance, capture time and SHA-256); content leaves only in an export.</summary>
+public sealed record EvidenceItemView(Guid Id, int Capture, string Kind, string Source, string RecordId, Guid? AccountId, DateTimeOffset CapturedAt, string Sha256);
+
+public sealed record CustodyEventView(long Sequence, DateTimeOffset At, Guid? Actor, string Action, string? Detail, string Hash);
+
+public sealed record DisclosureView(Guid Id, Guid HoldId, string Agency, string Officer, string Reference, string LegalBasis, string VerifiedHow,
+    Guid DisclosedBy, DateTimeOffset DisclosedAt);
+
+public sealed record LegalHoldDetail(Guid Id, string Status, string Source, string Reason, string? ReleaseConditions, Guid? CaseId, Guid? PlacedBy,
+    string PlacedByRole, DateTimeOffset PlacedAt, Guid? ConfirmedBy, DateTimeOffset? ConfirmedAt, DateTimeOffset ReviewDue, bool Overdue,
+    DateTimeOffset? From, DateTimeOffset? Until, List<Guid> AccountIds, List<Guid> ConversationIds, List<EvidenceItemView> Items,
+    List<CustodyEventView> Custody, bool ChainIntact, List<DisclosureView> Disclosures, DateTimeOffset? ReleasedAt, string? ReleaseReason);
+
+/// <summary>For the admin and legal home pages: how many holds are live and how many are overdue for review.</summary>
+public sealed record HoldOverview(int Live, int Overdue);
+
+public sealed record HoldReviewRequest(DateTimeOffset? ReviewDue);
+
+public sealed record HoldReleaseRequest(string? Reason);
+
+/// <summary>LegalBasis: app-6.2e, warrant, subpoena, court-order, serious-threat or consent.</summary>
+public sealed record DisclosureRequest(string? Agency, string? Officer, string? Reference, string? LegalBasis, string? VerifiedHow);
+
+/// <summary>Purpose is required; Disclosure records a law-enforcement disclosure in the register.</summary>
+public sealed record EvidenceExportRequest(string? Purpose, DisclosureRequest? Disclosure);
+
+/// <summary>A one-time link: GET /api/v1/admin/evidence-exports/{Token} within 15 minutes, by the same officer.</summary>
+public sealed record EvidenceExportLink(string Token, DateTimeOffset ExpiresAt);

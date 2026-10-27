@@ -52,7 +52,7 @@ public sealed class NoticesPage : ContentPage
 		body.Children.Add(Ui.Card([.. rows]));
 		var mine = new List<View> { Ui.Text("Your reports", "SectionHeading") };
 		if (reports.Count == 0) mine.Add(Ui.Text("You haven't reported anything.", "FooterClaims", "MyReportsEmpty"));
-		foreach (var report in reports) mine.Add(Ui.Text($"{report.CreatedAt:d MMM yyyy}: {MemberText.ReportStatus(report.Status)}", id: $"MyReport_{report.Id}"));
+		foreach (var report in reports) mine.Add(Ui.Text(MemberText.ReportLine(report), id: $"MyReport_{report.Id}"));
 		body.Children.Add(Ui.Card([.. mine]));
 	}
 

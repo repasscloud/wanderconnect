@@ -8,10 +8,23 @@ public sealed record ReportCategoryView(string Id, string Label);
 /// "album" arrive with those features); SubjectId is the profile's public id or the request id. Text is optional, up to
 /// 2,000 characters. Block also blocks the person in the same step.
 /// </summary>
-public sealed record NewReport(string SubjectType, string SubjectId, string Category, string? Text, bool Block);
+/// Serious incidents (D190) add Police ("contacted", "will-contact" or "not-now"), an optional PoliceReference (up to 100
+/// characters, kept encrypted) and MessageIds: up to 20 messages from the reported conversation chosen as evidence.
+public sealed record NewReport(string SubjectType, string SubjectId, string Category, string? Text, bool Block, string? Police = null,
+    string? PoliceReference = null, List<Guid>? MessageIds = null);
 
-/// <summary>What the reporter sees (D131): submitted, underReview, reviewed or closed; never the outcome.</summary>
-public sealed record MyReportView(Guid Id, string SubjectType, string Category, string Status, DateTimeOffset CreatedAt);
+/// <summary>
+/// What the reporter sees (D131): submitted, underReview, reviewed or closed. Outcome (D190) appears once closed:
+/// "actionTaken" or "noBreachFound", never which action. Serious marks a Serious Safety Incident report.
+/// </summary>
+public sealed record MyReportView(Guid Id, string SubjectType, string Category, string Status, DateTimeOffset CreatedAt, string? Outcome = null, bool Serious = false);
+
+/// <summary>
+/// Someone the member has dealt with (D190: reporting stays available after a block, disconnect or deletion): a
+/// conversation or request to report through, the name they knew (or "Deleted member"), and the state now:
+/// connected, pending, blocked, disconnected, ended, declined or deleted.
+/// </summary>
+public sealed record SafetyPerson(string SubjectType, Guid SubjectId, string Name, string State, DateTimeOffset Since);
 
 /// <summary>
 /// A notice about an action on the member's own account (D135). Sanction details are the member's own: the kind, the
@@ -38,7 +51,7 @@ public sealed record ContactHistoryHit(Guid AccountId, DateTimeOffset? ValidFrom
 public sealed record ContactHistoryResult(Guid? CurrentAccountId, IReadOnlyList<ContactHistoryHit> Previous);
 
 public sealed record CaseReportView(Guid Id, Guid ReporterAccountId, string SubjectType, string SubjectRef, string Category, string Priority,
-    string? Text, DateTimeOffset CreatedAt);
+    string? Text, DateTimeOffset CreatedAt, string? Police = null);
 public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapshot, DateTimeOffset CapturedAt);
 public sealed record SanctionView(Guid Id, Guid AccountId, Guid? CaseId, string Kind, string Reason, DateTimeOffset StartsAt, DateTimeOffset? EndsAt,
     bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, Guid CreatedBy, string CreatedByRole, DateTimeOffset? LiftedAt, bool Live);
@@ -70,7 +83,15 @@ public sealed record EntitlementView(Guid Id, string Tier, string Source, DateTi
 public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, string? DisplayName, string? AgeStatus, string? IdStatus,
     bool CanRequestIdVerification, bool Bot, bool Employee, bool Founder, string? HomeMarket, DateTimeOffset? HomeMarketMovedAt, string Plan,
     IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases, bool DateOfBirthVerified = false,
-    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none");
+    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none",
+    DateTimeOffset? IdentityOnFileSince = null, string? IdentityIssuingCountry = null);
+
+/// <summary>D191: opening a verified identity record needs the `legal` role and a recorded purpose (up to 500 characters).</summary>
+public sealed record IdentityAccessRequest(string? Purpose);
+
+/// <summary>D191: the record as kept: legal names, the document's date of birth, type, issuing country (ISO alpha-3) and expiry.</summary>
+public sealed record VerifiedIdentityView(Guid AccountId, string? FirstName, string? LastName, DateOnly? DateOfBirth, string? DocumentType, string? IssuingCountry,
+    DateOnly? ExpiryDate, string? Method, DateTimeOffset VerifiedAt, string SessionId, DateTimeOffset? RetainUntil);
 
 /// <summary>D166: a manual date-of-birth review in the admin queue. Never either date: the admin reads the document's in Didit's console.</summary>
 public sealed record DobReviewView(Guid Id, Guid AccountId, string? DisplayName, string Reason, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome);

@@ -14,8 +14,9 @@ public sealed record DiditOptions(string? ApiKey, string? WorkflowId, string? We
 /// <summary>
 /// Didit's Sessions API v3 (docs.didit.me/sessions-api, read 25 October 2026): POST /v3/session/ creates a hosted
 /// session (response field `url`); GET /v3/session/{id}/decision/ reads its decision. Both authenticate with the
-/// x-api-key header. Only the status, vendor_data, workflow id and an adult yes/no are taken from a decision; document
-/// fields, images and biometric scores are never read into Swoovr records (D128).
+/// x-api-key header. From a decision: the status, vendor_data, workflow id, an adult yes/no and (D191, superseding D128)
+/// the minimum verified fields of the approved document check for the sealed identity store. Document numbers,
+/// addresses, images and biometric scores are never read.
 /// </summary>
 public sealed class DiditClient(HttpClient http, DiditOptions options, ILogger<DiditClient> log) : IIdVerificationProvider
 {
@@ -90,7 +91,27 @@ public sealed class DiditClient(HttpClient http, DiditOptions options, ILogger<D
     {
         if (root.ValueKind != JsonValueKind.Object || Text(root, "session_id") is not { } session) return null;
         var decision = root.TryGetProperty("decision", out var d) ? d : root;
-        return new(session, Text(root, "status") ?? "", Text(root, "vendor_data"), Text(root, "workflow_id"), Adult(decision), Text(root, "url"), DateOfBirth(decision));
+        return new(session, Text(root, "status") ?? "", Text(root, "vendor_data"), Text(root, "workflow_id"), Adult(decision), Text(root, "url"), DateOfBirth(decision),
+            Identity(decision));
+    }
+
+    /// <summary>
+    /// D191: legal names, date of birth, document type, issuing state (ISO alpha-3) and expiry from the first approved
+    /// document check (docs.didit.me/sessions-api/retrieve-session, read 27 October 2026). Null when there is none.
+    /// </summary>
+    public static VerifiedIdentityFields? Identity(JsonElement decision)
+    {
+        if (decision.ValueKind != JsonValueKind.Object || !decision.TryGetProperty("id_verifications", out var checks) || checks.ValueKind != JsonValueKind.Array)
+            return null;
+        foreach (var check in checks.EnumerateArray())
+        {
+            if (!string.Equals(Text(check, "status"), "Approved", StringComparison.OrdinalIgnoreCase)) continue;
+            DateOnly? Date(string name) => Text(check, name) is { } value && DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date) ? date : null;
+            string? Short(string name, int max) => Text(check, name) is { Length: > 0 } value ? value.Trim()[..Math.Min(value.Trim().Length, max)] : null;
+            return new(Short("first_name", 100), Short("last_name", 100), Date("date_of_birth"), Short("document_type", 40), Short("issuing_state", 8),
+                Date("expiration_date"), Short("verification_method", 32));
+        }
+        return null;
     }
 
     /// <summary>

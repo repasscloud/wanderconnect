@@ -47,7 +47,7 @@
         else
         {
             <ul class="request-list" data-my-reports="@reports.Count">
-                @foreach (var r in reports) { <li data-my-report="@r.Id" data-report-state="@r.Status">@r.CreatedAt.ToString("d MMM yyyy"): @MemberText.ReportStatus(r.Status)</li> }
+                @foreach (var r in reports) { <li data-my-report="@r.Id" data-report-state="@r.Status" data-report-outcome="@(r.Outcome ?? "none")">@MemberText.ReportLine(r)</li> }
             </ul>
         }
     </section>

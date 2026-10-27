@@ -6,8 +6,8 @@ using Swoovr.Infrastructure.Persistence;
 
 namespace Swoovr.Api.Accounts;
 
-/// <summary>What one `accounts purge` run did; counts only, never who.</summary>
-public sealed record PurgeRun(int Deleted, int Waiting, int ProviderRetries, int Expired, int HoldsExpired);
+/// <summary>What one `accounts purge` run did; counts only, never who. Kept counts records a legal hold kept (D189).</summary>
+public sealed record PurgeRun(int Deleted, int Waiting, int ProviderRetries, int Expired, int HoldsExpired, int Kept = 0);
 
 /// <summary>
 /// Account deletion (Q43, D144; D169–D173). <see cref="RequestAsync"/> deactivates at once; <see cref="PurgeAsync"/> is
@@ -55,21 +55,30 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
                                        where a.Status == AccountStatus.Deleted select t).ToListAsync(cancellationToken))
             if (await verification.DeleteSessionAsync(attempt.SessionId, cancellationToken)) { db.IdVerificationAttempts.Remove(attempt); retries++; }
         await db.SaveChangesAsync(cancellationToken);
-        // D170: tombstones, their audit entries and moderation records go after two years (subject to legal review, D144).
-        var expired = 0;
+        // D170: tombstones, their audit entries and moderation records go after two years (subject to legal review, D144),
+        // except while a legal hold names the account (D189: deletion never removes held records).
+        var (expired, kept) = (0, 0);
+        var held = await services.GetRequiredService<Evidence.EvidencePreservation>().HeldAccountsAsync(cancellationToken);
         foreach (var tombstone in await db.Accounts.Where(a => a.Status == AccountStatus.Deleted).ToListAsync(cancellationToken))
         {
             if (!AccountDeletionPolicy.RetentionOver(tombstone, now)) continue;
+            if (held.Contains(tombstone.Id)) { kept++; continue; }
             var key = tombstone.Id.ToString();
             await db.AuditEntries.Where(e => e.ActorAccountId == tombstone.Id || e.TargetId == key).ExecuteDeleteAsync(cancellationToken);
+            await db.IdentityAccesses.Where(a => a.AccountId == tombstone.Id).ExecuteDeleteAsync(cancellationToken);
             await db.Accounts.Where(a => a.Id == tombstone.Id).ExecuteDeleteAsync(cancellationToken);
             expired++;
         }
-        var holds = await db.TerminatedEmailHolds.Where(h => h.ExpiresAt <= now).ExecuteDeleteAsync(cancellationToken);
+        var holds = await db.TerminatedEmailHolds.Where(h => h.ExpiresAt <= now).ExecuteDeleteAsync(cancellationToken)
+            + await db.TerminatedPhoneHolds.Where(h => h.ExpiresAt <= now).ExecuteDeleteAsync(cancellationToken);
         // D148: phone codes (hashes only) are kept a day for the limits, then go.
         await db.PhoneCodes.Where(c => c.CreatedAt < now - PhoneVerificationPolicy.CodeRetention).ExecuteDeleteAsync(cancellationToken);
-        await db.ContactHistories.Where(h => h.RetainUntil <= now).ExecuteDeleteAsync(cancellationToken);
-        return new(deleted, waiting, retries, expired, holds);
+        // D191: a terminated member's identity record goes after its two years, unless a legal hold names the account.
+        kept += await db.VerifiedIdentities.CountAsync(i => i.RetainUntil <= now && held.Contains(i.AccountId), cancellationToken);
+        await db.VerifiedIdentities.Where(i => i.RetainUntil <= now && !held.Contains(i.AccountId)).ExecuteDeleteAsync(cancellationToken);
+        kept += await db.ContactHistories.CountAsync(h => h.RetainUntil <= now && held.Contains(h.AccountId), cancellationToken);
+        await db.ContactHistories.Where(h => h.RetainUntil <= now && !held.Contains(h.AccountId)).ExecuteDeleteAsync(cancellationToken);
+        return new(deleted, waiting, retries, expired, holds, kept);
     }
 
     /// <summary>
@@ -85,6 +94,17 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
             log.LogWarning("Final deletion waits: the Keycloak user could not be deleted.");
             return false;
         }
+        // D189: records a live legal hold covers are captured into the evidence store before they are erased below.
+        var evidence = services.GetRequiredService<Evidence.EvidencePreservation>();
+        if ((await evidence.HeldAccountsAsync(cancellationToken)).Contains(id))
+        {
+            if (!evidence.Configured)
+            {
+                log.LogWarning("Final deletion waits: a legal hold covers the account and no evidence key is configured.");
+                return false;
+            }
+            await evidence.PreserveBeforeDeletionAsync(id, now, cancellationToken);
+        }
         foreach (var attempt in await db.IdVerificationAttempts.Where(t => t.AccountId == id).ToListAsync(cancellationToken))
             if (await verification.DeleteSessionAsync(attempt.SessionId, cancellationToken)) db.IdVerificationAttempts.Remove(attempt);
 
@@ -97,6 +117,13 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
             var hash = HoldHash(holdKey, email);
             if (!await db.TerminatedEmailHolds.AnyAsync(h => h.EmailHash == hash, cancellationToken))
                 db.TerminatedEmailHolds.Add(new TerminatedEmailHold { EmailHash = hash, CreatedAt = now, ExpiresAt = now + AccountDeletionPolicy.TerminatedHold });
+        }
+        // #87: and the verified mobile number's keyed hash, so the number verifying another account is flagged (never blocked).
+        if (terminated && HoldKey() is { } phoneKey && await db.MemberPhones.Where(p => p.AccountId == id).Select(p => p.Number).SingleOrDefaultAsync(cancellationToken) is { } number)
+        {
+            var hash = PhoneHoldHash(phoneKey, number);
+            if (!await db.TerminatedPhoneHolds.AnyAsync(h => h.PhoneHash == hash, cancellationToken))
+                db.TerminatedPhoneHolds.Add(new TerminatedPhoneHold { PhoneHash = hash, CreatedAt = now, ExpiresAt = now + AccountDeletionPolicy.TerminatedHold });
         }
         // D173, #22: the founder recovery token stays (so founding status can be restored) unless the member asked otherwise.
         // The founding place itself is never reassigned (Q43 rule 15).
@@ -130,6 +157,10 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.DataExports.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.PhoneCodes.Where(c => c.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // D191: the verified identity record goes too, except a terminated member's, kept two years for ban enforcement.
+        if (VerifiedIdentityPolicy.RetainAfterDeletion(terminated, now) is { } retain)
+            await db.VerifiedIdentities.Where(i => i.AccountId == id).ExecuteUpdateAsync(u => u.SetProperty(i => i.RetainUntil, retain), cancellationToken);
+        else await db.VerifiedIdentities.Where(i => i.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         // D187: contact history goes with the account, except a terminated member's (ban enforcement, policy §8, §13).
         if (!terminated) await db.ContactHistories.Where(h => h.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberPhones.Where(p => p.AccountId == id).ExecuteDeleteAsync(cancellationToken);
@@ -153,6 +184,29 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
             return HMACSHA256.HashData(founders.Secrets[version], Encoding.UTF8.GetBytes("swoovr:terminated-email-hold:v1"));
         log.LogWarning("No key for terminated-email holds; none kept.");
         return null;
+    }
+
+    /// <summary>#87: the phone hold's hash, labelled so it never equals an email hold's.</summary>
+    public static byte[] PhoneHoldHash(byte[] key, string number) => HMACSHA256.HashData(key, Encoding.UTF8.GetBytes("tel:" + number));
+
+    /// <summary>
+    /// #87: a member verifying a number held for a terminated member gets a case in the admin queue (never blocked; a
+    /// reassigned number is a likely innocent explanation).
+    /// </summary>
+    public async Task FlagIfReturningPhoneAsync(Guid accountId, string number, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (HoldKey() is not { } key) return;
+        var hash = PhoneHoldHash(key, number);
+        if (!await db.TerminatedPhoneHolds.AnyAsync(h => h.PhoneHash == hash && h.ExpiresAt > now, cancellationToken)) return;
+        if (await db.ModerationCases.AnyAsync(c => c.SubjectAccountId == accountId && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken)) return;
+        var item = new ModerationCase
+        {
+            Id = Guid.NewGuid(), SubjectAccountId = accountId, Status = CaseStatus.Open, Queue = CaseQueue.Admin, Priority = ReportPriority.High,
+            CreatedAt = now, UpdatedAt = now, SystemFlag = "returning-terminated-phone",
+        };
+        db.ModerationCases.Add(item);
+        Audit.Record(db, now, null, "system", "account.returning-terminated", "moderation-case", item.Id.ToString(), "phone");
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public static byte[] HoldHash(byte[] key, string email) => HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(EmailAddress.Normalise(email) ?? email));

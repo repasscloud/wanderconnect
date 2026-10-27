@@ -94,7 +94,8 @@ public static class DeletionEndpoints
             return Results.Ok(new ExportTicket("api/v1/me/export/" + Base64Url(secret), export.ExpiresAt));
         });
 
-        me.MapGet("/export/{token}", async (string token, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        me.MapGet("/export/{token}", async (string token, ClaimsPrincipal user, AccountResolver accounts, Verification.VerifiedIdentityStore identities, TimeProvider clock,
+            CancellationToken cancellationToken) =>
         {
             var (current, denied) = await OwnerAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
@@ -107,7 +108,7 @@ public static class DeletionEndpoints
             export!.DownloadedAt = now;
             Audit.Record(db, now, account.Id, "account", "export.downloaded", "data-export", export.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken);
+            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken));
             return Results.File(JsonSerializer.SerializeToUtf8Bytes(document, ExportJson), "application/json",
                 $"swoovr-data-{now:yyyy-MM-dd}.json");
         });

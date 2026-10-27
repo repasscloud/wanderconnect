@@ -1,0 +1,33 @@
+@page "/contact-history"
+@inject AdminClient Admin
+<PageTitle>Contact history — Swoovr admin</PageTitle>
+<h1>Contact history</h1>
+<p class="help">Admins only (D187, #87). Which accounts used a mobile number or email address, and when; never the stored values. Every search is logged. Numbers are reassigned and addresses shared: a match is a lead, never proof that two accounts are one person.</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+<form method="post" @formname="search" @onsubmit="SearchAsync" class="row" data-contact-form data-enhance="false">
+    <AntiforgeryToken />
+    <select name="type"><option value="mobile">Mobile number</option><option value="email">Email address</option></select>
+    <input name="value" placeholder="0412 345 678 or name@example.test" required />
+    <button type="submit" data-contact-search>Search</button>
+</form>
+@if (result is not null)
+{
+    <p data-contact-current="@(result.CurrentAccountId?.ToString() ?? "none")">Current holder: @if (result.CurrentAccountId is { } current) { <a href="/accounts/@current">@current</a> } else { <span>none</span> }</p>
+    <ul class="list" data-contact-previous="@result.Previous.Count">
+        @foreach (var h in result.Previous) { <li><a href="/accounts/@h.AccountId">@h.AccountId</a> · @(h.ValidFrom?.ToString("d MMM yyyy") ?? "?") – @h.ValidUntil.ToString("d MMM yyyy") · @h.Reason</li> }
+    </ul>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private ContactHistoryResult? result;
+    private string? message, resultCode;
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task SearchAsync()
+    {
+        var found = await Admin.ContactHistoryAsync(Field("type"), Field("value"));
+        (result, resultCode) = (found.Value, found.Ok ? "ok" : found.Code ?? found.Status.ToString());
+        message = found.Ok ? null : found.Status == 400 ? "Enter a valid number or address." : AdminText.Refusal(found.Status, found.Code);
+    }
+}

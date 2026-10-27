@@ -14,6 +14,8 @@ else
         <div><dt>Account</dt><dd>@account.Realm · @account.Status</dd></div>
         <div><dt>Age</dt><dd data-age-status="@account.AgeStatus">@account.AgeStatus@(account.DateOfBirthVerified ? " · date of birth verified" : "")</dd></div>
         <div><dt>ID verification</dt><dd data-id-status="@account.IdStatus">@account.IdStatus@(account.CanRequestIdVerification ? " · may start a check" : "")</dd></div>
+        @* D191: only that a record is on file; the security and legal officer opens it with a recorded purpose. *@
+        <div><dt>Verified identity</dt><dd data-identity-on-file="@(account.IdentityOnFileSince is null ? "none" : "on-file")">@(account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file") @if (account.IdentityOnFileSince is not null) { <a href="/identity?account=@account.Id">Open (legal officer)</a> }</dd></div>
         <div><dt>Plan</dt><dd data-plan="@account.Plan">@account.Plan@(account.Founder ? " · founding member" : "")</dd></div>
         <div><dt>Flags</dt><dd>@(account.Bot ? "Bot " : "")@(account.Employee ? "Staff-affiliated " : "")@(!account.Bot && !account.Employee ? "None" : "")</dd></div>
         <div><dt>Home market</dt><dd data-home-market="@(account.HomeMarket ?? "none")">@(account.HomeMarket ?? "None")@(account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd></div>

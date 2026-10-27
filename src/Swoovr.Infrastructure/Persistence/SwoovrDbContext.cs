@@ -64,6 +64,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MemberPhone> MemberPhones => Set<MemberPhone>();
     public DbSet<PhoneCode> PhoneCodes => Set<PhoneCode>();
     public DbSet<ContactHistory> ContactHistories => Set<ContactHistory>();
+    public DbSet<LegalHold> LegalHolds => Set<LegalHold>();
+    public DbSet<LegalHoldScope> LegalHoldScopes => Set<LegalHoldScope>();
+    public DbSet<EvidenceItem> EvidenceItems => Set<EvidenceItem>();
+    public DbSet<CustodyEvent> CustodyEvents => Set<CustodyEvent>();
+    public DbSet<EvidenceExport> EvidenceExports => Set<EvidenceExport>();
+    public DbSet<Disclosure> Disclosures => Set<Disclosure>();
+    public DbSet<VerifiedIdentity> VerifiedIdentities => Set<VerifiedIdentity>();
+    public DbSet<IdentityAccess> IdentityAccesses => Set<IdentityAccess>();
+    public DbSet<TerminatedPhoneHold> TerminatedPhoneHolds => Set<TerminatedPhoneHold>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -101,6 +110,74 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             history.HasIndex(h => h.RetainUntil);
             history.Property(h => h.ChangeReason).HasMaxLength(32);
         });
+        // D189 (policy §3): legal holds and the restricted evidence store. No foreign keys to accounts or conversations,
+        // so preserved evidence outlives the records it was captured from; evidence goes when the hold is released.
+        model.Entity<LegalHold>(hold =>
+        {
+            hold.Property(h => h.Reason).HasMaxLength(LegalHoldPolicy.TextMax);
+            hold.Property(h => h.ReleaseConditions).HasMaxLength(LegalHoldPolicy.TextMax);
+            hold.Property(h => h.ReleaseReason).HasMaxLength(LegalHoldPolicy.TextMax);
+            hold.Property(h => h.Source).HasMaxLength(32);
+            hold.HasIndex(h => new { h.Status, h.ReviewDue });
+            hold.HasIndex(h => h.CaseId);
+        });
+        model.Entity<LegalHoldScope>(scope =>
+        {
+            scope.HasKey(s => new { s.HoldId, s.Kind, s.TargetId });
+            scope.HasOne<LegalHold>().WithMany().HasForeignKey(s => s.HoldId).OnDelete(DeleteBehavior.Cascade);
+            scope.HasIndex(s => s.TargetId);
+        });
+        model.Entity<EvidenceItem>(item =>
+        {
+            item.HasOne<LegalHold>().WithMany().HasForeignKey(i => i.HoldId).OnDelete(DeleteBehavior.Cascade);
+            item.Property(i => i.Kind).HasMaxLength(32);
+            item.Property(i => i.Source).HasMaxLength(64);
+            item.Property(i => i.RecordId).HasMaxLength(64);
+            item.HasIndex(i => new { i.HoldId, i.Kind, i.RecordId });
+        });
+        model.Entity<CustodyEvent>(custody =>
+        {
+            custody.HasKey(c => c.Sequence);
+            custody.Property(c => c.Sequence).UseIdentityAlwaysColumn();
+            custody.HasOne<LegalHold>().WithMany().HasForeignKey(c => c.HoldId).OnDelete(DeleteBehavior.Restrict);
+            custody.Property(c => c.Action).HasMaxLength(32);
+            custody.Property(c => c.Detail).HasMaxLength(256);
+            custody.HasIndex(c => new { c.HoldId, c.Sequence });
+        });
+        model.Entity<EvidenceExport>(export =>
+        {
+            export.HasOne<LegalHold>().WithMany().HasForeignKey(e => e.HoldId).OnDelete(DeleteBehavior.Restrict);
+            export.HasIndex(e => e.TokenHash).IsUnique();
+            export.Property(e => e.Purpose).HasMaxLength(LegalHoldPolicy.TextMax);
+        });
+        model.Entity<Disclosure>(disclosure =>
+        {
+            disclosure.HasOne<LegalHold>().WithMany().HasForeignKey(d => d.HoldId).OnDelete(DeleteBehavior.Restrict);
+            disclosure.Property(d => d.Agency).HasMaxLength(200);
+            disclosure.Property(d => d.Officer).HasMaxLength(200);
+            disclosure.Property(d => d.Reference).HasMaxLength(200);
+            disclosure.Property(d => d.LegalBasis).HasMaxLength(32);
+            disclosure.Property(d => d.VerifiedHow).HasMaxLength(200);
+        });
+        // D191 (policy §2.3, §16): the verified identity store lives in its own `restricted` schema, ready for a separate
+        // database role when hosted (#89). No foreign key, so a terminated member's record can outlive the tombstone.
+        model.Entity<VerifiedIdentity>(identity =>
+        {
+            identity.ToTable("verified_identities", "restricted");
+            identity.HasKey(i => i.AccountId);
+            identity.Property(i => i.SessionId).HasMaxLength(64);
+            identity.Property(i => i.Method).HasMaxLength(32);
+            identity.Property(i => i.Decision).HasMaxLength(16);
+            identity.Property(i => i.IssuingCountry).HasMaxLength(8);
+            identity.HasIndex(i => i.MatchHmac);
+            identity.HasIndex(i => i.RetainUntil);
+        });
+        model.Entity<IdentityAccess>(access =>
+        {
+            access.ToTable("identity_accesses", "restricted");
+            access.Property(a => a.Purpose).HasMaxLength(VerifiedIdentityPolicy.PurposeMax);
+            access.HasIndex(a => new { a.AccountId, a.At });
+        });
         model.Entity<PhoneCode>(code =>
         {
             code.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -112,6 +189,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<TerminatedEmailHold>(hold =>
         {
             hold.HasKey(h => h.EmailHash);
+            hold.HasIndex(h => h.ExpiresAt);
+        });
+        model.Entity<TerminatedPhoneHold>(hold =>
+        {
+            hold.HasKey(h => h.PhoneHash);
             hold.HasIndex(h => h.ExpiresAt);
         });
         model.Entity<RoleGrant>(grant =>
@@ -357,13 +439,20 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             webhook.Property(w => w.SessionId).HasMaxLength(64);
             webhook.Property(w => w.Outcome).HasMaxLength(32);
         });
-        // D131: report categories are data with priorities; threats and suspected underage are urgent.
+        // D131: report categories are data with priorities; threats and suspected underage are urgent. D190: the Serious
+        // Safety Incident categories (all urgent) are offered only in their own pathway; "threats" moved there.
         model.Entity<ReportCategory>(category =>
         {
             category.Property(c => c.Id).HasMaxLength(32);
             category.Property(c => c.Label).HasMaxLength(80);
             category.HasData(
-                new ReportCategory { Id = "threats", Label = "Threats or violence", Priority = ReportPriority.Urgent, SortOrder = 1 },
+                new ReportCategory { Id = "threats", Label = "Threats to my safety", Priority = ReportPriority.Urgent, SortOrder = 1, Serious = true },
+                new ReportCategory { Id = "sexual-assault", Label = "Sexual assault", Priority = ReportPriority.Urgent, SortOrder = 11, Serious = true },
+                new ReportCategory { Id = "violence", Label = "Physical violence", Priority = ReportPriority.Urgent, SortOrder = 12, Serious = true },
+                new ReportCategory { Id = "stalking", Label = "Stalking or being followed", Priority = ReportPriority.Urgent, SortOrder = 13, Serious = true },
+                new ReportCategory { Id = "coercion", Label = "Coercion, extortion or sextortion", Priority = ReportPriority.Urgent, SortOrder = 14, Serious = true },
+                new ReportCategory { Id = "child-exploitation", Label = "Child sexual exploitation or a suspected minor", Priority = ReportPriority.Urgent, SortOrder = 15, Serious = true },
+                new ReportCategory { Id = "danger", Label = "Other immediate danger", Priority = ReportPriority.Urgent, SortOrder = 16, Serious = true },
                 new ReportCategory { Id = "underage", Label = "Might be under 18", Priority = ReportPriority.Urgent, SortOrder = 2 },
                 new ReportCategory { Id = "harassment", Label = "Harassment or bullying", Priority = ReportPriority.High, SortOrder = 3 },
                 new ReportCategory { Id = "hate", Label = "Hate or discrimination", Priority = ReportPriority.High, SortOrder = 4 },

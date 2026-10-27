@@ -119,6 +119,8 @@
     </section>
     <ReportForm SubjectType="@(person.Badges.Any(b => b.Badge == "bot") ? "bot" : "profile")" SubjectId="@Id.ToString()" Name="@person.DisplayName"
                 Blocked="() => { person = null; blockedNow = true; }" />
+    @* D190: the separate Serious Safety Incident pathway. *@
+    <p class="account-actions"><a class="button button-secondary" href="@($"/me/safety?type=profile&id={Id}")" data-serious-link>Report a serious safety incident</a></p>
 }
 @if (blockedNow)
 {

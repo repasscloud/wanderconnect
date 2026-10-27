@@ -40,9 +40,13 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<MemberAccount>> CorrectDateOfBirthAsync(DateOnly? dateOfBirth, CancellationToken cancellationToken = default) =>
         SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/verification/date-of-birth") { Content = JsonContent.Create(new DobCorrectionRequest(dateOfBirth)) }, cancellationToken);
 
-    /// <summary>The report categories as configured (D131).</summary>
-    public Task<ApiResult<List<ReportCategoryView>>> ReportCategoriesAsync(CancellationToken cancellationToken = default) =>
-        SendAsync<List<ReportCategoryView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/report-categories"), cancellationToken);
+    /// <summary>The report categories as configured (D131); serious gives the Serious Safety Incident ones (D190).</summary>
+    public Task<ApiResult<List<ReportCategoryView>>> ReportCategoriesAsync(bool serious = false, CancellationToken cancellationToken = default) =>
+        SendAsync<List<ReportCategoryView>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/report-categories" + (serious ? "?kind=serious" : "")), cancellationToken);
+
+    /// <summary>D190: everyone the member has dealt with, reportable even after a block, disconnect or deletion.</summary>
+    public Task<ApiResult<List<SafetyPerson>>> SafetyPeopleAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<SafetyPerson>>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/safety/people"), cancellationToken);
 
     /// <summary>Reports a profile, request or bot (D131), optionally blocking in the same step.</summary>
     public Task<ApiResult<MyReportView>> ReportAsync(NewReport report, CancellationToken cancellationToken = default) =>

@@ -1,7 +1,8 @@
 namespace Swoovr.Domain;
 
 // Internal application types, not provider claim names or public wire contracts.
-public enum AccountRole { Unknown, Member, VenuePartner, Admin, Support }
+// Legal: the security / legal officer of policy §11 (D189); holds, evidence exports and identity retrieval only.
+public enum AccountRole { Unknown, Member, VenuePartner, Admin, Support, Legal }
 public enum AccountRealm { Unknown, Members, Venues, Staff }
 public enum SignInMethod { Unknown, Apple, Google, EmailPassword, EmailLink, Passkey, CorporateSso }
 
@@ -53,14 +54,15 @@ public sealed class AccountAccessPolicy(bool localPasswordStaff = false)
                 && session.Method is SignInMethod.EmailPassword or SignInMethod.EmailLink
                 && venueId is { } id && id != Guid.Empty && session.VenueIds.Contains(id);
 
-        if (area is not (AccountRole.Admin or AccountRole.Support) || venueId is not null
+        if (area is not (AccountRole.Admin or AccountRole.Support or AccountRole.Legal) || venueId is not null
             || session.Realm != AccountRealm.Staff)
             return false;
 
         // Employees use RePass Cloud Entra SSO (D32); the root admin uses password + OTP (D36).
         return session.Method == SignInMethod.CorporateSso && !session.IsRootAdmin
             || localPasswordStaff && !session.IsRootAdmin && session.Method == SignInMethod.EmailPassword
-            || area == AccountRole.Admin && session.IsRootAdmin
+            // The root admin may also hold a granted `legal` role (D189); same password + OTP evidence.
+            || area is (AccountRole.Admin or AccountRole.Legal) && session.IsRootAdmin
                 && session.Method == SignInMethod.EmailPassword && session.MultiFactor;
     }
 }

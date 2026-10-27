@@ -26,6 +26,18 @@ public sealed class TerminatedEmailHold
     public DateTimeOffset ExpiresAt { get; set; }
 }
 
+/// <summary>
+/// #87 (policy §8): a terminated member deleted their account with a verified mobile number: a keyed hash of the number,
+/// kept two years so the number verifying another account is flagged to the admin queue. Never blocked, never the number,
+/// and a number match alone never proves two accounts are one person (numbers are reassigned).
+/// </summary>
+public sealed class TerminatedPhoneHold
+{
+    public byte[] PhoneHash { get; set; } = [];
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+}
+
 public enum DeletionRequestError { None, NotAllowed, StaleSession, AlreadyPending }
 
 /// <summary>
@@ -124,6 +136,8 @@ public interface IIdentityAdmin
     bool Configured { get; }
     /// <summary>Ends every Keycloak session of the user. False when Keycloak couldn't be reached or refused.</summary>
     Task<bool> SignOutEverywhereAsync(string subject, CancellationToken cancellationToken);
+    /// <summary>#87: ends the user's Keycloak sessions except <paramref name="keepSessionId"/> (the token's `sid`). False on failure.</summary>
+    Task<bool> SignOutOtherSessionsAsync(string subject, string? keepSessionId, CancellationToken cancellationToken);
     /// <summary>Deletes the Keycloak user. True once it is gone (including when it was already gone).</summary>
     Task<bool> DeleteUserAsync(string subject, CancellationToken cancellationToken);
 }

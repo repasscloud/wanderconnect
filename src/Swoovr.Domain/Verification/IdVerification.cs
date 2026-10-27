@@ -52,9 +52,11 @@ public sealed class DiditWebhookEvent
 
 public enum IdStartRefusal { None, AlreadyVerified, AttemptUsed, InProgress, NotAMember, Bot }
 
-/// <summary>The member's side of a session, as the provider reports it (no document data reaches this record).</summary>
-/// <param name="DateOfBirth">The date of birth on an approved document, only for comparing with the profile (D158); never stored.</param>
-public sealed record ProviderSession(string SessionId, string Status, string? VendorData, string? WorkflowId, bool? Adult, string? Url = null, DateOnly? DateOfBirth = null);
+/// <summary>The member's side of a session, as the provider reports it.</summary>
+/// <param name="DateOfBirth">The date of birth on an approved document, for comparing with the profile (D158).</param>
+/// <param name="Identity">D191: the minimum verified fields from the approved document check, kept only sealed in the identity store.</param>
+public sealed record ProviderSession(string SessionId, string Status, string? VendorData, string? WorkflowId, bool? Adult, string? Url = null, DateOnly? DateOfBirth = null,
+    VerifiedIdentityFields? Identity = null);
 
 /// <summary>
 /// The provider boundary for ID verification (D126): Infrastructure implements it for Didit; tests use a fake.

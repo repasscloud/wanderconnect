@@ -243,7 +243,7 @@ public static class MessagingEndpoints
     /// Q42 rules 12–14: a block ends the pair's accepted connections and closes their open conversation at once, and
     /// tells both members' clients. Unblocking restores neither; a new connection starts a new conversation.
     /// </summary>
-    public static async Task CloseForBlockAsync(SwoovrDbContext db, Guid me, Guid other, DateTimeOffset now, CancellationToken cancellationToken)
+    public static async Task<Conversation?> CloseForBlockAsync(SwoovrDbContext db, Guid me, Guid other, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var (low, high) = ConnectionRequest.Pair(me, other);
         foreach (var accepted in await db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high && r.Status == ConnectionRequestStatus.Accepted).ToListAsync(cancellationToken))
@@ -257,6 +257,15 @@ public static class MessagingEndpoints
             (open.ClosedAt, open.ClosedReason) = (now, ClosedReasons.Blocked);
             Audit.Record(db, now, null, "system", "conversation.closed", "conversation", open.Id.ToString(), "block");
         }
+        return open;
+    }
+
+    /// <summary>#82: tells both members' open chat windows that these conversations closed (after the change is saved).</summary>
+    public static async Task PushClosedAsync(IHubContext<MessagesHub> hub, IEnumerable<Conversation> closed, CancellationToken cancellationToken)
+    {
+        foreach (var conversation in closed)
+            await hub.Clients.Groups(MessagesHub.Group(conversation.PairLow), MessagesHub.Group(conversation.PairHigh))
+                .SendAsync("closed", new ConversationClosed(conversation.Id), cancellationToken);
     }
 
     /// <summary>

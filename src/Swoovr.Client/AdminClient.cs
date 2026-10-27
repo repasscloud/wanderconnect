@@ -90,6 +90,50 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<DobReviewView>> ResolveDobReviewAsync(Guid id, string outcome, string reason, CancellationToken cancellationToken = default) =>
         SendAsync<DobReviewView>(HttpMethod.Post, $"api/v1/admin/dob-reviews/{id}/resolve", new DobReviewDecision(outcome, reason), cancellationToken);
 
+    /// <summary>D191: opens one verified identity record (`legal` only) with a recorded purpose.</summary>
+    public Task<ApiResult<VerifiedIdentityView>> IdentityAsync(Guid accountId, string? purpose, CancellationToken cancellationToken = default) =>
+        SendAsync<VerifiedIdentityView>(HttpMethod.Post, $"api/v1/admin/accounts/{accountId}/identity", new IdentityAccessRequest(purpose), cancellationToken);
+
+    /// <summary>D187, #87: who held a number or address and when (admins only), never the values.</summary>
+    public Task<ApiResult<ContactHistoryResult>> ContactHistoryAsync(string type, string value, CancellationToken cancellationToken = default) =>
+        SendAsync<ContactHistoryResult>(HttpMethod.Get, $"api/v1/admin/contact-history?type={Uri.EscapeDataString(type)}&value={Uri.EscapeDataString(value)}", null, cancellationToken);
+
+    // Legal holds and evidence (D189): `legal` only, except the overview and an admin's provisional hold from a case.
+    public Task<ApiResult<HoldOverview>> HoldOverviewAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<HoldOverview>(HttpMethod.Get, "api/v1/admin/holds/overview", null, cancellationToken);
+
+    public Task<ApiResult<List<LegalHoldSummary>>> HoldsAsync(string? status = null, CancellationToken cancellationToken = default) =>
+        SendAsync<List<LegalHoldSummary>>(HttpMethod.Get, "api/v1/admin/holds?status=" + Uri.EscapeDataString(status ?? ""), null, cancellationToken);
+
+    public Task<ApiResult<LegalHoldSummary>> PlaceHoldAsync(NewLegalHold hold, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldSummary>(HttpMethod.Post, "api/v1/admin/holds", hold, cancellationToken);
+
+    public Task<ApiResult<LegalHoldDetail>> HoldAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldDetail>(HttpMethod.Get, $"api/v1/admin/holds/{id}", null, cancellationToken);
+
+    /// <summary>"confirm" or "capture".</summary>
+    public Task<ApiResult<LegalHoldDetail>> HoldStepAsync(Guid id, string step, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/v1/admin/holds/{id}/{Uri.EscapeDataString(step)}", null, cancellationToken);
+
+    public Task<ApiResult<LegalHoldDetail>> ReviewHoldAsync(Guid id, DateTimeOffset? due, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/v1/admin/holds/{id}/review", new HoldReviewRequest(due), cancellationToken);
+
+    public Task<ApiResult<LegalHoldDetail>> ReleaseHoldAsync(Guid id, string? reason, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/v1/admin/holds/{id}/release", new HoldReleaseRequest(reason), cancellationToken);
+
+    public Task<ApiResult<EvidenceExportLink>> CreateExportAsync(Guid id, EvidenceExportRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<EvidenceExportLink>(HttpMethod.Post, $"api/v1/admin/holds/{id}/exports", request, cancellationToken);
+
+    public Task<ApiResult<List<DisclosureView>>> DisclosuresAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<DisclosureView>>(HttpMethod.Get, "api/v1/admin/disclosures", null, cancellationToken);
+
+    /// <summary>The one-time evidence package (JSON bytes), or null with the API's status.</summary>
+    public async Task<(int Status, byte[]? Body)> DownloadExportAsync(string token, CancellationToken cancellationToken = default)
+    {
+        using var response = await http.GetAsync("api/v1/admin/evidence-exports/" + Uri.EscapeDataString(token), cancellationToken);
+        return ((int)response.StatusCode, response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(cancellationToken) : null);
+    }
+
     private async Task<int> StatusAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };

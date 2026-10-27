@@ -709,6 +709,57 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("conversation_hides");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.CustodyEvent", b =>
+                {
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("sequence");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Sequence"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("detail");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("hash");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<byte[]>("PreviousHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("previous_hash");
+
+                    b.HasKey("Sequence")
+                        .HasName("pk_custody_events");
+
+                    b.HasIndex("HoldId", "Sequence")
+                        .HasDatabaseName("ix_custody_events_hold_id_sequence");
+
+                    b.ToTable("custody_events");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.DataExport", b =>
                 {
                     b.Property<Guid>("Id")
@@ -781,6 +832,64 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasName("pk_didit_webhook_events");
 
                     b.ToTable("didit_webhook_events");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Disclosure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Agency")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("agency");
+
+                    b.Property<DateTimeOffset>("DisclosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("disclosed_at");
+
+                    b.Property<Guid>("DisclosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disclosed_by");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<string>("LegalBasis")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("legal_basis");
+
+                    b.Property<string>("Officer")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("officer");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reference");
+
+                    b.Property<string>("VerifiedHow")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("verified_how");
+
+                    b.HasKey("Id")
+                        .HasName("pk_disclosures");
+
+                    b.HasIndex("HoldId")
+                        .HasDatabaseName("ix_disclosures_hold_id");
+
+                    b.ToTable("disclosures");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.DobReview", b =>
@@ -901,6 +1010,125 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_entitlements_dates", "ends_at IS NULL OR ends_at > starts_at");
                         });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EvidenceExport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("DisclosureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disclosure_id");
+
+                    b.Property<DateTimeOffset?>("DownloadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("downloaded_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("purpose");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_evidence_exports");
+
+                    b.HasIndex("HoldId")
+                        .HasDatabaseName("ix_evidence_exports_hold_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_evidence_exports_token_hash");
+
+                    b.ToTable("evidence_exports");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EvidenceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("Capture")
+                        .HasColumnType("integer")
+                        .HasColumnName("capture");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<Guid?>("CapturedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("captured_by");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("RecordId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("record_id");
+
+                    b.Property<byte[]>("Sealed")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sha256");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source");
+
+                    b.HasKey("Id")
+                        .HasName("pk_evidence_items");
+
+                    b.HasIndex("HoldId", "Kind", "RecordId")
+                        .HasDatabaseName("ix_evidence_items_hold_id_kind_record_id");
+
+                    b.ToTable("evidence_items");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
@@ -1185,6 +1413,42 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("id_verification_attempts");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.IdentityAccess", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_accesses");
+
+                    b.HasIndex("AccountId", "At")
+                        .HasDatabaseName("ix_identity_accesses_account_id_at");
+
+                    b.ToTable("identity_accesses", "restricted");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1269,6 +1533,123 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_itineraries_account_id");
 
                     b.ToTable("itineraries");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LegalHold", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<Guid?>("ConfirmedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmed_by");
+
+                    b.Property<DateTimeOffset?>("From")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("from");
+
+                    b.Property<DateTimeOffset>("PlacedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("placed_at");
+
+                    b.Property<Guid?>("PlacedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("placed_by");
+
+                    b.Property<string>("PlacedByRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("placed_by_role");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReleaseConditions")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("release_conditions");
+
+                    b.Property<string>("ReleaseReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("release_reason");
+
+                    b.Property<DateTimeOffset?>("ReleasedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("released_at");
+
+                    b.Property<Guid?>("ReleasedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("released_by");
+
+                    b.Property<DateTimeOffset>("ReviewDue")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("review_due");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("Until")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_legal_holds");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_legal_holds_case_id");
+
+                    b.HasIndex("Status", "ReviewDue")
+                        .HasDatabaseName("ix_legal_holds_status_review_due");
+
+                    b.ToTable("legal_holds");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LegalHoldScope", b =>
+                {
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.HasKey("HoldId", "Kind", "TargetId")
+                        .HasName("pk_legal_hold_scopes");
+
+                    b.HasIndex("TargetId")
+                        .HasDatabaseName("ix_legal_hold_scopes_target_id");
+
+                    b.ToTable("legal_hold_scopes");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Market", b =>
@@ -2557,6 +2938,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Police")
+                        .HasColumnType("text")
+                        .HasColumnName("police");
+
+                    b.Property<byte[]>("PoliceReference")
+                        .HasColumnType("bytea")
+                        .HasColumnName("police_reference");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -2632,6 +3021,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("priority");
 
+                    b.Property<bool>("Serious")
+                        .HasColumnType("boolean")
+                        .HasColumnName("serious");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2646,9 +3039,64 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             Id = "threats",
                             Available = true,
-                            Label = "Threats or violence",
+                            Label = "Threats to my safety",
                             Priority = "Urgent",
+                            Serious = true,
                             SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = "sexual-assault",
+                            Available = true,
+                            Label = "Sexual assault",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 11
+                        },
+                        new
+                        {
+                            Id = "violence",
+                            Available = true,
+                            Label = "Physical violence",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 12
+                        },
+                        new
+                        {
+                            Id = "stalking",
+                            Available = true,
+                            Label = "Stalking or being followed",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 13
+                        },
+                        new
+                        {
+                            Id = "coercion",
+                            Available = true,
+                            Label = "Coercion, extortion or sextortion",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 14
+                        },
+                        new
+                        {
+                            Id = "child-exploitation",
+                            Available = true,
+                            Label = "Child sexual exploitation or a suspected minor",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 15
+                        },
+                        new
+                        {
+                            Id = "danger",
+                            Available = true,
+                            Label = "Other immediate danger",
+                            Priority = "Urgent",
+                            Serious = true,
+                            SortOrder = 16
                         },
                         new
                         {
@@ -2656,6 +3104,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Might be under 18",
                             Priority = "Urgent",
+                            Serious = false,
                             SortOrder = 2
                         },
                         new
@@ -2664,6 +3113,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Harassment or bullying",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 3
                         },
                         new
@@ -2672,6 +3122,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Hate or discrimination",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 4
                         },
                         new
@@ -2680,6 +3131,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Unwanted sexual content or behaviour",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 5
                         },
                         new
@@ -2688,6 +3140,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Scam, fraud or selling",
                             Priority = "High",
+                            Serious = false,
                             SortOrder = 6
                         },
                         new
@@ -2696,6 +3149,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Fake profile or impersonation",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 7
                         },
                         new
@@ -2704,6 +3158,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Spam",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 8
                         },
                         new
@@ -2712,6 +3167,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Inappropriate profile content",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 9
                         },
                         new
@@ -2720,6 +3176,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Available = true,
                             Label = "Something else",
                             Priority = "Normal",
+                            Serious = false,
                             SortOrder = 10
                         });
                 });
@@ -2896,6 +3353,29 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("terminated_email_holds");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TerminatedPhoneHold", b =>
+                {
+                    b.Property<byte[]>("PhoneHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("phone_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.HasKey("PhoneHash")
+                        .HasName("pk_terminated_phone_holds");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_terminated_phone_holds_expires_at");
+
+                    b.ToTable("terminated_phone_holds");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2981,6 +3461,72 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_trips_dates", "departure >= arrival");
                         });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.VerifiedIdentity", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attempt_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("decision");
+
+                    b.Property<string>("IssuingCountry")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("issuing_country");
+
+                    b.Property<byte[]>("MatchHmac")
+                        .HasColumnType("bytea")
+                        .HasColumnName("match_hmac");
+
+                    b.Property<string>("Method")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("method");
+
+                    b.Property<DateTimeOffset?>("RetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retain_until");
+
+                    b.Property<byte[]>("Sealed")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("session_id");
+
+                    b.Property<DateTimeOffset>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_verified_identities");
+
+                    b.HasIndex("MatchHmac")
+                        .HasDatabaseName("ix_verified_identities_match_hmac");
+
+                    b.HasIndex("RetainUntil")
+                        .HasDatabaseName("ix_verified_identities_retain_until");
+
+                    b.ToTable("verified_identities", "restricted");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Appeal", b =>
@@ -3125,6 +3671,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_conversation_hides_conversations_conversation_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.CustodyEvent", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_custody_events_legal_holds_hold_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.DataExport", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -3133,6 +3689,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_data_exports_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.Disclosure", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_disclosures_legal_holds_hold_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.DobReview", b =>
@@ -3160,6 +3726,26 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_entitlements_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EvidenceExport", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_evidence_exports_legal_holds_hold_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EvidenceItem", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_evidence_items_legal_holds_hold_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>
@@ -3210,6 +3796,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_itineraries_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LegalHoldScope", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_legal_hold_scopes_legal_holds_hold_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MarketArea", b =>

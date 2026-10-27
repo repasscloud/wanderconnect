@@ -26,7 +26,7 @@ public static class VerificationEndpoints
     {
         var me = app.MapGroup("/api/v1/me/verification").RequireAuthorization();
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, IIdVerificationProvider provider, IConfiguration configuration,
-            TimeProvider clock, CancellationToken cancellationToken) =>
+            VerifiedIdentityStore identities, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true);
             if (denied is not null) return denied;
@@ -36,7 +36,7 @@ public static class VerificationEndpoints
             var open = await OpenAttemptAsync(db, profile.AccountId, cancellationToken);
             if (open is not null && provider.Configured && await provider.GetDecisionAsync(open.SessionId, cancellationToken) is { } decision
                 && decision.SessionId == open.SessionId && decision.VendorData == profile.AccountId.ToString())
-                await ApplyAsync(db, open, decision, now, "return", cancellationToken);
+                await ApplyAsync(db, open, decision, now, "return", cancellationToken, identities: identities);
             return Results.Ok(await ViewAsync(db, profile, provider, configuration, cancellationToken));
         });
         me.MapPost("", async (StartVerification request, ClaimsPrincipal user, AccountResolver accounts, IIdVerificationProvider provider,
@@ -125,7 +125,7 @@ public static class VerificationEndpoints
         // D152: Didit calls the API directly (never through the BFF). Signature first, then the signed timestamp, then
         // a durable dedupe on event_id in the same transaction as the change.
         app.MapPost("/api/v1/webhooks/didit", async (HttpRequest http, SwoovrDbContext db, DiditOptions options, TimeProvider clock,
-            ILoggerFactory logs, CancellationToken cancellationToken) =>
+            VerifiedIdentityStore identities, ILoggerFactory logs, CancellationToken cancellationToken) =>
         {
             var log = logs.CreateLogger("Swoovr.Api.Verification.DiditWebhook");
             if (http.ContentLength > MaxWebhookBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
@@ -162,7 +162,7 @@ public static class VerificationEndpoints
                         : "applied";
                 }
                 db.DiditWebhookEvents.Add(new DiditWebhookEvent { EventId = eventId, ReceivedAt = now, WebhookType = Short(type, 48), SessionId = session?.SessionId is { Length: <= 64 } s ? s : null, Outcome = outcome });
-                if (outcome == "applied") await ApplyAsync(db, attempt!, session!, now, "webhook", cancellationToken, save: false);
+                if (outcome == "applied") await ApplyAsync(db, attempt!, session!, now, "webhook", cancellationToken, save: false, identities: identities);
                 else if (outcome != "ignored")
                     Audit.Record(db, now, null, "system", "verification.webhook-" + outcome, "id-verification", attempt?.Id.ToString());
                 try { await db.SaveChangesAsync(cancellationToken); }
@@ -288,7 +288,7 @@ public static class VerificationEndpoints
     /// so a stale re-read or an out-of-order webhook never undoes a result.
     /// </summary>
     public static async Task ApplyAsync(SwoovrDbContext db, IdVerificationAttempt attempt, ProviderSession session, DateTimeOffset now, string source,
-        CancellationToken cancellationToken, bool save = true)
+        CancellationToken cancellationToken, bool save = true, VerifiedIdentityStore? identities = null)
     {
         if (IdVerificationPolicy.Next(attempt.State, session.Status) is not { } next) return;
         var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == attempt.AccountId, cancellationToken);
@@ -326,6 +326,8 @@ public static class VerificationEndpoints
             Audit.Record(db, now, null, "system", check switch { DobCheck.None => "dob.verified", DobCheck.CorrectionNeeded => "dob.correction-needed", _ => "dob.review-opened" },
                 "account", account.Id.ToString(), session.DateOfBirth is null ? "no-document-date" : null);
             if (check == DobCheck.ManualReview) await OpenReviewAsync(db, profile.AccountId, attempt.Id, "no-document-date", now, cancellationToken);
+            // D191: the minimum verified identity record, sealed in the restricted store.
+            if (identities is not null) await identities.RecordAsync(account.Id, attempt, session, now, cancellationToken);
             if (FounderEligibility.Stamp(profile, account.Status, now))
                 Audit.Record(db, now, null, "system", "founder.eligible", "account", account.Id.ToString());
         }

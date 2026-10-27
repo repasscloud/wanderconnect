@@ -1,0 +1,44 @@
+@page "/identity"
+@inject AdminClient Admin
+<PageTitle>Verified identity — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/holds">Legal holds</a> / Verified identity</p>
+<h1>Verified identity</h1>
+<p class="help">For the security and legal officer (policy §2.3, §11). One record at a time, for a recorded purpose; every opening is logged with who, whose and why. Use it only for a case, a legal request or ban enforcement, never out of curiosity.</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-identity-form data-enhance="false">
+    <AntiforgeryToken />
+    <label>Account id<input name="account" value="@Account" required /></label>
+    <label>Purpose (required)<textarea name="purpose" maxlength="500" rows="2" required></textarea></label>
+    <button type="submit" data-identity-open>Open the record</button>
+</form>
+@if (record is not null)
+{
+    <dl class="facts" data-identity="@record.AccountId">
+        <div><dt>Legal name</dt><dd data-identity-name>@record.FirstName @record.LastName</dd></div>
+        <div><dt>Date of birth (document)</dt><dd>@record.DateOfBirth?.ToString("d MMM yyyy")</dd></div>
+        <div><dt>Document</dt><dd>@record.DocumentType · @record.IssuingCountry · expires @record.ExpiryDate?.ToString("d MMM yyyy")</dd></div>
+        <div><dt>Verified</dt><dd>@record.VerifiedAt.ToString("d MMM yyyy") (@record.Method) · Didit session <code>@record.SessionId</code></dd></div>
+        @if (record.RetainUntil is { } until) { <div><dt>Kept until</dt><dd>@until.ToString("d MMM yyyy") (terminated account, ban enforcement)</dd></div> }
+    </dl>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery] public string? Account { get; set; }
+    private VerifiedIdentityView? record;
+    private string? message, resultCode;
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task OpenAsync()
+    {
+        if (!Guid.TryParse(Field("account"), out var id)) { (message, resultCode) = ("Enter an account id.", "invalid"); return; }
+        var result = await Admin.IdentityAsync(id, Field("purpose"));
+        (record, resultCode) = (result.Value, result.Ok ? "ok" : result.Code ?? result.Status.ToString());
+        message = result.Ok ? "Opened and logged." : result.Code switch
+        {
+            "purpose-required" => "Record why you need this record.",
+            "not-available" => "No verified identity is on file for that account.",
+            _ => HoldText.Refusal(result.Status, result.Code),
+        };
+    }
+}
