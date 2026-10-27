@@ -86,6 +86,16 @@ async function latestCode(number) {
     const bobCode = (await latestCode(e164(100))).code;
     assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: bobCode } })), [409, 'phone-in-use']); pass();
 
+    // D184: Ana changes number; verifying the new one releases the old one for someone else, and the log says "changed".
+    await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: local(103) } });
+    r = await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(103), code: (await latestCode(e164(103))).code } });
+    assert.deepEqual([r.status, r.body.number], [200, '+61••••••103']); pass();
+    assert.equal(await sql(`SELECT detail FROM audit_entries WHERE actor_account_id = '${ids.ana}' AND action = 'phone.verified' ORDER BY id DESC LIMIT 1`), 'changed:simulated'); pass();
+    await sleep(61000); // the minute between codes to the same number, for Bob
+    await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } });
+    r = await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: (await latestCode(e164(100))).code } });
+    assert.deepEqual([r.status, r.body.verified], [200, true], 'the released number can verify another account'); pass();
+
     // Expiry and five wrong tries.
     await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(101) } });
     const expiring = (await latestCode(e164(101))).code;

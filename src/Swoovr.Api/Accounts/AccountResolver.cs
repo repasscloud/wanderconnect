@@ -60,8 +60,11 @@ public sealed record CurrentAccount(
 public sealed class AccountResolver(IServiceProvider services, KeycloakOptions keycloak, SessionEvidencePolicy evidence,
     TimeProvider clock, IConfiguration configuration, IHostEnvironment environment, ILogger<AccountResolver> log)
 {
-    /// <summary>D148: the registration gate for a verified mobile number; off until a real sender is approved (D174).</summary>
-    public bool PhoneRequired => configuration.GetValue("Phone:Required", false);
+    /// <summary>
+    /// D148, D184 (owner, 27 October 2026): a verified mobile number is required to finish registration, so the gate is on
+    /// unless `Phone:Required` is false (local test hosts only). Codes stay simulated until deployment (D183).
+    /// </summary>
+    public bool PhoneRequired => configuration.GetValue("Phone:Required", true);
     private bool LocalPasswordStaff => environment.IsDevelopment() && configuration.GetValue("Staff:LocalPasswords", false);
     /// <summary>The private beta gate is on unless Beta:Enabled is false (D62; turned off at public launch).</summary>
     private bool BetaEnabled => configuration.GetValue("Beta:Enabled", true);

@@ -163,3 +163,10 @@ Deletion needs the API's service-account client in the members realm (D169): `./
 Final deletion runs from `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll accounts purge` with the API's connection string, founder secret, `MemberAdmin__ClientSecret` and Didit settings (D170; hourly cron in hosted environments, for example `0 * * * *`). It prints counts only.
 
 `tests/accounts/deletion.browser.cjs` expects hosts started with a short sign-in window so the stale cases don't wait five minutes: `Accounts__ReauthSeconds=45 bash .local/run-hosts.sh`, then run the suite with `SWOOVR_REAUTH_SECONDS=45`.
+
+## Mobile number verification — 27 October 2026
+
+A verified mobile number is required (D184): the API refuses member routes with 403 `phone-verification-required` until the member verifies one under Account (web) or Me → Mobile number (app). Codes are simulated (D183): nothing is texted; each code lands in Mailpit (http://127.0.0.1:8025) addressed to `sms-<number>@simulated.swoovr.invalid`. Use Australia's fictional range 0491 570 006–159 for test numbers.
+
+The older browser suites don't verify numbers, so run them on hosts started with `Phone__Required=false bash .local/run-hosts.sh`; `tests/accounts/phone.browser.cjs` covers both settings.
+

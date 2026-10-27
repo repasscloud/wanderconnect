@@ -12,8 +12,8 @@ namespace Swoovr.Api.Accounts;
 
 /// <summary>
 /// Mobile number verification (Q45, D148, D153, D154; details D181). Swoovr makes, hashes, checks and expires its own
-/// codes; the sender only delivers them. `Phone:Required` (default off until a real sender is approved, D174) turns on
-/// the registration gate: members without a verified number get 403 phone-verification-required everywhere except their
+/// codes; the sender only delivers them. `Phone:Required` (default on, D184; local test hosts set it false) is the
+/// registration gate: members without a verified number get 403 phone-verification-required everywhere except their
 /// account summary, notices, appeals, deletion and these routes. Audit entries carry ids and outcomes, never a number or
 /// a code.
 /// </summary>
@@ -101,9 +101,11 @@ public static class PhoneEndpoints
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another.");
             }
             var phone = await db.MemberPhones.FindAsync([account.Id], cancellationToken);
+            // D184: verifying a new number replaces (and releases) the old one; the log says it changed, never which number.
+            var change = phone is null ? "first" : "changed";
             if (phone is null) db.MemberPhones.Add(phone = new MemberPhone { AccountId = account.Id });
             (phone.Number, phone.VerifiedAt) = (number, now);
-            Audit.Record(db, now, account.Id, "account", "phone.verified", "account", account.Id.ToString(), sender.Kind);
+            Audit.Record(db, now, account.Id, "account", "phone.verified", "account", account.Id.ToString(), $"{change}:{sender.Kind}");
             try { await db.SaveChangesAsync(cancellationToken); }
             catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another."); }
             return Results.Ok(await ViewAsync(db, account.Id, sender, accounts.PhoneRequired, now, cancellationToken));
