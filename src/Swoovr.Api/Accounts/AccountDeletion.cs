@@ -7,7 +7,9 @@ using Swoovr.Infrastructure.Persistence;
 namespace Swoovr.Api.Accounts;
 
 /// <summary>What one `accounts purge` run did; counts only, never who. Kept counts records a legal hold kept (D189).</summary>
-public sealed record PurgeRun(int Deleted, int Waiting, int ProviderRetries, int Expired, int HoldsExpired, int Kept = 0);
+/// <remarks>HoldStatusUnavailable (D195): hold status couldn't be read, so nothing was purged (fail closed).</remarks>
+public sealed record PurgeRun(int Deleted, int Waiting, int ProviderRetries, int Expired, int HoldsExpired, int Kept = 0, int CasesExpired = 0,
+    bool HoldStatusUnavailable = false);
 
 /// <summary>
 /// Account deletion (Q43, D144; D169–D173). <see cref="RequestAsync"/> deactivates at once; <see cref="PurgeAsync"/> is
@@ -44,6 +46,12 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
     {
         var (deleted, waiting) = (0, 0);
         var due = await db.Accounts.Where(a => a.Status == AccountStatus.PendingDeletion && a.DeletionDueAt <= now).Select(a => a.Id).ToListAsync(cancellationToken);
+        // D195 (procedure §14): fail closed. Without a reliable hold status nothing is deleted or expired this run.
+        if (await services.GetRequiredService<Evidence.EvidencePreservation>().TryHeldAccountsAsync(cancellationToken) is null)
+        {
+            log.LogError("accounts purge: hold status unavailable; nothing purged.");
+            return new(0, due.Count, 0, 0, 0, 0, 0, HoldStatusUnavailable: true);
+        }
         foreach (var id in due)
         {
             if (await FinalDeleteAsync(id, now, cancellationToken)) deleted++; else waiting++;
@@ -58,7 +66,12 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         // D170: tombstones, their audit entries and moderation records go after two years (subject to legal review, D144),
         // except while a legal hold names the account (D189: deletion never removes held records).
         var (expired, kept) = (0, 0);
-        var held = await services.GetRequiredService<Evidence.EvidencePreservation>().HeldAccountsAsync(cancellationToken);
+        var held = await services.GetRequiredService<Evidence.EvidencePreservation>().TryHeldAccountsAsync(cancellationToken);
+        if (held is null)
+        {
+            log.LogError("accounts purge: hold status unavailable after final deletion; retention left alone.");
+            return new(deleted, waiting, retries, 0, 0, 0, 0, HoldStatusUnavailable: true);
+        }
         foreach (var tombstone in await db.Accounts.Where(a => a.Status == AccountStatus.Deleted).ToListAsync(cancellationToken))
         {
             if (!AccountDeletionPolicy.RetentionOver(tombstone, now)) continue;
@@ -78,7 +91,10 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.VerifiedIdentities.Where(i => i.RetainUntil <= now && !held.Contains(i.AccountId)).ExecuteDeleteAsync(cancellationToken);
         kept += await db.ContactHistories.CountAsync(h => h.RetainUntil <= now && held.Contains(h.AccountId), cancellationToken);
         await db.ContactHistories.Where(h => h.RetainUntil <= now && !held.Contains(h.AccountId)).ExecuteDeleteAsync(cancellationToken);
-        return new(deleted, waiting, retries, expired, holds, kept);
+        // D195 (procedure §13): law-enforcement case records go seven years after closure, unless a live hold serves the case.
+        var heldCases = await db.LegalHolds.Where(h => h.Status != LegalHoldStatus.Released && h.LeCaseId != null).Select(h => h.LeCaseId!.Value).ToListAsync(cancellationToken);
+        var cases = await db.LeCases.Where(c => c.Status == LeCaseStatus.Closed && c.RetainUntil <= now && !heldCases.Contains(c.Id)).ExecuteDeleteAsync(cancellationToken);
+        return new(deleted, waiting, retries, expired, holds, kept, cases);
     }
 
     /// <summary>
@@ -96,7 +112,13 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         }
         // D189: records a live legal hold covers are captured into the evidence store before they are erased below.
         var evidence = services.GetRequiredService<Evidence.EvidencePreservation>();
-        if ((await evidence.HeldAccountsAsync(cancellationToken)).Contains(id))
+        var heldNow = await evidence.TryHeldAccountsAsync(cancellationToken);
+        if (heldNow is null)
+        {
+            log.LogWarning("Final deletion waits: hold status unavailable.");
+            return false;
+        }
+        if (heldNow.Contains(id))
         {
             if (!evidence.Configured)
             {

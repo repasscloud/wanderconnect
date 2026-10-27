@@ -55,6 +55,10 @@ const ADELAIDE = 2078025;
     assert.equal((await call(st.adm, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff.leg.email, role: 'legal' } })).status, 403); pass();
     assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff.leg.email, role: 'legal' } })).status, 201); pass();
     st.leg = await staffToken(browser, staff.leg);
+    // D195 (procedure §7): release needs a second, independent officer.
+    staff.leg2 = await createStaff('hold-leg2');
+    assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff.leg2.email, role: 'legal' } })).status, 201);
+    st.leg2 = await staffToken(browser, staff.leg2);
     const session = (await call(st.leg, '/api/v1/session')).body;
     assert.deepEqual([session.adminArea, session.supportArea, session.memberArea], [false, false, false]); pass();
     assert.equal((await call(st.leg, '/api/v1/admin/cases')).status, 403, 'legal has no moderation queue'); pass();
@@ -163,16 +167,20 @@ const ADELAIDE = 2078025;
     assert.ok(r.body.some(d => d.reference === 'REF-HOLD-1' && d.holdId === holdId)); pass();
     assert.equal((await call(st.adm, '/api/v1/admin/disclosures')).status, 403); pass();
 
-    // Release: a reason, then the evidence is erased; the hold and its custody chain stay as the record.
-    assert.deepEqual(code(await call(st.leg, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: '' } })), [400, 'hold-reason-required']); pass();
+    // Release: a reason, then the evidence is erased; the hold and its custody chain stay as the record. D195: by an officer
+    // who neither placed nor confirmed it, after checking the overlapping (provisional, now confirmed) hold on Ana.
+    assert.deepEqual(code(await call(st.leg2, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: '' } })), [400, 'hold-reason-required']); pass();
     assert.equal((await call(st.adm, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'x' } })).status, 403); pass();
-    r = await call(st.leg, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed' } });
+    assert.deepEqual(code(await call(st.leg, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed' } })), [403, 'hold-release-not-independent']); pass();
+    assert.deepEqual(code(await call(st.leg2, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed' } })), [409, 'hold-overlaps-unchecked']); pass();
+    r = await call(st.leg2, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed', overlapsChecked: true } });
     assert.equal(r.status, 200); assert.equal(r.body.status, 'released'); assert.equal(r.body.items.length, 0); pass();
     assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}'`), '0'); pass();
     assert.deepEqual(code(await call(st.leg, `/api/v1/admin/holds/${holdId}/capture`, { method: 'POST' })), [409, 'hold-released']); pass();
     assert.deepEqual(code(await exp({ purpose: 'x' })), [409, 'hold-released']); pass();
     assert.ok((await call(st.leg, '/api/v1/admin/holds?status=released')).body.some(h => h.id === holdId)); pass();
-    assert.ok((await call(st.leg, `/api/v1/admin/holds/${holdId}`)).body.custody.some(c => c.action === 'released')); pass();
+    r = await call(st.leg, `/api/v1/admin/holds/${holdId}`);
+    assert.ok(r.body.custody.some(c => c.action === 'released') && r.body.custody.some(c => c.action === 'release-refused')); pass();
     // Bob's deleted message is still under the other (confirmed) hold, which names Bob.
     assert.match(await cli('messages', 'purge'), /kept under a legal hold/);
     assert.equal(await sql(`SELECT body FROM messages WHERE id = '${deletedByBob}'`), 'Fictional message Bob deletes'); pass();

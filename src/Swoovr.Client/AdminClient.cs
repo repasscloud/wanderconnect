@@ -127,6 +127,38 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<List<DisclosureView>>> DisclosuresAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<DisclosureView>>(HttpMethod.Get, "api/v1/admin/disclosures", null, cancellationToken);
 
+    public Task<ApiResult<LegalHoldDetail>> ReleaseHoldAsync(Guid id, string? reason, bool overlapsChecked, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/v1/admin/holds/{id}/release", new HoldReleaseRequest(reason, overlapsChecked), cancellationToken);
+
+    // D195: law-enforcement case management (`legal` only).
+    private const string Le = "api/v1/admin/law-enforcement";
+
+    public Task<ApiResult<LeOverview>> LeOverviewAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<LeOverview>(HttpMethod.Get, Le + "/overview", null, cancellationToken);
+
+    public Task<ApiResult<List<LeCaseSummary>>> LeCasesAsync(string? status = null, CancellationToken cancellationToken = default) =>
+        SendAsync<List<LeCaseSummary>>(HttpMethod.Get, Le + "/cases?status=" + Uri.EscapeDataString(status ?? ""), null, cancellationToken);
+
+    public Task<ApiResult<LeCaseDetail>> OpenLeCaseAsync(NewLeCase request, CancellationToken cancellationToken = default) =>
+        SendAsync<LeCaseDetail>(HttpMethod.Post, Le + "/cases", request, cancellationToken);
+
+    public Task<ApiResult<LeCaseDetail>> LeCaseAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<LeCaseDetail>(HttpMethod.Get, $"{Le}/cases/{id}", null, cancellationToken);
+
+    /// <summary>One step on a case: verify, assessment, app65, flags (PUT), responses, requests, people, owner, notifications, transfers, close.</summary>
+    public Task<ApiResult<LeCaseDetail>> LeStepAsync(Guid id, string step, object body, CancellationToken cancellationToken = default) =>
+        SendAsync<LeCaseDetail>(step == "flags" ? HttpMethod.Put : HttpMethod.Post, $"{Le}/cases/{id}/{step}", body, cancellationToken);
+
+    public Task<ApiResult<TransparencyReport>> TransparencyAsync(int year, CancellationToken cancellationToken = default) =>
+        SendAsync<TransparencyReport>(HttpMethod.Get, $"{Le}/transparency?year={year}", null, cancellationToken);
+
+    /// <summary>The quarterly audit export (JSON bytes, no case content), or null with the API's status.</summary>
+    public async Task<(int Status, byte[]? Body)> LeAuditExportAsync(string quarter, CancellationToken cancellationToken = default)
+    {
+        using var response = await http.GetAsync($"{Le}/audit-export?quarter=" + Uri.EscapeDataString(quarter), cancellationToken);
+        return ((int)response.StatusCode, response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(cancellationToken) : null);
+    }
+
     /// <summary>The one-time evidence package (JSON bytes), or null with the API's status.</summary>
     public async Task<(int Status, byte[]? Body)> DownloadExportAsync(string token, CancellationToken cancellationToken = default)
     {

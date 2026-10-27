@@ -42,7 +42,7 @@ static class LegalHoldChecks
         Expect(LegalHoldPolicy.CheckManage(AccountRole.Legal, hold) == HoldRefusal.None, "legal manages");
         Expect(LegalHoldPolicy.CheckManage(AccountRole.Admin, hold) == HoldRefusal.NotPermitted, "an admin can't confirm, capture, release or export");
         Expect(LegalHoldPolicy.CheckManage(AccountRole.Support, hold) == HoldRefusal.NotPermitted, "support can't either");
-        Expect(LegalHoldPolicy.CheckRelease(AccountRole.Legal, hold, "") == HoldRefusal.ReasonRequired, "releasing needs a reason");
+        Expect(LegalHoldPolicy.CheckRelease(AccountRole.Legal, hold, "", c, 0, false) == HoldRefusal.ReasonRequired, "releasing needs a reason");
         Expect(LegalHoldPolicy.CheckReview(AccountRole.Legal, hold, now.AddDays(400), now) == HoldRefusal.ReviewTooFar, "an extension stays within a year");
         var released = new LegalHold { Id = Guid.NewGuid(), Status = LegalHoldStatus.Released };
         Expect(!LegalHoldPolicy.Live(released) && LegalHoldPolicy.CheckManage(AccountRole.Legal, released) == HoldRefusal.Released, "a released hold is closed");

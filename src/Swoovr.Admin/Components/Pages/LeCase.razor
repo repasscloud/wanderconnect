@@ -1,0 +1,218 @@
+@page "/law-enforcement/{Id:guid}"
+@inject AdminClient Admin
+<PageTitle>Law-enforcement case — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/law-enforcement">Law enforcement</a> / Case</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (detail is null) { <p data-le-detail="missing">@(loadError ?? "Not found, or not available to you.")</p> }
+else
+{
+    var c = detail;
+    var open = c.Status == "open";
+    <h1 data-le-detail="@c.Id">@c.Reference</h1>
+    <dl class="facts">
+        <div><dt>Status</dt><dd data-le-status="@c.Status">@c.Status @if (c.ClosedAt is { } closed) { <span>(closed @closed.ToLocalTime().ToString("d MMM yyyy"); kept until @c.RetainUntil?.ToLocalTime().ToString("d MMM yyyy"))</span> }</dd></div>
+        <div><dt>Timer</dt><dd data-le-timer="@c.Timer">@LeText.Timer(c.Timer) @c.Due?.ToLocalTime().ToString("d MMM yyyy HH:mm")</dd></div>
+        <div><dt>Urgency</dt><dd>@c.Urgency · received @c.ReceivedAt.ToLocalTime().ToString("d MMM yyyy HH:mm") by @c.Channel</dd></div>
+        @if (c.StatutoryDeadline is { } statutory) { <div><dt>Statutory deadline</dt><dd>@statutory.ToLocalTime().ToString("d MMM yyyy HH:mm")</dd></div> }
+        <div><dt>Agency</dt><dd>@c.Agency (@c.AgencyCountry) @c.AgencyReference</dd></div>
+        <div><dt>Officer (as given)</dt><dd>@c.OfficerName @c.OfficerRank @c.OfficerServiceNumber @c.OfficerEmail @c.OfficerPhone</dd></div>
+        <div><dt>Owner</dt><dd><code>@c.OwnerId</code></dd></div>
+        <div><dt>Verified</dt><dd data-le-verified="@(c.VerifiedAt is not null ? "yes" : "no")">@(c.VerifiedAt is { } v ? $"{c.VerificationSource} · {v.ToLocalTime():d MMM HH:mm}" : "not yet")</dd></div>
+        <div><dt>Flags</dt><dd data-le-flags>@(c.Privileged ? "privileged " : "")@(c.Confidential ? "confidential" : "")@(!c.Privileged && !c.Confidential ? "none" : "")</dd></div>
+    </dl>
+    @if (c.VerificationEvidence is not null) { <h2>Verification evidence</h2><blockquote>@c.VerificationEvidence</blockquote> }
+    @if (c.LegalAssessment is not null) { <h2>Legal assessment (@c.LegalInstrument@(c.Mandatory == true ? ", mandatory" : c.Mandatory == false ? ", voluntary" : ""))</h2><blockquote data-le-assessment>@c.LegalAssessment</blockquote> }
+    @if (c.ConfidentialityAssessment is not null) { <h2>Confidentiality assessment</h2><blockquote>@c.ConfidentialityAssessment</blockquote> }
+    @if (c.App65Note is not null) { <h2>APP 6.5 note</h2><blockquote data-le-app65>@c.App65Note</blockquote> }
+
+    <h2>Requests (@c.Requests.Count)</h2>
+    <ul class="list" data-le-requests="@c.Requests.Count">
+        @foreach (var r in c.Requests)
+        {
+            <li data-le-request="@r.Id" data-le-request-status="@r.Status">
+                <strong>@r.Kind</strong> · @r.Status · @r.Description
+                @if (r.DecisionReason is not null) { <span> — @r.DecisionReason</span> }
+                @if (r.BreakGlass) { <strong data-break-glass> · emergency approval@(r.RetrospectiveAt is null ? $", review due {r.RetrospectiveDue?.ToLocalTime():d MMM}" : ", reviewed")</strong> }
+                @if (open && r.Status == "open")
+                {
+                    <form method="post" @formname="@($"decide-{r.Id}")" @onsubmit="() => DecideAsync(r.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <select name="outcome"><option value="preserved">Preserved</option><option value="disclosed">Disclosed</option><option value="partly-disclosed">Partly disclosed</option><option value="refused">Refused</option><option value="withdrawn">Withdrawn</option><option value="redirected">Redirected (provider or MLAT)</option></select>
+                        <input name="reason" placeholder="Decision and reasons" maxlength="2000" required />
+                        <label><input type="checkbox" name="breakGlass" value="true" /> Emergency on-call approval</label>
+                        <button type="submit" data-decide="@r.Id">Approve decision</button>
+                    </form>
+                }
+                @if (r.BreakGlass && r.RetrospectiveAt is null)
+                {
+                    <form method="post" @formname="@($"retro-{r.Id}")" @onsubmit="() => RetrospectiveAsync(r.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <input name="note" placeholder="Retrospective review" maxlength="2000" required />
+                        <button type="submit" class="secondary" data-retro="@r.Id">Record review</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+
+    <h2>People</h2>
+    <ul class="list" data-le-people="@c.People.Count">@foreach (var p in c.People) { <li data-le-person="@p.AccountId" data-le-person-kind="@p.Kind">@p.Kind · <code>@p.AccountId</code></li> }</ul>
+
+    <h2>Member notification (§10)</h2>
+    <ul class="list" data-le-notifications="@c.Notifications.Count">
+        @foreach (var n in c.Notifications) { <li data-le-notification="@n.Decision">@n.Decision · <code>@n.AccountId</code> · @n.Reason @if (n.ReconsiderAt is { } at) { <strong data-reconsider="@(n.ReconsiderationDue ? "due" : "later")">reconsider @at.ToLocalTime().ToString("d MMM yyyy")</strong> }</li> }
+    </ul>
+    <form method="post" @formname="notify" @onsubmit="NotifyAsync" class="row" data-enhance="false">
+        <AntiforgeryToken />
+        <input name="account" placeholder="Subject account id" required />
+        <select name="decision"><option value="delay">Delay</option><option value="withhold">Withhold (law or safety)</option><option value="notified">Notified</option></select>
+        <input name="reason" placeholder="Precise reason" maxlength="2000" required />
+        <label>Reconsider on<input name="reconsider" type="date" /></label>
+        <button type="submit" class="secondary" data-notify>Record decision</button>
+    </form>
+
+    <h2>Holds (@c.Holds.Count)</h2>
+    <ul class="list" data-le-holds="@c.Holds.Count">@foreach (var h in c.Holds) { <li><a href="/holds/@h.Id">@h.Status hold</a> · @h.Accounts account(s) · review @h.ReviewDue.ToLocalTime().ToString("d MMM yyyy") @if (h.Overdue) { <strong>overdue</strong> }</li> }</ul>
+
+    <h2>Transfers (@c.Transfers.Count)</h2>
+    <ul class="list" data-le-transfers="@c.Transfers.Count">
+        @foreach (var t in c.Transfers)
+        {
+            <li data-le-transfer="@t.Id">@t.Method to @t.Recipient · @t.SentAt.ToLocalTime().ToString("d MMM HH:mm") · package <code>@t.PackageSha256[..16]…</code>
+                @if (t.ReceiptAt is { } receipt) { <span data-receipt> · receipt @t.ReceiptReference (@receipt.ToLocalTime().ToString("d MMM"))</span> }
+                else
+                {
+                    <form method="post" @formname="@($"receipt-{t.Id}")" @onsubmit="() => ReceiptAsync(t.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <input name="reference" placeholder="Acknowledgement reference" maxlength="200" required />
+                        <button type="submit" class="secondary" data-receipt-form="@t.Id">Record receipt</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+    @if (c.Disclosures.Count > 0) { <ul class="list" data-le-disclosures="@c.Disclosures.Count">@foreach (var d in c.Disclosures) { <li>Disclosure · @d.LegalBasis · @d.Reference · @d.DisclosedAt.ToLocalTime().ToString("d MMM yyyy")</li> }</ul> }
+
+    @if (open)
+    {
+        <h2>Steps</h2>
+        <form method="post" @formname="respond" @onsubmit="RespondAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <select name="kind"><option value="acknowledgement">Acknowledgement sent</option><option value="update">Update sent</option></select>
+            <button type="submit" class="secondary" data-respond>Record response</button>
+        </form>
+        <form method="post" @formname="verify" @onsubmit="VerifyAsync" class="stack" data-enhance="false">
+            <AntiforgeryToken />
+            <label>Independent verification (§3.2)<select name="source"><option value="agency-switchboard">Agency switchboard callback</option><option value="official-directory">Official directory</option><option value="agency-portal">Agency portal</option><option value="in-person">In person</option></select></label>
+            <label>How it was verified (numbers you found yourself, who confirmed)<textarea name="evidence" rows="2" maxlength="2000" required></textarea></label>
+            <button type="submit" data-verify>Record verification</button>
+        </form>
+        <form method="post" @formname="assess" @onsubmit="AssessAsync" class="stack" data-enhance="false">
+            <AntiforgeryToken />
+            <label>Instrument<select name="instrument"><option value="warrant">Warrant</option><option value="court-order">Court order</option><option value="subpoena">Subpoena</option><option value="statutory-notice">Statutory notice</option><option value="app-6.2e">APP 6.2(e) enforcement-related</option><option value="serious-threat">Serious threat</option><option value="consent">Consent</option><option value="none">None</option></select></label>
+            <label><input type="checkbox" name="mandatory" value="true" /> Mandatory</label>
+            <label>Legal assessment (authority, reach, scope, necessity, proportionality)<textarea name="assessment" rows="3" maxlength="2000" required></textarea></label>
+            <label>Confidentiality assessment (optional)<textarea name="confidentiality" rows="2" maxlength="2000"></textarea></label>
+            <button type="submit" data-assess>Record assessment</button>
+        </form>
+        <form method="post" @formname="app65" @onsubmit="App65Async" class="stack" data-enhance="false">
+            <AntiforgeryToken />
+            <label>APP 6.5 note (factual basis for the reasonable belief, extent, recipients, date)<textarea name="note" rows="3" maxlength="2000" required></textarea></label>
+            <button type="submit" class="secondary" data-app65>Record APP 6.5 note</button>
+        </form>
+        <form method="post" @formname="request" @onsubmit="AddRequestAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <select name="kind"><option value="preservation">Preservation</option><option value="disclosure">Disclosure</option><option value="emergency-disclosure">Emergency disclosure</option><option value="assistance">Assistance</option><option value="other">Other</option></select>
+            <input name="description" placeholder="What is asked" maxlength="2000" required />
+            <button type="submit" class="secondary" data-add-request>Add request</button>
+        </form>
+        <form method="post" @formname="person" @onsubmit="PersonAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <input name="account" placeholder="Account id" required />
+            <select name="kind"><option value="subject">Subject (member)</option><option value="implicated-staff">Implicated staff (excluded from the case)</option></select>
+            <button type="submit" class="secondary" data-add-person>Add</button>
+        </form>
+        <form method="post" @formname="flags" @onsubmit="FlagsAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <label><input type="checkbox" name="privileged" value="true" checked="@c.Privileged" /> Privileged</label>
+            <label><input type="checkbox" name="confidential" value="true" checked="@c.Confidential" /> Confidential</label>
+            <button type="submit" class="secondary" data-flags>Save flags</button>
+        </form>
+        <h2>Temporary police preservation hold (§7)</h2>
+        <p class="help">For a verified request before formal process: only this case's subjects, reviewed within 30 days. Review is not release; another officer releases it.</p>
+        <form method="post" @formname="hold" @onsubmit="HoldAsync" class="stack" data-enhance="false">
+            <AntiforgeryToken />
+            <label>Account ids (subjects; one per line)<textarea name="accounts" rows="2" required></textarea></label>
+            <label>Lawful basis<input name="basis" maxlength="200" required /></label>
+            <label>Review due (within 30 days; default 30)<input name="review" type="date" /></label>
+            <button type="submit" data-temp-hold>Place temporary hold and preserve</button>
+        </form>
+        <h2>Record a transfer (§8)</h2>
+        <form method="post" @formname="transfer" @onsubmit="TransferAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <input name="export" placeholder="Downloaded export id" required />
+            <input name="recipient" placeholder="Verified recipient" maxlength="200" required />
+            <select name="method"><option value="secure-link">Secure link</option><option value="encrypted-media">Encrypted media</option><option value="agency-portal">Agency portal</option><option value="in-person">In person</option></select>
+            <button type="submit" class="secondary" data-transfer>Record transfer</button>
+        </form>
+        <h2>Close (§13)</h2>
+        <ul class="list" data-closure>@foreach (var i in c.Closure) { <li data-closure-item="@i.Item" data-done="@(i.Done ? "yes" : "no")">@(i.Done ? "✓" : "✗") @LeText.Item(i.Item)</li> }</ul>
+        <form method="post" @formname="close" @onsubmit="CloseAsync" class="stack" data-enhance="false">
+            <AntiforgeryToken />
+            <label><input type="checkbox" name="confirm" value="true" /> Outstanding legal obligations, communications and follow-up duties were checked</label>
+            <label>Closure note<textarea name="note" rows="2" maxlength="2000" required></textarea></label>
+            <button type="submit" class="secondary" data-close>Close case (holds stay)</button>
+        </form>
+    }
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private LeCaseDetail? detail;
+    private string? message, loadError, resultCode;
+
+    // Loaded on every request, POST included: static rendering dispatches a submit only to a form it renders.
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.LeCaseAsync(Id);
+        detail = result.Value;
+        if (!result.Ok) loadError = LeText.Refusal(result.Status, result.Code);
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private static Guid Guid(string text) => System.Guid.TryParse(text.Trim(), out var g) ? g : System.Guid.Empty;
+
+    private async Task Step(string step, object body, string ok)
+    {
+        var result = await Admin.LeStepAsync(Id, step, body);
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? ok : LeText.Refusal(result.Status, result.Code);
+        if (result.Ok) detail = result.Value; else await LoadAsync();
+    }
+
+    private Task DecideAsync(Guid request) => Step($"requests/{request}/decision", new LeDecision(Field("outcome"), Field("reason"), Field("breakGlass") == "true"), "Decision recorded.");
+    private Task RetrospectiveAsync(Guid request) => Step($"requests/{request}/retrospective", new LeNote(Field("note")), "Review recorded.");
+    private Task NotifyAsync() => Step("notifications", new LeNotificationRequest(Guid(Field("account")), Field("decision"), Field("reason"), Holds.Date(Field("reconsider"))), "Notification decision recorded.");
+    private Task ReceiptAsync(Guid transfer) => Step($"transfers/{transfer}/receipt", new LeReceipt(Field("reference"), null), "Receipt recorded.");
+    private Task RespondAsync() => Step("responses", new LeResponse(Field("kind")), "Response recorded.");
+    private Task VerifyAsync() => Step("verify", new LeVerification(Field("source"), Field("evidence")), "Verification recorded.");
+    private Task AssessAsync() => Step("assessment", new LeAssessment(Field("assessment"), Field("instrument"), Field("mandatory") == "true", string.IsNullOrWhiteSpace(Field("confidentiality")) ? null : Field("confidentiality")), "Assessment recorded.");
+    private Task App65Async() => Step("app65", new LeNote(Field("note")), "APP 6.5 note recorded.");
+    private Task AddRequestAsync() => Step("requests", new NewLeRequest(Field("kind"), Field("description"), null, null), "Request added.");
+    private Task PersonAsync() => Step("people", new LePerson(Guid(Field("account")), Field("kind")), "Added.");
+    private Task FlagsAsync() => Step("flags", new LeFlags(Field("privileged") == "true", Field("confidential") == "true"), "Flags saved.");
+    private Task TransferAsync() => Step("transfers", new LeTransferRequest(Guid(Field("export")), Field("recipient"), Field("method"), null), "Transfer recorded.");
+    private Task CloseAsync() => Step("close", new LeClose(Field("note"), Field("confirm") == "true"), "Case closed; its holds stay until separately released.");
+
+    private async Task HoldAsync()
+    {
+        var result = await Admin.PlaceHoldAsync(new NewLegalHold($"Temporary police preservation for {detail?.Reference}", Holds.Ids(Field("accounts")), [], null, null,
+            Holds.Date(Field("review")), null, null, Id, "police-preservation", Field("basis")));
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? $"Temporary hold placed; {result.Value!.Items} item(s) preserved." : HoldText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+}

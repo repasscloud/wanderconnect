@@ -165,6 +165,10 @@ public static class AdminEndpoints
             var db = accounts.Db!;
             var token = await db.FounderTokens.FindAsync([id], cancellationToken);
             if (token is null) return Results.NotFound();
+            // D195 (procedure §7): a legal hold blocks admin deletion too, and an unreadable hold status refuses (fail closed).
+            var owner = await db.MemberProfiles.Where(p => p.FounderPlace == token.Place).Select(p => (Guid?)p.AccountId).FirstOrDefaultAsync(cancellationToken);
+            if (owner is { } ownerId && await accounts.Services.GetRequiredService<Swoovr.Api.Evidence.EvidencePreservation>().HeldAsync(ownerId, cancellationToken) is not false)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.HeldByLegalHold, "A legal hold covers this account, so its records can't be deleted now.");
             db.FounderTokens.Remove(token);
             Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", "founder-token.deleted", "founder-token", id.ToString());
             await db.SaveChangesAsync(cancellationToken);

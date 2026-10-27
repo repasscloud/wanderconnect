@@ -20,6 +20,7 @@ MessagingChecks.Run();
 DobCorrectionChecks.Run();
 DeletionChecks.Run();
 LegalHoldChecks.Run();
+LawEnforcementChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();

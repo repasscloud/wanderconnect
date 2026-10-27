@@ -1,0 +1,107 @@
+@page "/law-enforcement"
+@inject AdminClient Admin
+<PageTitle>Law enforcement — Swoovr admin</PageTitle>
+<h1>Law-enforcement cases</h1>
+<p class="help">Restricted (police-contact procedure §2–§14). Record every material approach by an authority here. Verify the requester through contact details you find yourself, never only those in the request. Preservation and disclosure are separate decisions; neither follows from a request. Response targets: critical 1 hour, urgent 4 hours, standard acknowledgement 2 business days, updates every 5 business days — statutory deadlines override them. They are targets, not promises to disclose.</p>
+<p class="row"><a href="/law-enforcement" data-filter="open">Open</a> · <a href="/law-enforcement?status=closed" data-filter="closed">Closed</a> · <a href="/law-enforcement/transparency">Transparency and audit</a> · <a href="/holds">Legal holds</a></p>
+@if (overview is not null)
+{
+    <ul class="tiles" data-le-overview>
+        <li><strong data-le-open>@overview.Open</strong> open cases</li>
+        <li><strong data-le-overdue>@overview.Overdue</strong> overdue responses or updates</li>
+        <li><strong data-le-reconsider>@overview.ReconsiderationsDue</strong> notification reconsiderations due</li>
+        <li><strong data-le-retro>@overview.RetrospectivesDue</strong> emergency approvals awaiting review</li>
+    </ul>
+}
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (opened is { } o) { <a href="/law-enforcement/@o" data-opened="@o">Open it</a> }</p> }
+@if (cases is null) { <p data-le-cases="refused">@loadError</p> }
+else if (cases.Count == 0) { <p data-le-cases="none">No cases.</p> }
+else
+{
+    <ul class="list" data-le-cases="@cases.Count">
+        @foreach (var c in cases)
+        {
+            <li data-le-case="@c.Id" data-le-timer="@c.Timer">
+                <a href="/law-enforcement/@c.Id">@c.Reference</a> · @c.Urgency · @c.Agency (@c.AgencyCountry)
+                · @(c.Verified ? "verified" : "not verified") · @c.OpenRequests open request(s) · @c.Holds hold(s)
+                @if (c.Privileged) { <strong> · privileged</strong> } @if (c.Confidential) { <strong> · confidential</strong> }
+                @if (c.Due is { } due) { <span> · @LeText.Timer(c.Timer) @due.ToLocalTime().ToString("d MMM HH:mm")</span> }
+            </li>
+        }
+    </ul>
+}
+@if (Status != "closed")
+{
+    <h2>Open a case</h2>
+    <form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-case data-enhance="false">
+        <AntiforgeryToken />
+        <div class="row">
+            <label>Channel<select name="channel"><option value="email">Email (lawenforcement@swoovr.app)</option><option value="phone">Phone</option><option value="letter">Letter</option><option value="portal">Portal</option><option value="in-person">In person</option></select></label>
+            <label>Urgency<select name="urgency"><option value="standard">Standard</option><option value="urgent">Urgent</option><option value="critical">Critical (immediate danger)</option></select></label>
+            <label>Received<input name="received" type="datetime-local" /></label>
+            <label>Statutory deadline<input name="statutory" type="datetime-local" /></label>
+        </div>
+        <fieldset><legend>Requesting authority (as given; never used to verify)</legend>
+            <div class="row">
+                <label>Agency<input name="agency" maxlength="200" required /></label>
+                <label>Country<input name="country" maxlength="2" value="AU" /></label>
+                <label>Agency reference<input name="agencyReference" maxlength="200" /></label>
+            </div>
+            <div class="row">
+                <label>Officer<input name="officer" maxlength="200" required /></label>
+                <label>Rank or role<input name="rank" maxlength="200" /></label>
+                <label>Service number<input name="service" maxlength="200" /></label>
+                <label>Email<input name="email" maxlength="200" /></label>
+                <label>Phone<input name="phone" maxlength="200" /></label>
+            </div>
+        </fieldset>
+        <fieldset><legend>First request</legend>
+            <label>Kind<select name="kind"><option value="preservation">Preservation</option><option value="disclosure">Disclosure</option><option value="emergency-disclosure">Emergency disclosure</option><option value="assistance">Assistance</option><option value="other">Other</option></select></label>
+            <label>What is asked (scope, period, purpose, asserted authority)<textarea name="description" maxlength="2000" rows="3" required></textarea></label>
+            <div class="row"><label>From<input name="from" type="date" /></label><label>Until<input name="until" type="date" /></label></div>
+        </fieldset>
+        <label>Subject member account ids (one per line, up to 20)<textarea name="subjects" rows="2"></textarea></label>
+        <div class="row">
+            <label><input type="checkbox" name="privileged" value="true" /> Legally privileged</label>
+            <label><input type="checkbox" name="confidential" value="true" /> Confidential (left out of transparency counts)</label>
+        </div>
+        <button type="submit" data-open>Open case</button>
+    </form>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery] public string? Status { get; set; }
+    private List<LeCaseSummary>? cases;
+    private LeOverview? overview;
+    private string? message, loadError, resultCode;
+    private Guid? opened;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.LeCasesAsync(Status);
+        cases = result.Value;
+        if (!result.Ok) loadError = LeText.Refusal(result.Status, result.Code);
+        overview = (await Admin.LeOverviewAsync()).Value;
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    internal static DateTimeOffset? Moment(string text) => DateTime.TryParse(text, out var d) ? new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Local)) : null;
+
+    private static string? Optional(string text) => string.IsNullOrWhiteSpace(text) ? null : text;
+
+    private async Task OpenAsync()
+    {
+        var request = new NewLeCase(Field("channel"), Moment(Field("received")), Field("urgency"), Field("agency"), Optional(Field("country")), Optional(Field("agencyReference")),
+            Field("officer"), Optional(Field("rank")), Optional(Field("service")), Optional(Field("email")), Optional(Field("phone")), Moment(Field("statutory")),
+            Field("privileged") == "true", Field("confidential") == "true", Holds.Ids(Field("subjects")),
+            new NewLeRequest(Field("kind"), Field("description"), Holds.Date(Field("from")), Holds.Date(Field("until"))));
+        var result = await Admin.OpenLeCaseAsync(request);
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? $"Case {result.Value!.Reference} opened." : LeText.Refusal(result.Status, result.Code);
+        opened = result.Value?.Id;
+        await LoadAsync();
+    }
+}

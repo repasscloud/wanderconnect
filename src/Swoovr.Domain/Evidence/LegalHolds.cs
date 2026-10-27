@@ -35,6 +35,12 @@ public sealed class LegalHold
     public DateTimeOffset? ReleasedAt { get; set; }
     public Guid? ReleasedBy { get; set; }
     public string? ReleaseReason { get; set; }
+    /// <summary>D195 (procedure §7): the law-enforcement case it serves, its lawful justification and the requesting body.</summary>
+    public Guid? LeCaseId { get; set; }
+    public string? LawfulBasis { get; set; }
+    public string? RequestingBody { get; set; }
+    /// <summary>Null for an ordinary hold; "police-preservation" for a temporary one (reviewed within 30 days, §7).</summary>
+    public string? Kind { get; set; }
 }
 
 public enum HoldScopeKind { Account, Conversation }
@@ -98,6 +104,12 @@ public sealed class EvidenceExport
     public DateTimeOffset? DownloadedAt { get; set; }
     public string Purpose { get; set; } = "";
     public Guid? DisclosureId { get; set; }
+    /// <summary>D195 (§8): the case it was made for; a correction names the package it supplements and why.</summary>
+    public Guid? LeCaseId { get; set; }
+    public Guid? SupplementsExportId { get; set; }
+    public string? CorrectionReason { get; set; }
+    /// <summary>Recorded when downloaded: the package hash of the copy actually handed over (redactions applied).</summary>
+    public byte[]? PackageSha256 { get; set; }
 }
 
 /// <summary>
@@ -118,7 +130,7 @@ public sealed class Disclosure
     public DateTimeOffset DisclosedAt { get; set; }
 }
 
-public enum HoldRefusal { None, NotPermitted, ReasonRequired, ScopeRequired, BadDates, ReviewTooFar, CaseRequired, Released, NotProvisional }
+public enum HoldRefusal { None, NotPermitted, ReasonRequired, ScopeRequired, BadDates, ReviewTooFar, CaseRequired, Released, NotProvisional, NotIndependent, OverlapsUnchecked }
 
 /// <summary>Who may do what with holds and what a hold covers (D189). Facts come from application records only.</summary>
 public static class LegalHoldPolicy
@@ -161,13 +173,28 @@ public static class LegalHoldPolicy
     public static HoldRefusal CheckManage(AccountRole role, LegalHold hold) =>
         role != AccountRole.Legal ? HoldRefusal.NotPermitted : !Live(hold) ? HoldRefusal.Released : HoldRefusal.None;
 
-    public static HoldRefusal CheckRelease(AccountRole role, LegalHold hold, string? reason) =>
+    /// <summary>
+    /// D195 (procedure §7) replaces D189 here: release is approved only by a `legal` officer who neither placed nor
+    /// confirmed the hold, after checking every overlapping hold.
+    /// </summary>
+    public static HoldRefusal CheckRelease(AccountRole role, LegalHold hold, string? reason, Guid releaser, int overlaps, bool overlapsChecked) =>
         CheckManage(role, hold) is var refusal and not HoldRefusal.None ? refusal
-        : string.IsNullOrWhiteSpace(reason) || reason.Length > TextMax ? HoldRefusal.ReasonRequired : HoldRefusal.None;
+        : string.IsNullOrWhiteSpace(reason) || reason.Length > TextMax ? HoldRefusal.ReasonRequired
+        : !LawEnforcementPolicy.IndependentRelease(hold, releaser) ? HoldRefusal.NotIndependent
+        : overlaps > 0 && !overlapsChecked ? HoldRefusal.OverlapsUnchecked : HoldRefusal.None;
 
+    /// <summary>A temporary police preservation hold (D195, §7) is reviewed at most 30 days ahead; others within a year.</summary>
     public static HoldRefusal CheckReview(AccountRole role, LegalHold hold, DateTimeOffset reviewDue, DateTimeOffset now) =>
         CheckManage(role, hold) is var refusal and not HoldRefusal.None ? refusal
-        : reviewDue <= now || reviewDue - now > MaxReview ? HoldRefusal.ReviewTooFar : HoldRefusal.None;
+        : reviewDue <= now || reviewDue - now > (hold.Kind == LawEnforcementPolicy.PolicePreservation ? LawEnforcementPolicy.TemporaryHoldMax : MaxReview)
+            ? HoldRefusal.ReviewTooFar : HoldRefusal.None;
+
+    /// <summary>Whether two holds protect any of the same accounts (§7: overlapping holds operate independently).</summary>
+    public static int Overlaps(LegalHold hold, IReadOnlyCollection<LegalHold> live, IReadOnlyCollection<LegalHoldScope> scopes)
+    {
+        var mine = scopes.Where(s => s.HoldId == hold.Id && s.Kind == HoldScopeKind.Account).Select(s => s.TargetId).ToHashSet();
+        return live.Count(h => h.Id != hold.Id && Live(h) && scopes.Any(s => s.HoldId == h.Id && s.Kind == HoldScopeKind.Account && mine.Contains(s.TargetId)));
+    }
 
     /// <summary>Whether a moment falls inside the hold's preserved period.</summary>
     public static bool InPeriod(LegalHold hold, DateTimeOffset at) => (hold.From is not { } f || at >= f) && (hold.Until is not { } u || at <= u);

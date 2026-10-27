@@ -171,6 +171,30 @@ public static class ProblemCodes
     public const string EvidenceNotConfigured = "evidence-not-configured";
     /// <summary>D191: opening a verified identity record needs a recorded purpose.</summary>
     public const string PurposeRequired = "purpose-required";
+    /// <summary>D195 (§7): a legal hold covers this record (or hold status couldn't be checked), so it can't be deleted.</summary>
+    public const string HeldByLegalHold = "held-by-legal-hold";
+    /// <summary>D195 (§7): release is approved only by an officer who neither placed nor confirmed the hold.</summary>
+    public const string HoldReleaseNotIndependent = "hold-release-not-independent";
+    /// <summary>D195 (§7): other live holds cover the same accounts; confirm they were checked before releasing.</summary>
+    public const string HoldOverlapsUnchecked = "hold-overlaps-unchecked";
+    /// <summary>D195: a law-enforcement case field or step is missing or invalid.</summary>
+    public const string LeCaseInvalid = "le-case-invalid";
+    /// <summary>D195 (§3.2): the requester hasn't been independently verified.</summary>
+    public const string LeNotVerified = "le-not-verified";
+    /// <summary>D195 (§3): no legal assessment recorded yet.</summary>
+    public const string LeNotAssessed = "le-not-assessed";
+    /// <summary>D195 (APP 6.5): relying on APP 6.2(e) needs the written note first.</summary>
+    public const string LeApp65Required = "le-app65-required";
+    /// <summary>D195 (§5): the approver must not be the case owner (except a break-glass emergency approval).</summary>
+    public const string LeNotSeparated = "le-not-separated";
+    /// <summary>D195 (§13): the case is closed.</summary>
+    public const string LeCaseClosed = "le-case-closed";
+    /// <summary>D195: that request was already decided.</summary>
+    public const string LeAlreadyDecided = "le-already-decided";
+    /// <summary>D195 (§13): the closure checklist isn't complete.</summary>
+    public const string LeClosureIncomplete = "le-closure-incomplete";
+    /// <summary>D195 (§7, §10): a review or reconsideration date is out of range (30 days for a temporary hold).</summary>
+    public const string LeDateInvalid = "le-date-invalid";
 }
 
 public sealed record CouponRequest(string Code);

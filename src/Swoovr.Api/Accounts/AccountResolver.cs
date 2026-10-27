@@ -70,6 +70,8 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
     private bool BetaEnabled => configuration.GetValue("Beta:Enabled", true);
     private static readonly TimeSpan SeenInterval = TimeSpan.FromMinutes(5);
     public SwoovrDbContext? Db { get; } = services.GetService<SwoovrDbContext>();
+    /// <summary>The request's services, for endpoints that need a scoped service only on some paths.</summary>
+    public IServiceProvider Services => services;
 
     public async Task<CurrentAccount?> ResolveAsync(ClaimsPrincipal user, CancellationToken cancellationToken)
     {

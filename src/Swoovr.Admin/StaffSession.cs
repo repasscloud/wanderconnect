@@ -72,6 +72,53 @@ public static class HoldText
         (_, "hold-not-provisional") => "Only a provisional hold can be confirmed.",
         (_, "disclosure-invalid") => "Record the purpose; a disclosure needs the agency, officer, reference, legal basis and how the request was verified.",
         (_, "evidence-not-configured") => "No evidence key is configured, so nothing can be preserved.",
+        (_, "hold-release-not-independent") => "Release needs an officer who neither placed nor confirmed this hold (procedure §7).",
+        (_, "hold-overlaps-unchecked") => "Other live holds cover the same accounts. Check them, tick the box and release again.",
+        (_, "le-case-invalid") => "Check the form: the case, its fields or the redaction/correction details.",
+        (_, "le-not-verified") => "Verify the requester independently first (procedure §3.2).",
+        (_, "le-date-invalid") => "A temporary police preservation hold is reviewed within 30 days.",
+        (_, "le-case-closed") => "The case is closed.",
         _ => AdminText.Refusal(status, code),
+    };
+}
+
+/// <summary>Wording for law-enforcement case refusals (D195).</summary>
+public static class LeText
+{
+    public static string Refusal(int status, string? code) => (status, code) switch
+    {
+        (403, null) or (403, "") => "Only an uninvolved security and legal officer can do this.",
+        (_, "le-not-separated") => "Another officer approves this (or reviews the emergency approval) — procedure §5.",
+        (_, "le-not-verified") => "Verify the requester independently first: an official directory, the agency switchboard, its portal or in person.",
+        (_, "le-not-assessed") => "Record the legal assessment first.",
+        (_, "le-app65-required") => "Relying on APP 6.2(e) needs the written APP 6.5 note first.",
+        (_, "le-case-closed") => "The case is closed.",
+        (_, "le-already-decided") => "That request was already decided.",
+        (_, "le-closure-incomplete") => "The closure checklist isn't complete.",
+        (_, "le-date-invalid") => "Check the date (reconsideration within six months; temporary holds within 30 days).",
+        (_, "le-case-invalid") => "Check the form: every required field, valid choices and lengths.",
+        _ => HoldText.Refusal(status, code),
+    };
+
+    public static string Item(string item) => item switch
+    {
+        "requests-decided" => "Every request decided",
+        "emergency-reviewed" => "Every emergency (break-glass) approval reviewed by another officer",
+        "requester-verified" => "Requester independently verified (needed for any disclosure)",
+        "legal-assessment" => "Legal assessment recorded",
+        "app65-note" => "APP 6.5 note recorded where APP 6.2(e) was relied on",
+        "notification-decisions" => "A notification decision for every subject",
+        "transfer-receipts" => "A receipt for every transfer",
+        "holds-assigned" => "Every live hold from this case confirmed with a future review (holds outlive closure)",
+        _ => item,
+    };
+
+    public static string Timer(string state) => state switch
+    {
+        "response-due" => "Response due",
+        "response-overdue" => "Response OVERDUE",
+        "update-due" => "Next update due",
+        "update-overdue" => "Update OVERDUE",
+        _ => "Closed",
     };
 }
