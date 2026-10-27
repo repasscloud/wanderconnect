@@ -19,6 +19,7 @@ ArrivalChecks.Run();
 MessagingChecks.Run();
 DobCorrectionChecks.Run();
 DeletionChecks.Run();
+LegalHoldChecks.Run();
 ModePrivacyChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();

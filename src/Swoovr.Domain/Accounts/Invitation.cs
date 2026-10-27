@@ -30,7 +30,7 @@ public static class InvitationPolicy
     public static AccountRealm RealmFor(AccountRole role) => role switch
     {
         AccountRole.VenuePartner => AccountRealm.Venues,
-        AccountRole.Admin or AccountRole.Support => AccountRealm.Staff,
+        AccountRole.Admin or AccountRole.Support or AccountRole.Legal => AccountRealm.Staff,
         _ => AccountRealm.Unknown,
     };
 

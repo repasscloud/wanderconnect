@@ -1,0 +1,120 @@
+@page "/holds/{Id:guid}"
+@inject AdminClient Admin
+<PageTitle>Legal hold — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/holds">Legal holds</a> / Hold</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (link is not null) { <p class="notice" data-export-link><a href="/holds/exports/@link.Token" download>Download the evidence package</a> (works once, until @link.ExpiresAt.ToLocalTime().ToString("HH:mm")).</p> }
+@if (detail is null) { <p data-hold-detail="missing">@(loadError ?? "Not found, or not available to your role.")</p> }
+else
+{
+    var h = detail;
+    <h1 data-hold-detail="@h.Id">@(h.Status == "provisional" ? "Provisional hold" : h.Status == "released" ? "Released hold" : "Legal hold")</h1>
+    <dl class="facts">
+        <div><dt>Status</dt><dd data-hold-status="@h.Status">@h.Status</dd></div>
+        <div><dt>Source</dt><dd>@(h.Source == "serious-incident" ? "Serious incident report (opened by Swoovr)" : $"Placed by {h.PlacedByRole}")</dd></div>
+        <div><dt>Placed</dt><dd>@h.PlacedAt.ToString("d MMM yyyy HH:mm")</dd></div>
+        <div><dt>Review due</dt><dd data-review-due>@h.ReviewDue.ToString("d MMM yyyy") @if (h.Overdue) { <strong data-overdue>overdue</strong> }</dd></div>
+        <div><dt>Period</dt><dd>@(h.From?.ToString("d MMM yyyy") ?? "from the start") – @(h.Until?.ToString("d MMM yyyy") ?? "until released")</dd></div>
+        @if (h.CaseId is { } caseId) { <div><dt>Case</dt><dd>@caseId</dd></div> }
+        <div><dt>Custody log</dt><dd data-chain="@(h.ChainIntact ? "intact" : "broken")">@(h.ChainIntact ? "intact" : "BROKEN: report this as a security incident")</dd></div>
+    </dl>
+    <h2>Reason</h2><blockquote>@h.Reason</blockquote>
+    @if (h.ReleaseConditions is not null) { <h2>Release conditions</h2><blockquote>@h.ReleaseConditions</blockquote> }
+    @if (h.ReleaseReason is not null) { <h2>Released</h2><blockquote data-release-reason>@h.ReleaseReason</blockquote> }
+    <h2>Scope</h2>
+    <ul class="list" data-scope-accounts="@h.AccountIds.Count">@foreach (var a in h.AccountIds) { <li>Account <code>@a</code></li> }</ul>
+    @if (h.ConversationIds.Count > 0) { <ul class="list" data-scope-conversations="@h.ConversationIds.Count">@foreach (var c in h.ConversationIds) { <li>Conversation <code>@c</code></li> }</ul> }
+
+    @if (h.Status != "released")
+    {
+        <h2>Manage</h2>
+        <form method="post" @formname="step" @onsubmit="StepAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            @if (h.Status == "provisional") { <button name="step" value="confirm" type="submit" data-step="confirm">Confirm hold</button> }
+            <button name="step" value="capture" type="submit" class="secondary" data-step="capture">Capture again</button>
+        </form>
+        <form method="post" @formname="review" @onsubmit="ReviewAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <label>Next review<input name="due" type="date" required /></label>
+            <button type="submit" class="secondary" data-review>Record review</button>
+        </form>
+        <h2>Export evidence</h2>
+        <form method="post" @formname="export" @onsubmit="ExportAsync" class="stack" data-export-form data-enhance="false">
+            <AntiforgeryToken />
+            <label>Purpose (required)<textarea name="purpose" maxlength="1000" rows="2" required></textarea></label>
+            <fieldset><legend>Law-enforcement disclosure (fill all to record it in the register)</legend>
+                <label>Agency<input name="agency" maxlength="200" /></label>
+                <label>Officer<input name="officer" maxlength="200" /></label>
+                <label>Reference<input name="reference" maxlength="200" /></label>
+                <label>Legal basis
+                    <select name="basis">
+                        <option value="">(not a disclosure)</option>
+                        <option value="app-6.2e">APP 6.2(e) enforcement-related activity</option>
+                        <option value="warrant">Warrant</option>
+                        <option value="subpoena">Subpoena</option>
+                        <option value="court-order">Court order</option>
+                        <option value="serious-threat">Serious threat to life, health or safety</option>
+                        <option value="consent">Consent of the individual</option>
+                    </select></label>
+                <label>How the request was verified<input name="verified" maxlength="200" /></label>
+            </fieldset>
+            <button type="submit" data-export>Create one-time export link</button>
+        </form>
+        <h2>Release</h2>
+        <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="row" data-enhance="false">
+            <AntiforgeryToken />
+            <input name="reason" placeholder="Why the preservation need has ended" maxlength="1000" required />
+            <button type="submit" class="secondary" data-release>Release and erase preserved items</button>
+        </form>
+    }
+    <h2>Preserved items (@h.Items.Count)</h2>
+    <p class="help">Content leaves only in an export. Each item's SHA-256 is of its content as preserved.</p>
+    <table data-items="@h.Items.Count"><thead><tr><th>Capture</th><th>Kind</th><th>Source</th><th>Captured</th><th>SHA-256</th></tr></thead><tbody>
+        @foreach (var i in h.Items) { <tr><td>@i.Capture</td><td>@i.Kind</td><td>@i.Source/@i.RecordId</td><td>@i.CapturedAt.ToString("d MMM HH:mm")</td><td><code>@i.Sha256[..16]…</code></td></tr> }
+    </tbody></table>
+    <h2>Disclosures (@h.Disclosures.Count)</h2>
+    <ul class="list" data-disclosures="@h.Disclosures.Count">@foreach (var d in h.Disclosures) { <li>@d.Agency · @d.Officer · @d.Reference · @d.LegalBasis · @d.DisclosedAt.ToString("d MMM yyyy HH:mm")</li> }</ul>
+    <h2>Chain of custody</h2>
+    <ol class="list" data-custody="@h.Custody.Count">@foreach (var c in h.Custody) { <li data-custody-action="@c.Action">@c.At.ToString("d MMM HH:mm:ss") · @c.Action @(c.Detail is null ? "" : $"({c.Detail})") · <code>@c.Hash[..12]</code></li> }</ol>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private LegalHoldDetail? detail;
+    private EvidenceExportLink? link;
+    private string? message, loadError, resultCode;
+
+    // Loaded on every request, POST included: static rendering dispatches a submit only to a form it renders.
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.HoldAsync(Id);
+        detail = result.Value;
+        if (!result.Ok) loadError = HoldText.Refusal(result.Status, result.Code);
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task Show(ApiResult<LegalHoldDetail> result, string ok)
+    {
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? ok : HoldText.Refusal(result.Status, result.Code);
+        if (result.Ok) detail = result.Value; else await LoadAsync();
+    }
+
+    private async Task StepAsync() => await Show(await Admin.HoldStepAsync(Id, Field("step")), Field("step") == "confirm" ? "Hold confirmed." : "Captured again.");
+
+    private async Task ReviewAsync() => await Show(await Admin.ReviewHoldAsync(Id, Holds.Date(Field("due"))), "Review recorded.");
+
+    private async Task ReleaseAsync() => await Show(await Admin.ReleaseHoldAsync(Id, Field("reason")), "Hold released; its preserved items were erased.");
+
+    private async Task ExportAsync()
+    {
+        var disclosure = Field("basis") is { Length: > 0 } basis ? new DisclosureRequest(Field("agency"), Field("officer"), Field("reference"), basis, Field("verified")) : null;
+        var result = await Admin.CreateExportAsync(Id, new EvidenceExportRequest(Field("purpose"), disclosure));
+        (link, resultCode) = (result.Value, result.Ok ? "ok" : result.Code ?? result.Status.ToString());
+        message = result.Ok ? (disclosure is null ? "Export link created." : "Disclosure recorded and export link created.") : HoldText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+}

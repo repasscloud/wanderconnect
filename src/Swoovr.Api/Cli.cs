@@ -75,6 +75,22 @@ public static class Cli
                 Console.WriteLine("Root admin granted.");
                 return 0;
             }
+            // D189: appoint (or remove) the security / legal officer: a staff-realm account that has signed in once. The root
+            // admin may hold it too. Admins can't grant it themselves; only the root admin's invitation or this command.
+            case ["legal", "grant" or "revoke", var subject, ..]:
+            {
+                var staff = await db.Accounts.Where(a => a.Realm == AccountRealm.Staff && a.Subject == subject).ToListAsync();
+                if (staff.Count != 1) { Console.Error.WriteLine("No single staff-realm account has that subject; sign in once first."); return 1; }
+                var existing = await db.RoleGrants.SingleOrDefaultAsync(g => g.AccountId == staff[0].Id && g.Role == AccountRole.Legal);
+                if (args[1] == "grant" && existing is null)
+                    db.RoleGrants.Add(new RoleGrant { Id = Guid.NewGuid(), AccountId = staff[0].Id, Role = AccountRole.Legal, GrantedAt = now });
+                else if (args[1] == "revoke" && existing is not null)
+                    db.RoleGrants.Remove(existing);
+                Audit.Record(db, now, null, "cli", "legal." + (args[1] == "grant" ? "granted" : "revoked"), "account", staff[0].Id.ToString());
+                await db.SaveChangesAsync();
+                Console.WriteLine(args[1] == "grant" ? "Legal role granted." : "Legal role revoked.");
+                return 0;
+            }
             case ["beta", "add", "--file", var path, ..]:
                 // One address per line; blank lines and lines starting with # are ignored.
                 return await AddAll(db, File.ReadLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')), now);
@@ -99,11 +115,16 @@ public static class Cli
             // D167: erases the text of messages deleted for both more than 30 days ago (kept for investigations until then), for cron.
             case ["messages", "purge", ..]:
             {
-                var purged = 0;
-                foreach (var message in await db.Messages.Where(m => m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && m.Body != "").ToListAsync())
-                    if (MessagingPolicy.Purge(message, now)) { message.Body = ""; purged++; }
+                // D189: text a live legal hold covers is kept until the hold is released.
+                var (purged, kept) = (0, 0);
+                var (holds, scopes) = await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Evidence.EvidencePreservation>().LiveAsync(CancellationToken.None);
+                var due = await (from m in db.Messages join c in db.Conversations on m.ConversationId equals c.Id
+                                 where m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && m.Body != "" select new { m, c }).ToListAsync();
+                foreach (var row in due)
+                    if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
+                    else if (MessagingPolicy.Purge(row.m, now)) { row.m.Body = ""; purged++; }
                 await db.SaveChangesAsync();
-                Console.WriteLine($"Messages: {purged} deleted message texts erased.");
+                Console.WriteLine($"Messages: {purged} deleted message texts erased, {kept} kept under a legal hold.");
                 return 0;
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),
@@ -111,7 +132,7 @@ public static class Cli
             case ["accounts", "purge", ..]:
             {
                 var run = await scope.ServiceProvider.GetRequiredService<AccountDeletion>().PurgeAsync(now, CancellationToken.None);
-                Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} holds expired.");
+                Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} email holds expired, {run.Kept} kept under a legal hold.");
                 return run.Waiting > 0 ? 1 : 0;
             }
             case ["beta", "list", ..]:
@@ -119,7 +140,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
                 return 2;
         }
     }

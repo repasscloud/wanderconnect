@@ -57,3 +57,21 @@ public static class AdminText
         _ => $"The API answered {status}.",
     };
 }
+
+/// <summary>Wording for legal-hold refusals (D189).</summary>
+public static class HoldText
+{
+    public static string Refusal(int status, string? code) => (status, code) switch
+    {
+        (403, null) or (403, "") => "Only the security and legal officer can do this (admins may open a provisional hold from a case).",
+        (_, "hold-reason-required") => "Give a reason (up to 1,000 characters).",
+        (_, "hold-scope-invalid") => "Name 1–20 existing member accounts, and only their conversations. An admin's hold covers only the case's people.",
+        (_, "hold-dates-invalid") => "Check the period and the review date (in the future, within a year).",
+        (_, "hold-case-required") => "Admins open a provisional hold from a case.",
+        (_, "hold-released") => "This hold has been released.",
+        (_, "hold-not-provisional") => "Only a provisional hold can be confirmed.",
+        (_, "disclosure-invalid") => "Record the purpose; a disclosure needs the agency, officer, reference, legal basis and how the request was verified.",
+        (_, "evidence-not-configured") => "No evidence key is configured, so nothing can be preserved.",
+        _ => AdminText.Refusal(status, code),
+    };
+}

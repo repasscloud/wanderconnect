@@ -162,6 +162,8 @@ Deletion needs the API's service-account client in the members realm (D169): `./
 
 Final deletion runs from `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll accounts purge` with the API's connection string, founder secret, `MemberAdmin__ClientSecret` and Didit settings (D170; hourly cron in hosted environments, for example `0 * * * *`). It prints counts only.
 
+Legal holds (D189, D192) need an evidence key: `Evidence__Keys__1` (base64, 32 bytes) or, as locally, one derived from `Founders__Secrets__1`. The security / legal officer is a staff-realm user given the `legal` role by the root admin's invitation or by `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll legal grant <staff subject>` after their first sign-in. `tests/evidence/holds.browser.cjs` runs against the same test hosts as the deletion suite.
+
 `tests/accounts/deletion.browser.cjs` expects hosts started with a short sign-in window so the stale cases don't wait five minutes: `Accounts__ReauthSeconds=45 bash .local/run-hosts.sh`, then run the suite with `SWOOVR_REAUTH_SECONDS=45`.
 
 ## Mobile number verification — 27 October 2026

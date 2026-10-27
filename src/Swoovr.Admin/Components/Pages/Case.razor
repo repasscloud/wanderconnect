@@ -65,6 +65,13 @@ else
             <button type="submit" data-act>Apply</button>
         </form>
     }
+    @* D189: an admin may preserve evidence at once; the security and legal officer confirms or releases the hold. *@
+    <h2>Preserve evidence</h2>
+    <form method="post" @formname="preserve" @onsubmit="PreserveAsync" class="row" data-preserve-form data-enhance="false">
+        <AntiforgeryToken />
+        <input name="PreserveForm.Reason" placeholder="Why this needs preserving" maxlength="1000" required />
+        <button type="submit" class="secondary" data-preserve>Place a provisional hold</button>
+    </form>
     <h2>Actions on this account</h2>
     <SanctionList Sanctions="detail.Sanctions" ReturnUrl="@($"/cases/{Id}")" />
 }
@@ -72,6 +79,8 @@ else
     [Parameter] public Guid Id { get; set; }
     [SupplyParameterFromForm(FormName = "step")] public StepModel? StepForm { get; set; }
     [SupplyParameterFromForm(FormName = "act")] public ActModel? ActForm { get; set; }
+    [SupplyParameterFromForm(FormName = "preserve")] public PreserveModel? PreserveForm { get; set; }
+    public sealed class PreserveModel { public string? Reason { get; set; } }
     private CaseDetailView? detail;
     private string? message, loadError, resultCode;
     private bool reauth;
@@ -108,6 +117,14 @@ else
         var f = ActForm ?? new();
         var result = await Admin.ActAsync(Id, new ModerationActionRequest(f.Action ?? "", f.Reason, f.Days, f.HideFromDiscovery, f.NoNewRequests, f.NoMessages));
         Show(result.Status, result.Code, "Action applied. The member has a notice.");
+        await LoadAsync();
+    }
+
+    private async Task PreserveAsync()
+    {
+        var result = await Admin.PlaceHoldAsync(new NewLegalHold(PreserveForm?.Reason, [detail?.Case.SubjectAccountId ?? Guid.Empty], null, null, null, null, null, Id));
+        (resultCode, reauth) = (result.Ok ? "ok" : result.Code ?? result.Status.ToString(), result.Status == 401);
+        message = result.Ok ? $"Provisional hold placed; {result.Value!.Items} item(s) preserved. The security and legal officer reviews it within 30 days." : HoldText.Refusal(result.Status, result.Code);
         await LoadAsync();
     }
 

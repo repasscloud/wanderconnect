@@ -23,6 +23,8 @@ public static class AdminEndpoints
             if (!Enum.TryParse<AccountRole>(request.Role, ignoreCase: true, out var role) || !Enum.IsDefined(role)
                 || !InvitationPolicy.IsValidRequest(role, request.Email, request.VenueId))
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Invitation needs an email, an invitable role and a venue only for venue partners.");
+            // D189: only the root admin appoints a security / legal officer, so no admin can give themselves evidence access.
+            if (role == AccountRole.Legal && !current!.IsRootAdmin) return Results.Forbid();
             var now = clock.GetUtcNow();
             var invitation = new Invitation
             {

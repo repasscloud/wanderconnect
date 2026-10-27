@@ -1,0 +1,25 @@
+@page "/disclosures"
+@inject AdminClient Admin
+<PageTitle>Disclosure register — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/holds">Legal holds</a> / Disclosures</p>
+<h1>Disclosure register</h1>
+<p class="help">Every law-enforcement disclosure (APP 6.5 records): who asked, the legal basis, how the request was verified, and the hold it came from. Police get only what a hold preserved and an export contained, never open access to the platform.</p>
+@if (rows is null) { <p data-disclosures="refused">@loadError</p> }
+else if (rows.Count == 0) { <p data-disclosures="none">No disclosures recorded.</p> }
+else
+{
+    <table data-disclosures="@rows.Count"><thead><tr><th>Date</th><th>Agency</th><th>Officer</th><th>Reference</th><th>Basis</th><th>Verified</th><th>Hold</th></tr></thead><tbody>
+        @foreach (var d in rows) { <tr><td>@d.DisclosedAt.ToString("d MMM yyyy HH:mm")</td><td>@d.Agency</td><td>@d.Officer</td><td>@d.Reference</td><td>@d.LegalBasis</td><td>@d.VerifiedHow</td><td><a href="/holds/@d.HoldId">open</a></td></tr> }
+    </tbody></table>
+}
+@code {
+    private List<DisclosureView>? rows;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.DisclosuresAsync();
+        rows = result.Value;
+        if (!result.Ok) loadError = HoldText.Refusal(result.Status, result.Code);
+    }
+}

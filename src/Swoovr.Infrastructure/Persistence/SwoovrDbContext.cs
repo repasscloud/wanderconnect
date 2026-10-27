@@ -64,6 +64,12 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MemberPhone> MemberPhones => Set<MemberPhone>();
     public DbSet<PhoneCode> PhoneCodes => Set<PhoneCode>();
     public DbSet<ContactHistory> ContactHistories => Set<ContactHistory>();
+    public DbSet<LegalHold> LegalHolds => Set<LegalHold>();
+    public DbSet<LegalHoldScope> LegalHoldScopes => Set<LegalHoldScope>();
+    public DbSet<EvidenceItem> EvidenceItems => Set<EvidenceItem>();
+    public DbSet<CustodyEvent> CustodyEvents => Set<CustodyEvent>();
+    public DbSet<EvidenceExport> EvidenceExports => Set<EvidenceExport>();
+    public DbSet<Disclosure> Disclosures => Set<Disclosure>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -100,6 +106,55 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             history.HasIndex(h => h.AccountId);
             history.HasIndex(h => h.RetainUntil);
             history.Property(h => h.ChangeReason).HasMaxLength(32);
+        });
+        // D189 (policy §3): legal holds and the restricted evidence store. No foreign keys to accounts or conversations,
+        // so preserved evidence outlives the records it was captured from; evidence goes when the hold is released.
+        model.Entity<LegalHold>(hold =>
+        {
+            hold.Property(h => h.Reason).HasMaxLength(LegalHoldPolicy.TextMax);
+            hold.Property(h => h.ReleaseConditions).HasMaxLength(LegalHoldPolicy.TextMax);
+            hold.Property(h => h.ReleaseReason).HasMaxLength(LegalHoldPolicy.TextMax);
+            hold.Property(h => h.Source).HasMaxLength(32);
+            hold.HasIndex(h => new { h.Status, h.ReviewDue });
+            hold.HasIndex(h => h.CaseId);
+        });
+        model.Entity<LegalHoldScope>(scope =>
+        {
+            scope.HasKey(s => new { s.HoldId, s.Kind, s.TargetId });
+            scope.HasOne<LegalHold>().WithMany().HasForeignKey(s => s.HoldId).OnDelete(DeleteBehavior.Cascade);
+            scope.HasIndex(s => s.TargetId);
+        });
+        model.Entity<EvidenceItem>(item =>
+        {
+            item.HasOne<LegalHold>().WithMany().HasForeignKey(i => i.HoldId).OnDelete(DeleteBehavior.Cascade);
+            item.Property(i => i.Kind).HasMaxLength(32);
+            item.Property(i => i.Source).HasMaxLength(64);
+            item.Property(i => i.RecordId).HasMaxLength(64);
+            item.HasIndex(i => new { i.HoldId, i.Kind, i.RecordId });
+        });
+        model.Entity<CustodyEvent>(custody =>
+        {
+            custody.HasKey(c => c.Sequence);
+            custody.Property(c => c.Sequence).UseIdentityAlwaysColumn();
+            custody.HasOne<LegalHold>().WithMany().HasForeignKey(c => c.HoldId).OnDelete(DeleteBehavior.Restrict);
+            custody.Property(c => c.Action).HasMaxLength(32);
+            custody.Property(c => c.Detail).HasMaxLength(256);
+            custody.HasIndex(c => new { c.HoldId, c.Sequence });
+        });
+        model.Entity<EvidenceExport>(export =>
+        {
+            export.HasOne<LegalHold>().WithMany().HasForeignKey(e => e.HoldId).OnDelete(DeleteBehavior.Restrict);
+            export.HasIndex(e => e.TokenHash).IsUnique();
+            export.Property(e => e.Purpose).HasMaxLength(LegalHoldPolicy.TextMax);
+        });
+        model.Entity<Disclosure>(disclosure =>
+        {
+            disclosure.HasOne<LegalHold>().WithMany().HasForeignKey(d => d.HoldId).OnDelete(DeleteBehavior.Restrict);
+            disclosure.Property(d => d.Agency).HasMaxLength(200);
+            disclosure.Property(d => d.Officer).HasMaxLength(200);
+            disclosure.Property(d => d.Reference).HasMaxLength(200);
+            disclosure.Property(d => d.LegalBasis).HasMaxLength(32);
+            disclosure.Property(d => d.VerifiedHow).HasMaxLength(200);
         });
         model.Entity<PhoneCode>(code =>
         {

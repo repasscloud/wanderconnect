@@ -81,5 +81,12 @@ app.MapPost("/sign-out", async (HttpContext context) =>
     return Results.Redirect("/signed-out");
 }).AllowAnonymous();
 app.MapGet("/signed-out", () => Results.Content("<!doctype html><title>Signed out — Swoovr admin</title><p>You're signed out. <a href=\"/\">Sign in again</a></p>", "text/html")).AllowAnonymous();
+// D189: the one-time evidence package, fetched server-side with the officer's token and handed over as a file.
+app.MapGet("/holds/exports/{token}", async (string token, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
+{
+    var (status, body) = await admin.DownloadExportAsync(token, cancellationToken);
+    return body is null ? Results.Content($"<!doctype html><title>Export unavailable — Swoovr admin</title><p data-export-status=\"{status}\">This export link has expired, was already used, or isn't yours.</p><p><a href=\"/holds\">Legal holds</a></p>", "text/html", statusCode: status == 401 ? 401 : 404)
+        : Results.File(body, "application/json", "swoovr-evidence.json");
+}).RequireAuthorization();
 app.MapRazorComponents<App>().RequireAuthorization();
 app.Run();

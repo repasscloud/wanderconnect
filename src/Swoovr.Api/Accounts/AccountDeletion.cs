@@ -6,8 +6,8 @@ using Swoovr.Infrastructure.Persistence;
 
 namespace Swoovr.Api.Accounts;
 
-/// <summary>What one `accounts purge` run did; counts only, never who.</summary>
-public sealed record PurgeRun(int Deleted, int Waiting, int ProviderRetries, int Expired, int HoldsExpired);
+/// <summary>What one `accounts purge` run did; counts only, never who. Kept counts records a legal hold kept (D189).</summary>
+public sealed record PurgeRun(int Deleted, int Waiting, int ProviderRetries, int Expired, int HoldsExpired, int Kept = 0);
 
 /// <summary>
 /// Account deletion (Q43, D144; D169–D173). <see cref="RequestAsync"/> deactivates at once; <see cref="PurgeAsync"/> is
@@ -55,11 +55,14 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
                                        where a.Status == AccountStatus.Deleted select t).ToListAsync(cancellationToken))
             if (await verification.DeleteSessionAsync(attempt.SessionId, cancellationToken)) { db.IdVerificationAttempts.Remove(attempt); retries++; }
         await db.SaveChangesAsync(cancellationToken);
-        // D170: tombstones, their audit entries and moderation records go after two years (subject to legal review, D144).
-        var expired = 0;
+        // D170: tombstones, their audit entries and moderation records go after two years (subject to legal review, D144),
+        // except while a legal hold names the account (D189: deletion never removes held records).
+        var (expired, kept) = (0, 0);
+        var held = await services.GetRequiredService<Evidence.EvidencePreservation>().HeldAccountsAsync(cancellationToken);
         foreach (var tombstone in await db.Accounts.Where(a => a.Status == AccountStatus.Deleted).ToListAsync(cancellationToken))
         {
             if (!AccountDeletionPolicy.RetentionOver(tombstone, now)) continue;
+            if (held.Contains(tombstone.Id)) { kept++; continue; }
             var key = tombstone.Id.ToString();
             await db.AuditEntries.Where(e => e.ActorAccountId == tombstone.Id || e.TargetId == key).ExecuteDeleteAsync(cancellationToken);
             await db.Accounts.Where(a => a.Id == tombstone.Id).ExecuteDeleteAsync(cancellationToken);
@@ -68,8 +71,9 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         var holds = await db.TerminatedEmailHolds.Where(h => h.ExpiresAt <= now).ExecuteDeleteAsync(cancellationToken);
         // D148: phone codes (hashes only) are kept a day for the limits, then go.
         await db.PhoneCodes.Where(c => c.CreatedAt < now - PhoneVerificationPolicy.CodeRetention).ExecuteDeleteAsync(cancellationToken);
-        await db.ContactHistories.Where(h => h.RetainUntil <= now).ExecuteDeleteAsync(cancellationToken);
-        return new(deleted, waiting, retries, expired, holds);
+        kept += await db.ContactHistories.CountAsync(h => h.RetainUntil <= now && held.Contains(h.AccountId), cancellationToken);
+        await db.ContactHistories.Where(h => h.RetainUntil <= now && !held.Contains(h.AccountId)).ExecuteDeleteAsync(cancellationToken);
+        return new(deleted, waiting, retries, expired, holds, kept);
     }
 
     /// <summary>
@@ -84,6 +88,17 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         {
             log.LogWarning("Final deletion waits: the Keycloak user could not be deleted.");
             return false;
+        }
+        // D189: records a live legal hold covers are captured into the evidence store before they are erased below.
+        var evidence = services.GetRequiredService<Evidence.EvidencePreservation>();
+        if ((await evidence.HeldAccountsAsync(cancellationToken)).Contains(id))
+        {
+            if (!evidence.Configured)
+            {
+                log.LogWarning("Final deletion waits: a legal hold covers the account and no evidence key is configured.");
+                return false;
+            }
+            await evidence.PreserveBeforeDeletionAsync(id, now, cancellationToken);
         }
         foreach (var attempt in await db.IdVerificationAttempts.Where(t => t.AccountId == id).ToListAsync(cancellationToken))
             if (await verification.DeleteSessionAsync(attempt.SessionId, cancellationToken)) db.IdVerificationAttempts.Remove(attempt);
