@@ -195,6 +195,16 @@ public static class ProblemCodes
     public const string LeClosureIncomplete = "le-closure-incomplete";
     /// <summary>D195 (§7, §10): a review or reconsideration date is out of range (30 days for a temporary hold).</summary>
     public const string LeDateInvalid = "le-date-invalid";
+    /// <summary>#88: this needs a time-limited elevated access grant for the capability (with a recorded purpose).</summary>
+    public const string ElevatedAccessRequired = "elevated-access-required";
+    /// <summary>#88: the grant has expired or was revoked; ask for a new one.</summary>
+    public const string GrantExpired = "grant-expired";
+    /// <summary>#88: the grant was renewed the maximum number of times; ask for a new one.</summary>
+    public const string GrantRenewalLimit = "grant-renewal-limit";
+    /// <summary>#88: a bulk export needs a second officer's approval; the problem carries the pending approval's id.</summary>
+    public const string BulkExportApprovalRequired = "bulk-export-approval-required";
+    /// <summary>#88 (procedure §5): a conflict of interest keeps this staff member away from that member's records.</summary>
+    public const string ConflictOfInterest = "conflict-of-interest";
 }
 
 public sealed record CouponRequest(string Code);

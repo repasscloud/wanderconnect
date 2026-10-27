@@ -399,6 +399,9 @@ public static class LawEnforcementEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return (null, null, Results.Forbid());
         }
+        // #88 (§5): a declared conflict of interest over a subject keeps the officer out too.
+        var subjects = await db.LeCasePeople.Where(p => p.CaseId == id && p.Kind == "subject").Select(p => p.AccountId).ToListAsync(cancellationToken);
+        if (await StaffAccessEndpoints.ExcludedAsync(db, current!.Account!.Id, subjects, cancellationToken)) return (null, null, StaffAccessEndpoints.Conflict());
         return (current, item, null);
     }
 

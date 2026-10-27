@@ -1,0 +1,148 @@
+@page "/access"
+@inject AdminClient Admin
+<PageTitle>Elevated access — Swoovr admin</PageTitle>
+<h1>Elevated access</h1>
+<p class="help">Policy §11, §15. Opening a verified identity and exporting evidence (security and legal officer) and terminating an account (admins) need time-limited access with a recorded purpose. Access lasts 60 minutes and can be renewed; it ends on its own. Every view, search, export and refused attempt on restricted pages is in the append-only access log.</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+<h2>Your access</h2>
+@if (grants is null) { <p data-grants="refused">@loadError</p> }
+else if (grants.Count == 0) { <p data-grants="none">None yet.</p> }
+else
+{
+    <ul class="list" data-grants="@grants.Count">
+        @foreach (var g in grants)
+        {
+            <li data-grant="@g.Id" data-grant-capability="@g.Capability" data-grant-active="@(g.Active ? "yes" : "no")">
+                <strong>@g.Capability</strong> · @g.Purpose · @(g.Active ? $"until {g.ExpiresAt.ToLocalTime():HH:mm}" : g.RevokedAt is null ? "expired" : "revoked") @(g.Renewals > 0 ? $"· renewed {g.Renewals}×" : "")
+                @if (g.Active)
+                {
+                    <form method="post" @formname="@($"grant-{g.Id}")" @onsubmit="() => StepAsync(g.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <button name="step" value="renew" type="submit" class="secondary" data-renew="@g.Id">Renew 60 minutes</button>
+                        <button name="step" value="revoke" type="submit" class="quiet" data-revoke="@g.Id">End now</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+<form method="post" @formname="request" @onsubmit="RequestAsync" class="stack" data-request-access data-enhance="false">
+    <AntiforgeryToken />
+    <label>Capability<select name="capability"><option value="identity-open">Open a verified identity (legal)</option><option value="evidence-export">Export evidence (legal)</option><option value="termination">Terminate an account (admin)</option></select></label>
+    <label>Purpose (recorded; up to 500 characters)<textarea name="purpose" maxlength="500" rows="2" required></textarea></label>
+    <button type="submit" data-request>Ask for 60 minutes</button>
+</form>
+<h2>Conflicts of interest</h2>
+<p class="help">Declare a member you know personally; you'll be kept out of their cases, holds and identity record.</p>
+<form method="post" @formname="exclude" @onsubmit="ExcludeAsync" class="row" data-enhance="false">
+    <AntiforgeryToken />
+    <input name="staff" placeholder="Staff account id (yours unless you're the root admin or legal)" />
+    <input name="subject" placeholder="Member account id" required />
+    <input name="reason" placeholder="Why" maxlength="500" required />
+    <button type="submit" class="secondary" data-exclude>Record</button>
+</form>
+@if (exclusions is { Count: > 0 }) { <ul class="list" data-exclusions="@exclusions.Count">@foreach (var e in exclusions) { <li><code>@e.StaffAccountId</code> excluded from <code>@e.SubjectAccountId</code> · @e.Reason</li> }</ul> }
+@if (approvals is not null)
+{
+    <h2>Bulk exports waiting for approval (@approvals.Count)</h2>
+    <ul class="list" data-approvals="@approvals.Count">
+        @foreach (var a in approvals)
+        {
+            <li data-approval="@a.Id">Hold <a href="/holds/@a.HoldId">@a.HoldId</a> · @a.Purpose · @(a.ApprovedAt is null ? "waiting" : "approved")
+                @if (a.ApprovedAt is null)
+                {
+                    <form method="post" @formname="@($"approve-{a.Id}")" @onsubmit="() => ApproveAsync(a.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken /><button type="submit" class="secondary" data-approve="@a.Id">Approve (not your own)</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+@if (log is not null)
+{
+    <h2>Access log</h2>
+    <p data-log-chain="@(log.Intact ? "intact" : "broken")">@(log.Intact ? "Chain intact." : "CHAIN BROKEN: report this as a security incident.")</p>
+    <table data-log="@log.Entries.Count"><thead><tr><th>#</th><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Status</th></tr></thead><tbody>
+        @foreach (var e in log.Entries.AsEnumerable().Reverse().Take(100)) { <tr><td>@e.Sequence</td><td>@e.At.ToLocalTime().ToString("d MMM HH:mm:ss")</td><td><code>@(e.Actor?.ToString()[..8] ?? "—")</code></td><td>@e.Action</td><td>@e.Resource @e.ResourceId</td><td>@e.Status</td></tr> }
+    </tbody></table>
+    <h2>Revoke a staff member (root admin)</h2>
+    <form method="post" @formname="revoke-staff" @onsubmit="RevokeStaffAsync" class="row" data-enhance="false">
+        <AntiforgeryToken />
+        <input name="staffId" placeholder="Staff account id" required />
+        <input name="reason" placeholder="Why (left, role change…)" maxlength="500" required />
+        <button type="submit" class="secondary" data-revoke-staff>Remove roles, end access and sessions</button>
+    </form>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private List<AccessGrantView>? grants;
+    private List<StaffExclusionView>? exclusions;
+    private List<ExportApprovalView>? approvals;
+    private SensitiveAccessLogView? log;
+    private string? message, loadError, resultCode;
+
+    // Loaded on every request, POST included: static rendering dispatches a submit only to a form it renders.
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.GrantsAsync();
+        grants = result.Value;
+        if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
+        exclusions = (await Admin.ExclusionsAsync()).Value;
+        approvals = (await Admin.ApprovalsAsync()).Value;
+        log = (await Admin.SensitiveLogAsync()).Value;
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private void Show(bool ok, int status, string? code, string done)
+    {
+        resultCode = ok ? "ok" : code ?? status.ToString();
+        message = ok ? done : code switch
+        {
+            "purpose-required" => "Record the purpose (up to 500 characters).",
+            "grant-expired" => "That access has ended; ask again.",
+            "grant-renewal-limit" => "Renewed the maximum number of times; ask again.",
+            "le-not-separated" => "Another officer approves a bulk export.",
+            _ => AdminText.Refusal(status, code),
+        };
+    }
+
+    private async Task RequestAsync()
+    {
+        var result = await Admin.RequestGrantAsync(new AccessGrantRequest(Field("capability"), Field("purpose")));
+        Show(result.Ok, result.Status, result.Code, $"Access granted until {result.Value?.ExpiresAt.ToLocalTime():HH:mm}.");
+        await LoadAsync();
+    }
+
+    private async Task StepAsync(Guid id)
+    {
+        var result = await Admin.GrantStepAsync(id, Field("step"));
+        Show(result.Ok, result.Status, result.Code, Field("step") == "renew" ? "Renewed for 60 minutes." : "Access ended.");
+        await LoadAsync();
+    }
+
+    private async Task ExcludeAsync()
+    {
+        // An empty staff id means the signed-in staff member (a self-declaration).
+        var status = await Admin.ExcludeAsync(new StaffExclusionRequest(Guid.TryParse(Field("staff"), out var s) ? s : Guid.Empty, Guid.TryParse(Field("subject"), out var m) ? m : Guid.Empty, Field("reason")));
+        Show(status == 200, status, null, "Conflict recorded.");
+        await LoadAsync();
+    }
+
+    private async Task ApproveAsync(Guid id)
+    {
+        var result = await Admin.ApproveExportAsync(id);
+        Show(result.Ok, result.Status, result.Code, "Bulk export approved.");
+        await LoadAsync();
+    }
+
+    private async Task RevokeStaffAsync()
+    {
+        var result = await Admin.RevokeStaffAsync(Guid.TryParse(Field("staffId"), out var id) ? id : Guid.Empty, Field("reason"));
+        Show(result.Ok, result.Status, result.Code, $"Revoked: {result.Value?.RolesRemoved} role(s), {result.Value?.GrantsRevoked} grant(s); their sessions are refused.");
+        await LoadAsync();
+    }
+}

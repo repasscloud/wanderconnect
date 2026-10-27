@@ -130,6 +130,35 @@ public sealed class AdminClient(HttpClient http)
     public Task<ApiResult<LegalHoldDetail>> ReleaseHoldAsync(Guid id, string? reason, bool overlapsChecked, CancellationToken cancellationToken = default) =>
         SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/v1/admin/holds/{id}/release", new HoldReleaseRequest(reason, overlapsChecked), cancellationToken);
 
+    // #88: staff access controls.
+    public Task<ApiResult<List<AccessGrantView>>> GrantsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<AccessGrantView>>(HttpMethod.Get, "api/v1/admin/access/grants", null, cancellationToken);
+
+    public Task<ApiResult<AccessGrantView>> RequestGrantAsync(AccessGrantRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<AccessGrantView>(HttpMethod.Post, "api/v1/admin/access/grants", request, cancellationToken);
+
+    /// <summary>step: renew or revoke.</summary>
+    public Task<ApiResult<AccessGrantView>> GrantStepAsync(Guid id, string step, CancellationToken cancellationToken = default) =>
+        SendAsync<AccessGrantView>(HttpMethod.Post, $"api/v1/admin/access/grants/{id}/{Uri.EscapeDataString(step)}", null, cancellationToken);
+
+    public Task<ApiResult<SensitiveAccessLogView>> SensitiveLogAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<SensitiveAccessLogView>(HttpMethod.Get, "api/v1/admin/access/log?limit=200", null, cancellationToken);
+
+    public Task<ApiResult<List<StaffExclusionView>>> ExclusionsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<StaffExclusionView>>(HttpMethod.Get, "api/v1/admin/access/exclusions", null, cancellationToken);
+
+    public Task<int> ExcludeAsync(StaffExclusionRequest request, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Post, "api/v1/admin/access/exclusions", request, cancellationToken);
+
+    public Task<ApiResult<List<ExportApprovalView>>> ApprovalsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ExportApprovalView>>(HttpMethod.Get, "api/v1/admin/access/approvals", null, cancellationToken);
+
+    public Task<ApiResult<ExportApprovalView>> ApproveExportAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<ExportApprovalView>(HttpMethod.Post, $"api/v1/admin/access/approvals/{id}/approve", null, cancellationToken);
+
+    public Task<ApiResult<StaffRevokeResult>> RevokeStaffAsync(Guid id, string? reason, CancellationToken cancellationToken = default) =>
+        SendAsync<StaffRevokeResult>(HttpMethod.Post, $"api/v1/admin/staff/{id}/revoke", new StaffRevokeRequest(reason), cancellationToken);
+
     // D195: law-enforcement case management (`legal` only).
     private const string Le = "api/v1/admin/law-enforcement";
 

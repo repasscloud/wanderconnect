@@ -51,7 +51,7 @@ public sealed record DisclosureRequest(string? Agency, string? Officer, string? 
 /// <remarks>D195 (§6, §8): LeCaseId ties it to a case; SupplementsExportId with CorrectionReason makes a traceable correction
 /// that never overwrites the original; Redactions name item fields (dotted JSON paths) blanked in the disclosure copy only.</remarks>
 public sealed record EvidenceExportRequest(string? Purpose, DisclosureRequest? Disclosure, Guid? LeCaseId = null, Guid? SupplementsExportId = null,
-    string? CorrectionReason = null, List<RedactionRequest>? Redactions = null);
+    string? CorrectionReason = null, List<RedactionRequest>? Redactions = null, Guid? ApprovalId = null);
 
 public sealed record RedactionRequest(Guid ItemId, List<string>? Fields, string? Reason);
 

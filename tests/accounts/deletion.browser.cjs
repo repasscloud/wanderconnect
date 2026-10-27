@@ -10,7 +10,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, web, sleep, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady, membersRealm, mailTo } = require('../auth/local-tokens.cjs');
+const { api, web, sleep, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady, membersRealm, mailTo, elevate } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
@@ -143,6 +143,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     assert.deepEqual([r.status, r.body.deleteFounderToken, r.body.founderCodeEmailed], [200, true, false]); pass();
 
     // A terminated member may still delete; their email leaves a hold that flags a return (D171).
+    await elevate(root, 'termination', 'Fictional termination for the deletion suite'); // #88
     const term = await call(root, `/api/v1/admin/accounts/${ids.ter}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional test termination' } });
     assert.ok([200, 201].includes(term.status), 'terminated'); pass();
     await fresh('ter');

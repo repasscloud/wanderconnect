@@ -150,6 +150,16 @@ async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman',
   return [age.status, identity.status];
 }
 
+/**
+ * #88: time-limited elevated access for a staff token (identity-open, evidence-export or termination), with a fictional
+ * recorded purpose. Grants belong to the account, so the admin app's session gets it too.
+ */
+async function elevate(token, capability, purpose = 'Fictional acceptance test') {
+  const r = await call(token, '/api/v1/admin/access/grants', { method: 'POST', body: { capability, purpose } });
+  if (r.status !== 201) throw new Error(`elevate ${capability}: ${r.status} ${r.body?.code ?? ''}`);
+  return r.body;
+}
+
 /** Runs an API operator command with the local database connection. */
 async function cli(...args) {
   const connection = `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
@@ -192,4 +202,4 @@ async function mailTo(address) {
 }
 
 module.exports = { keycloak, api, web, admin, sleep, claims, localEnv, createMember, createStaff, memberToken, appToken, staffToken, rootAdminToken, fillRootAdmin,
-  cli, sql, call, membersRealm, mailTo, matchReady };
+  cli, sql, call, membersRealm, mailTo, matchReady, elevate };

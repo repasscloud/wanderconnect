@@ -21,6 +21,7 @@ DobCorrectionChecks.Run();
 DeletionChecks.Run();
 LegalHoldChecks.Run();
 LawEnforcementChecks.Run();
+StaffAccessChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();

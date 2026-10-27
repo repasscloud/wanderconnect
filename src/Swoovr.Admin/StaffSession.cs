@@ -49,6 +49,9 @@ public static class AdminText
     {
         (401, _) => "Your session has ended. Sign in again.",
         (403, "stale-session") => "This needs a fresh sign-in. Sign in again, then repeat it.",
+        (403, "elevated-access-required") => "This needs time-limited access with a recorded purpose. Ask for it under Elevated access, then repeat it.",
+        (403, "conflict-of-interest") => "A conflict of interest keeps you away from this member's records.",
+        (409, "bulk-export-approval-required") => "A bulk export needs another officer's approval (Elevated access). Then export again.",
         (403, "moderation-not-permitted") => "Your role can't do this here (staff-affiliated case, your own account, or an admin's action).",
         (403, _) => "Your role can't do this.",
         (404, _) => "Not found, or not available to your role.",
@@ -64,6 +67,7 @@ public static class HoldText
     public static string Refusal(int status, string? code) => (status, code) switch
     {
         (403, null) or (403, "") => "Only the security and legal officer can do this (admins may open a provisional hold from a case).",
+        (403, "elevated-access-required") or (403, "conflict-of-interest") or (409, "bulk-export-approval-required") => AdminText.Refusal(status, code),
         (_, "hold-reason-required") => "Give a reason (up to 1,000 characters).",
         (_, "hold-scope-invalid") => "Name 1–20 existing member accounts, and only their conversations. An admin's hold covers only the case's people.",
         (_, "hold-dates-invalid") => "Check the period and the review date (in the future, within a year).",

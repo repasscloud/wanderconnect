@@ -23,6 +23,63 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Swoovr.Domain.AccessGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Capability")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("capability");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("granted_at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.Property<int>("Renewals")
+                        .HasColumnType("integer")
+                        .HasColumnName("renewals");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("revoked_reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_access_grants");
+
+                    b.HasIndex("AccountId", "Capability", "ExpiresAt")
+                        .HasDatabaseName("ix_access_grants_account_id_capability_expires_at");
+
+                    b.ToTable("access_grants");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Account", b =>
                 {
                     b.Property<Guid>("Id")
@@ -79,6 +136,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("realm");
+
+                    b.Property<DateTimeOffset?>("SessionsRevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sessions_revoked_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1193,6 +1254,52 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_evidence_redactions_export_id");
 
                     b.ToTable("evidence_redactions");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ExportApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("purpose");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<Guid>("RequestedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_export_approvals");
+
+                    b.HasIndex("HoldId")
+                        .HasDatabaseName("ix_export_approvals_hold_id");
+
+                    b.ToTable("export_approvals");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
@@ -3815,6 +3922,99 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.SensitiveAccess", b =>
+                {
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("sequence");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Sequence"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("hash");
+
+                    b.Property<byte[]>("PreviousHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("previous_hash");
+
+                    b.Property<string>("Resource")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("resource");
+
+                    b.Property<string>("ResourceId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("resource_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Sequence")
+                        .HasName("pk_sensitive_access_log");
+
+                    b.HasIndex("ActorAccountId", "At")
+                        .HasDatabaseName("ix_sensitive_access_log_actor_account_id_at");
+
+                    b.HasIndex("Resource", "ResourceId")
+                        .HasDatabaseName("ix_sensitive_access_log_resource_resource_id");
+
+                    b.ToTable("sensitive_access_log", (string)null);
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.StaffExclusion", b =>
+                {
+                    b.Property<Guid>("StaffAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staff_account_id");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("StaffAccountId", "SubjectAccountId")
+                        .HasName("pk_staff_exclusions");
+
+                    b.HasIndex("SubjectAccountId")
+                        .HasDatabaseName("ix_staff_exclusions_subject_account_id");
+
+                    b.ToTable("staff_exclusions");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.StaffMemberLink", b =>
                 {
                     b.Property<Guid>("StaffAccountId")
@@ -4269,6 +4469,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_evidence_redactions_evidence_exports_export_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ExportApproval", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_export_approvals_legal_holds_hold_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>

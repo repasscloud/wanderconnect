@@ -79,6 +79,10 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<LeNotification> LeNotifications => Set<LeNotification>();
     public DbSet<LeTransfer> LeTransfers => Set<LeTransfer>();
     public DbSet<EvidenceRedaction> EvidenceRedactions => Set<EvidenceRedaction>();
+    public DbSet<AccessGrant> AccessGrants => Set<AccessGrant>();
+    public DbSet<SensitiveAccess> SensitiveAccessLog => Set<SensitiveAccess>();
+    public DbSet<StaffExclusion> StaffExclusions => Set<StaffExclusion>();
+    public DbSet<ExportApproval> ExportApprovals => Set<ExportApproval>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -228,6 +232,37 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             transfer.Property(t => t.Recipient).HasMaxLength(LawEnforcementPolicy.ShortMax);
             transfer.Property(t => t.Method).HasMaxLength(32);
             transfer.Property(t => t.ReceiptReference).HasMaxLength(LawEnforcementPolicy.ShortMax);
+        });
+        // #88 (policy §11, §15): elevated access, the append-only sensitive-access log (a trigger refuses update and delete,
+        // see the StaffAccess migration), conflict-of-interest exclusions and bulk export approvals. No foreign keys to accounts.
+        model.Entity<AccessGrant>(grant =>
+        {
+            grant.Property(g => g.Capability).HasMaxLength(32);
+            grant.Property(g => g.Purpose).HasMaxLength(StaffAccessPolicy.PurposeMax);
+            grant.Property(g => g.RevokedReason).HasMaxLength(32);
+            grant.HasIndex(g => new { g.AccountId, g.Capability, g.ExpiresAt });
+        });
+        model.Entity<SensitiveAccess>(entry =>
+        {
+            entry.ToTable("sensitive_access_log");
+            entry.HasKey(e => e.Sequence);
+            entry.Property(e => e.Sequence).UseIdentityAlwaysColumn();
+            entry.Property(e => e.Action).HasMaxLength(16);
+            entry.Property(e => e.Resource).HasMaxLength(32);
+            entry.Property(e => e.ResourceId).HasMaxLength(64);
+            entry.HasIndex(e => new { e.ActorAccountId, e.At });
+            entry.HasIndex(e => new { e.Resource, e.ResourceId });
+        });
+        model.Entity<StaffExclusion>(exclusion =>
+        {
+            exclusion.HasKey(e => new { e.StaffAccountId, e.SubjectAccountId });
+            exclusion.Property(e => e.Reason).HasMaxLength(StaffAccessPolicy.PurposeMax);
+            exclusion.HasIndex(e => e.SubjectAccountId);
+        });
+        model.Entity<ExportApproval>(approval =>
+        {
+            approval.HasOne<LegalHold>().WithMany().HasForeignKey(a => a.HoldId).OnDelete(DeleteBehavior.Restrict);
+            approval.Property(a => a.Purpose).HasMaxLength(LegalHoldPolicy.TextMax);
         });
         model.Entity<EvidenceRedaction>(redaction =>
         {

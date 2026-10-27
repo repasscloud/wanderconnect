@@ -24,6 +24,11 @@ public static class IdentityEndpoints
             if (!current.Allows(AccountRole.Legal)) return Results.Forbid();
             if (!VerifiedIdentityPolicy.MayDecrypt(AccountRole.Legal, request.Purpose))
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Record why you need this record (up to 500 characters).");
+            // #88 (policy §11, §15): opening needs live time-limited access, and never for a member the officer has a conflict with.
+            var now = clock.GetUtcNow();
+            if (await StaffAccessEndpoints.GrantAsync(accounts.Db!, current.Account.Id, StaffAccessPolicy.IdentityOpen, now, cancellationToken) is null)
+                return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.IdentityOpen);
+            if (await StaffAccessEndpoints.ExcludedAsync(accounts.Db!, current.Account.Id, [id], cancellationToken)) return StaffAccessEndpoints.Conflict();
             if (!identities.Configured) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "The identity store isn't configured.");
             var record = await accounts.Db!.VerifiedIdentities.FindAsync([id], cancellationToken);
             var fields = record is null ? null : await identities.OpenForAsync(id, current.Account.Id, request.Purpose!, clock.GetUtcNow(), cancellationToken);

@@ -10,7 +10,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { api, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, elevate } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 
@@ -145,6 +145,9 @@ const ADELAIDE = 2078025;
 
     // Exports: purpose required, disclosures complete, one-time, the officer's own, hashes that check out.
     const exp = body => call(st.leg, `/api/v1/admin/holds/${holdId}/exports`, { method: 'POST', body });
+    // #88: exporting needs time-limited access with a recorded purpose.
+    assert.deepEqual(code(await exp({ purpose: 'Fictional' })), [403, 'elevated-access-required']); pass();
+    await elevate(st.leg, 'evidence-export', 'Fictional response to REF-HOLD-1');
     assert.deepEqual(code(await exp({ purpose: '' })), [400, 'disclosure-invalid']); pass();
     assert.deepEqual(code(await exp({ purpose: 'x', disclosure: { agency: 'SA Police (fictional)', officer: 'Fictional Officer', reference: 'REF-HOLD-1', legalBasis: 'because', verifiedHow: 'x' } })), [400, 'disclosure-invalid']); pass();
     assert.equal((await call(st.adm, `/api/v1/admin/holds/${holdId}/exports`, { method: 'POST', body: { purpose: 'x' } })).status, 403); pass();

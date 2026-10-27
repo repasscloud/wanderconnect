@@ -27,12 +27,15 @@ if (persistence && app.Environment.IsDevelopment())
 }
 app.UseAuthentication();
 app.UseAuthorization();
+// #88 (policy §11, §15): every view, query, export, change and refusal on restricted admin routes goes to the append-only log.
+app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);
 ContactHistoryEndpoints.Map(app);
+StaffAccessEndpoints.Map(app);
 Swoovr.Api.Evidence.LegalHoldEndpoints.Map(app);
 Swoovr.Api.Evidence.LawEnforcementEndpoints.Map(app);
 Swoovr.Api.Verification.IdentityEndpoints.Map(app);

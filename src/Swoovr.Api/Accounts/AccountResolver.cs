@@ -91,6 +91,8 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         // minutes; it gets the tombstone (refused everywhere), never a new profile, and the email isn't written back.
         if (account.Status == AccountStatus.Deleted)
             return new(facts, result, null, account, [], null, BetaAccess.NotRequired) { LocalPasswordStaff = LocalPasswordStaff };
+        // #88 (policy §11): a revoked staff member's sessions end; a token from a sign-in before the revocation is refused.
+        if (StaffAccessPolicy.SessionRevoked(account.SessionsRevokedAt, facts.AuthenticatedAt)) return null;
         var emailChanged = email is not null && account.Email is not null && account.Email != email;
         // D187 (policy §4): a verified email that changed (in Keycloak) goes to the encrypted contact history.
         if (emailChanged && services.GetRequiredService<ContactHistoryKeys>().Record(account.Id, ContactType.Email, account.Email!, null, now, account.Id, "changed") is { } previous)

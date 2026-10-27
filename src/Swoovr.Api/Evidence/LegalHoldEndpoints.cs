@@ -198,6 +198,29 @@ public static class LegalHoldEndpoints
             if (refusal != HoldRefusal.None) return Refused(refusal);
             if (string.IsNullOrWhiteSpace(request.Purpose) || request.Purpose.Length > LegalHoldPolicy.TextMax)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.DisclosureInvalid, "Record the purpose of this export.");
+            // #88 (policy §11, §15): exporting needs live time-limited access; a bulk export also needs a second officer's approval.
+            if (await StaffAccessEndpoints.GrantAsync(db, me, StaffAccessPolicy.EvidenceExport, now, cancellationToken) is null)
+                return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.EvidenceExport);
+            ExportApproval? approval = null;
+            var scopeCount = await db.LegalHoldScopes.CountAsync(s => s.HoldId == hold!.Id && s.Kind == HoldScopeKind.Account, cancellationToken);
+            if (StaffAccessPolicy.Bulk(scopeCount, await db.EvidenceItems.CountAsync(i => i.HoldId == hold!.Id, cancellationToken)))
+            {
+                approval = request.ApprovalId is { } approvalId ? await db.ExportApprovals.FindAsync([approvalId], cancellationToken) : null;
+                if (!StaffAccessPolicy.ApprovalUsable(approval, me, hold!.Id, now))
+                {
+                    var pending = await db.ExportApprovals.Where(a => a.HoldId == hold.Id && a.RequestedBy == me && a.UsedAt == null && a.RequestedAt > now - StaffAccessPolicy.ApprovalLifetime)
+                        .OrderByDescending(a => a.RequestedAt).FirstOrDefaultAsync(cancellationToken);
+                    if (pending is null)
+                    {
+                        pending = new ExportApproval { Id = Guid.NewGuid(), HoldId = hold.Id, RequestedBy = me, Purpose = request.Purpose.Trim(), RequestedAt = now };
+                        db.ExportApprovals.Add(pending);
+                        Audit.Record(db, now, me, "account", "evidence.bulk-requested", "legal-hold", hold.Id.ToString(), pending.Id.ToString());
+                        await db.SaveChangesAsync(cancellationToken);
+                    }
+                    return Results.Problem(statusCode: StatusCodes.Status409Conflict, title: "A bulk export needs another officer's approval.",
+                        extensions: new Dictionary<string, object?> { ["code"] = ProblemCodes.BulkExportApprovalRequired, ["approvalId"] = pending.Id });
+                }
+            }
             // D195 (§8): an export for a case must be from a hold serving that case; a correction names the downloaded package
             // it supplements and why, and never replaces it; redactions apply to the disclosure copy only (§6).
             if (request.LeCaseId is { } exportCase && hold!.LeCaseId != exportCase)
@@ -240,6 +263,7 @@ public static class LegalHoldEndpoints
                 LeCaseId = request.LeCaseId, SupplementsExportId = request.SupplementsExportId, CorrectionReason = request.CorrectionReason?.Trim(),
             };
             db.EvidenceExports.Add(export);
+            if (approval is not null) approval.UsedAt = now;
             db.EvidenceRedactions.AddRange(redactions.Select(r => new EvidenceRedaction
             {
                 Id = Guid.NewGuid(), ExportId = export.Id, ItemId = r.ItemId, Fields = string.Join(',', r.Fields!.Select(f => f.Trim())), Reason = r.Reason!.Trim(),
@@ -265,6 +289,9 @@ public static class LegalHoldEndpoints
             var hold = export is null ? null : await db.LegalHolds.FindAsync([export.HoldId], cancellationToken);
             // Only the officer who created it, once, within 15 minutes, while the hold is live.
             if (!LegalHoldPolicy.ExportUsable(export, hold, now) || export!.CreatedBy != me) return Unavailable();
+            // #88: the download needs the officer's access to still be live.
+            if (await StaffAccessEndpoints.GrantAsync(db, me, StaffAccessPolicy.EvidenceExport, now, cancellationToken) is null)
+                return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.EvidenceExport);
             export.DownloadedAt = now;
             var items = await db.EvidenceItems.Where(i => i.HoldId == hold!.Id).OrderBy(i => i.Capture).ThenBy(i => i.Kind).ThenBy(i => i.RecordId).ToListAsync(cancellationToken);
             // D195 (§6): redactions change the disclosure copy only; the preserved original and its hash never change.
@@ -395,6 +422,9 @@ public static class LegalHoldEndpoints
         // D195 (§5): staff implicated in the hold's law-enforcement case never reach it or its evidence.
         if (hold.LeCaseId is { } leCase && await accounts.Db.LeCasePeople.AnyAsync(p => p.CaseId == leCase && p.Kind == "implicated-staff" && p.AccountId == current!.Account!.Id, cancellationToken))
             return (null, null, Results.Forbid());
+        // #88 (§5): nor does an officer with a conflict of interest over anyone the hold names.
+        if (await StaffAccessEndpoints.ExcludedAsync(accounts.Db, current!.Account!.Id, await StaffAccessEndpoints.HoldAccountsAsync(accounts.Db, hold.Id, cancellationToken), cancellationToken))
+            return (null, null, StaffAccessEndpoints.Conflict());
         return (current, hold, null);
     }
 

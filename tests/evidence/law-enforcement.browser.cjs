@@ -10,7 +10,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, web, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { api, web, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, elevate } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 const LE = '/api/v1/admin/law-enforcement';
@@ -156,6 +156,7 @@ const OFFICER = 'Detective Fictional Officer';
     const holdDetail = (await call(st.a, `/api/v1/admin/holds/${tempId}`)).body;
     const message = holdDetail.items.find(i => i.kind === 'message');
     const exp = body => call(st.a, `/api/v1/admin/holds/${tempId}/exports`, { method: 'POST', body: { purpose: 'Fictional disclosure for the case', leCaseId: caseId, ...body } });
+    await elevate(st.a, 'evidence-export', 'Fictional disclosure for the case'); // #88
     assert.deepEqual(code(await exp({ leCaseId: critical })), [400, 'le-case-invalid'], 'the hold serves another case'); pass();
     assert.deepEqual(code(await exp({ redactions: [{ itemId: crypto.randomUUID(), fields: ['message.body'], reason: 'x' }] })), [400, 'le-case-invalid']); pass();
     assert.deepEqual(code(await exp({ redactions: [{ itemId: message.id, fields: [], reason: 'x' }] })), [400, 'le-case-invalid']); pass();
