@@ -16,6 +16,10 @@ else
         <div><dt>Review due</dt><dd data-review-due>@h.ReviewDue.ToString("d MMM yyyy") @if (h.Overdue) { <strong data-overdue>overdue</strong> }</dd></div>
         <div><dt>Period</dt><dd>@(h.From?.ToString("d MMM yyyy") ?? "from the start") – @(h.Until?.ToString("d MMM yyyy") ?? "until released")</dd></div>
         @if (h.CaseId is { } caseId) { <div><dt>Case</dt><dd>@caseId</dd></div> }
+        @if (h.LeCaseId is { } leCase) { <div><dt>Law-enforcement case</dt><dd><a href="/law-enforcement/@leCase" data-hold-le-case="@leCase">Open case</a> · @h.RequestingBody</dd></div> }
+        @if (h.Kind is not null) { <div><dt>Kind</dt><dd data-hold-kind="@h.Kind">Temporary police preservation (review within 30 days; review is not release)</dd></div> }
+        @if (h.LawfulBasis is not null) { <div><dt>Lawful basis</dt><dd>@h.LawfulBasis</dd></div> }
+        <div><dt>Overlapping holds</dt><dd data-overlaps="@h.Overlaps">@h.Overlaps</dd></div>
         <div><dt>Custody log</dt><dd data-chain="@(h.ChainIntact ? "intact" : "broken")">@(h.ChainIntact ? "intact" : "BROKEN: report this as a security incident")</dd></div>
     </dl>
     <h2>Reason</h2><blockquote>@h.Reason</blockquote>
@@ -58,13 +62,22 @@ else
                     </select></label>
                 <label>How the request was verified<input name="verified" maxlength="200" /></label>
             </fieldset>
+            <fieldset><legend>Correction or redaction (optional; the preserved original never changes)</legend>
+                <label>Corrects export id<input name="supplements" /></label>
+                <label>Why (correction reason)<input name="correction" maxlength="1000" /></label>
+                <label>Redact item id<input name="redactItem" /></label>
+                <label>Fields (dotted paths, comma-separated, e.g. message.body)<input name="redactFields" maxlength="500" /></label>
+                <label>Redaction reason<input name="redactReason" maxlength="1000" /></label>
+            </fieldset>
             <button type="submit" data-export>Create one-time export link</button>
         </form>
         <h2>Release</h2>
         <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="row" data-enhance="false">
             <AntiforgeryToken />
             <input name="reason" placeholder="Why the preservation need has ended" maxlength="1000" required />
+            @if (h.Overlaps > 0) { <label><input type="checkbox" name="overlaps" value="true" /> I checked the @h.Overlaps other live hold(s) on these accounts</label> }
             <button type="submit" class="secondary" data-release>Release and erase preserved items</button>
+            <span class="help">Only an officer who neither placed nor confirmed this hold can release it.</span>
         </form>
     }
     <h2>Preserved items (@h.Items.Count)</h2>
@@ -72,6 +85,11 @@ else
     <table data-items="@h.Items.Count"><thead><tr><th>Capture</th><th>Kind</th><th>Source</th><th>Captured</th><th>SHA-256</th></tr></thead><tbody>
         @foreach (var i in h.Items) { <tr><td>@i.Capture</td><td>@i.Kind</td><td>@i.Source/@i.RecordId</td><td>@i.CapturedAt.ToString("d MMM HH:mm")</td><td><code>@i.Sha256[..16]…</code></td></tr> }
     </tbody></table>
+    @if (h.Exports is { Count: > 0 } exports)
+    {
+        <h2>Exports (@exports.Count)</h2>
+        <ul class="list" data-exports="@exports.Count">@foreach (var e in exports) { <li data-export-id="@e.Id"><code>@e.Id</code> · @e.CreatedAt.ToLocalTime().ToString("d MMM HH:mm") · @(e.DownloadedAt is null ? "not downloaded" : $"package {e.PackageSha256?[..16]}…") @if (e.SupplementsExportId is { } s) { <span> · corrects <code>@s</code></span> } @if (e.Redactions > 0) { <span> · @e.Redactions redaction(s)</span> }</li> }</ul>
+    }
     <h2>Disclosures (@h.Disclosures.Count)</h2>
     <ul class="list" data-disclosures="@h.Disclosures.Count">@foreach (var d in h.Disclosures) { <li>@d.Agency · @d.Officer · @d.Reference · @d.LegalBasis · @d.DisclosedAt.ToString("d MMM yyyy HH:mm")</li> }</ul>
     <h2>Chain of custody</h2>
@@ -107,12 +125,16 @@ else
 
     private async Task ReviewAsync() => await Show(await Admin.ReviewHoldAsync(Id, Holds.Date(Field("due"))), "Review recorded.");
 
-    private async Task ReleaseAsync() => await Show(await Admin.ReleaseHoldAsync(Id, Field("reason")), "Hold released; its preserved items were erased.");
+    private async Task ReleaseAsync() => await Show(await Admin.ReleaseHoldAsync(Id, Field("reason"), Field("overlaps") == "true"), "Hold released; its preserved items were erased.");
 
     private async Task ExportAsync()
     {
         var disclosure = Field("basis") is { Length: > 0 } basis ? new DisclosureRequest(Field("agency"), Field("officer"), Field("reference"), basis, Field("verified")) : null;
-        var result = await Admin.CreateExportAsync(Id, new EvidenceExportRequest(Field("purpose"), disclosure));
+        Guid? supplements = Guid.TryParse(Field("supplements"), out var s) ? s : null;
+        List<RedactionRequest>? redactions = Guid.TryParse(Field("redactItem"), out var item)
+            ? [new RedactionRequest(item, Field("redactFields").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), Field("redactReason"))] : null;
+        var result = await Admin.CreateExportAsync(Id, new EvidenceExportRequest(Field("purpose"), disclosure, detail?.LeCaseId, supplements,
+            string.IsNullOrWhiteSpace(Field("correction")) ? null : Field("correction"), redactions));
         (link, resultCode) = (result.Value, result.Ok ? "ok" : result.Code ?? result.Status.ToString());
         message = result.Ok ? (disclosure is null ? "Export link created." : "Disclosure recorded and export link created.") : HoldText.Refusal(result.Status, result.Code);
         await LoadAsync();

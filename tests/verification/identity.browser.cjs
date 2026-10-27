@@ -10,7 +10,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, membersRealm, mailTo } = require('../auth/local-tokens.cjs');
+const { api, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, membersRealm, mailTo, elevate } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
@@ -85,6 +85,11 @@ async function latestText(number, pattern) {
     assert.equal(r.status, 200); assert.ok(r.body.identityOnFileSince); assert.equal(r.body.identityIssuingCountry, 'AUS'); pass();
     assert.ok(!JSON.stringify(r.body).includes('Annabel')); pass();
     const open = (token, id, purpose) => call(token, `/api/v1/admin/accounts/${id}/identity`, { method: 'POST', body: { purpose } });
+    // #88: opening needs time-limited access with a recorded purpose.
+    if (!(await call(st.leg, '/api/v1/admin/access/grants')).body.some(g => g.active && g.capability === 'identity-open'))
+      assert.deepEqual(code(await open(st.leg, ids.ana, 'Fictional check')), [403, 'elevated-access-required']);
+    pass();
+    await elevate(st.leg, 'identity-open', 'Fictional police request REF-IDN-1');
     for (const [who, token] of [['admin', st.adm], ['support', st.sup], ['member', tokens.ana], ['root admin without the role', root]])
       assert.equal((await open(token, ids.ana, 'x')).status, 403, who);
     pass();
@@ -122,6 +127,7 @@ async function latestText(number, pattern) {
     assert.equal((await call(tokens.ter, '/api/v1/me/phone', { method: 'POST', body: { number: local(158) } })).status, 200);
     const terCode = (await latestText(e164(158), /Your Swoovr code is \d{6}/)).match(/(\d{6})/)[1];
     assert.equal((await call(tokens.ter, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(158), code: terCode } })).status, 200);
+    await elevate(root, 'termination', 'Fictional termination for the identity suite');
     assert.equal((await call(root, `/api/v1/admin/accounts/${ids.ter}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional termination', hideFromDiscovery: false, noNewRequests: false, noMessages: false } })).status, 200);
     tokens.ter = await memberToken(browser, members.ter);
     assert.equal((await call(tokens.ter, '/api/v1/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);

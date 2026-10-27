@@ -9,7 +9,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin, cli, sql, call, claims, mailTo, matchReady } = require('../auth/local-tokens.cjs');
+const { web, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, fillRootAdmin, cli, sql, call, claims, mailTo, matchReady, elevate } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, MELBOURNE = 2158177;
 
@@ -214,6 +214,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     // Termination is permanent and admin-only.
     root = await rootAdminToken(browser); // a fresh sign-in for the sensitive action
     assert.deepEqual(code(await call(st.sup, `/api/v1/admin/accounts/${ids.far}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
+    await elevate(root, 'termination', 'Fictional termination for the moderation suite'); // #88
     assert.equal((await call(root, `/api/v1/admin/accounts/${ids.far}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional: termination test.' } })).status, 200); pass();
     r = await call(tokens.far, '/api/v1/me/profile');
     assert.deepEqual(code(r), [403, 'account-suspended']); assert.match(r.body.title, /closed/); pass();

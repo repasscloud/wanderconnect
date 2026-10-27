@@ -47,6 +47,14 @@ else
     <ul class="list" data-evidence>
         @foreach (var e in detail.Evidence) { <li><span class="help">@e.Kind, captured @e.CapturedAt.ToString("d MMM HH:mm")</span><pre>@e.Snapshot</pre></li> }
     </ul>
+    @if (shownAtReport is { } shown)
+    {
+        @* #91: what others could see of the subject when the first report was made, mode by mode. *@
+        <h2>Profile as shown when reported (@shown.ReportedAt.ToLocalTime().ToString("d MMM HH:mm"))</h2>
+        <ul class="list" data-profile-at-report="@shown.Versions.Count">
+            @foreach (var v in shown.Versions) { <li data-profile-version="@v.Mode"><span class="help">@v.Mode, version of @v.CapturedAt.ToLocalTime().ToString("d MMM HH:mm")</span><pre>@v.ContentJson</pre></li> }
+        </ul>
+    }
 
     <h2>Action</h2>
     @if (c.Status != "closed")
@@ -109,7 +117,10 @@ else
         var result = await Admin.CaseAsync(Id);
         detail = result.Value;
         if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
+        shownAtReport = result.Ok ? (await Admin.ProfileAtReportAsync(Id)).Value : null;
     }
+
+    private ProfileAtReport? shownAtReport;
 
     private async Task StepAsync()
     {

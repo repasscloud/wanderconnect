@@ -658,6 +658,10 @@ public static class ModerationEndpoints
         // DEFAULT: suspension and termination need a sign-in within the last 15 minutes, like other sensitive admin actions.
         if (action is ModerationAction.Suspend or ModerationAction.Terminate && !current.RecentlyAuthenticated(now))
             return Problem(StatusCodes.Status403Forbidden, ProblemCodes.StaleSession, "Sign in again to do this.");
+        // #88 (policy §11, §15): termination needs live time-limited access; a declared conflict of interest refuses any action.
+        if (action == ModerationAction.Terminate && await StaffAccessEndpoints.GrantAsync(db, current.Account.Id, StaffAccessPolicy.Termination, now, cancellationToken) is null)
+            return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.Termination);
+        if (await StaffAccessEndpoints.ExcludedAsync(db, current.Account.Id, [subjectId], cancellationToken)) return StaffAccessEndpoints.Conflict();
         Sanction? sanction = null;
         if (action != ModerationAction.Dismiss)
         {

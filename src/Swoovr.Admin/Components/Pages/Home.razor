@@ -9,7 +9,14 @@
         <li><a href="/holds"><strong data-overdue-holds>@holds.Overdue</strong> holds overdue for review</a></li>
     </ul>
 }
-@if (legalOnly) { <p data-legal-home>You're signed in as the security and legal officer. <a href="/holds">Open legal holds</a> or the <a href="/disclosures">disclosure register</a>.</p> }
+@if (legalOnly) { <p data-legal-home>You're signed in as the security and legal officer. <a href="/law-enforcement">Law-enforcement cases</a>, <a href="/holds">legal holds</a> or the <a href="/disclosures">disclosure register</a>.</p> }
+@if (le is { Open: > 0 } || le is { RetrospectivesDue: > 0 })
+{
+    <ul class="tiles" data-le-home>
+        <li><a href="/law-enforcement"><strong>@le.Open</strong> open law-enforcement cases</a></li>
+        <li><a href="/law-enforcement"><strong>@le.Overdue</strong> overdue responses or updates</a></li>
+    </ul>
+}
 else if (refused is not null)
 {
     <p class="notice" role="alert" data-refused="@status">@refused <a href="/sign-in?reauth=true">Sign in again</a></p>
@@ -28,9 +35,12 @@ else
     private string? refused;
     private HoldOverview? holds;
     private bool legalOnly;
+    private LeOverview? le;
 
     protected override async Task OnInitializedAsync()
     {
+        // D195: the officer's case timers (refused for everyone else, so it simply doesn't show).
+        le = (await Admin.LeOverviewAsync()).Value;
         // D189: overdue hold reviews head the page for admins and the security and legal officer.
         var overview = await Admin.HoldOverviewAsync();
         holds = overview.Value is { Live: > 0 } ? overview.Value : null;

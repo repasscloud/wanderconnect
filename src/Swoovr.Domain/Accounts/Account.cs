@@ -31,6 +31,8 @@ public sealed class Account
     /// <summary>The member also asked for their founder recovery token to go at final deletion (D173, #22).</summary>
     public bool DeleteFounderToken { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+    /// <summary>#88 (policy §11): when a staff member's access was revoked; sessions authenticated before it are refused.</summary>
+    public DateTimeOffset? SessionsRevokedAt { get; set; }
 }
 
 /// <summary>An application role (Admin, Support, VenuePartner). Members hold Member implicitly.</summary>

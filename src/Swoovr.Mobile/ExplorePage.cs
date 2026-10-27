@@ -89,7 +89,8 @@ public sealed class ExplorePage : ContentPage
 			new HorizontalStackLayout { Spacing = 8, Children = { Ui.Text(person.DisplayName, "TileName", $"Person_{person.Id}"), Ui.BadgeRow(person.Badges, $"Badges_{person.Id}") } },
 			Ui.Text(details.Length == 0 ? null : details, "FooterClaims", $"Details_{person.Id}"),
 			Ui.Text(string.Join(" · ", person.Intentions), "FooterClaims"),
-			Ui.Text(person.Area, "TileArea"),
+			// #90: a rounded distance band between home cities, never a distance.
+			Ui.Text(string.Join(" · ", new[] { person.Area, person.DistanceBand }.Where(x => !string.IsNullOrEmpty(x))), "TileArea"),
 			Ui.Button("View profile", $"Open_{person.Id}", () => Ui.PushAsync(new PersonPage(person.Id, selected)), primary: false));
 		card.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(async () => await Ui.PushAsync(new PersonPage(person.Id, selected))) });
 		return card;

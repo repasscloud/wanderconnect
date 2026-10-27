@@ -128,6 +128,7 @@ public partial class MainPage : ContentPage
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 	private async void OnSafety(object? sender, EventArgs e) => await Ui.PushAsync(new SafetyPage());
 	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());
+	private async void OnPrivacy(object? sender, EventArgs e) => await Ui.PushAsync(new PrivacyPage());
 	private async void OnPhone(object? sender, EventArgs e) => await Ui.PushAsync(new PhonePage());
 
 	private async void OnSignIn(object? sender, EventArgs e)

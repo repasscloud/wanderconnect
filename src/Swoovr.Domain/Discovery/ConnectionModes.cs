@@ -33,8 +33,10 @@ public sealed class MemberMode
     public bool Enabled { get; set; }
     /// <summary>Whether others in this mode can find the member; only counts while the mode is enabled.</summary>
     public bool Visible { get; set; }
-    /// <summary>D175: an "about" for this mode only; null shows the core profile's about in this mode.</summary>
+    /// <summary>D175: an "about" for this mode only. Without one, the core about shows here only with consent (#91).</summary>
     public string? About { get; set; }
+    /// <summary>#91 (policy §6): the member agreed to show their core about in this mode. Null (never asked) means no.</summary>
+    public bool? ShareCoreAbout { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
@@ -118,7 +120,11 @@ public static class ProfileTextPolicy
 /// </summary>
 public static class ModePrivacy
 {
-    public static string? About(string? modeAbout, string? coreAbout) => modeAbout ?? coreAbout;
+    /// <summary>
+    /// #91 (policy §6) replaces D175's fallback: the mode's own about, else the core about only when the member agreed to
+    /// show it in this mode; content never crosses modes without consent.
+    /// </summary>
+    public static string? About(string? modeAbout, string? coreAbout, bool? shareCoreAbout) => modeAbout ?? (shareCoreAbout == true ? coreAbout : null);
 
     /// <summary>
     /// The modes one profile view shows, in the shared order. With a requested mode: that mode (only when shared) and the

@@ -73,6 +73,19 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<VerifiedIdentity> VerifiedIdentities => Set<VerifiedIdentity>();
     public DbSet<IdentityAccess> IdentityAccesses => Set<IdentityAccess>();
     public DbSet<TerminatedPhoneHold> TerminatedPhoneHolds => Set<TerminatedPhoneHold>();
+    public DbSet<LeCase> LeCases => Set<LeCase>();
+    public DbSet<LeRequest> LeRequests => Set<LeRequest>();
+    public DbSet<LeCasePerson> LeCasePeople => Set<LeCasePerson>();
+    public DbSet<LeNotification> LeNotifications => Set<LeNotification>();
+    public DbSet<LeTransfer> LeTransfers => Set<LeTransfer>();
+    public DbSet<EvidenceRedaction> EvidenceRedactions => Set<EvidenceRedaction>();
+    public DbSet<AccessGrant> AccessGrants => Set<AccessGrant>();
+    public DbSet<SensitiveAccess> SensitiveAccessLog => Set<SensitiveAccess>();
+    public DbSet<StaffExclusion> StaffExclusions => Set<StaffExclusion>();
+    public DbSet<ExportApproval> ExportApprovals => Set<ExportApproval>();
+    public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
+    public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
+    public DbSet<ProfileVersion> ProfileVersions => Set<ProfileVersion>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -158,6 +171,130 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             disclosure.Property(d => d.Reference).HasMaxLength(200);
             disclosure.Property(d => d.LegalBasis).HasMaxLength(32);
             disclosure.Property(d => d.VerifiedHow).HasMaxLength(200);
+        });
+        model.Entity<LegalHold>(hold =>
+        {
+            hold.Property(h => h.LawfulBasis).HasMaxLength(LawEnforcementPolicy.ShortMax);
+            hold.Property(h => h.RequestingBody).HasMaxLength(LawEnforcementPolicy.ShortMax);
+            hold.Property(h => h.Kind).HasMaxLength(32);
+            hold.HasIndex(h => h.LeCaseId);
+        });
+        model.Entity<EvidenceExport>(export =>
+        {
+            export.Property(e => e.CorrectionReason).HasMaxLength(LegalHoldPolicy.TextMax);
+            export.HasIndex(e => e.LeCaseId);
+        });
+        // D195 (procedure §14): restricted law-enforcement case management, in the `restricted` schema beside the identity
+        // store (a separate database role when hosted, #89). No foreign keys to accounts, so records outlive deletion.
+        model.Entity<LeCase>(item =>
+        {
+            item.ToTable("le_cases", "restricted");
+            item.HasIndex(c => c.Reference).IsUnique();
+            item.HasIndex(c => new { c.Status, c.ReceivedAt });
+            item.HasIndex(c => c.RetainUntil);
+            foreach (var name in new[] { nameof(LeCase.Reference), nameof(LeCase.Channel), nameof(LeCase.AgencyCountry), nameof(LeCase.VerificationSource), nameof(LeCase.LegalInstrument) })
+                item.Property(name).HasMaxLength(32);
+            foreach (var name in new[] { nameof(LeCase.Agency), nameof(LeCase.AgencyReference), nameof(LeCase.OfficerName), nameof(LeCase.OfficerRank),
+                         nameof(LeCase.OfficerServiceNumber), nameof(LeCase.OfficerEmail), nameof(LeCase.OfficerPhone) })
+                item.Property(name).HasMaxLength(LawEnforcementPolicy.ShortMax);
+            foreach (var name in new[] { nameof(LeCase.VerificationEvidence), nameof(LeCase.LegalAssessment), nameof(LeCase.App65Note),
+                         nameof(LeCase.ConfidentialityAssessment), nameof(LeCase.ClosureNote) })
+                item.Property(name).HasMaxLength(LawEnforcementPolicy.TextMax);
+        });
+        model.Entity<LeRequest>(request =>
+        {
+            request.ToTable("le_requests", "restricted");
+            request.HasOne<LeCase>().WithMany().HasForeignKey(r => r.CaseId).OnDelete(DeleteBehavior.Cascade);
+            request.Property(r => r.Kind).HasMaxLength(32);
+            request.Property(r => r.Status).HasMaxLength(32);
+            request.Property(r => r.Description).HasMaxLength(LawEnforcementPolicy.TextMax);
+            request.Property(r => r.DecisionReason).HasMaxLength(LawEnforcementPolicy.TextMax);
+            request.Property(r => r.RetrospectiveNote).HasMaxLength(LawEnforcementPolicy.TextMax);
+        });
+        model.Entity<LeCasePerson>(person =>
+        {
+            person.ToTable("le_case_people", "restricted");
+            person.HasKey(p => new { p.CaseId, p.AccountId });
+            person.HasOne<LeCase>().WithMany().HasForeignKey(p => p.CaseId).OnDelete(DeleteBehavior.Cascade);
+            person.Property(p => p.Kind).HasMaxLength(32);
+            person.HasIndex(p => p.AccountId);
+        });
+        model.Entity<LeNotification>(notice =>
+        {
+            notice.ToTable("le_notifications", "restricted");
+            notice.HasOne<LeCase>().WithMany().HasForeignKey(n => n.CaseId).OnDelete(DeleteBehavior.Cascade);
+            notice.Property(n => n.Decision).HasMaxLength(16);
+            notice.Property(n => n.Reason).HasMaxLength(LawEnforcementPolicy.TextMax);
+            notice.HasIndex(n => new { n.CaseId, n.AccountId });
+            notice.HasIndex(n => n.ReconsiderAt);
+        });
+        model.Entity<LeTransfer>(transfer =>
+        {
+            transfer.ToTable("le_transfers", "restricted");
+            transfer.HasOne<LeCase>().WithMany().HasForeignKey(t => t.CaseId).OnDelete(DeleteBehavior.Cascade);
+            transfer.Property(t => t.Recipient).HasMaxLength(LawEnforcementPolicy.ShortMax);
+            transfer.Property(t => t.Method).HasMaxLength(32);
+            transfer.Property(t => t.ReceiptReference).HasMaxLength(LawEnforcementPolicy.ShortMax);
+        });
+        // #88 (policy §11, §15): elevated access, the append-only sensitive-access log (a trigger refuses update and delete,
+        // see the StaffAccess migration), conflict-of-interest exclusions and bulk export approvals. No foreign keys to accounts.
+        model.Entity<AccessGrant>(grant =>
+        {
+            grant.Property(g => g.Capability).HasMaxLength(32);
+            grant.Property(g => g.Purpose).HasMaxLength(StaffAccessPolicy.PurposeMax);
+            grant.Property(g => g.RevokedReason).HasMaxLength(32);
+            grant.HasIndex(g => new { g.AccountId, g.Capability, g.ExpiresAt });
+        });
+        model.Entity<SensitiveAccess>(entry =>
+        {
+            entry.ToTable("sensitive_access_log");
+            entry.HasKey(e => e.Sequence);
+            entry.Property(e => e.Sequence).UseIdentityAlwaysColumn();
+            entry.Property(e => e.Action).HasMaxLength(16);
+            entry.Property(e => e.Resource).HasMaxLength(32);
+            entry.Property(e => e.ResourceId).HasMaxLength(64);
+            entry.HasIndex(e => new { e.ActorAccountId, e.At });
+            entry.HasIndex(e => new { e.Resource, e.ResourceId });
+        });
+        model.Entity<StaffExclusion>(exclusion =>
+        {
+            exclusion.HasKey(e => new { e.StaffAccountId, e.SubjectAccountId });
+            exclusion.Property(e => e.Reason).HasMaxLength(StaffAccessPolicy.PurposeMax);
+            exclusion.HasIndex(e => e.SubjectAccountId);
+        });
+        model.Entity<ExportApproval>(approval =>
+        {
+            approval.HasOne<LegalHold>().WithMany().HasForeignKey(a => a.HoldId).OnDelete(DeleteBehavior.Restrict);
+            approval.Property(a => a.Purpose).HasMaxLength(LegalHoldPolicy.TextMax);
+        });
+        // #90: search events (a day, for the hourly limits); #91: profile versions for moderation and holds.
+        model.Entity<SearchEvent>(search =>
+        {
+            search.Property(s => s.Kind).HasMaxLength(16);
+            search.HasIndex(s => new { s.AccountId, s.Kind, s.At });
+            search.HasIndex(s => s.At);
+        });
+        model.Entity<ProfileVersion>(version =>
+        {
+            version.Property(v => v.ModeId).HasMaxLength(32);
+            version.Property(v => v.ContentJson).HasMaxLength(8000);
+            version.HasIndex(v => new { v.AccountId, v.ModeId, v.CapturedAt });
+        });
+        // #89 (policy §12): security incidents with severity levels and the NDB assessment.
+        model.Entity<SecurityIncident>(incident =>
+        {
+            incident.Property(i => i.Kind).HasMaxLength(32);
+            incident.Property(i => i.Summary).HasMaxLength(SecurityOperationsPolicy.SummaryMax);
+            incident.Property(i => i.AssessmentReason).HasMaxLength(SecurityOperationsPolicy.SummaryMax);
+            incident.HasIndex(i => new { i.Status, i.Severity });
+            incident.HasIndex(i => new { i.Kind, i.SubjectStaffId, i.DetectedAt });
+        });
+        model.Entity<EvidenceRedaction>(redaction =>
+        {
+            redaction.HasOne<EvidenceExport>().WithMany().HasForeignKey(r => r.ExportId).OnDelete(DeleteBehavior.Restrict);
+            redaction.Property(r => r.Fields).HasMaxLength(500);
+            redaction.Property(r => r.Reason).HasMaxLength(LegalHoldPolicy.TextMax);
+            redaction.HasIndex(r => r.ExportId);
         });
         // D191 (policy §2.3, §16): the verified identity store lives in its own `restricted` schema, ready for a separate
         // database role when hosted (#89). No foreign key, so a terminated member's record can outlive the tombstone.

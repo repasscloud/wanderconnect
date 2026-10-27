@@ -88,5 +88,12 @@ app.MapGet("/holds/exports/{token}", async (string token, Swoovr.Client.AdminCli
     return body is null ? Results.Content($"<!doctype html><title>Export unavailable — Swoovr admin</title><p data-export-status=\"{status}\">This export link has expired, was already used, or isn't yours.</p><p><a href=\"/holds\">Legal holds</a></p>", "text/html", statusCode: status == 401 ? 401 : 404)
         : Results.File(body, "application/json", "swoovr-evidence.json");
 }).RequireAuthorization();
+// D195 (§13): the quarterly audit export, with no case content.
+app.MapGet("/law-enforcement/audit-export", async (string? quarter, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
+{
+    var (status, body) = await admin.LeAuditExportAsync(quarter ?? "", cancellationToken);
+    return body is null ? Results.Content($"<!doctype html><title>Audit export unavailable — Swoovr admin</title><p data-audit-status=\"{status}\">That quarter isn't available to you.</p><p><a href=\"/law-enforcement/transparency\">Back</a></p>", "text/html", statusCode: status is 400 or 401 or 403 ? status : 404)
+        : Results.File(body, "application/json", $"swoovr-le-audit-{quarter}.json");
+}).RequireAuthorization();
 app.MapRazorComponents<App>().RequireAuthorization();
 app.Run();

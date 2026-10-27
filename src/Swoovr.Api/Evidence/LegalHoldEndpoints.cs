@@ -64,6 +64,32 @@ public static class LegalHoldEndpoints
             if (conversationIds.Count > 0 && (conversationIds.Count > LegalHoldPolicy.ScopeMax || await db.Conversations.CountAsync(c => conversationIds.Contains(c.Id)
                     && (accountIds.Contains(c.PairLow) || accountIds.Contains(c.PairHigh)), cancellationToken) != conversationIds.Count))
                 return Refused(HoldRefusal.ScopeRequired);
+            // D195 (§7): a hold serving a law-enforcement case records it and the requesting body; a temporary police
+            // preservation hold needs a verified case, covers only its subjects and is reviewed within 30 days.
+            LeCase? leCase = null;
+            if (request.Kind is not (null or LawEnforcementPolicy.PolicePreservation)) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "Unknown hold kind.");
+            if (request.LeCaseId is { } leCaseId)
+            {
+                if (role != AccountRole.Legal) return Results.Forbid();
+                leCase = await db.LeCases.FindAsync([leCaseId], cancellationToken);
+                if (leCase is null) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "No such law-enforcement case.");
+                var people = await db.LeCasePeople.Where(p => p.CaseId == leCaseId).ToListAsync(cancellationToken);
+                if (LawEnforcementPolicy.Excluded(people, current!.Account!.Id)) return Results.Forbid();
+                if (request.Kind == LawEnforcementPolicy.PolicePreservation)
+                {
+                    switch (LawEnforcementPolicy.CheckTemporaryHold(leCase, request.ReviewDue, now))
+                    {
+                        case LeRefusal.Closed: return Problem(StatusCodes.Status409Conflict, ProblemCodes.LeCaseClosed, "The case is closed.");
+                        case LeRefusal.NotVerified: return Problem(StatusCodes.Status409Conflict, ProblemCodes.LeNotVerified, "Verify the requester independently first.");
+                        case LeRefusal.ReviewTooFar: return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeDateInvalid, "A temporary police preservation hold is reviewed within 30 days.");
+                    }
+                    var subjects = people.Where(p => p.Kind == "subject").Select(p => p.AccountId).ToHashSet();
+                    if (accountIds.Any(a => !subjects.Contains(a))) return Refused(HoldRefusal.ScopeRequired);
+                }
+            }
+            else if (request.Kind == LawEnforcementPolicy.PolicePreservation)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "A temporary police preservation hold belongs to a law-enforcement case.");
+            if (request.LawfulBasis is { Length: > LawEnforcementPolicy.ShortMax }) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "Shorten the lawful basis.");
             if (request.CaseId is { } caseId)
             {
                 var item = await db.ModerationCases.FindAsync([caseId], cancellationToken);
@@ -76,8 +102,9 @@ public static class LegalHoldEndpoints
                     if (accountIds.Any(a => !people.Contains(a))) return Refused(HoldRefusal.ScopeRequired);
                 }
             }
+            var review = request.Kind == LawEnforcementPolicy.PolicePreservation ? request.ReviewDue ?? now + LawEnforcementPolicy.TemporaryHoldMax : request.ReviewDue;
             var hold = await PlaceAsync(db, evidence, role, current!.Account!.Id, request.Reason!.Trim(), accountIds, conversationIds, request.From, request.Until,
-                request.ReviewDue, request.ReleaseConditions, request.CaseId, "staff", now, cancellationToken);
+                review, request.ReleaseConditions, request.CaseId, "staff", now, cancellationToken, leCase, request.Kind, request.LawfulBasis?.Trim());
             // A summary only: an admin who opened a provisional hold doesn't get to read it.
             return Results.Created($"/api/v1/admin/holds/{hold.Id}", new LegalHoldSummary(hold.Id, Wire(hold.Status), hold.Source, hold.CaseId, hold.PlacedAt,
                 hold.ReviewDue, false, accountIds.Count, await db.EvidenceItems.CountAsync(i => i.HoldId == hold.Id, cancellationToken)));
@@ -92,7 +119,11 @@ public static class LegalHoldEndpoints
             await evidence.CustodyAsync(hold!.Id, current!.Account!.Id, "viewed", null, now, cancellationToken);
             Audit.Record(db, now, current.Account.Id, "account", "hold.viewed", "legal-hold", hold.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(await DetailAsync(db, hold, now, cancellationToken));
+            var detail = await DetailAsync(db, hold, now, cancellationToken);
+            // #89: a broken custody chain is a critical security incident.
+            if (!detail.ChainIntact)
+                await accounts.Services.GetRequiredService<Security.SecurityAlerts>().ChainBrokenAsync("custody-chain-broken", $"The custody chain of hold {hold.Id} is broken.", now, cancellationToken);
+            return Results.Ok(detail);
         });
 
         admin.MapPost("/holds/{id:guid}/{step:regex(^(confirm|capture)$)}", async (Guid id, string step, ClaimsPrincipal user, AccountResolver accounts,
@@ -141,9 +172,21 @@ public static class LegalHoldEndpoints
             var (current, hold, denied) = await HoldAsync(user, accounts, id, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
-            var refusal = LegalHoldPolicy.CheckRelease(AccountRole.Legal, hold!, request.Reason);
-            if (refusal != HoldRefusal.None) return Refused(refusal);
-            await evidence.ReleaseAsync(hold!, me, request.Reason!, now, cancellationToken);
+            // D195 (§7): an independent officer, after checking every overlapping hold.
+            var (live, scopes) = await evidence.LiveAsync(cancellationToken);
+            var overlaps = LegalHoldPolicy.Overlaps(hold!, live, scopes);
+            var refusal = LegalHoldPolicy.CheckRelease(AccountRole.Legal, hold!, request.Reason, me, overlaps, request.OverlapsChecked);
+            if (refusal != HoldRefusal.None)
+            {
+                if (refusal == HoldRefusal.NotIndependent)
+                {
+                    await evidence.CustodyAsync(hold!.Id, me, "release-refused", "not-independent", now, cancellationToken);
+                    Audit.Record(db, now, me, "account", "hold.release-refused", "legal-hold", hold.Id.ToString(), "not-independent");
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                return Refused(refusal);
+            }
+            await evidence.ReleaseAsync(hold!, me, request.Reason!, now, cancellationToken, overlaps);
             Audit.Record(db, now, me, "account", "hold.released", "legal-hold", hold!.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(await DetailAsync(db, hold, now, cancellationToken));
@@ -159,6 +202,52 @@ public static class LegalHoldEndpoints
             if (refusal != HoldRefusal.None) return Refused(refusal);
             if (string.IsNullOrWhiteSpace(request.Purpose) || request.Purpose.Length > LegalHoldPolicy.TextMax)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.DisclosureInvalid, "Record the purpose of this export.");
+            // #88 (policy §11, §15): exporting needs live time-limited access; a bulk export also needs a second officer's approval.
+            if (await StaffAccessEndpoints.GrantAsync(db, me, StaffAccessPolicy.EvidenceExport, now, cancellationToken) is null)
+                return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.EvidenceExport);
+            ExportApproval? approval = null;
+            var scopeCount = await db.LegalHoldScopes.CountAsync(s => s.HoldId == hold!.Id && s.Kind == HoldScopeKind.Account, cancellationToken);
+            if (StaffAccessPolicy.Bulk(scopeCount, await db.EvidenceItems.CountAsync(i => i.HoldId == hold!.Id, cancellationToken)))
+            {
+                approval = request.ApprovalId is { } approvalId ? await db.ExportApprovals.FindAsync([approvalId], cancellationToken) : null;
+                if (!StaffAccessPolicy.ApprovalUsable(approval, me, hold!.Id, now))
+                {
+                    var pending = await db.ExportApprovals.Where(a => a.HoldId == hold.Id && a.RequestedBy == me && a.UsedAt == null && a.RequestedAt > now - StaffAccessPolicy.ApprovalLifetime)
+                        .OrderByDescending(a => a.RequestedAt).FirstOrDefaultAsync(cancellationToken);
+                    if (pending is null)
+                    {
+                        pending = new ExportApproval { Id = Guid.NewGuid(), HoldId = hold.Id, RequestedBy = me, Purpose = request.Purpose.Trim(), RequestedAt = now };
+                        db.ExportApprovals.Add(pending);
+                        Audit.Record(db, now, me, "account", "evidence.bulk-requested", "legal-hold", hold.Id.ToString(), pending.Id.ToString());
+                        await db.SaveChangesAsync(cancellationToken);
+                        // #89: a bulk export alerts the escalation contacts (ids only).
+                        await accounts.Services.GetRequiredService<Security.SecurityAlerts>().BulkExportAsync(me, hold.Id, pending.Id, now, cancellationToken);
+                    }
+                    return Results.Problem(statusCode: StatusCodes.Status409Conflict, title: "A bulk export needs another officer's approval.",
+                        extensions: new Dictionary<string, object?> { ["code"] = ProblemCodes.BulkExportApprovalRequired, ["approvalId"] = pending.Id });
+                }
+            }
+            // D195 (§8): an export for a case must be from a hold serving that case; a correction names the downloaded package
+            // it supplements and why, and never replaces it; redactions apply to the disclosure copy only (§6).
+            if (request.LeCaseId is { } exportCase && hold!.LeCaseId != exportCase)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "This hold doesn't serve that case.");
+            if (request.SupplementsExportId is { } supplements)
+            {
+                var original = await db.EvidenceExports.FindAsync([supplements], cancellationToken);
+                if (original is null || original.HoldId != hold!.Id || original.PackageSha256 is null || string.IsNullOrWhiteSpace(request.CorrectionReason)
+                    || request.CorrectionReason.Length > LegalHoldPolicy.TextMax)
+                    return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "A correction names a downloaded package of this hold and says why.");
+            }
+            else if (request.CorrectionReason is not null) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "Name the package this corrects.");
+            var redactions = request.Redactions ?? [];
+            if (redactions.Count > 0)
+            {
+                var itemIds = redactions.Select(r => r.ItemId).Distinct().ToList();
+                if (redactions.Count > 200 || await db.EvidenceItems.CountAsync(i => i.HoldId == hold!.Id && itemIds.Contains(i.Id), cancellationToken) != itemIds.Count
+                    || redactions.Any(r => r.Fields is not { Count: > 0 and <= 20 } || r.Fields.Any(f => string.IsNullOrWhiteSpace(f) || f.Length > 100)
+                        || string.Join(',', r.Fields).Length > 500 || string.IsNullOrWhiteSpace(r.Reason) || r.Reason.Length > LegalHoldPolicy.TextMax))
+                    return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LeCaseInvalid, "Each redaction names an item of this hold, its fields and a reason.");
+            }
             Disclosure? disclosure = null;
             if (request.Disclosure is { } d)
             {
@@ -177,9 +266,17 @@ public static class LegalHoldEndpoints
             {
                 Id = Guid.NewGuid(), HoldId = hold!.Id, TokenHash = SHA256.HashData(secret), CreatedBy = me, CreatedAt = now,
                 ExpiresAt = now + LegalHoldPolicy.ExportLifetime, Purpose = request.Purpose.Trim(), DisclosureId = disclosure?.Id,
+                LeCaseId = request.LeCaseId, SupplementsExportId = request.SupplementsExportId, CorrectionReason = request.CorrectionReason?.Trim(),
             };
             db.EvidenceExports.Add(export);
-            await evidence.CustodyAsync(hold.Id, me, "export-created", $"export:{export.Id}", now, cancellationToken);
+            if (approval is not null) approval.UsedAt = now;
+            db.EvidenceRedactions.AddRange(redactions.Select(r => new EvidenceRedaction
+            {
+                Id = Guid.NewGuid(), ExportId = export.Id, ItemId = r.ItemId, Fields = string.Join(',', r.Fields!.Select(f => f.Trim())), Reason = r.Reason!.Trim(),
+                RedactedBy = me, At = now,
+            }));
+            await evidence.CustodyAsync(hold.Id, me, "export-created", $"export:{export.Id}" + (redactions.Count > 0 ? $";redactions:{redactions.Count}" : "")
+                + (export.SupplementsExportId is { } s ? $";supplements:{s}" : ""), now, cancellationToken);
             Audit.Record(db, now, me, "account", "evidence.export-created", "legal-hold", hold.Id.ToString(), disclosure is null ? null : "disclosure");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Created($"/api/v1/admin/evidence-exports/{Base64Url(secret)}", new EvidenceExportLink(Base64Url(secret), export.ExpiresAt));
@@ -198,39 +295,67 @@ public static class LegalHoldEndpoints
             var hold = export is null ? null : await db.LegalHolds.FindAsync([export.HoldId], cancellationToken);
             // Only the officer who created it, once, within 15 minutes, while the hold is live.
             if (!LegalHoldPolicy.ExportUsable(export, hold, now) || export!.CreatedBy != me) return Unavailable();
+            // #88: the download needs the officer's access to still be live.
+            if (await StaffAccessEndpoints.GrantAsync(db, me, StaffAccessPolicy.EvidenceExport, now, cancellationToken) is null)
+                return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.EvidenceExport);
             export.DownloadedAt = now;
             var items = await db.EvidenceItems.Where(i => i.HoldId == hold!.Id).OrderBy(i => i.Capture).ThenBy(i => i.Kind).ThenBy(i => i.RecordId).ToListAsync(cancellationToken);
-            await evidence.CustodyAsync(hold!.Id, me, "exported", $"export:{export.Id};items:{items.Count}", now, cancellationToken);
+            // D195 (§6): redactions change the disclosure copy only; the preserved original and its hash never change.
+            var redactions = (await db.EvidenceRedactions.Where(r => r.ExportId == export.Id).ToListAsync(cancellationToken)).ToLookup(r => r.ItemId);
+            var copies = items.Select(i =>
+            {
+                var original = evidence.Open(i);
+                var applied = redactions[i.Id].ToList();
+                if (applied.Count == 0) return (Item: i, Json: original, Hash: i.Sha256, Redactions: new List<object>());
+                var (json, missing) = LawEnforcementPolicy.Redact(original, applied.SelectMany(r => r.Fields.Split(',')));
+                return (Item: i, Json: json, Hash: EvidenceSeal.Hash(json),
+                    Redactions: applied.Select(r => (object)new { r.Id, Fields = r.Fields.Split(','), r.Reason, r.RedactedBy, r.At, Missing = missing.Where(m => r.Fields.Split(',').Contains(m)) }).ToList());
+            }).ToList();
+            export.PackageSha256 = EvidenceSeal.PackageHash(copies.Select(c => c.Hash));
+            await evidence.CustodyAsync(hold!.Id, me, "exported", $"export:{export.Id};items:{items.Count};redacted:{copies.Count(c => c.Redactions.Count > 0)}", now, cancellationToken);
             Audit.Record(db, now, me, "account", "evidence.exported", "legal-hold", hold.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
             var scopes = await db.LegalHoldScopes.Where(s => s.HoldId == hold.Id).ToListAsync(cancellationToken);
             var custody = await db.CustodyEvents.Where(c => c.HoldId == hold.Id).OrderBy(c => c.Sequence).ToListAsync(cancellationToken);
             var disclosure = export.DisclosureId is { } did ? await db.Disclosures.FindAsync([did], cancellationToken) : null;
+            var supplemented = export.SupplementsExportId is { } sid ? await db.EvidenceExports.FindAsync([sid], cancellationToken) : null;
+            var leCase = export.LeCaseId is { } lid ? await db.LeCases.FindAsync([lid], cancellationToken) : null;
             var package = new
             {
                 Format = "swoovr-evidence/1",
                 GeneratedAt = now,
                 GeneratedBy = me,
+                export.Id,
                 export.Purpose,
+                Case = leCase is null ? null : new { leCase.Id, leCase.Reference },
+                // D195 (§8): a correction is a new package that names the one it supplements; the original is never replaced.
+                Supplements = supplemented is null ? null : new { supplemented.Id, PackageSha256 = Convert.ToHexStringLower(supplemented.PackageSha256!), export.CorrectionReason },
                 Disclosure = disclosure is null ? null : View(disclosure),
                 Hold = new
                 {
                     hold.Id, Status = Wire(hold.Status), hold.Source, hold.Reason, hold.ReleaseConditions, hold.CaseId, hold.PlacedBy, hold.PlacedAt,
-                    hold.ConfirmedBy, hold.ConfirmedAt, hold.ReviewDue, hold.From, hold.Until,
+                    hold.ConfirmedBy, hold.ConfirmedAt, hold.ReviewDue, hold.From, hold.Until, hold.LeCaseId, hold.Kind, hold.LawfulBasis, hold.RequestingBody,
                     Accounts = scopes.Where(s => s.Kind == HoldScopeKind.Account).Select(s => s.TargetId),
                     Conversations = scopes.Where(s => s.Kind == HoldScopeKind.Conversation).Select(s => s.TargetId),
                 },
-                Items = items.Select(i => new
+                Items = copies.Select(c => new
                 {
-                    i.Id, i.Capture, i.Kind, i.Source, i.RecordId, i.AccountId, i.CapturedAt, i.CapturedBy, Sha256 = Convert.ToHexStringLower(i.Sha256),
-                    // Exactly as preserved, so anyone can check SHA-256(ContentJson) against Sha256.
-                    ContentJson = evidence.Open(i),
+                    c.Item.Id, c.Item.Capture, c.Item.Kind, c.Item.Source, c.Item.RecordId, c.Item.AccountId, c.Item.CapturedAt, c.Item.CapturedBy,
+                    // Sha256 is the preserved original's; DisclosedSha256 is of ContentJson as handed over (the same unless redacted).
+                    Sha256 = Convert.ToHexStringLower(c.Item.Sha256),
+                    DisclosedSha256 = Convert.ToHexStringLower(c.Hash),
+                    Redacted = c.Redactions.Count > 0,
+                    Redactions = c.Redactions,
+                    ContentJson = c.Json,
                 }),
                 Manifest = new
                 {
                     ItemCount = items.Count,
-                    Algorithm = "Sha256 is SHA-256 of the UTF-8 ContentJson string; PackageSha256 is SHA-256 over the item hashes (raw bytes) in this order",
-                    PackageSha256 = Convert.ToHexStringLower(EvidenceSeal.PackageHash(items.Select(i => i.Sha256))),
+                    Algorithm = "DisclosedSha256 is SHA-256 of the UTF-8 ContentJson string (equal to Sha256, the preserved original's, unless the item was redacted); "
+                        + "PackageSha256 is SHA-256 over the DisclosedSha256 values (raw bytes) in this order; OriginalPackageSha256 the same over Sha256",
+                    PackageSha256 = Convert.ToHexStringLower(export.PackageSha256),
+                    OriginalPackageSha256 = Convert.ToHexStringLower(EvidenceSeal.PackageHash(items.Select(i => i.Sha256))),
+                    RedactedItems = copies.Count(c => c.Redactions.Count > 0),
                 },
                 Custody = new
                 {
@@ -256,14 +381,16 @@ public static class LegalHoldEndpoints
     /// </summary>
     public static async Task<LegalHold> PlaceAsync(SwoovrDbContext db, EvidencePreservation evidence, AccountRole role, Guid? actor, string reason,
         IReadOnlyCollection<Guid> accountIds, IReadOnlyCollection<Guid> conversationIds, DateTimeOffset? from, DateTimeOffset? until, DateTimeOffset? reviewDue,
-        string? releaseConditions, Guid? caseId, string source, DateTimeOffset now, CancellationToken cancellationToken)
+        string? releaseConditions, Guid? caseId, string source, DateTimeOffset now, CancellationToken cancellationToken,
+        LeCase? leCase = null, string? kind = null, string? lawfulBasis = null)
     {
         var status = LegalHoldPolicy.StatusFor(role);
         var hold = new LegalHold
         {
             Id = Guid.NewGuid(), Status = status, Reason = reason, ReleaseConditions = string.IsNullOrWhiteSpace(releaseConditions) ? null : releaseConditions.Trim(),
             Source = source, CaseId = caseId, PlacedBy = actor, PlacedByRole = role, PlacedAt = now, ReviewDue = LegalHoldPolicy.ReviewFor(status, reviewDue, now),
-            From = from, Until = until,
+            From = from, Until = until, LeCaseId = leCase?.Id, RequestingBody = leCase?.Agency, Kind = kind,
+            LawfulBasis = string.IsNullOrWhiteSpace(lawfulBasis) ? leCase?.LegalInstrument : lawfulBasis,
         };
         if (status == LegalHoldStatus.Active) (hold.ConfirmedBy, hold.ConfirmedAt) = (actor, now);
         db.LegalHolds.Add(hold);
@@ -297,7 +424,14 @@ public static class LegalHoldEndpoints
         var (current, denied) = await StaffAsync(user, accounts, legalOnly: true, cancellationToken);
         if (denied is not null) return (null, null, denied);
         var hold = await accounts.Db!.LegalHolds.FindAsync([id], cancellationToken);
-        return hold is null ? (null, null, Results.NotFound()) : (current, hold, null);
+        if (hold is null) return (null, null, Results.NotFound());
+        // D195 (§5): staff implicated in the hold's law-enforcement case never reach it or its evidence.
+        if (hold.LeCaseId is { } leCase && await accounts.Db.LeCasePeople.AnyAsync(p => p.CaseId == leCase && p.Kind == "implicated-staff" && p.AccountId == current!.Account!.Id, cancellationToken))
+            return (null, null, Results.Forbid());
+        // #88 (§5): nor does an officer with a conflict of interest over anyone the hold names.
+        if (await StaffAccessEndpoints.ExcludedAsync(accounts.Db, current!.Account!.Id, await StaffAccessEndpoints.HoldAccountsAsync(accounts.Db, hold.Id, cancellationToken), cancellationToken))
+            return (null, null, StaffAccessEndpoints.Conflict());
+        return (current, hold, null);
     }
 
     private static async Task<LegalHoldDetail> DetailAsync(SwoovrDbContext db, LegalHold hold, DateTimeOffset now, CancellationToken cancellationToken)
@@ -306,13 +440,23 @@ public static class LegalHoldEndpoints
         var items = await db.EvidenceItems.Where(i => i.HoldId == hold.Id).OrderBy(i => i.Capture).ThenBy(i => i.Kind).ThenBy(i => i.RecordId).ToListAsync(cancellationToken);
         var custody = await db.CustodyEvents.Where(c => c.HoldId == hold.Id).OrderBy(c => c.Sequence).ToListAsync(cancellationToken);
         var disclosures = await db.Disclosures.Where(d => d.HoldId == hold.Id).OrderBy(d => d.DisclosedAt).ToListAsync(cancellationToken);
+        var exports = await db.EvidenceExports.Where(e => e.HoldId == hold.Id).OrderBy(e => e.CreatedAt).ToListAsync(cancellationToken);
+        var exportIds = exports.Select(e => e.Id).ToList();
+        var redactions = await db.EvidenceRedactions.Where(r => exportIds.Contains(r.ExportId)).GroupBy(r => r.ExportId)
+            .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, cancellationToken);
+        var live = await db.LegalHolds.Where(h => h.Status != LegalHoldStatus.Released).ToListAsync(cancellationToken);
+        var liveIds = live.Select(h => h.Id).ToList();
+        var liveScopes = await db.LegalHoldScopes.Where(s => liveIds.Contains(s.HoldId) || s.HoldId == hold.Id).ToListAsync(cancellationToken);
         return new LegalHoldDetail(hold.Id, Wire(hold.Status), hold.Source, hold.Reason, hold.ReleaseConditions, hold.CaseId, hold.PlacedBy, Wire(hold.PlacedByRole),
             hold.PlacedAt, hold.ConfirmedBy, hold.ConfirmedAt, hold.ReviewDue, LegalHoldPolicy.Overdue(hold, now), hold.From, hold.Until,
             scopes.Where(s => s.Kind == HoldScopeKind.Account).Select(s => s.TargetId).ToList(),
             scopes.Where(s => s.Kind == HoldScopeKind.Conversation).Select(s => s.TargetId).ToList(),
             items.Select(i => new EvidenceItemView(i.Id, i.Capture, i.Kind, i.Source, i.RecordId, i.AccountId, i.CapturedAt, Convert.ToHexStringLower(i.Sha256))).ToList(),
             custody.Select(c => new CustodyEventView(c.Sequence, c.At, c.ActorAccountId, c.Action, c.Detail, Convert.ToHexStringLower(c.Hash))).ToList(),
-            EvidenceSeal.ChainIntact(custody), disclosures.Select(View).ToList(), hold.ReleasedAt, hold.ReleaseReason);
+            EvidenceSeal.ChainIntact(custody), disclosures.Select(View).ToList(), hold.ReleasedAt, hold.ReleaseReason,
+            hold.LeCaseId, hold.Kind, hold.LawfulBasis, hold.RequestingBody, LegalHoldPolicy.Live(hold) ? LegalHoldPolicy.Overlaps(hold, live, liveScopes) : 0, hold.ReleasedBy,
+            exports.Select(e => new EvidenceExportView(e.Id, e.CreatedBy, e.CreatedAt, e.DownloadedAt, e.PackageSha256 is null ? null : Convert.ToHexStringLower(e.PackageSha256),
+                e.LeCaseId, e.SupplementsExportId, redactions.GetValueOrDefault(e.Id))).ToList());
     }
 
     private static DisclosureView View(Disclosure d) => new(d.Id, d.HoldId, d.Agency, d.Officer, d.Reference, d.LegalBasis, d.VerifiedHow, d.DisclosedBy, d.DisclosedAt);
@@ -330,6 +474,10 @@ public static class LegalHoldEndpoints
         HoldRefusal.CaseRequired => Problem(StatusCodes.Status400BadRequest, ProblemCodes.HoldCaseRequired, "Admins open a provisional hold from a case."),
         HoldRefusal.Released => Problem(StatusCodes.Status409Conflict, ProblemCodes.HoldReleased, "This hold has been released."),
         HoldRefusal.NotProvisional => Problem(StatusCodes.Status409Conflict, ProblemCodes.HoldNotProvisional, "Only a provisional hold can be confirmed."),
+        HoldRefusal.NotIndependent => Problem(StatusCodes.Status403Forbidden, ProblemCodes.HoldReleaseNotIndependent,
+            "Release needs a security and legal officer who neither placed nor confirmed this hold."),
+        HoldRefusal.OverlapsUnchecked => Problem(StatusCodes.Status409Conflict, ProblemCodes.HoldOverlapsUnchecked,
+            "Other live holds cover the same accounts. Check them, then confirm you have."),
         _ => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Check the request."),
     };
 }

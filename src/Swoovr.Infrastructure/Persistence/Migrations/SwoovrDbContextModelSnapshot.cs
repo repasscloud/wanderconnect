@@ -23,6 +23,63 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Swoovr.Domain.AccessGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Capability")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("capability");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("granted_at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.Property<int>("Renewals")
+                        .HasColumnType("integer")
+                        .HasColumnName("renewals");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("revoked_reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_access_grants");
+
+                    b.HasIndex("AccountId", "Capability", "ExpiresAt")
+                        .HasDatabaseName("ix_access_grants_account_id_capability_expires_at");
+
+                    b.ToTable("access_grants");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Account", b =>
                 {
                     b.Property<Guid>("Id")
@@ -79,6 +136,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("realm");
+
+                    b.Property<DateTimeOffset?>("SessionsRevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sessions_revoked_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1019,6 +1080,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("CorrectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("correction_reason");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1043,11 +1109,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("hold_id");
 
+                    b.Property<Guid?>("LeCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("le_case_id");
+
+                    b.Property<byte[]>("PackageSha256")
+                        .HasColumnType("bytea")
+                        .HasColumnName("package_sha256");
+
                     b.Property<string>("Purpose")
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("purpose");
+
+                    b.Property<Guid?>("SupplementsExportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplements_export_id");
 
                     b.Property<byte[]>("TokenHash")
                         .IsRequired()
@@ -1059,6 +1137,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HoldId")
                         .HasDatabaseName("ix_evidence_exports_hold_id");
+
+                    b.HasIndex("LeCaseId")
+                        .HasDatabaseName("ix_evidence_exports_le_case_id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
@@ -1129,6 +1210,96 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_evidence_items_hold_id_kind_record_id");
 
                     b.ToTable("evidence_items");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EvidenceRedaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid>("ExportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("export_id");
+
+                    b.Property<string>("Fields")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("fields");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("RedactedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("redacted_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_evidence_redactions");
+
+                    b.HasIndex("ExportId")
+                        .HasDatabaseName("ix_evidence_redactions_export_id");
+
+                    b.ToTable("evidence_redactions");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ExportApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("purpose");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<Guid>("RequestedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_export_approvals");
+
+                    b.HasIndex("HoldId")
+                        .HasDatabaseName("ix_export_approvals_hold_id");
+
+                    b.ToTable("export_approvals");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.FounderPlace", b =>
@@ -1535,6 +1706,433 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("itineraries");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.LeCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Agency")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("agency");
+
+                    b.Property<string>("AgencyCountry")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("agency_country");
+
+                    b.Property<string>("AgencyReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("agency_reference");
+
+                    b.Property<DateTimeOffset?>("App65At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("app65_at");
+
+                    b.Property<Guid?>("App65By")
+                        .HasColumnType("uuid")
+                        .HasColumnName("app65_by");
+
+                    b.Property<string>("App65Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("app65_note");
+
+                    b.Property<DateTimeOffset?>("AssessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assessed_at");
+
+                    b.Property<Guid?>("AssessedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assessed_by");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("channel");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by");
+
+                    b.Property<string>("ClosureNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("closure_note");
+
+                    b.Property<bool>("Confidential")
+                        .HasColumnType("boolean")
+                        .HasColumnName("confidential");
+
+                    b.Property<string>("ConfidentialityAssessment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("confidentiality_assessment");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("FirstResponseAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_response_at");
+
+                    b.Property<DateTimeOffset?>("LastUpdateAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_update_at");
+
+                    b.Property<string>("LegalAssessment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("legal_assessment");
+
+                    b.Property<string>("LegalInstrument")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("legal_instrument");
+
+                    b.Property<bool?>("Mandatory")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mandatory");
+
+                    b.Property<string>("OfficerEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("officer_email");
+
+                    b.Property<string>("OfficerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("officer_name");
+
+                    b.Property<string>("OfficerPhone")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("officer_phone");
+
+                    b.Property<string>("OfficerRank")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("officer_rank");
+
+                    b.Property<string>("OfficerServiceNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("officer_service_number");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<bool>("Privileged")
+                        .HasColumnType("boolean")
+                        .HasColumnName("privileged");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateTimeOffset?>("RetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retain_until");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("StatutoryDeadline")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("statutory_deadline");
+
+                    b.Property<string>("Urgency")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("urgency");
+
+                    b.Property<string>("VerificationEvidence")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("verification_evidence");
+
+                    b.Property<string>("VerificationSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("verification_source");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.Property<Guid?>("VerifiedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("verified_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_le_cases");
+
+                    b.HasIndex("Reference")
+                        .IsUnique()
+                        .HasDatabaseName("ix_le_cases_reference");
+
+                    b.HasIndex("RetainUntil")
+                        .HasDatabaseName("ix_le_cases_retain_until");
+
+                    b.HasIndex("Status", "ReceivedAt")
+                        .HasDatabaseName("ix_le_cases_status_received_at");
+
+                    b.ToTable("le_cases", "restricted");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeCasePerson", b =>
+                {
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at");
+
+                    b.Property<Guid>("AddedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("added_by");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.HasKey("CaseId", "AccountId")
+                        .HasName("pk_le_case_people");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_le_case_people_account_id");
+
+                    b.ToTable("le_case_people", "restricted");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid>("DecidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("decision");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("ReconsiderAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reconsider_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_le_notifications");
+
+                    b.HasIndex("ReconsiderAt")
+                        .HasDatabaseName("ix_le_notifications_reconsider_at");
+
+                    b.HasIndex("CaseId", "AccountId")
+                        .HasDatabaseName("ix_le_notifications_case_id_account_id");
+
+                    b.ToTable("le_notifications", "restricted");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("BreakGlass")
+                        .HasColumnType("boolean")
+                        .HasColumnName("break_glass");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by");
+
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("decision_reason");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("From")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("from");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<DateTimeOffset?>("RetrospectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retrospective_at");
+
+                    b.Property<Guid?>("RetrospectiveBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retrospective_by");
+
+                    b.Property<DateTimeOffset?>("RetrospectiveDue")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retrospective_due");
+
+                    b.Property<string>("RetrospectiveNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("retrospective_note");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("Until")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_le_requests");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_le_requests_case_id");
+
+                    b.ToTable("le_requests", "restricted");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeTransfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<Guid>("ExportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("export_id");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("method");
+
+                    b.Property<byte[]>("PackageSha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("package_sha256");
+
+                    b.Property<DateTimeOffset?>("ReceiptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("receipt_at");
+
+                    b.Property<string>("ReceiptReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("receipt_reference");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("recipient");
+
+                    b.Property<DateTimeOffset>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<Guid>("SentBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sent_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_le_transfers");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_le_transfers_case_id");
+
+                    b.ToTable("le_transfers", "restricted");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.LegalHold", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1557,6 +2155,20 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("From")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("from");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("LawfulBasis")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("lawful_basis");
+
+                    b.Property<Guid?>("LeCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("le_case_id");
 
                     b.Property<DateTimeOffset>("PlacedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1596,6 +2208,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("released_by");
 
+                    b.Property<string>("RequestingBody")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("requesting_body");
+
                     b.Property<DateTimeOffset>("ReviewDue")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("review_due");
@@ -1621,6 +2238,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CaseId")
                         .HasDatabaseName("ix_legal_holds_case_id");
+
+                    b.HasIndex("LeCaseId")
+                        .HasDatabaseName("ix_legal_holds_le_case_id");
 
                     b.HasIndex("Status", "ReviewDue")
                         .HasDatabaseName("ix_legal_holds_status_review_due");
@@ -1855,6 +2475,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
+
+                    b.Property<bool?>("ShareCoreAbout")
+                        .HasColumnType("boolean")
+                        .HasColumnName("share_core_about");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2917,6 +3541,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ProfileVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("content_json");
+
+                    b.Property<string>("ModeId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sha256");
+
+                    b.HasKey("Id")
+                        .HasName("pk_profile_versions");
+
+                    b.HasIndex("AccountId", "ModeId", "CapturedAt")
+                        .HasDatabaseName("ix_profile_versions_account_id_mode_id_captured_at");
+
+                    b.ToTable("profile_versions");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Report", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3300,6 +3965,222 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_sanctions_dates", "ends_at IS NULL OR ends_at > starts_at");
                         });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SearchEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.HasKey("Id")
+                        .HasName("pk_search_events");
+
+                    b.HasIndex("At")
+                        .HasDatabaseName("ix_search_events_at");
+
+                    b.HasIndex("AccountId", "Kind", "At")
+                        .HasDatabaseName("ix_search_events_account_id_kind_at");
+
+                    b.ToTable("search_events");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SecurityIncident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AssessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assessed_at");
+
+                    b.Property<Guid?>("AssessedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assessed_by");
+
+                    b.Property<DateTimeOffset>("AssessmentDue")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assessment_due");
+
+                    b.Property<string>("AssessmentReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("assessment_reason");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset?>("ContainedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("contained_at");
+
+                    b.Property<DateTimeOffset>("DetectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("detected_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<bool?>("Notifiable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("notifiable");
+
+                    b.Property<Guid?>("OpenedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("opened_by");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("SubjectStaffId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_staff_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("summary");
+
+                    b.HasKey("Id")
+                        .HasName("pk_security_incidents");
+
+                    b.HasIndex("Status", "Severity")
+                        .HasDatabaseName("ix_security_incidents_status_severity");
+
+                    b.HasIndex("Kind", "SubjectStaffId", "DetectedAt")
+                        .HasDatabaseName("ix_security_incidents_kind_subject_staff_id_detected_at");
+
+                    b.ToTable("security_incidents");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SensitiveAccess", b =>
+                {
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("sequence");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Sequence"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("hash");
+
+                    b.Property<byte[]>("PreviousHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("previous_hash");
+
+                    b.Property<string>("Resource")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("resource");
+
+                    b.Property<string>("ResourceId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("resource_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Sequence")
+                        .HasName("pk_sensitive_access_log");
+
+                    b.HasIndex("ActorAccountId", "At")
+                        .HasDatabaseName("ix_sensitive_access_log_actor_account_id_at");
+
+                    b.HasIndex("Resource", "ResourceId")
+                        .HasDatabaseName("ix_sensitive_access_log_resource_resource_id");
+
+                    b.ToTable("sensitive_access_log", (string)null);
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.StaffExclusion", b =>
+                {
+                    b.Property<Guid>("StaffAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staff_account_id");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("StaffAccountId", "SubjectAccountId")
+                        .HasName("pk_staff_exclusions");
+
+                    b.HasIndex("SubjectAccountId")
+                        .HasDatabaseName("ix_staff_exclusions_subject_account_id");
+
+                    b.ToTable("staff_exclusions");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.StaffMemberLink", b =>
@@ -3748,6 +4629,26 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_evidence_items_legal_holds_hold_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.EvidenceRedaction", b =>
+                {
+                    b.HasOne("Swoovr.Domain.EvidenceExport", null)
+                        .WithMany()
+                        .HasForeignKey("ExportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_evidence_redactions_evidence_exports_export_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ExportApproval", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LegalHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_export_approvals_legal_holds_hold_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.FounderToken", b =>
                 {
                     b.HasOne("Swoovr.Domain.FounderPlace", null)
@@ -3796,6 +4697,46 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_itineraries_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeCasePerson", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LeCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_le_case_people_le_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeNotification", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LeCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_le_notifications_le_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeRequest", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LeCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_le_requests_le_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.LeTransfer", b =>
+                {
+                    b.HasOne("Swoovr.Domain.LeCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_le_transfers_le_cases_case_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.LegalHoldScope", b =>

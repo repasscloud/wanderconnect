@@ -49,7 +49,7 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     mine = await call(tokens.ana, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', true, true], ['friends', true, false], ['activities', false, false], ['business', false, false]]); pass();
     mine = await call(tokens.ana, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
-    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [], about: null }); pass(); // turning one off leaves the other
+    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [], about: null, shareCoreAbout: false }); pass(); // turning one off leaves the other
     for (const id of ['travel', 'connect', 'DATING']) {
       const bad = await call(tokens.ana, `/api/v1/me/modes/${id}`, { method: 'PUT', body: { enabled: true, visible: true } });
       assert.deepEqual([bad.status, bad.body?.code], [404, 'unknown-mode'], id); pass();
@@ -98,7 +98,7 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'gender', 'id', 'intentions', 'pronouns']); pass(); // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'distanceBand', 'gender', 'id', 'intentions', 'pronouns']); pass(); // #90: a rounded band, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
     assert.ok(!JSON.stringify(benCard).includes('1990-') && !('dateOfBirth' in benCard)); pass();
     assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.

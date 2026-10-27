@@ -81,6 +81,7 @@
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
+                            <Button Text="Privacy notice (draft)" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
                         </VerticalStackLayout>
                     </Border>
 

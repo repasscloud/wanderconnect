@@ -17,6 +17,8 @@
             </#if>
             <div id="kc-registration-terms-text" class="sw-hint">
                 ${kcSanitize(msg("termsText"))?no_esc}
+                <#-- #99: the privacy notice (a draft until legal review, #57). The address comes from theme.properties. -->
+                <p><a href="${properties.swoovrPrivacyUrl!'/privacy'}" target="_blank" rel="noopener" id="sw-privacy-link">${msg("privacyNoticeLink")}</a></p>
             </div>
         </div>
     </#if>

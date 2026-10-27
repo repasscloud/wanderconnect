@@ -24,7 +24,8 @@ public sealed class EvidenceKeys(IConfiguration configuration, Founders founders
         foreach (var entry in configuration.GetSection("Evidence:Keys").GetChildren())
             if (byte.TryParse(entry.Key, out var version) && entry.Value is { Length: > 0 } value && Convert.FromBase64String(value) is { Length: 32 } key)
                 keys[version] = key;
-        if (keys.Count == 0 && founders.CurrentVersion is { } v)
+        // #89: the derived key stays version 1 (still readable) after newer versions are configured, until `keys rotate`.
+        if (!keys.ContainsKey(1) && founders.CurrentVersion is { } v)
             keys[1] = HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:evidence:encryption:v1"));
         return keys;
     }
@@ -55,6 +56,39 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
     public async Task<HashSet<Guid>> HeldAccountsAsync(CancellationToken cancellationToken) =>
         (await (from s in db.LegalHoldScopes join h in db.LegalHolds on s.HoldId equals h.Id
                 where h.Status != LegalHoldStatus.Released && s.Kind == HoldScopeKind.Account select s.TargetId).ToListAsync(cancellationToken)).ToHashSet();
+
+    /// <summary>
+    /// D195 (procedure §14): purges fail closed. These return null when hold status can't be read reliably, and every
+    /// purge path then deletes nothing. `Evidence:HoldCheckUnavailable` simulates that in Development only (tests).
+    /// </summary>
+    public async Task<HashSet<Guid>?> TryHeldAccountsAsync(CancellationToken cancellationToken)
+    {
+        if (SimulatedUnavailable) return null;
+        try { return await HeldAccountsAsync(cancellationToken); }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<EvidencePreservation>>().LogError(exception, "Hold status unavailable; purging nothing.");
+            return null;
+        }
+    }
+
+    public async Task<(List<LegalHold> Holds, List<LegalHoldScope> Scopes)?> TryLiveAsync(CancellationToken cancellationToken)
+    {
+        if (SimulatedUnavailable) return null;
+        try { return await LiveAsync(cancellationToken); }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<EvidencePreservation>>().LogError(exception, "Hold status unavailable; purging nothing.");
+            return null;
+        }
+    }
+
+    private bool SimulatedUnavailable => services.GetRequiredService<IHostEnvironment>().IsDevelopment()
+        && services.GetRequiredService<IConfiguration>().GetValue("Evidence:HoldCheckUnavailable", false);
+
+    /// <summary>D195 (§7): whether a live hold names this account, for admin deletion routes. Null when unknown (refuse).</summary>
+    public async Task<bool?> HeldAsync(Guid account, CancellationToken cancellationToken) =>
+        await TryHeldAccountsAsync(cancellationToken) is { } held ? held.Contains(account) : null;
 
     /// <summary>Appends one entry to a hold's custody chain (ids and machine values only).</summary>
     public async Task CustodyAsync(Guid hold, Guid? actor, string action, string? detail, DateTimeOffset now, CancellationToken cancellationToken)
@@ -102,6 +136,9 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
         {
             if (await db.Accounts.FindAsync([id], cancellationToken) is { } account) Add("account", "accounts", id.ToString(), id, account);
             if (await db.MemberProfiles.FindAsync([id], cancellationToken) is { } profile) Add("profile", "member_profiles", id.ToString(), id, profile);
+            // #91: what others could see in each mode over the period.
+            foreach (var shown in await db.ProfileVersions.Where(v => v.AccountId == id).OrderBy(v => v.CapturedAt).ToListAsync(cancellationToken))
+                if (InPeriod(shown.CapturedAt)) Add("profile-version", "profile_versions", shown.Id.ToString(), id, shown);
             foreach (var mode in await db.MemberModes.Where(m => m.AccountId == id).ToListAsync(cancellationToken))
                 Add("mode", "member_modes", $"{id:N}:{mode.ModeId}", id, new
                 {
@@ -193,11 +230,12 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
             || LegalHoldPolicy.Covers(h, scopes, conversation.PairHigh, conversation.Id, message.SentAt));
 
     /// <summary>Releasing a hold erases its evidence items; the hold record and its custody chain stay as the record of what happened.</summary>
-    public async Task<int> ReleaseAsync(LegalHold hold, Guid actor, string reason, DateTimeOffset now, CancellationToken cancellationToken)
+    /// <remarks>Overlapping holds keep their own items (§7: each operates independently), so only this hold's copies go.</remarks>
+    public async Task<int> ReleaseAsync(LegalHold hold, Guid actor, string reason, DateTimeOffset now, CancellationToken cancellationToken, int overlaps = 0)
     {
         (hold.Status, hold.ReleasedAt, hold.ReleasedBy, hold.ReleaseReason) = (LegalHoldStatus.Released, now, actor, reason.Trim());
         var erased = await db.EvidenceItems.Where(i => i.HoldId == hold.Id).ExecuteDeleteAsync(cancellationToken);
-        await CustodyAsync(hold.Id, actor, "released", $"items-erased:{erased}", now, cancellationToken);
+        await CustodyAsync(hold.Id, actor, "released", $"items-erased:{erased};overlaps:{overlaps}", now, cancellationToken);
         return erased;
     }
 
