@@ -134,7 +134,8 @@ public static class ProfileEndpoints
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Searches.LimitedAsync(db, current.Profile!.AccountId, "search", clock.GetUtcNow(), cancellationToken) is { } limited) return limited;
-            return Results.Ok(new ExploreResult(selected.Id, await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken), market.Name));
+            return Results.Ok(new ExploreResult(selected.Id, await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken,
+                accounts.Services.GetRequiredService<Media.MediaLinks>()), market.Name));
         });
         // D175: ?mode= is the mode the profile was opened from; the view shows that mode and the modes the pair is connected in.
         api.MapGet("/profiles/{id:guid}", async (Guid id, string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
@@ -168,6 +169,9 @@ public static class ProfileEndpoints
             var abouts = await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId && shownIds.Contains(m.ModeId))
                 .ToDictionaryAsync(m => m.ModeId, m => new { m.About, m.ShareCoreAbout }, cancellationToken);
             string? AboutIn(string modeId) => abouts.GetValueOrDefault(modeId) is { } a ? ModePrivacy.About(a.About, person.Profile.About, a.ShareCoreAbout) : null;
+            // D203, #91: the main photo, and each shown mode's own photos (never another mode's).
+            var photos = await Media.MediaEndpoints.PhotosAsync(db, accounts.Services.GetRequiredService<Media.MediaLinks>(), [person.Profile.AccountId], shownIds,
+                clock.GetUtcNow(), cancellationToken);
             return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, AboutIn(shownIds[0]),
                 shared.Where(m => shownIds.Contains(m.Id)).Select(m =>
                 {
@@ -175,9 +179,11 @@ public static class ProfileEndpoints
                         reach.VisitingModes.Contains(m.Id), travel.ArrivedTrips.ContainsKey(m.Id));
                     return ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between, may) with
                         { ArrivalRequired = !may && travel.SearchModes.Contains(m.Id), About = AboutIn(m.Id),
-                          ConnectionId = between.FirstOrDefault(r => r.ModeId == m.Id && r.Status == ConnectionRequestStatus.Accepted)?.Id };
+                          ConnectionId = between.FirstOrDefault(r => r.ModeId == m.Id && r.Status == ConnectionRequestStatus.Accepted)?.Id,
+                          Photos = photos.Modes.GetValueOrDefault((person.Profile.AccountId, m.Id)) ?? [] };
                 }).ToList(),
-                Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns));
+                Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
+                photos.Main.GetValueOrDefault(person.Profile.AccountId)));
         });
     }
 
@@ -208,7 +214,7 @@ public static class ProfileEndpoints
     /// Search the trip's destination market (D142). Cards carry age, gender and pronouns only as each person allows.
     /// </summary>
     public static async Task<List<ProfileCard>> PeopleAsync(SwoovrDbContext db, IConfiguration configuration, MemberProfile viewer, ConnectionMode selected,
-        MemberMode own, MatchFacts mine, string marketId, DateTimeOffset now, CancellationToken cancellationToken)
+        MemberMode own, MatchFacts mine, string marketId, DateTimeOffset now, CancellationToken cancellationToken, Media.MediaLinks? links = null)
     {
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var people = await Candidates(db, configuration, viewer.AccountId).InMarket(db, marketId)
@@ -238,6 +244,8 @@ public static class ProfileEndpoints
             .ToDictionaryAsync(m => m.AccountId, m => new { m.About, m.ShareCoreAbout }, cancellationToken);
         var order = await BadgeOrderAsync(db, cancellationToken);
         var genders = await GenderLabelsAsync(db, cancellationToken);
+        // D203: the main photo, else the first photo picked for this mode; approved photos only, as signed links.
+        var photos = links is null ? default : await Media.MediaEndpoints.PhotosAsync(db, links, shownIds, [selected.Id], now, cancellationToken);
         return shown.Select(c =>
         {
             var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
@@ -245,7 +253,8 @@ public static class ProfileEndpoints
             // #90: a rounded band between home cities, never a distance.
             return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, about,
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
-                LocationPrivacy.Band(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId])));
+                LocationPrivacy.Band(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId])),
+                photos.Main?.GetValueOrDefault(c.Profile.AccountId) ?? photos.Modes?.GetValueOrDefault((c.Profile.AccountId, selected.Id))?.FirstOrDefault());
         }).ToList();
     }
 

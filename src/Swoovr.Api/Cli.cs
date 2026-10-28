@@ -39,7 +39,11 @@ public static class Cli
         builder.Services.AddSwoovrProviders(builder.Configuration);
         builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
             builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
-        if (!builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr")))
+        var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
+        // D203: `accounts purge` deletes media objects (never the screening worker here).
+        builder.Configuration["Media:Screening:Worker"] = "false";
+        Swoovr.Api.Media.MediaSetup.AddSwoovrMedia(builder.Services, builder.Configuration, builder.Environment, persistence);
+        if (!persistence)
         {
             Console.Error.WriteLine("ConnectionStrings:Swoovr is not configured.");
             return 2;
@@ -164,6 +168,13 @@ public static class Cli
                     Console.Error.WriteLine($"Accounts: hold status unavailable; nothing purged ({run.Deleted} deleted before the check failed, {run.Waiting} waiting).");
                     return 1;
                 }
+                // D203: objects of removed, rejected and released-blocked photos go unless a hold needs them; fail closed.
+                if (await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Media.MediaPipeline>().SweepAsync(now, CancellationToken.None) is not { } media)
+                {
+                    Console.Error.WriteLine("Photos: hold status unavailable; no photo objects deleted.");
+                    return 1;
+                }
+                Console.WriteLine($"Photos: {media.Deleted} objects deleted, {media.Kept} kept.");
                 if (run.CasesExpired > 0) Console.WriteLine($"Law-enforcement cases: {run.CasesExpired} past their seven-year retention erased.");
                 Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} email holds expired, {run.Kept} kept under a legal hold.");
                 return run.Waiting > 0 ? 1 : 0;

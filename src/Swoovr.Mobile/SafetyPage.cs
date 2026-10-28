@@ -5,7 +5,7 @@ namespace Swoovr.Mobile;
 
 /// <summary>
 /// Me → Safety, the Serious Safety Incident pathway (policy §9, owner Q77, D190), as on the web: immediate safety
-/// information with tap-to-call Australian services first, the people the member has dealt with (reportable even after a
+/// information with tap-to-call contacts for the member's country first (#103, D204), the people the member has dealt with (reportable even after a
 /// block, a disconnect or their deletion), and the serious report: a category, what happened, police (with an optional
 /// reference, kept encrypted), messages chosen as evidence and an optional block. The other person is never told.
 /// </summary>
@@ -27,20 +27,78 @@ public sealed class SafetyPage : ContentPage
 		await LoadAsync();
 	}
 
+	/// <summary>
+	/// #103 (D204): the country's contacts from the API, emergency first. The member's choice is kept on this device and
+	/// wins; otherwise the API decides (Cloudflare's network country when hosted, else the deployment's fallback). The
+	/// last pack is kept on the device for when there's no connection, shown with when it was saved and a stale warning.
+	/// </summary>
+	private async Task<List<View>> SafetyCardsAsync()
+	{
+		var chosen = SafetyText.Manual(Preferences.Default.Get<string?>(SafetyText.ChoiceKey, null));
+		SafetyPack? pack = null;
+		DateTimeOffset? savedAt = null;
+		if (MobileEndpoints.Api is { } api)
+			try
+			{
+				using var http = new HttpClient { BaseAddress = api, Timeout = TimeSpan.FromSeconds(10) };
+				pack = await new SafetyClient(http).PackAsync(chosen);
+			}
+			catch (Exception error) when (error is HttpRequestException or TaskCanceledException) { }
+		if (pack is not null && pack.Resources.Count > 0)
+			Preferences.Default.Set(SafetyText.OfflineCacheKey, System.Text.Json.JsonSerializer.Serialize(new OfflinePack(pack, DateTimeOffset.UtcNow)));
+		else if (pack is null && Preferences.Default.Get<string?>(SafetyText.OfflineCacheKey, null) is { } saved
+			&& System.Text.Json.JsonSerializer.Deserialize<OfflinePack>(saved) is { } offline && (chosen is null || offline.Pack.Country == chosen))
+			(pack, savedAt) = (offline.Pack, offline.SavedAt);
+		var cards = new List<View>();
+		var picker = new Picker { Title = "Country", AutomationId = "SafetyCountry", ItemsSource = (pack?.Countries ?? []).Select(c => c.Name).ToList() };
+		picker.SelectedIndex = pack?.Countries.ToList().FindIndex(c => c.Code == pack.Country) ?? -1;
+		picker.SelectedIndexChanged += async (_, _) =>
+		{
+			if (pack?.Countries is { } options && picker.SelectedIndex >= 0 && options[picker.SelectedIndex].Code != pack.Country)
+			{
+				Preferences.Default.Set(SafetyText.ChoiceKey, options[picker.SelectedIndex].Code);
+				await LoadAsync();
+			}
+		};
+		cards.Add(Ui.Card(Ui.Text(SafetyText.Title, "SectionHeading"), picker,
+			Ui.Text(SafetyText.Hint(chosen is not null ? "manual" : pack?.Source ?? "unknown"), "FooterClaims", "SafetyCountryHint")));
+		var rows = new List<View>();
+		if (pack is null || pack.Resources.Count == 0)
+			rows.AddRange([Ui.Text("If you're in immediate danger", "SectionHeading", "SafetyDanger"), Ui.Text(SafetyText.Neutral, id: "SafetyNeutral")]);
+		else
+		{
+			var emergency = pack.Resources.FirstOrDefault(r => r.Category == "emergency");
+			rows.Add(Ui.Text(emergency?.PhoneDisplay is { } number ? $"If you're in immediate danger, call {number} now." : "If you're in immediate danger", "SectionHeading", "SafetyDanger"));
+			if (savedAt is { } at)
+				rows.Add(Ui.Text($"No connection: these were saved on {at.ToLocalTime():d MMM yyyy}." + (DateTimeOffset.UtcNow - at > SafetyText.OfflineFreshFor ? " " + SafetyText.StaleWarning : ""),
+					"FooterClaims", "SafetyOffline"));
+			if (SafetyText.Warning(pack) is { } warning) rows.Add(Ui.Text(warning, "FooterClaims", "SafetyWarning"));
+			foreach (var r in pack.Resources)
+			{
+				rows.Add(Ui.Text($"{r.Name} ({SafetyText.Category(r.Category)}): {r.Description}", id: $"Service_{r.Phone ?? r.Name}"));
+				// Deliberate taps only: nothing dials or opens by itself.
+				if (r.Phone is { } phone)
+					rows.Add(Ui.Button($"Call {r.PhoneDisplay ?? phone}", $"Call_{phone}", async () => { if (PhoneDialer.Default.IsSupported) PhoneDialer.Default.Open(phone); await Task.CompletedTask; },
+						primary: r.Category == "emergency"));
+				if (r.WebsiteUrl is { } link)
+					rows.Add(Ui.Button($"Open {r.Name}", $"Open_{r.Name.Replace(' ', '_')}", () => Launcher.Default.OpenAsync(new Uri(link)), primary: false));
+			}
+			rows.Add(Ui.Text(SafetyText.External, "FooterClaims"));
+		}
+		cards.Add(Ui.Card([.. rows]));
+		cards.Add(Ui.Card(Ui.Text(SafetyText.SwoovrActions, "SectionHeading"), Ui.Text(SafetyText.SwoovrHelp, "FooterClaims", "SwoovrActions")));
+		return cards;
+	}
+
+	private sealed record OfflinePack(SafetyPack Pack, DateTimeOffset SavedAt);
+
 	private async Task LoadAsync()
 	{
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Safety", "PageTitle", "SafetyTitle"));
-		var services = new List<View> { Ui.Text(MemberText.ImmediateDanger, "SectionHeading", "SafetyDanger") };
-		foreach (var s in MemberText.SafetyServices)
-		{
-			services.Add(Ui.Text($"{s.Name}: {s.Detail}", id: $"Service_{s.Phone ?? s.Name}"));
-			if (s.Phone is { } phone)
-				services.Add(Ui.Button($"Call {s.Name}", $"Call_{phone}", async () => { if (PhoneDialer.Default.IsSupported) PhoneDialer.Default.Open(phone); await Task.CompletedTask; }, primary: phone == "000"));
-			else if (s.Link is { } link)
-				services.Add(Ui.Button($"Open {s.Name}", $"Open_{s.Name.Replace(' ', '_')}", () => Launcher.Default.OpenAsync(new Uri(link)), primary: false));
-		}
-		body.Children.Add(Ui.Card([.. services]));
+		foreach (var card in await SafetyCardsAsync()) body.Children.Add(card);
+		// Signed out (or no account yet), the contacts above still show; reporting needs a signed-in member.
+		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to report a serious safety incident.", id: "SafetySignedOut")); return; }
 		if (subjectType is not null && subjectId is not null) body.Children.Add(await FormAsync());
 		var people = (await Ui.Members!.SafetyPeopleAsync()).Value ?? [];
 		var rows = new List<View> { Ui.Text("People you've dealt with", "SectionHeading"),

@@ -83,7 +83,8 @@ public static class ArrivalEndpoints
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Profiles.Searches.LimitedAsync(db, me.AccountId, "search", now, cancellationToken) is { } limited) return limited;
-            var people = await ProfileEndpoints.PeopleAsync(db, configuration, me, selected, own!, mine!, market!.Id, now, cancellationToken);
+            var people = await ProfileEndpoints.PeopleAsync(db, configuration, me, selected, own!, mine!, market!.Id, now, cancellationToken,
+                accounts.Services.GetRequiredService<Media.MediaLinks>());
             return Results.Ok(new TravellerSearchResult(selected.Id, market.Name, row.t.Id, Wire(ArrivalPolicy.State(row.t)),
                 ArrivalPolicy.MayInitiate(row.t, state, market), people));
         });

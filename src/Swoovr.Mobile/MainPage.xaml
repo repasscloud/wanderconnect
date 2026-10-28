@@ -59,6 +59,8 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- #103: Safety &amp; Support contacts for anyone, signed in or not; reporting still needs a signed-in member. -->
+                <Button Text="Safety &amp; Support" AutomationId="SafetySupport" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                 <VerticalStackLayout x:Name="MemberSections" Spacing="16" IsVisible="False">
                     <!-- D127: the rest of the app answers age-verification-required until the check passes or support resolves it. -->
                     <Border x:Name="AgeCheckCard" Style="{StaticResource Card}" IsVisible="False" AutomationId="AgeCheckRequired">
@@ -74,6 +76,7 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Your Swoovr" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
                             <Button Text="Your profile" AutomationId="MeProfile" Style="{StaticResource SecondaryButton}" Clicked="OnProfile" />
+                            <Button Text="Photos" AutomationId="MePhotos" Style="{StaticResource SecondaryButton}" Clicked="OnPhotos" />
                             <Button Text="Who I'd like to meet" AutomationId="MeMatching" Style="{StaticResource SecondaryButton}" Clicked="OnMatching" />
                             <Button Text="Travel" AutomationId="MeTravel" Style="{StaticResource SecondaryButton}" Clicked="OnTravel" />
                             <Button Text="ID verification" AutomationId="MeVerification" Style="{StaticResource SecondaryButton}" Clicked="OnVerification" />

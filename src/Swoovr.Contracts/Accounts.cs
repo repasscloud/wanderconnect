@@ -207,6 +207,20 @@ public static class ProblemCodes
     public const string SearchLimit = "search-limit";
     /// <summary>#88 (procedure §5): a conflict of interest keeps this staff member away from that member's records.</summary>
     public const string ConflictOfInterest = "conflict-of-interest";
+    /// <summary>D203: photo uploads and storage.</summary>
+    public const string MediaUnavailable = "media-unavailable";
+    public const string PhotoTooBig = "photo-too-big";
+    public const string PhotoUnsupported = "photo-unsupported";
+    public const string PhotoInvalid = "photo-invalid";
+    public const string PhotoLimit = "photo-limit";
+    public const string UploadLimit = "upload-limit";
+    public const string UnknownPhoto = "unknown-photo";
+    public const string PhotoNotApproved = "photo-not-approved";
+    public const string InvalidPlacement = "invalid-placement";
+    public const string InvalidDecision = "invalid-decision";
+    /// <summary>#103: safety resources.</summary>
+    public const string UnknownCountry = "unknown-country";
+    public const string InvalidResource = "invalid-resource";
 }
 
 public sealed record CouponRequest(string Code);

@@ -168,16 +168,8 @@ public static class MemberText
     /// D190 (policy §9): shown before the Serious Safety Incident form, on the web and in the app. Australian services
     /// only for the Adelaide beta; the app makes the numbers tap-to-call. Swoovr never contacts police for the member.
     /// </summary>
-    public const string ImmediateDanger = "If you're in immediate danger, call 000 now.";
-    public static readonly IReadOnlyList<(string Name, string Detail, string? Phone, string? Link)> SafetyServices =
-    [
-        ("Emergency (police, ambulance, fire)", "Call 000 if you or someone else is in danger now.", "000", null),
-        ("Police Assistance Line", "131 444, to report a crime to police when it isn't an emergency.", "131444", null),
-        ("1800RESPECT", "1800 737 732, 24/7 support for sexual assault and domestic or family violence.", "1800737732", "https://www.1800respect.org.au"),
-        ("Lifeline", "13 11 14, 24/7 crisis support.", "131114", "https://www.lifeline.org.au"),
-        ("eSafety Commissioner", "Report serious online abuse and image-based abuse.", null, "https://www.esafety.gov.au/report"),
-        ("ACCCE", "Report online child sexual exploitation to the Australian Centre to Counter Child Exploitation.", null, "https://www.accce.gov.au/report"),
-    ];
+    /// <summary>#103 (D204): the country's contacts come from the API (SafetyText); this line never names a number.</summary>
+    public const string ImmediateDanger = "If you're in immediate danger, contact your local emergency services now.";
     public const string SeriousPromise = "We'll preserve what's on Swoovr about this, review it urgently, and won't tell the other person you reported them. We don't contact police for you, but we will help police if they ask.";
 
     public static string PoliceAnswer(string answer) => answer switch

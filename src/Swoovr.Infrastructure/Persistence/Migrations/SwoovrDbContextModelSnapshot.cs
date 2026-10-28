@@ -2403,6 +2403,208 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MediaItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("Bytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("bytes");
+
+                    b.Property<Guid?>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<Guid?>("HoldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<bool>("KnownContentChecked")
+                        .HasColumnType("boolean")
+                        .HasColumnName("known_content_checked");
+
+                    b.Property<string>("LastScreenError")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("last_screen_error");
+
+                    b.Property<DateTimeOffset?>("NextScreenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_screen_at");
+
+                    b.Property<DateTimeOffset?>("ObjectDeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("object_deleted_at");
+
+                    b.Property<string>("ObjectKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("object_key");
+
+                    b.Property<string>("PolicyVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("removed_at");
+
+                    b.Property<Guid?>("ReplacesId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaces_id");
+
+                    b.Property<string>("ReviewReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("review_reason");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
+
+                    b.Property<int>("ScreenAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("screen_attempts");
+
+                    b.Property<DateTimeOffset?>("ScreenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("screened_at");
+
+                    b.Property<string>("Screener")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("screener");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sha256");
+
+                    b.Property<string>("Signals")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("signals");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<byte[]>("UploadSha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("upload_sha256");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id")
+                        .HasName("pk_media_items");
+
+                    b.HasIndex("Sha256")
+                        .HasDatabaseName("ix_media_items_sha256");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_media_items_account_id_created_at");
+
+                    b.HasIndex("Status", "NextScreenAt")
+                        .HasDatabaseName("ix_media_items_status_next_screen_at");
+
+                    b.ToTable("media_items");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaPlacement", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("scope");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.HasKey("AccountId", "Scope", "Position")
+                        .HasName("pk_media_placements");
+
+                    b.HasIndex("MediaId")
+                        .HasDatabaseName("ix_media_placements_media_id");
+
+                    b.ToTable("media_placements");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaReviewView", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.HasKey("Id")
+                        .HasName("pk_media_review_views");
+
+                    b.HasIndex("MediaId", "At")
+                        .HasDatabaseName("ix_media_review_views_media_id_at");
+
+                    b.ToTable("media_review_views");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -3887,6 +4089,440 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("role_grants");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.SafetyCountry", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("code");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<DateOnly?>("LastReviewedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_reviewed_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Owner")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("owner");
+
+                    b.Property<string>("Readiness")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("readiness");
+
+                    b.Property<DateOnly?>("ReviewDueOn")
+                        .HasColumnType("date")
+                        .HasColumnName("review_due_on");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Code")
+                        .HasName("pk_safety_countries");
+
+                    b.ToTable("safety_countries");
+
+                    b.HasData(
+                        new
+                        {
+                            Code = "AU",
+                            Enabled = true,
+                            LastReviewedOn = new DateOnly(2026, 10, 27),
+                            Name = "Australia",
+                            Notes = "Owner-approved list for the Adelaide beta (Q77, D190).",
+                            Owner = "Trust & Safety",
+                            Readiness = "Ready",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Code = "NZ",
+                            Enabled = true,
+                            Name = "New Zealand",
+                            Notes = "Starter entries; research and verify every category before enabling an NZ market.",
+                            Owner = "Trust & Safety",
+                            Readiness = "NotReady",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        },
+                        new
+                        {
+                            Code = "GB",
+                            Enabled = true,
+                            Name = "United Kingdom",
+                            Notes = "Illustrative only; not approved for launch.",
+                            Owner = "Trust & Safety",
+                            Readiness = "Demo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Version = 1
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SafetyResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("category");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("display_order");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<string>("LanguageCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("language_code");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("PhoneDisplay")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("phone_display");
+
+                    b.Property<string>("RegionCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("region_code");
+
+                    b.Property<DateOnly?>("ReviewDueOn")
+                        .HasColumnType("date")
+                        .HasColumnName("review_due_on");
+
+                    b.Property<string>("SourceUrl")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("source_url");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("WebsiteUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("website_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_safety_resources");
+
+                    b.HasIndex("CountryCode", "Enabled", "DisplayOrder")
+                        .HasDatabaseName("ix_safety_resources_country_code_enabled_display_order");
+
+                    b.ToTable("safety_resources");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0001-4000-8000-000000000001"),
+                            Category = "Emergency",
+                            CountryCode = "AU",
+                            Description = "Police, fire and ambulance. Call if you or someone else is in danger now.",
+                            DisplayOrder = 10,
+                            Enabled = true,
+                            LanguageCode = "en-AU",
+                            LastVerifiedOn = new DateOnly(2026, 10, 27),
+                            Name = "Triple Zero (000)",
+                            Phone = "000",
+                            PhoneDisplay = "000",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            SourceUrl = "https://www.triplezero.gov.au/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.triplezero.gov.au/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0001-4000-8000-000000000002"),
+                            Category = "PoliceNonEmergency",
+                            CountryCode = "AU",
+                            Description = "Report a crime to police when it isn't an emergency.",
+                            DisplayOrder = 20,
+                            Enabled = true,
+                            LanguageCode = "en-AU",
+                            LastVerifiedOn = new DateOnly(2026, 10, 27),
+                            Name = "Police Assistance Line",
+                            Phone = "131444",
+                            PhoneDisplay = "131 444",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            SourceUrl = "https://www.police.sa.gov.au/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.police.sa.gov.au/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0001-4000-8000-000000000003"),
+                            Category = "SexualViolence",
+                            CountryCode = "AU",
+                            Description = "24/7 support for sexual assault and domestic or family violence.",
+                            DisplayOrder = 30,
+                            Enabled = true,
+                            LanguageCode = "en-AU",
+                            LastVerifiedOn = new DateOnly(2026, 10, 27),
+                            Name = "1800RESPECT",
+                            Phone = "1800737732",
+                            PhoneDisplay = "1800 737 732",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            SourceUrl = "https://www.1800respect.org.au/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.1800respect.org.au/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0001-4000-8000-000000000004"),
+                            Category = "Crisis",
+                            CountryCode = "AU",
+                            Description = "24/7 crisis support.",
+                            DisplayOrder = 40,
+                            Enabled = true,
+                            LanguageCode = "en-AU",
+                            LastVerifiedOn = new DateOnly(2026, 10, 27),
+                            Name = "Lifeline",
+                            Phone = "131114",
+                            PhoneDisplay = "13 11 14",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            SourceUrl = "https://www.lifeline.org.au/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.lifeline.org.au/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0001-4000-8000-000000000005"),
+                            Category = "OnlineSafety",
+                            CountryCode = "AU",
+                            Description = "Report serious online abuse and image-based abuse.",
+                            DisplayOrder = 50,
+                            Enabled = true,
+                            LanguageCode = "en-AU",
+                            LastVerifiedOn = new DateOnly(2026, 10, 27),
+                            Name = "eSafety Commissioner",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            SourceUrl = "https://www.esafety.gov.au/report",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.esafety.gov.au/report"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0001-4000-8000-000000000006"),
+                            Category = "ChildExploitation",
+                            CountryCode = "AU",
+                            Description = "Report online child sexual exploitation to the Australian Centre to Counter Child Exploitation.",
+                            DisplayOrder = 60,
+                            Enabled = true,
+                            LanguageCode = "en-AU",
+                            LastVerifiedOn = new DateOnly(2026, 10, 27),
+                            Name = "ACCCE",
+                            ReviewDueOn = new DateOnly(2027, 1, 25),
+                            SourceUrl = "https://www.accce.gov.au/report",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.accce.gov.au/report"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0002-4000-8000-000000000001"),
+                            Category = "Emergency",
+                            CountryCode = "NZ",
+                            Description = "Police, fire or ambulance in an emergency.",
+                            DisplayOrder = 10,
+                            Enabled = true,
+                            LanguageCode = "en-NZ",
+                            Name = "Emergency services (111)",
+                            Phone = "111",
+                            PhoneDisplay = "111",
+                            SourceUrl = "https://www.police.govt.nz/advice-services/how-report-crime-or-incident",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.police.govt.nz/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0002-4000-8000-000000000002"),
+                            Category = "PoliceNonEmergency",
+                            CountryCode = "NZ",
+                            Description = "Non-urgent police matters.",
+                            DisplayOrder = 20,
+                            Enabled = true,
+                            LanguageCode = "en-NZ",
+                            Name = "New Zealand Police 105",
+                            Phone = "105",
+                            PhoneDisplay = "105",
+                            SourceUrl = "https://www.police.govt.nz/faq/why-has-police-introduced-non-emergency-number",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.police.govt.nz/105support"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0002-4000-8000-000000000003"),
+                            Category = "OnlineSafety",
+                            CountryCode = "NZ",
+                            Description = "Help with online safety.",
+                            DisplayOrder = 50,
+                            Enabled = true,
+                            LanguageCode = "en-NZ",
+                            Name = "Netsafe",
+                            SourceUrl = "https://netsafe.org.nz/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://netsafe.org.nz/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0003-4000-8000-000000000001"),
+                            Category = "Emergency",
+                            CountryCode = "GB",
+                            Description = "Police, fire or ambulance in an emergency.",
+                            DisplayOrder = 10,
+                            Enabled = true,
+                            LanguageCode = "en-GB",
+                            Name = "Emergency services (999)",
+                            Phone = "999",
+                            PhoneDisplay = "999",
+                            SourceUrl = "https://www.gov.uk/contact-police",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.gov.uk/contact-police"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0003-4000-8000-000000000002"),
+                            Category = "PoliceNonEmergency",
+                            CountryCode = "GB",
+                            Description = "Non-emergency police contact.",
+                            DisplayOrder = 20,
+                            Enabled = true,
+                            LanguageCode = "en-GB",
+                            Name = "Police 101",
+                            Phone = "101",
+                            PhoneDisplay = "101",
+                            SourceUrl = "https://www.police.uk/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.police.uk/"
+                        },
+                        new
+                        {
+                            Id = new Guid("6f1a0c1e-0003-4000-8000-000000000003"),
+                            Category = "ChildExploitation",
+                            CountryCode = "GB",
+                            Description = "Report online child sexual abuse concerns.",
+                            DisplayOrder = 60,
+                            Enabled = true,
+                            LanguageCode = "en-GB",
+                            Name = "CEOP Safety Centre",
+                            SourceUrl = "https://www.ceop.police.uk/Safety-Centre/",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            WebsiteUrl = "https://www.ceop.police.uk/Safety-Centre/"
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SafetyRevision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<Guid?>("ResourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resource_id");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("snapshot_json");
+
+                    b.HasKey("Id")
+                        .HasName("pk_safety_revisions");
+
+                    b.HasIndex("CountryCode", "At")
+                        .HasDatabaseName("ix_safety_revisions_country_code_at");
+
+                    b.ToTable("safety_revisions");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Sanction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4793,6 +5429,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_market_modes_connection_modes_mode_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MediaPlacement", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MediaItem", null)
+                        .WithMany()
+                        .HasForeignKey("MediaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_placements_media_items_media_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -5005,6 +5651,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_role_grants_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.SafetyResource", b =>
+                {
+                    b.HasOne("Swoovr.Domain.SafetyCountry", null)
+                        .WithMany()
+                        .HasForeignKey("CountryCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_safety_resources_safety_countries_country_code");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Sanction", b =>

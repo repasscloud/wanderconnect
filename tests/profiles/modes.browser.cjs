@@ -98,7 +98,7 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'distanceBand', 'gender', 'id', 'intentions', 'pronouns']); pass(); // #90: a rounded band, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'distanceBand', 'gender', 'id', 'intentions', 'photo', 'pronouns']); pass(); // D203: the main photo (null without one) // #90: a rounded band, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
     assert.ok(!JSON.stringify(benCard).includes('1990-') && !('dateOfBirth' in benCard)); pass();
     assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.

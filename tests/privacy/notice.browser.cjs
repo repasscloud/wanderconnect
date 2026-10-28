@@ -18,13 +18,13 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     assert.equal(response.status, 200); pass();
     const html = await response.text();
     assert.ok(html.includes('DRAFT') && html.includes('not in force')); pass();
-    for (const id of ['identity', 'bans', 'contact-history', 'messages', 'holds', 'founders', 'retention', 'law-enforcement', 'contact'])
+    for (const id of ['identity', 'bans', 'contact-history', 'messages', 'photos', 'holds', 'founders', 'retention', 'law-enforcement', 'contact'])
       assert.ok(html.includes(`data-privacy-section="${id}"`), id);
     pass();
-    for (const phrase of ['legal first and last name', '2 years', '30 days', 'founder recovery token', 'legal hold', 'privacy@swoovr.app', 'oaic.gov.au', 'href="/law-enforcement"'])
+    for (const phrase of ['legal first and last name', '2 years', '30 days', 'founder recovery token', 'legal hold', 'privacy@swoovr.com', 'oaic.gov.au', 'href="/law-enforcement"'])
       assert.ok(html.includes(phrase), phrase);
     pass();
-    assert.ok(!html.includes('24/7')); pass();
+    assert.ok(!html.includes('24/7') && !html.includes('privacy@swoovr.app')); pass();
     // The sign-up page's link (theme file in this branch).
     const theme = await fs.readFile('containers/keycloak/themes/swoovr/login/register-commons.ftl', 'utf8');
     assert.ok(theme.includes('properties.swoovrPrivacyUrl') && theme.includes('privacyNoticeLink')); pass();

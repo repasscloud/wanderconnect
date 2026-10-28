@@ -5,21 +5,22 @@
    and an optional block. The other person is never told. Opened from a profile, a conversation or Me → Safety. *@
 @inject MemberClient Members
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 <div class="page-heading" data-safety="@(done ? "sent" : "ready")">
     <p class="breadcrumb"><a href="/account">Me</a> / Safety</p>
     <h1>Safety</h1>
 </div>
-<section class="card account-section notice" aria-labelledby="danger-heading" data-safety-services>
-    <h2 id="danger-heading">@MemberText.ImmediateDanger</h2>
-    <ul class="request-list">
-        @foreach (var s in MemberText.SafetyServices)
-        {
-            <li data-service="@s.Name"><strong>@s.Name</strong>: @s.Detail
-                @if (s.Phone is not null) { <a class="link" href="tel:@s.Phone">Call</a> }
-                @if (s.Link is not null) { <a class="link" href="@s.Link" target="_blank" rel="noopener">Website</a> }</li>
-        }
-    </ul>
-</section>
+@* issue 103 (D204): the country's contacts from the API, emergency first; the member's choice wins for this browsing session
+   and never changes their profile, home city, Travel or Explore. *@
+<div class="card account-section stack" data-country-form>
+    <div class="field"><label for="safety-country">Country</label>
+        <select id="safety-country" value="@(pack?.Country ?? "")" @onchange="ChooseAsync" data-country-select>
+            @if (pack?.Country is null) { <option value="">Choose a country</option> }
+            @foreach (var option in pack?.Countries ?? []) { <option value="@option.Code">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option> }
+        </select></div>
+    <p class="field-help" data-country-hint="@source">@SafetyText.Hint(source)</p>
+</div>
+@if (packLoaded) { <SafetyResources Pack="pack" /> }
 @if (done)
 {
     <section class="card account-section" data-serious-done>
@@ -93,8 +94,32 @@ else if (subjectType is not null)
     private List<MessageView> messages = [];
     private readonly HashSet<Guid> chosen = [];
 
+    /// <summary>The host's default (D153 Cloudflare only where trusted, else the deployment fallback) and where it came from.</summary>
+    [Parameter] public string? DefaultCountry { get; set; }
+    [Parameter] public string DefaultSource { get; set; } = "unknown";
+    private SafetyPack? pack;
+    private bool packLoaded;
+    private string source = "unknown";
+
+    private async Task LoadPackAsync(string? country, string from)
+    {
+        source = from;
+        pack = (await Members.SafetyAsync(country ?? "XX")).Value;
+        packLoaded = true;
+    }
+
+    private async Task ChooseAsync(ChangeEventArgs e)
+    {
+        if (SafetyText.Manual(e.Value?.ToString()) is not { } chosen) return;
+        try { await JS.InvokeVoidAsync("sessionStorage.setItem", SafetyText.ChoiceKey, chosen); } catch (JSException) { }
+        await LoadPackAsync(chosen, "manual");
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        string? remembered = null;
+        try { remembered = SafetyText.Manual(await JS.InvokeAsync<string?>("sessionStorage.getItem", SafetyText.ChoiceKey)); } catch (JSException) { }
+        await (remembered is not null ? LoadPackAsync(remembered, "manual") : LoadPackAsync(DefaultCountry, DefaultSource));
         var query = new Uri(Navigation.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Select(pair => pair.Split('=', 2)).Where(pair => pair.Length == 2).GroupBy(pair => pair[0]).ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1]));
         if (query.GetValueOrDefault("type") is "profile" or "conversation" or "request" or "message" && query.GetValueOrDefault("id") is { } id)

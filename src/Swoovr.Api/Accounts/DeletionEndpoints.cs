@@ -108,7 +108,19 @@ public static class DeletionEndpoints
             export!.DownloadedAt = now;
             Audit.Record(db, now, account.Id, "account", "export.downloaded", "data-export", export.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken));
+            // D203: the member's own photos; refused ones (for any reason) are listed without their image, all alike.
+            var pipeline = accounts.Services.GetRequiredService<Media.MediaPipeline>();
+            var photos = new List<object>();
+            var places = await db.MediaPlacements.Where(p => p.AccountId == account.Id).ToListAsync(cancellationToken);
+            foreach (var item in await db.MediaItems.Where(i => i.AccountId == account.Id && i.RemovedAt == null && i.Status != MediaStatus.Removed)
+                         .OrderBy(i => i.CreatedAt).ToListAsync(cancellationToken))
+            {
+                var bytes = await pipeline.ExportBytesAsync(item, cancellationToken);
+                photos.Add(new { id = item.Id, state = MediaPolicy.MemberState(item.Status), item.CreatedAt, shownIn = places.Where(p => p.MediaId == item.Id).Select(p => p.Scope).ToList(),
+                    contentType = bytes is null ? null : item.ContentType, sha256 = bytes is null ? null : Convert.ToHexStringLower(item.Sha256),
+                    dataBase64 = bytes is null ? null : Convert.ToBase64String(bytes) });
+            }
+            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos);
             return Results.File(JsonSerializer.SerializeToUtf8Bytes(document, ExportJson), "application/json",
                 $"swoovr-data-{now:yyyy-MM-dd}.json");
         });

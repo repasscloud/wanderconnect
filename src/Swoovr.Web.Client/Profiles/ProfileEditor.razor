@@ -25,6 +25,7 @@
                 <p class="field-help"><button type="button" class="link-button" disabled="@busy" @onclick="HomeCheckAsync" data-home-check>Check my location matches</button>
                     <span data-home-check-result="@homeCheck">@(homeCheck is null ? "" : MemberText.HomeCheck(homeCheck))</span></p>
             }
+            <p class="field-help"><a class="link" href="/me/photos" data-photos-link>Your photos</a>: a main photo for every mode, and photos for each mode.</p>
             <div class="field"><label for="about">About me</label><textarea id="about" maxlength="500" rows="4" @bind="about"></textarea></div>
             <button type="submit" class="button" disabled="@busy">Save</button>
             <p role="status" aria-live="polite" class="field-help" data-core-status="@coreStatus">@coreMessage</p>

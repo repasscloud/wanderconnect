@@ -46,6 +46,7 @@ app.UseRestrictionGate();
 app.MapStaticAssets();
 MemberSignIn.MapMemberSignIn(app);
 Bff.MapBff(app);
+Bff.MapMedia(app);
 // The hub checks the signed-in member itself, as the BFF does (this host runs UseAuthentication without UseAuthorization).
 app.MapHub<Swoovr.Web.Auth.MessagesRelayHub>("/bff/hubs/messages");
 app.MapRazorComponents<App>()

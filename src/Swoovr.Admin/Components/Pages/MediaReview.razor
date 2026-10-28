@@ -1,0 +1,90 @@
+@page "/media"
+@inject AdminClient Admin
+<PageTitle>Photo review — Swoovr admin</PageTitle>
+<h1>Photo review</h1>
+<p class="help">Photos the screening couldn't clear (policy §5; D203). Nothing here is visible to members. To look at one, record why: every view is logged with your purpose. Images stay blurred until you choose to reveal them. Refuse explicit content (D178). If you suspect child sexual abuse material, don't look further and don't download or share it: choose <strong>Escalate</strong>, which seals it as evidence, opens a Serious Safety Incident and places a legal hold (procedure §4).</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (queue is null) { <p data-media-queue="refused">@loadError</p> }
+else
+{
+    <p class="help" data-media-pending="@queue.Pending">Waiting for a usable screening answer: @queue.Pending (over an hour: @queue.PendingOverAnHour). Those stay hidden until screening answers.</p>
+    @if (queue.Items.Count == 0) { <p data-media-queue="none">No photos waiting for review.</p> }
+    else
+    {
+        <ul class="list" data-media-queue="@queue.Items.Count">
+            @foreach (var item in queue.Items)
+            {
+                <li data-media-item="@item.Id">
+                    <strong>@item.Reason</strong> · uploaded @item.CreatedAt.ToLocalTime().ToString("d MMM HH:mm") · <a href="/accounts/@item.AccountId">account</a>
+                    · @(item.KnownContentChecked ? "known-content check done" : "known-content check NOT run") · @item.Screener
+                    @if (item.Signals.Count > 0) { <div class="help">@string.Join(" · ", item.Signals)</div> }
+                    @if (viewed == item.Id && link is not null)
+                    {
+                        <div class="media-review" data-media-view="@item.Id">
+                            <input type="checkbox" id="reveal-@item.Id" class="media-reveal" data-reveal="@item.Id" />
+                            <label for="reveal-@item.Id" class="secondary">Reveal</label>
+                            <img src="/media/@link" alt="Photo under review" width="320" data-media-image="@item.Id" />
+                        </div>
+                    }
+                    else
+                    {
+                        <form method="post" @formname="@($"view-{item.Id}")" @onsubmit="() => ViewAsync(item.Id)" class="row" data-enhance="false">
+                            <AntiforgeryToken />
+                            <input name="purpose" placeholder="Why you need to look (recorded)" maxlength="500" required data-purpose="@item.Id" />
+                            <button type="submit" class="secondary" data-view="@item.Id">Look at this photo</button>
+                        </form>
+                    }
+                    <form method="post" @formname="@($"decide-{item.Id}")" @onsubmit="() => DecideAsync(item.Id)" class="row" data-enhance="false">
+                        <AntiforgeryToken />
+                        <input name="reason" placeholder="Reason (never shown to the member)" maxlength="500" />
+                        <button name="decision" value="approve" type="submit" class="secondary" data-approve="@item.Id">Approve</button>
+                        <button name="decision" value="reject" type="submit" class="secondary" data-reject="@item.Id">Reject</button>
+                        <button name="decision" value="escalate" type="submit" class="quiet" data-escalate="@item.Id">Escalate (suspected abuse material)</button>
+                    </form>
+                </li>
+            }
+        </ul>
+    }
+}
+<style>
+    .media-review img { filter: blur(28px); display: block; margin-top: .5rem; max-width: 100%; }
+    .media-review .media-reveal { position: absolute; opacity: 0; }
+    .media-review .media-reveal:checked ~ img { filter: none; }
+</style>
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private MediaReviewQueue? queue;
+    private string? message, loadError, resultCode, link;
+    private Guid? viewed;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.MediaReviewAsync();
+        queue = result.Value;
+        if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task ViewAsync(Guid id)
+    {
+        var result = await Admin.ViewMediaAsync(id, Field("purpose"));
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        if (result.Ok) (viewed, link, message) = (id, result.Value!.Link.Split('/').Last(), "Your view is recorded. The image is blurred until you reveal it.");
+        else message = result.Code == "purpose-required" ? "Say why you need to look." : AdminText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+
+    private async Task DecideAsync(Guid id)
+    {
+        var decision = Field("decision");
+        var status = await Admin.DecideMediaAsync(id, decision, Field("reason") is { Length: > 0 } r ? r : null);
+        resultCode = status is >= 200 and < 300 ? "ok" : status.ToString();
+        message = status is >= 200 and < 300
+            ? decision switch { "approve" => "Approved: the photo can now be shown.", "reject" => "Rejected: the photo is off the profile and deleted unless a hold needs it.", _ => "Escalated: sealed as evidence, a Serious Safety Incident is open and a legal hold placed." }
+            : AdminText.Refusal(status, null);
+        await LoadAsync();
+    }
+}

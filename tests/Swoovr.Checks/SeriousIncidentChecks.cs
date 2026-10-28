@@ -26,13 +26,13 @@ static class SeriousIncidentChecks
         Expect(!ReportPolicy.RateLimited(ReportPriority.Urgent, 1000), "serious (urgent) reports are never rate limited");
 
         // Shared wording (web and app).
-        Expect(MemberText.ImmediateDanger.Contains("000"), "immediate danger says 000");
-        Expect(MemberText.SafetyServices[0].Phone == "000", "emergency first");
-        Expect(MemberText.SafetyServices.Any(s => s.Phone == "1800737732") && MemberText.SafetyServices.Any(s => s.Phone == "131444")
-            && MemberText.SafetyServices.Any(s => s.Phone == "131114"), "1800RESPECT, the Police Assistance Line and Lifeline");
-        Expect(MemberText.SafetyServices.Any(s => s.Link == "https://www.esafety.gov.au/report") && MemberText.SafetyServices.Any(s => s.Link == "https://www.accce.gov.au/report"),
-            "eSafety and the ACCCE");
-        Expect(MemberText.SafetyServices.All(s => s.Link is null || s.Link.StartsWith("https://")), "links are https");
+        // #103 (D204): the Australian contacts (Q77, D190) are now the seeded AU pack, edited as data.
+        Expect(!MemberText.ImmediateDanger.Any(char.IsDigit), "the danger line names no number (it depends on the country)");
+        var au = Swoovr.Infrastructure.Persistence.SafetySeed.Resources.Where(r => r.CountryCode == "AU").OrderBy(r => r.DisplayOrder).ToList();
+        Expect(au[0].Phone == "000" && au[0].Category == SafetyResourceCategory.Emergency, "emergency first");
+        Expect(au.Any(r => r.Phone == "1800737732") && au.Any(r => r.Phone == "131444") && au.Any(r => r.Phone == "131114"), "1800RESPECT, the Police Assistance Line and Lifeline");
+        Expect(au.Any(r => r.WebsiteUrl == "https://www.esafety.gov.au/report") && au.Any(r => r.WebsiteUrl == "https://www.accce.gov.au/report"), "eSafety and the ACCCE");
+        Expect(au.All(r => r.WebsiteUrl is null || r.WebsiteUrl.StartsWith("https://")), "links are https");
         Expect(MemberText.SeriousPromise.Contains("won't tell the other person") && MemberText.SeriousPromise.Contains("don't contact police for you"), "what Swoovr does and doesn't do");
         var report = new MyReportView(Guid.NewGuid(), "conversation", "stalking", "closed", now, "actionTaken", true);
         Expect(MemberText.ReportLine(report).Contains("serious incident") && MemberText.ReportLine(report).Contains("We took action"), "the report line shows a general outcome");

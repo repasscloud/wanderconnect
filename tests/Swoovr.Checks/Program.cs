@@ -28,6 +28,8 @@ PrivacyNoticeChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();
+MediaChecks.Run();
+SafetyResourceChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();

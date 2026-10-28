@@ -184,6 +184,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         // #90, #91: search events and profile versions go with the account (held versions were captured above).
         await db.SearchEvents.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.ProfileVersions.Where(v => v.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // D203: photos leave every profile; their objects go in the purge sweep unless a hold needs them (blocked ones stay evidence).
+        await Media.MediaPipeline.RemoveAllAsync(db, id, now, cancellationToken);
         // D191: the verified identity record goes too, except a terminated member's, kept two years for ban enforcement.
         if (VerifiedIdentityPolicy.RetainAfterDeletion(terminated, now) is { } retain)
             await db.VerifiedIdentities.Where(i => i.AccountId == id).ExecuteUpdateAsync(u => u.SetProperty(i => i.RetainUntil, retain), cancellationToken);
