@@ -753,3 +753,9 @@ Executed locally:
 - Fixes found while building: checkboxes in the web client's `label.check` had no visible box (Matching, data and deletion, reports, serious incident, notifications); radios inside `.check` were invisible; the chat's message box was squashed to 36 px at phone width; the sender's photo state was grey on black.
 
 Not run or not verified: real push (no APNs/FCM accounts, Q83; the simulated sender only), real email or SMS delivery; Arachnid Shield (no credentials; known-content matches simulated); real photographs (synthetic images only); the app's new pages on a device (Android sign-in through Chrome's custom tab isn't reliable under uiautomator; iOS is the owner's tap-through); the member-facing support channel (Q86); a screen-reader or keyboard audit (the accessibility check is a floor); meeting safety (#40) beyond its questions; legal review of the Online Dating Code analysis (DRAFT, #57).
+
+## R0 — owner decision reconciliation, 29 October 2026
+
+Branch `feature/swoovr-phase-zero-uat`, isolated worktree `.claude/worktrees/phase-zero-uat`, no upstream; base `ae41722`. Read GitHub comments for Q83–Q89, both issue 118 decisions and issue 106 governance via issue 119. Recorded D210–D221, marked Q83–Q89 ANSWERED and opened Q90 (issue 124); source requirements retained in OWNER-DECISIONS-2026-10-29.md.
+
+`./scripts/check.sh`: PASS, including Release build, design/naming/link/realm checks, Node checks, policy/client checks, 51 PostgreSQL persistence cases and three HTTP smoke suites. First attempt caught a `mailto:` link unsupported by the documentation checker; represented the source email as code and reran successfully. No browser suites or screenshots: documentation-only slice, no UI changes. No hosts were switched; no credentials or shared .local files changed. Owner decisions are not implementation evidence. No merge, deployment or Actions activation.

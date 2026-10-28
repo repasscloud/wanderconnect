@@ -68,3 +68,7 @@ On 29 October 2026 slices AJ–AL (draft PR #107) built notification and privacy
 5. Implement venue/commerce sandbox after the core loop; real money follows D61 once integrations and agreements are validated. Complete operations/device/security/accessibility/store gates before the Adelaide private beta (D62) and publishing (D63).
 
 Owner attention should focus on the earliest material blocker, one question at a time under the [decision process](DECISIONS.md). Continue independent work without inventing provider capabilities, credentials, pricing or authorization. No deployment is authorized by this rename.
+
+## Phase 0 UAT preparation — takeover, 29 October 2026
+
+R0 records Q83–Q89 as answered (D210–D219), both retention/ban-registry decisions from issue 118, and governance from the owner comment on issue 106 (D220, issue 119). Detailed acceptance criteria and provenance: [owner decision record](OWNER-DECISIONS-2026-10-29.md). These approvals do not mark their implementation complete. [Q90 / issue 124](https://github.com/repasscloud/wanderconnect/issues/124) asks the single UAT hosting question (D221 DEFAULT). Work continues in `.claude/worktrees/phase-zero-uat` on `feature/swoovr-phase-zero-uat`, with no upstream. Queue: API contract dates → endings/support → push → retention/ban registry → meeting safety → Code gaps → remaining Phase 0 gaps → UAT preparation. No deployment, merge or Actions activation is authorised.
