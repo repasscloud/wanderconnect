@@ -28,6 +28,8 @@ Connections track interest sent/received, mutual interest and optional saved pro
 
 Changing filters controls future viewing/contact. DEFAULT: preserve an existing accepted conversation after ordinary intention changes, but explain changed compatibility and offer close/block. Explicit blocking, suspension and privacy revocation override access immediately. Retain only necessary historical conversation evidence; distinguish it from live profile/media access.
 
+CONFIRMED D213 (Q85): End conversation disconnects every currently connected mode under D176, preserves read-only history and records a neutral system event. Offer only the three exact predefined farewells or no farewell, with confirmation; never free text in this workflow. The recipient's event and notification remain neutral and expose no initiating-party metadata. Repeated/concurrent ends do not create repeated events or logical notifications. Report/block stay available, and ordinary later reconnection opens new history rather than reopening the closed conversation. [Full owner requirements](../delivery/OWNER-DECISIONS-2026-10-29.md).
+
 ## 3. Incognito
 
 CONFIRMED: no member-visible visit trace; recipient may refuse incognito visits. Internal abuse/audit records remain available under access controls and retention rules. Do not promise invisibility to platform staff or technical impossibility of stalking.

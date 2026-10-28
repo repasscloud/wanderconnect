@@ -184,7 +184,7 @@ public static class ModerationEndpoints
             var message = subjectType == ReportSubject.Message ? await db.Messages.FindAsync([itemId], cancellationToken) : null;
             var conversation = await db.Conversations.FindAsync([message?.ConversationId ?? itemId], cancellationToken);
             if (conversation is not null && (conversation.PairLow == me || conversation.PairHigh == me)
-                && (subjectType == ReportSubject.Conversation || message is not null && message.SenderAccountId != me))
+                && (subjectType == ReportSubject.Conversation || message is not null && message.Kind != MessageKind.System && message.SenderAccountId != me))
             {
                 subjectId = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
                 subject = await db.MemberProfiles.FindAsync([subjectId], cancellationToken);
@@ -199,7 +199,7 @@ public static class ModerationEndpoints
                 snapshot = new
                 {
                     Conversation = conversation.Id, Reported = message?.Id, Chosen = chosen is not null, conversation.ClosedReason,
-                    Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body,
+                    Messages = kept.Select(m => new { m.Id, Kind = Wire(m.Kind), FromSubject = m.Kind == MessageKind.System ? (bool?)null : m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Kind == MessageKind.System ? ConversationEnding.ByOther : m.Body,
                         Photo = m.MediaId, PhotoSha256 = m.MediaId is { } p ? hashes.GetValueOrDefault(p) : null }).ToList(),
                 };
             }

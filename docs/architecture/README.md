@@ -27,3 +27,5 @@ Dependency versions: SDK pinned in global.json; net10.0 server/shared, net10.0-a
 Official reference used for template/render-mode selection: [Microsoft Blazor render modes](https://learn.microsoft.com/aspnet/core/blazor/components/render-modes?view=aspnetcore-10.0), [MAUI overview](https://learn.microsoft.com/dotnet/maui/what-is-maui?view=net-maui-10.0). Recheck workload support when installing mobile tooling.
 
 API paths and client contract dates follow [API versioning](API-VERSIONING.md), D211/D222.
+
+D223/D224: conversation closure and its recipient centre/outbox item commit together. Existing API notification services own deduplicated dispatch/recovery; per-device attempts record acceptance or uncertainty rather than claiming device delivery. No separate worker project is introduced.

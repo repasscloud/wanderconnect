@@ -9,6 +9,11 @@
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (standing is null) { <p role="status">Your account standing isn't available right now.</p> }
 </div>
+<section class="card account-section" aria-labelledby="support-heading" data-standing-support>
+    <h2 id="support-heading">Contact Swoovr support</h2>
+    <p><a href="@StandingText.SupportUrl" data-support-web>Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)" data-support-email>Email Support</a></p>
+    <p class="field-help">@StandingText.SupportHelp</p>
+</section>
 @if (standing is { } s)
 {
     <section class="card account-section" aria-labelledby="state-heading">
@@ -68,7 +73,7 @@
         else
         {
             <ul class="request-list" data-standing-reports="@s.Reports.Count">
-                @foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r)</li> }
+                @foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r) <a href="@StandingText.SupportLink(r.Reference)">Contact support about @r.Reference</a></li> }
             </ul>
         }
         <p class="field-help">@StandingText.Privacy</p>

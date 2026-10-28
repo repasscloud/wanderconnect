@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.2, 28 October 2026";
+    public const string Version = "Draft 0.3, 29 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -83,6 +83,7 @@ public static class PrivacyNotice
         ]),
         new("contact", "Contact", [
             $"Privacy questions and complaints: {Contact}.",
+            $"General support: {StandingText.SupportUrl} or {StandingText.SupportEmail}. Quote your SW-XXXXXX reference if you have one. {StandingText.SupportHelp}",
         ]),
     ];
 }

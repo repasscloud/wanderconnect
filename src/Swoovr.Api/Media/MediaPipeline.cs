@@ -54,7 +54,7 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
 
     /// <param name="conversation">For a chat photo (#41): the conversation it's sent in; the item's purpose is then "attachment".</param>
     public async Task<(MediaItem? Item, MediaUploadError Error)> UploadAsync(Guid account, byte[] upload, Guid? replaces, DateTimeOffset now, CancellationToken cancellationToken,
-        Guid? conversation = null)
+        Guid? conversation = null, bool deferScreening = false)
     {
         var processed = processor.Process(upload);
         if (processed.Error != MediaUploadError.None) return (null, processed.Error);
@@ -71,9 +71,12 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
         db.MediaItems.Add(item);
         Audit.Record(db, now, account, "account", "media.uploaded", "media", item.Id.ToString(), replaces is not null ? "replacement" : conversation is not null ? "attachment" : null);
         await db.SaveChangesAsync(cancellationToken);
-        queue.Enqueue(item.Id);
+        if (!deferScreening) ScheduleScreening(item.Id);
         return (item, MediaUploadError.None);
     }
+
+    /// <summary>Queue only after an enclosing upload transaction commits, so the worker can see its row.</summary>
+    public void ScheduleScreening(Guid id) => queue.Enqueue(id);
 
     /// <summary>One screening attempt for a pending item. Anything unusable leaves it pending for a later attempt.</summary>
     public async Task ScreenAsync(Guid id, DateTimeOffset now, CancellationToken cancellationToken)

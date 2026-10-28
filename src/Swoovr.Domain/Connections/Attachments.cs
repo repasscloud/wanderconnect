@@ -29,10 +29,15 @@ public static class ConversationEnding
 {
     public static readonly IReadOnlyDictionary<string, string> Closings = new Dictionary<string, string>
     {
-        ["thanks"] = "Thanks for chatting. I'm going to end our conversation here. All the best.",
-        ["not-a-match"] = "I don't think we're a match, so I'm going to end our conversation here. Take care.",
-        ["take-care"] = "I'm stepping back from this conversation. Take care of yourself.",
+        ["thanks"] = "Thanks for chatting. I don't think we're the right match, but I wish you all the best.",
+        ["not-a-match"] = "I've enjoyed our conversation, but I've decided not to continue. Take care.",
+        ["take-care"] = "I'm moving in a different direction, but thank you for your time. Wishing you well.",
     };
+
+    public const string ByMe = "You've ended this conversation. Your connections with this member have been closed, and neither of you can send further messages here.";
+    public const string ByOther = "This conversation has ended. You can still view your previous messages, but replies are no longer available.";
+    public const string Notification = "A conversation has ended on Swoovr.";
+    public static string SystemText(bool initiatedByViewer) => initiatedByViewer ? ByMe : ByOther;
 
     public static bool Valid(string? closing) => closing is null || Closings.ContainsKey(closing);
 }

@@ -22,6 +22,7 @@ public static class NotificationText
     public static string KindLabel(string kind) => kind switch
     {
         "message" => "Messages",
+        "conversationEnded" => "Conversation ended",
         "request" => "Requests",
         "connection" => "New connections",
         "travel" => "Travel reminders",

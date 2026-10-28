@@ -34,10 +34,14 @@ public static class PhotoText
     /// <summary>#41, Q85: the fixed closing messages offered when ending a conversation.</summary>
     public static readonly IReadOnlyList<(string Id, string Label)> Closings =
     [
-        ("thanks", "“Thanks for chatting. I'm going to end our conversation here. All the best.”"),
-        ("not-a-match", "“I don't think we're a match, so I'm going to end our conversation here. Take care.”"),
-        ("take-care", "“I'm stepping back from this conversation. Take care of yourself.”"),
+        ("thanks", "“Thanks for chatting. I don't think we're the right match, but I wish you all the best.”"),
+        ("not-a-match", "“I've enjoyed our conversation, but I've decided not to continue. Take care.”"),
+        ("take-care", "“I'm moving in a different direction, but thank you for your time. Wishing you well.”"),
     ];
+
+    public const string ClosedTitle = "Conversation closed";
+    public const string ClosedBody = "This conversation has ended. Your messages are still available to view, but you can no longer reply.";
+    public const string ClosedSafety = "Report and block options remain available.";
 
     public const string EndHelp = "Ending disconnects you in every mode and closes this chat for both of you. You both keep the history. They can't ask to connect again for 30 days. It doesn't block or report them.";
 

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Swoovr.Api.Accounts;
 using Swoovr.Api.Auth;
 using Swoovr.Api.Profiles;
@@ -32,7 +33,7 @@ public static class MessagingEndpoints
             var (db, me) = (accounts.Db!, current!.Account!.Id);
             var rows = await (from c in db.Conversations
                               where (c.PairLow == me || c.PairHigh == me)
-                                    && (c.ClosedAt == null || c.ClosedReason == ClosedReasons.Disconnected || c.ClosedReason == ClosedReasons.Deleted)
+                                    && (c.ClosedAt == null || c.ClosedReason == ClosedReasons.Disconnected || c.ClosedReason == ClosedReasons.Deleted || c.ClosedReason == ClosedReasons.MemberEnded)
                                     && !db.Blocks.Any(b => (b.BlockerAccountId == c.PairLow && b.BlockedAccountId == c.PairHigh) || (b.BlockerAccountId == c.PairHigh && b.BlockedAccountId == c.PairLow))
                               let hidden = db.ConversationHides.Where(h => h.ConversationId == c.Id && h.AccountId == me).Select(h => (DateTimeOffset?)h.HiddenAt).FirstOrDefault()
                               where hidden == null || (c.LastMessageAt != null && c.LastMessageAt > hidden)
@@ -96,11 +97,11 @@ public static class MessagingEndpoints
                     && (hiddenAt == null || m.SentAt > hiddenAt) && !db.MessageHides.Any(h => h.MessageId == m.Id && h.AccountId == me)
                     && (m.Kind != MessageKind.Photo || m.SenderAccountId == me || m.DeletedAt != null
                         || db.MediaItems.Any(i => i.Id == m.MediaId && i.Status == MediaStatus.Passed && i.RemovedAt == null)))
-                .OrderByDescending(m => m.SentAt).ThenByDescending(m => m.Id).Take(MessagingPolicy.PageSize + 1).ToListAsync(cancellationToken);
+                .OrderByDescending(m => m.SentAt).ThenByDescending(m => m.Kind == MessageKind.System).ThenByDescending(m => m.Id).Take(MessagingPolicy.PageSize + 1).ToListAsync(cancellationToken);
             var page = rows.Take(MessagingPolicy.PageSize).ToList();
             // #49: reading the conversation reads its message notifications (the member's own state; no read receipts).
             if (before is null)
-                await db.Notifications.Where(n => n.AccountId == me && n.Kind == NotificationKind.Message && n.SubjectId == id && n.ReadAt == null)
+                await db.Notifications.Where(n => n.AccountId == me && (n.Kind == NotificationKind.Message || n.Kind == NotificationKind.ConversationEnded) && n.SubjectId == id && n.ReadAt == null)
                     .ExecuteUpdateAsync(u => u.SetProperty(n => n.ReadAt, now), cancellationToken);
             var media = await MediaForAsync(db, page, cancellationToken);
             var links = accounts.Services.GetRequiredService<Media.MediaLinks>();
@@ -114,6 +115,8 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
+            await using var transaction = await LockAsync(db, id, me, cancellationToken);
+            now = clock.GetUtcNow();
             var conversation = await OpenAsync(db, id, me, cancellationToken);
             if (conversation is null) return NotAvailable();
             var other = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
@@ -130,6 +133,7 @@ public static class MessagingEndpoints
             db.Messages.Add(message);
             conversation.LastMessageAt = now;
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
             await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
             await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, me, null, id, now, cancellationToken, message.Body);
@@ -163,7 +167,7 @@ public static class MessagingEndpoints
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
             var message = await db.Messages.FindAsync([id], cancellationToken);
-            if (message is null || await OpenAsync(db, message.ConversationId, me, cancellationToken) is null) return NotAvailable();
+            if (message is null || await ReadableAsync(db, message.ConversationId, me, cancellationToken) is null) return NotAvailable();
             if (await db.MessageHides.FindAsync([id, me], cancellationToken) is null) db.MessageHides.Add(new MessageHide { MessageId = id, AccountId = me, HiddenAt = now });
             await db.SaveChangesAsync(cancellationToken);
             return Results.NoContent();
@@ -174,7 +178,7 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
-            if (await OpenAsync(db, id, me, cancellationToken) is null) return NotAvailable();
+            if (await ReadableAsync(db, id, me, cancellationToken) is null) return NotAvailable();
             var hide = await db.ConversationHides.FindAsync([id, me], cancellationToken);
             if (hide is null) db.ConversationHides.Add(new ConversationHide { ConversationId = id, AccountId = me, HiddenAt = now });
             else hide.HiddenAt = now;
@@ -191,6 +195,8 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
+            await using var transaction = await LockAsync(db, id, me, cancellationToken);
+            now = clock.GetUtcNow();
             var conversation = await OpenAsync(db, id, me, cancellationToken);
             if (conversation is null) return NotAvailable();
             var other = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
@@ -217,7 +223,7 @@ public static class MessagingEndpoints
             if (file.Length > MediaPolicy.MaxUploadBytes) return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
             using var buffer = new MemoryStream();
             await file.CopyToAsync(buffer, cancellationToken);
-            var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), null, now, cancellationToken, conversation.Id);
+            var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), null, now, cancellationToken, conversation.Id, deferScreening: true);
             if (error != MediaUploadError.None) return error switch
             {
                 MediaUploadError.TooBig => Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB."),
@@ -229,13 +235,14 @@ public static class MessagingEndpoints
             var message = new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Photo, Body = "", SentAt = now, MediaId = item!.Id };
             db.Messages.Add(message);
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            pipeline.ScheduleScreening(item!.Id);
             var view = View(message, me, now, item);
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", view, cancellationToken);
             return Results.Accepted($"/api/messages/{message.Id}", view);
         }).DisableAntiforgery();
 
-        // #41, Q85: end politely without blocking. An optional fixed closing message, then every mode connecting the pair is
-        // disconnected (D176: the other may not ask again in those modes for 30 days) and the chat closes read-only for both.
+        // D213: the closure, mode changes, farewell, system event and audit commit together; retries are harmless.
         api.MapPost("/conversations/{id:guid}/end", async (Guid id, EndConversation request, ClaimsPrincipal user, AccountResolver accounts, IHubContext<MessagesHub> hub,
             TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -243,31 +250,37 @@ public static class MessagingEndpoints
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
             if (!ConversationEnding.Valid(request.Closing)) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidClosing, "Choose one of the closing messages, or none.");
-            var conversation = await OpenAsync(db, id, me, cancellationToken);
+            await using var transaction = await LockAsync(db, id, me, cancellationToken);
+            now = clock.GetUtcNow();
+            var conversation = await ReadableAsync(db, id, me, cancellationToken);
             if (conversation is null) return NotAvailable();
+            if (conversation.ClosedAt is not null)
+                return conversation.ClosedReason == ClosedReasons.MemberEnded ? Results.Ok(await ViewAsync(db, conversation, me, cancellationToken)) : NotAvailable();
             var other = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
-            Message? closing = null;
+            var events = new List<Message>();
             if (request.Closing is { } choice && MessagingPolicy.CanSend(await SendFactsAsync(db, current.Profile!.Bot, me, other, id, now, cancellationToken) with { SentLastMinute = 0 },
                     ConversationEnding.Closings[choice]) == SendRefusal.None)
-            {
-                db.Messages.Add(closing = new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Text, Body = ConversationEnding.Closings[choice], SentAt = now });
-                conversation.LastMessageAt = now;
-            }
+                events.Add(new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Farewell, Body = ConversationEnding.Closings[choice], SentAt = now });
+            // Sender is internal provenance only: the system projection always has Mine=false and no initiating-party metadata.
+            events.Add(new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.System, Body = "MemberEnded", SentAt = now });
+            db.Messages.AddRange(events);
             foreach (var accepted in await db.ConnectionRequests.Where(r => r.PairLow == conversation.PairLow && r.PairHigh == conversation.PairHigh
                          && r.Status == ConnectionRequestStatus.Accepted).ToListAsync(cancellationToken))
                 if (ConnectionRequestPolicy.Disconnect(accepted, me, now))
                     Audit.Record(db, now, me, "account", "request.disconnected", "connection-request", accepted.Id.ToString(), accepted.ModeId);
-            Audit.Record(db, now, me, "account", "conversation.ended", "conversation", id.ToString(), request.Closing ?? "none");
+            (conversation.ClosedAt, conversation.ClosedReason, conversation.LastMessageAt) = (now, ClosedReasons.MemberEnded, now);
+            Audit.Record(db, now, me, "account", "conversation.ended", "conversation", id.ToString(), "MemberEnded");
+            var notifier = accounts.Services.GetRequiredService<Notifications.Notifier>();
+            var queuedNotification = await notifier.QueueClosureAsync(other, me, id, now, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
-            var closed = await CloseIfUnconnectedAsync(db, conversation.PairLow, conversation.PairHigh, now, cancellationToken);
-            if (closed is not null) await db.SaveChangesAsync(cancellationToken);
-            if (closing is not null)
+            await transaction.CommitAsync(cancellationToken);
+            foreach (var message in events)
             {
-                await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(closing, me, now), cancellationToken);
-                await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(closing, other, now), cancellationToken);
-                await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, me, null, id, now, cancellationToken, closing.Body);
+                await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
+                await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
             }
-            if (closed is not null) await PushClosedAsync(hub, [closed], cancellationToken);
+            if (queuedNotification is { } notificationId) await notifier.DispatchClosureAsync(notificationId, now, cancellationToken);
+            await PushClosedAsync(hub, [conversation], cancellationToken);
             return Results.Ok(await ViewAsync(db, conversation, me, cancellationToken));
         });
 
@@ -324,6 +337,17 @@ public static class MessagingEndpoints
         await services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, message.SenderAccountId, null, conversation.Id, now, cancellationToken);
     }
 
+    private static async Task<IDbContextTransaction> LockAsync(SwoovrDbContext db, Guid id, Guid me, CancellationToken cancellationToken)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM conversations WHERE id = {id} AND (pair_low = {me} OR pair_high = {me}) FOR UPDATE", cancellationToken);
+            return transaction;
+        }
+        catch { await transaction.DisposeAsync(); throw; }
+    }
+
     private static IResult NotAvailable() => Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That conversation isn't available.");
 
     /// <summary>
@@ -332,6 +356,8 @@ public static class MessagingEndpoints
     /// </summary>
     public static MessageView View(Message message, Guid viewer, DateTimeOffset now, MediaItem? media = null, Media.MediaLinks? links = null)
     {
+        if (message.Kind == MessageKind.System)
+            return new(message.Id, message.ConversationId, false, "system", ConversationEnding.SystemText(message.SenderAccountId == viewer), message.SentAt, false);
         PhotoView? photo = null;
         string? state = null;
         if (message.Kind == MessageKind.Photo && message.DeletedAt is null && media is not null)
@@ -362,7 +388,7 @@ public static class MessagingEndpoints
     public static async Task<Conversation?> ReadableAsync(SwoovrDbContext db, Guid id, Guid me, CancellationToken cancellationToken) =>
         await OpenAsync(db, id, me, cancellationToken)
         ?? await db.Conversations.SingleOrDefaultAsync(c => c.Id == id && (c.PairLow == me || c.PairHigh == me) && c.ClosedAt != null
-            && (c.ClosedReason == ClosedReasons.Disconnected || c.ClosedReason == ClosedReasons.Deleted)
+            && (c.ClosedReason == ClosedReasons.Disconnected || c.ClosedReason == ClosedReasons.Deleted || c.ClosedReason == ClosedReasons.MemberEnded)
             && !db.Blocks.Any(b => (b.BlockerAccountId == c.PairLow && b.BlockedAccountId == c.PairHigh) || (b.BlockerAccountId == c.PairHigh && b.BlockedAccountId == c.PairLow)), cancellationToken);
 
     /// <summary>Rule 4: an accepted connection in any mode, and no block either way.</summary>
@@ -398,11 +424,11 @@ public static class MessagingEndpoints
         var otherId = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
         var other = await db.MemberProfiles.SingleOrDefaultAsync(p => p.AccountId == otherId, cancellationToken);
         // D170: after final deletion the other member has no profile; the conversation reads "Deleted member".
-        if (other is null) return new(conversation.Id, new PersonSummary(Guid.Empty, "Deleted member", []), conversation.CreatedAt, conversation.LastMessageAt, false);
+        if (other is null) return new(conversation.Id, new PersonSummary(Guid.Empty, "Deleted member", []), conversation.CreatedAt, conversation.LastMessageAt, false, conversation.ClosedAt is not null);
         var person = new PersonSummary(other.PublicId, other.DisplayName, ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
         var canSend = conversation.ClosedAt is null && await ConnectedAsync(db, me, otherId, cancellationToken)
             && await ParticipatesAsync(db, otherId, DateTimeOffset.UtcNow, cancellationToken);
-        return new(conversation.Id, person, conversation.CreatedAt, conversation.LastMessageAt, canSend);
+        return new(conversation.Id, person, conversation.CreatedAt, conversation.LastMessageAt, canSend, conversation.ClosedAt is not null);
     }
 
     /// <summary>

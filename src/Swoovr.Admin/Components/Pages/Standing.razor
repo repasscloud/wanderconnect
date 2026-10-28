@@ -4,6 +4,11 @@
 <p class="breadcrumb"><a href="/accounts">Accounts</a> / <a href="/accounts/@Id">Account</a> / Standing</p>
 <h1>What the member sees</h1>
 <p class="help">Support and admins (#50). Exactly the member's own account-standing page, to help them. It shows nothing they can't see; viewing it is logged.</p>
+<section class="card" data-standing-support>
+    <h2>Official support channels</h2>
+    <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
+    <p class="help">@StandingText.SupportHelp</p>
+</section>
 @if (standing is not { } s)
 {
     <p data-standing="missing">@(message ?? "Not found.")</p>
@@ -34,7 +39,7 @@ else
     <section class="card">
         <h2>Their reports</h2>
         @if (s.Reports.Count == 0) { <p>@StandingText.NoReports</p> }
-        <ul class="list" data-standing-reports="@s.Reports.Count">@foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r)</li> }</ul>
+        <ul class="list" data-standing-reports="@s.Reports.Count">@foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r) <a href="@StandingText.SupportLink(r.Reference)">Contact support about @r.Reference</a></li> }</ul>
     </section>
 }
 @code {

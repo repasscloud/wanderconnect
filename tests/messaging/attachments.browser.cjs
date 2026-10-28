@@ -286,6 +286,14 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     await Promise.all([anaPage.waitForURL(web + '/account'), anaPage.click('#kc-login')]);
     await anaPage.goto(web + `/chats/${ae}`);
     await anaPage.waitForSelector('[data-conversation="ready"]', { timeout: 20000 });
+    // Force approval/live-event before the older upload response to cover response/event reordering.
+    await anaPage.route(`**/bff/api/conversations/${ae}/photos`, async route => {
+      const response = await route.fetch();
+      const pending = await response.json();
+      assert.ok(await waitFor(async () => (await call(tk.ana, `/api/conversations/${ae}/messages`)).body.items
+        .some(m => m.id === pending.id && m.photoState === 'approved')), 'photo approved before releasing upload response'); pass();
+      await route.fulfill({ response });
+    });
     await anaPage.setInputFiles('[data-chat-photo-input]', { name: 'fictional.jpg', mimeType: 'image/jpeg', buffer: await synthetic(canvas, { kind: 'gradient', type: 'image/jpeg', seed: 46 }) });
     await anaPage.waitForSelector('[data-photo-state="checking"], [data-chat-photo]', { timeout: 30000 }); pass();
     await anaPage.waitForSelector('[data-chat-photo]', { timeout: 60000 }); pass(); // approved and shown in place (live update)
@@ -304,15 +312,16 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     assert.deepEqual(code(await call(tk.cam, `/api/conversations/${ab}/end`, { method: 'POST', body: { closing: null } })), [404, 'not-available']); pass();
     r = await call(tk.ben, `/api/conversations/${ab}/end`, { method: 'POST', body: { closing: 'thanks' } });
     assert.deepEqual([r.status, r.body.canSend], [200, false]); pass();
-    const last = (await list('ana', ab))[0]; // newest first
-    assert.deepEqual([last.mine, last.text], [false, "Thanks for chatting. I'm going to end our conversation here. All the best."]); pass();
+    const endedMessages = await list('ana', ab), last = endedMessages[0]; // newest first
+    assert.deepEqual([last.kind, last.mine, last.text], ['system', false, 'This conversation has ended. You can still view your previous messages, but replies are no longer available.']); pass();
+    assert.deepEqual([endedMessages[1].kind, endedMessages[1].text], ['farewell', "Thanks for chatting. I don't think we're the right match, but I wish you all the best."]); pass();
     assert.equal(await sql(`SELECT string_agg(status, ',' ORDER BY mode_id) FROM connection_requests WHERE pair_low = least('${id.ana}'::uuid, '${id.ben}'::uuid) AND pair_high = greatest('${id.ana}'::uuid, '${id.ben}'::uuid) AND status IN ('Accepted', 'Disconnected')`),
       'Disconnected,Disconnected'); pass();
     assert.deepEqual(code(await send('ana', ab)), [404, 'not-available']); pass();
     assert.deepEqual(code(await call(tk.ana, `/api/conversations/${ab}/messages`, { method: 'POST', body: { text: 'hi' } })), [404, 'not-available']); pass();
     assert.deepEqual(code(await call(tk.ana, '/api/requests', { method: 'POST', body: { to: pid.ben, mode: 'friends' } })), [409, 'recently-disconnected']); pass();
     assert.ok((await list('ana', ab)).some(m => m.id === first && m.photo)); pass(); // history stays readable
-    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'conversation.ended' AND target_id = '${ab}' AND detail = 'thanks'`), '1'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'conversation.ended' AND target_id = '${ab}' AND detail = 'MemberEnded'`), '1'); pass();
 
     // ---- Account deletion: Eve's chat photo goes with her account (the object is purged; nothing holds Eve).
     await connect('eve', 'ana', 'dating');

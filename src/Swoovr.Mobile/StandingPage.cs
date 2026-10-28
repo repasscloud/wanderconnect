@@ -24,6 +24,10 @@ public sealed class StandingPage : ContentPage
 		body.Children.Clear();
 		body.Children.Add(Ui.Text(StandingText.Title, "PageTitle"));
 		body.Children.Add(Ui.Text(StandingText.Intro, "FooterClaims"));
+        body.Children.Add(Ui.Card(Ui.Text("Contact Swoovr support", "SectionHeading"),
+            Ui.Button("Contact Support", "StandingSupportWeb", () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)), primary: false),
+            Ui.Button("Email Support", "StandingSupportEmail", () => Launcher.Default.OpenAsync(new Uri("mailto:" + StandingText.SupportEmail)), primary: false),
+            Ui.Text(StandingText.SupportHelp, "FooterClaims")));
 		if ((await Ui.Members!.StandingAsync()).Value is not { } s)
 		{
 			body.Children.Add(Ui.Text("Your account standing isn't available right now.", id: "StandingRefused"));
@@ -58,7 +62,12 @@ public sealed class StandingPage : ContentPage
 		body.Children.Add(Ui.Card([.. decisions]));
 		var reports = new List<View> { Ui.Text("Your reports", "SectionHeading"), Ui.Text(StandingText.ReferenceHelp, "FooterClaims") };
 		if (s.Reports.Count == 0) reports.Add(Ui.Text(StandingText.NoReports, "FooterClaims", "StandingNoReports"));
-		reports.AddRange(s.Reports.Select(r => (View)Ui.Text(StandingText.Report(r), id: $"StandingReport_{r.Reference}")));
+		foreach (var r in s.Reports)
+        {
+            reports.Add(Ui.Text(StandingText.Report(r), id: $"StandingReport_{r.Reference}"));
+            reports.Add(Ui.Button($"Contact support about {r.Reference}", $"StandingSupport_{r.Reference}",
+                () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportLink(r.Reference))), primary: false));
+        }
 		reports.Add(Ui.Text(StandingText.Privacy, "FooterClaims"));
 		body.Children.Add(Ui.Card([.. reports]));
 	}

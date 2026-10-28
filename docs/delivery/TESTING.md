@@ -104,6 +104,7 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | accessibility floor | `tests/accessibility/pages.browser.cjs` | 19 pages |
 | notifications (AJ) | `tests/notifications/notifications.browser.cjs` | 98 |
 | account standing (AK) | `tests/moderation/standing.browser.cjs` | 71 |
+| neutral conversation endings/support | `tests/messaging/endings.browser.cjs` | See current VALIDATION.md |
 | chat photos, endings, starters (AL) | `tests/messaging/attachments.browser.cjs` | 98 |
 | phone (**default hosts**) | `tests/accounts/phone.browser.cjs` | 52 |
 
@@ -172,3 +173,7 @@ cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build src/
   ```
 
   Check the API's working directory is the main checkout (`lsof -p <pid> | grep cwd`).
+
+### Closure outbox recovery
+
+D224: `notifications sweep` also resumes committed closure notifications with no dispatch completion marker. Per-device attempting/unknown outcomes are not blindly resent; inspect `notification_deliveries` by notification/device id (no tokens or message bodies in operator output). A provider acknowledgement is distinct from device delivery. The ending suite seeds interrupted progress using fictional rows, including an ambiguous first device and a second device not yet attempted, and checks repeated sweeps do not multiply sends or centre entries.

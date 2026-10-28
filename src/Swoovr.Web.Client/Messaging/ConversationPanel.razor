@@ -18,12 +18,21 @@
 </div>
 @if (conversation is not null)
 {
+    @if (conversation.Closed)
+    {
+        <section class="card stack" role="status" data-closed-conversation>
+            <h1>@PhotoText.ClosedTitle</h1>
+            <p>@PhotoText.ClosedBody</p>
+            <p class="field-help">@PhotoText.ClosedSafety</p>
+        </section>
+    }
     @if (more) { <button type="button" class="link-button" @onclick="OlderAsync" data-older>Earlier messages</button> }
     <ul class="chat-thread" aria-live="polite" data-messages="@messages.Count">
         @foreach (var m in messages)
         {
-            <li class="bubble @(m.Mine ? "mine" : "") @(m.Deleted ? "deleted" : "")" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
-                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span>
+            <li class="@(m.Kind == "system" ? "chat-system" : "bubble" + (m.Mine ? " mine" : "") + (m.Deleted ? " deleted" : ""))" data-message-kind="@m.Kind" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
+                <span class="visually-hidden">@(m.Kind == "system" ? "Swoovr" : m.Mine ? "You" : conversation.Person.DisplayName): </span>
+                @if (m.Kind == "farewell") { <p class="field-help">Predefined farewell</p> }
                 @if (m.Deleted) { <p>This message was deleted</p> }
                 else if (m.Kind == "photo")
                 {
@@ -31,11 +40,14 @@
                     @if (m.Mine && m.PhotoState is { } state && state != "approved") { <p class="field-help" data-photo-state="@state">@PhotoText.ChatState(state)</p> }
                 }
                 else { <p>@m.Text</p> }
+                @if (m.Kind != "system")
+                {
                 <span class="request-actions">
-                    @if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5)) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
+                    @if (m.CanDelete) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
                     <button type="button" class="link-button" @onclick="() => HideAsync(m)" data-hide="@m.Id">Hide</button>
                     @if (!m.Mine && !m.Deleted) { <button type="button" class="link-button" @onclick="() => reporting = m.Id" data-report-message="@m.Id">Report</button> }
                 </span>
+                }
             </li>
         }
     </ul>
@@ -63,7 +75,7 @@
             <button class="button" type="submit" disabled="@(busy || string.IsNullOrWhiteSpace(draft))" data-send>Send</button>
         </form>
     }
-    else { <p class="field-help" data-cannot-send>You can't send messages here right now.</p> }
+    else if (!conversation.Closed) { <p class="field-help" data-cannot-send>You can't send messages here right now.</p> }
     @* Policy §7: Report and Block straight from the conversation, and the Serious Safety Incident pathway (D190). *@
     <p class="account-actions">
         <button type="button" class="button button-secondary" @onclick="HideConversationAsync" data-hide-conversation>Hide this chat</button>
@@ -87,7 +99,7 @@
                 {
                     <label class="check"><input type="radio" name="closing" checked="@(closing == closingId)" @onchange="() => closing = closingId" data-closing="@closingId" /> @label</label>
                 }
-                <label class="check"><input type="radio" name="closing" checked="@(closing is null)" @onchange="() => closing = null" data-closing="none" /> No message</label>
+                <label class="check"><input type="radio" name="closing" checked="@(closing is null)" @onchange="() => closing = null" data-closing="none" /> No farewell message</label>
             </fieldset>
             <p class="account-actions">
                 <button type="submit" class="button" disabled="@busy" data-end-confirm>End conversation</button>
@@ -180,7 +192,8 @@
             using var buffer = new MemoryStream();
             await stream.CopyToAsync(buffer);
             var result = await Members.SendChatPhotoAsync(Id, buffer.ToArray(), e.File.Name, e.File.ContentType);
-            if (result.Value is { } sent) { Upsert(sent); (status, message) = ("photo-sent", null); }
+            // A live screening/deletion event may precede the older upload response. Preserve that event.
+        if (result.Value is { } sent) { if (messages.All(m => m.Id != sent.Id)) messages.Add(sent); (status, message) = ("photo-sent", null); }
             else (status, message) = (result.Code ?? "failed", PhotoText.Refusal(result.Code));
         }
         finally { busy = false; }
@@ -230,12 +243,17 @@
         if (await Members.HideConversationAsync(Id) == 204) Navigation.NavigateTo("/chats");
     }
 
-    private Task Closed()
+    private async Task Closed()
     {
-        conversation = null;
-        (status, message) = ("closed", "This chat is closed.");
+        conversation = (await Members.ConversationAsync(Id)).Value;
+        if (conversation is not null)
+        {
+            var page = (await Members.MessagesAsync(Id)).Value;
+            (messages, more, before) = (page?.Items.Reverse().ToList() ?? [], page?.More ?? false, page?.Before);
+        }
+        else messages.Clear();
+        (status, message) = ("closed", conversation is null ? "This chat is closed." : PhotoText.ClosedBody);
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()

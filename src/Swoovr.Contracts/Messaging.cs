@@ -4,7 +4,7 @@ namespace Swoovr.Contracts;
 /// A conversation as one member sees it (D143): the other person, when it last moved, and whether the member may write
 /// now (CanSend; the API checks again on every send). No read receipts, presence or typing (Q42 rules 6–7).
 /// </summary>
-public sealed record ConversationView(Guid Id, PersonSummary Person, DateTimeOffset CreatedAt, DateTimeOffset? LastMessageAt, bool CanSend);
+public sealed record ConversationView(Guid Id, PersonSummary Person, DateTimeOffset CreatedAt, DateTimeOffset? LastMessageAt, bool CanSend, bool Closed = false);
 
 /// <summary>
 /// A message as one member sees it. CanDelete: theirs and within five minutes (delete for both, rule 8). Deleted: shown

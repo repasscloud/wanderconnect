@@ -202,6 +202,8 @@ const output = process.env.SWOOVR_SCREENSHOTS;
     await adminPage.goto(admin + `/accounts/${ids.ana}/standing`);
     await adminPage.waitForSelector('[data-standing="active"]'); pass();
     assert.ok((await adminPage.textContent(`[data-standing-report="${fresh}"]`)).includes(fresh)); pass();
+    assert.equal(await adminPage.getAttribute('[data-standing-support] a:first-of-type', 'href'), 'https://swoovr.com/support'); pass();
+    assert.equal(await adminPage.getAttribute('[data-standing-support] a:last-of-type', 'href'), 'mailto:support@swoovr.com'); pass();
     if (output) await adminPage.screenshot({ path: output + '/admin-standing.png', fullPage: true });
 
     console.log(`PASS: account standing (${passed} checks).`);

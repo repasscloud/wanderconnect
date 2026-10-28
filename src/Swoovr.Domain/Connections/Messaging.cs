@@ -24,11 +24,11 @@ public sealed class Conversation
 /// <summary>Why a conversation closed (Conversation.ClosedReason).</summary>
 public static class ClosedReasons
 {
-    public const string Blocked = "blocked", Disconnected = "disconnected", Deleted = "deleted";
+    public const string Blocked = "blocked", Disconnected = "disconnected", Deleted = "deleted", MemberEnded = "member-ended";
 }
 
 /// <summary>What a message carries: text, or one photo through the media quarantine (#41, D203; policy §5).</summary>
-public enum MessageKind { Text, Photo }
+public enum MessageKind { Text, Photo, Farewell, System }
 
 /// <summary>
 /// A message. Deleting for both (within five minutes, rule 8) shows it to both members as deleted at once; its text
@@ -103,7 +103,7 @@ public static class MessagingPolicy
 
     /// <summary>Rule 8: only the sender, only within five minutes, only once.</summary>
     public static bool MayDeleteForBoth(Message message, Guid me, DateTimeOffset now) =>
-        message.SenderAccountId == me && message.DeletedAt is null && now - message.SentAt <= DeleteWindow;
+        message.Kind is MessageKind.Text or MessageKind.Photo && message.SenderAccountId == me && message.DeletedAt is null && now - message.SentAt <= DeleteWindow;
 
     /// <summary>
     /// Whether a message is listed for a member: not hidden by them, not before they hid the conversation. A message

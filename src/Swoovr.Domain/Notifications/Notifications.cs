@@ -4,7 +4,7 @@ namespace Swoovr.Domain;
 /// What a notification is about (#49). Account notices (D135) can't be turned off; the rest follow the member's settings.
 /// Message requests in Swoovr are connection requests: people can only message once connected (D143).
 /// </summary>
-public enum NotificationKind { Message, Request, Connection, Travel, Account }
+public enum NotificationKind { Message, Request, Connection, Travel, Account, ConversationEnded }
 
 /// <summary>
 /// One item in the member's notification centre. It holds ids only (who, which mode, which conversation, request, trip or
@@ -130,7 +130,7 @@ public static class NotificationPolicy
 
     public static bool KindOn(NotificationSettings s, NotificationKind kind) => kind switch
     {
-        NotificationKind.Message => s.Messages,
+        NotificationKind.Message or NotificationKind.ConversationEnded => s.Messages,
         NotificationKind.Request => s.Requests,
         NotificationKind.Connection => s.Connections,
         NotificationKind.Travel => s.Travel,
@@ -166,6 +166,7 @@ public static class NotificationPolicy
     /// </summary>
     public static (string Title, string Body) Push(NotificationKind kind, bool privatePreviews, string? name, string? modeLabel, string? text, string? place)
     {
+        if (kind == NotificationKind.ConversationEnded) return ("Swoovr", ConversationEnding.Notification);
         if (privatePreviews || kind == NotificationKind.Account)
             return ("Swoovr", kind switch
             {

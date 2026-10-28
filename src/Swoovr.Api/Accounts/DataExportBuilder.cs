@@ -40,7 +40,7 @@ public static class DataExportBuilder
 
         var conversations = await db.Conversations.Where(c => c.PairLow == id || c.PairHigh == id).OrderBy(c => c.CreatedAt).ToListAsync(cancellationToken);
         var conversationIds = conversations.Select(c => c.Id).ToList();
-        var messages = (await db.Messages.Where(m => conversationIds.Contains(m.ConversationId)).OrderBy(m => m.SentAt).ToListAsync(cancellationToken))
+        var messages = (await db.Messages.Where(m => conversationIds.Contains(m.ConversationId)).OrderBy(m => m.SentAt).ThenBy(m => m.Kind == MessageKind.System).ToListAsync(cancellationToken))
             .ToLookup(m => m.ConversationId);
         // #41: photo messages appear as they do in the chat: the member's own with their state, the other person's once passed.
         var mediaIds = messages.SelectMany(g => g).Where(m => m.MediaId is not null).Select(m => m.MediaId!.Value).ToList();
@@ -52,7 +52,7 @@ public static class DataExportBuilder
                     m.MediaId is { } y && media.TryGetValue(y, out var j) && j.RemovedAt is not null))
                 .Select(m => new
                 {
-                    from = m.SenderAccountId == id ? "you" : "them", kind = m.Kind.ToString().ToLowerInvariant(), text = MessagingPolicy.VisibleText(m), m.SentAt,
+                    from = m.Kind == MessageKind.System ? "system" : m.SenderAccountId == id ? "you" : "them", kind = m.Kind.ToString().ToLowerInvariant(), text = m.Kind == MessageKind.System ? ConversationEnding.SystemText(m.SenderAccountId == id) : MessagingPolicy.VisibleText(m), m.SentAt,
                     deleted = m.DeletedAt is not null, photo = m.DeletedAt is null ? m.MediaId : null,
                     photoState = m.SenderAccountId == id && m.DeletedAt is null && m.MediaId is { } p && media.TryGetValue(p, out var item) ? MediaPolicy.MemberState(item.Status) : null,
                 }),

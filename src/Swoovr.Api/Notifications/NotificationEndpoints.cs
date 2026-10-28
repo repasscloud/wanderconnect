@@ -14,7 +14,7 @@ public static class NotificationLinks
 {
     public static async Task<string> ForAsync(SwoovrDbContext db, Notification n, CancellationToken cancellationToken) => n.Kind switch
     {
-        NotificationKind.Message => $"/chats/{n.SubjectId}",
+        NotificationKind.Message or NotificationKind.ConversationEnded => $"/chats/{n.SubjectId}",
         NotificationKind.Request => "/connections",
         NotificationKind.Connection when n.ActorAccountId is { } actor
             && await db.MemberProfiles.Where(p => p.AccountId == actor).Select(p => (Guid?)p.PublicId).SingleOrDefaultAsync(cancellationToken) is { } person
@@ -182,6 +182,7 @@ public static class NotificationEndpoints
             var mode = n.ModeId is { } id && labels.TryGetValue(id, out var label) ? label : null;
             string? title = n.Kind switch
             {
+                NotificationKind.ConversationEnded => ConversationEnding.Notification,
                 NotificationKind.Message => n.Count > 1 ? $"{n.Count} new messages from {name}" : $"New message from {name}",
                 NotificationKind.Request => mode is null ? $"{name} sent you a request" : $"{name} sent you a {mode} request",
                 NotificationKind.Connection => mode is null ? $"{name} accepted your request" : $"{name} accepted your {mode} request",

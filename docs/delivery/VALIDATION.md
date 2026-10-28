@@ -828,3 +828,37 @@ Product recovery gap [issue 126](https://github.com/repasscloud/wanderconnect/is
 No merge, deployment, workflow activation, provider console change, real SMS/push or physical-device acceptance. Existing Didit destination must be configured to `/api/webhooks/didit` and a real signed delivery verified at authorised cutover; this run saw zero live deliveries, while the re-read and signed synthetic cases passed. APNs/FCM credentials, hosting Q90/issue 124 and legal review issue 57 remain owner-side gates. Shared .local configuration was not changed; generated logs/fictional fixtures were used (root-admin fixture backed up before testing).
 
 After testing: main remained clean at `ae41722`; `git pull --ff-only`, its Debug build and default hosts succeeded. The first launcher process was reaped after the tool session ended; relaunched the same main-checkout helper in a detached process session. Confirmed listeners on 5080/5081/5082 have working directories in main's `src/Swoovr.Api`, `src/Swoovr.Web` and `src/Swoovr.Admin`; main's original status route returned 200. No shared configuration edit was needed.
+
+
+## Phase 0 takeover slice 2 — conversation endings and support, 29 October 2026
+
+Isolated `feature/swoovr-phase-zero-uat` worktree; D213/D214 and DEFAULT D223–D225. Fictional adults only. New exact-farewell policy check failed against old wording; the new browser flow failed against the old closure response before implementation. A separate report-eligibility regression reproduced 201 versus 404 for System events before the symmetric denial fix. Pending closure dispatch initially produced zero attempts; atomic queue/recovery now passes.
+
+Local integrated browser evidence (Edge, main PostgreSQL/Keycloak/Mailpit and existing image screening service; no device push):
+
+| Suite | Result |
+| --- | --- |
+| messaging/endings | PASS 45: exact text, duplicate/concurrent ends, neutral views/exports/report eligibility, closed Hide, cooldown/new conversation, generic push, preference/mutes, pending/uncertain multi-device recovery, live web and support |
+| messaging/messaging | PASS 111 |
+| connections/lifecycle-privacy | PASS 60; repeated after dispatch changes |
+| notifications/notifications | PASS 98; repeated after dispatch changes |
+| moderation/standing | PASS 73 including admin support links |
+| privacy/notice | PASS 10 |
+| moderation/moderation | PASS 144 |
+| moderation/serious | PASS 61 |
+| evidence/holds | PASS 83 |
+| accounts/deletion | PASS 115 |
+| mobile/app-parity | PASS 104 (browser API parity, not native UI) |
+| accessibility/pages | PASS 19 |
+
+Review found two P2 issues: closed-history Hide used the open-only guard; dispatch transactions could erase earlier device progress on a later-device failure. Fixed with readable-closed guards and durable per-device intent/outcome under a session advisory lock; reviewer re-read found no further actionable issues. Review itself did not execute tests.
+
+Initial attachment run timed out waiting for the uploaded image; the client could overwrite a newer live screening event with its older upload response. Web/app now preserve live state. Two repeats stopped earlier waiting for a second synthetic photo to become approved; they did not reach the UI race check. Database evidence showed Pending with zero attempts: the new encompassing transaction queued before commit, so the worker could consume the queue entry before the row became visible. Chat uploads now queue after commit. After both fixes, attachments PASS 100 with approval deliberately forced before releasing the upload response; cleanup PASS, zero fictional R2 objects left. No synthetic image was treated as a real identity or known-content assurance.
+
+Android signed Debug package and iOS Debug build PASS, zero warnings/errors. Native ending/support UI was not driven on either platform; iOS automation remains unavailable. Narrow web screenshots reviewed at 390px: neutral closed history and support controls. No physical APNs/FCM delivery verified; simulated Mailpit acceptance only. Privacy stays DRAFT pending legal review. Issue 126 blocked-photo interruption recovery remains separate and unresolved.
+
+Final suite commands: `SWOOVR_REAUTH_SECONDS=45 SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node tests/<suite>.browser.cjs`; screenshots set through SWOOVR_SCREENSHOTS to the shared local output folder. The suite table lists every broad suite run; endings/notifications/lifecycle were repeated after dispatch recovery changes, and attachments/cleanup after the queue ordering fix. Debug local-solution build PASS with zero warnings/errors. Android command used `-f net10.0-android -c Debug -t:SignAndroidPackage -p:EmbedAssembliesIntoApk=true`; iOS used `-f net10.0-ios -c Debug`.
+
+Final `./scripts/check.sh` PASS: Release local-solution build zero warnings/errors, naming/design/link/realm/Node checks, policy/client checks, 51 real PostgreSQL persistence cases and HTTP smoke suites. No schema migration was needed for this slice. The unsupported `.slnx` build command attempted during continuation failed because this repository uses `.sln`; rerun with `Swoovr.Local.sln` succeeded.
+
+After testing: main remained clean, `git pull --ff-only` reported up to date at ae41722, Debug build passed. Restored the default main-checkout hosts in a detached process session and verified API/Web/Admin listener cwd on 5080/5081/5082 plus the main status route HTTP 200. Shared .local configuration was not edited.
