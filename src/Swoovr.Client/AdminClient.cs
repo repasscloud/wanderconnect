@@ -235,6 +235,10 @@ public sealed class AdminClient(HttpClient http)
         SendAsync<MediaReviewQueue>(HttpMethod.Get, "api/v1/admin/media/review", null, cancellationToken);
 
     /// <summary>A short-lived review link, recorded with the purpose in the sensitive-access log.</summary>
+    /// <summary>#41: a chat photo named in a case's evidence, with a recorded purpose (admins only).</summary>
+    public Task<ApiResult<MediaReviewLink>> CaseMediaAsync(Guid id, Guid caseId, string? purpose, CancellationToken cancellationToken = default) =>
+        SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/v1/admin/media/{id}/case-view", new MediaCaseViewRequest(caseId, purpose), cancellationToken);
+
     public Task<ApiResult<MediaReviewLink>> ViewMediaAsync(Guid id, string? purpose, CancellationToken cancellationToken = default) =>
         SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/v1/admin/media/{id}/view", new MediaViewRequest(purpose), cancellationToken);
 

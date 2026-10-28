@@ -2428,6 +2428,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("content_type");
 
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2466,6 +2470,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("policy_version");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("purpose");
 
                     b.Property<DateTimeOffset?>("RemovedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2528,6 +2537,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_media_items");
+
+                    b.HasIndex("ConversationId")
+                        .HasDatabaseName("ix_media_items_conversation_id");
 
                     b.HasIndex("Sha256")
                         .HasDatabaseName("ix_media_items_sha256");
@@ -2991,6 +3003,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("kind");
 
+                    b.Property<Guid?>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
                     b.Property<Guid>("SenderAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("sender_account_id");
@@ -3001,6 +3017,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_messages");
+
+                    b.HasIndex("MediaId")
+                        .HasDatabaseName("ix_messages_media_id");
 
                     b.HasIndex("ConversationId", "SentAt")
                         .HasDatabaseName("ix_messages_conversation_id_sent_at");

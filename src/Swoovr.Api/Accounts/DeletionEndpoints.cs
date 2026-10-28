@@ -112,7 +112,7 @@ public static class DeletionEndpoints
             var pipeline = accounts.Services.GetRequiredService<Media.MediaPipeline>();
             var photos = new List<object>();
             var places = await db.MediaPlacements.Where(p => p.AccountId == account.Id).ToListAsync(cancellationToken);
-            foreach (var item in await db.MediaItems.Where(i => i.AccountId == account.Id && i.RemovedAt == null && i.Status != MediaStatus.Removed)
+            foreach (var item in await db.MediaItems.Where(i => i.AccountId == account.Id && i.Purpose == null && i.RemovedAt == null && i.Status != MediaStatus.Removed)
                          .OrderBy(i => i.CreatedAt).ToListAsync(cancellationToken))
             {
                 var bytes = await pipeline.ExportBytesAsync(item, cancellationToken);
@@ -120,7 +120,16 @@ public static class DeletionEndpoints
                     contentType = bytes is null ? null : item.ContentType, sha256 = bytes is null ? null : Convert.ToHexStringLower(item.Sha256),
                     dataBase64 = bytes is null ? null : Convert.ToBase64String(bytes) });
             }
-            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos);
+            var chatPhotos = new List<object>();
+            foreach (var item in await db.MediaItems.Where(i => i.AccountId == account.Id && i.Purpose == AttachmentPolicy.Purpose && i.RemovedAt == null)
+                         .OrderBy(i => i.CreatedAt).ToListAsync(cancellationToken))
+            {
+                var bytes = item.Status == MediaStatus.Passed ? await pipeline.ExportBytesAsync(item, cancellationToken) : null;
+                chatPhotos.Add(new { id = item.Id, conversation = item.ConversationId, state = MediaPolicy.MemberState(item.Status), item.CreatedAt,
+                    contentType = bytes is null ? null : item.ContentType, sha256 = bytes is null ? null : Convert.ToHexStringLower(item.Sha256),
+                    dataBase64 = bytes is null ? null : Convert.ToBase64String(bytes) });
+            }
+            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos, chatPhotos);
             return Results.File(JsonSerializer.SerializeToUtf8Bytes(document, ExportJson), "application/json",
                 $"swoovr-data-{now:yyyy-MM-dd}.json");
         });

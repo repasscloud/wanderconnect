@@ -193,10 +193,14 @@ public static class ModerationEndpoints
                 if (chosen is not null && chosen.Count != request.MessageIds!.Distinct().Count())
                     return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidReport, "Choose messages from this conversation.");
                 var kept = chosen ?? (message is not null ? MessagingPolicy.Evidence(all, message) : all.Take(MessagingPolicy.EvidenceBefore + 1).OrderBy(m => m.SentAt).ToList());
+                // #41: a photo message is kept by its media id and SHA-256 (the object itself stays in the store, under any hold).
+                var photoIds = kept.Where(m => m.MediaId is not null).Select(m => m.MediaId!.Value).ToList();
+                var hashes = await db.MediaItems.Where(i => photoIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, i => Convert.ToHexStringLower(i.Sha256), cancellationToken);
                 snapshot = new
                 {
                     Conversation = conversation.Id, Reported = message?.Id, Chosen = chosen is not null, conversation.ClosedReason,
-                    Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body }).ToList(),
+                    Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body,
+                        Photo = m.MediaId, PhotoSha256 = m.MediaId is { } p ? hashes.GetValueOrDefault(p) : null }).ToList(),
                 };
             }
         }

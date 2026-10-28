@@ -29,9 +29,9 @@ public static class MediaEndpoints
             if (request.ContentLength > MediaPolicy.MaxUploadBytes + 64 * 1024)
                 return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
             var (db, me, now) = (accounts.Db!, current!.Profile!.AccountId, clock.GetUtcNow());
-            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.CreatedAt > now - TimeSpan.FromHours(1), cancellationToken) >= MediaPolicy.UploadsPerHour)
+            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == null && i.CreatedAt > now - TimeSpan.FromHours(1), cancellationToken) >= MediaPolicy.UploadsPerHour)
                 return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.UploadLimit, "You've uploaded a lot of photos in the last hour. Try again later.");
-            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.RemovedAt == null && i.Status != MediaStatus.Removed, cancellationToken) >= MediaPolicy.MaxKept)
+            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == null && i.RemovedAt == null && i.Status != MediaStatus.Removed, cancellationToken) >= MediaPolicy.MaxKept)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoLimit, $"You can keep up to {MediaPolicy.MaxKept} photos. Delete one first.");
             IFormCollection form;
             try { form = await request.ReadFormAsync(cancellationToken); }
@@ -42,7 +42,7 @@ public static class MediaEndpoints
             Guid? replaces = null;
             if (form.TryGetValue("replaces", out var value) && value.ToString() is { Length: > 0 } text)
             {
-                if (!Guid.TryParse(text, out var id) || !await db.MediaItems.AnyAsync(i => i.Id == id && i.AccountId == me && i.Status == MediaStatus.Passed && i.RemovedAt == null, cancellationToken))
+                if (!Guid.TryParse(text, out var id) || !await db.MediaItems.AnyAsync(i => i.Id == id && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null, cancellationToken))
                     return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't yours to replace.");
                 replaces = id;
             }
@@ -70,7 +70,7 @@ public static class MediaEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var me = current!.Profile!.AccountId;
-            var item = await accounts.Db!.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.AccountId == me && i.RemovedAt == null, cancellationToken);
+            var item = await accounts.Db!.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.AccountId == me && i.Purpose == null && i.RemovedAt == null, cancellationToken);
             if (item is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't available.");
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
@@ -87,7 +87,7 @@ public static class MediaEndpoints
             var max = update.Scope == MediaPolicy.Main ? 1 : MediaPolicy.MaxPerMode;
             if (update.Scope is null || !MediaPolicy.ValidScope(update.Scope, modes) || ids.Count > max || ids.Distinct().Count() != ids.Count)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, update.Scope == MediaPolicy.Main ? "Pick one main photo." : $"Pick up to {MediaPolicy.MaxPerMode} photos for a mode.");
-            var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Status == MediaStatus.Passed && i.RemovedAt == null).Select(i => i.Id).ToListAsync(cancellationToken);
+            var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null).Select(i => i.Id).ToListAsync(cancellationToken);
             if (approved.Count != ids.Count)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoNotApproved, "Only your approved photos can be shown.");
             await db.MediaPlacements.Where(p => p.AccountId == me && p.Scope == update.Scope).ExecuteDeleteAsync(cancellationToken);
@@ -121,7 +121,7 @@ public static class MediaEndpoints
             var items = await db.MediaItems.Where(i => i.Status == MediaStatus.Uncertain && i.RemovedAt == null).OrderBy(i => i.CreatedAt).Take(100).ToListAsync(cancellationToken);
             var pending = await db.MediaItems.Where(i => i.Status == MediaStatus.Pending && i.RemovedAt == null).Select(i => i.CreatedAt).ToListAsync(cancellationToken);
             return Results.Ok(new MediaReviewQueue(items.Select(i => new MediaReviewItem(i.Id, i.AccountId, i.CreatedAt, SignalReason(i.Signals), Signals(i.Signals),
-                i.Screener ?? "", i.KnownContentChecked)).ToList(), pending.Count, pending.Count(c => c < now - TimeSpan.FromHours(1))));
+                i.Screener ?? "", i.KnownContentChecked, i.Purpose)).ToList(), pending.Count, pending.Count(c => c < now - TimeSpan.FromHours(1))));
         });
         admin.MapPost("/{id:guid}/view", async (Guid id, MediaViewRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -138,6 +138,28 @@ public static class MediaEndpoints
                 return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photo links aren't configured.");
             db.MediaReviewViews.Add(new MediaReviewView { MediaId = item.Id, ActorAccountId = actor, Purpose = purpose, At = now });
             Audit.Record(db, now, actor, "account", "media.viewed", "media", item.Id.ToString());
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new MediaReviewLink(item.Id, link, now + MediaPolicy.LinkLifetime));
+        });
+        // #41: a reported chat photo, for an admin working the case: only a photo the case's evidence names, never a blocked
+        // one, with a recorded purpose (media_review_views, the audit and the sensitive-access log), conflict rules applied.
+        admin.MapPost("/{id:guid}/case-view", async (Guid id, MediaCaseViewRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
+            CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
+            if (denied is not null) return denied;
+            var (db, now, actor) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
+            if (request.Purpose?.Trim() is not { Length: > 0 and <= MediaPolicy.PurposeMax } purpose || request.CaseId is not { } caseId)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Say which case and why you need to look at this photo.");
+            var named = (await db.CaseEvidence.Where(e => e.CaseId == caseId).Select(e => e.Snapshot).ToListAsync(cancellationToken)).Any(s => s.Contains(id.ToString()));
+            var item = named ? await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.Purpose == AttachmentPolicy.Purpose
+                && (i.Status == MediaStatus.Passed || i.Status == MediaStatus.Uncertain) && i.ObjectKey != null, cancellationToken) : null;
+            if (item is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't part of this case's evidence.");
+            if (await StaffAccessEndpoints.ExcludedAsync(db, actor, [item.AccountId], cancellationToken)) return StaffAccessEndpoints.Conflict();
+            if (accounts.Services.GetRequiredService<MediaLinks>().For(item.Id, "case", now) is not { } link)
+                return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photo links aren't configured.");
+            db.MediaReviewViews.Add(new MediaReviewView { MediaId = item.Id, ActorAccountId = actor, Purpose = purpose, At = now });
+            Audit.Record(db, now, actor, "account", "media.viewed", "media", item.Id.ToString(), "case");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(new MediaReviewLink(item.Id, link, now + MediaPolicy.LinkLifetime));
         });
@@ -198,7 +220,7 @@ public static class MediaEndpoints
 
     public static async Task<MyPhotosView> OwnAsync(SwoovrDbContext db, MediaLinks links, Guid me, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var items = await db.MediaItems.Where(i => i.AccountId == me && i.RemovedAt == null && i.Status != MediaStatus.Removed).OrderByDescending(i => i.CreatedAt).ToListAsync(cancellationToken);
+        var items = await db.MediaItems.Where(i => i.AccountId == me && i.Purpose == null && i.RemovedAt == null && i.Status != MediaStatus.Removed).OrderByDescending(i => i.CreatedAt).ToListAsync(cancellationToken);
         var places = await db.MediaPlacements.Where(p => p.AccountId == me).OrderBy(p => p.Position).ToListAsync(cancellationToken);
         var modes = places.Where(p => p.Scope != MediaPolicy.Main).GroupBy(p => p.Scope)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(p => p.MediaId).ToList());

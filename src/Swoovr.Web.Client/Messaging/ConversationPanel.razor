@@ -1,6 +1,8 @@
-@* One conversation (D143, Interactive WebAssembly): text only, newest at the bottom, sent through /bff/ (so every send
+@* One conversation (D143, Interactive WebAssembly): text and photos (#41), newest at the bottom, sent through /bff/ (so every send
    passes the API's checks) and received live through the web host's relay hub. Delete for both within five minutes (it
-   then shows as deleted, Q59), hide a message or the whole conversation for yourself, report a message or the conversation. *@
+   then shows as deleted, Q59), hide a message or the whole conversation for yourself, report a message or the conversation.
+   #41: photos go through the quarantine (the other person sees one only once approved; the sender sees its state);
+   starters from shared intention chips while the chat is empty; ending politely without blocking (Q85). *@
 @inject MemberClient Members
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
@@ -21,7 +23,14 @@
         @foreach (var m in messages)
         {
             <li class="bubble @(m.Mine ? "mine" : "") @(m.Deleted ? "deleted" : "")" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
-                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span><p>@(m.Deleted ? "This message was deleted" : m.Text)</p>
+                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span>
+                @if (m.Deleted) { <p>This message was deleted</p> }
+                else if (m.Kind == "photo")
+                {
+                    @if (m.Photo is { } photo) { <img class="chat-photo" src="@PhotoText.Web(photo.Link)" alt="Photo from @(m.Mine ? "you" : conversation.Person.DisplayName)" loading="lazy" data-chat-photo="@photo.Id" /> }
+                    @if (m.Mine && m.PhotoState is { } state && state != "approved") { <p class="field-help" data-photo-state="@state">@PhotoText.ChatState(state)</p> }
+                }
+                else { <p>@m.Text</p> }
                 <span class="request-actions">
                     @if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5)) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
                     <button type="button" class="link-button" @onclick="() => HideAsync(m)" data-hide="@m.Id">Hide</button>
@@ -34,8 +43,20 @@
     {
         <ReportForm SubjectType="message" SubjectId="@reported.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
     }
+    @if (conversation.CanSend && messages.Count == 0 && starters.Count > 0)
+    {
+        <div class="starters" data-starters="@starters.Count">
+            <p class="field-help">Something to start with:</p>
+            @foreach (var s in starters) { <button type="button" class="chip" @onclick="() => draft = s.Text" data-starter="@s.Chip">@s.Text</button> }
+        </div>
+    }
     @if (conversation.CanSend)
     {
+        <div class="composer-photo">
+            <label class="link-button" for="chat-photo">Send a photo</label>
+            <InputFile id="chat-photo" class="visually-hidden" OnChange="SendPhotoAsync" accept="image/jpeg,image/png,image/webp" disabled="@busy" data-chat-photo-input />
+            <span class="field-help">@PhotoText.ChatRules</span>
+        </div>
         <form class="composer" @onsubmit="SendAsync" data-composer>
             <label class="visually-hidden" for="message">Message</label>
             <input id="message" class="composer-input" maxlength="2000" autocomplete="off" @bind="draft" @bind:event="oninput" placeholder="Message" data-message-input />
@@ -53,7 +74,27 @@
             else { <button type="button" class="button button-secondary" @onclick="() => confirmBlock = true" data-block-conversation>Block</button> }
         }
         <a class="button button-secondary" href="@($"/me/safety?type=conversation&id={Id}")" data-serious-link>Serious safety incident</a>
+        @if (conversation.CanSend) { <button type="button" class="button button-secondary" @onclick="() => ending = true" data-end-open>End conversation</button> }
     </p>
+    @if (ending)
+    {
+        <form class="card stack" @onsubmit="EndAsync" data-end-form>
+            <h2>End this conversation</h2>
+            <p class="field-help">@PhotoText.EndHelp</p>
+            <fieldset class="stack">
+                <legend>Send a closing message?</legend>
+                @foreach (var (closingId, label) in PhotoText.Closings)
+                {
+                    <label class="check"><input type="radio" name="closing" checked="@(closing == closingId)" @onchange="() => closing = closingId" data-closing="@closingId" /> @label</label>
+                }
+                <label class="check"><input type="radio" name="closing" checked="@(closing is null)" @onchange="() => closing = null" data-closing="none" /> No message</label>
+            </fieldset>
+            <p class="account-actions">
+                <button type="submit" class="button" disabled="@busy" data-end-confirm>End conversation</button>
+                <button type="button" class="button button-secondary" @onclick="() => ending = false">Keep chatting</button>
+            </p>
+        </form>
+    }
     @if (reportingConversation)
     {
         <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
@@ -63,8 +104,9 @@
 <p role="status" aria-live="polite" class="field-help" data-chat-status="@status">@message</p>
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
-    private bool loaded, busy, more, live, reportingConversation, confirmBlock;
-    private string? draft, status, message;
+    private bool loaded, busy, more, live, reportingConversation, confirmBlock, ending;
+    private string? draft, status, message, closing;
+    private List<ConversationStarter> starters = [];
     private Guid? reporting;
     private DateTimeOffset? before;
     private ConversationView? conversation;
@@ -79,7 +121,8 @@
             var page = (await Members.MessagesAsync(Id)).Value;
             (messages, more, before) = (page?.Items.Reverse().ToList() ?? [], page?.More ?? false, page?.Before);
             hub = new MessagesHubClient(new Uri(Navigation.BaseUri + "bff/hubs/messages"));
-            hub.Message += m => { if (m.ConversationId == Id && messages.All(x => x.Id != m.Id)) { messages.Add(m); _ = InvokeAsync(StateHasChanged); } };
+            // A photo's state changes arrive as the same message again (#41): replace it in place.
+            hub.Message += m => { if (m.ConversationId == Id) { Upsert(m); _ = InvokeAsync(StateHasChanged); } };
             hub.Deleted += d => { if (d.ConversationId == Id) { MarkDeleted(d.MessageId); _ = InvokeAsync(StateHasChanged); } };
             hub.Closed += c => { if (c.ConversationId == Id) _ = InvokeAsync(Closed); };
             try { await hub.StartAsync(); live = true; }
@@ -87,6 +130,7 @@
             // Anything sent while the live connection was opening: read the latest page again and merge.
             foreach (var m in (await Members.MessagesAsync(Id)).Value?.Items.Reverse() ?? [])
                 if (messages.All(x => x.Id != m.Id)) messages.Add(m);
+            if (messages.Count == 0 && conversation.CanSend) starters = (await Members.StartersAsync(Id)).Value ?? [];
         }
         loaded = true;
     }
@@ -118,6 +162,39 @@
             ProblemCodes.TooManyRequests => "That's a lot of messages. Slow down a little.",
             _ => "That message couldn't be sent.",
         });
+    }
+
+    private void Upsert(MessageView m)
+    {
+        var index = messages.FindIndex(x => x.Id == m.Id);
+        if (index >= 0) messages[index] = m; else messages.Add(m);
+    }
+
+    private async Task SendPhotoAsync(InputFileChangeEventArgs e)
+    {
+        busy = true;
+        try
+        {
+            if (e.File.Size > 10 * 1024 * 1024) { (status, message) = ("photo-too-big", PhotoText.Refusal("photo-too-big")); return; }
+            using var stream = e.File.OpenReadStream(10 * 1024 * 1024);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            var result = await Members.SendChatPhotoAsync(Id, buffer.ToArray(), e.File.Name, e.File.ContentType);
+            if (result.Value is { } sent) { Upsert(sent); (status, message) = ("photo-sent", null); }
+            else (status, message) = (result.Code ?? "failed", PhotoText.Refusal(result.Code));
+        }
+        finally { busy = false; }
+    }
+
+    private async Task EndAsync()
+    {
+        busy = true;
+        var result = await Members.EndConversationAsync(Id, closing);
+        busy = false;
+        if (!result.Ok) { (status, message) = ("failed", "That didn't work. Try again."); return; }
+        ending = false;
+        await Closed();
+        (status, message) = ("ended", "You ended this conversation.");
     }
 
     private async Task DeleteAsync(MessageView m)

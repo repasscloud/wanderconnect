@@ -27,8 +27,8 @@ public static class ClosedReasons
     public const string Blocked = "blocked", Disconnected = "disconnected", Deleted = "deleted";
 }
 
-/// <summary>What a message carries. Text only for now (rule 2); attachments and private media join later (rule 5, closing paragraph).</summary>
-public enum MessageKind { Text }
+/// <summary>What a message carries: text, or one photo through the media quarantine (#41, D203; policy §5).</summary>
+public enum MessageKind { Text, Photo }
 
 /// <summary>
 /// A message. Deleting for both (within five minutes, rule 8) shows it to both members as deleted at once; its text
@@ -44,6 +44,8 @@ public sealed class Message
     public string Body { get; set; } = "";
     public DateTimeOffset SentAt { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+    /// <summary>A photo message's media item (purpose "attachment"); the recipient sees it only once it passed screening.</summary>
+    public Guid? MediaId { get; set; }
 }
 
 /// <summary>A message one member hid from their own view (rule 9); the other member still sees it.</summary>

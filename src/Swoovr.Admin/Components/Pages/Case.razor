@@ -47,6 +47,17 @@ else
     <ul class="list" data-evidence>
         @foreach (var e in detail.Evidence) { <li><span class="help">@e.Kind, captured @e.CapturedAt.ToString("d MMM HH:mm")</span><pre>@e.Snapshot</pre></li> }
     </ul>
+    @if (ReportedPhotos.Count > 0)
+    {
+        @* #41: a chat photo the evidence names, for admins, with a recorded purpose; never a blocked one. *@
+        <form method="post" @formname="photo" @onsubmit="PhotoAsync" class="row" data-case-photo-form data-enhance="false">
+            <AntiforgeryToken />
+            <select name="PhotoForm.MediaId">@foreach (var p in ReportedPhotos) { <option value="@p">@p</option> }</select>
+            <input name="PhotoForm.Purpose" placeholder="Why you need to look" maxlength="500" required />
+            <button type="submit" class="secondary" data-case-photo-open>Open reported photo</button>
+        </form>
+        @if (photoLink is not null) { <img src="/media/@photoLink" alt="Reported chat photo" width="320" data-case-photo /> }
+    }
     @if (shownAtReport is { } shown)
     {
         @* #91: what others could see of the subject when the first report was made, mode by mode. *@
@@ -95,6 +106,21 @@ else
     [SupplyParameterFromForm(FormName = "act")] public ActModel? ActForm { get; set; }
     [SupplyParameterFromForm(FormName = "preserve")] public PreserveModel? PreserveForm { get; set; }
     public sealed class PreserveModel { public string? Reason { get; set; } }
+    [SupplyParameterFromForm(FormName = "photo")] public PhotoModel? PhotoForm { get; set; }
+    public sealed class PhotoModel { public Guid? MediaId { get; set; } public string? Purpose { get; set; } }
+    private string? photoLink;
+
+    // #41: chat photos named in this case's evidence snapshots (media ids only).
+    private List<Guid> ReportedPhotos => detail?.Evidence.SelectMany(e => System.Text.RegularExpressions.Regex.Matches(e.Snapshot, "\"photo\":\"([0-9a-f-]{36})\"")
+        .Select(m => Guid.Parse(m.Groups[1].Value))).Distinct().ToList() ?? [];
+
+    private async Task PhotoAsync()
+    {
+        var result = await Admin.CaseMediaAsync(PhotoForm?.MediaId ?? Guid.Empty, Id, PhotoForm?.Purpose);
+        photoLink = result.Value?.Link.Split('/').Last();
+        Show(result.Status, result.Code, "Your view is recorded.");
+        await LoadAsync();
+    }
     private CaseDetailView? detail;
     private string? message, loadError, resultCode;
     private bool reauth;

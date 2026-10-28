@@ -161,8 +161,22 @@ public static class Cli
                 foreach (var row in due)
                     if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
                     else if (MessagingPolicy.Purge(row.m, now)) { row.m.Body = ""; purged++; }
+                // #41: a chat photo deleted for both is kept 30 days like text, then released to `accounts purge`, which
+                // deletes its object unless a hold covers it.
+                var photos = 0;
+                var photoRows = await (from m in db.Messages join c in db.Conversations on m.ConversationId equals c.Id join i in db.MediaItems on m.MediaId equals i.Id
+                                       where m.Kind == MessageKind.Photo && m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && i.RemovedAt == null
+                                       select new { m, c, i }).ToListAsync();
+                foreach (var row in photoRows)
+                    if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
+                    else
+                    {
+                        row.i.RemovedAt = now;
+                        if (row.i.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (row.i.Status, row.i.NextScreenAt) = (MediaStatus.Removed, null);
+                        photos++;
+                    }
                 await db.SaveChangesAsync();
-                Console.WriteLine($"Messages: {purged} deleted message texts erased, {kept} kept under a legal hold.");
+                Console.WriteLine($"Messages: {purged} deleted message texts erased, {photos} deleted chat photos released, {kept} kept under a legal hold.");
                 return 0;
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),

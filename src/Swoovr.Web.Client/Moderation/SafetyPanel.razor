@@ -58,7 +58,7 @@ else if (subjectType is not null)
                 <fieldset class="field" data-choose-messages="@messages.Count"><legend>Messages to include (optional, up to 20)</legend>
                     @foreach (var m in messages.Where(m => !m.Deleted).TakeLast(50))
                     {
-                        <label class="check"><input type="checkbox" checked="@chosen.Contains(m.Id)" @onchange="() => Toggle(m.Id)" data-choose="@m.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @(m.Mine ? "You" : "Them"): @m.Text</label>
+                        <label class="check"><input type="checkbox" checked="@chosen.Contains(m.Id)" @onchange="() => Toggle(m.Id)" data-choose="@m.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @(m.Mine ? "You" : "Them"): @(m.Kind == "photo" ? "[photo]" : m.Text)</label>
                     }
                 </fieldset>
             }

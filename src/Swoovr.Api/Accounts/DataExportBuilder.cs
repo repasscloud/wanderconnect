@@ -15,7 +15,7 @@ public static class DataExportBuilder
     private const string DeletedMember = "Deleted member";
 
     public static async Task<object> BuildAsync(SwoovrDbContext db, Account account, DateTimeOffset now, CancellationToken cancellationToken,
-        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null)
+        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null)
     {
         var id = account.Id;
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
@@ -42,10 +42,20 @@ public static class DataExportBuilder
         var conversationIds = conversations.Select(c => c.Id).ToList();
         var messages = (await db.Messages.Where(m => conversationIds.Contains(m.ConversationId)).OrderBy(m => m.SentAt).ToListAsync(cancellationToken))
             .ToLookup(m => m.ConversationId);
+        // #41: photo messages appear as they do in the chat: the member's own with their state, the other person's once passed.
+        var mediaIds = messages.SelectMany(g => g).Where(m => m.MediaId is not null).Select(m => m.MediaId!.Value).ToList();
+        var media = await db.MediaItems.Where(i => mediaIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, cancellationToken);
         var chats = conversations.Select(c => new
         {
             with = Name(c.PairLow == id ? c.PairHigh : c.PairLow), c.CreatedAt, c.ClosedAt,
-            messages = messages[c.Id].Select(m => new { from = m.SenderAccountId == id ? "you" : "them", text = MessagingPolicy.VisibleText(m), m.SentAt, deleted = m.DeletedAt is not null }),
+            messages = messages[c.Id].Where(m => AttachmentPolicy.Listed(m, id, m.MediaId is { } x && media.TryGetValue(x, out var i) ? i.Status : null,
+                    m.MediaId is { } y && media.TryGetValue(y, out var j) && j.RemovedAt is not null))
+                .Select(m => new
+                {
+                    from = m.SenderAccountId == id ? "you" : "them", kind = m.Kind.ToString().ToLowerInvariant(), text = MessagingPolicy.VisibleText(m), m.SentAt,
+                    deleted = m.DeletedAt is not null, photo = m.DeletedAt is null ? m.MediaId : null,
+                    photoState = m.SenderAccountId == id && m.DeletedAt is null && m.MediaId is { } p && media.TryGetValue(p, out var item) ? MediaPolicy.MemberState(item.Status) : null,
+                }),
         });
 
         var reports = await db.Reports.Where(r => r.ReporterAccountId == id).OrderBy(r => r.CreatedAt)
@@ -79,6 +89,8 @@ public static class DataExportBuilder
             idVerification = verification, entitlements,
             // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
             photos = photos ?? [],
+            // #41: the photos the member sent in chat, with the image for approved ones (photos others sent are listed in the chats only).
+            chatPhotos = chatPhotos ?? [],
             // D191: the member's own verified identity record, as kept (Q78: the export includes it).
             verifiedIdentity = verifiedIdentity is null ? null : new
             {

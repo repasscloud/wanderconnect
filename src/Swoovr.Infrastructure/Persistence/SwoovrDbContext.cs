@@ -305,6 +305,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             item.HasIndex(i => new { i.AccountId, i.CreatedAt });
             item.HasIndex(i => new { i.Status, i.NextScreenAt });
             item.HasIndex(i => i.Sha256);
+            item.Property(i => i.Purpose).HasMaxLength(16);
+            item.HasIndex(i => i.ConversationId);
         });
         model.Entity<MediaPlacement>(placement =>
         {
@@ -641,6 +643,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             message.Property(m => m.Body).HasMaxLength(MessagingPolicy.TextMax);
             message.HasIndex(m => new { m.ConversationId, m.SentAt });
             message.HasIndex(m => new { m.SenderAccountId, m.SentAt });
+            message.HasIndex(m => m.MediaId);
         });
         model.Entity<MessageHide>(hide =>
         {

@@ -135,7 +135,7 @@ public sealed class SafetyPage : ContentPage
 			{
 				var tick = new CheckBox { AutomationId = $"Choose_{m.Id}" };
 				tick.CheckedChanged += (_, e) => { if (e.Value && chosen.Count < 20) chosen.Add(m.Id); else chosen.Remove(m.Id); };
-				views.Add(new HorizontalStackLayout { Spacing = 8, Children = { tick, Ui.Text($"{(m.Mine ? "You" : "Them")}: {m.Text}") } });
+				views.Add(new HorizontalStackLayout { Spacing = 8, Children = { tick, Ui.Text($"{(m.Mine ? "You" : "Them")}: {(m.Kind == "photo" ? "[photo]" : m.Text)}") } });
 			}
 		if (state is not ("blocked" or "deleted")) views.Add(new HorizontalStackLayout { Spacing = 8, Children = { block, Ui.Text("Also block them") } });
 		views.Add(Ui.Button("Send serious report", "SeriousSend", async () =>

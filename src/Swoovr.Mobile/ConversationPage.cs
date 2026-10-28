@@ -4,8 +4,10 @@ using Swoovr.Contracts;
 namespace Swoovr.Mobile;
 
 /// <summary>
-/// One conversation (D143), as on the web: text only, sent through MemberClient (so every send passes the API's checks)
-/// and received live from the API's hub with this phone's token. Delete for both within five minutes, hide for oneself.
+/// One conversation (D143), as on the web: text and photos (#41), sent through MemberClient (so every send passes the
+/// API's checks) and received live from the API's hub with this phone's token. Delete for both within five minutes, hide
+/// for oneself. Photos go through the quarantine: the other person sees one only once approved, the sender sees its
+/// state. Starters from shared intention chips while the chat is empty; ending politely without blocking (Q85).
 /// </summary>
 public sealed class ConversationPage : ContentPage
 {
@@ -32,8 +34,17 @@ public sealed class ConversationPage : ContentPage
 		if (conversation is null) { body.Children.Add(Ui.Text("Chat not available", "PageTitle", "ChatUnavailable")); return; }
 		body.Children.Add(Ui.Text(conversation.Person.DisplayName ?? "Someone", "PageTitle", "ChatName"));
 		body.Children.Add(Ui.Detach(thread));
+		messages.Clear();
+		messages.AddRange((await Ui.Members.MessagesAsync(id)).Value?.Items.Reverse() ?? []);
+		if (conversation.CanSend && messages.Count == 0 && (await Ui.Members.StartersAsync(id)).Value is { Count: > 0 } starters)
+			body.Children.Add(Ui.Card([Ui.Text("Something to start with:", "FooterClaims"), .. starters.Select((s, i) => (View)Ui.Button(s.Text, $"Starter_{i}", () =>
+			{
+				draft.Text = s.Text;
+				return Task.CompletedTask;
+			}, primary: false))]));
 		if (conversation.CanSend)
-			body.Children.Add(Ui.Card(Ui.Labelled("Message", draft), Ui.Button("Send", "SendMessage", SendAsync)));
+			body.Children.Add(Ui.Card(Ui.Labelled("Message", draft), Ui.Button("Send", "SendMessage", SendAsync), Ui.Button("Send a photo", "SendPhoto", SendPhotoAsync, primary: false),
+				Ui.Text(PhotoText.ChatRules, "FooterClaims")));
 		else body.Children.Add(Ui.Text("You can't send messages here right now.", id: "ChatCannotSend"));
 		body.Children.Add(Ui.Detach(status));
 		body.Children.Add(Ui.Button("Hide this chat", "HideChat", async () =>
@@ -48,13 +59,13 @@ public sealed class ConversationPage : ContentPage
 				if (await Ui.Members!.BlockAsync(conversation.Person.Id) == 204) Closed();
 				else status.Text = "That didn't work. Try again.";
 			}, primary: false));
-		messages.Clear();
-		messages.AddRange((await Ui.Members.MessagesAsync(id)).Value?.Items.Reverse() ?? []);
+		if (conversation.CanSend) body.Children.Add(Ui.Button("End conversation", "EndChat", () => EndAsync(), primary: false));
 		Draw();
 		if (hub is null && MainPage.Auth.MessagesHub() is { } live)
 		{
 			hub = live;
-			hub.Message += m => MainThread.BeginInvokeOnMainThread(() => { if (m.ConversationId == id && messages.All(x => x.Id != m.Id)) { messages.Add(m); Draw(); } });
+			// A photo's state changes arrive as the same message again (#41): replace it in place.
+			hub.Message += m => MainThread.BeginInvokeOnMainThread(() => { if (m.ConversationId == id) { Upsert(m); Draw(); } });
 			hub.Deleted += d => MainThread.BeginInvokeOnMainThread(() => { if (d.ConversationId == id && MarkDeleted(d.MessageId)) Draw(); });
 			// #82: a block, disconnect or deletion closes the chat at once.
 			hub.Closed += c => MainThread.BeginInvokeOnMainThread(() => { if (c.ConversationId == id) Closed(); });
@@ -75,10 +86,18 @@ public sealed class ConversationPage : ContentPage
 		foreach (var m in messages)
 		{
 			// Q59, D167: a message deleted for both stays in the thread as deleted.
+			View content = new Label { Text = m.Deleted ? "This message was deleted" : m.Text, Style = Ui.Style(m.Mine && !m.Deleted ? "BubbleMineText" : "BubbleText"),
+				FontAttributes = m.Deleted ? FontAttributes.Italic : FontAttributes.None };
+			if (!m.Deleted && m.Kind == "photo")
+			{
+				var photo = new VerticalStackLayout { Spacing = 4 };
+				if (m.Photo is { } p) photo.Children.Add(Ui.Photo(p.Link, $"ChatPhoto_{p.Id}", 200));
+				if (m.Mine && m.PhotoState is { } state && state != "approved")
+					photo.Children.Add(new Label { Text = PhotoText.ChatState(state), Style = Ui.Style("BubbleMineText"), AutomationId = $"PhotoState_{m.Id}" });
+				content = photo;
+			}
 			var bubble = new Border { Style = Ui.Style(m.Mine && !m.Deleted ? "BubbleMine" : "BubbleTheirs"), AutomationId = $"Message_{m.Id}",
-				HorizontalOptions = m.Mine ? LayoutOptions.End : LayoutOptions.Start,
-				Content = new Label { Text = m.Deleted ? "This message was deleted" : m.Text, Style = Ui.Style(m.Mine && !m.Deleted ? "BubbleMineText" : "BubbleText"),
-					FontAttributes = m.Deleted ? FontAttributes.Italic : FontAttributes.None } };
+				HorizontalOptions = m.Mine ? LayoutOptions.End : LayoutOptions.Start, Content = content };
 			var actions = new HorizontalStackLayout { Spacing = 8, HorizontalOptions = bubble.HorizontalOptions };
 			if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5))
 				actions.Children.Add(Ui.Button("Delete for both", $"Delete_{m.Id}", async () =>
@@ -100,6 +119,37 @@ public sealed class ConversationPage : ContentPage
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("This chat is closed.", "PageTitle", "ChatClosed"));
 		body.Children.Add(Ui.Button("Report a serious safety incident", "SeriousAfterClose", () => Ui.PushAsync(new SafetyPage("conversation", id.ToString(), "blocked")), primary: false));
+	}
+
+	private void Upsert(MessageView m)
+	{
+		var index = messages.FindIndex(x => x.Id == m.Id);
+		if (index >= 0) messages[index] = m; else messages.Add(m);
+	}
+
+	private async Task SendPhotoAsync()
+	{
+		var picked = (await MediaPicker.Default.PickPhotosAsync(new MediaPickerOptions { SelectionLimit = 1 }))?.FirstOrDefault();
+		if (picked is null) return;
+		await using var stream = await picked.OpenReadAsync();
+		using var buffer = new MemoryStream();
+		await stream.CopyToAsync(buffer);
+		var result = await Ui.Members!.SendChatPhotoAsync(id, buffer.ToArray(), picked.FileName, picked.ContentType);
+		if (result.Value is { } sent) { Upsert(sent); Draw(); status.Text = null; }
+		else status.Text = PhotoText.Refusal(result.Code);
+	}
+
+	/// <summary>Q85: an optional fixed closing message, then every mode disconnected and the chat closed for both.</summary>
+	private async Task EndAsync()
+	{
+		var choices = PhotoText.Closings.Select(c => c.Label).Append("No message").ToArray();
+		var choice = await DisplayActionSheetAsync(PhotoText.EndHelp, "Keep chatting", null, choices);
+		if (choice is null || choice == "Keep chatting") return;
+		var closing = PhotoText.Closings.FirstOrDefault(c => c.Label == choice).Id;
+		var result = await Ui.Members!.EndConversationAsync(id, closing);
+		if (!result.Ok) { status.Text = "That didn't work. Try again."; return; }
+		Closed();
+		body.Children.Insert(1, Ui.Text("You ended this conversation.", id: "ChatEnded"));
 	}
 
 	private bool MarkDeleted(Guid message)

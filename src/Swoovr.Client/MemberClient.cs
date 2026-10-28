@@ -197,6 +197,24 @@ public sealed class MemberClient(HttpClient http)
         SendAsync<MessagePage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{conversationId}/messages"
             + (before is { } b ? "?before=" + Uri.EscapeDataString(b.ToString("O")) : "")), cancellationToken);
 
+    /// <summary>#41: sends a photo in chat; the recipient sees it once it passed screening, the sender sees its state.</summary>
+    public Task<ApiResult<MessageView>> SendChatPhotoAsync(Guid conversationId, byte[] data, string fileName, string contentType, CancellationToken cancellationToken = default)
+    {
+        var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(data);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        form.Add(file, "file", string.IsNullOrWhiteSpace(fileName) ? "photo" : fileName);
+        return SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/photos") { Content = form }, cancellationToken);
+    }
+
+    /// <summary>#41, Q85: ends the conversation politely (an optional fixed closing message), disconnecting every mode.</summary>
+    public Task<ApiResult<ConversationView>> EndConversationAsync(Guid conversationId, string? closing, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/end") { Content = JsonContent.Create(new EndConversation(closing)) }, cancellationToken);
+
+    /// <summary>#41: suggested first lines from intention chips both picked in a shared mode.</summary>
+    public Task<ApiResult<List<ConversationStarter>>> StartersAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
+        SendAsync<List<ConversationStarter>>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{conversationId}/starters"), cancellationToken);
+
     public Task<ApiResult<MessageView>> SendMessageAsync(Guid conversationId, string text, CancellationToken cancellationToken = default) =>
         SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/messages") { Content = JsonContent.Create(new NewMessage(text)) }, cancellationToken);
 
