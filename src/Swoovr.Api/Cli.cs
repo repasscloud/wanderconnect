@@ -203,8 +203,12 @@ public static class Cli
                     if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
                     else
                     {
+                        await using var mediaLease = await Media.MediaAccountLease.AcquireAsync(db, row.i.AccountId, CancellationToken.None);
+                        await db.Entry(row.i).ReloadAsync();
+                        if (db.Entry(row.i).State == EntityState.Detached || row.i.RemovedAt is not null) continue;
                         row.i.RemovedAt = now;
                         if (row.i.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (row.i.Status, row.i.NextScreenAt) = (MediaStatus.Removed, null);
+                        await db.SaveChangesAsync(); // Commit the media transition before releasing its lifecycle lease.
                         photos++;
                     }
                 await db.SaveChangesAsync();

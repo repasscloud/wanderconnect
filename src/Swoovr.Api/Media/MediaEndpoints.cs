@@ -87,6 +87,7 @@ public static class MediaEndpoints
             var max = update.Scope == MediaPolicy.Main ? 1 : MediaPolicy.MaxPerMode;
             if (update.Scope is null || !MediaPolicy.ValidScope(update.Scope, modes) || ids.Count > max || ids.Distinct().Count() != ids.Count)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, update.Scope == MediaPolicy.Main ? "Pick one main photo." : $"Pick up to {MediaPolicy.MaxPerMode} photos for a mode.");
+            await using var mediaLease = await MediaAccountLease.AcquireAsync(db, me, cancellationToken);
             var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null).Select(i => i.Id).ToListAsync(cancellationToken);
             if (approved.Count != ids.Count)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoNotApproved, "Only your approved photos can be shown.");
@@ -177,12 +178,13 @@ public static class MediaEndpoints
             if (await StaffAccessEndpoints.ExcludedAsync(db, actor, [item.AccountId], cancellationToken)) return StaffAccessEndpoints.Conflict();
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
-            switch (request.Decision)
+            var applied = request.Decision switch
             {
-                case "approve": await pipeline.PassAsync(item, actor, now, cancellationToken); break;
-                case "reject": await pipeline.RejectAsync(item, actor, request.Reason?.Trim(), now, cancellationToken); break;
-                default: await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken); break;
-            }
+                "approve" => await pipeline.PassAsync(item, actor, now, cancellationToken),
+                "reject" => await pipeline.RejectAsync(item, actor, request.Reason?.Trim(), now, cancellationToken),
+                _ => await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken),
+            };
+            if (!applied) return Problem(StatusCodes.Status409Conflict, ProblemCodes.UnknownPhoto, "That photo isn't waiting for a decision.");
             return Results.Ok(new { item.Id, state = request.Decision switch { "approve" => "approved", "reject" => "rejected", _ => "escalated" } });
         });
     }

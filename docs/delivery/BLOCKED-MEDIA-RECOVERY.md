@@ -43,3 +43,10 @@ Accepted means independent confirmation of provider acceptance. Retry requires c
 Development-only `Media:Preservation:Fault` accepts blocked-save, hold-create, object-sealed, capture-complete, capture-error. Every nonempty hook fails startup outside Development; it is never a hosted workaround. No shared local configuration edit is needed. No public DTO, media-serving permission, design token or UI content changed.
 
 Actual results/gaps: [VALIDATION.md](VALIDATION.md). This slice does not implement D216/D217's broader case-retention schedule, backups or identifier registry. Those remain in the authorised queue. The SMTP outcome classification uses the [Microsoft SMTP status definitions](https://learn.microsoft.com/dotnet/api/system.net.mail.smtpstatuscode?view=net-10.0); uncertain transport failure remains unknown.
+
+
+## Concurrent verdicts (D230, issue128)
+
+Screening, reviewer decisions, recovery, disposal and final account purge share the per-account session lease. A pending approval rechecks state after acquiring it; blocked/rejected/removed state cannot be republished. Reviewer escalation after source disposal is refused. Member removal writes hidden intent promptly; physical deletion waits for in-flight classification, with deferred disposal recovered by the worker. Known-content matches preserve evidence despite a concurrent removal intent. An aborted approval returns conflict rather than reporting success. Sealing also disposes both deterministic clear locations, including an orphan left by a process stopping after photo-write but before location-save; failed disposal remains retryable.
+
+`tests/media/transitions.browser.cjs` uses two actual API processes and synthetic LocalMediaStore files. Development-only `Media:Publication:BarrierDirectory` / `BarrierStage=before-lease|after-read` pause operations using empty marker files, never image contents. Both stages are rejected outside Development. These hooks require no shared configuration edits.

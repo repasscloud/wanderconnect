@@ -105,6 +105,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
     /// </summary>
     private async Task<bool> FinalDeleteAsync(Guid id, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        await using var mediaLease = await Media.MediaAccountLease.AcquireAsync(db, id, cancellationToken);
         var account = await db.Accounts.SingleAsync(a => a.Id == id, cancellationToken);
         if (!AccountDeletionPolicy.Due(account, now)) return false;
         // Blocked preservation must establish its account hold before ordinary profile/history can be erased.

@@ -81,10 +81,16 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     /// <summary>One screening attempt for a pending item. Anything unusable leaves it pending for a later attempt.</summary>
     public async Task ScreenAsync(Guid id, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        var origin = await db.MediaItems.AsNoTracking().Where(i => i.Id == id).Select(i => (Guid?)i.AccountId).SingleOrDefaultAsync(cancellationToken);
+        if (origin is null) return;
+        await using var lease = await MediaAccountLease.AcquireAsync(db, origin.Value, cancellationToken);
         var item = await db.MediaItems.FindAsync([id], cancellationToken);
+        if (item is not null) await db.Entry(item).ReloadAsync(cancellationToken);
         if (item is { Status: MediaStatus.Blocked }) { await RecoverBlockedAsync(id, now, cancellationToken); return; }
+        if (item is { RemovedAt: not null }) { await RemoveCoreAsync(item, now, cancellationToken); return; }
         if (item is not { Status: MediaStatus.Pending, RemovedAt: null } || item.ObjectKey is null) return;
-        item.ScreenAttempts++;
+        if (item.ObjectKey.StartsWith("evidence/", StringComparison.Ordinal)) { await BlockCoreAsync(item, null, "sealed-object-state", now, cancellationToken); return; }
+        if (!await db.Accounts.AnyAsync(a => a.Id == item.AccountId && a.Status == AccountStatus.Active, cancellationToken)) return;
         byte[]? data;
         try { data = await Store!.GetAsync(item.ObjectKey, cancellationToken); }
         catch (Exception exception) when (exception is IOException or HttpRequestException or TaskCanceledException)
@@ -94,11 +100,19 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         }
         if (data is null || !MediaPolicy.Hash(data).SequenceEqual(item.Sha256))
         {
+            await db.Entry(item).ReloadAsync(cancellationToken);
+            if (item.RemovedAt is not null) { await RemoveCoreAsync(item, now, cancellationToken); return; }
+            item.ScreenAttempts++;
             await PendingAsync(item, data is null ? "object-unavailable" : "object-changed", now, cancellationToken);
             return;
         }
         var response = await screening.ScreenAsync(data, cancellationToken);
         var decision = MediaScreeningPolicy.Decide(response, settings.RequireKnownContentCheck);
+        await db.Entry(item).ReloadAsync(cancellationToken);
+        if (item.Status != MediaStatus.Pending) return;
+        // A known-content verdict still preserves its source after a concurrent removal intent.
+        if (item.RemovedAt is not null && decision.Verdict != ScreeningVerdict.Blocked) { await RemoveCoreAsync(item, now, cancellationToken); return; }
+        item.ScreenAttempts++;
         (item.Screener, item.PolicyVersion) = (screening.Name, MediaScreeningPolicy.Version);
         item.Signals = JsonSerializer.Serialize(new
         {
@@ -114,7 +128,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
                 return;
             case ScreeningVerdict.Passed:
                 item.KnownContentChecked = decision.KnownContentChecked;
-                await PassAsync(item, null, now, cancellationToken);
+                await PassCoreAsync(item, null, now, cancellationToken);
                 return;
             case ScreeningVerdict.Uncertain:
                 (item.Status, item.ScreenedAt, item.KnownContentChecked, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Uncertain, now, decision.KnownContentChecked, null, null);
@@ -124,7 +138,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
                 return;
             case ScreeningVerdict.Blocked:
                 item.KnownContentChecked = true;
-                await BlockAsync(item, null, "known-content-match", now, cancellationToken);
+                await BlockCoreAsync(item, null, "known-content-match", now, cancellationToken);
                 return;
         }
     }
@@ -138,10 +152,29 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     }
 
     /// <summary>Publishes a photo: the object moves out of quarantine; a replacement takes over its original's places.</summary>
-    public async Task PassAsync(MediaItem item, Guid? reviewer, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> PassAsync(MediaItem item, Guid? reviewer, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await PublicationBarrierAsync(item.Id, "before-lease", cancellationToken);
+        await using var lease = await MediaAccountLease.AcquireAsync(db, item.AccountId, cancellationToken);
+        await db.Entry(item).ReloadAsync(cancellationToken);
+        if (db.Entry(item).State == EntityState.Detached || item.RemovedAt is not null || item.ObjectKey is null || item.ObjectKey.StartsWith("evidence/", StringComparison.Ordinal)
+            || item.Status != (reviewer is null ? MediaStatus.Pending : MediaStatus.Uncertain)) return false;
+        return await PassCoreAsync(item, reviewer, now, cancellationToken);
+    }
+
+    private async Task<bool> PassCoreAsync(MediaItem item, Guid? reviewer, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var data = await Store!.GetAsync(item.ObjectKey!, cancellationToken) ?? throw new IOException("Media object missing.");
+        await PublicationBarrierAsync(item.Id, "after-read", cancellationToken);
         var published = MediaKeys.Photo(item.Id);
+        // A removal can be staged without waiting for the lifecycle lease.
+        if (await db.MediaItems.AnyAsync(i => i.Id == item.Id && i.RemovedAt != null, cancellationToken)
+            || !await db.Accounts.AnyAsync(a => a.Id == item.AccountId && a.Status == AccountStatus.Active, cancellationToken))
+        {
+            await db.Entry(item).ReloadAsync(cancellationToken);
+            if (item.RemovedAt is not null) await RemoveCoreAsync(item, now, cancellationToken);
+            return false;
+        }
         await Store.PutAsync(published, data, item.ContentType, cancellationToken);
         var quarantined = item.ObjectKey!;
         (item.Status, item.ObjectKey, item.ScreenedAt, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Passed, published, item.ScreenedAt ?? now, null, null);
@@ -153,7 +186,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             await db.SaveChangesAsync(cancellationToken);
             await Store.DeleteAsync(quarantined, cancellationToken);
             await AttachmentChangedAsync(item, now, cancellationToken);
-            return;
+            return true;
         }
         var places = item.ReplacesId is { } old
             ? await db.MediaPlacements.Where(p => p.AccountId == item.AccountId && p.MediaId == old).ToListAsync(cancellationToken) : [];
@@ -173,6 +206,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         await Store.DeleteAsync(quarantined, cancellationToken);
         if (original is not null) await DeleteObjectIfAllowedAsync(original, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
+        return true;
     }
 
     /// <summary>
@@ -180,7 +214,17 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     /// quarantine), never served to anyone, a Serious Safety Incident in the admin queue, a provisional legal hold and the
     /// escalation email with ids only. The member is told only "not approved", as for any refusal.
     /// </summary>
-    public async Task BlockAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> BlockAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await using var lease = await MediaAccountLease.AcquireAsync(db, item.AccountId, cancellationToken);
+        await db.Entry(item).ReloadAsync(cancellationToken);
+        if (db.Entry(item).State == EntityState.Detached || item.Status != MediaStatus.Blocked
+            && (item.RemovedAt is not null || item.ObjectKey is null || item.Status is not (MediaStatus.Uncertain or MediaStatus.Passed))) return false;
+        await BlockCoreAsync(item, actor, reason, now, cancellationToken);
+        return true;
+    }
+
+    private async Task BlockCoreAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (item.Status != MediaStatus.Blocked)
         {
@@ -196,8 +240,11 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     }
 
     /// <summary>A reviewer's refusal: off every profile, the object deleted unless a hold needs it.</summary>
-    public async Task RejectAsync(MediaItem item, Guid reviewer, string? reason, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> RejectAsync(MediaItem item, Guid reviewer, string? reason, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        await using var lease = await MediaAccountLease.AcquireAsync(db, item.AccountId, cancellationToken);
+        await db.Entry(item).ReloadAsync(cancellationToken);
+        if (db.Entry(item).State == EntityState.Detached || item.RemovedAt is not null || item.Status is not (MediaStatus.Uncertain or MediaStatus.Passed)) return false;
         (item.Status, item.ReviewedBy, item.ReviewedAt, item.ReviewReason, item.NextScreenAt) = (MediaStatus.Rejected, reviewer, now, reason, null);
         await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
         Audit.Record(db, now, reviewer, "account", "media.rejected", "media", item.Id.ToString());
@@ -205,6 +252,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
         await AttachmentChangedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
+        return true;
     }
 
     /// <summary>
@@ -213,12 +261,23 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     /// </summary>
     public async Task RemoveAsync(MediaItem item, Guid actor, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        item.RemovedAt ??= now;
-        if (item.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (item.Status, item.NextScreenAt) = (MediaStatus.Removed, null);
-        await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
+        // Hide immediately, even while a classifier owns the source. Physical deletion waits for that lease.
+        await db.MediaItems.Where(i => i.Id == item.Id && i.RemovedAt == null).ExecuteUpdateAsync(u => u.SetProperty(i => i.RemovedAt, now), cancellationToken);
         Audit.Record(db, now, actor, "account", "media.removed", "media", item.Id.ToString());
         await db.SaveChangesAsync(cancellationToken);
-        await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
+        queue.Enqueue(item.Id);
+        await using var lease = await MediaAccountLease.TryAcquireAsync(db, item.AccountId, cancellationToken);
+        if (lease is null) return;
+        await db.Entry(item).ReloadAsync(cancellationToken);
+        if (db.Entry(item).State != EntityState.Detached) await RemoveCoreAsync(item, now, cancellationToken);
+    }
+
+    private async Task RemoveCoreAsync(MediaItem item, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (item.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (item.Status, item.NextScreenAt) = (MediaStatus.Removed, null);
+        await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        if (item.ObjectKey is not null) await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
     }
 
@@ -249,16 +308,25 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     /// The purge sweep (`accounts purge`): objects of removed, rejected and released-blocked items go unless held; removed
     /// rows go once their object has. Returns (deleted, kept), or null when hold status is unknown (nothing deleted).
     /// </summary>
-    public async Task<(int Deleted, int Kept)?> SweepAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<(int Deleted, int Kept)?> SweepAsync(DateTimeOffset now, CancellationToken cancellationToken, bool deferredOnly = false)
     {
         if (Store is null) return (0, 0);
         var evidence = services.GetRequiredService<Evidence.EvidencePreservation>();
         if (await evidence.TryHeldAccountsAsync(cancellationToken) is null) return null;
         var (deleted, kept) = (0, 0);
         foreach (var item in await db.MediaItems.Where(i => i.ObjectKey != null
-                     && (i.Status == MediaStatus.Removed || i.Status == MediaStatus.Rejected || i.Status == MediaStatus.Blocked)).ToListAsync(cancellationToken))
-            if (await DeleteObjectIfAllowedAsync(item, now, cancellationToken)) deleted++; else kept++;
-        await db.MediaItems.Where(i => i.Status == MediaStatus.Removed && i.ObjectKey == null).ExecuteDeleteAsync(cancellationToken);
+                     && (deferredOnly ? i.RemovedAt != null && (i.Status == MediaStatus.Pending || i.Status == MediaStatus.Passed || i.Status == MediaStatus.Uncertain)
+                         : i.RemovedAt != null || i.Status == MediaStatus.Removed || i.Status == MediaStatus.Rejected || i.Status == MediaStatus.Blocked)).ToListAsync(cancellationToken))
+        {
+            await using var lease = await MediaAccountLease.TryAcquireAsync(db, item.AccountId, cancellationToken);
+            if (lease is null) { kept++; continue; }
+            await db.Entry(item).ReloadAsync(cancellationToken);
+            if (db.Entry(item).State == EntityState.Detached || item.ObjectKey is null) continue;
+            if (item.RemovedAt is not null && item.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain)
+                await RemoveCoreAsync(item, now, cancellationToken);
+            if (item.ObjectKey is null || await DeleteObjectIfAllowedAsync(item, now, cancellationToken)) deleted++; else kept++;
+        }
+        if (!deferredOnly) await db.MediaItems.Where(i => i.Status == MediaStatus.Removed && i.ObjectKey == null).ExecuteDeleteAsync(cancellationToken);
         return (deleted, kept);
     }
 
@@ -315,7 +383,11 @@ public sealed class MediaScreeningWorker(IServiceScopeFactory scopes, MediaQueue
                         .ToListAsync(stoppingToken);
                 foreach (var id in due) await OneAsync(id, stoppingToken);
                 await using (var recovery = scopes.CreateAsyncScope())
-                    await recovery.ServiceProvider.GetRequiredService<MediaPipeline>().RecoverBlockedSweepAsync(clock.GetUtcNow(), stoppingToken);
+                {
+                    var pipeline = recovery.ServiceProvider.GetRequiredService<MediaPipeline>();
+                    await pipeline.RecoverBlockedSweepAsync(clock.GetUtcNow(), stoppingToken);
+                    await pipeline.SweepAsync(clock.GetUtcNow(), stoppingToken, deferredOnly: true);
+                }
             }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
@@ -342,6 +414,12 @@ public static class MediaSetup
     public static IServiceCollection AddSwoovrMedia(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment, bool persistence)
     {
         var development = environment.IsDevelopment();
+        if (!string.IsNullOrWhiteSpace(configuration["Media:Publication:BarrierDirectory"]))
+        {
+            if (!development) throw new InvalidOperationException("Media publication barriers are Development only.");
+            if (configuration["Media:Publication:BarrierStage"] is { } stage && stage is not ("before-lease" or "after-read"))
+                throw new InvalidOperationException("Unknown media publication barrier stage.");
+        }
         if (configuration["Media:Preservation:Fault"] is { Length: > 0 } pause)
         {
             if (!development) throw new InvalidOperationException("Media preservation interruption hooks are Development only.");

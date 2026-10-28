@@ -7,8 +7,16 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFile, spawn } = require('node:child_process');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, sleep, createMember, createStaff, cli, memberToken, staffToken, rootAdminToken, call, claims, matchReady, sql, localEnv, mailTo } = require('../auth/local-tokens.cjs');
+const { api, sleep, createMember, createStaff, cli: baseCli, memberToken, staffToken, rootAdminToken, call, claims, matchReady, sql, localEnv, mailTo } = require('../auth/local-tokens.cjs');
 const { synthetic, upload } = require('./synthetic-images.cjs');
+async function cli(...args) {
+  try { return await baseCli(...args); }
+  catch (error) {
+    if (args[0] === 'media' && args[1] === 'preserve' && /^[0-9a-f-]{36}$/.test(args[2] || ''))
+      error.message += '\nRestricted recovery diagnostic: ' + await sql(`SELECT status,preservation_error,preservation_attempts FROM media_items WHERE id='${args[2]}'`);
+    throw error;
+  }
+}
 const extra = 'http://127.0.0.1:5090';
 async function stopExtra() {
   await new Promise(resolve => execFile('bash', ['-c', 'lsof -ti tcp:5090 -sTCP:LISTEN | xargs kill 2>/dev/null; true'], () => resolve()));

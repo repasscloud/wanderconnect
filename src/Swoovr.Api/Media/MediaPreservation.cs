@@ -26,14 +26,8 @@ public sealed partial class MediaPipeline
     {
         var initial = await db.MediaItems.AsNoTracking().SingleOrDefaultAsync(i => i.Id == id, cancellationToken);
         if (initial is not { Status: MediaStatus.Blocked } || initial.PreservationCompletedAt is not null) return;
-        const int lockNamespace = 0x4D454449;
-        var lockKey = BinaryPrimitives.ReadInt32BigEndian(SHA256.HashData(initial.AccountId.ToByteArray()));
-        await db.Database.OpenConnectionAsync(cancellationToken);
-        var locked = false;
-        try
+        await using var lease = await MediaAccountLease.AcquireAsync(db, initial.AccountId, cancellationToken);
         {
-            locked = true;
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_lock({lockNamespace}, {lockKey})", cancellationToken);
             var item = await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id, cancellationToken);
             if (item is null) return;
             await db.Entry(item).ReloadAsync(cancellationToken);
@@ -151,18 +145,6 @@ public sealed partial class MediaPipeline
             await AttachmentChangedAsync(item, now, cancellationToken);
             await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
         }
-        finally
-        {
-            try
-            {
-                if (locked)
-                {
-                    using var release = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_unlock({lockNamespace}, {lockKey})", release.Token);
-                }
-            }
-            finally { await db.Database.CloseConnectionAsync(); }
-        }
     }
 
     private async Task SealBlockedAsync(MediaItem item, CancellationToken cancellationToken)
@@ -190,10 +172,14 @@ public sealed partial class MediaPipeline
         await db.SaveChangesAsync(cancellationToken); // Commit canonical evidence location before source deletion.
         if (item.PreservationSourceKey is { } source && source != target)
         {
-            await Store.DeleteAsync(source, cancellationToken);
+            if (!await Store.DeleteAsync(source, cancellationToken)) throw new IOException("source-delete-failed");
             item.PreservationSourceKey = null;
             await db.SaveChangesAsync(cancellationToken);
         }
+        // A process can stop after writing a publication copy but before committing its location.
+        // Under the shared lifecycle lease neither deterministic clear location may survive sealing.
+        foreach (var clear in new[] { MediaKeys.Quarantine(item.Id), MediaKeys.Photo(item.Id) })
+            if (!await Store.DeleteAsync(clear, cancellationToken)) throw new IOException("clear-copy-delete-failed");
     }
 
     private async Task<string> EscalateBlockedAsync(MediaItem item, ModerationCase @case, DateTimeOffset now, CancellationToken cancellationToken)
