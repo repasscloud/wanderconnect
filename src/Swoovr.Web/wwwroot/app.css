@@ -314,11 +314,11 @@ legend { padding: 0; margin-bottom: 4px; font: var(--type-section); font-size: 1
 /* Account */
 .account-actions { display: grid; gap: 10px; margin: 26px 0 0; }
 .account-session { margin-top: 26px; }
-.account-session dl { margin: 0 0 14px; }
-.account-session dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.account-session dl > div:first-child { padding-top: 0; }
-.account-session dt { color: var(--muted); }
-.account-session dd { margin: 0; text-align: right; font-weight: 600; }
+.account-session dl, .standing-facts { margin: 0 0 14px; }
+.account-session dl > div, .standing-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.account-session dl > div:first-child, .standing-facts > div:first-child { padding-top: 0; }
+.account-session dt, .standing-facts dt { color: var(--muted); }
+.account-session dd, .standing-facts dd { margin: 0; text-align: right; font-weight: 600; }
 .account-session form { margin-top: 18px; }
 .account-section { margin-top: 16px; }
 .account-section .stack { display: grid; gap: 10px; margin-top: 14px; }

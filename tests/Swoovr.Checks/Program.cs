@@ -31,6 +31,7 @@ ModePrivacyChecks.Run();
 MediaChecks.Run();
 SafetyResourceChecks.Run();
 NotificationChecks.Run();
+StandingChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();

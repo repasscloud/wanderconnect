@@ -1,0 +1,35 @@
+@page "/support"
+@inject AdminClient Admin
+<PageTitle>Support lookup — Swoovr admin</PageTitle>
+<h1>Support lookup</h1>
+<p class="help">Support and admins (#50). Find the report behind a member's support reference (SW-XXXXXX). Admin-queue cases (staff-affiliated accounts, serious incidents) show to admins only. Every lookup is logged. Tell the member only what their own standing page says.</p>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+<form method="post" @formname="lookup" @onsubmit="LookupAsync" class="row" data-support-form data-enhance="false">
+    <AntiforgeryToken />
+    <input name="reference" placeholder="SW-ABC234" maxlength="16" required />
+    <button type="submit" data-support-search>Find</button>
+</form>
+@if (result is { } r)
+{
+    <dl class="facts" data-support-result="@r.Reference">
+        <div><dt>Reference</dt><dd>@r.Reference</dd></div>
+        <div><dt>Report</dt><dd>@r.ReportId · @r.Category@(r.Serious ? " · serious incident" : "") · @r.CreatedAt.ToString("d MMM yyyy HH:mm")</dd></div>
+        <div><dt>Case</dt><dd><a href="/cases/@r.CaseId" data-support-case="@r.CaseId">@r.CaseId</a> · @r.CaseStatus · @r.Queue queue · @r.Priority</dd></div>
+        <div><dt>Reported by</dt><dd><a href="/accounts/@r.ReporterAccountId">@r.ReporterAccountId</a> (<a href="/accounts/@r.ReporterAccountId/standing">their standing</a>)</dd></div>
+        <div><dt>About</dt><dd><a href="/accounts/@r.SubjectAccountId">@r.SubjectAccountId</a></dd></div>
+    </dl>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private SupportLookupView? result;
+    private string? message, resultCode;
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task LookupAsync()
+    {
+        var found = await Admin.SupportLookupAsync(Field("reference").Trim());
+        (result, resultCode) = (found.Value, found.Ok ? "ok" : found.Code ?? found.Status.ToString());
+        message = found.Ok ? null : found.Status == 404 ? "No report has that reference." : AdminText.Refusal(found.Status, found.Code);
+    }
+}

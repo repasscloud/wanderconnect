@@ -20,6 +20,7 @@ else
         <div><dt>Flags</dt><dd>@(account.Bot ? "Bot " : "")@(account.Employee ? "Staff-affiliated " : "")@(!account.Bot && !account.Employee ? "None" : "")</dd></div>
         <div><dt>Home market</dt><dd data-home-market="@(account.HomeMarket ?? "none")">@(account.HomeMarket ?? "None")@(account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd></div>
         <div><dt>Open cases</dt><dd>@account.OpenCases</dd></div>
+        <div><dt>Standing</dt><dd><a href="/accounts/@account.Id/standing" data-standing-link>What the member sees</a></dd></div>
     </dl>
 
     <section class="card">

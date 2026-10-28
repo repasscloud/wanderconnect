@@ -63,6 +63,10 @@ public sealed class MemberClient(HttpClient http)
     public Task<int> ReadNoticeAsync(Guid id, CancellationToken cancellationToken = default) =>
         StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notices/{id}/read"), cancellationToken);
 
+    /// <summary>#50: account standing; open even while restricted or suspended.</summary>
+    public Task<ApiResult<AccountStandingView>> StandingAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<AccountStandingView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/standing"), cancellationToken);
+
     /// <summary>#49: the notification centre, worded for the signed-in member, with the unread count.</summary>
     public Task<ApiResult<NotificationCentre>> NotificationsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<NotificationCentre>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notifications"), cancellationToken);

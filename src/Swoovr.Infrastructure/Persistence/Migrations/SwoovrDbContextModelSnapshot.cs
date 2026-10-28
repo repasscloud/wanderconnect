@@ -4069,6 +4069,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("subject_type");
 
+                    b.Property<string>("SupportReference")
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)")
+                        .HasColumnName("support_reference");
+
                     b.Property<string>("Text")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -4085,6 +4090,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SubjectAccountId")
                         .HasDatabaseName("ix_reports_subject_account_id");
+
+                    b.HasIndex("SupportReference")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reports_support_reference")
+                        .HasFilter("support_reference IS NOT NULL");
 
                     b.HasIndex("ReporterAccountId", "CreatedAt")
                         .HasDatabaseName("ix_reports_reporter_account_id_created_at");

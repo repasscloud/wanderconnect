@@ -55,6 +55,7 @@
                         <Label x:Name="RestrictedBody" />
                         <Button x:Name="RestrictedNotices" Text="Read the notice" AutomationId="RestrictedNotices" Style="{StaticResource PrimaryButton}" Clicked="OnNotices" />
                         <!-- D170: anyone can delete their account or download their data, restricted or not; a pending deletion lands here too. -->
+                        <Button Text="Account standing" AutomationId="RestrictedStanding" Style="{StaticResource SecondaryButton}" Clicked="OnStanding" />
                         <Button Text="Your data and account" AutomationId="RestrictedData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
                     </VerticalStackLayout>
                 </Border>
@@ -80,6 +81,7 @@
                             <Button Text="Who I'd like to meet" AutomationId="MeMatching" Style="{StaticResource SecondaryButton}" Clicked="OnMatching" />
                             <Button Text="Travel" AutomationId="MeTravel" Style="{StaticResource SecondaryButton}" Clicked="OnTravel" />
                             <Button Text="ID verification" AutomationId="MeVerification" Style="{StaticResource SecondaryButton}" Clicked="OnVerification" />
+                            <Button Text="Account standing" AutomationId="MeStanding" Style="{StaticResource SecondaryButton}" Clicked="OnStanding" />
                             <Button Text="Notifications" AutomationId="MeNotifications" Style="{StaticResource SecondaryButton}" Clicked="OnNotifications" />
                             <Button Text="Notices and reports" AutomationId="MeNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />

@@ -1,0 +1,51 @@
+@page "/accounts/{Id:guid}/standing"
+@inject AdminClient Admin
+<PageTitle>Account standing — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/accounts">Accounts</a> / <a href="/accounts/@Id">Account</a> / Standing</p>
+<h1>What the member sees</h1>
+<p class="help">Support and admins (#50). Exactly the member's own account-standing page, to help them. It shows nothing they can't see; viewing it is logged.</p>
+@if (standing is not { } s)
+{
+    <p data-standing="missing">@(message ?? "Not found.")</p>
+}
+else
+{
+    <dl class="facts" data-standing="@s.State">
+        <div><dt>Status</dt><dd>@StandingText.State(s.State)</dd></div>
+        <div><dt>To do</dt><dd data-standing-actions="@s.Actions.Count">@(s.Actions.Count == 0 ? "Nothing" : string.Join(" · ", s.Actions.Select(a => StandingText.Action(a.Code))))</dd></div>
+        <div><dt>Email</dt><dd>@(s.Verification.EmailVerified ? "Verified" : "Not verified")</dd></div>
+        <div><dt>Mobile number</dt><dd>@(s.Verification.PhoneVerified ? "Verified" : s.Verification.PhoneRequired ? "Needed" : "Not added")</dd></div>
+        <div><dt>Age</dt><dd>@StandingText.Age(s.Verification.AgeStatus)</dd></div>
+        <div><dt>Date of birth</dt><dd>@StandingText.Dob(s.Verification)</dd></div>
+        <div><dt>ID</dt><dd>@StandingText.Id(s.Verification.IdStatus)</dd></div>
+    </dl>
+    <section class="card">
+        <h2>Actions in force</h2>
+        @if (s.InForce.Count == 0) { <p>@StandingText.NothingInForce</p> }
+        <ul class="list" data-standing-in-force="@s.InForce.Count">
+            @foreach (var x in s.InForce) { <li>@StandingText.Sanction(x) · @x.Reason@(x.AppealBy is { } by ? $" · appeal until {by:d MMM yyyy}" : "")</li> }
+        </ul>
+    </section>
+    <section class="card">
+        <h2>Decisions</h2>
+        @if (s.Decisions.Count == 0) { <p>@StandingText.NoDecisions</p> }
+        <ul class="list" data-standing-decisions="@s.Decisions.Count">@foreach (var d in s.Decisions) { <li>@StandingText.Decision(d)</li> }</ul>
+    </section>
+    <section class="card">
+        <h2>Their reports</h2>
+        @if (s.Reports.Count == 0) { <p>@StandingText.NoReports</p> }
+        <ul class="list" data-standing-reports="@s.Reports.Count">@foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r)</li> }</ul>
+    </section>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private AccountStandingView? standing;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.StandingAsync(Id);
+        standing = result.Value;
+        message = result.Ok ? null : AdminText.Refusal(result.Status, result.Code);
+    }
+}

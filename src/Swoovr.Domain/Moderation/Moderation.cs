@@ -47,6 +47,8 @@ public sealed class Report
     public string? Police { get; set; }
     /// <summary>The police reference the reporter gave, sealed with the evidence key (D190); never in clear, never in the audit log.</summary>
     public byte[]? PoliceReference { get; set; }
+    /// <summary>#50: the member-facing reference (SW-XXXXXX) support looks up; given to older reports when first shown.</summary>
+    public string? SupportReference { get; set; }
 }
 
 public enum CaseStatus { Open, UnderReview, Reviewed, Closed }

@@ -84,6 +84,14 @@ public sealed class AdminClient(HttpClient http)
         SendAsync<AccountAdminSummary>(HttpMethod.Post, $"api/v1/admin/accounts/{id}/home-review/clear", new HomeReviewClear(reason), cancellationToken);
 
     /// <summary>D166: open date-of-birth reviews (admins only).</summary>
+    /// <summary>#50: the member's own account-standing view, for staff helping them.</summary>
+    public Task<ApiResult<AccountStandingView>> StandingAsync(Guid accountId, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountStandingView>(HttpMethod.Get, $"api/v1/admin/accounts/{accountId}/standing", null, cancellationToken);
+
+    /// <summary>#50: a member's support reference (SW-XXXXXX) to its report and case.</summary>
+    public Task<ApiResult<SupportLookupView>> SupportLookupAsync(string reference, CancellationToken cancellationToken = default) =>
+        SendAsync<SupportLookupView>(HttpMethod.Get, $"api/v1/admin/support/{Uri.EscapeDataString(reference)}", null, cancellationToken);
+
     public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<DobReviewView>>(HttpMethod.Get, "api/v1/admin/dob-reviews", null, cancellationToken);
 

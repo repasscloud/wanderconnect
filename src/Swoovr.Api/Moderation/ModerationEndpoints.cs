@@ -216,6 +216,7 @@ public static class ModerationEndpoints
         {
             Id = Guid.NewGuid(), ReporterAccountId = me, SubjectAccountId = subjectAccount, SubjectType = subjectType, SubjectRef = request.SubjectId.Trim(),
             CategoryId = category.Id, Priority = category.Priority, Text = Clean(request.Text), CreatedAt = now, Police = category.Serious ? request.Police : null,
+            SupportReference = SupportReference.New(),
         };
         // D190: a police reference is kept only sealed with the evidence key, and only for serious incidents.
         if (category.Serious && Clean(request.PoliceReference) is { } reference && evidenceKeys.CurrentVersion is { } version)

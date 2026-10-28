@@ -725,6 +725,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             report.Property(r => r.Text).HasMaxLength(ReportPolicy.TextMax);
             report.HasIndex(r => new { r.ReporterAccountId, r.CreatedAt });
             report.HasIndex(r => r.CaseId);
+            report.Property(r => r.SupportReference).HasMaxLength(9);
+            report.HasIndex(r => r.SupportReference).IsUnique().HasFilter("support_reference IS NOT NULL");
             report.ToTable(t => t.HasCheckConstraint("ck_reports_not_self", "reporter_account_id <> subject_account_id"));
         });
         model.Entity<CaseEvidence>(evidence =>
