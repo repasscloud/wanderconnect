@@ -29,16 +29,16 @@ const ADELAIDE = 2078025;
     const tokens = {}, ids = {}, pid = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      pid[n] = (await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Loc ' + n, homeCityId: n === 'tgt' ? Number(near) : ADELAIDE,
+      pid[n] = (await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Loc ' + n, homeCityId: n === 'tgt' ? Number(near) : ADELAIDE,
         about: n === 'tgt' ? 'Fictional core about for the target' : null } })).body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
-      await call(tokens[n], '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+      await call(tokens[n], '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
       await matchReady(tokens[n]);
     }
     const in30 = new Date(Date.now() + 30 * 864e5).toISOString();
-    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: in30, reason: 'Fictional Plus for the location test' } })).status, 201);
-    const filter = (who, km) => call(tokens[who], '/api/v1/me/modes/friends/filters', { method: 'PUT', body: { idVerifiedOnly: false, maxDistanceKm: km } });
-    const explore = who => call(tokens[who], '/api/v1/explore?mode=friends');
+    assert.equal((await call(root, `/api/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: in30, reason: 'Fictional Plus for the location test' } })).status, 201);
+    const filter = (who, km) => call(tokens[who], '/api/me/modes/friends/filters', { method: 'PUT', body: { idVerifiedOnly: false, maxDistanceKm: km } });
+    const explore = who => call(tokens[who], '/api/explore?mode=friends');
     const target = r => r.body.people.find(p => p.id === pid.tgt);
 
     // A rounded band on the card, never a distance.
@@ -72,39 +72,39 @@ const ADELAIDE = 2078025;
 
     // Consent before the core about crosses into a mode.
     const card = async () => target(await explore('free'));
-    const person = async () => (await call(tokens.free, `/api/v1/profiles/${pid.tgt}?mode=friends`)).body;
+    const person = async () => (await call(tokens.free, `/api/profiles/${pid.tgt}?mode=friends`)).body;
     assert.equal((await card()).about, null, 'not shown without consent'); pass();
     assert.equal((await person()).modes[0].about, null); pass();
-    const tampered = await fetch(api + '/api/v1/me/modes/friends', { method: 'PUT', headers: { Authorization: 'Bearer ' + tokens.tgt, 'Content-Type': 'application/json' }, body: '{"enabled":true,"visible":true,"shareCoreAbout":"yes"}' });
+    const tampered = await fetch(api + '/api/me/modes/friends', { method: 'PUT', headers: { Authorization: 'Bearer ' + tokens.tgt, 'Content-Type': 'application/json' }, body: '{"enabled":true,"visible":true,"shareCoreAbout":"yes"}' });
     assert.equal(tampered.status, 400); pass();
-    r = await call(tokens.tgt, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, shareCoreAbout: true } });
+    r = await call(tokens.tgt, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, shareCoreAbout: true } });
     assert.equal(r.body.modes.find(m => m.id === 'friends').shareCoreAbout, true); pass();
     assert.equal((await card()).about, 'Fictional core about for the target', 'shown once agreed'); pass();
-    r = await call(tokens.tgt, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+    r = await call(tokens.tgt, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
     assert.equal(r.body.modes.find(m => m.id === 'friends').shareCoreAbout, true, 'other saves keep the answer'); pass();
-    await call(tokens.tgt, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, about: 'Fictional friends-only about' } });
+    await call(tokens.tgt, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, about: 'Fictional friends-only about' } });
     assert.equal((await person()).modes[0].about, 'Fictional friends-only about', 'the mode about wins'); pass();
 
     // Profile versions: the free member reports the target; then the target edits. Moderators see the earlier version.
     const versions = Number(await sql(`SELECT count(*) FROM profile_versions WHERE account_id = '${ids.tgt}'`));
     assert.ok(versions >= 3); pass();
     assert.equal(await sql(`SELECT count(*) FROM profile_versions WHERE account_id = '${ids.tgt}' AND (content_json LIKE '%1990%' OR content_json LIKE '%${near}%' OR content_json ILIKE '%showMe%')`), '0', 'no date of birth, home city or show-me'); pass();
-    assert.equal((await call(tokens.free, '/api/v1/reports', { method: 'POST', body: { subjectType: 'profile', subjectId: pid.tgt, category: 'harassment', text: null, block: false } })).status, 201);
+    assert.equal((await call(tokens.free, '/api/reports', { method: 'POST', body: { subjectType: 'profile', subjectId: pid.tgt, category: 'harassment', text: null, block: false } })).status, 201);
     const caseId = await sql(`SELECT id FROM moderation_cases WHERE subject_account_id = '${ids.tgt}' ORDER BY created_at DESC LIMIT 1`);
     await new Promise(resolve => setTimeout(resolve, 50));
-    await call(tokens.tgt, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, about: 'Fictional edited after the report' } });
-    r = await call(root, `/api/v1/admin/cases/${caseId}/profile-at-report`);
+    await call(tokens.tgt, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, about: 'Fictional edited after the report' } });
+    r = await call(root, `/api/admin/cases/${caseId}/profile-at-report`);
     assert.equal(r.status, 200); pass();
     const friends = r.body.versions.find(v => v.mode === 'friends');
     assert.ok(friends.contentJson.includes('Fictional friends-only about') && !friends.contentJson.includes('edited after'), 'the version visible at the report'); pass();
     assert.ok(r.body.versions.some(v => v.mode === 'core')); pass();
-    assert.equal((await call(tokens.free, `/api/v1/admin/cases/${caseId}/profile-at-report`)).status, 403, 'members never'); pass();
+    assert.equal((await call(tokens.free, `/api/admin/cases/${caseId}/profile-at-report`)).status, 403, 'members never'); pass();
     // A legal hold preserves the versions.
     const leg = await createStaff('loc-leg');
-    assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: leg.email, role: 'legal' } })).status, 201);
+    assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: leg.email, role: 'legal' } })).status, 201);
     const legToken = await staffToken(browser, leg);
-    r = await call(legToken, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional hold for profile versions', accountIds: [ids.tgt] } });
-    r = await call(legToken, `/api/v1/admin/holds/${r.body.id}`);
+    r = await call(legToken, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional hold for profile versions', accountIds: [ids.tgt] } });
+    r = await call(legToken, `/api/admin/holds/${r.body.id}`);
     assert.ok(r.body.items.filter(i => i.kind === 'profile-version').length >= versions, 'every version preserved'); pass();
 
     // Web: the consent box on the profile editor, and the admin app's case page.
@@ -126,7 +126,7 @@ const ADELAIDE = 2078025;
     const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const adminPage = await adminContext.newPage();
     const adm = await createStaff('loc-adm');
-    assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: adm.email, role: 'admin' } })).status, 201);
+    assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: adm.email, role: 'admin' } })).status, 201);
     await adminPage.goto(admin + '/');
     await adminPage.fill('#username', adm.email); await adminPage.fill('#password', adm.password); await adminPage.click('#kc-login');
     await adminPage.waitForSelector('[data-dashboard], [data-holds-overview]', { timeout: 20000 });

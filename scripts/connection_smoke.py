@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 root=Path(__file__).resolve().parents[1]
-prefix='/api/v1/prototype/conversations'
+prefix='/api/prototype/conversations'
 def call(base,path='',body=None,expected=200,raw=None):
     data=raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
     req=urllib.request.Request(base+prefix+path,data=data,headers={'Content-Type':'application/json'} if data is not None else {})

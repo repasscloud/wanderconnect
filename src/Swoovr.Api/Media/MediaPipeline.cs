@@ -26,7 +26,7 @@ public sealed class MediaLinks(IConfiguration configuration, Founders founders)
         : founders.CurrentVersion is { } v ? HMACSHA256.HashData(founders.Secrets[v], "swoovr:media-links:v1"u8) : null;
 
     public string? For(Guid media, string variant, DateTimeOffset now) =>
-        Key is null ? null : "api/v1/media/" + MediaPolicy.Link(Key, media, variant, now + MediaPolicy.LinkLifetime);
+        Key is null ? null : "api/media/" + MediaPolicy.Link(Key, media, variant, now + MediaPolicy.LinkLifetime);
 }
 
 /// <summary>New uploads waiting for their first screening, so the worker starts at once instead of at its next sweep.</summary>

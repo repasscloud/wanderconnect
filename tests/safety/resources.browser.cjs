@@ -15,7 +15,7 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
   const code = r => [r.status, r.body?.code];
   const output = process.env.SWOOVR_SCREENSHOTS;
   const pack = async (query = '', headers = {}) => {
-    const response = await fetch(api + '/api/v1/safety/resources' + query, { headers });
+    const response = await fetch(api + '/api/safety/resources' + query, { headers });
     return { status: response.status, headers: response.headers, body: await response.json() };
   };
   try {
@@ -47,18 +47,18 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     r = await pack('?country=XX');
     assert.deepEqual([r.body.country, r.body.readiness, r.body.resources.length], [null, 'unknown', 0]); pass();
     for (const bad of ['AUS', '1', '%3Cx%3E', 'A'])
-      assert.deepEqual(code(await (async () => { const x = await fetch(api + '/api/v1/safety/resources?country=' + bad); return { status: x.status, body: await x.json() }; })()), [400, 'unknown-country'], bad);
+      assert.deepEqual(code(await (async () => { const x = await fetch(api + '/api/safety/resources?country=' + bad); return { status: x.status, body: await x.json() }; })()), [400, 'unknown-country'], bad);
     pass();
 
     // ---- Nothing about the caller is stored; the member's profile, home city and modes don't change.
     const member = await createMember('safety');
     await cli('beta', 'add', member.email);
     const token = await memberToken(browser, member);
-    await call(token, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Safety', homeCityId: 2078025 } });
-    const before = JSON.stringify((await call(token, '/api/v1/me/profile')).body);
+    await call(token, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Safety', homeCityId: 2078025 } });
+    const before = JSON.stringify((await call(token, '/api/me/profile')).body);
     const audits = await sql('SELECT count(*) FROM audit_entries');
-    for (const c of ['NZ', 'GB', 'FR']) assert.equal((await call(token, '/api/v1/safety/resources?country=' + c)).status, 200);
-    assert.equal(JSON.stringify((await call(token, '/api/v1/me/profile')).body), before, 'profile unchanged'); pass();
+    for (const c of ['NZ', 'GB', 'FR']) assert.equal((await call(token, '/api/safety/resources?country=' + c)).status, 200);
+    assert.equal(JSON.stringify((await call(token, '/api/me/profile')).body), before, 'profile unchanged'); pass();
     assert.equal(await sql('SELECT count(*) FROM audit_entries'), audits, 'nothing recorded about reads'); pass();
     assert.equal(await sql(`SELECT count(*) FROM information_schema.columns WHERE table_name LIKE 'safety%' AND (column_name ~ '(^|_)ip(_|$)' OR column_name LIKE '%address%')`), '0', 'no IP column'); pass();
 
@@ -66,45 +66,45 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     const root = await rootAdminToken(browser);
     const staff = { adm: await createStaff('safety-adm'), sup: await createStaff('safety-sup'), leg: await createStaff('safety-leg') };
     for (const [n, role] of [['adm', 'admin'], ['sup', 'support'], ['leg', 'legal']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {};
-    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/v1/session'); }
+    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); }
     const admId = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st.adm).sub}'`);
-    assert.equal((await call(null, '/api/v1/admin/safety/countries')).status, 401); pass();
-    for (const who of [token, st.sup, st.leg]) assert.equal((await call(who, '/api/v1/admin/safety/countries')).status, 403);
+    assert.equal((await call(null, '/api/admin/safety/countries')).status, 401); pass();
+    for (const who of [token, st.sup, st.leg]) assert.equal((await call(who, '/api/admin/safety/countries')).status, 403);
     pass();
-    const countries = (await call(st.adm, '/api/v1/admin/safety/countries')).body;
+    const countries = (await call(st.adm, '/api/admin/safety/countries')).body;
     assert.deepEqual(countries.find(c => c.code === 'AU').launchProblems, []); pass();
     assert.ok(countries.find(c => c.code === 'NZ').launchProblems.includes('unverified-resources')); pass();
-    r = await call(st.adm, '/api/v1/admin/safety/countries/NZ', { method: 'PUT', body: { name: 'New Zealand', enabled: true, readiness: 'ready' } });
+    r = await call(st.adm, '/api/admin/safety/countries/NZ', { method: 'PUT', body: { name: 'New Zealand', enabled: true, readiness: 'ready' } });
     assert.deepEqual(code(r), [409, 'country-not-ready']); assert.ok(r.body.problems.includes('unverified-resources')); pass();
     assert.equal((await pack('?country=NZ')).body.readiness, 'not-ready', 'a refused change leaves NZ as it was'); pass();
     // The suite's own test country starts empty on every run (earlier runs' contacts would block the launch check).
     await sql(`DELETE FROM safety_resources WHERE country_code = 'ZZ'`);
-    const country = (body = {}) => call(st.adm, '/api/v1/admin/safety/countries/ZZ', { method: 'PUT', body: { name: 'Fictional test country', enabled: false, readiness: 'not-ready', ...body } });
+    const country = (body = {}) => call(st.adm, '/api/admin/safety/countries/ZZ', { method: 'PUT', body: { name: 'Fictional test country', enabled: false, readiness: 'not-ready', ...body } });
     assert.equal((await country()).status, 200); pass();
     assert.deepEqual(code(await country({ readiness: 'launched' })), [400, 'invalid-resource']); pass();
-    assert.deepEqual(code(await call(st.adm, '/api/v1/admin/safety/countries/ZZZ', { method: 'PUT', body: { name: 'x', enabled: false, readiness: 'demo' } })), [400, 'unknown-country']); pass();
+    assert.deepEqual(code(await call(st.adm, '/api/admin/safety/countries/ZZZ', { method: 'PUT', body: { name: 'x', enabled: false, readiness: 'demo' } })), [400, 'unknown-country']); pass();
     const resource = (body = {}) => ({ country: 'ZZ', language: 'en', category: 'emergency', name: 'Fictional emergency line', description: 'Fictional test contact.',
       phone: '999', phoneDisplay: '999', sourceUrl: 'https://example.org/source', order: 10, enabled: true, lastVerifiedOn: '2026-10-28', reviewDueOn: '2027-01-26', ...body });
     for (const [bad, why] of [[{ websiteUrl: 'http://example.org/' }, 'http'], [{ sourceUrl: 'javascript:alert(1)' }, 'script'], [{ phone: 'nine' }, 'not dialable'],
       [{ category: 'magic' }, 'category'], [{ name: '' }, 'name'], [{ phone: null, websiteUrl: null }, 'no contact'], [{ reviewDueOn: '2026-01-01' }, 'review before verified']])
-      assert.equal((await call(st.adm, '/api/v1/admin/safety/resources', { method: 'POST', body: resource(bad) })).status, 400, why);
+      assert.equal((await call(st.adm, '/api/admin/safety/resources', { method: 'POST', body: resource(bad) })).status, 400, why);
     pass();
-    assert.deepEqual(code(await call(st.adm, '/api/v1/admin/safety/resources', { method: 'POST', body: resource({ country: 'QQ' }) })), [400, 'unknown-country']); pass();
-    const raw = await fetch(api + '/api/v1/admin/safety/resources', { method: 'POST', headers: { Authorization: 'Bearer ' + st.adm, 'Content-Type': 'application/json' }, body: '{"country":"ZZ","order":"first"}' });
+    assert.deepEqual(code(await call(st.adm, '/api/admin/safety/resources', { method: 'POST', body: resource({ country: 'QQ' }) })), [400, 'unknown-country']); pass();
+    const raw = await fetch(api + '/api/admin/safety/resources', { method: 'POST', headers: { Authorization: 'Bearer ' + st.adm, 'Content-Type': 'application/json' }, body: '{"country":"ZZ","order":"first"}' });
     assert.equal(raw.status, 400, 'tampered body'); pass();
-    assert.equal((await call(st.sup, '/api/v1/admin/safety/resources', { method: 'POST', body: resource() })).status, 403); pass();
-    r = await call(st.adm, '/api/v1/admin/safety/resources', { method: 'POST', body: resource() });
+    assert.equal((await call(st.sup, '/api/admin/safety/resources', { method: 'POST', body: resource() })).status, 403); pass();
+    r = await call(st.adm, '/api/admin/safety/resources', { method: 'POST', body: resource() });
     assert.equal(r.status, 201); const created = r.body.id; pass();
     assert.equal((await country({ readiness: 'ready', lastReviewedOn: '2026-10-28', reviewDueOn: '2027-01-26' })).status, 200, 'verified emergency number: launch-ready'); pass();
     assert.equal((await pack('?country=ZZ')).body.readiness, 'unsupported', 'a hidden country is never served'); pass();
-    r = await call(st.adm, `/api/v1/admin/safety/resources/${created}`, { method: 'PUT', body: resource({ lastVerifiedOn: null, reviewDueOn: null }) });
+    r = await call(st.adm, `/api/admin/safety/resources/${created}`, { method: 'PUT', body: resource({ lastVerifiedOn: null, reviewDueOn: null }) });
     assert.equal(r.status, 200); pass();
-    assert.equal((await call(st.adm, '/api/v1/admin/safety/countries')).body.find(c => c.code === 'ZZ').readiness, 'not-ready', 'unverifying drops a launched pack'); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/safety/resources/${created}`, { method: 'PUT', body: resource({ country: 'AU' }) })), [400, 'invalid-resource'], 'a contact stays in its country'); pass();
-    assert.equal((await call(st.adm, `/api/v1/admin/safety/resources/00000000-0000-0000-0000-000000000000`, { method: 'PUT', body: resource() })).status, 404); pass();
-    const revisions = (await call(st.adm, '/api/v1/admin/safety/revisions?country=ZZ')).body.filter(v => v.actor === admId);
+    assert.equal((await call(st.adm, '/api/admin/safety/countries')).body.find(c => c.code === 'ZZ').readiness, 'not-ready', 'unverifying drops a launched pack'); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/safety/resources/${created}`, { method: 'PUT', body: resource({ country: 'AU' }) })), [400, 'invalid-resource'], 'a contact stays in its country'); pass();
+    assert.equal((await call(st.adm, `/api/admin/safety/resources/00000000-0000-0000-0000-000000000000`, { method: 'PUT', body: resource() })).status, 404); pass();
+    const revisions = (await call(st.adm, '/api/admin/safety/revisions?country=ZZ')).body.filter(v => v.actor === admId);
     for (const action of ['country.updated', 'resource.created', 'resource.updated', 'country.not-ready']) assert.ok(revisions.some(v => v.action === action), action);
     assert.ok(revisions.every(v => v.snapshot.length > 2)); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'safety.%' AND actor_account_id = '${admId}'`)) >= 4); pass();
@@ -148,7 +148,7 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     assert.ok((await me.textContent('[data-safety-warning]')).startsWith('Demonstration only')); pass();
     await me.reload();
     await me.waitForSelector('[data-safety-services="GB"]', { timeout: 20000 }); pass();
-    assert.equal(JSON.stringify((await call(token, '/api/v1/me/profile')).body), before, 'choosing a country changes nothing on the profile'); pass();
+    assert.equal(JSON.stringify((await call(token, '/api/me/profile')).body), before, 'choosing a country changes nothing on the profile'); pass();
     if (output) await me.screenshot({ path: output + '/web-me-safety.png', fullPage: true });
     await context.close();
 

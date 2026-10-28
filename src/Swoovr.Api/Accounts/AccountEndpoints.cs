@@ -16,7 +16,7 @@ public static class AccountEndpoints
 
     public static void Map(WebApplication app)
     {
-        app.MapGet("/api/v1/session", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        app.MapGet("/api/session", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var current = await accounts.ResolveAsync(user, cancellationToken);
             if (current is null) return Results.Unauthorized();
@@ -27,7 +27,7 @@ public static class AccountEndpoints
                 Wire(current.Beta)));
         }).RequireAuthorization();
 
-        var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+        var me = app.MapGroup("/api/me").RequireAuthorization();
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true, pendingDeletionExempt: true);

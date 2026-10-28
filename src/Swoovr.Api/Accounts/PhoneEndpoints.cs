@@ -21,7 +21,7 @@ public static class PhoneEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var me = app.MapGroup("/api/v1/me/phone").RequireAuthorization();
+        var me = app.MapGroup("/api/me/phone").RequireAuthorization();
 
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, TimeProvider clock, CancellationToken cancellationToken) =>
         {

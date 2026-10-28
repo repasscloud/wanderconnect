@@ -24,7 +24,7 @@ public static class DeletionEndpoints
 
     public static void Map(WebApplication app)
     {
-        var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+        var me = app.MapGroup("/api/me").RequireAuthorization();
 
         me.MapGet("/deletion", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -91,7 +91,7 @@ public static class DeletionEndpoints
             db.DataExports.Add(export);
             Audit.Record(db, now, account.Id, "account", "export.requested", "data-export", export.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(new ExportTicket("api/v1/me/export/" + Base64Url(secret), export.ExpiresAt));
+            return Results.Ok(new ExportTicket("api/me/export/" + Base64Url(secret), export.ExpiresAt));
         });
 
         me.MapGet("/export/{token}", async (string token, ClaimsPrincipal user, AccountResolver accounts, Verification.VerifiedIdentityStore identities, TimeProvider clock,

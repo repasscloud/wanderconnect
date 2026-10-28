@@ -23,7 +23,7 @@ public static class SafetyEndpoints
 
     public static void Map(WebApplication app)
     {
-        app.MapGet("/api/v1/safety/resources", async (string? country, HttpContext http, IServiceProvider services, IConfiguration configuration,
+        app.MapGet("/api/safety/resources", async (string? country, HttpContext http, IServiceProvider services, IConfiguration configuration,
             IHostEnvironment environment, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             if (country is not null && SafetyPolicy.Normalise(country) is null && country.Trim().ToUpperInvariant() is not ("XX" or "T1"))
@@ -38,7 +38,7 @@ public static class SafetyEndpoints
             return Results.Ok(await PackAsync(db, choice, clock.GetUtcNow(), cancellationToken));
         });
 
-        var admin = app.MapGroup("/api/v1/admin/safety").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin/safety").RequireAuthorization();
         admin.MapGet("/countries", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (_, denied) = await AdminAsync(user, accounts, cancellationToken);
@@ -151,7 +151,7 @@ public static class SafetyEndpoints
         }
         Revise(db, iso, resource.Id, id is null ? "resource.created" : "resource.updated", current.Account.Id, now, resource);
         await db.SaveChangesAsync(cancellationToken);
-        return id is null ? Results.Created($"/api/v1/admin/safety/resources/{resource.Id}", AdminView(resource)) : Results.Ok(AdminView(resource));
+        return id is null ? Results.Created($"/api/admin/safety/resources/{resource.Id}", AdminView(resource)) : Results.Ok(AdminView(resource));
     }
 
     private static void Revise(SwoovrDbContext db, string country, Guid? resource, string action, Guid actor, DateTimeOffset now, object snapshot)

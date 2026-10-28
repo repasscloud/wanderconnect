@@ -55,5 +55,5 @@ public sealed record EvidenceExportRequest(string? Purpose, DisclosureRequest? D
 
 public sealed record RedactionRequest(Guid ItemId, List<string>? Fields, string? Reason);
 
-/// <summary>A one-time link: GET /api/v1/admin/evidence-exports/{Token} within 15 minutes, by the same officer.</summary>
+/// <summary>A one-time link: GET /api/admin/evidence-exports/{Token} within 15 minutes, by the same officer.</summary>
 public sealed record EvidenceExportLink(string Token, DateTimeOffset ExpiresAt);

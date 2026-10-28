@@ -29,12 +29,13 @@ if (persistence && app.Environment.IsDevelopment())
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<SwoovrDbContext>().Database.MigrateAsync();
 }
+app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 // #88 (policy §11, §15): every view, query, export, change and refusal on restricted admin routes goes to the append-only log.
 app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
-app.MapGet("/api/v1/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
+app.MapGet("/api/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);

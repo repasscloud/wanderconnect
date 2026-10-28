@@ -23,7 +23,7 @@ public static class MessagingEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
 
         api.MapGet("/conversations", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -69,7 +69,7 @@ public static class MessagingEndpoints
                 }
             }
             var view = await ViewAsync(db, conversation!, me, cancellationToken);
-            return created ? Results.Created($"/api/v1/conversations/{conversation!.Id}", view) : Results.Ok(view);
+            return created ? Results.Created($"/api/conversations/{conversation!.Id}", view) : Results.Ok(view);
         });
 
         api.MapGet("/conversations/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
@@ -133,7 +133,7 @@ public static class MessagingEndpoints
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
             await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
             await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, me, null, id, now, cancellationToken, message.Body);
-            return Results.Created($"/api/v1/messages/{message.Id}", View(message, me, now));
+            return Results.Created($"/api/messages/{message.Id}", View(message, me, now));
         });
 
         // Rule 8: delete for both, by the sender, within five minutes.
@@ -231,7 +231,7 @@ public static class MessagingEndpoints
             await db.SaveChangesAsync(cancellationToken);
             var view = View(message, me, now, item);
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", view, cancellationToken);
-            return Results.Accepted($"/api/v1/messages/{message.Id}", view);
+            return Results.Accepted($"/api/messages/{message.Id}", view);
         }).DisableAntiforgery();
 
         // #41, Q85: end politely without blocking. An optional fixed closing message, then every mode connecting the pair is

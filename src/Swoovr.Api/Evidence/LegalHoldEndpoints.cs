@@ -19,7 +19,7 @@ public static class LegalHoldEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
         admin.MapGet("/holds/overview", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -106,7 +106,7 @@ public static class LegalHoldEndpoints
             var hold = await PlaceAsync(db, evidence, role, current!.Account!.Id, request.Reason!.Trim(), accountIds, conversationIds, request.From, request.Until,
                 review, request.ReleaseConditions, request.CaseId, "staff", now, cancellationToken, leCase, request.Kind, request.LawfulBasis?.Trim());
             // A summary only: an admin who opened a provisional hold doesn't get to read it.
-            return Results.Created($"/api/v1/admin/holds/{hold.Id}", new LegalHoldSummary(hold.Id, Wire(hold.Status), hold.Source, hold.CaseId, hold.PlacedAt,
+            return Results.Created($"/api/admin/holds/{hold.Id}", new LegalHoldSummary(hold.Id, Wire(hold.Status), hold.Source, hold.CaseId, hold.PlacedAt,
                 hold.ReviewDue, false, accountIds.Count, await db.EvidenceItems.CountAsync(i => i.HoldId == hold.Id, cancellationToken)));
         });
 
@@ -279,7 +279,7 @@ public static class LegalHoldEndpoints
                 + (export.SupplementsExportId is { } s ? $";supplements:{s}" : ""), now, cancellationToken);
             Audit.Record(db, now, me, "account", "evidence.export-created", "legal-hold", hold.Id.ToString(), disclosure is null ? null : "disclosure");
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/evidence-exports/{Base64Url(secret)}", new EvidenceExportLink(Base64Url(secret), export.ExpiresAt));
+            return Results.Created($"/api/admin/evidence-exports/{Base64Url(secret)}", new EvidenceExportLink(Base64Url(secret), export.ExpiresAt));
         });
 
         admin.MapGet("/evidence-exports/{token}", async (string token, ClaimsPrincipal user, AccountResolver accounts, EvidencePreservation evidence,

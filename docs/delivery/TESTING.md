@@ -72,6 +72,7 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 
 | Suite | File | Last result (29 Oct 2026, AJ–AL run; all passed) |
 | --- | --- | --- |
+| API contract dates | `tests/api/versioning.browser.cjs` | New slice; see VALIDATION.md |
 | root admin | `tests/auth/root-admin.browser.cjs` | 9 |
 | accounts | `tests/auth/accounts.browser.cjs` | 121 |
 | members | `tests/auth/members.browser.cjs` | 50 |
@@ -123,8 +124,8 @@ Run them one at a time (they share rate limits and the database). Never rebuild 
 
 ## Writing a suite
 
-- Use `tests/auth/local-tokens.cjs`: `createMember`, `memberToken`, `createStaff` + a root-admin invitation + `staffToken` and a first call to `/api/v1/session` (staff accounts exist only after it), `matchReady`, `elevate` (identity opening, evidence export and termination need elevated access), `cli`, `sql`, `call`, `mailTo`.
-- Call `/api/v1/me` (or any member route) before selecting member ids in SQL.
+- Use `tests/auth/local-tokens.cjs`: `createMember`, `memberToken`, `createStaff` + a root-admin invitation + `staffToken` and a first call to `/api/session` (staff accounts exist only after it), `matchReady`, `elevate` (identity opening, evidence export and termination need elevated access), `cli`, `sql`, `call`, `mailTo`.
+- Call `/api/me` (or any member route) before selecting member ids in SQL.
 - Cover negative cases: other members' ids, blocked pairs, bots, staff without the role, retired or unknown ids, restricted and suspended members, tampered bodies.
 - Sensitive actions on test hosts need a sign-in within 45 seconds: get a fresh `memberToken` just before (export, deletion, number change). Keycloak `auth_time` has whole seconds: wait 1.5 s after a revocation before signing in again.
 - Releasing a hold needs a `legal` officer who neither placed nor confirmed it, and `overlapsChecked: true` when holds overlap.
@@ -132,7 +133,7 @@ Run them one at a time (they share rate limits and the database). Never rebuild 
 - Blazor drops `false` boolean attributes: render "yes"/"no" for data attributes tests read. On phone-width pages the sticky header intercepts clicks: use `el.click()`.
 - Admin SSR pages must load their data on POST too. Person links carry `?mode=`.
 - Raw SignalR test clients must send pings (type 6).
-- Photos: synthetic images only (`tests/media/synthetic-images.cjs`); drive uncertain and blocked outcomes with `Media__Screening__Simulate` on an extra API (Development only), never with real imagery. Chat photos (`tests/messaging/attachments`) upload to `/api/v1/conversations/{id}/photos` the same way.
+- Photos: synthetic images only (`tests/media/synthetic-images.cjs`); drive uncertain and blocked outcomes with `Media__Screening__Simulate` on an extra API (Development only), never with real imagery. Chat photos (`tests/messaging/attachments`) upload to `/api/conversations/{id}/photos` the same way.
 - Messages come back **newest first** (`items[0]` is the latest).
 - Things that happen right after screening (the recipient's notification, the chat moving up) land a moment after the sender sees "approved": wait for them rather than asserting at once.
 - Once `accounts purge` deletes a removed media item's object it deletes the row too: assert "no object left" (`object_key IS NOT NULL` count 0), not a status.

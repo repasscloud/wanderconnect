@@ -68,11 +68,12 @@ public static partial class SafetyText
 }
 
 /// <summary>The public Safety &amp; Support read (#103): no sign-in needed. The web host and the app use it; the browser goes through the BFF.</summary>
-public sealed class SafetyClient(HttpClient http)
+public sealed class SafetyClient(HttpClient transport)
 {
+    private readonly HttpClient http = ApiContractClient.Configure(transport);
     public async Task<SafetyPack?> PackAsync(string? country, CancellationToken cancellationToken = default)
     {
-        using var response = await http.GetAsync("api/v1/safety/resources" + (country is null ? "" : "?country=" + Uri.EscapeDataString(country)), cancellationToken);
+        using var response = await http.GetAsync("api/safety/resources" + (country is null ? "" : "?country=" + Uri.EscapeDataString(country)), cancellationToken);
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<SafetyPack>(cancellationToken) : null;
     }
 }

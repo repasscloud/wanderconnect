@@ -99,7 +99,7 @@ app.MapGet("/law-enforcement/audit-export", async (string? quarter, Swoovr.Clien
 app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
 {
     if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.(review|case)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
-    return await admin.MediaAsync("api/v1/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
+    return await admin.MediaAsync("api/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
 }).RequireAuthorization();
 app.MapRazorComponents<App>().RequireAuthorization();
 app.Run();

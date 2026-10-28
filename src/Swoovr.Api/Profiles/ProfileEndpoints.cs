@@ -11,7 +11,7 @@ namespace Swoovr.Api.Profiles;
 /// <summary>
 /// Connection modes (D92), the member's own core profile and mode settings, Explore for one mode, and another
 /// member's profile. Every rule is checked here (Q12: application services, not the client). Callers must pass the
-/// same member gate as /api/v1/me (active, adult-locked accounts refused, beta enrolled). Explore and profiles are local
+/// same member gate as /api/me (active, adult-locked accounts refused, beta enrolled). Explore and profiles are local
 /// to the viewer's home market (D125); MarketEndpoints holds the market lookups.
 /// </summary>
 public static class ProfileEndpoints
@@ -21,7 +21,7 @@ public static class ProfileEndpoints
 
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
         api.MapGet("/modes", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);

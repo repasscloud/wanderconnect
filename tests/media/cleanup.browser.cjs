@@ -18,16 +18,21 @@ const fictional = `SELECT id FROM accounts WHERE email LIKE 'fictional.%@example
     if (holds.length) {
       const root = await rootAdminToken(browser);
       const officer = await createStaff('photo-cleanup');
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: officer.email, role: 'legal' } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: officer.email, role: 'legal' } })).status, 201);
       const token = await staffToken(browser, officer);
-      await call(token, '/api/v1/session');
+      await call(token, '/api/session');
       for (const hold of holds) {
-        const r = await call(token, `/api/v1/admin/holds/${hold}/release`, { method: 'POST', body: { reason: 'Fictional test photos cleaned up', overlapsChecked: true } });
+        const r = await call(token, `/api/admin/holds/${hold}/release`, { method: 'POST', body: { reason: 'Fictional test photos cleaned up', overlapsChecked: true } });
         assert.equal(r.status, 200, `release ${hold}: ${r.status} ${r.body?.code ?? ''}`);
       }
     }
     await sql(`UPDATE media_items SET status = 'Removed', removed_at = coalesce(removed_at, now()), next_screen_at = NULL
       WHERE account_id IN (${fictional}) AND status IN ('Pending', 'Passed', 'Uncertain')`);
+    // An aborted simulated-match suite may stop its extra host after sealing but before linking the hold.
+    // These are synthetic fictional fixtures only. Active holds still prevent object deletion in accounts purge.
+    await sql(`UPDATE media_items SET status = 'Removed', removed_at = coalesce(removed_at, now()), next_screen_at = NULL
+      WHERE account_id IN (${fictional}) AND status = 'Blocked' AND hold_id IS NULL AND screener = 'simulated'
+      AND case_id IN (SELECT id FROM moderation_cases WHERE subject_account_id IN (${fictional}))`);
     await sql(`DELETE FROM media_placements WHERE account_id IN (${fictional})`);
     const env = { ...process.env, DOTNET_ENVIRONMENT: 'Development',
       ConnectionStrings__Swoovr: `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`,

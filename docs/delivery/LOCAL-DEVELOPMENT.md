@@ -8,7 +8,7 @@ dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://localhost:
 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081
 ```
 
-Run API/web in separate terminals. `/health/live` is liveness only and does not certify database/provider readiness. `/api/v1/status` returns foundation metadata. Web is a static Blazor shell; there are no sign-in buttons claiming working authentication. Local HTTP is for loopback development; real authentication requires configured HTTPS callbacks and secure cookies.
+Run API/web in separate terminals. `/health/live` is liveness only and does not certify database/provider readiness. `/api/status` returns foundation metadata. Web is a static Blazor shell; there are no sign-in buttons claiming working authentication. Local HTTP is for loopback development; real authentication requires configured HTTPS callbacks and secure cookies.
 
 `Swoovr.Local.sln` includes all non-mobile projects and executable checks. `Swoovr.sln` also includes MAUI. Do not run full-solution restore on a server-only environment and assume missing MAUI workloads are code defects. For mobile, install the supported MAUI Android/iOS workloads plus Android SDK/JDK and compatible Xcode; pin/record their versions before phase 1. Then:
 
@@ -143,18 +143,18 @@ Founding places are allocated by `dotnet src/Swoovr.Api/bin/Debug/net10.0/Swoovr
 
 One-time manual check by a person (the automated suite can't complete a verification; it needs a real ID and face):
 
-1. Start the stack and the tunnel, then the hosts: stop the Docker api and web (`docker compose --env-file .local/docker.env stop api web`) and run `bash .local/run-hosts.sh` from a checkout built in Debug. The Docker web container has no sign-in configured, so http://localhost:5081 must be the host from the runner. Confirm the Didit console's webhook destination is `https://<tunnel host>/api/v1/webhooks/didit` (V3.0, `status.updated` and `data.updated`). Your member email must be on the beta list (`beta add`, see Application database).
+1. Start the stack and the tunnel, then the hosts: stop the Docker api and web (`docker compose --env-file .local/docker.env stop api web`) and run `bash .local/run-hosts.sh` from a checkout built in Debug. The Docker web container has no sign-in configured, so http://localhost:5081 must be the host from the runner. Confirm the Didit console's webhook destination is `https://<tunnel host>/api/webhooks/didit` (V3.0, `status.updated` and `data.updated`). Your member email must be on the beta list (`beta add`, see Application database).
 2. Sign in at http://localhost:5081 as a fictional-named local member on the beta list with a home city, open **Me → ID verification** and choose **Verify my ID**. The page says *Test mode*.
 3. Choose **Continue on Didit** (a new tab). Complete Didit's test flow with your own document and selfie, or use Didit's test-mode options if the console offers them.
 4. Come back to the Swoovr tab and choose **Check result** (or follow Didit's redirect to `/me/verification/return`). Expected: *In review* or *Your ID is verified*; the ID Verified badge appears on the account page once approved.
 5. Evidence to record in VALIDATION.md: `SELECT state, provider_status, started, adult FROM id_verification_attempts ORDER BY created_at DESC LIMIT 1;` and `SELECT webhook_type, outcome FROM didit_webhook_events ORDER BY received_at DESC LIMIT 5;` (ids and outcomes only). Swoovr stores no document data; Didit keeps it for 30 days (D147).
-6. To try again with the same member, an admin uses `POST /api/v1/admin/accounts/{id}/verification/allow-again` (or revoke first if approved).
+6. To try again with the same member, an admin uses `POST /api/admin/accounts/{id}/verification/allow-again` (or revoke first if approved).
 
 ## Admin app (Swoovr.Admin) — 25 October 2026
 
 The separate administration app (D136) runs on http://localhost:5082 and signs staff in through the local staff realm (`swoovr-admin-web`, redirect `http://localhost:5082/signin-oidc`; run `./scripts/docker-local.sh realms` once to move the client's redirect from the web host). Start it with `ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5082 Keycloak__Authority=http://localhost:8180/realms/swoovr-staff-dev Keycloak__ClientSecret="$(val SWOOVR_STAFF_WEB_SECRET)" Keycloak__RequireHttpsMetadata=false Api__BaseUrl=http://127.0.0.1:5080/ dotnet run --project src/Swoovr.Admin --no-launch-profile`.
 
-The API needs `Staff__LocalPasswords=true` for fictional local support/admin users with a password (Development only; `compose.yaml` sets it) and `Moderation__EscalationEmail` and `Moderation__EscalationBackupEmail` for urgent reports (from `SWOOVR_ESCALATION_EMAIL` and `SWOOVR_ESCALATION_BACKUP_EMAIL` in `.local/docker.env`, D159; Mailpit catches them locally). `.local/run-hosts.sh` sets all of these and starts the admin app when `src/Swoovr.Admin` exists. Invite a support person with `POST /api/v1/admin/invitations` (`{"email": ..., "role": "support"}`) as the root admin, create the same address in the staff realm, and sign in at the admin app. The root admin signs in there with password and OTP.
+The API needs `Staff__LocalPasswords=true` for fictional local support/admin users with a password (Development only; `compose.yaml` sets it) and `Moderation__EscalationEmail` and `Moderation__EscalationBackupEmail` for urgent reports (from `SWOOVR_ESCALATION_EMAIL` and `SWOOVR_ESCALATION_BACKUP_EMAIL` in `.local/docker.env`, D159; Mailpit catches them locally). `.local/run-hosts.sh` sets all of these and starts the admin app when `src/Swoovr.Admin` exists. Invite a support person with `POST /api/admin/invitations` (`{"email": ..., "role": "support"}`) as the root admin, create the same address in the staff realm, and sign in at the admin app. The root admin signs in there with password and OTP.
 
 ## Account deletion and export — 27 October 2026
 
@@ -178,7 +178,7 @@ The older browser suites don't verify numbers, so run them on hosts started with
 
 - `accounts purge` and `messages purge` now fail closed: if hold status can't be read they purge nothing and exit 1 (D196). `accounts purge` also erases law-enforcement case records seven years after closure unless a live hold serves the case, and search events older than a day.
 - `keys status` shows which key version seals how many values in each set; `keys rotate contact-history|evidence|police|identity|all [--to n]` re-seals them after a new version (`ContactHistory:Keys:{n}`, `Evidence:Keys:{n}`, `IdentityStore:Keys:{n}`, base64 32 bytes) is configured. The founder-derived version 1 stays readable, so hosts keep working during a rotation. See the [breach-response runbook](BREACH-RESPONSE-RUNBOOK.md).
-- Elevated access (D197): opening an identity, exporting evidence and terminating need a 60-minute grant from the admin app's **Elevated access** page (or `POST /api/v1/admin/access/grants`); browser suites use `elevate()` in `tests/auth/local-tokens.cjs`.
+- Elevated access (D197): opening an identity, exporting evidence and terminating need a 60-minute grant from the admin app's **Elevated access** page (or `POST /api/admin/access/grants`); browser suites use `elevate()` in `tests/auth/local-tokens.cjs`.
 
 ## Photos and media screening — 28 October 2026
 

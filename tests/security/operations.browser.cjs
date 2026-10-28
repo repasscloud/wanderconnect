@@ -27,24 +27,24 @@ const KEY_FILE = '.local/test-rotation-keys.json';
     const tokens = {}, ids = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Security ' + n, homeCityId: ADELAIDE } });
+      await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Security ' + n, homeCityId: ADELAIDE } });
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
     const staff = { leg: await createStaff('sec-leg'), adm: await createStaff('sec-adm'), sup: await createStaff('sec-sup') };
     for (const [n, role] of [['leg', 'legal'], ['adm', 'admin'], ['sup', 'support']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {}, sid = {};
-    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/v1/session'); sid[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`); }
+    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); sid[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`); }
     const escalation = await localEnv('SWOOVR_ESCALATION_EMAIL');
 
     // Who sees incidents.
-    for (const [who, token] of [['member', tokens.s1], ['support', st.sup], ['admin', st.adm]]) assert.equal((await call(token, '/api/v1/admin/security/incidents')).status, 403, who);
+    for (const [who, token] of [['member', tokens.s1], ['support', st.sup], ['admin', st.adm]]) assert.equal((await call(token, '/api/admin/security/incidents')).status, 403, who);
     pass();
-    assert.equal((await call(null, '/api/v1/admin/security/incidents')).status, 401); pass();
-    assert.equal((await call(root, '/api/v1/admin/security/incidents')).status, 200, 'the root admin'); pass();
+    assert.equal((await call(null, '/api/admin/security/incidents')).status, 401); pass();
+    assert.equal((await call(root, '/api/admin/security/incidents')).status, 200, 'the root admin'); pass();
 
     // A manual incident: severity, the 30-day assessment, closing only after it.
-    const incidents = '/api/v1/admin/security/incidents';
+    const incidents = '/api/admin/security/incidents';
     assert.deepEqual(code(await call(st.leg, incidents, { method: 'POST', body: { severity: 'sev9', summary: 'x' } })), [400, 'invalid-request']); pass();
     assert.deepEqual(code(await call(st.leg, incidents, { method: 'POST', body: { severity: 'sev2', summary: ' ' } })), [400, 'invalid-request']); pass();
     let r = await call(st.leg, incidents, { method: 'POST', body: { severity: 'sev2', summary: 'Fictional: a staff laptop was lost' } });
@@ -64,11 +64,11 @@ const KEY_FILE = '.local/test-rotation-keys.json';
     // Unusual identity openings (or probing): the fourth within an hour alerts, with ids only.
     await elevate(st.leg, 'identity-open', 'Fictional review of several accounts');
     // The log entry is written as each response finishes, so pause between attempts.
-    for (const n of ['s1', 's2', 's3', 's4', 's5']) { await call(st.leg, `/api/v1/admin/accounts/${ids[n]}/identity`, { method: 'POST', body: { purpose: 'Fictional' } }); await sleep(200); }
+    for (const n of ['s1', 's2', 's3', 's4', 's5']) { await call(st.leg, `/api/admin/accounts/${ids[n]}/identity`, { method: 'POST', body: { purpose: 'Fictional' } }); await sleep(200); }
     r = await call(st.leg, incidents);
     const unusual = r.body.find(i => i.kind === 'unusual-identity-access' && i.subjectStaffId === sid.leg);
     assert.ok(unusual); assert.equal(unusual.severity, 'sev3'); pass();
-    await call(st.leg, `/api/v1/admin/accounts/${ids.s6}/identity`, { method: 'POST', body: { purpose: 'Fictional' } });
+    await call(st.leg, `/api/admin/accounts/${ids.s6}/identity`, { method: 'POST', body: { purpose: 'Fictional' } });
     assert.equal((await call(st.leg, incidents)).body.filter(i => i.kind === 'unusual-identity-access' && i.subjectStaffId === sid.leg).length, 1, 'once an hour'); pass();
     if (escalation) {
       let mail = [];
@@ -78,17 +78,17 @@ const KEY_FILE = '.local/test-rotation-keys.json';
     } else console.log('note: SWOOVR_ESCALATION_EMAIL not set; email check skipped');
 
     // A bulk export alerts too.
-    r = await call(st.leg, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional six-account hold', accountIds: names.map(n => ids[n]) } });
+    r = await call(st.leg, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional six-account hold', accountIds: names.map(n => ids[n]) } });
     const bulkHold = r.body.id;
     await elevate(st.leg, 'evidence-export', 'Fictional');
-    assert.equal((await call(st.leg, `/api/v1/admin/holds/${bulkHold}/exports`, { method: 'POST', body: { purpose: 'Fictional bulk' } })).body.code, 'bulk-export-approval-required');
+    assert.equal((await call(st.leg, `/api/admin/holds/${bulkHold}/exports`, { method: 'POST', body: { purpose: 'Fictional bulk' } })).body.code, 'bulk-export-approval-required');
     assert.ok((await call(st.leg, incidents)).body.some(i => i.kind === 'bulk-export' && i.summary.includes(bulkHold))); pass();
 
     // A broken custody chain is critical.
-    r = await call(st.leg, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional hold to tamper with', accountIds: [ids.s6] } });
+    r = await call(st.leg, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional hold to tamper with', accountIds: [ids.s6] } });
     const tamperedHold = r.body.id;
     await sql(`UPDATE custody_events SET detail = 'tampered' WHERE hold_id = '${tamperedHold}' AND action = 'placed'`);
-    r = await call(st.leg, `/api/v1/admin/holds/${tamperedHold}`);
+    r = await call(st.leg, `/api/admin/holds/${tamperedHold}`);
     assert.equal(r.body.chainIntact, false); pass();
     assert.ok((await call(st.leg, incidents)).body.some(i => i.kind === 'custody-chain-broken' && i.severity === 'sev1' && i.summary.includes(tamperedHold))); pass();
 
@@ -118,9 +118,9 @@ const KEY_FILE = '.local/test-rotation-keys.json';
     assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE get_byte(sealed, 0) <> 1`), '0', 'back on version 1'); pass();
     assert.equal(await sql(`SELECT count(*) FROM contact_histories WHERE get_byte(encrypted_value, 0) <> 1`), '0'); pass();
     // Hashes are of the plain content, so an export after two re-seals still checks.
-    const plainHold = (await call(st.leg, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional small hold', accountIds: [ids.s1] } })).body.id;
-    r = await call(st.leg, `/api/v1/admin/holds/${plainHold}/exports`, { method: 'POST', body: { purpose: 'Fictional check after rotation' } });
-    const pkg = await (await fetch(api + `/api/v1/admin/evidence-exports/${r.body.token}`, { headers: { Authorization: 'Bearer ' + st.leg } })).json();
+    const plainHold = (await call(st.leg, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional small hold', accountIds: [ids.s1] } })).body.id;
+    r = await call(st.leg, `/api/admin/holds/${plainHold}/exports`, { method: 'POST', body: { purpose: 'Fictional check after rotation' } });
+    const pkg = await (await fetch(api + `/api/admin/evidence-exports/${r.body.token}`, { headers: { Authorization: 'Bearer ' + st.leg } })).json();
     const sha = s => crypto.createHash('sha256').update(Buffer.from(s, 'utf8')).digest('hex');
     assert.ok(pkg.items.length > 0 && pkg.items.every(i => sha(i.contentJson) === i.sha256)); pass();
 

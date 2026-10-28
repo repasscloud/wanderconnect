@@ -23,7 +23,7 @@ public static class ModerationEndpoints
 
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
         // D190: `kind=serious` lists the Serious Safety Incident categories; otherwise the routine ones.
         api.MapGet("/report-categories", async (string? kind, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -114,7 +114,7 @@ public static class ModerationEndpoints
             Audit.Record(db, now, me, "account", "appeal.created", "appeal", appeal.Id.ToString(), sanction.Kind.ToString());
             try { await db.SaveChangesAsync(cancellationToken); }
             catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.AppealNotAllowed, "This action can't be appealed."); }
-            return Results.Created($"/api/v1/me/appeals/{appeal.Id}", new AppealView(appeal.Id, sanction.Id, Wire(appeal.Status), now));
+            return Results.Created($"/api/me/appeals/{appeal.Id}", new AppealView(appeal.Id, sanction.Id, Wire(appeal.Status), now));
         });
         api.MapGet("/me/plan", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -257,7 +257,7 @@ public static class ModerationEndpoints
         }
         if (item.Priority == ReportPriority.Urgent && item.EscalatedAt is null)
             await EscalateAsync(db, item, category.Id, category.Serious, configuration, email, now, logs, cancellationToken);
-        return Results.Created($"/api/v1/me/reports/{report.Id}", new MyReportView(report.Id, Wire(subjectType), category.Id, ReportPolicy.ReporterStatus(item.Status), now,
+        return Results.Created($"/api/me/reports/{report.Id}", new MyReportView(report.Id, Wire(subjectType), category.Id, ReportPolicy.ReporterStatus(item.Status), now,
             null, category.Serious));
     }
 
@@ -391,7 +391,7 @@ public static class ModerationEndpoints
 
     private static void MapAdmin(WebApplication app)
     {
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
         admin.MapGet("/cases", async (string? queue, string? status, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -583,7 +583,7 @@ public static class ModerationEndpoints
             db.Entitlements.Add(grant);
             Audit.Record(db, now, current.Account.Id, "account", "entitlement.granted", "account", id.ToString(), $"{tier}:{grant.Id}");
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/entitlements/{grant.Id}", Entitlements.View(grant, now));
+            return Results.Created($"/api/admin/entitlements/{grant.Id}", Entitlements.View(grant, now));
         });
         admin.MapPut("/entitlements/{id:guid}", async (Guid id, EntitlementChange request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
             CancellationToken cancellationToken) =>

@@ -70,7 +70,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     }
     const first = await exchange(session);
     await session.context.close();
-    const call = token => fetch(api + '/api/v1/session', { headers: { Authorization: 'Bearer ' + token } });
+    const call = token => fetch(api + '/api/session', { headers: { Authorization: 'Bearer ' + token } });
     let response = await call(first);
     assert.equal(response.status, 200); pass();
     // The enrolment session proves only the password: the code was set up, not used to sign in,

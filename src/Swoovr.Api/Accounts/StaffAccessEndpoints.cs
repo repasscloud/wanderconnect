@@ -16,7 +16,7 @@ public static class StaffAccessEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var access = app.MapGroup("/api/v1/admin/access").RequireAuthorization();
+        var access = app.MapGroup("/api/admin/access").RequireAuthorization();
 
         access.MapGet("/grants", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -45,7 +45,7 @@ public static class StaffAccessEndpoints
             db.AccessGrants.Add(grant);
             Audit.Record(db, now, me, "account", "access.granted", "access-grant", grant.Id.ToString(), grant.Capability);
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/access/grants/{grant.Id}", View(grant, now));
+            return Results.Created($"/api/admin/access/grants/{grant.Id}", View(grant, now));
         });
 
         access.MapPost("/grants/{id:guid}/{step:regex(^(renew|revoke)$)}", async (Guid id, string step, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
@@ -149,7 +149,7 @@ public static class StaffAccessEndpoints
 
         // §11, §15: revoking a staff member removes their roles and grants and ends their sessions (the API refuses every token
         // authenticated before now). Root admin only; never the root admin themselves.
-        app.MapPost("/api/v1/admin/staff/{id:guid}/revoke", async (Guid id, StaffRevokeRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
+        app.MapPost("/api/admin/staff/{id:guid}/revoke", async (Guid id, StaffRevokeRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AnyStaffAsync(user, accounts, cancellationToken);

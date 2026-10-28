@@ -18,7 +18,7 @@ public static class MediaEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
         api.MapPost("/me/photos", async (HttpRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -51,7 +51,7 @@ public static class MediaEndpoints
             var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), replaces, now, cancellationToken);
             return error switch
             {
-                MediaUploadError.None => Results.Accepted($"/api/v1/me/photos/{item!.Id}", View(item, [], null)),
+                MediaUploadError.None => Results.Accepted($"/api/me/photos/{item!.Id}", View(item, [], null)),
                 MediaUploadError.TooBig => Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB."),
                 MediaUploadError.UnsupportedType => Problem(StatusCodes.Status415UnsupportedMediaType, ProblemCodes.PhotoUnsupported, "Use a JPEG, PNG or WebP photo."),
                 MediaUploadError.Animated => Problem(StatusCodes.Status415UnsupportedMediaType, ProblemCodes.PhotoUnsupported, "Animated images can't be used."),
@@ -100,7 +100,7 @@ public static class MediaEndpoints
 
         // The signed link itself is the permission (made only after the viewer's access was checked); no session needed,
         // so an <img> in the browser or the app can load it. Blocked items are never served, whatever the link says.
-        app.MapGet("/api/v1/media/{token}", async (string token, HttpContext context, IServiceProvider services, TimeProvider clock, CancellationToken cancellationToken) =>
+        app.MapGet("/api/media/{token}", async (string token, HttpContext context, IServiceProvider services, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             if (services.GetService<SwoovrDbContext>() is not { } db) return Results.NotFound();
             var links = services.GetRequiredService<MediaLinks>();
@@ -112,7 +112,7 @@ public static class MediaEndpoints
             return Results.File(bytes, "image/jpeg");
         });
 
-        var admin = app.MapGroup("/api/v1/admin/media").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin/media").RequireAuthorization();
         admin.MapGet("/review", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);

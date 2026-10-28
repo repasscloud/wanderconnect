@@ -65,7 +65,7 @@ internal static class PrototypeConversations
         if(!app.Environment.IsDevelopment() || !app.Configuration.GetValue<bool>("Prototype:Enabled"))return;
         var scenarios=new Dictionary<Guid,Scenario>();var gate=new object();
         void Expire(){foreach(var id in scenarios.Where(p=>p.Value.Expires<=DateTimeOffset.UtcNow).Select(p=>p.Key).ToArray())scenarios.Remove(id);}
-        var group=app.MapGroup("/api/v1/prototype/conversations");
+        var group=app.MapGroup("/api/prototype/conversations");
         group.AddEndpointFilter(async(context,next)=>{
             context.HttpContext.Response.Headers.CacheControl="no-store";
             context.HttpContext.Response.Headers.XContentTypeOptions="nosniff";
@@ -79,7 +79,7 @@ internal static class PrototypeConversations
             {
                 Expire();if(scenarios.Count>=32)return Results.StatusCode(429);
                 var id=Guid.NewGuid();var scenario=new Scenario(travel);scenarios.Add(id,scenario);
-                return Results.Created($"/api/v1/prototype/conversations/{id}?actor=alex",Project(id,scenario,"alex"));
+                return Results.Created($"/api/prototype/conversations/{id}?actor=alex",Project(id,scenario,"alex"));
             }
         });
         group.MapGet("/{id:guid}",(Guid id,HttpRequest request)=>{

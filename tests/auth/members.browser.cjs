@@ -146,7 +146,7 @@ async function secret() {
     const tokenResponse = await (await fetch(`${keycloak}/realms/${realm}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: 'swoovr-web', client_secret: await secret(), code_verifier: verifier }) })).json();
     await direct.close();
     const token = tokenResponse.access_token;
-    const call = value => fetch(api + '/api/v1/session', { headers: value ? { Authorization: 'Bearer ' + value } : {} });
+    const call = value => fetch(api + '/api/session', { headers: value ? { Authorization: 'Bearer ' + value } : {} });
     const ok = await call(token);
     assert.equal(ok.status, 200); pass();
     const summary = await ok.json();

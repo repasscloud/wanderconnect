@@ -34,7 +34,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     const member = await createMember('privacy');
     await cli('beta', 'add', member.email);
     const token = await memberToken(browser, member);
-    await call(token, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Privacy', homeCityId: 2078025 } });
+    await call(token, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Privacy', homeCityId: 2078025 } });
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');

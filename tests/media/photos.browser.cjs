@@ -41,6 +41,8 @@ async function purge(extra = {}) {
     (error, stdout, stderr) => resolve({ code: error ? error.code ?? 1 : 0, out: stdout + stderr })));
 }
 
+const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250; i++) { if (await predicate()) return true; await sleep(250); } return predicate(); };
+
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   const canvas = await browser.newPage();
@@ -62,23 +64,23 @@ async function purge(extra = {}) {
     const tk = {}, id = {}, pub = {};
     for (const n of names) {
       tk[n] = await memberToken(browser, members[n]);
-      await call(tk[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Photo ' + n, homeCityId: ADELAIDE } });
+      await call(tk[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Photo ' + n, homeCityId: ADELAIDE } });
       await matchReady(tk[n]);
-      await call(tk[n], '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+      await call(tk[n], '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
       id[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tk[n]).sub}'`);
-      pub[n] = (await call(tk[n], '/api/v1/me/profile')).body.publicId;
+      pub[n] = (await call(tk[n], '/api/me/profile')).body.publicId;
       accounts.push(id[n]);
     }
-    await call(tk.ana, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
-    assert.ok((await call(tk.ana, '/api/v1/blocks', { method: 'POST', body: { profileId: pub.cam } })).status < 300); pass();
+    await call(tk.ana, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
+    assert.ok((await call(tk.ana, '/api/blocks', { method: 'POST', body: { profileId: pub.cam } })).status < 300); pass();
     const root = await rootAdminToken(browser);
     const staff = { adm: await createStaff('photo-adm'), sup: await createStaff('photo-sup'), leg: await createStaff('photo-leg') };
     for (const [n, role] of [['adm', 'admin'], ['sup', 'support'], ['leg', 'legal']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {}, sid = {};
-    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/v1/session'); sid[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`); }
-    const up = (who, bytes, opts = {}) => upload((opts.base ?? api) + '/api/v1/me/photos', bytes, { token: tk[who], ...opts });
-    const mine = who => call(tk[who], '/api/v1/me/photos');
+    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); sid[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`); }
+    const up = (who, bytes, opts = {}) => upload((opts.base ?? api) + '/api/me/photos', bytes, { token: tk[who], ...opts });
+    const mine = who => call(tk[who], '/api/me/photos');
     const settle = async (who, photoId, from = 'checking') => {
       for (let i = 0; i < 40; i++) { const p = (await mine(who)).body.photos.find(x => x.id === photoId); if (p && p.state !== from) return p; await sleep(750); }
       throw new Error('photo did not settle');
@@ -86,14 +88,14 @@ async function purge(extra = {}) {
     const jpeg = async (seed, kind = 'gradient', width = 640, height = 480) => synthetic(canvas, { kind, seed, width, height, type: 'image/jpeg' });
 
     // ---- Refusals before anything is stored.
-    assert.equal((await upload(api + '/api/v1/me/photos', await jpeg(1))).status, 401); pass();
-    assert.equal((await upload(api + '/api/v1/me/photos', await jpeg(1), { token: root })).status, 403, 'staff realm'); pass();
+    assert.equal((await upload(api + '/api/me/photos', await jpeg(1))).status, 401); pass();
+    assert.equal((await upload(api + '/api/me/photos', await jpeg(1), { token: root })).status, 403, 'staff realm'); pass();
     assert.deepEqual(code(await up('ana', Buffer.from('GIF89a' + 'x'.repeat(400)), { type: 'image/gif', name: 'x.gif' })), [415, 'photo-unsupported']); pass();
     assert.deepEqual(code(await up('ana', await synthetic(canvas, { width: 120, height: 120 }), { type: 'image/png' })), [400, 'photo-invalid']); pass();
     assert.deepEqual(code(await up('ana', Buffer.alloc(11 * 1024 * 1024, 1))), [413, 'photo-too-big']); pass();
     const broken = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), crypto.randomBytes(500)]);
     assert.deepEqual(code(await up('ana', broken, { type: 'image/png' })), [400, 'photo-invalid']); pass();
-    const raw = await fetch(api + '/api/v1/me/photos', { method: 'POST', headers: { Authorization: 'Bearer ' + tk.ana, 'Content-Type': 'application/json' }, body: '{"file":"x"}' });
+    const raw = await fetch(api + '/api/me/photos', { method: 'POST', headers: { Authorization: 'Bearer ' + tk.ana, 'Content-Type': 'application/json' }, body: '{"file":"x"}' });
     assert.equal(raw.status, 400, 'not a form'); pass();
     assert.deepEqual(code(await up('ana', await jpeg(2), { replaces: crypto.randomUUID() })), [404, 'unknown-photo']); pass();
     assert.equal(await sql(`SELECT count(*) FROM media_items WHERE account_id = '${id.ana}'`), '0', 'nothing stored by a refusal'); pass();
@@ -127,7 +129,7 @@ async function purge(extra = {}) {
     pass();
 
     // ---- Placement: one main, up to six per mode, own approved photos only.
-    const place = (who, scope, mediaIds) => call(tk[who], '/api/v1/me/photos/placement', { method: 'PUT', body: { scope, mediaIds } });
+    const place = (who, scope, mediaIds) => call(tk[who], '/api/me/photos/placement', { method: 'PUT', body: { scope, mediaIds } });
     assert.equal((await place('ana', 'friends', [extraIds[0], extraIds[1]])).status, 200); pass();
     assert.equal((await place('ana', 'dating', [extraIds[2]])).status, 200); pass();
     assert.deepEqual(code(await place('ana', 'main', [first, extraIds[0]])), [400, 'invalid-placement']); pass();
@@ -136,27 +138,27 @@ async function purge(extra = {}) {
     assert.deepEqual(code(await place('ana', 'friends', Array.from({ length: 7 }, () => crypto.randomUUID()))), [400, 'invalid-placement']); pass();
     assert.deepEqual(code(await place('ben', 'friends', [first])), [409, 'photo-not-approved'], "someone else's photo"); pass();
     assert.deepEqual(code(await place('ana', 'friends', [crypto.randomUUID()])), [409, 'photo-not-approved']); pass();
-    const tampered = await fetch(api + '/api/v1/me/photos/placement', { method: 'PUT', headers: { Authorization: 'Bearer ' + tk.ana, 'Content-Type': 'application/json' }, body: '{"scope":"main","mediaIds":"all"}' });
+    const tampered = await fetch(api + '/api/me/photos/placement', { method: 'PUT', headers: { Authorization: 'Bearer ' + tk.ana, 'Content-Type': 'application/json' }, body: '{"scope":"main","mediaIds":"all"}' });
     assert.equal(tampered.status, 400); pass();
-    assert.deepEqual(code(await call(tk.ben, `/api/v1/me/photos/${first}`, { method: 'DELETE' })), [404, 'unknown-photo'], "can't delete someone else's"); pass();
+    assert.deepEqual(code(await call(tk.ben, `/api/me/photos/${first}`, { method: 'DELETE' })), [404, 'unknown-photo'], "can't delete someone else's"); pass();
 
     // ---- What others see: Ben (Friends) gets the main photo and Friends photos, never the Dating one; Cam (blocked) nothing.
-    const explore = await call(tk.ben, '/api/v1/explore?mode=friends');
+    const explore = await call(tk.ben, '/api/explore?mode=friends');
     const card = explore.body.people.find(p => p.id === pub.ana);
     assert.equal(card?.photo?.id, first, 'card shows the main photo'); pass();
     assert.equal((await fetch(web + '/media/' + card.photo.link.split('/').pop())).status, 200); pass();
-    let person = (await call(tk.ben, `/api/v1/profiles/${pub.ana}?mode=friends`)).body;
+    let person = (await call(tk.ben, `/api/profiles/${pub.ana}?mode=friends`)).body;
     assert.equal(person.photo.id, first); pass();
     const friendsPhotos = person.modes.find(m => m.id === 'friends').photos.map(p => p.id);
     assert.deepEqual(friendsPhotos, [extraIds[0], extraIds[1]]); pass();
     assert.ok(!JSON.stringify(person).includes(extraIds[2]), 'a Dating photo never shows in Friends'); pass();
-    assert.equal((await call(tk.cam, `/api/v1/profiles/${pub.ana}?mode=friends`)).status, 404, 'blocked: no profile, no links'); pass();
-    assert.ok(!JSON.stringify((await call(tk.cam, '/api/v1/explore?mode=friends')).body).includes(first)); pass();
+    assert.equal((await call(tk.cam, `/api/profiles/${pub.ana}?mode=friends`)).status, 404, 'blocked: no profile, no links'); pass();
+    assert.ok(!JSON.stringify((await call(tk.cam, '/api/explore?mode=friends')).body).includes(first)); pass();
     // Links: tampered, wrong variant, unknown or random all read as not found; the web host only passes member links.
     const token = card.photo.link.split('/').pop();
-    assert.equal((await fetch(api + '/api/v1/media/' + token.slice(0, -2) + 'AA')).status, 404); pass();
-    assert.equal((await fetch(api + '/api/v1/media/' + token.replace('.member.', '.review.'))).status, 404); pass();
-    assert.equal((await fetch(api + '/api/v1/media/nonsense')).status, 404); pass();
+    assert.equal((await fetch(api + '/api/media/' + token.slice(0, -2) + 'AA')).status, 404); pass();
+    assert.equal((await fetch(api + '/api/media/' + token.replace('.member.', '.review.'))).status, 404); pass();
+    assert.equal((await fetch(api + '/api/media/nonsense')).status, 404); pass();
     assert.equal((await fetch(web + '/media/' + token.replace('.member.', '.review.'))).status, 404); pass();
     // Profile versions carry photo ids and hashes (#91).
     const core = await sql(`SELECT content_json FROM profile_versions WHERE account_id = '${id.ana}' AND mode_id = 'core' ORDER BY captured_at DESC LIMIT 1`);
@@ -184,15 +186,15 @@ async function purge(extra = {}) {
       SELECT gen_random_uuid(), '${id.ben}', 'Rejected', ''::bytea, ''::bytea, 'image/jpeg', 1, 1, 1, now() - interval '2 hours', 0, false FROM generate_series(1, 10)`);
     assert.deepEqual(code(await up('ben', await jpeg(31))), [409, 'photo-limit']); pass();
     await sql(`DELETE FROM media_items WHERE account_id = '${id.ben}' AND object_key IS NULL`);
-    assert.equal((await call(st.adm, `/api/v1/admin/accounts/${id.dee}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction', days: 2 } })).status, 200);
+    assert.equal((await call(st.adm, `/api/admin/accounts/${id.dee}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction', days: 2 } })).status, 200);
     assert.equal((await up('dee', await jpeg(32))).status, 403, 'restricted members are barred'); pass();
 
     // ---- Staff routes: admins only.
-    assert.equal((await call(null, '/api/v1/admin/media/review')).status, 401); pass();
-    assert.equal((await call(tk.ana, '/api/v1/admin/media/review')).status, 403, 'member'); pass();
-    assert.equal((await call(st.sup, '/api/v1/admin/media/review')).status, 403, 'support'); pass();
-    assert.equal((await call(st.leg, '/api/v1/admin/media/review')).status, 403, 'legal'); pass();
-    assert.equal((await call(st.adm, '/api/v1/admin/media/review')).status, 200); pass();
+    assert.equal((await call(null, '/api/admin/media/review')).status, 401); pass();
+    assert.equal((await call(tk.ana, '/api/admin/media/review')).status, 403, 'member'); pass();
+    assert.equal((await call(st.sup, '/api/admin/media/review')).status, 403, 'support'); pass();
+    assert.equal((await call(st.leg, '/api/admin/media/review')).status, 403, 'legal'); pass();
+    assert.equal((await call(st.adm, '/api/admin/media/review')).status, 200); pass();
 
     // ---- Uncertain (simulated, labelled, Development only): restricted review, never visible meanwhile.
     await extraApi({ Media__Screening__Simulate: 'uncertain', Media__Screening__Worker: 'true' });
@@ -203,27 +205,27 @@ async function purge(extra = {}) {
     assert.equal(photo.state, 'in-review'); assert.equal(photo.link, null); pass();
     assert.equal(await sql(`SELECT screener FROM media_items WHERE id = '${unsure}'`), 'simulated', 'the override is labelled'); pass();
     assert.deepEqual(code(await place('ana', 'friends', [unsure])), [409, 'photo-not-approved']); pass();
-    assert.ok(!JSON.stringify((await call(tk.ben, `/api/v1/profiles/${pub.ana}?mode=friends`)).body).includes(unsure), 'not visible to others'); pass();
-    let queue = (await call(st.adm, '/api/v1/admin/media/review')).body;
+    assert.ok(!JSON.stringify((await call(tk.ben, `/api/profiles/${pub.ana}?mode=friends`)).body).includes(unsure), 'not visible to others'); pass();
+    let queue = (await call(st.adm, '/api/admin/media/review')).body;
     assert.ok(queue.items.some(i => i.id === unsure && i.reason === 'nudity-signal')); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: '' } })), [400, 'purpose-required']); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'x' } })).status, 403); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/media/${crypto.randomUUID()}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo']); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/media/${mainId}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo'], 'approved photos are not for casual viewing'); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: '' } })), [400, 'purpose-required']); pass();
+    assert.equal((await call(st.sup, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'x' } })).status, 403); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/media/${crypto.randomUUID()}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo']); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/media/${mainId}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo'], 'approved photos are not for casual viewing'); pass();
     // A conflict of interest keeps the reviewer away.
-    await call(st.adm, '/api/v1/admin/access/exclusions', { method: 'POST', body: { staffAccountId: '00000000-0000-0000-0000-000000000000', subjectAccountId: id.ana, reason: 'Fictional: knows this member' } });
-    const conflicted = await call(st.adm, `/api/v1/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'Fictional review' } });
+    await call(st.adm, '/api/admin/access/exclusions', { method: 'POST', body: { staffAccountId: '00000000-0000-0000-0000-000000000000', subjectAccountId: id.ana, reason: 'Fictional: knows this member' } });
+    const conflicted = await call(st.adm, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'Fictional review' } });
     assert.deepEqual(code(conflicted), [403, 'conflict-of-interest']); pass();
     await sql(`DELETE FROM staff_exclusions WHERE staff_account_id = '${sid.adm}'`);
-    const view = await call(st.adm, `/api/v1/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'Fictional review of a screening flag' } });
+    const view = await call(st.adm, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'Fictional review of a screening flag' } });
     assert.equal(view.status, 200); pass();
     assert.equal((await fetch(api + '/' + view.body.link)).status, 200, 'the review link opens'); pass();
     assert.equal((await fetch(web + '/media/' + view.body.link.split('/').pop())).status, 404, 'the member site never passes review links'); pass();
     assert.equal(await sql(`SELECT purpose FROM media_review_views WHERE media_id = '${unsure}' ORDER BY id DESC LIMIT 1`), 'Fictional review of a screening flag'); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM sensitive_access_log WHERE resource = 'media' AND resource_id = '${unsure}' AND action = 'view'`)) >= 1, 'view logged'); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE target_id = '${unsure}' AND detail LIKE '%Fictional%'`), '0', 'the purpose stays out of the audit'); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'publish' } })), [400, 'invalid-decision']); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 403); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'publish' } })), [400, 'invalid-decision']); pass();
+    assert.equal((await call(st.sup, `/api/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 403); pass();
     // Admin app: blurred until revealed, then approved there.
     const adminPage = await browser.newPage();
     await adminPage.goto(admin + '/');
@@ -246,7 +248,7 @@ async function purge(extra = {}) {
     r = await up('ana', await jpeg(41), { base: EXTRA });
     const refused = r.body.id;
     await settle('ana', refused);
-    assert.equal((await call(st.adm, `/api/v1/admin/media/${refused}/decision`, { method: 'POST', body: { decision: 'reject', reason: 'Fictional: explicit content' } })).status, 200); pass();
+    assert.equal((await call(st.adm, `/api/admin/media/${refused}/decision`, { method: 'POST', body: { decision: 'reject', reason: 'Fictional: explicit content' } })).status, 200); pass();
     assert.equal((await mine('ana')).body.photos.find(p => p.id === refused).state, 'not-approved'); pass();
     assert.equal(await sql(`SELECT coalesce(object_key, 'none') FROM media_items WHERE id = '${refused}'`), 'none'); pass();
 
@@ -256,24 +258,28 @@ async function purge(extra = {}) {
     const blocked = r.body.id;
     photo = await settle('ana', blocked);
     assert.equal(photo.state, 'not-approved', 'reads exactly like a refusal'); assert.equal(photo.link, null); pass();
+    // 'not-approved' becomes visible before the async pipeline has linked its hold and sent escalation.
+    assert.ok(await waitFor(async () => await sql(`SELECT count(*) FROM media_items WHERE id = '${blocked}' AND hold_id IS NOT NULL AND case_id IS NOT NULL`) === '1'), 'blocked media hold linked');
     const [status, objectKey, caseId, holdId] = (await sql(`SELECT status, object_key, case_id, hold_id FROM media_items WHERE id = '${blocked}'`)).split('|');
     assert.equal(status, 'Blocked'); assert.equal(objectKey, 'evidence/' + blocked.replaceAll('-', '')); pass();
     assert.equal(await sql(`SELECT queue || '|' || priority || '|' || coalesce(system_flag, '') FROM moderation_cases WHERE id = '${caseId}'`), 'Admin|Urgent|media-known-content'); pass();
     assert.equal(await sql(`SELECT source || '|' || status FROM legal_holds WHERE id = '${holdId}'`), 'media-screening|Provisional'); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}' AND kind = 'media-item'`)) >= 1, 'media items captured'); pass();
     assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}' AND sealed::text LIKE '%photos/%'`), '0', 'sealed, nothing in clear'); pass();
-    const escalation = (await mailTo(await localEnv('SWOOVR_ESCALATION_EMAIL')))[0] ?? '';
+    const escalationAddress = await localEnv('SWOOVR_ESCALATION_EMAIL');
+    assert.ok(await waitFor(async () => (await mailTo(escalationAddress)).some(t => t.includes(caseId) && t.includes('media-known-content'))), 'escalation completed');
+    const escalation = (await mailTo(escalationAddress)).find(t => t.includes(caseId) && t.includes('media-known-content')) ?? '';
     assert.ok(escalation.includes(caseId) && escalation.includes('media-known-content'), 'escalated with the case id'); pass();
     assert.ok(!escalation.includes(blocked) && !escalation.includes('evidence/') && !escalation.includes(id.ana), 'ids of the case only, no media or member'); pass();
     // Nobody can look at it: not in the review queue, no view, no decision, no link, not in the export.
-    queue = (await call(st.adm, '/api/v1/admin/media/review')).body;
+    queue = (await call(st.adm, '/api/admin/media/review')).body;
     assert.ok(!queue.items.some(i => i.id === blocked)); pass();
     for (const who of ['adm', 'leg', 'sup'])
-      assert.ok([403, 404].includes((await call(st[who], `/api/v1/admin/media/${blocked}/view`, { method: 'POST', body: { purpose: 'Fictional' } })).status), who);
+      assert.ok([403, 404].includes((await call(st[who], `/api/admin/media/${blocked}/view`, { method: 'POST', body: { purpose: 'Fictional' } })).status), who);
     pass();
-    assert.equal((await call(st.adm, `/api/v1/admin/media/${blocked}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 404); pass();
+    assert.equal((await call(st.adm, `/api/admin/media/${blocked}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 404); pass();
     // The member removing it hides it from their list; it stays sealed evidence.
-    assert.equal((await call(tk.ana, `/api/v1/me/photos/${blocked}`, { method: 'DELETE' })).status, 200);
+    assert.equal((await call(tk.ana, `/api/me/photos/${blocked}`, { method: 'DELETE' })).status, 200);
     assert.equal(await sql(`SELECT status || '|' || object_key FROM media_items WHERE id = '${blocked}'`), `Blocked|${objectKey}`); pass();
 
     // ---- Fail closed: unreachable, not ready, or an answer Swoovr doesn't understand stays pending and invisible.
@@ -296,7 +302,7 @@ async function purge(extra = {}) {
 
     // ---- The member's export includes their photos (approved ones with the image; refusals all look the same, without it).
     tk.ana = await memberToken(browser, members.ana);
-    const ticket = await call(tk.ana, '/api/v1/me/export', { method: 'POST' });
+    const ticket = await call(tk.ana, '/api/me/export', { method: 'POST' });
     assert.ok(ticket.status < 300, JSON.stringify(ticket.body));
     const exported = await (await fetch(api + '/' + ticket.body.path, { headers: { Authorization: 'Bearer ' + tk.ana } })).json();
     const mainExport = exported.photos.find(p => p.id === mainId);
@@ -339,7 +345,7 @@ async function purge(extra = {}) {
     const eveObject = await sql(`SELECT object_key FROM media_items WHERE account_id = '${id.eve}' AND status = 'Passed' LIMIT 1`);
     assert.ok(eveObject.startsWith('photos/')); pass();
     tk.eve = await memberToken(browser, members.eve);
-    r = await call(tk.eve, '/api/v1/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } });
+    r = await call(tk.eve, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } });
     assert.ok(r.status < 300, JSON.stringify(r.body));
     // Fail closed first: with hold status unavailable nothing is deleted.
     let run = await purge({ Evidence__HoldCheckUnavailable: 'true' });
@@ -352,10 +358,10 @@ async function purge(extra = {}) {
     // ---- Clean up the owner's bucket: everyone removes their photos; the hold over Ana is released by a legal officer
     // (not the placer, overlaps checked); then `accounts purge` deletes every remaining object, the sealed one included.
     for (const n of ['ana', 'ben', 'cam', 'dee'])
-      for (const p of (await mine(n)).body?.photos ?? []) await call(tk[n], `/api/v1/me/photos/${p.id}`, { method: 'DELETE' });
+      for (const p of (await mine(n)).body?.photos ?? []) await call(tk[n], `/api/me/photos/${p.id}`, { method: 'DELETE' });
     assert.equal(await sql(`SELECT object_key FROM media_items WHERE id = '${blocked}'`), objectKey, 'held: the sealed object stays'); pass();
     assert.notEqual(await sql(`SELECT count(*) FROM media_items WHERE account_id = '${id.ana}' AND status = 'Removed' AND object_key IS NOT NULL`), '0', 'held: removed objects wait'); pass();
-    r = await call(st.leg, `/api/v1/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional acceptance test finished', overlapsChecked: true } });
+    r = await call(st.leg, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional acceptance test finished', overlapsChecked: true } });
     assert.equal(r.status, 200, JSON.stringify(r.body)); pass();
     run = await purge();
     assert.match(run.out, /Photos: \d+ objects deleted/); pass();

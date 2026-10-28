@@ -156,19 +156,19 @@ public static class StaffAccessPolicy
     public static (string Resource, string? Id, string Action)? Classify(string method, string path, int status)
     {
         var parts = path.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 4 || parts[0] != "api" || parts[1] != "v1" || parts[2] != "admin") return null;
+        if (parts.Length < 3 || parts[0] != "api" || parts[1] != "admin") return null;
         string? Id(int i) => parts.Length > i && Guid.TryParse(parts[i], out var g) ? g.ToString() : null;
-        (string, string?, bool)? kind = parts[3] switch
+        (string, string?, bool)? kind = parts[2] switch
         {
-            "holds" => ("holds", Id(4), parts.Length > 5 && parts[5] == "exports"),
+            "holds" => ("holds", Id(3), parts.Length > 4 && parts[4] == "exports"),
             "evidence-exports" => ("evidence-export", null, true),
             "disclosures" => ("disclosures", null, false),
-            "law-enforcement" => ("le-case", Id(5), parts.Length > 4 && parts[4] == "audit-export"),
+            "law-enforcement" => ("le-case", Id(4), parts.Length > 3 && parts[3] == "audit-export"),
             "contact-history" => ("contact-history", null, false),
-            "access" => ("access", Id(5), false),
-            "staff" => ("staff", Id(4), false),
-            "accounts" when parts.Length > 5 && parts[5] == "identity" => ("identity", Id(4), false),
-            "media" => ("media", Id(4), false),
+            "access" => ("access", Id(4), false),
+            "staff" => ("staff", Id(3), false),
+            "accounts" when parts.Length > 4 && parts[4] == "identity" => ("identity", Id(3), false),
+            "media" => ("media", Id(3), false),
             _ => null,
         };
         if (kind is not var (resource, id, export)) return null;

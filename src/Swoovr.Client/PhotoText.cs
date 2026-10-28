@@ -1,7 +1,7 @@
 namespace Swoovr.Client;
 
 /// <summary>
-/// Photo wording and links shared by the web and the app (D203). The API returns a signed path `api/v1/media/{token}`:
+/// Photo wording and links shared by the web and the app (D203). The API returns a signed path `api/media/{token}`:
 /// the browser loads it through the web host's `/media/{token}`, the app straight from the API.
 /// </summary>
 public static class PhotoText

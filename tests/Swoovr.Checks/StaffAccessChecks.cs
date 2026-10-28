@@ -67,17 +67,17 @@ static class StaffAccessChecks
 
         // Classification for the sensitive-access log.
         var id = Guid.NewGuid();
-        Expect(StaffAccessPolicy.Classify("GET", $"/api/v1/admin/holds/{id}", 200) == ("holds", id.ToString(), "view"), "a hold view");
-        Expect(StaffAccessPolicy.Classify("GET", "/api/v1/admin/holds", 200) == ("holds", null, "query"), "a hold list is a query");
-        Expect(StaffAccessPolicy.Classify("POST", $"/api/v1/admin/holds/{id}/exports", 201) == ("holds", id.ToString(), "export"), "creating an export");
-        Expect(StaffAccessPolicy.Classify("GET", "/api/v1/admin/evidence-exports/SECRET-TOKEN", 200) == ("evidence-export", null, "export"), "the export token is never logged");
-        Expect(StaffAccessPolicy.Classify("GET", "/api/v1/admin/contact-history", 200) == ("contact-history", null, "query"), "contact-history searches, never the value");
-        Expect(StaffAccessPolicy.Classify("POST", $"/api/v1/admin/accounts/{id}/identity", 200) == ("identity", id.ToString(), "view"), "opening an identity");
-        Expect(StaffAccessPolicy.Classify("POST", $"/api/v1/admin/accounts/{id}/identity", 403) == ("identity", id.ToString(), "refused"), "refused attempts");
-        Expect(StaffAccessPolicy.Classify("GET", "/api/v1/admin/law-enforcement/audit-export", 200)?.Action == "export", "the audit export");
-        Expect(StaffAccessPolicy.Classify("POST", $"/api/v1/admin/law-enforcement/cases/{id}/verify", 200) == ("le-case", id.ToString(), "change"), "case changes");
-        Expect(StaffAccessPolicy.Classify("GET", $"/api/v1/admin/accounts/{id}/summary", 200) is null, "ordinary admin routes aren't sensitive");
-        Expect(StaffAccessPolicy.Classify("GET", "/api/v1/me", 200) is null, "member routes aren't logged here");
+        Expect(StaffAccessPolicy.Classify("GET", $"/api/admin/holds/{id}", 200) == ("holds", id.ToString(), "view"), "a hold view");
+        Expect(StaffAccessPolicy.Classify("GET", "/api/admin/holds", 200) == ("holds", null, "query"), "a hold list is a query");
+        Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/holds/{id}/exports", 201) == ("holds", id.ToString(), "export"), "creating an export");
+        Expect(StaffAccessPolicy.Classify("GET", "/api/admin/evidence-exports/SECRET-TOKEN", 200) == ("evidence-export", null, "export"), "the export token is never logged");
+        Expect(StaffAccessPolicy.Classify("GET", "/api/admin/contact-history", 200) == ("contact-history", null, "query"), "contact-history searches, never the value");
+        Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/accounts/{id}/identity", 200) == ("identity", id.ToString(), "view"), "opening an identity");
+        Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/accounts/{id}/identity", 403) == ("identity", id.ToString(), "refused"), "refused attempts");
+        Expect(StaffAccessPolicy.Classify("GET", "/api/admin/law-enforcement/audit-export", 200)?.Action == "export", "the audit export");
+        Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/law-enforcement/cases/{id}/verify", 200) == ("le-case", id.ToString(), "change"), "case changes");
+        Expect(StaffAccessPolicy.Classify("GET", $"/api/admin/accounts/{id}/summary", 200) is null, "ordinary admin routes aren't sensitive");
+        Expect(StaffAccessPolicy.Classify("GET", "/api/me", 200) is null, "member routes aren't logged here");
 
         // The chain.
         var entries = new List<SensitiveAccess>();

@@ -38,7 +38,7 @@ public static class NotificationEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+        var me = app.MapGroup("/api/me").RequireAuthorization();
 
         me.MapGet("/notifications", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -132,7 +132,7 @@ public static class NotificationEndpoints
             db.PushDevices.Add(device = new PushDevice { Id = Guid.NewGuid(), AccountId = account, Platform = registration.Platform!, Token = registration.Token!, CreatedAt = now, LastSeenAt = now });
             Audit.Record(db, now, account, "account", "device.registered", "push-device", device.Id.ToString(), device.Platform);
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/me/devices/{device.Id}", new PushDeviceView(device.Id, device.Platform, device.CreatedAt, true));
+            return Results.Created($"/api/me/devices/{device.Id}", new PushDeviceView(device.Id, device.Platform, device.CreatedAt, true));
         });
         me.MapDelete("/devices/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {

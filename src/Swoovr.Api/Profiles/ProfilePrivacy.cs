@@ -71,7 +71,7 @@ public static class ProfilePrivacy
     public static void Map(WebApplication app)
     {
         // #91: the profile as others could see it when the case's reports were made. Same access as the case itself.
-        app.MapGet("/api/v1/admin/cases/{id:guid}/profile-at-report", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        app.MapGet("/api/admin/cases/{id:guid}/profile-at-report", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;

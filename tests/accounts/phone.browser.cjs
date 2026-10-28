@@ -36,43 +36,43 @@ async function latestCode(number) {
     const tokens = {}, ids = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      await call(tokens[n], '/api/v1/me'); // the first call creates the account
+      await call(tokens[n], '/api/me'); // the first call creates the account
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
-    const gate = (await call(tokens.ana, '/api/v1/me')).body.phoneRequired === true;
+    const gate = (await call(tokens.ana, '/api/me')).body.phoneRequired === true;
     console.log(gate ? 'Gate on (Phone__Required=true): checking the registration gate too.' : 'Gate off: the registration gate is not checked in this run.');
 
     if (gate) {
-      assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/profile')), [403, 'phone-verification-required']); pass();
-      assert.deepEqual(code(await call(tokens.ana, '/api/v1/explore?mode=friends')), [403, 'phone-verification-required']); pass();
-      for (const path of ['/api/v1/me', '/api/v1/me/phone', '/api/v1/me/notices', '/api/v1/me/deletion'])
+      assert.deepEqual(code(await call(tokens.ana, '/api/me/profile')), [403, 'phone-verification-required']); pass();
+      assert.deepEqual(code(await call(tokens.ana, '/api/explore?mode=friends')), [403, 'phone-verification-required']); pass();
+      for (const path of ['/api/me', '/api/me/phone', '/api/me/notices', '/api/me/deletion'])
       { assert.equal((await call(tokens.ana, path)).status, 200, path + ' stays open'); pass(); }
-      assert.equal((await call(tokens.ana, '/api/v1/me/phone')).body.required, true); pass();
+      assert.equal((await call(tokens.ana, '/api/me/phone')).body.required, true); pass();
     }
 
     // The phone view and refusals.
-    let r = await call(tokens.ana, '/api/v1/me/phone');
+    let r = await call(tokens.ana, '/api/me/phone');
     assert.deepEqual([r.status, r.body.verified, r.body.sender, r.body.number], [200, false, 'simulated', null]); pass();
     for (const bad of ['12345', '0312345678', '+0491570100', 'call me', ''])
-    { assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: bad } })), [400, 'invalid-phone'], bad); pass(); }
-    assert.equal((await call(null, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } })).status, 401); pass();
+    { assert.deepEqual(code(await call(tokens.ana, '/api/me/phone', { method: 'POST', body: { number: bad } })), [400, 'invalid-phone'], bad); pass(); }
+    assert.equal((await call(null, '/api/me/phone', { method: 'POST', body: { number: local(100) } })).status, 401); pass();
 
     // Send, refuse wrong codes and the cooldown, then confirm.
-    r = await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } });
+    r = await call(tokens.ana, '/api/me/phone', { method: 'POST', body: { number: local(100) } });
     assert.deepEqual([r.status, r.body.pendingNumber], [200, '+61••••••100']); pass();
     const first = await latestCode(e164(100));
     assert.match(first.text, /^SIMULATED: no text message was sent/, 'labelled simulated'); pass();
-    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } })), [429, 'phone-code-cooldown']); pass();
+    assert.deepEqual(code(await call(tokens.ana, '/api/me/phone', { method: 'POST', body: { number: local(100) } })), [429, 'phone-code-cooldown']); pass();
     const wrong = first.code === '000000' ? '111111' : '000000';
-    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: wrong } })), [400, 'phone-code-wrong']); pass();
-    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: '12ab56' } })), [400, 'phone-code-wrong']); pass();
-    assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: first.code } })), [400, 'phone-code-expired'], "Ana's code is no use to Bob"); pass();
-    r = await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: '+61 491 570 100', code: first.code } });
+    assert.deepEqual(code(await call(tokens.ana, '/api/me/phone/confirm', { method: 'POST', body: { number: local(100), code: wrong } })), [400, 'phone-code-wrong']); pass();
+    assert.deepEqual(code(await call(tokens.ana, '/api/me/phone/confirm', { method: 'POST', body: { number: local(100), code: '12ab56' } })), [400, 'phone-code-wrong']); pass();
+    assert.deepEqual(code(await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(100), code: first.code } })), [400, 'phone-code-expired'], "Ana's code is no use to Bob"); pass();
+    r = await call(tokens.ana, '/api/me/phone/confirm', { method: 'POST', body: { number: '+61 491 570 100', code: first.code } });
     assert.deepEqual([r.status, r.body.verified, r.body.number, r.body.required], [200, true, '+61••••••100', false]); pass();
-    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: first.code } })), [400, 'phone-code-expired'], 'single use'); pass();
-    assert.deepEqual(code(await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } })), [409, 'phone-already-verified']); pass();
-    assert.equal((await call(tokens.ana, '/api/v1/me')).body.phoneVerified, true); pass();
-    if (gate) { assert.notEqual((await call(tokens.ana, '/api/v1/me/profile')).body?.code, 'phone-verification-required', 'the gate opens'); pass(); }
+    assert.deepEqual(code(await call(tokens.ana, '/api/me/phone/confirm', { method: 'POST', body: { number: local(100), code: first.code } })), [400, 'phone-code-expired'], 'single use'); pass();
+    assert.deepEqual(code(await call(tokens.ana, '/api/me/phone', { method: 'POST', body: { number: local(100) } })), [409, 'phone-already-verified']); pass();
+    assert.equal((await call(tokens.ana, '/api/me')).body.phoneVerified, true); pass();
+    if (gate) { assert.notEqual((await call(tokens.ana, '/api/me/profile')).body?.code, 'phone-verification-required', 'the gate opens'); pass(); }
 
     // What's stored: hashes only; the audit has ids and outcomes, never the number or the code.
     assert.equal(await sql(`SELECT number FROM member_phones WHERE account_id = '${ids.ana}'`), e164(100)); pass();
@@ -81,48 +81,48 @@ async function latestCode(number) {
     assert.equal(await sql(`SELECT count(*) FROM member_profiles WHERE account_id = '${ids.ana}'`) <= '1', true); pass();
 
     // One member account per number (D181); the refusal doesn't say whose.
-    r = await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } });
+    r = await call(tokens.bob, '/api/me/phone', { method: 'POST', body: { number: local(100) } });
     assert.equal(r.status, 200); pass();
     const bobCode = (await latestCode(e164(100))).code;
-    assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: bobCode } })), [409, 'phone-in-use']); pass();
+    assert.deepEqual(code(await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(100), code: bobCode } })), [409, 'phone-in-use']); pass();
 
     // D184: Ana changes number; verifying the new one releases the old one for someone else, and the log says "changed".
     // #87: changing a verified number needs a fresh sign-in (slice AA).
     tokens.ana = await memberToken(browser, members.ana);
-    await call(tokens.ana, '/api/v1/me/phone', { method: 'POST', body: { number: local(103) } });
-    r = await call(tokens.ana, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(103), code: (await latestCode(e164(103))).code } });
+    await call(tokens.ana, '/api/me/phone', { method: 'POST', body: { number: local(103) } });
+    r = await call(tokens.ana, '/api/me/phone/confirm', { method: 'POST', body: { number: local(103), code: (await latestCode(e164(103))).code } });
     assert.deepEqual([r.status, r.body.number], [200, '+61••••••103']); pass();
     assert.equal(await sql(`SELECT detail FROM audit_entries WHERE actor_account_id = '${ids.ana}' AND action = 'phone.verified' ORDER BY id DESC LIMIT 1`), 'changed:simulated'); pass();
     await sleep(61000); // the minute between codes to the same number, for Bob
-    await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(100) } });
-    r = await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(100), code: (await latestCode(e164(100))).code } });
+    await call(tokens.bob, '/api/me/phone', { method: 'POST', body: { number: local(100) } });
+    r = await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(100), code: (await latestCode(e164(100))).code } });
     assert.deepEqual([r.status, r.body.verified], [200, true], 'the released number can verify another account'); pass();
     // D187 (policy §4): Ana's previous number is in the encrypted contact history; an admin can see who held it, never the value.
     assert.equal(await sql(`SELECT count(*) FROM contact_histories WHERE account_id = '${ids.ana}' AND contact_type = 'Mobile' AND change_reason = 'changed'`), '1'); pass();
     assert.equal(await sql(`SELECT count(*) FROM contact_histories WHERE account_id = '${ids.ana}' AND (encode(encrypted_value, 'escape') LIKE '%491570%')`), '0', 'never stored in clear'); pass();
     const root = await rootAdminToken(browser);
-    r = await call(root, '/api/v1/admin/contact-history?type=mobile&value=' + encodeURIComponent(local(100)));
+    r = await call(root, '/api/admin/contact-history?type=mobile&value=' + encodeURIComponent(local(100)));
     assert.equal(r.status, 200); assert.equal(r.body.currentAccountId, ids.bob); assert.deepEqual(r.body.previous.map(h => [h.accountId, h.reason]).at(-1), [ids.ana, 'changed'], 'Ana is the latest previous holder (earlier runs reused the number)'); pass();
     assert.equal(JSON.stringify(r.body).includes('491570'), false, 'no value in the answer'); pass();
-    assert.equal((await call(tokens.ana, '/api/v1/admin/contact-history?type=mobile&value=' + encodeURIComponent(local(100)))).status, 403, 'members cannot search'); pass();
-    assert.equal((await call(root, '/api/v1/admin/contact-history?type=fax&value=1')).status, 400); pass();
+    assert.equal((await call(tokens.ana, '/api/admin/contact-history?type=mobile&value=' + encodeURIComponent(local(100)))).status, 403, 'members cannot search'); pass();
+    assert.equal((await call(root, '/api/admin/contact-history?type=fax&value=1')).status, 400); pass();
     assert.equal(await sql(`SELECT detail FROM audit_entries WHERE action = 'contact-history.searched' ORDER BY id DESC LIMIT 1`), 'Mobile', 'searches are audited, without the value'); pass();
 
     // Expiry and five wrong tries.
-    await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(101) } });
+    await call(tokens.bob, '/api/me/phone', { method: 'POST', body: { number: local(101) } });
     const expiring = (await latestCode(e164(101))).code;
     await sql(`UPDATE phone_codes SET expires_at = now() - interval '1 second' WHERE account_id = '${ids.bob}' AND number = '${e164(101)}'`);
-    assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(101), code: expiring } })), [400, 'phone-code-expired']); pass();
-    await call(tokens.bob, '/api/v1/me/phone', { method: 'POST', body: { number: local(102) } });
+    assert.deepEqual(code(await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(101), code: expiring } })), [400, 'phone-code-expired']); pass();
+    await call(tokens.bob, '/api/me/phone', { method: 'POST', body: { number: local(102) } });
     const right = (await latestCode(e164(102))).code;
     const nope = right === '000000' ? '111111' : '000000';
-    for (let i = 1; i <= 4; i++) assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(102), code: nope } })), [400, 'phone-code-wrong']);
-    assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(102), code: nope } })), [429, 'too-many-attempts']); pass();
-    assert.deepEqual(code(await call(tokens.bob, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(102), code: right } })), [429, 'too-many-attempts'], 'even the right code'); pass();
+    for (let i = 1; i <= 4; i++) assert.deepEqual(code(await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(102), code: nope } })), [400, 'phone-code-wrong']);
+    assert.deepEqual(code(await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(102), code: nope } })), [429, 'too-many-attempts']); pass();
+    assert.deepEqual(code(await call(tokens.bob, '/api/me/phone/confirm', { method: 'POST', body: { number: local(102), code: right } })), [429, 'too-many-attempts'], 'even the right code'); pass();
 
     // Hourly limit per account (seeded in SQL, as other suites do for limits).
     await sql(`INSERT INTO phone_codes (id, account_id, number, code_hash, ip_hash, created_at, expires_at, failed_attempts) SELECT gen_random_uuid(), '${ids.cat}', '+6149157020' || g, '\\x00', '\\x00', now() - interval '10 minutes', now() - interval '5 minutes', 0 FROM generate_series(0, 4) g`);
-    assert.deepEqual(code(await call(tokens.cat, '/api/v1/me/phone', { method: 'POST', body: { number: local(110) } })), [429, 'phone-code-limit']); pass();
+    assert.deepEqual(code(await call(tokens.cat, '/api/me/phone', { method: 'POST', body: { number: local(110) } })), [429, 'phone-code-limit']); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE actor_account_id = '${ids.cat}' AND action = 'phone.code-limited'`), '1'); pass();
 
     // The web panel in Edge (through the BFF).

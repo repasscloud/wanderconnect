@@ -34,7 +34,7 @@ def host(mode, enabled, port, run, kind="Api"):
         except subprocess.TimeoutExpired:process.kill();process.wait()
         log.close()
 
-prefix='/api/v1/prototype/people'
+prefix='/api/prototype/people'
 def disabled(base):probe(base,prefix,404)
 def enabled(base):
     body,headers=probe(base,prefix)

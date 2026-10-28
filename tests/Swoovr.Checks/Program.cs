@@ -4,6 +4,7 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+ApiContractChecks.Run();
 AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
@@ -56,7 +57,8 @@ sealed class StatusHandler(bool empty = false) : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request.Method != HttpMethod.Get || request.RequestUri?.AbsolutePath != "/api/v1/status")
+        if (!request.Headers.TryGetValues(ApiContract.Header, out var versions) || versions.Single() != ApiContract.Current) throw new Exception("Typed client did not pin API contract.");
+        if (request.Method != HttpMethod.Get || request.RequestUri?.AbsolutePath != "/api/status")
             throw new Exception("Unexpected API request.");
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
             Content = new StringContent(empty ? "null" : JsonSerializer.Serialize(new FoundationStatus("Swoovr.Api", "foundation")), Encoding.UTF8, "application/json")

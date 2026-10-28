@@ -14,7 +14,7 @@ public static class AdminEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
         admin.MapPost("/invitations", async (InvitationRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -36,7 +36,7 @@ public static class AdminEndpoints
             db.Invitations.Add(invitation);
             Audit.Record(db, now, current.Account.Id, "account", "invitation.created", "invitation", invitation.Id.ToString(), role.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/invitations/{invitation.Id}", View(invitation, now));
+            return Results.Created($"/api/admin/invitations/{invitation.Id}", View(invitation, now));
         });
 
         admin.MapGet("/invitations", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -75,7 +75,7 @@ public static class AdminEndpoints
             {
                 BetaEnrolments.AddResult.InvalidEmail => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Enrolment needs a full email address."),
                 BetaEnrolments.AddResult.AlreadyEnrolled => Results.Ok(BetaEnrolments.View(enrolment!)),
-                _ => Results.Created($"/api/v1/admin/beta/{enrolment!.Id}", BetaEnrolments.View(enrolment)),
+                _ => Results.Created($"/api/admin/beta/{enrolment!.Id}", BetaEnrolments.View(enrolment)),
             };
         });
 
@@ -112,7 +112,7 @@ public static class AdminEndpoints
             var grant = await founders.GrantAsync(account, profile, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
             return grant.Outcome switch
             {
-                FounderGrantOutcome.Granted => Results.Created($"/api/v1/admin/founder-tokens?place={grant.Place}", new FounderGrantView(grant.Place!.Value, grant.EmailSent)),
+                FounderGrantOutcome.Granted => Results.Created($"/api/admin/founder-tokens?place={grant.Place}", new FounderGrantView(grant.Place!.Value, grant.EmailSent)),
                 FounderGrantOutcome.AlreadyFounder => Problem(StatusCodes.Status409Conflict, ProblemCodes.AlreadyFounder, "This account is already a founding member."),
                 FounderGrantOutcome.PlacesFull => Problem(StatusCodes.Status409Conflict, ProblemCodes.FounderPlacesFull, "All founding places are taken."),
                 FounderGrantOutcome.NoVerifiedEmail => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.NoVerifiedEmail, "The account has no verified email."),

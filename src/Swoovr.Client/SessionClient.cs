@@ -8,12 +8,13 @@ namespace Swoovr.Client;
 /// Reads the caller's session summary. The bearer token comes from the host's
 /// server-side session store; this client never stores or logs it.
 /// </summary>
-public sealed class SessionClient(HttpClient http)
+public sealed class SessionClient(HttpClient transport)
 {
+    private readonly HttpClient http = ApiContractClient.Configure(transport);
     public async Task<SessionSummary?> GetAsync(string accessToken, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
-        using var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/session");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "api/session");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         using var response = await http.SendAsync(request, cancellationToken);
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden) return null;

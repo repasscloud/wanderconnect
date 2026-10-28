@@ -18,14 +18,14 @@ public static class StandingEndpoints
 {
     public static void Map(WebApplication app)
     {
-        app.MapGet("/api/v1/me/standing", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        app.MapGet("/api/me/standing", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true, phoneExempt: true);
             if (denied is not null) return denied;
             return Results.Ok(await StandingAsync(accounts.Db!, current!.Profile!, current.Facts.EmailVerified, accounts.PhoneRequired, clock.GetUtcNow(), cancellationToken));
         }).RequireAuthorization();
 
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
         admin.MapGet("/accounts/{id:guid}/standing", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);

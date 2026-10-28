@@ -79,8 +79,8 @@ static class MediaChecks
         Expect(MediaKeys.Valid(MediaKeys.Quarantine(id)) && !MediaKeys.Valid("../etc/passwd") && !MediaKeys.Valid("photos/../../x"), "object keys");
 
         // The sensitive-access log covers the review routes.
-        Expect(StaffAccessPolicy.Classify("POST", $"/api/v1/admin/media/{id}/view", 200) == ("media", id.ToString(), "view"), "a review view is logged as a view");
-        Expect(StaffAccessPolicy.Classify("GET", "/api/v1/admin/media/review", 200) == ("media", null, "query"), "the queue is logged");
+        Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/media/{id}/view", 200) == ("media", id.ToString(), "view"), "a review view is logged as a view");
+        Expect(StaffAccessPolicy.Classify("GET", "/api/admin/media/review", 200) == ("media", null, "query"), "the queue is logged");
 
         // The processor: EXIF with GPS and an orientation goes in; a re-encoded JPEG without metadata, turned upright, comes out.
         var processor = new PhotoProcessor();

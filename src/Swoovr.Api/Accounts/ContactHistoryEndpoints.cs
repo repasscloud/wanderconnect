@@ -48,7 +48,7 @@ public static class ContactHistoryEndpoints
 {
     public static void Map(WebApplication app)
     {
-        app.MapGet("/api/v1/admin/contact-history", async (string? type, string? value, ClaimsPrincipal user, AccountResolver accounts, ContactHistoryKeys keys,
+        app.MapGet("/api/admin/contact-history", async (string? type, string? value, ClaimsPrincipal user, AccountResolver accounts, ContactHistoryKeys keys,
             TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);

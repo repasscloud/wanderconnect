@@ -75,7 +75,7 @@ public static class SecurityEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var security = app.MapGroup("/api/v1/admin/security").RequireAuthorization();
+        var security = app.MapGroup("/api/admin/security").RequireAuthorization();
 
         security.MapGet("/incidents", async (string? status, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -99,7 +99,7 @@ public static class SecurityEndpoints
             db.SecurityIncidents.Add(incident);
             Audit.Record(db, now, current.Account.Id, "account", "security.opened", "security-incident", incident.Id.ToString(), Wire(severity));
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/security/incidents/{incident.Id}", View(incident, now));
+            return Results.Created($"/api/admin/security/incidents/{incident.Id}", View(incident, now));
         });
 
         security.MapPost("/incidents/{id:guid}/assess", async (Guid id, IncidentAssessment request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,

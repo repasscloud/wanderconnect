@@ -67,9 +67,9 @@ const audit = () => {
     const member = await createMember('a11y');
     await cli('beta', 'add', member.email);
     const token = await memberToken(browser, member);
-    await call(token, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Access', homeCityId: 2078025 } });
+    await call(token, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Access', homeCityId: 2078025 } });
     await matchReady(token);
-    await call(token, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(token, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
     const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', member.email); await page.fill('#password', member.password);

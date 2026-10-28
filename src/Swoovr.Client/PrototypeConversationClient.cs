@@ -4,9 +4,10 @@ using Swoovr.Contracts;
 namespace Swoovr.Client;
 
 // Fictional service only. Do not attach credentials or use for member messages.
-public sealed class PrototypeConversationClient(HttpClient http)
+public sealed class PrototypeConversationClient(HttpClient transport)
 {
-    private const string Path="api/v1/prototype/conversations";
+    private readonly HttpClient http = ApiContractClient.Configure(transport);
+    private const string Path="api/prototype/conversations";
     public async Task<PrototypeConversation> CreateAsync(string travel,CancellationToken cancellationToken=default)
     {
         if(travel is not ("local" or "upcoming" or "arrived"))throw new ArgumentException("Unsupported fictional presence.");

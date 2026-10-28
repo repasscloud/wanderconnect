@@ -25,9 +25,9 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     const tokens = {}, ids = {}, pid = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      const saved = await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: homes[n] ?? ADELAIDE } });
+      const saved = await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: homes[n] ?? ADELAIDE } });
       assert.equal(saved.status, 200, n);
-      for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
+      for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
@@ -37,36 +37,36 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     await matchReady(tokens.bob, { gender: 'man', showMe: ['woman'], dateOfBirth: '1990-06-01' });
     await matchReady(tokens.cal, { gender: 'man', showMe: ['man'] });
     await matchReady(tokens.dex, { gender: 'non-binary', showMe: everyone });
-    await call(tokens.fay, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1992-02-02' } });
+    await call(tokens.fay, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1992-02-02' } });
     for (const n of ['gus', 'hal', 'ivy', 'tom', 'gle']) await matchReady(tokens[n]);
-    await call(tokens.eve, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'woman', showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } });
+    await call(tokens.eve, '/api/me/identity', { method: 'PUT', body: { gender: 'woman', showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } });
     const code = r => [r.status, r.body?.code];
-    const explore = async (who, mode = 'friends') => { const r = await call(tokens[who], '/api/v1/explore?mode=' + mode); return r.status === 200 ? r.body.people : r; };
+    const explore = async (who, mode = 'friends') => { const r = await call(tokens[who], '/api/explore?mode=' + mode); return r.status === 200 ? r.body.people : r; };
     const ids_ = people => people.map(p => p.id);
-    const modes = (await call(tokens.ana, '/api/v1/modes')).body;
+    const modes = (await call(tokens.ana, '/api/modes')).body;
     const chip = (mode, i) => modes.find(m => m.id === mode).intentions[i].id;
     const [X, Y, Z] = [chip('friends', 0), chip('friends', 1), chip('friends', 2)];
-    const setChips = (who, chips) => call(tokens[who], '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, intentions: chips } });
-    const filters = (who, body, mode = 'friends') => call(tokens[who], `/api/v1/me/modes/${mode}/filters`, { method: 'PUT', body: { idVerifiedOnly: false, ...body } });
+    const setChips = (who, chips) => call(tokens[who], '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true, intentions: chips } });
+    const filters = (who, body, mode = 'friends') => call(tokens[who], `/api/me/modes/${mode}/filters`, { method: 'PUT', body: { idVerifiedOnly: false, ...body } });
 
     // Options are data (D138).
-    let r = await call(tokens.ana, '/api/v1/profile-options');
+    let r = await call(tokens.ana, '/api/profile-options');
     assert.deepEqual(r.body.genders.map(g => g.id), [...everyone, 'unsaid']); assert.ok(r.body.orientations.length >= 5); pass();
 
     // Date of birth (D139): required, never an age alone, never shown.
-    assert.deepEqual(code(await call(tokens.eve, '/api/v1/me/age', { method: 'PUT', body: { age: 30 } })), [400, 'date-of-birth-required']); pass();
-    assert.deepEqual(code(await call(tokens.eve, '/api/v1/me/age', { method: 'PUT', body: {} })), [400, 'date-of-birth-required']); pass();
-    assert.deepEqual(code(await call(tokens.eve, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '2999-01-01' } })), [400, 'invalid-age']); pass();
-    assert.deepEqual(code(await call(tokens.eve, '/api/v1/explore?mode=friends')), [403, 'date-of-birth-required']); pass();
+    assert.deepEqual(code(await call(tokens.eve, '/api/me/age', { method: 'PUT', body: { age: 30 } })), [400, 'date-of-birth-required']); pass();
+    assert.deepEqual(code(await call(tokens.eve, '/api/me/age', { method: 'PUT', body: {} })), [400, 'date-of-birth-required']); pass();
+    assert.deepEqual(code(await call(tokens.eve, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '2999-01-01' } })), [400, 'invalid-age']); pass();
+    assert.deepEqual(code(await call(tokens.eve, '/api/explore?mode=friends')), [403, 'date-of-birth-required']); pass();
     assert.ok(!ids_(await explore('ana')).includes(pid.eve)); pass(); // out of discovery
-    assert.equal((await call(tokens.ana, `/api/v1/profiles/${pid.eve}`)).status, 404); pass();
+    assert.equal((await call(tokens.ana, `/api/profiles/${pid.eve}`)).status, 404); pass();
     let people = await explore('gus');
     const bobCard = people.find(p => p.id === pid.bob);
     assert.equal(typeof bobCard.age, 'number'); assert.equal(bobCard.gender, 'Man'); pass();
     assert.ok(!JSON.stringify(people).includes('1990-')); pass(); // never the date
-    assert.ok(!JSON.stringify(await call(tokens.gus, `/api/v1/profiles/${pid.bob}`)).includes('1990-')); pass();
+    assert.ok(!JSON.stringify(await call(tokens.gus, `/api/profiles/${pid.bob}`)).includes('1990-')); pass();
     // Hiding the age or gender hides them on cards, but the filters still use them.
-    await call(tokens.bob, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'man', showGender: false, showOrientation: false, showAge: false, datingShowMe: ['woman'] } });
+    await call(tokens.bob, '/api/me/identity', { method: 'PUT', body: { gender: 'man', showGender: false, showOrientation: false, showAge: false, datingShowMe: ['woman'] } });
     people = await explore('gus');
     assert.deepEqual([people.find(p => p.id === pid.bob).age, people.find(p => p.id === pid.bob).gender], [null, null]); pass();
     await filters('gus', { minAge: 18, maxAge: 25 });
@@ -76,11 +76,11 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     // A date of birth that ID verification matched can't change without support (D158; the mark is simulated here, the
     // real path is in tests/verification/didit.browser.cjs).
     await sql(`UPDATE member_profiles SET age_status = 'Verified', date_of_birth_verified = true WHERE account_id = '${ids.ivy}'`);
-    assert.deepEqual(code(await call(tokens.ivy, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1980-01-01' } })), [409, 'date-of-birth-locked']); pass();
-    assert.equal((await call(tokens.ivy, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-01-01' } })).status, 200); pass(); // the same date is fine
+    assert.deepEqual(code(await call(tokens.ivy, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1980-01-01' } })), [409, 'date-of-birth-locked']); pass();
+    assert.equal((await call(tokens.ivy, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1990-01-01' } })).status, 200); pass(); // the same date is fine
 
     // Dating needs a gender and a "show me"; both are reciprocal (D138).
-    assert.deepEqual(code(await call(tokens.fay, '/api/v1/explore?mode=dating')), [403, 'dating-details-required']); pass();
+    assert.deepEqual(code(await call(tokens.fay, '/api/explore?mode=dating')), [403, 'dating-details-required']); pass();
     assert.ok(ids_(await explore('ana')).includes(pid.fay)); pass(); // Friends doesn't need them
     assert.ok(!ids_(await explore('gus', 'dating')).includes(pid.fay)); pass();
     people = ids_(await explore('ana', 'dating'));
@@ -88,14 +88,14 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.ok(!people.includes(pid.cal) && !people.includes(pid.dex) && !people.includes(pid.gus)); pass(); // one-sided or not her choice
     assert.ok(!ids_(await explore('cal', 'dating')).includes(pid.ana)); pass();
     assert.ok(!ids_(await explore('dex', 'dating')).includes(pid.ana)); pass(); // dex includes women, ana doesn't include non-binary
-    r = await call(tokens.ana, `/api/v1/profiles/${pid.cal}`);
+    r = await call(tokens.ana, `/api/profiles/${pid.cal}`);
     assert.equal(r.status, 200); assert.deepEqual(r.body.modes.map(m => m.id), ['friends']); pass(); // Dating isn't shared
-    assert.deepEqual(code(await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.cal, mode: 'dating' } })), [404, 'not-available']); pass();
-    assert.equal((await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.cal, mode: 'friends' } })).status, 201); pass();
-    assert.equal((await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.bob, mode: 'dating' } })).status, 201); pass();
+    assert.deepEqual(code(await call(tokens.ana, '/api/requests', { method: 'POST', body: { to: pid.cal, mode: 'dating' } })), [404, 'not-available']); pass();
+    assert.equal((await call(tokens.ana, '/api/requests', { method: 'POST', body: { to: pid.cal, mode: 'friends' } })).status, 201); pass();
+    assert.equal((await call(tokens.ana, '/api/requests', { method: 'POST', body: { to: pid.bob, mode: 'dating' } })).status, 201); pass();
     // Q57 (D161): "prefer not to say" is a privacy choice: never a show-me value, and discoverable to any show me;
     // "another gender" is an inclusive show-me category; neither limits the person to others with the same option.
-    assert.deepEqual(code(await call(tokens.pns, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'woman', showGender: true, showOrientation: false, showAge: true, datingShowMe: ['unsaid'] } })), [400, 'invalid-profile']); pass();
+    assert.deepEqual(code(await call(tokens.pns, '/api/me/identity', { method: 'PUT', body: { gender: 'woman', showGender: true, showOrientation: false, showAge: true, datingShowMe: ['unsaid'] } })), [400, 'invalid-profile']); pass();
     await matchReady(tokens.pns, { gender: 'unsaid', showMe: ['man', 'woman'] });
     await matchReady(tokens.oth, { gender: 'another', showMe: ['woman'] });
     assert.ok(ids_(await explore('ana', 'dating')).includes(pid.pns)); pass(); // ana shows herself men only, yet sees someone who prefers not to say
@@ -103,15 +103,15 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.ok(ids_(await explore('cal', 'dating')).includes(pid.pns)); pass(); // any show me includes them (cal looks for men only)
     assert.ok(!ids_(await explore('dex', 'dating')).includes(pid.pns)); pass(); // but pns's own show me (men and women) leaves out dex (non-binary)
     assert.ok(ids_(await explore('pns', 'dating')).includes(pid.bob)); pass(); // not limited to others who prefer not to say
-    assert.equal((await call(tokens.pns, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.bob)?.gender ?? null, null); pass(); // bob hid his gender
+    assert.equal((await call(tokens.pns, '/api/explore?mode=dating')).body.people.find(p => p.id === pid.bob)?.gender ?? null, null); pass(); // bob hid his gender
     assert.ok(ids_(await explore('gus', 'dating')).includes(pid.oth)); pass(); // gus (a woman) includes "another gender"
     assert.ok(!ids_(await explore('ana', 'dating')).includes(pid.oth)); pass(); // ana's show me leaves it out
     assert.ok(ids_(await explore('oth', 'dating')).includes(pid.gus)); pass(); // oth sees women, not only "another"
     // Identity validation; orientation never decides who anyone sees.
-    assert.deepEqual(code(await call(tokens.gus, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'robot', showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } })), [400, 'invalid-profile']); pass();
-    assert.deepEqual(code(await call(tokens.gus, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'man', pronouns: 'x'.repeat(41), showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } })), [400, 'invalid-profile']); pass();
-    assert.deepEqual(code(await call(tokens.gus, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'man', showGender: true, showOrientation: false, showAge: true, datingShowMe: ['robot'] } })), [400, 'invalid-profile']); pass();
-    await call(tokens.dex, '/api/v1/me/identity', { method: 'PUT', body: { gender: 'non-binary', orientation: 'gay', showGender: true, showOrientation: true, showAge: true, datingShowMe: everyone } });
+    assert.deepEqual(code(await call(tokens.gus, '/api/me/identity', { method: 'PUT', body: { gender: 'robot', showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } })), [400, 'invalid-profile']); pass();
+    assert.deepEqual(code(await call(tokens.gus, '/api/me/identity', { method: 'PUT', body: { gender: 'man', pronouns: 'x'.repeat(41), showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } })), [400, 'invalid-profile']); pass();
+    assert.deepEqual(code(await call(tokens.gus, '/api/me/identity', { method: 'PUT', body: { gender: 'man', showGender: true, showOrientation: false, showAge: true, datingShowMe: ['robot'] } })), [400, 'invalid-profile']); pass();
+    await call(tokens.dex, '/api/me/identity', { method: 'PUT', body: { gender: 'non-binary', orientation: 'gay', showGender: true, showOrientation: true, showAge: true, datingShowMe: everyone } });
     assert.ok(ids_(await explore('gus', 'dating')).includes(pid.dex)); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'identity.updated' AND (detail LIKE '%gay%' OR detail LIKE '%binary%')`), '0'); pass();
 
@@ -136,8 +136,8 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     await filters('cal', { excludedChips: [Y] });
     assert.ok(!ids_(await explore('cal')).includes(pid.ivy)); pass(); // cal doesn't see someone holding Y
     assert.ok(!ids_(await explore('ivy')).includes(pid.cal)); pass(); // and ivy can't find cal
-    assert.equal((await call(tokens.ivy, `/api/v1/profiles/${pid.cal}`)).status, 404); pass(); // their only shared mode was Friends... and Dating fails show me
-    assert.deepEqual(code(await call(tokens.ivy, '/api/v1/requests', { method: 'POST', body: { to: pid.cal, mode: 'friends' } })), [404, 'not-available']); pass();
+    assert.equal((await call(tokens.ivy, `/api/profiles/${pid.cal}`)).status, 404); pass(); // their only shared mode was Friends... and Dating fails show me
+    assert.deepEqual(code(await call(tokens.ivy, '/api/requests', { method: 'POST', body: { to: pid.cal, mode: 'friends' } })), [404, 'not-available']); pass();
     assert.ok(ids_(await explore('cal')).includes(pid.gus)); pass(); // only Y excludes
     await filters('cal', {});
     assert.ok(ids_(await explore('ivy')).includes(pid.cal)); pass(); // removing it restores both ways
@@ -150,24 +150,24 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     assert.deepEqual(code(await filters('ana', {}, 'travel')), [404, 'unknown-mode']); pass();
 
     // Plus filters only with Plus from the entitlement service (D137, D151); a lapsed Plus never hides people.
-    r = await call(tokens.hal, '/api/v1/me/modes/friends/filters');
+    r = await call(tokens.hal, '/api/me/modes/friends/filters');
     assert.equal(r.body.plusAvailable, false); pass();
     assert.deepEqual(code(await filters('hal', { maxDistanceKm: 5 })), [403, 'plus-required']); pass();
     assert.deepEqual(code(await filters('hal', { sort: 'compatibility' })), [403, 'plus-required']); pass();
-    const grant = await call(root, `/api/v1/admin/accounts/${ids.hal}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: new Date(Date.now() + 7 * 86400000).toISOString(), reason: 'Fictional tester' } });
+    const grant = await call(root, `/api/admin/accounts/${ids.hal}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: new Date(Date.now() + 7 * 86400000).toISOString(), reason: 'Fictional tester' } });
     assert.equal(grant.status, 201);
-    assert.equal((await call(tokens.hal, '/api/v1/me/modes/friends/filters')).body.plusAvailable, true); pass();
+    assert.equal((await call(tokens.hal, '/api/me/modes/friends/filters')).body.plusAvailable, true); pass();
     assert.equal((await filters('hal', { maxDistanceKm: 5, sort: 'compatibility' })).status, 200); pass();
     people = ids_(await explore('hal'));
     assert.ok(!people.includes(pid.gle) && people.includes(pid.gus)); pass(); // Glenelg is over 5 km from Adelaide's centre
     assert.ok(people.indexOf(pid.ivy) < people.indexOf(pid.bob) || !people.includes(pid.bob)); pass(); // shares Y first
-    await call(root, `/api/v1/admin/entitlements/${grant.body.id}/revoke`, { method: 'POST' });
+    await call(root, `/api/admin/entitlements/${grant.body.id}/revoke`, { method: 'POST' });
     assert.ok(ids_(await explore('hal')).includes(pid.gle)); pass(); // the stored Plus filter stops counting
 
     // Visitor visibility (D137) in the Travel feed.
-    const trip = await call(tokens.tom, '/api/v1/me/trips', { method: 'POST', body: { cityId: ADELAIDE, arrival: plus(3), departure: plus(6), visible: true } });
+    const trip = await call(tokens.tom, '/api/me/trips', { method: 'POST', body: { cityId: ADELAIDE, arrival: plus(3), departure: plus(6), visible: true } });
     assert.equal(trip.status, 201);
-    const visitors = async who => (await call(tokens[who], '/api/v1/travel/visitors?mode=friends')).body.people.map(p => p.id);
+    const visitors = async who => (await call(tokens[who], '/api/travel/visitors?mode=friends')).body.people.map(p => p.id);
     assert.ok((await visitors('gus')).includes(pid.tom)); pass(); // both by default
     await filters('gus', { visitors: 'current' });
     assert.ok(!(await visitors('gus')).includes(pid.tom)); pass(); // not arrived yet
@@ -187,9 +187,9 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     };
     await signIn(page, members.fay);
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });
-    assert.equal((await bff('api/v1/profile-options')).status(), 200); pass();
-    assert.equal((await bff('api/v1/me/identity')).status(), 200); pass();
-    assert.equal((await bff('api/v1/me/modes/friends/filters')).status(), 200); pass();
+    assert.equal((await bff('api/profile-options')).status(), 200); pass();
+    assert.equal((await bff('api/me/identity')).status(), 200); pass();
+    assert.equal((await bff('api/me/modes/friends/filters')).status(), 200); pass();
     await page.goto(web + '/explore');
     await page.waitForSelector('[data-explore-local], [data-explore-refused], .profile-grid, [data-mode]', { timeout: 20000 });
     await page.locator('[data-mode=dating], button:has-text("Dating")').first().click().catch(() => {});

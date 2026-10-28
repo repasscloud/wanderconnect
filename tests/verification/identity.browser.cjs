@@ -37,7 +37,7 @@ async function latestText(number, pattern) {
     const secret = await localEnv('SWOOVR_DIDIT_WEBHOOK_SECRET'), workflow = await localEnv('SWOOVR_DIDIT_WORKFLOW_ID');
     assert.ok(secret && workflow, 'Didit settings missing from .local/docker.env');
     const hook = async payload => {
-      const response = await fetch(api + '/api/v1/webhooks/didit', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json',
+      const response = await fetch(api + '/api/webhooks/didit', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json',
         'X-Timestamp': String(Math.floor(Date.now() / 1000)), 'X-Signature-V2': crypto.createHmac('sha256', Buffer.from(secret, 'utf8')).update(canonical(payload)).digest('hex') } });
       return response.status;
     };
@@ -52,7 +52,7 @@ async function latestText(number, pattern) {
     const tokens = {}, ids = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Idn ' + n, homeCityId: ADELAIDE } });
+      await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Idn ' + n, homeCityId: ADELAIDE } });
       await matchReady(tokens[n]);
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
@@ -81,15 +81,15 @@ async function latestText(number, pattern) {
     // Staff see only that it's on file; only `legal` opens it, for a recorded purpose.
     const staff = { sup: await createStaff('idn-sup'), adm: await createStaff('idn-adm'), leg: await createStaff('idn-leg') };
     for (const [n, role] of [['sup', 'support'], ['adm', 'admin'], ['leg', 'legal']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {};
     for (const n of Object.keys(staff)) st[n] = await staffToken(browser, staff[n]);
-    let r = await call(st.adm, `/api/v1/admin/accounts/${ids.ana}/summary`);
+    let r = await call(st.adm, `/api/admin/accounts/${ids.ana}/summary`);
     assert.equal(r.status, 200); assert.ok(r.body.identityOnFileSince); assert.equal(r.body.identityIssuingCountry, 'AUS'); pass();
     assert.ok(!JSON.stringify(r.body).includes('Annabel')); pass();
-    const open = (token, id, purpose) => call(token, `/api/v1/admin/accounts/${id}/identity`, { method: 'POST', body: { purpose } });
+    const open = (token, id, purpose) => call(token, `/api/admin/accounts/${id}/identity`, { method: 'POST', body: { purpose } });
     // #88: opening needs time-limited access with a recorded purpose.
-    if (!(await call(st.leg, '/api/v1/admin/access/grants')).body.some(g => g.active && g.capability === 'identity-open'))
+    if (!(await call(st.leg, '/api/admin/access/grants')).body.some(g => g.active && g.capability === 'identity-open'))
       assert.deepEqual(code(await open(st.leg, ids.ana, 'Fictional check')), [403, 'elevated-access-required']);
     pass();
     await elevate(st.leg, 'identity-open', 'Fictional police request REF-IDN-1');
@@ -111,29 +111,29 @@ async function latestText(number, pattern) {
 
     // The member's own export includes their record.
     tokens.ana = await memberToken(browser, members.ana);
-    r = await call(tokens.ana, '/api/v1/me/export', { method: 'POST' });
+    r = await call(tokens.ana, '/api/me/export', { method: 'POST' });
     assert.equal(r.status, 200);
     const exported = await call(tokens.ana, '/' + r.body.path);
     assert.equal(exported.status, 200); assert.equal(exported.body.verifiedIdentity.lastName, 'Annabel'); pass();
 
     // A legal hold preserves the record as evidence.
     await approve('held', { first_name: 'Fictional', last_name: 'Heldon', date_of_birth: '1990-01-01' });
-    r = await call(st.leg, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional hold for the identity test', accountIds: [ids.held] } });
+    r = await call(st.leg, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional hold for the identity test', accountIds: [ids.held] } });
     assert.equal(r.status, 201);
-    assert.ok((await call(st.leg, `/api/v1/admin/holds/${r.body.id}`)).body.items.some(i => i.kind === 'identity-record')); pass();
+    assert.ok((await call(st.leg, `/api/admin/holds/${r.body.id}`)).body.items.some(i => i.kind === 'identity-record')); pass();
 
     // An ordinary deletion erases the record.
-    assert.equal((await call(tokens.ana, '/api/v1/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
+    assert.equal((await call(tokens.ana, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
     // A terminated member: identity and number kept for ban enforcement (2 years), flagged when they return.
     await approve('ter', TERRA);
     tokens.ter = await memberToken(browser, members.ter);
-    assert.equal((await call(tokens.ter, '/api/v1/me/phone', { method: 'POST', body: { number: local(158) } })).status, 200);
+    assert.equal((await call(tokens.ter, '/api/me/phone', { method: 'POST', body: { number: local(158) } })).status, 200);
     const terCode = (await latestText(e164(158), /Your Swoovr code is \d{6}/)).match(/(\d{6})/)[1];
-    assert.equal((await call(tokens.ter, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(158), code: terCode } })).status, 200);
+    assert.equal((await call(tokens.ter, '/api/me/phone/confirm', { method: 'POST', body: { number: local(158), code: terCode } })).status, 200);
     await elevate(root, 'termination', 'Fictional termination for the identity suite');
-    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.ter}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional termination', hideFromDiscovery: false, noNewRequests: false, noMessages: false } })).status, 200);
+    assert.equal((await call(root, `/api/admin/accounts/${ids.ter}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional termination', hideFromDiscovery: false, noNewRequests: false, noMessages: false } })).status, 200);
     tokens.ter = await memberToken(browser, members.ter);
-    assert.equal((await call(tokens.ter, '/api/v1/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
+    assert.equal((await call(tokens.ter, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
     assert.match(await cli('accounts', 'purge'), /0 waiting for Keycloak/);
     assert.equal(await sql(`SELECT count(*) FROM restricted.verified_identities WHERE account_id = '${ids.ana}'`), '0', 'ordinary deletion erased it'); pass();
     assert.equal(await sql(`SELECT round(extract(epoch from retain_until - now()) / 86400) FROM restricted.verified_identities WHERE account_id = '${ids.ter}'`), '730', 'terminated: kept two years'); pass();
@@ -141,27 +141,27 @@ async function latestText(number, pattern) {
     // The same identity (written differently) verifying another account is flagged, not blocked.
     await approve('twin', { ...TERRA, first_name: 'FICTIONAL', last_name: 'terra example' });
     assert.equal(await sql(`SELECT system_flag || '/' || queue FROM moderation_cases WHERE subject_account_id = '${ids.twin}'`), 'returning-terminated-identity/Admin'); pass();
-    assert.equal((await call(tokens.twin, '/api/v1/me')).status, 200, 'never blocked'); pass();
+    assert.equal((await call(tokens.twin, '/api/me')).status, 200, 'never blocked'); pass();
     // The held number verifying another account is flagged too.
-    assert.equal((await call(tokens.ret, '/api/v1/me/phone', { method: 'POST', body: { number: local(158) } })).status, 200);
+    assert.equal((await call(tokens.ret, '/api/me/phone', { method: 'POST', body: { number: local(158) } })).status, 200);
     const retCode = (await latestText(e164(158), /Your Swoovr code is \d{6}/)).match(/(\d{6})/)[1];
-    assert.equal((await call(tokens.ret, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(158), code: retCode } })).status, 200, 'not refused'); pass();
+    assert.equal((await call(tokens.ret, '/api/me/phone/confirm', { method: 'POST', body: { number: local(158), code: retCode } })).status, 200, 'not refused'); pass();
     assert.equal(await sql(`SELECT system_flag FROM moderation_cases WHERE subject_account_id = '${ids.ret}'`), 'returning-terminated-phone'); pass();
 
     // #87: changing number needs a fresh sign-in, tells the old number and ends the account's other sessions.
-    assert.equal((await call(tokens.chg, '/api/v1/me/phone', { method: 'POST', body: { number: local(156) } })).status, 200, 'the first number needs no fresh sign-in');
+    assert.equal((await call(tokens.chg, '/api/me/phone', { method: 'POST', body: { number: local(156) } })).status, 200, 'the first number needs no fresh sign-in');
     const firstCode = (await latestText(e164(156), /Your Swoovr code is \d{6}/)).match(/(\d{6})/)[1];
-    assert.equal((await call(tokens.chg, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(156), code: firstCode } })).status, 200);
+    assert.equal((await call(tokens.chg, '/api/me/phone/confirm', { method: 'POST', body: { number: local(156), code: firstCode } })).status, 200);
     await memberToken(browser, members.chg); // a second, separate Keycloak session (another device)
     const realm = await membersRealm();
     const subject = claims(tokens.chg).sub;
     assert.ok((await realm(`/users/${subject}/sessions`)).length >= 2); pass();
     await sleep(Math.max(0, (claims(tokens.chg).auth_time + REAUTH_SECONDS + 2) * 1000 - Date.now())); // the sign-in goes stale
-    assert.deepEqual(code(await call(tokens.chg, '/api/v1/me/phone', { method: 'POST', body: { number: local(157) } })), [403, 'stale-session']); pass();
+    assert.deepEqual(code(await call(tokens.chg, '/api/me/phone', { method: 'POST', body: { number: local(157) } })), [403, 'stale-session']); pass();
     tokens.chg = await memberToken(browser, members.chg);
-    assert.equal((await call(tokens.chg, '/api/v1/me/phone', { method: 'POST', body: { number: local(157) } })).status, 200); pass();
+    assert.equal((await call(tokens.chg, '/api/me/phone', { method: 'POST', body: { number: local(157) } })).status, 200); pass();
     const newCode = (await latestText(e164(157), /Your Swoovr code is \d{6}/)).match(/(\d{6})/)[1];
-    r = await call(tokens.chg, '/api/v1/me/phone/confirm', { method: 'POST', body: { number: local(157), code: newCode } });
+    r = await call(tokens.chg, '/api/me/phone/confirm', { method: 'POST', body: { number: local(157), code: newCode } });
     assert.equal(r.status, 200); pass();
     const notice = await latestText(e164(156), /number on your Swoovr account was just changed/);
     assert.ok(notice && !notice.includes('157') && !notice.includes('0491'), 'the old number hears, without the new one'); pass();
@@ -176,7 +176,7 @@ async function latestText(number, pattern) {
     await realm(`/users/${emlSubject}`, 'PUT', { ...user, email: newEmail, username: user.username, emailVerified: true });
     members.eml.email = newEmail;
     tokens.eml = await memberToken(browser, members.eml); // the realm uses the email as the username
-    assert.equal((await call(tokens.eml, '/api/v1/me')).status, 200);
+    assert.equal((await call(tokens.eml, '/api/me')).status, 200);
     let old = []; for (let i = 0; i < 20 && !old.some(m => m.includes('was just changed')); i++) { old = await mailTo(oldEmail); await sleep(250); }
     assert.ok(old.some(m => m.includes('was just changed') && !m.includes(newEmail) && !m.includes('changed.')), 'the old address hears, without the new one'); pass();
 

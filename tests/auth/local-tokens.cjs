@@ -145,8 +145,8 @@ async function fillRootAdmin(page, fixture, fixturePath, totp) {
  * matching. Pass options to vary them.
  */
 async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman', showMe = ['man', 'woman', 'non-binary', 'another'] } = {}) {
-  const age = await call(token, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth } });
-  const identity = await call(token, '/api/v1/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
+  const age = await call(token, '/api/me/age', { method: 'PUT', body: { dateOfBirth } });
+  const identity = await call(token, '/api/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
   return [age.status, identity.status];
 }
 
@@ -155,7 +155,7 @@ async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman',
  * recorded purpose. Grants belong to the account, so the admin app's session gets it too.
  */
 async function elevate(token, capability, purpose = 'Fictional acceptance test') {
-  const r = await call(token, '/api/v1/admin/access/grants', { method: 'POST', body: { capability, purpose } });
+  const r = await call(token, '/api/admin/access/grants', { method: 'POST', body: { capability, purpose } });
   if (r.status !== 201) throw new Error(`elevate ${capability}: ${r.status} ${r.body?.code ?? ''}`);
   return r.body;
 }
@@ -188,6 +188,7 @@ function sql(query) {
 /** Calls the API with a bearer token. */
 async function call(token, path, { method = 'GET', body } = {}) {
   const response = await fetch(api + path, { method, headers: {
+    'Swoovr-Version': '2026-10-28',
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const text = await response.text();

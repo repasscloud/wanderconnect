@@ -22,6 +22,11 @@ for relative in sorted(set(filter(None, paths))):
         continue
     if relative == 'docs/delivery/SWOOVR-RENAME-2026-10-22.md':
         continue  # Explicit before/after mapping and compatibility commands.
+    # D211: Swoovr source routes have stable paths; provider-owned URLs use their own conventions.
+    if relative.startswith('src/') and re.search(r'api/v[0-9]+(?:/|[\"\'])', content):
+        failures.append(f'{relative}: numerical Swoovr API URL version')
+    if relative.startswith('src/Swoovr.Api/') and re.search(r'Map(?:Group|Get|Post|Put|Delete|Patch|Methods)\(\s*"(?:/api)?/v[0-9]+(?:/|")', content):
+        failures.append(f'{relative}: numerical Swoovr endpoint prefix')
     if relative.startswith('docs/'):
         # These are actual external resources and historical local locations, not names to invent.
         content = re.sub(r'https://github\.com/repasscloud/' + r'wander' + r'connect\b[^\s)<>`]*', '', content)

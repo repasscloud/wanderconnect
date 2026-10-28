@@ -13,7 +13,7 @@ const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright')
 const { api, web, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, elevate } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
-const LE = '/api/v1/admin/law-enforcement';
+const LE = '/api/admin/law-enforcement';
 const AGENCY = 'Fictional SA Police Cybercrime Unit';
 const OFFICER = 'Detective Fictional Officer';
 
@@ -30,24 +30,24 @@ const OFFICER = 'Detective Fictional Officer';
     const tokens = {}, ids = {}, pid = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      pid[n] = (await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional LE ' + n, homeCityId: ADELAIDE } })).body.publicId;
+      pid[n] = (await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional LE ' + n, homeCityId: ADELAIDE } })).body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
-      await call(tokens[n], '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+      await call(tokens[n], '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
       await matchReady(tokens[n]);
     }
-    const req = await call(tokens.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.bob, mode: 'friends' } });
-    assert.equal((await call(tokens.bob, `/api/v1/requests/${req.body.id}/accept`, { method: 'POST' })).status, 200);
-    const convo = (await call(tokens.ana, '/api/v1/conversations', { method: 'POST', body: { to: pid.bob } })).body.id;
-    await call(tokens.ana, `/api/v1/conversations/${convo}/messages`, { method: 'POST', body: { text: 'Fictional message about a fictional meeting' } });
+    const req = await call(tokens.ana, '/api/requests', { method: 'POST', body: { to: pid.bob, mode: 'friends' } });
+    assert.equal((await call(tokens.bob, `/api/requests/${req.body.id}/accept`, { method: 'POST' })).status, 200);
+    const convo = (await call(tokens.ana, '/api/conversations', { method: 'POST', body: { to: pid.bob } })).body.id;
+    await call(tokens.ana, `/api/conversations/${convo}/messages`, { method: 'POST', body: { text: 'Fictional message about a fictional meeting' } });
 
     // Staff: three security and legal officers (A owns cases, B approves, C will be implicated), support and an admin.
     const staff = { a: await createStaff('le-a'), b: await createStaff('le-b'), c: await createStaff('le-c'), sup: await createStaff('le-sup'), adm: await createStaff('le-adm') };
     for (const [n, role] of [['a', 'legal'], ['b', 'legal'], ['c', 'legal'], ['sup', 'support'], ['adm', 'admin']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {};
     for (const n of Object.keys(staff)) st[n] = await staffToken(browser, staff[n]);
     const sid = {};
-    for (const n of Object.keys(staff)) await call(st[n], '/api/v1/session');
+    for (const n of Object.keys(staff)) await call(st[n], '/api/session');
     for (const n of Object.keys(staff)) sid[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`);
 
     // Only `legal` reaches cases.
@@ -96,7 +96,7 @@ const OFFICER = 'Detective Fictional Officer';
     assert.equal((await call(st.a, `${LE}/cases/${crypto.randomUUID()}`)).status, 404); pass();
 
     // A temporary police preservation hold needs independent verification first.
-    const tempHold = body => call(st.a, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional police preservation request', accountIds: [ids.ana, ids.bob], leCaseId: caseId, kind: 'police-preservation', lawfulBasis: 'Verified request before formal process', ...body } });
+    const tempHold = body => call(st.a, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional police preservation request', accountIds: [ids.ana, ids.bob], leCaseId: caseId, kind: 'police-preservation', lawfulBasis: 'Verified request before formal process', ...body } });
     assert.deepEqual(code(await tempHold({})), [409, 'le-not-verified']); pass();
     assert.deepEqual(code(await step(st.a, 'verify', { source: 'email', evidence: 'Came from a government address' })), [400, 'le-case-invalid'], 'an email alone never verifies'); pass();
     assert.deepEqual(code(await step(st.a, 'verify', { source: 'agency-switchboard', evidence: '' })), [400, 'le-case-invalid']); pass();
@@ -104,16 +104,16 @@ const OFFICER = 'Detective Fictional Officer';
     assert.equal(r.status, 200); assert.ok(r.body.verifiedAt); pass();
     assert.deepEqual(code(await tempHold({ reviewDue: new Date(Date.now() + 40 * 864e5).toISOString() })), [400, 'le-date-invalid']); pass();
     assert.deepEqual(code(await tempHold({ accountIds: [ids.cat] })), [400, 'hold-scope-invalid'], 'only the case\'s subjects'); pass();
-    assert.deepEqual(code(await call(st.a, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'x', accountIds: [ids.ana], kind: 'police-preservation' } })), [400, 'le-case-invalid']); pass();
+    assert.deepEqual(code(await call(st.a, '/api/admin/holds', { method: 'POST', body: { reason: 'x', accountIds: [ids.ana], kind: 'police-preservation' } })), [400, 'le-case-invalid']); pass();
     assert.deepEqual(code(await tempHold({ kind: 'forever' })), [400, 'le-case-invalid']); pass();
     r = await tempHold({});
     assert.equal(r.status, 201); pass();
     const tempId = r.body.id;
     assert.ok(Math.abs(new Date(r.body.reviewDue) - Date.now() - 30 * 864e5) < 3600e3, 'reviewed within 30 days'); pass();
-    r = await call(st.a, `/api/v1/admin/holds/${tempId}`);
+    r = await call(st.a, `/api/admin/holds/${tempId}`);
     assert.equal(r.body.kind, 'police-preservation'); assert.equal(r.body.leCaseId, caseId); assert.equal(r.body.requestingBody, AGENCY); pass();
-    assert.deepEqual(code(await call(st.a, `/api/v1/admin/holds/${tempId}/review`, { method: 'POST', body: { reviewDue: new Date(Date.now() + 45 * 864e5).toISOString() } })), [400, 'hold-dates-invalid'], 'extensions 30 days at a time'); pass();
-    assert.equal((await call(st.a, `/api/v1/admin/holds/${tempId}/review`, { method: 'POST', body: { reviewDue: new Date(Date.now() + 25 * 864e5).toISOString() } })).status, 200); pass();
+    assert.deepEqual(code(await call(st.a, `/api/admin/holds/${tempId}/review`, { method: 'POST', body: { reviewDue: new Date(Date.now() + 45 * 864e5).toISOString() } })), [400, 'hold-dates-invalid'], 'extensions 30 days at a time'); pass();
+    assert.equal((await call(st.a, `/api/admin/holds/${tempId}/review`, { method: 'POST', body: { reviewDue: new Date(Date.now() + 25 * 864e5).toISOString() } })).status, 200); pass();
 
     // Deciding: assessment, APP 6.5 note, separation of collector and approver.
     const requestId = (await call(st.a, `${LE}/cases/${caseId}`)).body.requests[0].id;
@@ -146,16 +146,16 @@ const OFFICER = 'Detective Fictional Officer';
     assert.deepEqual(code(await step(st.a, 'people', { accountId: sid.a, kind: 'implicated-staff' })), [400, 'le-case-invalid'], 'reassign before naming the owner'); pass();
     assert.equal((await step(st.a, 'people', { accountId: sid.c, kind: 'implicated-staff' })).status, 200); pass();
     assert.equal((await call(st.c, `${LE}/cases/${caseId}`)).status, 403); pass();
-    assert.equal((await call(st.c, `/api/v1/admin/holds/${tempId}`)).status, 403, 'nor the case\'s holds'); pass();
+    assert.equal((await call(st.c, `/api/admin/holds/${tempId}`)).status, 403, 'nor the case\'s holds'); pass();
     assert.ok(!(await call(st.c, LE + '/cases')).body.some(c => c.id === caseId), 'not listed'); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'le.refused-excluded' AND target_id = '${caseId}'`) > '0', true); pass();
     assert.deepEqual(code(await step(st.a, 'owner', { ownerId: sid.c })), [400, 'le-case-invalid'], 'implicated staff can\'t own it'); pass();
     assert.deepEqual(code(await step(st.a, 'owner', { ownerId: sid.adm })), [400, 'le-case-invalid'], 'owners are legal'); pass();
 
     // Exports for the case: a redacted disclosure copy, the original untouched, and a traceable correction.
-    const holdDetail = (await call(st.a, `/api/v1/admin/holds/${tempId}`)).body;
+    const holdDetail = (await call(st.a, `/api/admin/holds/${tempId}`)).body;
     const message = holdDetail.items.find(i => i.kind === 'message');
-    const exp = body => call(st.a, `/api/v1/admin/holds/${tempId}/exports`, { method: 'POST', body: { purpose: 'Fictional disclosure for the case', leCaseId: caseId, ...body } });
+    const exp = body => call(st.a, `/api/admin/holds/${tempId}/exports`, { method: 'POST', body: { purpose: 'Fictional disclosure for the case', leCaseId: caseId, ...body } });
     await elevate(st.a, 'evidence-export', 'Fictional disclosure for the case'); // #88
     assert.deepEqual(code(await exp({ leCaseId: critical })), [400, 'le-case-invalid'], 'the hold serves another case'); pass();
     assert.deepEqual(code(await exp({ redactions: [{ itemId: crypto.randomUUID(), fields: ['message.body'], reason: 'x' }] })), [400, 'le-case-invalid']); pass();
@@ -164,7 +164,7 @@ const OFFICER = 'Detective Fictional Officer';
     r = await exp({ redactions: [{ itemId: message.id, fields: ['message.body'], reason: 'Fictional: unrelated personal detail' }],
       disclosure: { agency: AGENCY, officer: OFFICER, reference: 'FICT-REF-1', legalBasis: 'app-6.2e', verifiedHow: 'Fictional switchboard callback' } });
     assert.equal(r.status, 201); pass();
-    const download = async token => (await fetch(api + `/api/v1/admin/evidence-exports/${token}`, { headers: { Authorization: 'Bearer ' + st.a } })).json();
+    const download = async token => (await fetch(api + `/api/admin/evidence-exports/${token}`, { headers: { Authorization: 'Bearer ' + st.a } })).json();
     const pkg = await download(r.body.token);
     const sha = s => crypto.createHash('sha256').update(Buffer.from(s, 'utf8')).digest('hex');
     const redacted = pkg.items.find(i => i.id === message.id);
@@ -192,7 +192,7 @@ const OFFICER = 'Detective Fictional Officer';
     r = await step(st.a, 'transfers', { exportId: firstExport, recipient: OFFICER + ' (verified)', method: 'secure-link' });
     assert.equal(r.status, 200); assert.equal(r.body.transfers[0].packageSha256, pkg.manifest.packageSha256); pass();
     const transferId = r.body.transfers[0].id;
-    assert.ok((await call(st.a, `/api/v1/admin/holds/${tempId}`)).body.custody.some(c => c.action === 'transferred')); pass();
+    assert.ok((await call(st.a, `/api/admin/holds/${tempId}`)).body.custody.some(c => c.action === 'transferred')); pass();
 
     // Closure: refused while anything is outstanding.
     r = await step(st.a, 'close', { note: 'Fictional closure', confirmObligations: true });
@@ -216,13 +216,13 @@ const OFFICER = 'Detective Fictional Officer';
 
     // Holds block admin deletion; purges fail closed when hold status can't be read.
     await sql(`UPDATE member_profiles SET id_status = 'Verified' WHERE account_id = '${ids.bob}'`);
-    r = await call(root, `/api/v1/admin/accounts/${ids.bob}/founder`, { method: 'POST' });
+    r = await call(root, `/api/admin/accounts/${ids.bob}/founder`, { method: 'POST' });
     if (r.status === 201) {
-      const token = (await call(root, `/api/v1/admin/founder-tokens?place=${r.body.place}`)).body[0];
-      assert.deepEqual(code(await call(root, `/api/v1/admin/founder-tokens/${token.id}`, { method: 'DELETE' })), [409, 'held-by-legal-hold']); pass();
+      const token = (await call(root, `/api/admin/founder-tokens?place=${r.body.place}`)).body[0];
+      assert.deepEqual(code(await call(root, `/api/admin/founder-tokens/${token.id}`, { method: 'DELETE' })), [409, 'held-by-legal-hold']); pass();
     } else console.log(`note: founder grant answered ${r.status} (${r.body?.code}); admin deletion check skipped`);
     tokens.ana = await memberToken(browser, members.ana);
-    assert.equal((await call(tokens.ana, '/api/v1/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
+    assert.equal((await call(tokens.ana, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
     process.env.Evidence__HoldCheckUnavailable = 'true';
     await assert.rejects(cli('accounts', 'purge'), /hold status unavailable/); pass();
     await assert.rejects(cli('messages', 'purge'), /hold status unavailable/); pass();
@@ -233,16 +233,16 @@ const OFFICER = 'Detective Fictional Officer';
     assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${tempId}' AND account_id = '${ids.ana}'`)) > 0, 'held records preserved'); pass();
 
     // Independent release after checking overlapping holds (§7).
-    r = await call(st.b, '/api/v1/admin/holds', { method: 'POST', body: { reason: 'Fictional overlapping hold', accountIds: [ids.bob] } });
+    r = await call(st.b, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional overlapping hold', accountIds: [ids.bob] } });
     const overlapping = r.body.id;
-    assert.deepEqual(code(await call(st.a, `/api/v1/admin/holds/${tempId}/release`, { method: 'POST', body: { reason: 'Fictional: formal process complete' } })), [403, 'hold-release-not-independent']); pass();
-    assert.equal((await call(st.a, `/api/v1/admin/holds/${tempId}`)).body.overlaps, 1); pass();
-    assert.deepEqual(code(await call(st.b, `/api/v1/admin/holds/${tempId}/release`, { method: 'POST', body: { reason: 'Fictional: formal process complete' } })), [409, 'hold-overlaps-unchecked']); pass();
-    r = await call(st.b, `/api/v1/admin/holds/${tempId}/release`, { method: 'POST', body: { reason: 'Fictional: formal process complete', overlapsChecked: true } });
+    assert.deepEqual(code(await call(st.a, `/api/admin/holds/${tempId}/release`, { method: 'POST', body: { reason: 'Fictional: formal process complete' } })), [403, 'hold-release-not-independent']); pass();
+    assert.equal((await call(st.a, `/api/admin/holds/${tempId}`)).body.overlaps, 1); pass();
+    assert.deepEqual(code(await call(st.b, `/api/admin/holds/${tempId}/release`, { method: 'POST', body: { reason: 'Fictional: formal process complete' } })), [409, 'hold-overlaps-unchecked']); pass();
+    r = await call(st.b, `/api/admin/holds/${tempId}/release`, { method: 'POST', body: { reason: 'Fictional: formal process complete', overlapsChecked: true } });
     assert.equal(r.status, 200); assert.equal(r.body.releasedBy, sid.b); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${overlapping}'`)) > 0, 'the overlapping hold keeps its own evidence'); pass();
-    assert.deepEqual(code(await call(st.b, `/api/v1/admin/holds/${overlapping}/release`, { method: 'POST', body: { reason: 'x' } })), [403, 'hold-release-not-independent']); pass();
-    assert.equal((await call(st.a, `/api/v1/admin/holds/${overlapping}/release`, { method: 'POST', body: { reason: 'Fictional: no longer needed' } })).status, 200); pass();
+    assert.deepEqual(code(await call(st.b, `/api/admin/holds/${overlapping}/release`, { method: 'POST', body: { reason: 'x' } })), [403, 'hold-release-not-independent']); pass();
+    assert.equal((await call(st.a, `/api/admin/holds/${overlapping}/release`, { method: 'POST', body: { reason: 'Fictional: no longer needed' } })).status, 200); pass();
 
     // Transparency (confidential cases left out, small counts suppressed) and the quarterly audit export (no case content).
     await open({ ...base, confidential: true, subjects: [ids.cat], request: { kind: 'preservation', description: 'Fictional confidential request' } });

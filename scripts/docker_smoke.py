@@ -25,7 +25,7 @@ def require(condition, message):
 
 require(json.loads(fetch('http://localhost:5080/health/live')) == {'status': 'ok'},
         'API liveness mismatch')
-status = json.loads(fetch('http://localhost:5080/api/v1/status'))
+status = json.loads(fetch('http://localhost:5080/api/status'))
 require(status == {'service': 'Swoovr.Api', 'stage': 'foundation'}, 'API status mismatch')
 require('Swoovr' in fetch('http://localhost:5081/'), 'Web shell missing')
 check_web_assets('http://localhost:5081/')

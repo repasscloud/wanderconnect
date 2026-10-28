@@ -2,6 +2,7 @@
 """Launch built portable hosts, assert HTTP responses, always clean up processes."""
 import base64
 import json
+import http.client
 import os
 from pathlib import Path
 import subprocess
@@ -31,7 +32,38 @@ try:
     api = start('Api',5187)
     web = start('Web',5188)
     with urllib.request.urlopen(api+'health/live') as r: assert json.load(r)=={'status':'ok'}
-    with urllib.request.urlopen(api+'api/v1/status') as r: assert json.load(r)=={'service':'Swoovr.Api','stage':'foundation'}
+    with urllib.request.urlopen(api+'api/status') as r: assert json.load(r)=={'service':'Swoovr.Api','stage':'foundation'}
+    # D211/D222: one fixed default, strict explicit dates; errors do not echo attacker input.
+    for version in [None, '2026-10-28']:
+        request = urllib.request.Request(api+'api/status', headers={} if version is None else {'Swoovr-Version': version})
+        with urllib.request.urlopen(request) as r:
+            assert r.headers['Swoovr-Version'] == '2026-10-28'
+            assert 'Swoovr-Version' in r.headers.get('Vary', '')
+    for version, code in [('v1', 'invalid-api-version'), ('2026-02-30', 'invalid-api-version'),
+                          ('2026-1-28', 'invalid-api-version'), ('2026-10-28, 2026-10-28', 'invalid-api-version'),
+                          ('2026-10-29', 'unsupported-api-version'), ('2020-01-01', 'unsupported-api-version')]:
+        request = urllib.request.Request(api+'api/status', headers={'Swoovr-Version': version})
+        try: urllib.request.urlopen(request); raise AssertionError('invalid version accepted')
+        except urllib.error.HTTPError as error:
+            assert error.code == 400
+            assert error.headers.get('Cache-Control') == 'no-store'
+            assert error.headers.get_content_type() == 'application/problem+json'
+            body = error.read().decode()
+            assert version not in body
+            assert json.loads(body) == {'code': code, 'supportedVersions': ['2026-10-28']}
+    duplicate = http.client.HTTPConnection('127.0.0.1', 5187)
+    duplicate.putrequest('GET', '/api/status')
+    duplicate.putheader('Swoovr-Version', '2026-10-28')
+    duplicate.putheader('Swoovr-Version', '2026-10-28')
+    duplicate.endheaders()
+    response = duplicate.getresponse()
+    assert response.status == 400 and json.load(response)['code'] == 'invalid-api-version'
+    duplicate.close()
+    try: urllib.request.urlopen(api+'api/v1/status'); raise AssertionError('legacy path still supported')
+    except urllib.error.HTTPError as error: assert error.code == 404
+    # Health and SignalR protocol paths have no date contract.
+    with urllib.request.urlopen(urllib.request.Request(api+'health/live', headers={'Swoovr-Version': 'invalid'})) as r:
+        assert r.status == 200
     with urllib.request.urlopen(web) as r:
         html = r.read().decode()
         assert 'Swoovr' in html and 'not connected' in html
@@ -39,7 +71,7 @@ try:
     # Without a token, or with a malformed one, the session endpoint is 401 and never 500.
     # The Basic value is random per run: a wrong scheme, never a stored credential.
     for header in [None, 'Bearer not.a.token', 'Bearer abc', 'Basic ' + base64.b64encode(os.urandom(12)).decode()]:
-        request = urllib.request.Request(api+'api/v1/session', headers={'Authorization': header} if header else {})
+        request = urllib.request.Request(api+'api/session', headers={'Authorization': header} if header else {})
         try: urllib.request.urlopen(request); raise AssertionError('session must require a valid token')
         except urllib.error.HTTPError as error: assert error.code == 401, (header, error.code)
     # An unconfigured web host keeps sign-in off and never redirects to a provider.

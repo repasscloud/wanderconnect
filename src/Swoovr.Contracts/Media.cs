@@ -2,7 +2,7 @@ namespace Swoovr.Contracts;
 
 /// <summary>
 /// One of the member's own photos (D203). State: `checking`, `in-review`, `approved`, `not-approved` (refused, for any
-/// reason) or `removed`. Link is a short-lived signed path (`api/v1/media/{token}`), only once approved.
+/// reason) or `removed`. Link is a short-lived signed path (`api/media/{token}`), only once approved.
 /// </summary>
 public sealed record MyPhotoView(Guid Id, string State, string? Link, DateTimeOffset CreatedAt, IReadOnlyList<string> Scopes, Guid? Replaces = null);
 

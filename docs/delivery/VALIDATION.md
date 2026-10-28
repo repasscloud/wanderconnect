@@ -759,3 +759,72 @@ Not run or not verified: real push (no APNs/FCM accounts, Q83; the simulated sen
 Branch `feature/swoovr-phase-zero-uat`, isolated worktree `.claude/worktrees/phase-zero-uat`, no upstream; base `ae41722`. Read GitHub comments for Q83–Q89, both issue 118 decisions and issue 106 governance via issue 119. Recorded D210–D221, marked Q83–Q89 ANSWERED and opened Q90 (issue 124); source requirements retained in OWNER-DECISIONS-2026-10-29.md.
 
 `./scripts/check.sh`: PASS, including Release build, design/naming/link/realm checks, Node checks, policy/client checks, 51 PostgreSQL persistence cases and three HTTP smoke suites. First attempt caught a `mailto:` link unsupported by the documentation checker; represented the source email as code and reran successfully. No browser suites or screenshots: documentation-only slice, no UI changes. No hosts were switched; no credentials or shared .local files changed. Owner decisions are not implementation evidence. No merge, deployment or Actions activation.
+
+## API contract dates — 29 October 2026 (D211, D222; Q83, issue 108)
+
+Worktree `.claude/worktrees/phase-zero-uat`, branch `feature/swoovr-phase-zero-uat`, base R0 `b6c48d4`, draft PR 125. This is the strategic roadmap §6 Phase 0, not a claim that the earlier foundation phase completes the private-beta milestone.
+
+Implemented stable API paths, central contract registry (`2026-10-28`), fixed missing-header selection, strict invalid/unsupported rejection before authentication/account mutations, selected response header/Vary, all typed clients and BFF forwarding, signed-media links and sensitive-access route classification. No old URL aliases. Third-party version paths remain intact. Current product/architecture/runbook examples migrated; dated decision/evidence/source quotations retain provenance. A source guard rejects numerical Swoovr URL versions.
+
+### Commands and results
+
+- Red: stable-path HTTP test returned 404 on the baseline; new contract checks failed compilation because ApiContract did not exist.
+- `./scripts/check.sh`: final PASS, Release build with zero warnings/errors, 15 date/client cases, existing policy/client/Node/design/naming/link/realm checks, 51 PostgreSQL persistence cases and three HTTP smoke suites. First migration pass caught the sensitive-access classifier's old path-segment indices; fixed and all classifier checks passed.
+- `python3 scripts/smoke.py`: PASS, including actual duplicate header lines, format/calendar errors, unsupported dates, fixed default, error content type/no-store/supported dates/no reflected input, health exclusion and legacy-path 404.
+- `dotnet build Swoovr.Local.sln -c Debug`, then `Phone__Required=false Accounts__ReauthSeconds=45 bash .local/run-hosts.sh`: PASS; web at localhost:5081. All browser suites ran sequentially, without rebuilding web/API while they ran. Edge with the runbook's Playwright path.
+- Android Debug: `JAVA_HOME="$HOME/Library/Developer/Java/jdk" ANDROID_HOME="$HOME/Library/Android/sdk" dotnet build src/Swoovr.Mobile -f net10.0-android -c Debug`: PASS, zero warnings/errors. iOS Debug: `dotnet build src/Swoovr.Mobile -f net10.0-ios -c Debug`: PASS, zero warnings/errors. No device UI run, physical-device or store evidence is claimed.
+- After the main batch, restored default worktree hosts with `bash .local/run-hosts.sh`; phone verification passed with the registration gate on.
+
+All 35 unique browser suites ultimately passed (table below). No rendered UI changes in this slice; existing fictional screenshots were captured by suites under `.local/phase-zero-api-shots`, not committed as new UI designs.
+
+| Suite run | Final result / checks |
+| --- | --- |
+| `tests/auth/root-admin.browser.cjs` | PASS — 9 |
+| `tests/api/versioning.browser.cjs` | PASS — 17 |
+| `tests/auth/accounts.browser.cjs` | PASS — 121 |
+| `tests/auth/members.browser.cjs` | PASS — 50 |
+| `tests/ui/components.browser.cjs` | PASS — PASS |
+| `tests/profiles/modes.browser.cjs` | PASS — 93 |
+| `tests/profiles/badges.browser.cjs` | PASS — 58 |
+| `tests/connections/requests.browser.cjs` | PASS — 104 |
+| `tests/travel/travel.browser.cjs` | PASS — 106 |
+| `tests/travel/traveller-search.browser.cjs` | PASS — 108 |
+| `tests/discovery/market.browser.cjs` | PASS — 148 |
+| `tests/discovery/matching.browser.cjs` | PASS — 80 |
+| `tests/moderation/moderation.browser.cjs` | PASS — 144 |
+| `tests/moderation/serious.browser.cjs` | PASS — 61 |
+| `tests/evidence/holds.browser.cjs` | PASS — 83 |
+| `tests/verification/identity.browser.cjs` | PASS — 38 |
+| `tests/verification/didit.browser.cjs` | PASS — 138 |
+| `tests/auth/mobile-client.browser.cjs` | PASS — 31 |
+| `tests/mobile/app-parity.browser.cjs` | PASS — 104 |
+| `tests/messaging/messaging.browser.cjs` | PASS — 111 |
+| `tests/accounts/deletion.browser.cjs` | PASS — 115 |
+| `tests/connections/lifecycle-privacy.browser.cjs` | PASS — 60 |
+| `tests/evidence/law-enforcement.browser.cjs` | PASS — 130 |
+| `tests/staff/access.browser.cjs` | PASS — 66 |
+| `tests/security/operations.browser.cjs` | PASS — 36 |
+| `tests/discovery/location-privacy.browser.cjs` | PASS — 28 |
+| `tests/privacy/notice.browser.cjs` | PASS — 10 |
+| `tests/media/photos.browser.cjs` | PASS — 119 |
+| `tests/safety/resources.browser.cjs` | PASS — 58 |
+| `tests/accessibility/pages.browser.cjs` | PASS — 19 |
+| `tests/notifications/notifications.browser.cjs` | PASS — 98 |
+| `tests/moderation/standing.browser.cjs` | PASS — 71 |
+| `tests/messaging/attachments.browser.cjs` | PASS — 98 |
+| `tests/accounts/phone.browser.cjs` | PASS — 52 (gate on) |
+| `tests/media/cleanup.browser.cjs` | PASS — 0 fictional objects left |
+
+### Failures, correction and review
+
+Initial members run failed because two dynamically composed Mailpit URLs were migrated accidentally; restored its provider-owned paths, rerun PASS (50). Initial profile-photo and chat-attachment suites raced asynchronous preservation: they read the member's refusal before its hold/escalation completed, and the attachment suite stopped its extra API during that work. Both now await hold linkage and escalation before asserting/stopping; reruns PASS (119 and 98). The first cleanup rerun kept one orphaned simulated-match object because an existing case lacked the new-case system flag. Cleanup now handles only simulated screener + fictional adult account + fictional-owned case + absent hold; ordinary purge still honours every active hold. Final cleanup: one remaining object deleted, zero kept, zero fictional objects left. Provider-screened blocked objects never qualify for this fixture repair.
+
+Independent read-only review found no actionable API migration correctness/security findings. Added its coverage suggestions and fixed its P2 cleanup-scope finding by requiring `screener = simulated`. Reviewer did not build, run suites or change hosts.
+
+Product recovery gap [issue 126](https://github.com/repasscloud/wanderconnect/issues/126): interrupted blocked-photo preservation/escalation needs durable idempotent recovery. Tests waiting correctly do not resolve that product gap; it remains in the retention/jobs and UAT-readiness queue. Serving/deletion remain fail closed.
+
+### Boundaries
+
+No merge, deployment, workflow activation, provider console change, real SMS/push or physical-device acceptance. Existing Didit destination must be configured to `/api/webhooks/didit` and a real signed delivery verified at authorised cutover; this run saw zero live deliveries, while the re-read and signed synthetic cases passed. APNs/FCM credentials, hosting Q90/issue 124 and legal review issue 57 remain owner-side gates. Shared .local configuration was not changed; generated logs/fictional fixtures were used (root-admin fixture backed up before testing).
+
+After testing: main remained clean at `ae41722`; `git pull --ff-only`, its Debug build and default hosts succeeded. The first launcher process was reaped after the tool session ended; relaunched the same main-checkout helper in a detached process session. Confirmed listeners on 5080/5081/5082 have working directories in main's `src/Swoovr.Api`, `src/Swoovr.Web` and `src/Swoovr.Admin`; main's original status route returned 200. No shared configuration edit was needed.

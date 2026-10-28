@@ -25,7 +25,7 @@ public static partial class MarketEndpoints
 
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
 
         // Rule 37: members outside every open market can ask to hear when theirs launches.
         api.MapPut("/me/market-interest", async (MarketInterestUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
@@ -53,7 +53,7 @@ public static partial class MarketEndpoints
             return Results.NoContent();
         });
 
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
         admin.MapGet("/markets", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {

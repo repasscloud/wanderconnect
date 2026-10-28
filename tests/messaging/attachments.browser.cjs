@@ -53,64 +53,64 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('att-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
     const tk = {}, id = {}, pid = {};
-    const modes = (await (async () => { const t = await memberToken(browser, members.ana); tk.ana = t; return (await call(t, '/api/v1/modes')).body; })());
+    const modes = (await (async () => { const t = await memberToken(browser, members.ana); tk.ana = t; return (await call(t, '/api/modes')).body; })());
     const chips = Object.fromEntries(modes.map(m => [m.id, m.intentions.map(i => i.id)]));
     for (const n of names) {
       tk[n] ??= await memberToken(browser, members[n]);
-      const saved = await call(tk[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Att ' + n, homeCityId: ADELAIDE } });
+      const saved = await call(tk[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Att ' + n, homeCityId: ADELAIDE } });
       pid[n] = saved.body.publicId;
       id[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tk[n]).sub}'`);
       accounts.push(id[n]);
       if (n === 'bot') continue;
-      for (const mode of ['dating', 'friends', 'activities']) await call(tk[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
+      for (const mode of ['dating', 'friends', 'activities']) await call(tk[n], `/api/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       await matchReady(tk[n]);
     }
     // Chips: Ana and Ben share friends[0] and dating[0]; friends[1] is only Ana's; activities[0] is shared but they aren't connected there.
-    const pick = (who, mode, list) => call(tk[who], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true, intentions: list } });
+    const pick = (who, mode, list) => call(tk[who], `/api/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true, intentions: list } });
     await pick('ana', 'friends', [chips.friends[0], chips.friends[1]]); await pick('ben', 'friends', [chips.friends[0], chips.friends[2]]);
     await pick('ana', 'dating', [chips.dating[0]]); await pick('ben', 'dating', [chips.dating[0]]);
     await pick('ana', 'activities', [chips.activities[0]]); await pick('ben', 'activities', [chips.activities[0]]);
-    await call(root, `/api/v1/admin/accounts/${id.bot}/bot`, { method: 'PUT', body: { bot: true } });
-    await call(root, `/api/v1/admin/accounts/${id.bot}/bot-markets`, { method: 'PUT', body: { markets: ['adelaide'] } });
-    await call(root, `/api/v1/admin/accounts/${id.bot}/bot-modes`, { method: 'PUT', body: { modes: ['friends'] } });
-    await call(tk.bot, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(root, `/api/admin/accounts/${id.bot}/bot`, { method: 'PUT', body: { bot: true } });
+    await call(root, `/api/admin/accounts/${id.bot}/bot-markets`, { method: 'PUT', body: { markets: ['adelaide'] } });
+    await call(root, `/api/admin/accounts/${id.bot}/bot-modes`, { method: 'PUT', body: { modes: ['friends'] } });
+    await call(tk.bot, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
     const connect = async (from, to, mode = 'friends') => {
-      const r = await call(tk[from], '/api/v1/requests', { method: 'POST', body: { to: pid[to], mode } });
+      const r = await call(tk[from], '/api/requests', { method: 'POST', body: { to: pid[to], mode } });
       assert.equal(r.status, 201, `${from}->${to} ${JSON.stringify(r.body)}`);
-      assert.equal((await call(tk[to], `/api/v1/requests/${r.body.id}/accept`, { method: 'POST' })).status, 200);
+      assert.equal((await call(tk[to], `/api/requests/${r.body.id}/accept`, { method: 'POST' })).status, 200);
     };
     for (const other of ['ben', 'dee', 'res', 'eve', 'bot']) await connect('ana', other);
-    const start = async (who, to) => (await call(tk[who], '/api/v1/conversations', { method: 'POST', body: { to: pid[to] } })).body.id;
+    const start = async (who, to) => (await call(tk[who], '/api/conversations', { method: 'POST', body: { to: pid[to] } })).body.id;
     const ab = await start('ana', 'ben'), ad = await start('ana', 'dee'), ar = await start('ana', 'res'), ae = await start('ana', 'eve'), abot = await start('ana', 'bot');
-    const list = async (who, c) => (await call(tk[who], `/api/v1/conversations/${c}/messages`)).body?.items ?? [];
+    const list = async (who, c) => (await call(tk[who], `/api/conversations/${c}/messages`)).body?.items ?? [];
     const staff = { adm: await createStaff('att-adm'), sup: await createStaff('att-sup'), leg: await createStaff('att-leg') };
     for (const [n, role] of [['adm', 'admin'], ['sup', 'support'], ['leg', 'legal']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {};
-    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/v1/session'); }
+    for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); }
 
     // ---- Starters: only chips both picked in a mode they're connected in, at most three.
-    let r = await call(tk.ana, `/api/v1/conversations/${ab}/starters`);
+    let r = await call(tk.ana, `/api/conversations/${ab}/starters`);
     const label = (mode, i) => modes.find(m => m.id === mode).intentions.find(x => x.id === chips[mode][i]).label;
     assert.deepEqual(r.body.map(s => s.chip), [label('friends', 0)]); pass(); // not friends[1] (only Ana's), not activities (not connected there)
     assert.ok(r.body[0].text.includes(`“${label('friends', 0)}”`)); pass();
     await connect('ben', 'ana', 'dating');
-    r = await call(tk.ben, `/api/v1/conversations/${ab}/starters`);
+    r = await call(tk.ben, `/api/conversations/${ab}/starters`);
     assert.deepEqual(r.body.map(s => s.chip).sort(), [label('dating', 0), label('friends', 0)].sort()); pass();
-    assert.deepEqual(code(await call(tk.cam, `/api/v1/conversations/${ab}/starters`)), [404, 'not-available']); pass();
+    assert.deepEqual(code(await call(tk.cam, `/api/conversations/${ab}/starters`)), [404, 'not-available']); pass();
 
     // ---- Refusals before anything is stored.
     const jpeg = await synthetic(canvas, { kind: 'gradient', type: 'image/jpeg', width: 640, height: 480, seed: 41, label: 'SWOOVR CHAT TEST' });
-    const send = (who, c, bytes = jpeg, opts = {}) => upload(`${api}/api/v1/conversations/${c}/photos`, bytes, { token: tk[who], ...opts });
+    const send = (who, c, bytes = jpeg, opts = {}) => upload(`${api}/api/conversations/${c}/photos`, bytes, { token: tk[who], ...opts });
     const before = await sql(`SELECT count(*) FROM media_items WHERE account_id = '${id.ana}'`);
-    assert.equal((await upload(`${api}/api/v1/conversations/${ab}/photos`, jpeg, {})).status, 401); pass();
-    assert.equal((await upload(`${api}/api/v1/conversations/${ab}/photos`, jpeg, { token: st.sup })).status, 403); pass();
+    assert.equal((await upload(`${api}/api/conversations/${ab}/photos`, jpeg, {})).status, 401); pass();
+    assert.equal((await upload(`${api}/api/conversations/${ab}/photos`, jpeg, { token: st.sup })).status, 403); pass();
     assert.deepEqual(code(await send('cam', ab)), [404, 'not-available']); pass(); // someone else's conversation
     assert.deepEqual(code(await send('ana', '00000000-0000-0000-0000-000000000000')), [404, 'not-available']); pass();
     assert.deepEqual(code(await send('ana', ab, Buffer.from('GIF89a' + 'x'.repeat(400)), { type: 'image/gif', name: 'x.gif' })), [415, 'photo-unsupported']); pass();
     assert.deepEqual(code(await send('ana', ab, await synthetic(canvas, { kind: 'solid', width: 100, height: 100, type: 'image/png' }), { type: 'image/png', name: 'x.png' })), [400, 'photo-invalid']); pass();
-    assert.deepEqual(code(await call(tk.ana, `/api/v1/conversations/${ab}/photos`, { method: 'POST', body: { file: 'x' } })), [400, 'photo-invalid']); pass();
-    assert.equal((await call(tk.dee, '/api/v1/me/notification-settings', { method: 'PUT', body: { chatPhotos: false } })).status, 200);
+    assert.deepEqual(code(await call(tk.ana, `/api/conversations/${ab}/photos`, { method: 'POST', body: { file: 'x' } })), [400, 'photo-invalid']); pass();
+    assert.equal((await call(tk.dee, '/api/me/notification-settings', { method: 'PUT', body: { chatPhotos: false } })).status, 200);
     assert.deepEqual(code(await send('ana', ad)), [409, 'photos-off']); pass();
     assert.deepEqual(code(await send('bot', abot)), [403, 'bot-cannot-initiate']); pass(); // bots only reply
     assert.equal(await sql(`SELECT count(*) FROM media_items WHERE account_id = '${id.ana}'`), before); pass();
@@ -124,7 +124,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     const own = async () => (await list('ana', ab)).find(m => m.id === first);
     assert.ok(await waitFor(async () => (await own())?.photoState === 'approved'), 'screened and approved'); pass();
     const mine = await own();
-    assert.ok(mine.photo?.link?.startsWith('api/v1/media/')); pass();
+    assert.ok(mine.photo?.link?.startsWith('api/media/')); pass();
     const seen = (await list('ben', ab)).find(m => m.id === first);
     assert.deepEqual([seen.kind, seen.mine, seen.photoState, seen.photo.id], ['photo', false, null, firstMedia]); pass(); // no state for the recipient
     assert.deepEqual(Object.keys(seen).sort(), ['canDelete', 'conversationId', 'deleted', 'id', 'kind', 'mine', 'photo', 'photoState', 'sentAt', 'text']); pass(); // no read receipts or presence
@@ -133,15 +133,15 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     const bytes = Buffer.from(await image.arrayBuffer());
     assert.ok(!bytes.includes(Buffer.from('SWOOVRGPS')) && !bytes.includes(Buffer.from('Exif'))); pass(); // stripped
     assert.equal((await fetch(`${api}/${seen.photo.link.replace(/.$/, c => c === 'A' ? 'B' : 'A')}`)).status, 404); pass(); // tampered link
-    assert.ok(await waitFor(async () => (await call(tk.ben, '/api/v1/me/notifications')).body.items.some(i => i.kind === 'message' && i.link === `/chats/${ab}`), 10000)); pass();
+    assert.ok(await waitFor(async () => (await call(tk.ben, '/api/me/notifications')).body.items.some(i => i.kind === 'message' && i.link === `/chats/${ab}`), 10000)); pass();
     // Never a profile photo.
-    assert.ok(!(await call(tk.ana, '/api/v1/me/photos')).body.photos.some(p => p.id === firstMedia)); pass();
-    assert.deepEqual(code(await call(tk.ana, '/api/v1/me/photos/placement', { method: 'PUT', body: { scope: 'main', mediaIds: [firstMedia] } })), [409, 'photo-not-approved']); pass();
-    assert.deepEqual(code(await call(tk.ana, `/api/v1/me/photos/${firstMedia}`, { method: 'DELETE' })), [404, 'unknown-photo']); pass();
-    assert.deepEqual(code(await call(tk.cam, `/api/v1/conversations/${ab}/messages`)), [404, 'not-available']); pass();
+    assert.ok(!(await call(tk.ana, '/api/me/photos')).body.photos.some(p => p.id === firstMedia)); pass();
+    assert.deepEqual(code(await call(tk.ana, '/api/me/photos/placement', { method: 'PUT', body: { scope: 'main', mediaIds: [firstMedia] } })), [409, 'photo-not-approved']); pass();
+    assert.deepEqual(code(await call(tk.ana, `/api/me/photos/${firstMedia}`, { method: 'DELETE' })), [404, 'unknown-photo']); pass();
+    assert.deepEqual(code(await call(tk.cam, `/api/conversations/${ab}/messages`)), [404, 'not-available']); pass();
 
     // ---- Restricted members: can't send, and can't be sent to.
-    await call(root, `/api/v1/admin/accounts/${id.res}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction for the attachments suite.', days: 2 } });
+    await call(root, `/api/admin/accounts/${id.res}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction for the attachments suite.', days: 2 } });
     assert.deepEqual(code(await send('res', ar)), [403, 'account-restricted']); pass();
     assert.deepEqual(code(await send('ana', ar)), [404, 'not-available']); pass();
 
@@ -149,12 +149,12 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     r = await send('ana', ab, await synthetic(canvas, { kind: 'noise', type: 'image/jpeg', seed: 42 }));
     const second = r.body.id;
     assert.ok(await waitFor(async () => (await list('ben', ab)).some(m => m.id === second))); pass();
-    assert.equal((await call(tk.ben, `/api/v1/messages/${second}/hide`, { method: 'POST' })).status, 204);
+    assert.equal((await call(tk.ben, `/api/messages/${second}/hide`, { method: 'POST' })).status, 204);
     assert.ok(!(await list('ben', ab)).some(m => m.id === second) && (await list('ana', ab)).some(m => m.id === second)); pass();
     r = await send('ana', ab, await synthetic(canvas, { kind: 'text', type: 'image/jpeg', seed: 43 }));
     const third = r.body.id, thirdMedia = await sql(`SELECT media_id FROM messages WHERE id = '${third}'`);
     assert.ok(await waitFor(async () => (await list('ben', ab)).some(m => m.id === third))); pass();
-    assert.equal((await call(tk.ana, `/api/v1/messages/${third}`, { method: 'DELETE' })).status, 204);
+    assert.equal((await call(tk.ana, `/api/messages/${third}`, { method: 'DELETE' })).status, 204);
     for (const who of ['ana', 'ben']) {
       const m = (await list(who, ab)).find(x => x.id === third);
       assert.deepEqual([m.deleted, m.photo, m.photoState], [true, null, null], who); pass();
@@ -173,14 +173,14 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     assert.equal(await sql(`SELECT count(*) FROM media_items WHERE id = '${thirdMedia}' AND object_key IS NOT NULL`), '0'); pass(); // object deleted (the removed row goes too)
 
     // ---- Report evidence: the photo is selectable like any message; an admin opens it for the case with a purpose.
-    const cats = (await call(tk.ben, '/api/v1/report-categories')).body;
-    r = await call(tk.ben, '/api/v1/reports', { method: 'POST', body: { subjectType: 'conversation', subjectId: ab, category: cats[cats.length - 1].id, block: false, messageIds: [first, second] } });
+    const cats = (await call(tk.ben, '/api/report-categories')).body;
+    r = await call(tk.ben, '/api/reports', { method: 'POST', body: { subjectType: 'conversation', subjectId: ab, category: cats[cats.length - 1].id, block: false, messageIds: [first, second] } });
     assert.equal(r.status, 201, JSON.stringify(r.body));
     const caseId = await sql(`SELECT case_id FROM reports WHERE id = '${r.body.id}'`);
     const snapshot = await sql(`SELECT snapshot FROM case_evidence WHERE report_id = '${r.body.id}'`);
     const firstSha = await sql(`SELECT encode(sha256, 'hex') FROM media_items WHERE id = '${firstMedia}'`);
     assert.ok(snapshot.includes(`"photo":"${firstMedia}"`) && snapshot.includes(`"photoSha256":"${firstSha}"`)); pass();
-    const caseView = (token, media, body) => call(token, `/api/v1/admin/media/${media}/case-view`, { method: 'POST', body });
+    const caseView = (token, media, body) => call(token, `/api/admin/media/${media}/case-view`, { method: 'POST', body });
     assert.equal((await caseView(st.sup, firstMedia, { caseId, purpose: 'Fictional check' })).status, 403); pass();
     assert.equal((await caseView(tk.ben, firstMedia, { caseId, purpose: 'Fictional check' })).status, 403); pass();
     assert.deepEqual(code(await caseView(st.adm, firstMedia, { caseId })), [400, 'purpose-required']); pass();
@@ -205,21 +205,26 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
 
     // ---- Uncertain (labelled simulation on an extra API): the review queue, invisible until an admin approves.
     await extraApi({ Media__Screening__Simulate: 'uncertain', Media__Screening__Worker: 'true' });
-    r = await upload(`${EXTRA}/api/v1/conversations/${ab}/photos`, await synthetic(canvas, { kind: 'gradient', type: 'image/jpeg', seed: 44 }), { token: tk.ana });
+    r = await upload(`${EXTRA}/api/conversations/${ab}/photos`, await synthetic(canvas, { kind: 'gradient', type: 'image/jpeg', seed: 44 }), { token: tk.ana });
     assert.equal(r.status, 202); pass();
     const unsure = r.body.id, unsureMedia = await sql(`SELECT media_id FROM messages WHERE id = '${unsure}'`);
     assert.ok(await waitFor(async () => (await list('ana', ab)).find(m => m.id === unsure)?.photoState === 'in-review')); pass();
     assert.ok(!(await list('ben', ab)).some(m => m.id === unsure)); pass();
-    const queue = (await call(st.adm, '/api/v1/admin/media/review')).body.items.find(i => i.id === unsureMedia);
+    const queue = (await call(st.adm, '/api/admin/media/review')).body.items.find(i => i.id === unsureMedia);
     assert.deepEqual([queue?.purpose, queue?.accountId], ['attachment', id.ana]); pass();
-    assert.equal((await call(st.adm, `/api/v1/admin/media/${unsureMedia}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 200);
+    assert.equal((await call(st.adm, `/api/admin/media/${unsureMedia}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 200);
     assert.ok(await waitFor(async () => (await list('ben', ab)).some(m => m.id === unsure && m.photo))); pass();
 
     // ---- Blocked (labelled simulation): sealed, held, escalated with ids only; reads as not approved; nobody can view it.
     await extraApi({ Media__Screening__Simulate: 'blocked' });
-    r = await upload(`${EXTRA}/api/v1/conversations/${ab}/photos`, await synthetic(canvas, { kind: 'solid', type: 'image/jpeg', seed: 45, width: 400, height: 400 }), { token: tk.ana });
+    r = await upload(`${EXTRA}/api/conversations/${ab}/photos`, await synthetic(canvas, { kind: 'solid', type: 'image/jpeg', seed: 45, width: 400, height: 400 }), { token: tk.ana });
     const bad = r.body.id, badMedia = await sql(`SELECT media_id FROM messages WHERE id = '${bad}'`);
     assert.ok(await waitFor(async () => (await list('ana', ab)).find(m => m.id === bad)?.photoState === 'not-approved')); pass();
+    // The refusal is visible before hold capture/escalation finishes; don't kill the worker midway through preservation.
+    assert.ok(await waitFor(async () => await sql(`SELECT count(*) FROM media_items WHERE id = '${badMedia}' AND hold_id IS NOT NULL AND case_id IS NOT NULL`) === '1'), 'blocked chat photo hold linked');
+    const escalationCase = await sql(`SELECT case_id FROM media_items WHERE id = '${badMedia}'`);
+    const escalationAddress = await localEnv('SWOOVR_ESCALATION_EMAIL');
+    assert.ok(await waitFor(async () => (await mailTo(escalationAddress)).some(t => t.includes(escalationCase))), 'blocked chat photo escalation completed');
     await stopExtra();
     assert.ok(!(await list('ben', ab)).some(m => m.id === bad)); pass();
     const [status, objectKey, blockedCase, holdId] = (await sql(`SELECT status, object_key, case_id, hold_id FROM media_items WHERE id = '${badMedia}'`)).split('|');
@@ -230,11 +235,11 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}' AND kind = 'media-item'`)) >= 3, 'the hold captures the chat photos'); pass();
     const escalation = (await mailTo(await localEnv('SWOOVR_ESCALATION_EMAIL'))).find(t => t.includes(blockedCase));
     assert.ok(escalation && !escalation.includes(id.ana) && !escalation.includes('Fictional')); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/media/${badMedia}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo']); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/media/${badMedia}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo']); pass();
     assert.deepEqual(code(await caseView(st.adm, badMedia, { caseId: blockedCase, purpose: 'x' })), [404, 'unknown-photo']); pass();
-    assert.ok((await call(tk.ana, '/api/v1/me/standing')).body.decisions.some(d => d.kind === 'photo-not-approved')); pass();
+    assert.ok((await call(tk.ana, '/api/me/standing')).body.decisions.some(d => d.kind === 'photo-not-approved')); pass();
     // Under the hold, a deleted chat photo is kept past 30 days.
-    assert.equal((await call(tk.ana, `/api/v1/messages/${unsure}`, { method: 'DELETE' })).status, 204);
+    assert.equal((await call(tk.ana, `/api/messages/${unsure}`, { method: 'DELETE' })).status, 204);
     await sql(`UPDATE messages SET deleted_at = now() - interval '31 days' WHERE id = '${unsure}'`);
     out = await cli('messages', 'purge');
     assert.notEqual(await sql(`SELECT status FROM media_items WHERE id = '${unsureMedia}'`), 'Removed'); pass();
@@ -249,7 +254,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
 
     // ---- Export: Ana's own chat photos with images (approved only); Ben's chats list them without Ana's images.
     tk.ana = await memberToken(browser, members.ana);
-    r = await call(tk.ana, '/api/v1/me/export', { method: 'POST' });
+    r = await call(tk.ana, '/api/me/export', { method: 'POST' });
     const exported = await (await fetch(`${api}/${r.body.path}`, { headers: { Authorization: 'Bearer ' + tk.ana } })).json();
     const firstExport = exported.chatPhotos.find(p => p.id === firstMedia);
     assert.deepEqual([firstExport.state, firstExport.sha256, firstExport.conversation], ['approved', firstSha, ab]); pass();
@@ -258,7 +263,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     assert.equal(exported.chatPhotos.find(p => p.id === badMedia).state, 'not-approved'); pass();
     assert.ok(!exported.photos.some(p => p.id === firstMedia)); pass(); // not a profile photo
     tk.ben = await memberToken(browser, members.ben);
-    r = await call(tk.ben, '/api/v1/me/export', { method: 'POST' });
+    r = await call(tk.ben, '/api/me/export', { method: 'POST' });
     const benExport = await (await fetch(`${api}/${r.body.path}`, { headers: { Authorization: 'Bearer ' + tk.ben } })).json();
     const benChat = benExport.conversations.find(c => c.messages.some(m => m.photo === firstMedia));
     assert.ok(benChat && !benChat.messages.some(m => m.photo === badMedia) && benExport.chatPhotos.length === 0); pass();
@@ -292,20 +297,20 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     await anaPage.$eval('[data-end-confirm]', el => el.click());
     await anaPage.waitForSelector('[data-chat-status="ended"]'); pass();
     await anaContext.close();
-    assert.equal((await call(tk.eve, `/api/v1/conversations/${ae}`)).body.canSend, false); pass();
+    assert.equal((await call(tk.eve, `/api/conversations/${ae}`)).body.canSend, false); pass();
 
     // ---- Ending politely (API): a fixed closing message, every mode disconnected, the chat read-only for both.
-    assert.deepEqual(code(await call(tk.ana, `/api/v1/conversations/${ab}/end`, { method: 'POST', body: { closing: 'you are awful' } })), [400, 'invalid-closing']); pass();
-    assert.deepEqual(code(await call(tk.cam, `/api/v1/conversations/${ab}/end`, { method: 'POST', body: { closing: null } })), [404, 'not-available']); pass();
-    r = await call(tk.ben, `/api/v1/conversations/${ab}/end`, { method: 'POST', body: { closing: 'thanks' } });
+    assert.deepEqual(code(await call(tk.ana, `/api/conversations/${ab}/end`, { method: 'POST', body: { closing: 'you are awful' } })), [400, 'invalid-closing']); pass();
+    assert.deepEqual(code(await call(tk.cam, `/api/conversations/${ab}/end`, { method: 'POST', body: { closing: null } })), [404, 'not-available']); pass();
+    r = await call(tk.ben, `/api/conversations/${ab}/end`, { method: 'POST', body: { closing: 'thanks' } });
     assert.deepEqual([r.status, r.body.canSend], [200, false]); pass();
     const last = (await list('ana', ab))[0]; // newest first
     assert.deepEqual([last.mine, last.text], [false, "Thanks for chatting. I'm going to end our conversation here. All the best."]); pass();
     assert.equal(await sql(`SELECT string_agg(status, ',' ORDER BY mode_id) FROM connection_requests WHERE pair_low = least('${id.ana}'::uuid, '${id.ben}'::uuid) AND pair_high = greatest('${id.ana}'::uuid, '${id.ben}'::uuid) AND status IN ('Accepted', 'Disconnected')`),
       'Disconnected,Disconnected'); pass();
     assert.deepEqual(code(await send('ana', ab)), [404, 'not-available']); pass();
-    assert.deepEqual(code(await call(tk.ana, `/api/v1/conversations/${ab}/messages`, { method: 'POST', body: { text: 'hi' } })), [404, 'not-available']); pass();
-    assert.deepEqual(code(await call(tk.ana, '/api/v1/requests', { method: 'POST', body: { to: pid.ben, mode: 'friends' } })), [409, 'recently-disconnected']); pass();
+    assert.deepEqual(code(await call(tk.ana, `/api/conversations/${ab}/messages`, { method: 'POST', body: { text: 'hi' } })), [404, 'not-available']); pass();
+    assert.deepEqual(code(await call(tk.ana, '/api/requests', { method: 'POST', body: { to: pid.ben, mode: 'friends' } })), [409, 'recently-disconnected']); pass();
     assert.ok((await list('ana', ab)).some(m => m.id === first && m.photo)); pass(); // history stays readable
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'conversation.ended' AND target_id = '${ab}' AND detail = 'thanks'`), '1'); pass();
 
@@ -316,7 +321,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     const eveMedia = await sql(`SELECT media_id FROM messages WHERE id = '${r.body.id}'`);
     assert.ok(await waitFor(async () => await sql(`SELECT status FROM media_items WHERE id = '${eveMedia}'`) === 'Passed')); pass();
     tk.eve = await memberToken(browser, members.eve);
-    assert.equal((await call(tk.eve, '/api/v1/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
+    assert.equal((await call(tk.eve, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
     run = await purge();
     assert.equal(await sql(`SELECT count(*) FROM media_items WHERE id = '${eveMedia}' AND object_key IS NOT NULL`), '0'); pass();
     assert.ok(!(await list('ana', ea)).some(m => m.kind === 'photo')); pass();
@@ -325,7 +330,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
 
     // ---- Clean up the owner's bucket: release the hold (a legal officer who didn't place it), remove the suite's photos, purge.
     for (const hold of holdIds) {
-      r = await call(st.leg, `/api/v1/admin/holds/${hold}/release`, { method: 'POST', body: { reason: 'Fictional acceptance test finished', overlapsChecked: true } });
+      r = await call(st.leg, `/api/admin/holds/${hold}/release`, { method: 'POST', body: { reason: 'Fictional acceptance test finished', overlapsChecked: true } });
       assert.equal(r.status, 200, JSON.stringify(r.body));
     }
     holdIds = [];

@@ -17,7 +17,7 @@ public static class MatchingEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
         api.MapGet("/profile-options", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (_, denied) = await MemberAsync(user, accounts, cancellationToken);
