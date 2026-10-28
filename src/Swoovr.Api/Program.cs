@@ -18,6 +18,8 @@ builder.Services.AddSwoovrProviders(builder.Configuration);
 Swoovr.Api.Media.MediaSetup.AddSwoovrMedia(builder.Services, builder.Configuration, builder.Environment, persistence);
 builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
     builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
+// #49: travel reminders, written by the API's own worker (with a database).
+if (persistence) builder.Services.AddHostedService<Swoovr.Api.Notifications.NotificationWorker>();
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
@@ -51,10 +53,12 @@ Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
+Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);
 Swoovr.Api.Safety.SafetyEndpoints.Map(app);
+Swoovr.Api.Notifications.NotificationEndpoints.Map(app);
 Swoovr.Api.Prototype.PrototypeDiscovery.Map(app);
 Swoovr.Api.Prototype.PrototypeConversations.Map(app);
 app.Run();

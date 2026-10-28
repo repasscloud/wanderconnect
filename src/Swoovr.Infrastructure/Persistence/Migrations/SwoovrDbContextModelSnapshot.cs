@@ -2428,6 +2428,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("content_type");
 
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2466,6 +2470,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("policy_version");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("purpose");
 
                     b.Property<DateTimeOffset?>("RemovedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2528,6 +2537,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_media_items");
+
+                    b.HasIndex("ConversationId")
+                        .HasDatabaseName("ix_media_items_conversation_id");
 
                     b.HasIndex("Sha256")
                         .HasDatabaseName("ix_media_items_sha256");
@@ -2991,6 +3003,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("kind");
 
+                    b.Property<Guid?>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
                     b.Property<Guid>("SenderAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("sender_account_id");
@@ -3001,6 +3017,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_messages");
+
+                    b.HasIndex("MediaId")
+                        .HasDatabaseName("ix_messages_media_id");
 
                     b.HasIndex("ConversationId", "SentAt")
                         .HasDatabaseName("ix_messages_conversation_id_sent_at");
@@ -3539,6 +3558,195 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("moderation_cases");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid?>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DedupeKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("dedupe_key");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
+
+                    b.HasIndex("AccountId", "DedupeKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notifications_account_id_dedupe_key")
+                        .HasFilter("dedupe_key IS NOT NULL");
+
+                    b.HasIndex("AccountId", "UpdatedAt")
+                        .HasDatabaseName("ix_notifications_account_id_updated_at");
+
+                    b.ToTable("notifications");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NotificationDelivery", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid?>("DeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_id");
+
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("notification_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notification_deliveries");
+
+                    b.HasIndex("NotificationId")
+                        .HasDatabaseName("ix_notification_deliveries_notification_id");
+
+                    b.ToTable("notification_deliveries");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NotificationModeMute", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.HasKey("AccountId", "ModeId")
+                        .HasName("pk_notification_mode_mutes");
+
+                    b.HasIndex("ModeId")
+                        .HasDatabaseName("ix_notification_mode_mutes_mode_id");
+
+                    b.ToTable("notification_mode_mutes");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NotificationSettings", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<bool>("ChatPhotos")
+                        .HasColumnType("boolean")
+                        .HasColumnName("chat_photos");
+
+                    b.Property<bool>("Connections")
+                        .HasColumnType("boolean")
+                        .HasColumnName("connections");
+
+                    b.Property<bool>("Email")
+                        .HasColumnType("boolean")
+                        .HasColumnName("email");
+
+                    b.Property<bool>("Messages")
+                        .HasColumnType("boolean")
+                        .HasColumnName("messages");
+
+                    b.Property<bool>("PrivatePreviews")
+                        .HasColumnType("boolean")
+                        .HasColumnName("private_previews");
+
+                    b.Property<bool>("Push")
+                        .HasColumnType("boolean")
+                        .HasColumnName("push");
+
+                    b.Property<TimeOnly?>("QuietFrom")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("quiet_from");
+
+                    b.Property<TimeOnly?>("QuietUntil")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("quiet_until");
+
+                    b.Property<bool>("Requests")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requests");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("time_zone");
+
+                    b.Property<bool>("Travel")
+                        .HasColumnType("boolean")
+                        .HasColumnName("travel");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_notification_settings");
+
+                    b.ToTable("notification_settings");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.PhoneCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3784,6 +3992,47 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("profile_versions");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.PushDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("platform");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("token");
+
+                    b.HasKey("Id")
+                        .HasName("pk_push_devices");
+
+                    b.HasIndex("AccountId", "Token")
+                        .IsUnique()
+                        .HasDatabaseName("ix_push_devices_account_id_token");
+
+                    b.ToTable("push_devices");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Report", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3839,6 +4088,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("subject_type");
 
+                    b.Property<string>("SupportReference")
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)")
+                        .HasColumnName("support_reference");
+
                     b.Property<string>("Text")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -3855,6 +4109,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SubjectAccountId")
                         .HasDatabaseName("ix_reports_subject_account_id");
+
+                    b.HasIndex("SupportReference")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reports_support_reference")
+                        .HasFilter("support_reference IS NOT NULL");
 
                     b.HasIndex("ReporterAccountId", "CreatedAt")
                         .HasDatabaseName("ix_reports_reporter_account_id_created_at");
@@ -5602,6 +5861,53 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_moderation_cases_accounts_subject_account_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.Notification", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NotificationDelivery", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Notification", null)
+                        .WithMany()
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_deliveries_notifications_notification_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NotificationModeMute", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_mode_mutes_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.ConnectionMode", null)
+                        .WithMany()
+                        .HasForeignKey("ModeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_mode_mutes_connection_modes_mode_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NotificationSettings", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notification_settings_accounts_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.PhoneCode", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
@@ -5610,6 +5916,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_phone_codes_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PushDevice", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_push_devices_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Report", b =>

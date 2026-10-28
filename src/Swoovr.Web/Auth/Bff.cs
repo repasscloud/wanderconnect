@@ -20,7 +20,7 @@ public static partial class Bff
 
     [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
         + "|requests|requests/" + Uuid + "/(accept|decline|withdraw|disconnect)|connections|blocks|blocks/" + Uuid
-        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
+        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/notifications|me/notifications/read|me/notifications/" + Uuid + "/read|me/notification-settings|me/standing|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide|photos|end|starters)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
@@ -49,6 +49,9 @@ public static partial class Bff
             return Results.File(await response.Content.ReadAsByteArrayAsync(context.RequestAborted), "image/jpeg");
         });
 
+    [GeneratedRegex("^api/v1/conversations/" + Uuid + "/photos$")]
+    private static partial Regex ChatPhoto();
+
     [GeneratedRegex(@"^[0-9a-f]{32}\.member\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")]
     private static partial Regex MediaToken();
 
@@ -70,8 +73,8 @@ public static partial class Bff
             if (context.Connection.RemoteIpAddress is { } address) request.Headers.TryAddWithoutValidation("X-Forwarded-For", address.ToString());
             if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Count > 0)
             {
-                // D203: only the photo upload may carry a large body (10 MB plus the multipart overhead).
-                var limit = path == "api/v1/me/photos" && context.Request.Method == "POST" ? PhotoUploadLimit : 16 * 1024;
+                // D203, #41: only photo uploads (profile and chat) may carry a large body (10 MB plus the multipart overhead).
+                var limit = context.Request.Method == "POST" && (path == "api/v1/me/photos" || ChatPhoto().IsMatch(path)) ? PhotoUploadLimit : 16 * 1024;
                 if (context.Request.ContentLength > limit) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 request.Content = new StreamContent(context.Request.Body);
                 if (context.Request.ContentType is { } type) request.Content.Headers.TryAddWithoutValidation("Content-Type", type);

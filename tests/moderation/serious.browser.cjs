@@ -127,7 +127,8 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.ok(held.items.filter(i => i.kind === 'message').length >= 3 && held.items.some(i => i.kind === 'report')); pass();
     // The reported person isn't told.
     assert.equal((await call(tokens.sub, '/api/v1/me/notices')).body.length, 0); pass();
-    assert.equal((await mailTo(members.sub.email)).length, 0); pass();
+    // #49 (D207): the generic "Something new on Swoovr" email for a request may arrive; nothing about the report does.
+    assert.equal((await mailTo(members.sub.email)).filter(t => !t.startsWith('You have a new request on Swoovr') && !t.startsWith('You have a new connection on Swoovr')).length, 0); pass();
     // Acknowledged, then another serious report escalates again and captures into the same hold.
     assert.equal((await call(st.adm, `/api/v1/admin/cases/${subCase}/acknowledge`, { method: 'POST' })).status, 200);
     const itemsBefore = held.items.length;

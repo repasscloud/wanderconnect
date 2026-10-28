@@ -74,9 +74,10 @@ const audit = () => {
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', member.email); await page.fill('#password', member.password);
     await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
-    for (const [path, ready] of [['/account', '[data-privacy-link]'], ['/me/profile', '[data-profile-editor="ready"]'], ['/me/photos', '[data-photos-panel="ready"]'],
+    for (const [path, ready] of [['/account', 'main h1'], ['/me/profile', '[data-profile-editor="ready"]'], ['/me/photos', '[data-photos-panel="ready"]'],
       ['/explore?mode=friends', '.people-grid, [data-explore-local]'], ['/connections', 'main h1'], ['/chats', 'main h1'], ['/me/safety', '[data-safety-services]'],
-      ['/me/matching', 'main h1'], ['/travel', 'main h1'], ['/account/data', '[data-privacy-link]'], ['/me/notices', 'main h1'], ['/me/verification', 'main h1']])
+      ['/me/matching', 'main h1'], ['/travel', 'main h1'], ['/account/data', '[data-privacy-link]'], ['/me/notices', 'main h1'], ['/me/verification', 'main h1'],
+      ['/me/notifications', '[data-notifications="ready"]'], ['/me/standing', '[data-standing="ready"]']])
       await check(page, path, ready);
     const report = Object.entries(findings).map(([where, list]) => `${where}\n  - ${list.join('\n  - ')}`).join('\n');
     if (process.env.SWOOVR_A11Y_REPORT) require('node:fs').writeFileSync(process.env.SWOOVR_A11Y_REPORT, report || 'no findings');

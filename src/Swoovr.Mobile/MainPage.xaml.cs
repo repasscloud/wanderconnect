@@ -127,6 +127,8 @@ public partial class MainPage : ContentPage
 	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
+	private async void OnStanding(object? sender, EventArgs e) => await Ui.PushAsync(new StandingPage());
+	private async void OnNotifications(object? sender, EventArgs e) => await Ui.PushAsync(new NotificationsPage());
 	private async void OnSafety(object? sender, EventArgs e) => await Ui.PushAsync(new SafetyPage());
 	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());
 	private async void OnPrivacy(object? sender, EventArgs e) => await Ui.PushAsync(new PrivacyPage());

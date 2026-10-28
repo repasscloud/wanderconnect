@@ -63,6 +63,30 @@ public sealed class MemberClient(HttpClient http)
     public Task<int> ReadNoticeAsync(Guid id, CancellationToken cancellationToken = default) =>
         StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notices/{id}/read"), cancellationToken);
 
+    /// <summary>#50: account standing; open even while restricted or suspended.</summary>
+    public Task<ApiResult<AccountStandingView>> StandingAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<AccountStandingView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/standing"), cancellationToken);
+
+    /// <summary>#49: the notification centre, worded for the signed-in member, with the unread count.</summary>
+    public Task<ApiResult<NotificationCentre>> NotificationsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<NotificationCentre>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notifications"), cancellationToken);
+
+    public Task<int> ReadNotificationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notifications/{id}/read"), cancellationToken);
+
+    public Task<int> ReadAllNotificationsAsync(CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/notifications/read"), cancellationToken);
+
+    public Task<ApiResult<NotificationSettingsView>> NotificationSettingsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<NotificationSettingsView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notification-settings"), cancellationToken);
+
+    public Task<ApiResult<NotificationSettingsView>> SaveNotificationSettingsAsync(NotificationSettingsUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<NotificationSettingsView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/notification-settings") { Content = JsonContent.Create(update) }, cancellationToken);
+
+    /// <summary>#49, Q83: registers this device for push (served by the labelled simulated sender until APNs/FCM exist). App only.</summary>
+    public Task<ApiResult<PushDeviceView>> RegisterDeviceAsync(string platform, string token, CancellationToken cancellationToken = default) =>
+        SendAsync<PushDeviceView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/devices") { Content = JsonContent.Create(new PushDeviceRegistration(platform, token)) }, cancellationToken);
+
     /// <summary>Appeals one action, once, within 30 days (D135).</summary>
     public Task<ApiResult<AppealView>> AppealAsync(Guid sanctionId, string? text, CancellationToken cancellationToken = default) =>
         SendAsync<AppealView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/appeals") { Content = JsonContent.Create(new NewAppeal(sanctionId, text)) }, cancellationToken);
@@ -172,6 +196,24 @@ public sealed class MemberClient(HttpClient http)
     public Task<ApiResult<MessagePage>> MessagesAsync(Guid conversationId, DateTimeOffset? before = null, CancellationToken cancellationToken = default) =>
         SendAsync<MessagePage>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{conversationId}/messages"
             + (before is { } b ? "?before=" + Uri.EscapeDataString(b.ToString("O")) : "")), cancellationToken);
+
+    /// <summary>#41: sends a photo in chat; the recipient sees it once it passed screening, the sender sees its state.</summary>
+    public Task<ApiResult<MessageView>> SendChatPhotoAsync(Guid conversationId, byte[] data, string fileName, string contentType, CancellationToken cancellationToken = default)
+    {
+        var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(data);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        form.Add(file, "file", string.IsNullOrWhiteSpace(fileName) ? "photo" : fileName);
+        return SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/photos") { Content = form }, cancellationToken);
+    }
+
+    /// <summary>#41, Q85: ends the conversation politely (an optional fixed closing message), disconnecting every mode.</summary>
+    public Task<ApiResult<ConversationView>> EndConversationAsync(Guid conversationId, string? closing, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/end") { Content = JsonContent.Create(new EndConversation(closing)) }, cancellationToken);
+
+    /// <summary>#41: suggested first lines from intention chips both picked in a shared mode.</summary>
+    public Task<ApiResult<List<ConversationStarter>>> StartersAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
+        SendAsync<List<ConversationStarter>>(new HttpRequestMessage(HttpMethod.Get, $"api/v1/conversations/{conversationId}/starters"), cancellationToken);
 
     public Task<ApiResult<MessageView>> SendMessageAsync(Guid conversationId, string text, CancellationToken cancellationToken = default) =>
         SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/v1/conversations/{conversationId}/messages") { Content = JsonContent.Create(new NewMessage(text)) }, cancellationToken);

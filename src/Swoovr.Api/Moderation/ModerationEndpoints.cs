@@ -193,10 +193,14 @@ public static class ModerationEndpoints
                 if (chosen is not null && chosen.Count != request.MessageIds!.Distinct().Count())
                     return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidReport, "Choose messages from this conversation.");
                 var kept = chosen ?? (message is not null ? MessagingPolicy.Evidence(all, message) : all.Take(MessagingPolicy.EvidenceBefore + 1).OrderBy(m => m.SentAt).ToList());
+                // #41: a photo message is kept by its media id and SHA-256 (the object itself stays in the store, under any hold).
+                var photoIds = kept.Where(m => m.MediaId is not null).Select(m => m.MediaId!.Value).ToList();
+                var hashes = await db.MediaItems.Where(i => photoIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, i => Convert.ToHexStringLower(i.Sha256), cancellationToken);
                 snapshot = new
                 {
                     Conversation = conversation.Id, Reported = message?.Id, Chosen = chosen is not null, conversation.ClosedReason,
-                    Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body }).ToList(),
+                    Messages = kept.Select(m => new { m.Id, FromSubject = m.SenderAccountId != me, m.SentAt, Deleted = m.DeletedAt is not null, Text = m.Body,
+                        Photo = m.MediaId, PhotoSha256 = m.MediaId is { } p ? hashes.GetValueOrDefault(p) : null }).ToList(),
                 };
             }
         }
@@ -216,6 +220,7 @@ public static class ModerationEndpoints
         {
             Id = Guid.NewGuid(), ReporterAccountId = me, SubjectAccountId = subjectAccount, SubjectType = subjectType, SubjectRef = request.SubjectId.Trim(),
             CategoryId = category.Id, Priority = category.Priority, Text = Clean(request.Text), CreatedAt = now, Police = category.Serious ? request.Police : null,
+            SupportReference = SupportReference.New(),
         };
         // D190: a police reference is kept only sealed with the evidence key, and only for serious incidents.
         if (category.Serious && Clean(request.PoliceReference) is { } reference && evidenceKeys.CurrentVersion is { } version)
@@ -370,7 +375,10 @@ public static class ModerationEndpoints
     /// <summary>D135: an in-app notice, and a short email that says only that there is one (Mailpit locally).</summary>
     private static async Task NotifyAsync(SwoovrDbContext db, IEmailSender email, Guid account, NoticeKind kind, Guid? sanction, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        db.MemberNotices.Add(new MemberNotice { Id = Guid.NewGuid(), AccountId = account, Kind = kind, SanctionId = sanction, CreatedAt = now });
+        var notice = new MemberNotice { Id = Guid.NewGuid(), AccountId = account, Kind = kind, SanctionId = sanction, CreatedAt = now };
+        db.MemberNotices.Add(notice);
+        // #49: account notices also appear in the notification centre (never pushed: this email already tells them).
+        db.Notifications.Add(new Notification { Id = Guid.NewGuid(), AccountId = account, Kind = NotificationKind.Account, SubjectId = notice.Id, CreatedAt = now, UpdatedAt = now });
         await db.SaveChangesAsync(cancellationToken);
         if (await db.Accounts.Where(a => a.Id == account).Select(a => a.Email).SingleOrDefaultAsync(cancellationToken) is { } address)
             await email.SendAsync(new EmailMessage(address, "A notice about your Swoovr account",

@@ -16,12 +16,17 @@ public sealed record PhotoPlacementUpdate(string Scope, IReadOnlyList<Guid> Medi
 public sealed record PhotoView(Guid Id, string Link);
 
 /// <summary>An uncertain photo waiting for review (admins only). No image: viewing needs a recorded purpose.</summary>
-public sealed record MediaReviewItem(Guid Id, Guid AccountId, DateTimeOffset CreatedAt, string Reason, IReadOnlyList<string> Signals, string Screener, bool KnownContentChecked);
+/// <param name="Purpose">Null for a profile photo; "attachment" for a photo sent in chat (#41).</param>
+public sealed record MediaReviewItem(Guid Id, Guid AccountId, DateTimeOffset CreatedAt, string Reason, IReadOnlyList<string> Signals, string Screener, bool KnownContentChecked,
+    string? Purpose = null);
 
 /// <summary>The review queue and how many uploads are still waiting for a usable screening answer.</summary>
 public sealed record MediaReviewQueue(IReadOnlyList<MediaReviewItem> Items, int Pending, int PendingOverAnHour);
 
 public sealed record MediaViewRequest(string? Purpose);
+
+/// <summary>#41: an admin opens a chat photo named in a case's evidence, with a recorded purpose.</summary>
+public sealed record MediaCaseViewRequest(Guid? CaseId, string? Purpose);
 
 /// <summary>A review link (blurred until the reviewer chooses to look), valid for a few minutes.</summary>
 public sealed record MediaReviewLink(Guid Id, string Link, DateTimeOffset Expires);

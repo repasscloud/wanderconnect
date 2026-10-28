@@ -8,7 +8,7 @@
     </div>
     <section class="card account-section">
         <p>Read the notice to see why@(Kind == "terminated" ? "" : " and how long it lasts"). You can appeal within 30 days.</p>
-        <p class="account-actions"><a class="primary-link" href="/me/notices">Read the notice</a> <a class="button button-secondary" href="/account">Your account</a></p>
+        <p class="account-actions"><a class="primary-link" href="/me/notices">Read the notice</a> <a class="button button-secondary" href="/me/standing" data-restricted-standing>Account standing</a> <a class="button button-secondary" href="/account">Your account</a></p>
     </section>
     <form method="post" action="/account/sign-out" class="account-sign-out">
         <AntiforgeryToken />

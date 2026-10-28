@@ -1,0 +1,86 @@
+@* #50: account standing in one place: verification, what to do, sanctions in force, decisions and the member's own
+   reports with support references. Open while restricted or suspended. Built by the API from the member's own records;
+   it never shows who reported anyone or anything internal. *@
+@inject MemberClient Members
+<div class="page-heading" data-standing="@(standing is null ? loaded ? "failed" : "loading" : "ready")">
+    <p class="breadcrumb"><a href="/account">Me</a> / @StandingText.Title</p>
+    <h1>@StandingText.Title</h1>
+    <p>@StandingText.Intro</p>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (standing is null) { <p role="status">Your account standing isn't available right now.</p> }
+</div>
+@if (standing is { } s)
+{
+    <section class="card account-section" aria-labelledby="state-heading">
+        <h2 id="state-heading">Status: <span data-standing-state="@s.State">@StandingText.State(s.State)</span></h2>
+        @if (s.Actions.Count > 0)
+        {
+            <h3>To do</h3>
+            <ul class="request-list" data-standing-actions="@s.Actions.Count">
+                @foreach (var a in s.Actions) { <li data-standing-action="@a.Code"><a href="@a.Link">@StandingText.Action(a.Code)</a></li> }
+            </ul>
+        }
+        else { <p class="field-help" data-standing-actions="none">Nothing to do.</p> }
+    </section>
+    <section class="card account-section" aria-labelledby="verification-heading">
+        <h2 id="verification-heading">Verification</h2>
+        <dl class="standing-facts" data-standing-verification>
+            <div><dt>Email</dt><dd data-verify="email">@(s.Verification.EmailVerified ? "Verified" : "Not verified")</dd></div>
+            <div><dt>Mobile number</dt><dd data-verify="phone">@(s.Verification.PhoneVerified ? "Verified" : s.Verification.PhoneRequired ? "Needed" : "Not added")</dd></div>
+            <div><dt>Age</dt><dd data-verify="age">@StandingText.Age(s.Verification.AgeStatus)</dd></div>
+            <div><dt>Date of birth</dt><dd data-verify="dob">@StandingText.Dob(s.Verification)</dd></div>
+            <div><dt>ID</dt><dd data-verify="id">@StandingText.Id(s.Verification.IdStatus)</dd></div>
+        </dl>
+    </section>
+    <section class="card account-section" aria-labelledby="in-force-heading">
+        <h2 id="in-force-heading">Actions in force</h2>
+        @if (s.InForce.Count == 0) { <p class="field-help" data-standing-in-force="none">@StandingText.NothingInForce</p> }
+        else
+        {
+            <ul class="request-list" data-standing-in-force="@s.InForce.Count">
+                @foreach (var x in s.InForce)
+                {
+                    <li data-standing-sanction="@x.Id" data-standing-kind="@x.Kind">
+                        <p><strong>@StandingText.Sanction(x)</strong></p>
+                        <p>@x.Reason</p>
+                        @if (x.AppealStatus is { } appeal) { <p class="field-help">Appeal @MemberText.AppealStatus(appeal).</p> }
+                        else if (x.AppealBy is { } by) { <p class="field-help" data-standing-appeal-by>You can appeal until @by.ToString("d MMM yyyy"). <a href="/me/notices">Appeal</a></p> }
+                        else { <p class="field-help" data-standing-appeal="closed">This can't be appealed any more.</p> }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+    <section class="card account-section" aria-labelledby="decisions-heading">
+        <h2 id="decisions-heading">Decisions about your account</h2>
+        @if (s.Decisions.Count == 0) { <p class="field-help" data-standing-decisions="none">@StandingText.NoDecisions</p> }
+        else
+        {
+            <ul class="request-list" data-standing-decisions="@s.Decisions.Count">
+                @foreach (var d in s.Decisions) { <li data-standing-decision="@d.Kind">@StandingText.Decision(d)</li> }
+            </ul>
+        }
+    </section>
+    <section class="card account-section" aria-labelledby="reports-heading">
+        <h2 id="reports-heading">Your reports</h2>
+        <p class="field-help">@StandingText.ReferenceHelp</p>
+        @if (s.Reports.Count == 0) { <p class="field-help" data-standing-reports="none">@StandingText.NoReports</p> }
+        else
+        {
+            <ul class="request-list" data-standing-reports="@s.Reports.Count">
+                @foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r)</li> }
+            </ul>
+        }
+        <p class="field-help">@StandingText.Privacy</p>
+    </section>
+}
+@code {
+    private bool loaded;
+    private AccountStandingView? standing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        standing = (await Members.StandingAsync()).Value;
+        loaded = true;
+    }
+}

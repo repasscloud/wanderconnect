@@ -19,6 +19,28 @@ public static class PhotoText
         _ => "Removed",
     };
 
+    /// <summary>#41: a chat photo's state as its sender sees it. The other person sees it only once it's approved.</summary>
+    public static string ChatState(string? state) => state switch
+    {
+        "checking" => "Checking — they'll see it once it's approved",
+        "in-review" => "Being reviewed — they'll see it once it's approved",
+        "not-approved" => "Not approved — they won't see it",
+        "removed" => "Removed",
+        _ => "",
+    };
+
+    public const string ChatRules = "Photos are checked before the other person sees them. No nudity or sexual content.";
+
+    /// <summary>#41, Q85: the fixed closing messages offered when ending a conversation.</summary>
+    public static readonly IReadOnlyList<(string Id, string Label)> Closings =
+    [
+        ("thanks", "“Thanks for chatting. I'm going to end our conversation here. All the best.”"),
+        ("not-a-match", "“I don't think we're a match, so I'm going to end our conversation here. Take care.”"),
+        ("take-care", "“I'm stepping back from this conversation. Take care of yourself.”"),
+    ];
+
+    public const string EndHelp = "Ending disconnects you in every mode and closes this chat for both of you. You both keep the history. They can't ask to connect again for 30 days. It doesn't block or report them.";
+
     public const string Rules = "Photos are checked before anyone can see them. No nudity or sexual content, no one under 18, and only photos you have the right to share. Location details in photos are removed.";
 
     public static string Refusal(string? code) => code switch
@@ -28,6 +50,8 @@ public static class PhotoText
         "photo-invalid" => "That photo couldn't be used. Photos need to be at least 200 pixels on each side.",
         "photo-limit" => "You've reached the photo limit. Delete one first.",
         "upload-limit" => "You've uploaded a lot of photos in the last hour. Try again later.",
+        "attachment-limit" => "You can send up to 20 photos a day.",
+        "photos-off" => "This person isn't accepting photos in chat.",
         "photo-not-approved" => "Only approved photos can be shown.",
         "invalid-placement" => "Pick one main photo, or up to 6 photos for a mode.",
         "media-unavailable" => "Photos aren't available right now.",

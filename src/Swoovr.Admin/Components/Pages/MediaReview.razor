@@ -15,7 +15,7 @@ else
             @foreach (var item in queue.Items)
             {
                 <li data-media-item="@item.Id">
-                    <strong>@item.Reason</strong> · uploaded @item.CreatedAt.ToLocalTime().ToString("d MMM HH:mm") · <a href="/accounts/@item.AccountId">account</a>
+                    <strong>@item.Reason</strong>@(item.Purpose == "attachment" ? " · chat photo" : "") · uploaded @item.CreatedAt.ToLocalTime().ToString("d MMM HH:mm") · <a href="/accounts/@item.AccountId">account</a>
                     · @(item.KnownContentChecked ? "known-content check done" : "known-content check NOT run") · @item.Screener
                     @if (item.Signals.Count > 0) { <div class="help">@string.Join(" · ", item.Signals)</div> }
                     @if (viewed == item.Id && link is not null)

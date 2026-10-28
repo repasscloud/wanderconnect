@@ -84,6 +84,14 @@ public sealed class AdminClient(HttpClient http)
         SendAsync<AccountAdminSummary>(HttpMethod.Post, $"api/v1/admin/accounts/{id}/home-review/clear", new HomeReviewClear(reason), cancellationToken);
 
     /// <summary>D166: open date-of-birth reviews (admins only).</summary>
+    /// <summary>#50: the member's own account-standing view, for staff helping them.</summary>
+    public Task<ApiResult<AccountStandingView>> StandingAsync(Guid accountId, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountStandingView>(HttpMethod.Get, $"api/v1/admin/accounts/{accountId}/standing", null, cancellationToken);
+
+    /// <summary>#50: a member's support reference (SW-XXXXXX) to its report and case.</summary>
+    public Task<ApiResult<SupportLookupView>> SupportLookupAsync(string reference, CancellationToken cancellationToken = default) =>
+        SendAsync<SupportLookupView>(HttpMethod.Get, $"api/v1/admin/support/{Uri.EscapeDataString(reference)}", null, cancellationToken);
+
     public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<DobReviewView>>(HttpMethod.Get, "api/v1/admin/dob-reviews", null, cancellationToken);
 
@@ -227,6 +235,10 @@ public sealed class AdminClient(HttpClient http)
         SendAsync<MediaReviewQueue>(HttpMethod.Get, "api/v1/admin/media/review", null, cancellationToken);
 
     /// <summary>A short-lived review link, recorded with the purpose in the sensitive-access log.</summary>
+    /// <summary>#41: a chat photo named in a case's evidence, with a recorded purpose (admins only).</summary>
+    public Task<ApiResult<MediaReviewLink>> CaseMediaAsync(Guid id, Guid caseId, string? purpose, CancellationToken cancellationToken = default) =>
+        SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/v1/admin/media/{id}/case-view", new MediaCaseViewRequest(caseId, purpose), cancellationToken);
+
     public Task<ApiResult<MediaReviewLink>> ViewMediaAsync(Guid id, string? purpose, CancellationToken cancellationToken = default) =>
         SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/v1/admin/media/{id}/view", new MediaViewRequest(purpose), cancellationToken);
 

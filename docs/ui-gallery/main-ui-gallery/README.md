@@ -2,7 +2,7 @@
 
 Open `index.html` directly, or serve this folder with `python3 -m http.server 8768 --bind 127.0.0.1`.
 
-43 source-based HTML reconstructions, plus the index (10 added on 28 October 2026 for slices AB–AI: photos, person photos, Safety & Support signed out and for an unsupported country, the draft privacy notice, and the admin photo review, safety resources, law enforcement, elevated access and security pages). See `manifest.json` for the exact base commit, source component per screen and limitations. Rebuild with `python3 docs/ui-gallery/main-ui-gallery/build.py` from the repository root.
+49 source-based HTML reconstructions, plus the index (10 added on 28 October 2026 for slices AB–AI: photos, person photos, Safety & Support signed out and for an unsupported country, the draft privacy notice, and the admin photo review, safety resources, law enforcement, elevated access and security pages; 6 added on 29 October 2026 for slices AJ–AL: notifications, account standing, a conversation with photos and a starter, ending a conversation, and the admin support lookup and member-standing pages). Checkboxes now show their box, as the app does since AJ. See `manifest.json` for the exact base commit, source component per screen and limitations. Rebuild with `python3 docs/ui-gallery/main-ui-gallery/build.py` from the repository root.
 
 CONFIRMED: Standard + System default, eight personal schemes, existing member/staff separation and the documented monochrome design. Original `docs/design/` stays untouched (read-only, AGENTS.md); the gallery lives in `docs/ui-gallery/` (owner, 27 October 2026, replacing the earlier `docs/deseign/` path).
 

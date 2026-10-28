@@ -137,6 +137,13 @@ public static class Cli
                 Console.WriteLine($"Founders: {run.Stamped} newly eligible, {run.Allocated} places allocated, {run.Skipped} skipped, {run.PlacesLeft} left.");
                 return 0;
             }
+            // #49: travel reminders once (the API's worker does this every 15 minutes), for cron or tests.
+            case ["notifications", "sweep", ..]:
+            {
+                var written = await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.Notifier>().TravelRemindersAsync(now, CancellationToken.None);
+                Console.WriteLine($"Notifications: {written} travel reminders written.");
+                return 0;
+            }
             // D167: erases the text of messages deleted for both more than 30 days ago (kept for investigations until then), for cron.
             case ["messages", "purge", ..]:
             {
@@ -154,8 +161,22 @@ public static class Cli
                 foreach (var row in due)
                     if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
                     else if (MessagingPolicy.Purge(row.m, now)) { row.m.Body = ""; purged++; }
+                // #41: a chat photo deleted for both is kept 30 days like text, then released to `accounts purge`, which
+                // deletes its object unless a hold covers it.
+                var photos = 0;
+                var photoRows = await (from m in db.Messages join c in db.Conversations on m.ConversationId equals c.Id join i in db.MediaItems on m.MediaId equals i.Id
+                                       where m.Kind == MessageKind.Photo && m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && i.RemovedAt == null
+                                       select new { m, c, i }).ToListAsync();
+                foreach (var row in photoRows)
+                    if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
+                    else
+                    {
+                        row.i.RemovedAt = now;
+                        if (row.i.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (row.i.Status, row.i.NextScreenAt) = (MediaStatus.Removed, null);
+                        photos++;
+                    }
                 await db.SaveChangesAsync();
-                Console.WriteLine($"Messages: {purged} deleted message texts erased, {kept} kept under a legal hold.");
+                Console.WriteLine($"Messages: {purged} deleted message texts erased, {photos} deleted chat photos released, {kept} kept under a legal hold.");
                 return 0;
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),
@@ -212,7 +233,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep");
                 return 2;
         }
     }

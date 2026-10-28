@@ -52,7 +52,9 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
 
     public bool Available => Store is not null;
 
-    public async Task<(MediaItem? Item, MediaUploadError Error)> UploadAsync(Guid account, byte[] upload, Guid? replaces, DateTimeOffset now, CancellationToken cancellationToken)
+    /// <param name="conversation">For a chat photo (#41): the conversation it's sent in; the item's purpose is then "attachment".</param>
+    public async Task<(MediaItem? Item, MediaUploadError Error)> UploadAsync(Guid account, byte[] upload, Guid? replaces, DateTimeOffset now, CancellationToken cancellationToken,
+        Guid? conversation = null)
     {
         var processed = processor.Process(upload);
         if (processed.Error != MediaUploadError.None) return (null, processed.Error);
@@ -60,14 +62,14 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
         {
             Id = Guid.NewGuid(), AccountId = account, Status = MediaStatus.Pending, CreatedAt = now, Sha256 = MediaPolicy.Hash(processed.Data),
             UploadSha256 = MediaPolicy.Hash(upload), ContentType = "image/jpeg", Width = processed.Width, Height = processed.Height, Bytes = processed.Data.Length,
-            ReplacesId = replaces,
+            ReplacesId = replaces, Purpose = conversation is null ? null : AttachmentPolicy.Purpose, ConversationId = conversation,
             // The uploading host screens it straight away; the sweep only takes it if that didn't happen.
             NextScreenAt = now + TimeSpan.FromMinutes(2),
         };
         item.ObjectKey = MediaKeys.Quarantine(item.Id);
         await Store!.PutAsync(item.ObjectKey, processed.Data, item.ContentType, cancellationToken);
         db.MediaItems.Add(item);
-        Audit.Record(db, now, account, "account", "media.uploaded", "media", item.Id.ToString(), replaces is null ? null : "replacement");
+        Audit.Record(db, now, account, "account", "media.uploaded", "media", item.Id.ToString(), replaces is not null ? "replacement" : conversation is not null ? "attachment" : null);
         await db.SaveChangesAsync(cancellationToken);
         queue.Enqueue(item.Id);
         return (item, MediaUploadError.None);
@@ -114,6 +116,7 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
                 (item.Status, item.ScreenedAt, item.KnownContentChecked, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Uncertain, now, decision.KnownContentChecked, null, null);
                 Audit.Record(db, now, null, "system", "media.uncertain", "media", item.Id.ToString(), decision.Reason);
                 await db.SaveChangesAsync(cancellationToken);
+                await AttachmentChangedAsync(item, now, cancellationToken);
                 return;
             case ScreeningVerdict.Blocked:
                 item.KnownContentChecked = true;
@@ -139,6 +142,15 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
         var quarantined = item.ObjectKey!;
         (item.Status, item.ObjectKey, item.ScreenedAt, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Passed, published, item.ScreenedAt ?? now, null, null);
         if (reviewer is not null) (item.ReviewedBy, item.ReviewedAt) = (reviewer, now);
+        if (item.Purpose == AttachmentPolicy.Purpose)
+        {
+            // A chat photo never goes on a profile; the recipient sees it from now on (#41).
+            Audit.Record(db, now, reviewer, reviewer is null ? "system" : "account", "media.passed", "media", item.Id.ToString(), reviewer is null ? "attachment" : "review");
+            await db.SaveChangesAsync(cancellationToken);
+            await Store.DeleteAsync(quarantined, cancellationToken);
+            await AttachmentChangedAsync(item, now, cancellationToken);
+            return;
+        }
         var places = item.ReplacesId is { } old
             ? await db.MediaPlacements.Where(p => p.AccountId == item.AccountId && p.MediaId == old).ToListAsync(cancellationToken) : [];
         foreach (var place in places) place.MediaId = item.Id;
@@ -211,6 +223,7 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
         }
         await Moderation.ModerationEndpoints.EscalateAsync(db, item0, "media-known-content", true, services.GetRequiredService<IConfiguration>(),
             services.GetRequiredService<IEmailSender>(), now, services.GetRequiredService<ILoggerFactory>(), cancellationToken);
+        await AttachmentChangedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
     }
 
@@ -222,6 +235,7 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
         Audit.Record(db, now, reviewer, "account", "media.rejected", "media", item.Id.ToString());
         await db.SaveChangesAsync(cancellationToken);
         await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
+        await AttachmentChangedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
     }
 
@@ -238,6 +252,17 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
         await db.SaveChangesAsync(cancellationToken);
         await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
+    }
+
+    /// <summary>A chat photo's state changed: the sender's chat shows it, and once it passed the recipient sees it (#41).</summary>
+    private async Task AttachmentChangedAsync(MediaItem item, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (item.Purpose != AttachmentPolicy.Purpose) return;
+        try { await Connections.MessagingEndpoints.AttachmentChangedAsync(services, item, now, cancellationToken); }
+        catch (Exception error) when (error is DbUpdateException or InvalidOperationException)
+        {
+            log.LogWarning("Media {Id}: the chat wasn't told about the photo's state.", item.Id);
+        }
     }
 
     private async Task<bool> DeleteObjectIfAllowedAsync(MediaItem item, DateTimeOffset now, CancellationToken cancellationToken)
@@ -286,7 +311,14 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
     /// <summary>Bytes for a signed link: a passed photo (member link) or an uncertain one (review link); never anything else.</summary>
     public async Task<byte[]?> ServeAsync(MediaItem item, string variant, CancellationToken cancellationToken)
     {
-        var allowed = variant == "member" ? item is { Status: MediaStatus.Passed, RemovedAt: null } : item is { Status: MediaStatus.Uncertain, RemovedAt: null };
+        // A case link (#41: a reported chat photo, for an admin with a recorded purpose) serves a passed or uncertain one,
+        // even after delete for both while its object is kept; never a blocked one.
+        var allowed = variant switch
+        {
+            "member" => item is { Status: MediaStatus.Passed, RemovedAt: null },
+            "case" => item.Status is MediaStatus.Passed or MediaStatus.Uncertain,
+            _ => item is { Status: MediaStatus.Uncertain, RemovedAt: null },
+        };
         if (!allowed || Store is null || item.ObjectKey is null || item.ObjectKey.StartsWith("evidence/")) return null;
         return await Store.GetAsync(item.ObjectKey, cancellationToken);
     }

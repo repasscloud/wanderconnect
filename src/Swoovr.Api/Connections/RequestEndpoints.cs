@@ -112,6 +112,8 @@ public static class RequestEndpoints
                 // Two sends at once: the unique index keeps one pending request per pair and mode.
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.RequestPending, "There's already a request between you in this mode.");
             }
+            // #49: the recipient hears about it unless they muted the mode, turned requests off, or either of them is barred or blocked.
+            await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Request, me.AccountId, mode.Id, created.Id, now, cancellationToken);
             return Results.Created($"/api/v1/requests/{created.Id}", await ViewAsync(db, created, me.AccountId, cancellationToken));
         });
 
@@ -139,6 +141,12 @@ public static class RequestEndpoints
                 {
                     return Problem(StatusCodes.Status409Conflict, ProblemCodes.AlreadyConnected, "You're already connected in this mode.");
                 }
+                // #49: answering a request reads its notification; the sender hears that it was accepted (never that it was declined).
+                await db.Notifications.Where(n => n.AccountId == me.AccountId && n.SubjectId == request.Id && n.ReadAt == null)
+                    .ExecuteUpdateAsync(u => u.SetProperty(n => n.ReadAt, now), cancellationToken);
+                if (answer == ConnectionRequestPolicy.Answer.Accept)
+                    await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(request.FromAccountId, NotificationKind.Connection, me.AccountId,
+                        request.ModeId, request.Id, now, cancellationToken);
                 return Results.Ok(await ViewAsync(db, request, me.AccountId, cancellationToken));
             });
         }

@@ -95,10 +95,10 @@ app.MapGet("/law-enforcement/audit-export", async (string? quarter, Swoovr.Clien
     return body is null ? Results.Content($"<!doctype html><title>Audit export unavailable — Swoovr admin</title><p data-audit-status=\"{status}\">That quarter isn't available to you.</p><p><a href=\"/law-enforcement/transparency\">Back</a></p>", "text/html", statusCode: status is 400 or 401 or 403 ? status : 404)
         : Results.File(body, "application/json", $"swoovr-le-audit-{quarter}.json");
 }).RequireAuthorization();
-// D203: a review image, only for signed-in staff and only through a review link the API issued for a recorded purpose.
+// D203: a review image (and #41: a reported chat photo), only for signed-in staff and only through a link the API issued for a recorded purpose.
 app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
 {
-    if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.review\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
+    if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.(review|case)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
     return await admin.MediaAsync("api/v1/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
 }).RequireAuthorization();
 app.MapRazorComponents<App>().RequireAuthorization();

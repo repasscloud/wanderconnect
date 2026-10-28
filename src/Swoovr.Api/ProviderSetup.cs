@@ -47,6 +47,10 @@ public static class ProviderSetup
         else
             services.AddSingleton<IVerificationMessageSender>(provider => new SimulatedMessageSender(provider.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>(),
                 provider.GetRequiredService<IHostEnvironment>().IsDevelopment()));
+        // #49, Q83: push goes through the labelled simulated sender until APNs and FCM accounts exist.
+        services.AddSingleton<IPushSender>(provider => new SimulatedPushSender(provider.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>(),
+            provider.GetRequiredService<IHostEnvironment>().IsDevelopment()));
+        services.AddScoped<Swoovr.Api.Notifications.Notifier>();
         return services;
     }
 }
