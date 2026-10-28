@@ -177,3 +177,10 @@ cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build src/
 ### Closure outbox recovery
 
 D224: `notifications sweep` also resumes committed closure notifications with no dispatch completion marker. Per-device attempting/unknown outcomes are not blindly resent; inspect `notification_deliveries` by notification/device id (no tokens or message bodies in operator output). A provider acknowledgement is distinct from device delivery. The ending suite seeds interrupted progress using fictional rows, including an ambiguous first device and a second device not yet attempted, and checks repeated sweeps do not multiply sends or centre entries.
+
+
+### Configured push tests (D226–D228)
+
+After a Debug API build: `node --test tests/notifications/startup.test.cjs` verifies seven unsafe/incomplete Production configurations (including public-only keys) fail before serving. `./scripts/check.sh` includes generated-key/fake-HTTP APNs/FCM and encryption checks; no live provider request is made. `tests/notifications/notifications.browser.cjs` covers encrypted registration/rotation/ownership/limits and muted retries against the local API; `tests/messaging/endings.browser.cjs` covers interrupted per-device dispatch.
+
+Opt-in native compilation: Android with `-p:EnableFcmPush=true`; iOS with `-p:EnableApnsPush=true -p:EnableCodeSigning=false` verifies simulator code only. Signed APNs requires the owner's provisioning profile; FCM Release requires external `-p:SwoovrGoogleServicesJson=/absolute/private/path/google-services.json`. Use [provider setup and acceptance gates](../architecture/PUSH-NOTIFICATIONS.md). Run native builds sequentially because restores share mobile assets. No native compilation or Mailpit result proves delivery.

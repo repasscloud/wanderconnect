@@ -1,4 +1,5 @@
 using System.Globalization;
+using Swoovr.Infrastructure.Messaging;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Api.Accounts;
@@ -32,7 +33,7 @@ public static class NotificationLinks
 /// The member's notification centre and settings (#49; policy §10). The centre is worded when read: an item from someone
 /// now blocked (either way), restricted, suspended, terminated or deleted disappears, and a barred member sees account
 /// notices only. Settings: kinds, push, email, private previews, quiet hours, muted modes and photos in chat. Push devices
-/// are served by the labelled simulated sender until APNs and FCM exist (Q83).
+/// use configured APNs/FCM or explicitly labelled Development simulation (D210).
 /// </summary>
 public static class NotificationEndpoints
 {
@@ -103,36 +104,57 @@ public static class NotificationEndpoints
             return Results.Ok(await SettingsViewAsync(db, account, cancellationToken));
         });
 
-        me.MapGet("/devices", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        me.MapGet("/devices", async (ClaimsPrincipal user, AccountResolver accounts, IPushSender push, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
-            return Results.Ok(await accounts.Db!.PushDevices.Where(d => d.AccountId == current!.Account!.Id).OrderBy(d => d.CreatedAt)
-                .Select(d => new PushDeviceView(d.Id, d.Platform, d.CreatedAt, true)).ToListAsync(cancellationToken));
+            return Results.Ok(await accounts.Db!.PushDevices.Where(d => d.AccountId == current!.Account!.Id && d.InvalidatedAt == null).OrderBy(d => d.CreatedAt)
+                .Select(d => new PushDeviceView(d.Id, d.Platform, d.CreatedAt, push.Kind == "simulated")).ToListAsync(cancellationToken));
         });
         me.MapPost("/devices", async (PushDeviceRegistration registration, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
-            CancellationToken cancellationToken) =>
+            PushKeys keys, IPushSender push, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, account, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
-            if (!NotificationPolicy.ValidPlatform(registration.Platform) || !NotificationPolicy.ValidToken(registration.Token))
+            if (!NotificationPolicy.ValidPlatform(registration.Platform) || !NotificationPolicy.ValidToken(registration.Token) || registration.InstallationId == Guid.Empty)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidDevice, "That device can't be registered.");
-            // A device signed in to by someone else stops receiving the previous person's notifications.
-            await db.PushDevices.Where(d => d.Token == registration.Token && d.AccountId != account).ExecuteDeleteAsync(cancellationToken);
-            var device = await db.PushDevices.SingleOrDefaultAsync(d => d.AccountId == account && d.Token == registration.Token, cancellationToken);
-            if (device is not null)
+            if (keys.Protector is not { } protector) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Push token storage isn't configured.");
+            if (push.Kind == "providers" && registration.Token!.StartsWith("simulated-", StringComparison.Ordinal))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidDevice, "A real provider token is required.");
+            var hash = protector.Hash(registration.Platform!, registration.Token!);
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            // Serialize capacity/rotation per account as well as token ownership and installation identity.
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({0x50555348}, hashtext({account.ToString()}))", cancellationToken);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({hash}))", cancellationToken);
+            if (registration.InstallationId is { } installation)
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({installation.ToString()}))", cancellationToken);
+            var device = registration.InstallationId is { } install
+                ? await db.PushDevices.SingleOrDefaultAsync(d => d.InstallationId == install, cancellationToken) : null;
+            if (device is not null && device.AccountId != account && device.Token != hash)
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That installation isn't available.");
+            // Possession of the same provider token transfers it off the previous account. Never return their id.
+            await db.PushDevices.Where(d => d.Token == hash && d.AccountId != account).ExecuteDeleteAsync(cancellationToken);
+            if (device?.AccountId != account) device = null;
+            device ??= await db.PushDevices.SingleOrDefaultAsync(d => d.AccountId == account && d.Token == hash, cancellationToken);
+            var created = device is null;
+            if (created || device!.InvalidatedAt is not null)
             {
-                (device.Platform, device.LastSeenAt) = (registration.Platform!, now);
-                await db.SaveChangesAsync(cancellationToken);
-                return Results.Ok(new PushDeviceView(device.Id, device.Platform, device.CreatedAt, true));
+                if (await db.PushDevices.CountAsync(d => d.AccountId == account && d.InvalidatedAt == null, cancellationToken) >= NotificationPolicy.DevicesMax)
+                    return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeviceLimit, $"You can receive notifications on up to {NotificationPolicy.DevicesMax} devices.");
             }
-            if (await db.PushDevices.CountAsync(d => d.AccountId == account, cancellationToken) >= NotificationPolicy.DevicesMax)
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeviceLimit, $"You can receive notifications on up to {NotificationPolicy.DevicesMax} devices.");
-            db.PushDevices.Add(device = new PushDevice { Id = Guid.NewGuid(), AccountId = account, Platform = registration.Platform!, Token = registration.Token!, CreatedAt = now, LastSeenAt = now });
-            Audit.Record(db, now, account, "account", "device.registered", "push-device", device.Id.ToString(), device.Platform);
+            if (created) db.PushDevices.Add(device = new PushDevice { Id = Guid.NewGuid(), AccountId = account, CreatedAt = now });
+            if (device is not null)
+                await db.PushDevices.Where(d => d.AccountId == account && d.Token == hash && d.Id != device.Id).ExecuteDeleteAsync(cancellationToken);
+            // Rotation keeps the owned device id, preferences and delivery provenance, replacing the encrypted token.
+            device!.Platform = registration.Platform!; device.Token = hash; device.InstallationId = registration.InstallationId ?? device.InstallationId;
+            device.TokenCipher = protector.Protect(device.Id, account, device.Platform, registration.Token!);
+            device.TokenKeyVersion = protector.CurrentVersion; device.LastSeenAt = now; device.InvalidatedAt = null;
+            Audit.Record(db, now, account, "account", created ? "device.registered" : "device.rotated", "push-device", device.Id.ToString(), device.Platform);
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/me/devices/{device.Id}", new PushDeviceView(device.Id, device.Platform, device.CreatedAt, true));
+            await transaction.CommitAsync(cancellationToken);
+            var view = new PushDeviceView(device.Id, device.Platform, device.CreatedAt, push.Kind == "simulated");
+            return created ? Results.Created($"/api/me/devices/{device.Id}", view) : Results.Ok(view);
         });
         me.MapDelete("/devices/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -156,7 +178,7 @@ public static class NotificationEndpoints
     {
         var s = await Notifier.SettingsAsync(db, account, cancellationToken);
         var muted = await db.NotificationModeMutes.Where(m => m.AccountId == account).OrderBy(m => m.ModeId).Select(m => m.ModeId).ToListAsync(cancellationToken);
-        var devices = await db.PushDevices.CountAsync(d => d.AccountId == account, cancellationToken);
+        var devices = await db.PushDevices.CountAsync(d => d.AccountId == account && d.InvalidatedAt == null, cancellationToken);
         return new(s.Messages, s.Requests, s.Connections, s.Travel, s.Push, s.Email, s.PrivatePreviews, s.QuietFrom?.ToString("HH:mm", CultureInfo.InvariantCulture),
             s.QuietUntil?.ToString("HH:mm", CultureInfo.InvariantCulture), s.TimeZone, muted, s.ChatPhotos, devices);
     }

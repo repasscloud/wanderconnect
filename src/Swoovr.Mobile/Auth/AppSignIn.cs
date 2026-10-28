@@ -47,6 +47,9 @@ public sealed class AppSignIn
 		}
 		catch (TaskCanceledException) { return false; }
 		await session.SaveAsync(await signIn.CompleteAsync(request, result.Properties));
+		PushRegistration.Resume();
+		await PushRegistration.RegisterAsync();
+		await PushRegistration.OpenPendingAsync();
 		return true;
 	}
 
@@ -59,6 +62,7 @@ public sealed class AppSignIn
 	/// <summary>Forgets the tokens on this phone first, then ends the Keycloak session in the browser.</summary>
 	public async Task SignOutAsync()
 	{
+		await PushRegistration.RemoveAsync();
 		if (signIn is null || session?.Forget() is not { } tokens) return;
 		try
 		{

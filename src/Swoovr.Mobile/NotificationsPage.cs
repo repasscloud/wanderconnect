@@ -6,8 +6,8 @@ namespace Swoovr.Mobile;
 
 /// <summary>
 /// Me → Notifications (#49), as on the web: the centre (worded by the API, so blocks and restrictions remove items at
-/// once) and the settings. Opening the page registers this device for push; until APNs and FCM exist (Q83) the API's
-/// labelled simulated sender serves it, so nothing reaches the lock screen yet.
+/// once) and the settings. Saved platform tokens register on load; the member explicitly enables OS notifications.
+/// Default Debug simulation is labelled and never claims lock-screen delivery.
 /// </summary>
 public sealed class NotificationsPage : ContentPage
 {
@@ -27,13 +27,7 @@ public sealed class NotificationsPage : ContentPage
 		await LoadAsync();
 	}
 
-	/// <summary>The app's install id stands in for a push token (simulated until Q83 is answered).</summary>
-	private static async Task RegisterAsync()
-	{
-		var id = Preferences.Default.Get(NotificationText.InstallIdKey, "");
-		if (id.Length == 0) Preferences.Default.Set(NotificationText.InstallIdKey, id = "simulated-" + Guid.NewGuid().ToString("N"));
-		await Ui.Members!.RegisterDeviceAsync(DeviceInfo.Platform == DevicePlatform.iOS ? "ios" : "android", id);
-	}
+	private static Task RegisterAsync() => PushRegistration.RegisterAsync();
 
 	private async Task LoadAsync()
 	{
@@ -66,7 +60,7 @@ public sealed class NotificationsPage : ContentPage
 		{
 			Ui.Text("Settings", "SectionHeading"), Ui.Text(NotificationText.PrivacyNote, "FooterClaims", "NotificationPrivacy"),
 			Ui.Text("Tell me about", "TileName"), Row(messages, "Messages"), Row(requests, "Connection requests"), Row(connections, "New connections"), Row(travel, "Travel reminders"),
-			Ui.Text("How", "TileName"), Row(push, "Push notifications"), Ui.Text(NotificationText.PushSimulated, "FooterClaims"), Row(email, "Email"),
+			Ui.Text("How", "TileName"), Row(push, "Push notifications"), Ui.Text(PushRegistration.Status, "FooterClaims"), Ui.Button("Enable notifications on this device", "PushEnable", async () => { await PushRegistration.EnableAsync(); await LoadAsync(); }, primary: false), Row(email, "Email"),
 			Ui.Text(NotificationText.EmailHelp, "FooterClaims"), Row(previews, "Private previews"), Ui.Text(NotificationText.PreviewsHelp, "FooterClaims"),
 			Ui.Text("Quiet hours", "TileName"), Ui.Text(NotificationText.QuietHelp, "FooterClaims"), Row(quiet, "Use quiet hours"), Ui.Labelled("From", from), Ui.Labelled("Until", until),
 			Ui.Labelled("Time zone", zone), Ui.Text("Muted modes", "TileName"), Ui.Text(NotificationText.MutedHelp, "FooterClaims"),

@@ -29,3 +29,5 @@ Official reference used for template/render-mode selection: [Microsoft Blazor re
 API paths and client contract dates follow [API versioning](API-VERSIONING.md), D211/D222.
 
 D223/D224: conversation closure and its recipient centre/outbox item commit together. Existing API notification services own deduplicated dispatch/recovery; per-device attempts record acceptance or uncertainty rather than claiming device delivery. No separate worker project is introduced.
+
+Push provider boundaries, secure device registration and required operator/native acceptance steps are in [PUSH-NOTIFICATIONS.md](PUSH-NOTIFICATIONS.md) (D226–D228).

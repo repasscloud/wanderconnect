@@ -355,6 +355,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             device.Property(d => d.Token).HasMaxLength(NotificationPolicy.TokenMax);
             device.HasOne<Account>().WithMany().HasForeignKey(d => d.AccountId).OnDelete(DeleteBehavior.Cascade);
             device.HasIndex(d => new { d.AccountId, d.Token }).IsUnique();
+            device.HasIndex(d => d.InstallationId).IsUnique().HasFilter("installation_id IS NOT NULL");
         });
         // #103: country-aware Safety & Support resources as data, with an immutable revision trail.
         model.Entity<SafetyCountry>(country =>

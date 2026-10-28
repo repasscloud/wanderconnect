@@ -34,6 +34,7 @@ SafetyResourceChecks.Run();
 NotificationChecks.Run();
 StandingChecks.Run();
 ChatAttachmentChecks.Run();
+await PushProviderChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();

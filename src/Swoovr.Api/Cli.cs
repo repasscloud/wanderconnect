@@ -49,8 +49,11 @@ public static class Cli
             return 2;
         }
         await using var app = builder.Build();
+        // Fail at startup/command bootstrap if configured push is unsafe or incomplete.
+        app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<SwoovrDbContext>();
+        var pushKeys = scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>();
         var now = DateTimeOffset.UtcNow;
         switch (args)
         {
@@ -61,6 +64,10 @@ public static class Cli
                 Audit.Record(db, now, null, "cli", "geonames.imported", null, null, $"cities:{cities}");
                 await db.SaveChangesAsync();
                 Console.WriteLine($"GeoNames: {cities} cities and {names} search names imported. Place data © GeoNames (CC BY 4.0).");
+                return 0;
+            case ["push", "tokens", "protect"]:
+                if (pushKeys.Protector is null) { Console.Error.WriteLine("Push token protection is not configured."); return 2; }
+                Console.WriteLine($"Push registrations protected: {await Swoovr.Api.Notifications.PushDeviceMaintenance.ProtectLegacyAsync(db, pushKeys, CancellationToken.None)}.");
                 return 0;
             case ["migrate", ..]:
                 await db.Database.MigrateAsync();

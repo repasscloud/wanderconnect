@@ -19,6 +19,6 @@ public sealed record NotificationSettingsView(bool Messages, bool Requests, bool
 public sealed record NotificationSettingsUpdate(bool? Messages, bool? Requests, bool? Connections, bool? Travel, bool? Push, bool? Email, bool? PrivatePreviews,
     string? QuietFrom, string? QuietUntil, string? TimeZone, List<string>? MutedModes, bool? ChatPhotos);
 
-/// <summary>A device for push notifications: platform "ios" or "android" and the provider's token (simulated until Q83).</summary>
-public sealed record PushDeviceRegistration(string? Platform, string? Token);
+/// <summary>A device for push notifications: platform "ios" or "android" and the provider's token; optional installation id supports rotation without breaking older date clients.</summary>
+public sealed record PushDeviceRegistration(string? Platform, string? Token, Guid? InstallationId = null);
 public sealed record PushDeviceView(Guid Id, string Platform, DateTimeOffset CreatedAt, bool Simulated);

@@ -504,3 +504,8 @@ docs/ignore-this-file.txt
 # venv directories
 .venv-*/
 
+
+# Provider app configuration and private signing material are supplied outside source control.
+**/google-services.json
+**/*.p8
+**/*service-account*.json

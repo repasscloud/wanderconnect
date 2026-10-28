@@ -96,11 +96,28 @@ const pushBox = id => `push-${id.replace(/-/g, '')}@simulated.swoovr.invalid`;
     assert.deepEqual(code(await call(tokens.ana, `/api/me/devices/${r.body.id}`, { method: 'DELETE' })), [404, 'not-available']); pass(); // Bob's device
     assert.equal((await call(tokens.bob, `/api/me/devices/${r.body.id}`, { method: 'DELETE' })).status, 204); pass();
     assert.deepEqual(code(await call(tokens.bob, `/api/me/devices/${r.body.id}`, { method: 'DELETE' })), [404, 'not-available']); pass(); // already gone
+    const installationId = require('node:crypto').randomUUID();
+    const installed = await call(tokens.ana, '/api/me/devices', { method: 'POST', body: { platform: 'ios', token: token + '-install-old', installationId } });
+    assert.equal(installed.status, 201); pass();
+    const rotated = await call(tokens.ana, '/api/me/devices', { method: 'POST', body: { platform: 'ios', token: token + '-install-new', installationId } });
+    assert.equal(rotated.body.id, installed.body.id); assert.equal(rotated.status, 200); pass();
+    assert.equal(await sql(`SELECT count(*) FROM push_devices WHERE id='${installed.body.id}' AND token_cipher IS NOT NULL AND token_key_version IS NOT NULL AND token NOT LIKE 'simulated-%'`), '1'); pass();
+    assert.equal((await call(tokens.bob, '/api/me/devices', { method: 'POST', body: { platform: 'ios', token: token + '-other', installationId } })).status, 404); pass();
+    assert.equal((await call(tokens.ana, `/api/me/devices/${installed.body.id}`, { method: 'DELETE' })).status, 204); pass();
     const anaDevice = (await call(tokens.ana, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: token + '-ana' } })).body.id;
     const bobDevice = (await call(tokens.bob, '/api/me/devices', { method: 'POST', body: { platform: 'ios', token: token + '-bob' } })).body.id;
     for (let i = 0; i < 9; i++) await call(tokens.dee, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: `${token}-dee-${i}` } });
     assert.equal((await call(tokens.dee, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: token + '-dee-9' } })).status, 201); pass();
     assert.deepEqual(code(await call(tokens.dee, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: token + '-dee-10' } })), [409, 'device-limit']); pass();
+    const inactive = (await call(tokens.dee, '/api/me/devices')).body[0];
+    await sql(`UPDATE push_devices SET invalidated_at=now() WHERE id='${inactive.id}'`);
+    assert.equal((await call(tokens.dee, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: token + '-dee-replacement' } })).status, 201); pass();
+    assert.deepEqual(code(await call(tokens.dee, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: token + '-dee-0' } })), [409, 'device-limit']); pass();
+    const capacitySlot = (await call(tokens.dee, '/api/me/devices')).body[0];
+    await call(tokens.dee, `/api/me/devices/${capacitySlot.id}`, { method: 'DELETE' });
+    const concurrentDevices = await Promise.all(Array.from({ length: 4 }, (_, i) => call(tokens.dee, '/api/me/devices', { method: 'POST', body: { platform: 'android', token: token + '-concurrent-' + i } })));
+    assert.equal(concurrentDevices.filter(r => r.status === 201).length, 1); assert.equal(concurrentDevices.filter(r => r.status === 409).length, 3); pass();
+    assert.equal((await call(tokens.dee, '/api/me/devices')).body.length, 10); pass();
     for (const d of (await call(tokens.dee, '/api/me/devices')).body) await call(tokens.dee, `/api/me/devices/${d.id}`, { method: 'DELETE' });
 
     // ---- A request: in the centre with the name and mode; private on the lock screen and in the email.
@@ -173,6 +190,12 @@ const pushBox = id => `push-${id.replace(/-/g, '')}@simulated.swoovr.invalid`;
     assert.deepEqual(await sql(`SELECT d.status FROM notification_deliveries d JOIN notifications n ON n.id = d.notification_id WHERE n.account_id = '${ids.ana}' AND n.kind = 'Message' ORDER BY d.id DESC LIMIT 1`), 'off'); pass();
     await sleep(500);
     assert.equal((await mail(pushBox(anaDevice))).length, 4); pass();
+    // Explicit provider rejection can retry, but a newly muted mode must be rechecked at dispatch.
+    const retryNotice = await sql(`SELECT id FROM notifications WHERE account_id='${ids.ana}' AND kind='Request' AND mode_id='dating' ORDER BY created_at LIMIT 1`);
+    await sql(`UPDATE notification_deliveries SET status='retry', attempts=1, next_attempt_at=now()-interval '1 minute' WHERE notification_id='${retryNotice}' AND channel='push' AND device_id='${anaDevice}'`);
+    await cli('notifications', 'sweep');
+    assert.equal((await mail(pushBox(anaDevice))).length, 4); pass();
+    assert.equal(await sql(`SELECT status FROM notification_deliveries WHERE notification_id='${retryNotice}' AND device_id='${anaDevice}'`), 'suppressed'); pass();
     r = await request('cat', 'ana', 'dating');
     assert.deepEqual(await deliveries('ana', 'Request'), ['email:off', 'push:off']); pass();
 

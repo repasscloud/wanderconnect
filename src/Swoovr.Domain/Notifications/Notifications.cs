@@ -40,6 +40,9 @@ public sealed class NotificationDelivery
     public string Status { get; set; } = "";
     public Guid? DeviceId { get; set; }
     public DateTimeOffset At { get; set; }
+    public int? Attempts { get; set; }
+    public DateTimeOffset? NextAttemptAt { get; set; }
+    public Guid? AttemptId { get; set; }
 }
 
 /// <summary>
@@ -73,8 +76,8 @@ public sealed class NotificationModeMute
 }
 
 /// <summary>
-/// A device that may receive push notifications. Until APNs and FCM are set up (Q83) every device is served by the
-/// labelled simulated sender.
+/// An owned push registration. Token is an HMAC lookup, TokenCipher holds versioned authenticated encryption;
+/// plaintext legacy Development rows are upgraded before the new host starts serving.
 /// </summary>
 public sealed class PushDevice
 {
@@ -84,6 +87,10 @@ public sealed class PushDevice
     public string Token { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset LastSeenAt { get; set; }
+    public Guid? InstallationId { get; set; }
+    public byte[]? TokenCipher { get; set; }
+    public int? TokenKeyVersion { get; set; }
+    public DateTimeOffset? InvalidatedAt { get; set; }
 }
 
 /// <summary>What the API knows when something might notify a member.</summary>

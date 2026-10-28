@@ -74,3 +74,7 @@ Follow [delivery phases](../delivery/PHASES.md). After the foundation, verify Ke
 Live ID provider/privacy handling; real Apple/Google configurations; app-store policy assessment; community guidelines/moderation staffing; venue contracts/settlement/refunds; launch-market legal/privacy review; security testing; operational backup/restore and incident response. These gates do not prevent a fully reviewable sandbox prototype.
 
 Appearance acceptance criteria in [the theme specification](../design/USER-APPEARANCE-THEMES.md) are also required. GitHub Actions remain fully commented until owner re-enables them; run `./scripts/check.sh` locally.
+
+## Configured member push (CONFIRMED D210/Q83)
+
+APNs token authentication for iOS and FCM HTTP v1 for Android sit behind IPushSender. Keep explicit Development simulation; no hosted simulation fallback. Device ownership, multiple installations, rotation/logout removal, invalid-token handling and encrypted/restricted token storage are required. Preferences, block relationships and privacy apply again at retry time. Record provider acceptance separately from delivery/display/read; account/security communications cannot depend solely on push. Stable date-versioned API contracts remain compatible when optional installation fields are omitted. [Implementation and operator/native acceptance boundaries](../architecture/PUSH-NOTIFICATIONS.md).

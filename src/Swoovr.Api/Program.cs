@@ -23,11 +23,17 @@ if (persistence) builder.Services.AddHostedService<Swoovr.Api.Notifications.Noti
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
+// Fail at startup/command bootstrap if configured push is unsafe or incomplete.
+app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
+using (var pushScope = app.Services.CreateScope())
+    pushScope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>();
 // DEFAULT: development applies migrations on start; other environments run `migrate` first.
 if (persistence && app.Environment.IsDevelopment())
 {
     await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<SwoovrDbContext>().Database.MigrateAsync();
+    var db = scope.ServiceProvider.GetRequiredService<SwoovrDbContext>();
+    await db.Database.MigrateAsync();
+    await Swoovr.Api.Notifications.PushDeviceMaintenance.ProtectLegacyAsync(db, scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>(), CancellationToken.None);
 }
 app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();

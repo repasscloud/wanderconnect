@@ -3,17 +3,21 @@ using Swoovr.Infrastructure.Email;
 namespace Swoovr.Infrastructure.Messaging;
 
 /// <summary>One push to one device: what the lock screen shows and where the app should open.</summary>
-public sealed record PushMessage(Guid DeviceId, string Platform, string Token, string Title, string Body, string Link);
+public sealed record PushMessage(Guid DeviceId, string Platform, string Token, string Title, string Body, string Link, bool HighPriority = false)
+{
+    public Guid AttemptId { get; init; } = Guid.NewGuid();
+    public override string ToString() => $"PushMessage Device={DeviceId} Platform={Platform} (content/token redacted)";
+}
 
 /// <summary>
 /// Sends push notifications (#49). APNs and FCM need the owner's accounts (Q83); until then the only sender is the
-/// labelled simulated one. Returns false when nothing was delivered; callers record that.
+/// labelled simulated one. Returns provider acceptance or a restricted failure code; this never proves device delivery.
 /// </summary>
 public interface IPushSender
 {
-    /// <summary>"simulated" until a real provider is configured.</summary>
+    /// <summary>Selected provider family; simulation is Development only.</summary>
     string Kind { get; }
-    Task<bool> SendAsync(PushMessage message, CancellationToken cancellationToken);
+    Task<PushOutcome> SendAsync(PushMessage message, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -26,9 +30,9 @@ public sealed class SimulatedPushSender(IEmailSender email, bool localSink) : IP
 {
     public string Kind => "simulated";
 
-    public Task<bool> SendAsync(PushMessage message, CancellationToken cancellationToken) => !localSink
-        ? Task.FromResult(false)
-        : email.SendAsync(new EmailMessage(Address(message.DeviceId), "SIMULATED PUSH (not delivered)",
+    public async Task<PushOutcome> SendAsync(PushMessage message, CancellationToken cancellationToken) => !localSink
+        ? new("disabled")
+        : await email.SendAsync(new EmailMessage(Address(message.DeviceId), "SIMULATED PUSH (not delivered)",
             $"""
             SIMULATED: no push notification was sent. This is the local development sink.
 
@@ -36,7 +40,7 @@ public sealed class SimulatedPushSender(IEmailSender email, bool localSink) : IP
             Title: {message.Title}
             Body: {message.Body}
             Opens: {message.Link}
-            """), cancellationToken);
+            """), cancellationToken) ? new("simulated") : new("failed");
 
     public static string Address(Guid device) => $"push-{device:N}@simulated.swoovr.invalid";
 }

@@ -47,9 +47,16 @@ public static class ProviderSetup
         else
             services.AddSingleton<IVerificationMessageSender>(provider => new SimulatedMessageSender(provider.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>(),
                 provider.GetRequiredService<IHostEnvironment>().IsDevelopment()));
-        // #49, Q83: push goes through the labelled simulated sender until APNs and FCM accounts exist.
-        services.AddSingleton<IPushSender>(provider => new SimulatedPushSender(provider.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>(),
-            provider.GetRequiredService<IHostEnvironment>().IsDevelopment()));
+        // D210: credentials are configuration secrets, never a fallback trigger. Provider HTTP logging is removed:
+        // APNs puts the token in its path; neither URI, payload nor authorization header may reach normal logs.
+        services.AddHttpClient("swoovr-push", http => http.Timeout = TimeSpan.FromSeconds(15))
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
+            .RemoveAllLoggers();
+        services.AddSingleton<IPushSender>(provider => PushProviders.Create(configuration,
+            provider.GetRequiredService<IHostEnvironment>().IsDevelopment(),
+            provider.GetRequiredService<IHttpClientFactory>().CreateClient("swoovr-push"),
+            provider.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>(), TimeProvider.System));
+        services.AddScoped<Swoovr.Api.Notifications.PushKeys>();
         services.AddScoped<Swoovr.Api.Notifications.Notifier>();
         return services;
     }
