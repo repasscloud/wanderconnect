@@ -258,8 +258,8 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     const blocked = r.body.id;
     photo = await settle('ana', blocked);
     assert.equal(photo.state, 'not-approved', 'reads exactly like a refusal'); assert.equal(photo.link, null); pass();
-    // 'not-approved' becomes visible before the async pipeline has linked its hold and sent escalation.
-    assert.ok(await waitFor(async () => await sql(`SELECT count(*) FROM media_items WHERE id = '${blocked}' AND hold_id IS NOT NULL AND case_id IS NOT NULL`) === '1'), 'blocked media hold linked');
+    // The refusal/hold link appears before sealing/capture/accepted-alert markers; await durable completion.
+    assert.ok(await waitFor(async () => await sql(`SELECT count(*) FROM media_items WHERE id = '${blocked}' AND hold_id IS NOT NULL AND case_id IS NOT NULL AND preservation_completed_at IS NOT NULL`) === '1'), 'blocked media hold linked');
     const [status, objectKey, caseId, holdId] = (await sql(`SELECT status, object_key, case_id, hold_id FROM media_items WHERE id = '${blocked}'`)).split('|');
     assert.equal(status, 'Blocked'); assert.equal(objectKey, 'evidence/' + blocked.replaceAll('-', '')); pass();
     assert.equal(await sql(`SELECT queue || '|' || priority || '|' || coalesce(system_flag, '') FROM moderation_cases WHERE id = '${caseId}'`), 'Admin|Urgent|media-known-content'); pass();

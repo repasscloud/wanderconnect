@@ -65,6 +65,13 @@ public sealed class MediaItem
     public string? Purpose { get; set; }
     /// <summary>The conversation a chat photo was sent in.</summary>
     public Guid? ConversationId { get; set; }
+    public DateTimeOffset? PreservationPendingAt { get; set; }
+    public DateTimeOffset? PreservationCompletedAt { get; set; }
+    public DateTimeOffset? NextPreservationAt { get; set; }
+    public int? PreservationAttempts { get; set; }
+    public string? PreservationError { get; set; }
+    public string? PreservationSourceKey { get; set; }
+    public bool? PreservationLegacy { get; set; }
 }
 
 /// <summary>
@@ -303,4 +310,24 @@ public static class MediaScreeningPolicy
         "blocked" => ScreeningVerdict.Blocked,
         _ => throw new InvalidOperationException("Media:Screening:Simulate must be uncertain or blocked."),
     };
+}
+
+/// <summary>Restricted delivery metadata and reconciliation note; never recipient addresses, images or message/email bodies.</summary>
+public sealed class MediaEscalationDelivery
+{
+    public Guid MediaId { get; set; }
+    public string Slot { get; set; } = "";
+    public string Status { get; set; } = "pending";
+    public int Attempts { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public string? ResolutionActor { get; set; }
+    public string? ResolutionNote { get; set; }
+}
+
+public static class MediaRecoveryPolicy
+{
+    public static DateTimeOffset NextAttempt(int attempts, DateTimeOffset now) => now + TimeSpan.FromSeconds(Math.Min(3600, 30 * Math.Pow(2, Math.Clamp(attempts - 1, 0, 7))));
+    public static bool Due(MediaStatus status, DateTimeOffset? completed, DateTimeOffset? next, DateTimeOffset now) =>
+        status == MediaStatus.Blocked && completed is null && next is { } due && due <= now;
 }

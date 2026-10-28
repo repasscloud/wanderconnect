@@ -171,7 +171,8 @@ async function cli(...args) {
     MemberAdmin__ClientSecret: await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET') ?? '',
     Didit__ApiKey: await localEnv('SWOOVR_DIDIT_API_KEY') ?? '', Didit__WorkflowId: await localEnv('SWOOVR_DIDIT_WORKFLOW_ID') ?? '',
     // #49: `notifications sweep` emails travel reminders through the local mail sink, as the hosts do.
-    Email__Smtp__Host: '127.0.0.1', Email__Smtp__Port: '1025',
+    Email__Smtp__Host: process.env.Email__Smtp__Host ?? '127.0.0.1', Email__Smtp__Port: process.env.Email__Smtp__Port ?? '1025',
+    Moderation__EscalationEmail: await localEnv('SWOOVR_ESCALATION_EMAIL') ?? '', Moderation__EscalationBackupEmail: await localEnv('SWOOVR_ESCALATION_BACKUP_EMAIL') ?? '',
     // D203: `accounts purge` deletes photo objects from the same R2 bucket the hosts use.
     Media__R2__Endpoint: await localEnv('SWOOVR_R2_ENDPOINT') ?? '', Media__R2__Bucket: await localEnv('SWOOVR_R2_BUCKET') ?? '',
     Media__R2__AccessKeyId: await localEnv('SWOOVR_R2_ACCESS_KEY_ID') ?? '', Media__R2__SecretAccessKey: await localEnv('SWOOVR_R2_SECRET_ACCESS_KEY') ?? '' };

@@ -86,6 +86,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
     public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
     public DbSet<ProfileVersion> ProfileVersions => Set<ProfileVersion>();
+    public DbSet<MediaEscalationDelivery> MediaEscalationDeliveries => Set<MediaEscalationDelivery>();
     public DbSet<MediaItem> MediaItems => Set<MediaItem>();
     public DbSet<MediaPlacement> MediaPlacements => Set<MediaPlacement>();
     public DbSet<MediaReviewView> MediaReviewViews => Set<MediaReviewView>();
@@ -138,6 +139,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         // so preserved evidence outlives the records it was captured from; evidence goes when the hold is released.
         model.Entity<LegalHold>(hold =>
         {
+            hold.HasIndex(h => h.SourceMediaId).IsUnique().HasFilter("source_media_id IS NOT NULL");
             hold.Property(h => h.Reason).HasMaxLength(LegalHoldPolicy.TextMax);
             hold.Property(h => h.ReleaseConditions).HasMaxLength(LegalHoldPolicy.TextMax);
             hold.Property(h => h.ReleaseReason).HasMaxLength(LegalHoldPolicy.TextMax);
@@ -296,6 +298,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<MediaItem>(item =>
         {
             item.Property(i => i.ObjectKey).HasMaxLength(64);
+            item.Property(i => i.PreservationSourceKey).HasMaxLength(64);
+            item.Property(i => i.PreservationError).HasMaxLength(32);
             item.Property(i => i.ContentType).HasMaxLength(32);
             item.Property(i => i.LastScreenError).HasMaxLength(32);
             item.Property(i => i.Screener).HasMaxLength(32);
@@ -307,6 +311,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             item.HasIndex(i => i.Sha256);
             item.Property(i => i.Purpose).HasMaxLength(16);
             item.HasIndex(i => i.ConversationId);
+        });
+        model.Entity<MediaEscalationDelivery>(delivery =>
+        {
+            delivery.HasKey(d => new { d.MediaId, d.Slot });
+            delivery.Property(d => d.Slot).HasMaxLength(16);
+            delivery.Property(d => d.Status).HasMaxLength(24);
+            delivery.Property(d => d.ResolutionActor).HasMaxLength(32);
+            delivery.Property(d => d.ResolutionNote).HasMaxLength(2000);
+            delivery.HasOne<MediaItem>().WithMany().HasForeignKey(d => d.MediaId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<MediaPlacement>(placement =>
         {

@@ -21,6 +21,8 @@ public sealed class LegalHold
     public string? ReleaseConditions { get; set; }
     /// <summary>"staff" or "serious-incident".</summary>
     public string Source { get; set; } = "staff";
+    /// <summary>Durable origin for a media-screening hold; retries never confuse it with another uploaded incident.</summary>
+    public Guid? SourceMediaId { get; set; }
     public Guid? CaseId { get; set; }
     /// <summary>Null when Swoovr opened it (a serious-incident report).</summary>
     public Guid? PlacedBy { get; set; }

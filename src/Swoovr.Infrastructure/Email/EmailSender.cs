@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using System.Net.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -6,10 +7,15 @@ namespace Swoovr.Infrastructure.Email;
 
 public sealed record EmailMessage(string To, string Subject, string Text);
 
-/// <summary>Sends application email. Returns false when nothing was sent; callers record that.</summary>
+/// <summary>Accepted means provider/sink acknowledgement, never delivery or read. Unknown must not be blindly retried.</summary>
+public sealed record EmailOutcome(string Status, string? Code = null);
+
+/// <summary>Sends application email. The compatibility bool confirms acceptance only; false can include uncertainty, never proof of non-delivery.</summary>
 public interface IEmailSender
 {
     Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken);
+    async Task<EmailOutcome> SendOutcomeAsync(EmailMessage message, CancellationToken cancellationToken) =>
+        new(await SendAsync(message, cancellationToken) ? "accepted" : "unknown");
 }
 
 /// <summary>
@@ -18,20 +24,26 @@ public interface IEmailSender
 /// </summary>
 public sealed class SmtpEmailSender(string host, int port, string from, ILogger<SmtpEmailSender> log) : IEmailSender
 {
-    public async Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken)
+    public async Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken) => (await SendOutcomeAsync(message, cancellationToken)).Status == "accepted";
+
+    public async Task<EmailOutcome> SendOutcomeAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         try
         {
             using var client = new SmtpClient(host, port) { EnableSsl = false, DeliveryMethod = SmtpDeliveryMethod.Network };
             using var mail = new MailMessage(from, message.To, message.Subject, message.Text);
             await client.SendMailAsync(mail, cancellationToken);
-            return true;
+            return new("accepted");
         }
-        catch (Exception exception) when (exception is SmtpException or InvalidOperationException or IOException)
+        catch (Exception exception) when (exception is SmtpException or InvalidOperationException or IOException or OperationCanceledException)
         {
             // No address or body in the log.
-            log.LogWarning("Email not sent: {Error}", exception.GetType().Name);
-            return false;
+            log.LogWarning("Email outcome not confirmed: {Error}", exception.GetType().Name);
+            if (exception is SmtpException smtp && (int)smtp.StatusCode is >= 400 and < 500) return new("retry", "smtp-transient");
+            if (exception is SmtpException permanent && (int)permanent.StatusCode >= 500) return new("rejected", "smtp-rejected");
+            for (Exception? inner = exception; inner is not null; inner = inner.InnerException)
+                if (inner is SocketException socket && socket.SocketErrorCode == SocketError.ConnectionRefused) return new("retry", "connection-refused");
+            return new("unknown", "unconfirmed");
         }
     }
 }
@@ -40,6 +52,7 @@ public sealed class SmtpEmailSender(string host, int port, string from, ILogger<
 public sealed class UnconfiguredEmailSender : IEmailSender
 {
     public Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken) => Task.FromResult(false);
+    public Task<EmailOutcome> SendOutcomeAsync(EmailMessage message, CancellationToken cancellationToken) => Task.FromResult(new EmailOutcome("retry", "unconfigured"));
 }
 
 public static class EmailSetup

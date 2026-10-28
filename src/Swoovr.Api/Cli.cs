@@ -152,6 +152,31 @@ public static class Cli
                 return 0;
             }
             // D167: erases the text of messages deleted for both more than 30 days ago (kept for investigations until then), for cron.
+            case ["media", "alerts", "resolve", var alertMediaId, var slot, var outcome, "--note-file", var noteFile]
+                when Guid.TryParse(alertMediaId, out var parsedAlertMedia) && slot is "primary" or "backup" && outcome is "accepted" or "retry":
+            {
+                string note;
+                try
+                {
+                    if (new FileInfo(noteFile).Length > 8192) { Console.Error.WriteLine("Resolution note is too large."); return 2; }
+                    note = await File.ReadAllTextAsync(noteFile);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException) { Console.Error.WriteLine("Resolution note file could not be read."); return 2; }
+                var resolved = await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Media.MediaPipeline>().ResolveMediaAlertAsync(parsedAlertMedia, slot, outcome == "accepted", note, now, CancellationToken.None);
+                Console.WriteLine(resolved ? "Media alert outcome reconciled and audited." : "No uncertain alert reconciled; check state and a 20–2000 character explanation.");
+                return resolved ? 0 : 2;
+            }
+            case ["media", "preserve"]:
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Media.MediaPipeline>().RecoverBlockedSweepAsync(now, CancellationToken.None);
+                Console.WriteLine($"Media preservation: {run.Completed} completed total, {run.Waiting} waiting, {run.ReviewRequired} require operator review.");
+                return run.Waiting == 0 && run.ReviewRequired == 0 ? 0 : 1;
+            }
+            case ["media", "preserve", var mediaId] when Guid.TryParse(mediaId, out var parsedMedia):
+                await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Media.MediaPipeline>().RecoverBlockedAsync(parsedMedia, now, CancellationToken.None);
+                var mediaItem = await db.MediaItems.AsNoTracking().SingleOrDefaultAsync(i => i.Id == parsedMedia);
+                Console.WriteLine(mediaItem?.PreservationCompletedAt is not null ? "Media preservation: completed." : "Media preservation: unfinished; check restricted status.");
+                return mediaItem?.PreservationCompletedAt is not null ? 0 : 1;
             case ["messages", "purge", ..]:
             {
                 // D189: text a live legal hold covers is kept until the hold is released.
@@ -240,7 +265,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

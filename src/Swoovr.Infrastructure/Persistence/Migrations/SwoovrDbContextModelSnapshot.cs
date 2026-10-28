@@ -2223,6 +2223,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("source");
 
+                    b.Property<Guid?>("SourceMediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_media_id");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -2241,6 +2245,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("LeCaseId")
                         .HasDatabaseName("ix_legal_holds_le_case_id");
+
+                    b.HasIndex("SourceMediaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_legal_holds_source_media_id")
+                        .HasFilter("source_media_id IS NOT NULL");
 
                     b.HasIndex("Status", "ReviewDue")
                         .HasDatabaseName("ix_legal_holds_status_review_due");
@@ -2403,6 +2412,51 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MediaEscalationDelivery", b =>
+                {
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.Property<string>("Slot")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("slot");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("ResolutionActor")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("resolution_actor");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("resolution_note");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("MediaId", "Slot")
+                        .HasName("pk_media_escalation_deliveries");
+
+                    b.ToTable("media_escalation_deliveries");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MediaItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2453,6 +2507,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("last_screen_error");
 
+                    b.Property<DateTimeOffset?>("NextPreservationAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_preservation_at");
+
                     b.Property<DateTimeOffset?>("NextScreenAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_screen_at");
@@ -2470,6 +2528,32 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("policy_version");
+
+                    b.Property<int?>("PreservationAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("preservation_attempts");
+
+                    b.Property<DateTimeOffset?>("PreservationCompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("preservation_completed_at");
+
+                    b.Property<string>("PreservationError")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("preservation_error");
+
+                    b.Property<bool?>("PreservationLegacy")
+                        .HasColumnType("boolean")
+                        .HasColumnName("preservation_legacy");
+
+                    b.Property<DateTimeOffset?>("PreservationPendingAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("preservation_pending_at");
+
+                    b.Property<string>("PreservationSourceKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("preservation_source_key");
 
                     b.Property<string>("Purpose")
                         .HasMaxLength(16)
@@ -5719,6 +5803,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_market_modes_connection_modes_mode_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaEscalationDelivery", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MediaItem", null)
+                        .WithMany()
+                        .HasForeignKey("MediaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_escalation_deliveries_media_items_media_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MediaPlacement", b =>

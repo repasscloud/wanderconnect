@@ -43,7 +43,7 @@ public sealed class MediaQueue
 /// admin; known abuse material is sealed into the evidence store, opens a Serious Safety Incident with a provisional legal
 /// hold and is escalated with ids only, and no member of staff can ever view or download it. Audit entries carry ids only.
 /// </summary>
-public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor processor, IMediaScreening screening, MediaSettings settings,
+public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProcessor processor, IMediaScreening screening, MediaSettings settings,
     MediaQueue queue, ILogger<MediaPipeline> log)
 {
     private SwoovrDbContext db => services.GetRequiredService<SwoovrDbContext>();
@@ -82,6 +82,7 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
     public async Task ScreenAsync(Guid id, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var item = await db.MediaItems.FindAsync([id], cancellationToken);
+        if (item is { Status: MediaStatus.Blocked }) { await RecoverBlockedAsync(id, now, cancellationToken); return; }
         if (item is not { Status: MediaStatus.Pending, RemovedAt: null } || item.ObjectKey is null) return;
         item.ScreenAttempts++;
         byte[]? data;
@@ -181,53 +182,17 @@ public sealed class MediaPipeline(IServiceProvider services, IPhotoProcessor pro
     /// </summary>
     public async Task BlockAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        (item.Status, item.ScreenedAt, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Blocked, item.ScreenedAt ?? now, null, null);
-        if (actor is not null) (item.ReviewedBy, item.ReviewedAt) = (actor, now);
-        await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
-        var keys = services.GetRequiredService<Evidence.EvidenceKeys>();
-        if (keys.CurrentVersion is { } version && item.ObjectKey is { } key && await Store!.GetAsync(key, cancellationToken) is { } data)
+        if (item.Status != MediaStatus.Blocked)
         {
-            var sealedData = EvidenceSeal.Seal(version, keys.Encryption[version], Convert.ToBase64String(data));
-            await Store.PutAsync(MediaKeys.Evidence(item.Id), sealedData, "application/octet-stream", cancellationToken);
-            item.ObjectKey = MediaKeys.Evidence(item.Id);
-            await Store.DeleteAsync(key, cancellationToken);
+            (item.Status, item.ScreenedAt, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Blocked, item.ScreenedAt ?? now, null, null);
+            if (actor is not null) (item.ReviewedBy, item.ReviewedAt) = (actor, now);
+            item.PreservationPendingAt = now; item.NextPreservationAt = now; item.PreservationLegacy = false;
+            item.PreservationSourceKey = item.ObjectKey;
+            await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
+            Audit.Record(db, now, actor, actor is null ? "system" : "account", "media.blocked", "media", item.Id.ToString(), reason);
+            await db.SaveChangesAsync(cancellationToken); // Durable refusal/work precedes every object/hold/email effect.
         }
-        else Audit.Record(db, now, null, "system", "media.seal-failed", "media", item.Id.ToString());
-        var item0 = await db.ModerationCases.SingleOrDefaultAsync(c => c.SubjectAccountId == item.AccountId
-            && (c.Status == CaseStatus.Open || c.Status == CaseStatus.UnderReview), cancellationToken);
-        if (item0 is null)
-            db.ModerationCases.Add(item0 = new ModerationCase
-            {
-                Id = Guid.NewGuid(), SubjectAccountId = item.AccountId, Status = CaseStatus.Open, CreatedAt = now, SystemFlag = "media-known-content",
-            });
-        (item0.Queue, item0.Priority, item0.UpdatedAt) = (CaseQueue.Admin, ReportPriority.Urgent, now);
-        (item0.EscalatedAt, item0.AcknowledgedAt, item0.AcknowledgedBy) = (null, null, null);
-        item.CaseId = item0.Id;
-        Audit.Record(db, now, actor, actor is null ? "system" : "account", "media.blocked", "media", item.Id.ToString(), reason);
-        await db.SaveChangesAsync(cancellationToken);
-        var evidence = services.GetRequiredService<Evidence.EvidencePreservation>();
-        try
-        {
-            if (!evidence.Configured) throw new InvalidOperationException("No evidence key.");
-            var hold = await Evidence.LegalHoldEndpoints.PlaceAsync(db, evidence, AccountRole.Unknown, null, $"Known-content match on an uploaded photo, case {item0.Id}",
-                [item.AccountId], [], null, null, null, "Release only after legal review of the reporting and preservation obligations.",
-                item0.Id, "media-screening", now, cancellationToken);
-            item.HoldId = hold.Id;
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (Exception error) when (error is DbUpdateException or InvalidOperationException)
-        {
-            log.LogError("Media {Id}: the provisional hold wasn't placed.", item.Id);
-            db.ChangeTracker.Clear();
-            Audit.Record(db, now, null, "system", "hold.failed", "moderation-case", item0.Id.ToString());
-            await db.SaveChangesAsync(cancellationToken);
-            item = (await db.MediaItems.FindAsync([item.Id], cancellationToken))!;
-            item0 = (await db.ModerationCases.FindAsync([item0.Id], cancellationToken))!;
-        }
-        await Moderation.ModerationEndpoints.EscalateAsync(db, item0, "media-known-content", true, services.GetRequiredService<IConfiguration>(),
-            services.GetRequiredService<IEmailSender>(), now, services.GetRequiredService<ILoggerFactory>(), cancellationToken);
-        await AttachmentChangedAsync(item, now, cancellationToken);
-        await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
+        await RecoverBlockedAsync(item.Id, now, cancellationToken);
     }
 
     /// <summary>A reviewer's refusal: off every profile, the object deleted unless a hold needs it.</summary>
@@ -349,6 +314,8 @@ public sealed class MediaScreeningWorker(IServiceScopeFactory scopes, MediaQueue
                         .Where(i => i.Status == MediaStatus.Pending && i.RemovedAt == null && i.NextScreenAt <= sweep).OrderBy(i => i.NextScreenAt).Select(i => i.Id).Take(20)
                         .ToListAsync(stoppingToken);
                 foreach (var id in due) await OneAsync(id, stoppingToken);
+                await using (var recovery = scopes.CreateAsyncScope())
+                    await recovery.ServiceProvider.GetRequiredService<MediaPipeline>().RecoverBlockedSweepAsync(clock.GetUtcNow(), stoppingToken);
             }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
@@ -375,6 +342,11 @@ public static class MediaSetup
     public static IServiceCollection AddSwoovrMedia(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment, bool persistence)
     {
         var development = environment.IsDevelopment();
+        if (configuration["Media:Preservation:Fault"] is { Length: > 0 } pause)
+        {
+            if (!development) throw new InvalidOperationException("Media preservation interruption hooks are Development only.");
+            if (pause is not ("blocked-save" or "hold-create" or "object-sealed" or "capture-complete" or "capture-error")) throw new InvalidOperationException("Unknown media preservation interruption stage.");
+        }
         var simulate = configuration["Media:Screening:Simulate"];
         var simulated = MediaScreeningPolicy.Simulated(simulate);
         if (simulated is not null && !development) throw new InvalidOperationException("Media:Screening:Simulate is for Development only.");

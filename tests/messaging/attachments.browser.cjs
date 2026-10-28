@@ -220,8 +220,8 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     r = await upload(`${EXTRA}/api/conversations/${ab}/photos`, await synthetic(canvas, { kind: 'solid', type: 'image/jpeg', seed: 45, width: 400, height: 400 }), { token: tk.ana });
     const bad = r.body.id, badMedia = await sql(`SELECT media_id FROM messages WHERE id = '${bad}'`);
     assert.ok(await waitFor(async () => (await list('ana', ab)).find(m => m.id === bad)?.photoState === 'not-approved')); pass();
-    // The refusal is visible before hold capture/escalation finishes; don't kill the worker midway through preservation.
-    assert.ok(await waitFor(async () => await sql(`SELECT count(*) FROM media_items WHERE id = '${badMedia}' AND hold_id IS NOT NULL AND case_id IS NOT NULL`) === '1'), 'blocked chat photo hold linked');
+    // Await durable preservation completion, including accepted-alert markers, before stopping this worker.
+    assert.ok(await waitFor(async () => await sql(`SELECT count(*) FROM media_items WHERE id = '${badMedia}' AND hold_id IS NOT NULL AND case_id IS NOT NULL AND preservation_completed_at IS NOT NULL`) === '1'), 'blocked chat photo hold linked');
     const escalationCase = await sql(`SELECT case_id FROM media_items WHERE id = '${badMedia}'`);
     const escalationAddress = await localEnv('SWOOVR_ESCALATION_EMAIL');
     assert.ok(await waitFor(async () => (await mailTo(escalationAddress)).some(t => t.includes(escalationCase))), 'blocked chat photo escalation completed');

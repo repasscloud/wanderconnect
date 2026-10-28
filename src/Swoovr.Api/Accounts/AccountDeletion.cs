@@ -107,6 +107,15 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
     {
         var account = await db.Accounts.SingleAsync(a => a.Id == id, cancellationToken);
         if (!AccountDeletionPolicy.Due(account, now)) return false;
+        // Blocked preservation must establish its account hold before ordinary profile/history can be erased.
+        if (await db.MediaItems.AnyAsync(i => i.AccountId == id && i.Status == MediaStatus.Blocked && i.ObjectKey != null
+            && i.PreservationCompletedAt == null && i.HoldId == null
+            && !db.LegalHoldScopes.Any(s => s.Kind == HoldScopeKind.Account && s.TargetId == id
+                && db.LegalHolds.Any(h => h.Id == s.HoldId && h.Status != LegalHoldStatus.Released)), cancellationToken))
+        {
+            log.LogWarning("Final deletion waits: blocked-media preservation has not established a hold.");
+            return false;
+        }
         if (!await identity.DeleteUserAsync(account.Subject, cancellationToken))
         {
             log.LogWarning("Final deletion waits: the Keycloak user could not be deleted.");

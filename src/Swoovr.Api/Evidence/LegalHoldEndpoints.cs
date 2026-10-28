@@ -382,13 +382,13 @@ public static class LegalHoldEndpoints
     public static async Task<LegalHold> PlaceAsync(SwoovrDbContext db, EvidencePreservation evidence, AccountRole role, Guid? actor, string reason,
         IReadOnlyCollection<Guid> accountIds, IReadOnlyCollection<Guid> conversationIds, DateTimeOffset? from, DateTimeOffset? until, DateTimeOffset? reviewDue,
         string? releaseConditions, Guid? caseId, string source, DateTimeOffset now, CancellationToken cancellationToken,
-        LeCase? leCase = null, string? kind = null, string? lawfulBasis = null)
+        LeCase? leCase = null, string? kind = null, string? lawfulBasis = null, bool deferCapture = false, Guid? sourceMediaId = null)
     {
         var status = LegalHoldPolicy.StatusFor(role);
         var hold = new LegalHold
         {
             Id = Guid.NewGuid(), Status = status, Reason = reason, ReleaseConditions = string.IsNullOrWhiteSpace(releaseConditions) ? null : releaseConditions.Trim(),
-            Source = source, CaseId = caseId, PlacedBy = actor, PlacedByRole = role, PlacedAt = now, ReviewDue = LegalHoldPolicy.ReviewFor(status, reviewDue, now),
+            Source = source, SourceMediaId = sourceMediaId, CaseId = caseId, PlacedBy = actor, PlacedByRole = role, PlacedAt = now, ReviewDue = LegalHoldPolicy.ReviewFor(status, reviewDue, now),
             From = from, Until = until, LeCaseId = leCase?.Id, RequestingBody = leCase?.Agency, Kind = kind,
             LawfulBasis = string.IsNullOrWhiteSpace(lawfulBasis) ? leCase?.LegalInstrument : lawfulBasis,
         };
@@ -398,7 +398,7 @@ public static class LegalHoldEndpoints
         db.LegalHoldScopes.AddRange(conversationIds.Select(c => new LegalHoldScope { HoldId = hold.Id, Kind = HoldScopeKind.Conversation, TargetId = c }));
         await db.SaveChangesAsync(cancellationToken);
         await evidence.CustodyAsync(hold.Id, actor, "placed", $"{Wire(status)};{source};accounts:{accountIds.Count};conversations:{conversationIds.Count}", now, cancellationToken);
-        await evidence.CaptureAsync(hold, actor, now, cancellationToken);
+        if (!deferCapture) await evidence.CaptureAsync(hold, actor, now, cancellationToken);
         Audit.Record(db, now, actor, actor is null ? "system" : "account", "hold.placed", "legal-hold", hold.Id.ToString(), $"{Wire(status)}:{source}");
         await db.SaveChangesAsync(cancellationToken);
         return hold;
