@@ -1,5 +1,5 @@
 {
-  "base_commit": "86610a50b17a9896b7e858de8ec2ec702d79f01f",
+  "base_commit": "d883e5cbe7e036ed1ac960491718da9af722d4ba",
   "screens": [
     {
       "slug": "welcome",
@@ -301,6 +301,48 @@
       "source": "src/Swoovr.Admin/Components/Pages/Security.razor",
       "group": "Staff",
       "note": "Illustrative (D198)."
+    },
+    {
+      "slug": "notifications",
+      "title": "Notifications",
+      "source": "src/Swoovr.Web.Client/Notifications/NotificationsPanel.razor",
+      "group": "Member",
+      "note": "Illustrative; push is the labelled simulated sender until APNs/FCM exist (D207, Q83)."
+    },
+    {
+      "slug": "standing",
+      "title": "Account standing",
+      "source": "src/Swoovr.Web.Client/Moderation/StandingPanel.razor",
+      "group": "Member",
+      "note": "Illustrative restricted state; reachable from the restricted screen (D208)."
+    },
+    {
+      "slug": "chat-photos",
+      "title": "Conversation \u00b7 photos and starters",
+      "source": "src/Swoovr.Web.Client/Messaging/ConversationPanel.razor",
+      "group": "Member",
+      "note": "Illustrative with synthetic placeholders; the other person sees a photo only once it passed screening (D209)."
+    },
+    {
+      "slug": "chat-end",
+      "title": "Conversation \u00b7 ending",
+      "source": "src/Swoovr.Web.Client/Messaging/ConversationPanel.razor",
+      "group": "Member",
+      "note": "Fixed closing messages only (Q85 default, D209)."
+    },
+    {
+      "slug": "support-lookup",
+      "title": "Support lookup",
+      "source": "src/Swoovr.Admin/Components/Pages/SupportLookup.razor",
+      "group": "Staff",
+      "note": "Illustrative; ids only (D208)."
+    },
+    {
+      "slug": "admin-standing",
+      "title": "What the member sees",
+      "source": "src/Swoovr.Admin/Components/Pages/Standing.razor",
+      "group": "Staff",
+      "note": "Illustrative (D208)."
     }
   ]
 }

@@ -70,7 +70,7 @@ Run each from the worktree root:
 SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node <suite>
 ```
 
-| Suite | File | Last result (28 Oct 2026) |
+| Suite | File | Last result (29 Oct 2026, AJ–AL run; all passed) |
 | --- | --- | --- |
 | root admin | `tests/auth/root-admin.browser.cjs` | 9 |
 | accounts | `tests/auth/accounts.browser.cjs` | 121 |
@@ -100,10 +100,13 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | privacy notice | `tests/privacy/notice.browser.cjs` | 10 |
 | photos | `tests/media/photos.browser.cjs` | 119 |
 | Safety & Support | `tests/safety/resources.browser.cjs` | 58 |
-| accessibility floor | `tests/accessibility/pages.browser.cjs` | 17 pages |
+| accessibility floor | `tests/accessibility/pages.browser.cjs` | 19 pages |
+| notifications (AJ) | `tests/notifications/notifications.browser.cjs` | 98 |
+| account standing (AK) | `tests/moderation/standing.browser.cjs` | 71 |
+| chat photos, endings, starters (AL) | `tests/messaging/attachments.browser.cjs` | 98 |
 | phone (**default hosts**) | `tests/accounts/phone.browser.cjs` | 52 |
 
-Run them one at a time (they share rate limits and the database). A loop that writes `PASS`/`FAIL` per suite to a summary file and runs in the background works well; see the AG–AI run.
+Run them one at a time (they share rate limits and the database). Never rebuild the solution while they run: on 29 October a mid-run rebuild of the web project left the running web host serving mismatched WebAssembly files and four web suites timed out until the hosts were restarted. A loop that writes `PASS`/`FAIL` per suite to a summary file and runs in the background works well; see the AG–AI run.
 
 ## Test data hygiene
 
@@ -114,7 +117,7 @@ Run them one at a time (they share rate limits and the database). A loop that wr
   ```
 
 - **R2 objects**: the photos suite deletes its objects at the end. After an aborted run, `node tests/media/cleanup.browser.cjs` releases leftover `media-screening` holds on fictional accounts only and deletes their objects (expect "Fictional photo objects left: 0").
-- **Fictional numbers**: 0491 570 156–159 (release them in SQL first if a suite needs them).
+- **Fictional numbers**: 0491 570 156–159 (release them in SQL first if a suite needs them). The identity suite also clears older `terminated_phone_holds` (keyed hashes of those numbers), or yesterday's hold stops a fresh two-year one.
 - **Rate limits**: messages 30/min, location checks 10/h, phone codes 1/min per number and 5/h, searches 60/h and filter changes 10/h per member. Seed bulk data in SQL, not through the API.
 - **Safety test country**: `ZZ` belongs to the safety suite (never offered to members); the suite clears its contacts each run.
 
@@ -129,9 +132,19 @@ Run them one at a time (they share rate limits and the database). A loop that wr
 - Blazor drops `false` boolean attributes: render "yes"/"no" for data attributes tests read. On phone-width pages the sticky header intercepts clicks: use `el.click()`.
 - Admin SSR pages must load their data on POST too. Person links carry `?mode=`.
 - Raw SignalR test clients must send pings (type 6).
-- Photos: synthetic images only (`tests/media/synthetic-images.cjs`); drive uncertain and blocked outcomes with `Media__Screening__Simulate` on an extra API (Development only), never with real imagery.
+- Photos: synthetic images only (`tests/media/synthetic-images.cjs`); drive uncertain and blocked outcomes with `Media__Screening__Simulate` on an extra API (Development only), never with real imagery. Chat photos (`tests/messaging/attachments`) upload to `/api/v1/conversations/{id}/photos` the same way.
+- Messages come back **newest first** (`items[0]` is the latest).
+- Things that happen right after screening (the recipient's notification, the chat moving up) land a moment after the sender sees "approved": wait for them rather than asserting at once.
+- Once `accounts purge` deletes a removed media item's object it deletes the row too: assert "no object left" (`object_key IS NOT NULL` count 0), not a status.
+- Mail: `mailTo()` returns bodies only; the notifications suite has a `mail()` helper with subjects (simulated pushes land at `push-<device id without dashes>@simulated.swoovr.invalid`).
+- `cli()` passes the Mailpit settings, so `notifications sweep` and other jobs can email; a cron needs the same `Email__Smtp__*` settings as the hosts.
+- Urgent report categories must be acknowledged before a case can be closed (`/cases/{id}/acknowledge` first).
+- Creating issues from a script: in zsh a variable holding `--label a --label b` isn't split; pass `--label a,b` (or use Python's `subprocess`).
 
 ## Code rules that bite
+
+- Web checkboxes inside `label.check` need the `<span class="box">…</span>` after the input or they're invisible; radios there use their own visible style.
+- Don't rebuild while the regression loop runs: the hosts load from the same `bin/Debug`. Mobile builds are safe (they write only the mobile and shared-library outputs).
 
 - Services resolved by DI get `SwoovrDbContext` lazily through `IServiceProvider` (the smoke test runs the API without a database). Middleware that writes to the database needs its own scope.
 - Migrations add new tables or nullable columns only (the owner's hosts share the database); `dotnet ef migrations add <Name> --project src/Swoovr.Infrastructure --startup-project src/Swoovr.Infrastructure`.

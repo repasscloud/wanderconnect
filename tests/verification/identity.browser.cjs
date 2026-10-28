@@ -42,6 +42,9 @@ async function latestText(number, pattern) {
       return response.status;
     };
     await sql(`DELETE FROM member_phones WHERE number IN ('${e164(156)}', '${e164(157)}', '${e164(158)}'); DELETE FROM phone_codes WHERE number IN ('${e164(156)}', '${e164(157)}', '${e164(158)}')`);
+    // Earlier runs' holds on the same fictional numbers (keyed hashes, so they can't be told apart) would stop a fresh
+    // two-year hold being written; the local database holds fictional data only.
+    await sql(`DELETE FROM terminated_phone_holds WHERE created_at < now() - interval '10 minutes'`);
     const root = await rootAdminToken(browser);
     const names = ['ana', 'ter', 'twin', 'ret', 'chg', 'eml', 'held'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('idn-' + n)])));
