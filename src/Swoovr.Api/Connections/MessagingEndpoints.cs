@@ -95,6 +95,10 @@ public static class MessagingEndpoints
                     && (hiddenAt == null || m.SentAt > hiddenAt) && !db.MessageHides.Any(h => h.MessageId == m.Id && h.AccountId == me))
                 .OrderByDescending(m => m.SentAt).ThenByDescending(m => m.Id).Take(MessagingPolicy.PageSize + 1).ToListAsync(cancellationToken);
             var page = rows.Take(MessagingPolicy.PageSize).ToList();
+            // #49: reading the conversation reads its message notifications (the member's own state; no read receipts).
+            if (before is null)
+                await db.Notifications.Where(n => n.AccountId == me && n.Kind == NotificationKind.Message && n.SubjectId == id && n.ReadAt == null)
+                    .ExecuteUpdateAsync(u => u.SetProperty(n => n.ReadAt, now), cancellationToken);
             return Results.Ok(new MessagePage(page.Select(m => View(m, me, now)).ToList(), rows.Count > MessagingPolicy.PageSize, page.LastOrDefault()?.SentAt));
         });
 
@@ -125,6 +129,7 @@ public static class MessagingEndpoints
             await db.SaveChangesAsync(cancellationToken);
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
             await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
+            await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, me, null, id, now, cancellationToken, message.Body);
             return Results.Created($"/api/v1/messages/{message.Id}", View(message, me, now));
         });
 

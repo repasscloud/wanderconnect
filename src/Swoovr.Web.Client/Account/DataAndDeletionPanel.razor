@@ -53,9 +53,9 @@ else if (view is not null)
             <p class="field-help">@DeletionText.Subscriptions</p>
             @if (view.Founder) { <p class="field-help" data-founder-notice="true">@DeletionText.FounderKept</p> }
             <form class="stack" @onsubmit="RequestAsync">
-                <label class="check"><input type="checkbox" @bind="immediately" data-delete-immediately /> @DeletionText.DeleteNowOption</label>
-                @if (view.Founder) { <label class="check"><input type="checkbox" @bind="deleteFounderToken" data-delete-founder-token /> @DeletionText.FounderDeleteOption</label> }
-                <label class="check"><input type="checkbox" @bind="confirmed" data-delete-confirm /> @DeletionText.Confirm</label>
+                <label class="check"><input type="checkbox" @bind="immediately" data-delete-immediately /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @DeletionText.DeleteNowOption</label>
+                @if (view.Founder) { <label class="check"><input type="checkbox" @bind="deleteFounderToken" data-delete-founder-token /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @DeletionText.FounderDeleteOption</label> }
+                <label class="check"><input type="checkbox" @bind="confirmed" data-delete-confirm /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @DeletionText.Confirm</label>
                 <button type="submit" class="button" disabled="@(busy || !confirmed)" data-delete-account>Delete my account</button>
                 <p role="status" aria-live="polite" class="field-help" data-delete-result>@deleteMessage</p>
             </form>

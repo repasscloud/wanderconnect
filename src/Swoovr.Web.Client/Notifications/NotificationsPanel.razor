@@ -1,0 +1,151 @@
+@* #49: the notification centre and its settings. The centre is worded by the API from ids when read, so a block,
+   restriction or deletion removes an item at once. Lock screens and emails stay private by default; this page is the
+   signed-in member's own view. Settings stop pushes and emails, never the centre. *@
+@inject MemberClient Members
+<div class="page-heading" data-notifications="@(loaded ? "ready" : "loading")">
+    <p class="breadcrumb"><a href="/account">Me</a> / @NotificationText.Title</p>
+    <h1>@NotificationText.Title</h1>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (barred) { <p data-notifications-barred>Only notices about your account show while it's restricted.</p> }
+</div>
+@if (loaded)
+{
+    <section class="card account-section" aria-labelledby="centre-heading">
+        <h2 id="centre-heading">Recent <span class="field-help" data-unread="@centre.Unread">@NotificationText.Unread(centre.Unread)</span></h2>
+        @if (centre.Items.Count == 0) { <p class="field-help" data-notification-list="none">@NotificationText.Empty</p> }
+        else
+        {
+            <ul class="request-list" data-notification-list="@centre.Items.Count">
+                @foreach (var n in centre.Items)
+                {
+                    <li data-notification="@n.Id" data-notification-kind="@n.Kind" data-notification-read="@(n.Read ? "yes" : "no")">
+                        <a href="@n.Link" @onclick="() => ReadAsync(n)">@(n.Read ? "" : "• ")@n.Title</a>
+                        <span class="field-help">@n.At.ToLocalTime().ToString("d MMM, HH:mm")</span>
+                    </li>
+                }
+            </ul>
+            @if (centre.Unread > 0) { <button type="button" class="button button-secondary" @onclick="ReadAllAsync" data-read-all>Mark all as read</button> }
+        }
+    </section>
+    @if (settings is not null)
+    {
+        <section class="card account-section" aria-labelledby="settings-heading">
+            <h2 id="settings-heading">Settings</h2>
+            <p class="field-help" data-notification-privacy>@NotificationText.PrivacyNote</p>
+            <form class="stack" @onsubmit="SaveAsync" data-notification-settings>
+                <fieldset class="stack">
+                    <legend>Tell me about</legend>
+                    <label class="check"><input type="checkbox" @bind="form.Messages" data-setting="messages" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Messages</label>
+                    <label class="check"><input type="checkbox" @bind="form.Requests" data-setting="requests" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Connection requests</label>
+                    <label class="check"><input type="checkbox" @bind="form.Connections" data-setting="connections" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> New connections</label>
+                    <label class="check"><input type="checkbox" @bind="form.Travel" data-setting="travel" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Travel reminders</label>
+                </fieldset>
+                <fieldset class="stack">
+                    <legend>How</legend>
+                    <label class="check"><input type="checkbox" @bind="form.Push" data-setting="push" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Push notifications on my phone</label>
+                    <p class="field-help">@NotificationText.PushSimulated</p>
+                    <label class="check"><input type="checkbox" @bind="form.Email" data-setting="email" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Email</label>
+                    <p class="field-help">@NotificationText.EmailHelp</p>
+                    <label class="check"><input type="checkbox" @bind="form.PrivatePreviews" data-setting="private-previews" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Private previews</label>
+                    <p class="field-help">@NotificationText.PreviewsHelp</p>
+                </fieldset>
+                <fieldset class="stack">
+                    <legend>Quiet hours</legend>
+                    <p class="field-help">@NotificationText.QuietHelp</p>
+                    <div class="field"><label for="quiet-from">From</label><input id="quiet-from" type="time" @bind="form.QuietFrom" data-setting="quiet-from" /></div>
+                    <div class="field"><label for="quiet-until">Until</label><input id="quiet-until" type="time" @bind="form.QuietUntil" data-setting="quiet-until" /></div>
+                    <div class="field"><label for="time-zone">Time zone</label><input id="time-zone" maxlength="64" @bind="form.TimeZone" data-setting="time-zone" /></div>
+                </fieldset>
+                <fieldset class="stack">
+                    <legend>Muted modes</legend>
+                    <p class="field-help">@NotificationText.MutedHelp</p>
+                    @foreach (var m in modes)
+                    {
+                        <label class="check"><input type="checkbox" checked="@form.Muted.Contains(m.Id)" @onchange="e => Mute(m.Id, e)" data-mute="@m.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @m.Label</label>
+                    }
+                </fieldset>
+                <fieldset class="stack">
+                    <legend>Chat</legend>
+                    <label class="check"><input type="checkbox" @bind="form.ChatPhotos" data-setting="chat-photos" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Accept photos in chat</label>
+                    <p class="field-help">@NotificationText.PhotosHelp</p>
+                </fieldset>
+                <button type="submit" class="button" disabled="@busy" data-save-settings>Save</button>
+                <p role="status" aria-live="polite" class="field-help" data-settings-status="@status">@message</p>
+            </form>
+        </section>
+    }
+}
+@code {
+    private bool loaded, busy, barred;
+    private NotificationCentre centre = new([], 0);
+    private NotificationSettingsView? settings;
+    private readonly Form form = new();
+    private List<ConnectionModeView> modes = [];
+    private string? status, message;
+
+    private sealed class Form
+    {
+        public bool Messages { get; set; } = true;
+        public bool Requests { get; set; } = true;
+        public bool Connections { get; set; } = true;
+        public bool Travel { get; set; } = true;
+        public bool Push { get; set; } = true;
+        public bool Email { get; set; } = true;
+        public bool PrivatePreviews { get; set; } = true;
+        public bool ChatPhotos { get; set; } = true;
+        public TimeOnly? QuietFrom { get; set; }
+        public TimeOnly? QuietUntil { get; set; }
+        public string TimeZone { get; set; } = "";
+        public List<string> Muted { get; set; } = [];
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        centre = (await Members.NotificationsAsync()).Value ?? new([], 0);
+        var saved = await Members.NotificationSettingsAsync();
+        // A restricted member reads their account notices here; the settings answer 403 for them.
+        barred = saved.Code is ProblemCodes.AccountRestricted or ProblemCodes.AccountSuspended;
+        if (saved.Value is { } s) Show(s);
+        modes = (await Members.ModesAsync()).Value ?? [];
+        loaded = true;
+    }
+
+    private void Show(NotificationSettingsView s)
+    {
+        settings = s;
+        (form.Messages, form.Requests, form.Connections, form.Travel, form.Push, form.Email, form.PrivatePreviews, form.ChatPhotos) =
+            (s.Messages, s.Requests, s.Connections, s.Travel, s.Push, s.Email, s.PrivatePreviews, s.ChatPhotos);
+        (form.QuietFrom, form.QuietUntil, form.TimeZone, form.Muted) = (Parse(s.QuietFrom), Parse(s.QuietUntil), s.TimeZone, [.. s.MutedModes]);
+    }
+
+    private static TimeOnly? Parse(string? time) => TimeOnly.TryParse(time, System.Globalization.CultureInfo.InvariantCulture, out var t) ? t : null;
+    private static string? Text(TimeOnly? time) => time?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+    private void Mute(string mode, ChangeEventArgs e)
+    {
+        if (e.Value is true) { if (!form.Muted.Contains(mode)) form.Muted.Add(mode); }
+        else form.Muted.Remove(mode);
+    }
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        var result = await Members.SaveNotificationSettingsAsync(new(form.Messages, form.Requests, form.Connections, form.Travel, form.Push, form.Email,
+            form.PrivatePreviews, Text(form.QuietFrom), Text(form.QuietUntil), form.TimeZone, [.. form.Muted], form.ChatPhotos));
+        busy = false;
+        if (result.Value is { } s) { Show(s); (status, message) = ("saved", "Saved."); }
+        else (status, message) = (result.Code ?? "failed", result.Code == ProblemCodes.InvalidSettings
+            ? "Check the quiet hours (set both or neither) and the time zone." : "Those settings couldn't be saved.");
+    }
+
+    private async Task ReadAsync(NotificationView n)
+    {
+        if (!n.Read) await Members.ReadNotificationAsync(n.Id);
+    }
+
+    private async Task ReadAllAsync()
+    {
+        await Members.ReadAllNotificationsAsync();
+        centre = (await Members.NotificationsAsync()).Value ?? centre;
+    }
+}

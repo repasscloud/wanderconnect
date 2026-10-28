@@ -221,6 +221,16 @@ public static class ProblemCodes
     /// <summary>#103: safety resources.</summary>
     public const string UnknownCountry = "unknown-country";
     public const string InvalidResource = "invalid-resource";
+    /// <summary>#49: notification settings and push devices.</summary>
+    public const string InvalidSettings = "invalid-settings";
+    public const string InvalidDevice = "invalid-device";
+    public const string DeviceLimit = "device-limit";
+    /// <summary>#50: a support reference that matches no report.</summary>
+    public const string UnknownReference = "unknown-reference";
+    /// <summary>#41, D203: photo attachments in chat.</summary>
+    public const string AttachmentLimit = "attachment-limit";
+    public const string PhotosOff = "photos-off";
+    public const string InvalidClosing = "invalid-closing";
 }
 
 public sealed record CouponRequest(string Code);

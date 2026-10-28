@@ -92,6 +92,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<SafetyCountry> SafetyCountries => Set<SafetyCountry>();
     public DbSet<SafetyResource> SafetyResources => Set<SafetyResource>();
     public DbSet<SafetyRevision> SafetyRevisions => Set<SafetyRevision>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+    public DbSet<NotificationSettings> NotificationSettings => Set<NotificationSettings>();
+    public DbSet<NotificationModeMute> NotificationModeMutes => Set<NotificationModeMute>();
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -312,6 +317,42 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             view.Property(v => v.Purpose).HasMaxLength(MediaPolicy.PurposeMax);
             view.HasIndex(v => new { v.MediaId, v.At });
+        });
+        // #49: the notification centre (ids only), deliveries per channel, settings, muted modes and push devices.
+        model.Entity<Notification>(notification =>
+        {
+            notification.Property(n => n.ModeId).HasMaxLength(32);
+            notification.Property(n => n.DedupeKey).HasMaxLength(64);
+            notification.HasOne<Account>().WithMany().HasForeignKey(n => n.AccountId).OnDelete(DeleteBehavior.Cascade);
+            notification.HasIndex(n => new { n.AccountId, n.UpdatedAt });
+            notification.HasIndex(n => new { n.AccountId, n.DedupeKey }).IsUnique().HasFilter("dedupe_key IS NOT NULL");
+        });
+        model.Entity<NotificationDelivery>(delivery =>
+        {
+            delivery.Property(d => d.Channel).HasMaxLength(16);
+            delivery.Property(d => d.Status).HasMaxLength(16);
+            delivery.HasOne<Notification>().WithMany().HasForeignKey(d => d.NotificationId).OnDelete(DeleteBehavior.Cascade);
+            delivery.HasIndex(d => d.NotificationId);
+        });
+        model.Entity<NotificationSettings>(settings =>
+        {
+            settings.HasKey(s => s.AccountId);
+            settings.Property(s => s.TimeZone).HasMaxLength(64);
+            settings.HasOne<Account>().WithMany().HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<NotificationModeMute>(mute =>
+        {
+            mute.HasKey(m => new { m.AccountId, m.ModeId });
+            mute.Property(m => m.ModeId).HasMaxLength(32);
+            mute.HasOne<Account>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
+            mute.HasOne<ConnectionMode>().WithMany().HasForeignKey(m => m.ModeId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<PushDevice>(device =>
+        {
+            device.Property(d => d.Platform).HasMaxLength(16);
+            device.Property(d => d.Token).HasMaxLength(NotificationPolicy.TokenMax);
+            device.HasOne<Account>().WithMany().HasForeignKey(d => d.AccountId).OnDelete(DeleteBehavior.Cascade);
+            device.HasIndex(d => new { d.AccountId, d.Token }).IsUnique();
         });
         // #103: country-aware Safety & Support resources as data, with an immutable revision trail.
         model.Entity<SafetyCountry>(country =>

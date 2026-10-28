@@ -20,14 +20,14 @@
             <div class="field"><label for="pronouns">Pronouns (optional)</label><input id="pronouns" maxlength="40" @bind="pronouns" /></div>
             <div class="field"><label for="orientation">Orientation (optional, never used to decide who sees you)</label>
                 <select id="orientation" @bind="orientation"><option value="">Not set</option>@foreach (var o in options.Orientations) { <option value="@o.Id">@o.Label</option> }</select></div>
-            <label class="check"><input type="checkbox" @bind="showGender" data-show-gender /> Show my gender and pronouns</label>
-            <label class="check"><input type="checkbox" @bind="showOrientation" /> Show my orientation</label>
-            <label class="check"><input type="checkbox" @bind="showAge" data-show-age /> Show my age</label>
+            <label class="check"><input type="checkbox" @bind="showGender" data-show-gender /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Show my gender and pronouns</label>
+            <label class="check"><input type="checkbox" @bind="showOrientation" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Show my orientation</label>
+            <label class="check"><input type="checkbox" @bind="showAge" data-show-age /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Show my age</label>
             <fieldset data-show-me><legend>In Dating, show me</legend>
                 @* D161: "Prefer not to say" is a privacy choice, not a gender, so it's never a "show me" option. *@
                 @foreach (var g in options.Genders.Where(g => g.Id != "unsaid"))
                 {
-                    <label class="check"><input type="checkbox" checked="@showMe.Contains(g.Id)" @onchange="e => Toggle(showMe, g.Id, e)" data-show-me-option="@g.Id" /> @g.Label</label>
+                    <label class="check"><input type="checkbox" checked="@showMe.Contains(g.Id)" @onchange="e => Toggle(showMe, g.Id, e)" data-show-me-option="@g.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @g.Label</label>
                 }
             </fieldset>
             <p class="field-help">"Show me" works both ways: you see someone in Dating only if each of you is in the other's choice. People who prefer not to say their gender can appear for anyone.</p>
@@ -46,20 +46,20 @@
                     <div class="field"><label for="min-age">Age from</label><input id="min-age" type="number" min="18" max="120" @bind="minAge" /></div>
                     <div class="field"><label for="max-age">to</label><input id="max-age" type="number" min="18" max="120" @bind="maxAge" /></div>
                 </div>
-                <label class="check"><input type="checkbox" @bind="idVerifiedOnly" data-id-only /> ID Verified people only</label>
+                <label class="check"><input type="checkbox" @bind="idVerifiedOnly" data-id-only /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> ID Verified people only</label>
                 <fieldset><legend>Must have (up to 5)</legend>
                     <label class="check"><input type="radio" name="match" checked="@(match == "any")" @onchange='() => match = "any"' /> Any of these</label>
                     <label class="check"><input type="radio" name="match" checked="@(match == "all")" @onchange='() => match = "all"' /> All of these</label>
-                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@required.Contains(chip.Id)" @onchange="e => Toggle(required, chip.Id, e)" data-required-chip="@chip.Id" /> @chip.Label</label> }
+                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@required.Contains(chip.Id)" @onchange="e => Toggle(required, chip.Id, e)" data-required-chip="@chip.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @chip.Label</label> }
                 </fieldset>
                 <fieldset><legend>Not for me (up to 10, works both ways)</legend>
-                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@excluded.Contains(chip.Id)" @onchange="e => Toggle(excluded, chip.Id, e)" data-excluded-chip="@chip.Id" /> @chip.Label</label> }
+                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@excluded.Contains(chip.Id)" @onchange="e => Toggle(excluded, chip.Id, e)" data-excluded-chip="@chip.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @chip.Label</label> }
                 </fieldset>
                 <div class="field"><label for="visitors">Visitors in Travel</label>
                     <select id="visitors" @bind="visitors"><option value="both">Here now and arriving soon</option><option value="current">Here now</option><option value="upcoming">Arriving soon</option><option value="neither">Don't show visitors</option></select></div>
                 <fieldset disabled="@(!filter.PlusAvailable)" data-plus-filters="@(filter.PlusAvailable ? "on" : "off")"><legend>Plus</legend>
                     <div class="field"><label for="distance">Within (km of my home city)</label><input id="distance" type="number" min="1" max="500" @bind="distance" /></div>
-                    <label class="check"><input type="checkbox" checked="@(sort == "compatibility")" @onchange='e => sort = e.Value is true ? "compatibility" : "recent"' /> Most in common first</label>
+                    <label class="check"><input type="checkbox" checked="@(sort == "compatibility")" @onchange='e => sort = e.Value is true ? "compatibility" : "recent"' /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Most in common first</label>
                     @if (!filter.PlusAvailable) { <p class="field-help">These filters are part of Plus.</p> }
                 </fieldset>
                 <button type="submit" class="button" disabled="@busy">Save filters</button>

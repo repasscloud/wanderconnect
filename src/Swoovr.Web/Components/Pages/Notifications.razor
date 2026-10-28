@@ -1,0 +1,18 @@
+@page "/me/notifications"
+<PageTitle>Notifications — Swoovr</PageTitle>
+<div class="column">
+@if (!signedIn)
+{
+    <div class="page-heading"><h1>Notifications</h1><p>Sign in to see your notifications.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a></p>
+}
+else
+{
+    <NotificationsPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+}
+</div>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private bool signedIn;
+    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+}

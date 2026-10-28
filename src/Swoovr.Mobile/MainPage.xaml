@@ -80,6 +80,7 @@
                             <Button Text="Who I'd like to meet" AutomationId="MeMatching" Style="{StaticResource SecondaryButton}" Clicked="OnMatching" />
                             <Button Text="Travel" AutomationId="MeTravel" Style="{StaticResource SecondaryButton}" Clicked="OnTravel" />
                             <Button Text="ID verification" AutomationId="MeVerification" Style="{StaticResource SecondaryButton}" Clicked="OnVerification" />
+                            <Button Text="Notifications" AutomationId="MeNotifications" Style="{StaticResource SecondaryButton}" Clicked="OnNotifications" />
                             <Button Text="Notices and reports" AutomationId="MeNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />

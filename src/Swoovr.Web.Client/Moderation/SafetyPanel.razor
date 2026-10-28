@@ -58,13 +58,13 @@ else if (subjectType is not null)
                 <fieldset class="field" data-choose-messages="@messages.Count"><legend>Messages to include (optional, up to 20)</legend>
                     @foreach (var m in messages.Where(m => !m.Deleted).TakeLast(50))
                     {
-                        <label class="check"><input type="checkbox" checked="@chosen.Contains(m.Id)" @onchange="() => Toggle(m.Id)" data-choose="@m.Id" /> @(m.Mine ? "You" : "Them"): @m.Text</label>
+                        <label class="check"><input type="checkbox" checked="@chosen.Contains(m.Id)" @onchange="() => Toggle(m.Id)" data-choose="@m.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @(m.Mine ? "You" : "Them"): @m.Text</label>
                     }
                 </fieldset>
             }
             @if (subjectType != "conversation" || personState is not ("blocked" or "deleted"))
             {
-                <label class="check"><input type="checkbox" @bind="block" data-serious-block /> Also block them</label>
+                <label class="check"><input type="checkbox" @bind="block" data-serious-block /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Also block them</label>
             }
             <button type="submit" class="button" disabled="@(busy || string.IsNullOrEmpty(category))" data-serious-send>Send serious report</button>
             <p role="status" aria-live="polite" class="field-help" data-serious-status="@status">@message</p>

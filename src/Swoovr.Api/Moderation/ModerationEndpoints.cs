@@ -370,7 +370,10 @@ public static class ModerationEndpoints
     /// <summary>D135: an in-app notice, and a short email that says only that there is one (Mailpit locally).</summary>
     private static async Task NotifyAsync(SwoovrDbContext db, IEmailSender email, Guid account, NoticeKind kind, Guid? sanction, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        db.MemberNotices.Add(new MemberNotice { Id = Guid.NewGuid(), AccountId = account, Kind = kind, SanctionId = sanction, CreatedAt = now });
+        var notice = new MemberNotice { Id = Guid.NewGuid(), AccountId = account, Kind = kind, SanctionId = sanction, CreatedAt = now };
+        db.MemberNotices.Add(notice);
+        // #49: account notices also appear in the notification centre (never pushed: this email already tells them).
+        db.Notifications.Add(new Notification { Id = Guid.NewGuid(), AccountId = account, Kind = NotificationKind.Account, SubjectId = notice.Id, CreatedAt = now, UpdatedAt = now });
         await db.SaveChangesAsync(cancellationToken);
         if (await db.Accounts.Where(a => a.Id == account).Select(a => a.Email).SingleOrDefaultAsync(cancellationToken) is { } address)
             await email.SendAsync(new EmailMessage(address, "A notice about your Swoovr account",

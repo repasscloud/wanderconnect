@@ -63,6 +63,26 @@ public sealed class MemberClient(HttpClient http)
     public Task<int> ReadNoticeAsync(Guid id, CancellationToken cancellationToken = default) =>
         StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notices/{id}/read"), cancellationToken);
 
+    /// <summary>#49: the notification centre, worded for the signed-in member, with the unread count.</summary>
+    public Task<ApiResult<NotificationCentre>> NotificationsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<NotificationCentre>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notifications"), cancellationToken);
+
+    public Task<int> ReadNotificationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, $"api/v1/me/notifications/{id}/read"), cancellationToken);
+
+    public Task<int> ReadAllNotificationsAsync(CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/notifications/read"), cancellationToken);
+
+    public Task<ApiResult<NotificationSettingsView>> NotificationSettingsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<NotificationSettingsView>(new HttpRequestMessage(HttpMethod.Get, "api/v1/me/notification-settings"), cancellationToken);
+
+    public Task<ApiResult<NotificationSettingsView>> SaveNotificationSettingsAsync(NotificationSettingsUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<NotificationSettingsView>(new HttpRequestMessage(HttpMethod.Put, "api/v1/me/notification-settings") { Content = JsonContent.Create(update) }, cancellationToken);
+
+    /// <summary>#49, Q83: registers this device for push (served by the labelled simulated sender until APNs/FCM exist). App only.</summary>
+    public Task<ApiResult<PushDeviceView>> RegisterDeviceAsync(string platform, string token, CancellationToken cancellationToken = default) =>
+        SendAsync<PushDeviceView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/devices") { Content = JsonContent.Create(new PushDeviceRegistration(platform, token)) }, cancellationToken);
+
     /// <summary>Appeals one action, once, within 30 days (D135).</summary>
     public Task<ApiResult<AppealView>> AppealAsync(Guid sanctionId, string? text, CancellationToken cancellationToken = default) =>
         SendAsync<AppealView>(new HttpRequestMessage(HttpMethod.Post, "api/v1/me/appeals") { Content = JsonContent.Create(new NewAppeal(sanctionId, text)) }, cancellationToken);
