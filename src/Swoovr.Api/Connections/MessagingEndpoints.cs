@@ -50,6 +50,9 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+            await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return NotAvailable();
             var other = await db.MemberProfiles.SingleOrDefaultAsync(p => p.PublicId == request.To, cancellationToken);
             if (other is null || other.AccountId == me || !await ConnectedAsync(db, me, other.AccountId, cancellationToken))
                 return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "You can message people you're connected with.");
@@ -115,6 +118,9 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return NotAvailable();
+            await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
             await using var transaction = await LockAsync(db, id, me, cancellationToken);
             now = clock.GetUtcNow();
             var conversation = await OpenAsync(db, id, me, cancellationToken);
@@ -134,6 +140,9 @@ public static class MessagingEndpoints
             conversation.LastMessageAt = now;
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await barrier.DisposeAsync();
+            await lifecycle.DisposeAsync();
+            await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
             await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
             await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, me, null, id, now, cancellationToken, message.Body);
@@ -195,10 +204,26 @@ public static class MessagingEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
+            // Read the bounded request body before locking the conversation; closing/blocking must not wait for an upload stream.
+            if (await OpenAsync(db, id, me, cancellationToken) is null) return NotAvailable();
+            if (!request.HasFormContentType) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "Send the photo as a file.");
+            if (request.ContentLength > MediaPolicy.MaxUploadBytes + 64 * 1024) return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
+            IFormCollection form;
+            try { form = await request.ReadFormAsync(cancellationToken); }
+            catch (Exception exception) when (exception is InvalidDataException or IOException or BadHttpRequestException)
+            { return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "That upload couldn't be read."); }
+            if (form.Files.GetFile("file") is not { } file) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "Choose a photo.");
+            if (file.Length > MediaPolicy.MaxUploadBytes) return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
+            using var buffer = new MemoryStream();
+            await file.CopyToAsync(buffer, cancellationToken);
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return NotAvailable();
+            await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
             await using var transaction = await LockAsync(db, id, me, cancellationToken);
             now = clock.GetUtcNow();
             var conversation = await OpenAsync(db, id, me, cancellationToken);
             if (conversation is null) return NotAvailable();
+            await db.Entry(conversation).ReloadAsync(cancellationToken);
             var other = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
             switch (MessagingPolicy.CanSend(await SendFactsAsync(db, current.Profile!.Bot, me, other, id, now, cancellationToken), "photo"))
             {
@@ -213,16 +238,6 @@ public static class MessagingEndpoints
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
             if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == AttachmentPolicy.Purpose && i.CreatedAt > now - AttachmentPolicy.Day, cancellationToken) >= AttachmentPolicy.PerDay)
                 return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.AttachmentLimit, $"You can send up to {AttachmentPolicy.PerDay} photos a day.");
-            if (!request.HasFormContentType) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "Send the photo as a file.");
-            if (request.ContentLength > MediaPolicy.MaxUploadBytes + 64 * 1024) return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
-            IFormCollection form;
-            try { form = await request.ReadFormAsync(cancellationToken); }
-            catch (Exception exception) when (exception is InvalidDataException or IOException or BadHttpRequestException)
-            { return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "That upload couldn't be read."); }
-            if (form.Files.GetFile("file") is not { } file) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "Choose a photo.");
-            if (file.Length > MediaPolicy.MaxUploadBytes) return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
-            using var buffer = new MemoryStream();
-            await file.CopyToAsync(buffer, cancellationToken);
             var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), null, now, cancellationToken, conversation.Id, deferScreening: true);
             if (error != MediaUploadError.None) return error switch
             {
@@ -231,11 +246,15 @@ public static class MessagingEndpoints
                 MediaUploadError.TooSmall => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, $"Photos need to be at least {MediaPolicy.MinSide} pixels on each side."),
                 _ => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "That photo couldn't be read."),
             };
+            now = clock.GetUtcNow();
             // The message exists from now, for the sender only; LastMessageAt moves when the recipient can see it.
             var message = new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Photo, Body = "", SentAt = now, MediaId = item!.Id };
             db.Messages.Add(message);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await barrier.DisposeAsync();
+            await lifecycle.DisposeAsync();
+            await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
             pipeline.ScheduleScreening(item!.Id);
             var view = View(message, me, now, item);
             await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", view, cancellationToken);
@@ -250,6 +269,7 @@ public static class MessagingEndpoints
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
             if (!ConversationEnding.Valid(request.Closing)) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidClosing, "Choose one of the closing messages, or none.");
+            await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
             await using var transaction = await LockAsync(db, id, me, cancellationToken);
             now = clock.GetUtcNow();
             var conversation = await ReadableAsync(db, id, me, cancellationToken);
@@ -274,6 +294,8 @@ public static class MessagingEndpoints
             var queuedNotification = await notifier.QueueClosureAsync(other, me, id, now, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await barrier.DisposeAsync();
+            await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
             foreach (var message in events)
             {
                 await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);

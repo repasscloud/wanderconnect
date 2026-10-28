@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.3, 29 October 2026";
+    public const string Version = "Draft 0.4, 29 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -51,11 +51,11 @@ public static class PrivacyNotice
         new("photos", "Your photos", [
             "Photos you upload are kept private until they have been checked. We remove location and other hidden details (EXIF data) and keep a re-made copy, never the original file. Our own screening service checks each photo for nudity and against databases of known child sexual abuse material (through the Canadian Centre for Child Protection's Project Arachnid, which receives only a digital fingerprint of the photo, not the photo itself).",
             "If the checks aren't sure, a trained member of our team may look at the photo, for a recorded reason that is logged. Photos are stored in our private cloud storage (Cloudflare R2) and shown to others only through short-lived links, only in the modes you choose.",
-            "When you delete a photo, or your account, we delete it, unless a legal hold requires us to keep it. If a photo matches known child abuse material, we keep it sealed as evidence, never show it to anyone, and follow the law on reporting it.",
+            "When you delete a photo, or your account, we delete it unless a safety-review retention period or legal hold requires us to keep it. If a photo matches known child abuse material, we keep it sealed as evidence, never show it to anyone, and follow the law on reporting it.",
             "ID verification selfies and documents never go through this process; they stay with Didit.",
         ]),
         new("holds", "Evidence we must preserve", [
-            "Sometimes we must preserve information, for example after a serious safety report or a verified request from police. A legal hold keeps the records it covers in a restricted, encrypted evidence store, even if you delete your account, until the hold is released.",
+            "Sometimes we must preserve information, for example after a serious safety report or a verified request from police. A legal hold keeps the records it covers in a restricted, encrypted evidence store, even if you delete your account, while the hold applies and afterwards for any applicable safety-review or police-record retention period.",
             "Holds are reviewed regularly and released by someone other than the person who placed them. Preserving information is not the same as disclosing it.",
         ]),
         new("law-enforcement", "Requests from police and other authorities", [
@@ -68,10 +68,11 @@ public static class PrivacyNotice
         ]),
         new("retention", "How long we keep information", [
             "While your account is open, we keep your information for as long as you use Swoovr.",
-            "When you ask to delete your account, it is hidden at once. You have 30 days to change your mind (or you can delete straight away); then we erase your profile, messages you sent, identity record and the rest of your personal information, and ask Didit to delete your verification sessions.",
-            "We keep a record that the account existed, with moderation records and audit entries that mention it, for 2 years, then erase them.",
+            "When you ask to delete your account, it is hidden at once. You can cancel within 30 days of the request until final deletion starts (or ask for deletion straight away); then we erase your profile, messages you sent, identity record and the rest of your personal information, and ask Didit to delete your verification sessions.",
+            "We normally keep a minimal record that the account existed for 2 years. If the other person keeps their own messages, a minimal reference remains so their history still works; your old sign-in mapping is removed.",
+            "Closed police-case records follow a seven-year retention period. Backups are planned to expire on daily 30-day, weekly 4-week and monthly 12-month schedules; production backup and restore readiness is still being prepared.",
             "If your account was terminated, we keep the identity record, contact history and ban fingerprints described above for 2 years.",
-            "Anything under a legal hold is kept until the hold is released.",
+            "Safety-review evidence is retained for at least 12 months after the latest completed review or referral; our draft serious-incident schedule uses 24 months. Minimal review and compliance records normally remain for 24 months. Open reviews and active or overlapping legal holds postpone disposal. Released copies follow the applicable review or police-record schedule; unknown provenance requires restricted review before disposal.",
         ]),
         new("founders", "Founding members' recovery token", [
             "If you hold a founding place, we keep your founder recovery token after your account is deleted so your founding status can be restored if you come back. When you delete your account you can tick \"Also delete my founder recovery token\", or ask support to delete it later.",

@@ -24,6 +24,14 @@ public static class ProviderSetup
             configuration["MemberAdmin:ClientId"] ?? "swoovr-api-accounts", configuration["MemberAdmin:ClientSecret"]));
         services.AddHttpClient<IIdentityAdmin, KeycloakIdentityAdmin>(http => http.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<AccountDeletion>();
+        // Host-free smoke/simulation configurations deliberately have no persistence context.
+        if (!string.IsNullOrWhiteSpace(configuration.GetConnectionString("Swoovr")))
+        {
+            services.AddScoped<Retention.SafetyRetention>();
+            services.AddScoped<Retention.MessageRetention>();
+            services.AddScoped<Retention.RetentionJobs>();
+        }
+        services.AddScoped<Microsoft.EntityFrameworkCore.Diagnostics.ISaveChangesInterceptor, Retention.PreservationSaveInterceptor>();
         services.AddScoped<PhoneKeys>();
         services.AddScoped<ContactHistoryKeys>();
         // D189: legal holds and the evidence store (keys from configuration, else derived from the founder secret).

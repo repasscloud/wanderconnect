@@ -2,8 +2,8 @@
 // The `legal` role (security / legal officer) appointed only by the root admin; holds with reason, scope, period, review
 // and release conditions; capture into the sealed evidence store with a hash-chained custody log; an admin's
 // provisional hold from a case (only the case's people); deletion still completing while held records stay preserved;
-// `messages purge` keeping held text; one-time exports whose hashes check out; the disclosure register; release erasing
-// the evidence. Negative cases: members, support, admins reading holds, unknown ids, tampered bodies, staff accounts in
+// `messages purge` keeping held text; one-time exports whose hashes check out; the disclosure register; release retaining required
+// evidence pending its independent schedule. Negative cases: members, support, admins reading holds, unknown ids, tampered bodies, staff accounts in
 // scope, other members' conversations, released holds. Then the admin app's hold pages in Edge.
 // Needs the local stack, the enrolled fictional root admin and hosts built from this checkout (API with
 // Staff__LocalPasswords=true and Accounts__ReauthSeconds=45, admin app on 5082). Every person is fictional.
@@ -170,17 +170,17 @@ const ADELAIDE = 2078025;
     assert.ok(r.body.some(d => d.reference === 'REF-HOLD-1' && d.holdId === holdId)); pass();
     assert.equal((await call(st.adm, '/api/admin/disclosures')).status, 403); pass();
 
-    // Release: a reason, then the evidence is erased; the hold and its custody chain stay as the record. D195: by an officer
+    // Release resumes the independent retention schedule; required evidence and custody remain. D195: by an officer
     // who neither placed nor confirmed it, after checking the overlapping (provisional, now confirmed) hold on Ana.
     assert.deepEqual(code(await call(st.leg2, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: '' } })), [400, 'hold-reason-required']); pass();
     assert.equal((await call(st.adm, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'x' } })).status, 403); pass();
     assert.deepEqual(code(await call(st.leg, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed' } })), [403, 'hold-release-not-independent']); pass();
     assert.deepEqual(code(await call(st.leg2, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed' } })), [409, 'hold-overlaps-unchecked']); pass();
     r = await call(st.leg2, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional investigation closed', overlapsChecked: true } });
-    assert.equal(r.status, 200); assert.equal(r.body.status, 'released'); assert.equal(r.body.items.length, 0); pass();
-    assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}'`), '0'); pass();
+    assert.equal(r.status, 200); assert.equal(r.body.status, 'released'); assert.ok(r.body.items.length > 0, 'release preserves required copies'); pass();
+    assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}'`)) > 0); pass();
     assert.deepEqual(code(await call(st.leg, `/api/admin/holds/${holdId}/capture`, { method: 'POST' })), [409, 'hold-released']); pass();
-    assert.deepEqual(code(await exp({ purpose: 'x' })), [409, 'hold-released']); pass();
+    assert.equal((await exp({ purpose: 'Fictional retained evidence review' })).status, 201); pass();
     assert.ok((await call(st.leg, '/api/admin/holds?status=released')).body.some(h => h.id === holdId)); pass();
     r = await call(st.leg, `/api/admin/holds/${holdId}`);
     assert.ok(r.body.custody.some(c => c.action === 'released') && r.body.custody.some(c => c.action === 'release-refused')); pass();
@@ -212,6 +212,22 @@ const ADELAIDE = 2078025;
     const [file] = await Promise.all([page.waitForEvent('download'), page.click('[data-export-link] a')]);
     const saved = JSON.parse(await require('node:fs/promises').readFile(await file.path(), 'utf8'));
     assert.equal(saved.format, 'swoovr-evidence/1'); assert.equal(saved.hold.id, danHold); pass();
+    await page.goto(admin + `/holds/${holdId}`);
+    await page.waitForSelector(`[data-hold-detail="${holdId}"]`);
+    assert.ok((await page.locator('body').innerText()).includes('retention')); pass();
+    if (output) await page.screenshot({ path: output + '/admin-released-retained-hold.png', fullPage: true });
+    const disposition={reason:'Fictional independent review confirms no qualifying review or police obligation.',confirmed:true};
+    assert.equal((await call(st.sup, `/api/admin/holds/${danHold}/retention-disposition`, {method:'POST',body:disposition})).status,403);pass();
+    assert.equal((await call(st.leg2, `/api/admin/holds/${danHold}/release`, {method:'POST',body:{reason:'Fictional unlinked preservation completed',overlapsChecked:true}})).status,200);pass();
+    assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id='${danHold}'`))>0,'release alone never infers no review');pass();
+    assert.equal((await call(st.leg, `/api/admin/holds/${danHold}/retention-disposition`,{method:'POST',body:disposition})).status,409,'placer cannot self-authorise disposal');pass();
+    assert.equal((await call(st.leg2, `/api/admin/holds/${holdId}/retention-disposition`,{method:'POST',body:disposition})).status,409,'linked review material cannot bypass schedule');pass();
+    assert.equal((await call(st.leg2, `/api/admin/holds/${danHold}/retention-disposition`,{method:'POST',body:disposition})).status,200);pass();
+    assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id='${danHold}'`),'0','independent positive disposition permits otherwise unneeded copies to expire');pass();
+    assert.equal((await call(st.leg2, `/api/admin/holds/${danHold}/retention-disposition`,{method:'POST',body:disposition})).status,200,'disposition is idempotent');pass();
+    await page.goto(admin+`/holds/${danHold}`);
+    await page.waitForSelector('[data-retention-state="disposed"]');pass();
+    if(output) await page.screenshot({path:output+'/admin-disposed-hold.png',fullPage:true});
     await context.close();
     // An admin's case page places a provisional hold.
     const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });

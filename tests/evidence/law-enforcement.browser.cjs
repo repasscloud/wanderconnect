@@ -269,6 +269,9 @@ const OFFICER = 'Detective Fictional Officer';
 
     // Seven-year retention: a closed case past it goes on the next purge; its hold records stay.
     await sql(`UPDATE restricted.le_cases SET retain_until = now() - interval '1 day' WHERE id = '${caseId}'`);
+    await cli('accounts','purge');
+    assert.equal(await sql(`SELECT count(*) FROM restricted.le_cases WHERE id='${caseId}'`),'1','retained linked copies keep the police provenance clock');pass();
+    await cli('retention','purge','--account',ids.ana);
     assert.match(await cli('accounts', 'purge'), /Law-enforcement cases: [1-9]\d* past their seven-year retention erased/); pass();
     assert.equal(await sql(`SELECT count(*) FROM restricted.le_cases WHERE id = '${caseId}'`), '0'); pass();
     assert.equal(await sql(`SELECT count(*) FROM legal_holds WHERE id = '${tempId}'`), '1', 'the hold record and custody chain stay'); pass();

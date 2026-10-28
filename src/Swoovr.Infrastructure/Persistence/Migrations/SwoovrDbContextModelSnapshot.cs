@@ -103,6 +103,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deletion_due_at");
 
+                    b.Property<DateTimeOffset?>("DeletionFinalizingAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletion_finalizing_at");
+
                     b.Property<DateTimeOffset?>("DeletionRequestedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deletion_requested_at");
@@ -469,6 +473,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("kind");
 
+                    b.PrimitiveCollection<Guid[]>("MediaIds")
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("media_ids");
+
                     b.Property<Guid>("ReportId")
                         .HasColumnType("uuid")
                         .HasColumnName("report_id");
@@ -484,6 +492,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CaseId")
                         .HasDatabaseName("ix_case_evidence_case_id");
+
+                    b.HasIndex("MediaIds")
+                        .HasDatabaseName("ix_case_evidence_media_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("MediaIds"), "gin");
 
                     b.HasIndex("ReportId")
                         .HasDatabaseName("ix_case_evidence_report_id");
@@ -2170,6 +2183,18 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("le_case_id");
 
+                    b.Property<DateTimeOffset?>("NoReviewRetentionConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("no_review_retention_confirmed_at");
+
+                    b.Property<Guid?>("NoReviewRetentionConfirmedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("no_review_retention_confirmed_by");
+
+                    b.Property<string>("NoReviewRetentionReason")
+                        .HasColumnType("text")
+                        .HasColumnName("no_review_retention_reason");
+
                     b.Property<DateTimeOffset>("PlacedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("placed_at");
@@ -2189,6 +2214,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("reason");
+
+                    b.PrimitiveCollection<Guid[]>("RelatedAccountIds")
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("related_account_ids");
 
                     b.Property<string>("ReleaseConditions")
                         .HasMaxLength(1000)
@@ -2212,6 +2241,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("requesting_body");
+
+                    b.PrimitiveCollection<Guid[]>("RetentionCaseIds")
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("retention_case_ids");
 
                     b.Property<DateTimeOffset>("ReviewDue")
                         .HasColumnType("timestamp with time zone")
@@ -2245,6 +2278,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("LeCaseId")
                         .HasDatabaseName("ix_legal_holds_le_case_id");
+
+                    b.HasIndex("RelatedAccountIds")
+                        .HasDatabaseName("ix_legal_holds_related_account_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("RelatedAccountIds"), "gin");
+
+                    b.HasIndex("RetentionCaseIds")
+                        .HasDatabaseName("ix_legal_holds_retention_case_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("RetentionCaseIds"), "gin");
 
                     b.HasIndex("SourceMediaId")
                         .IsUnique()
@@ -3596,6 +3639,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("EscalatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("escalated_at");
+
+                    b.Property<DateTimeOffset?>("EvidencePurgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("evidence_purged_at");
 
                     b.Property<string>("Priority")
                         .IsRequired()

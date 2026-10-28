@@ -27,6 +27,8 @@ public sealed class Account
     /// <summary>Deletion (D170): when it was asked for, when final deletion runs, and the status a cancel restores.</summary>
     public DateTimeOffset? DeletionRequestedAt { get; set; }
     public DateTimeOffset? DeletionDueAt { get; set; }
+    /// <summary>Final purge has crossed its irreversible boundary; provider uncertainty retries and cannot resurrect the account.</summary>
+    public DateTimeOffset? DeletionFinalizingAt { get; set; }
     public AccountStatus? DeletionRestoreStatus { get; set; }
     /// <summary>The member also asked for their founder recovery token to go at final deletion (D173, #22).</summary>
     public bool DeleteFounderToken { get; set; }

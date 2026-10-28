@@ -11,6 +11,8 @@ else
 {
     var c = detail.Case;
     <h1 data-case-detail="@c.Id">@(c.SubjectName ?? "(no name)")</h1>
+    @if (detail.EvidencePurgedAt is { } expired) { <p class="notice" data-case-evidence-expired>Investigation content was disposed under its retention schedule on @expired.ToString("d MMM yyyy"). Remaining records are the restricted compliance summary. A disposed review cannot be reopened.</p> }
+
     <dl class="facts">
         <div><dt>Status</dt><dd data-case-status="@c.Status">@c.Status</dd></div>
         <div><dt>Priority</dt><dd>@c.Priority</dd></div>

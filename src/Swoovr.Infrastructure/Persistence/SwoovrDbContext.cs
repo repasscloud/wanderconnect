@@ -136,16 +136,19 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             history.Property(h => h.ChangeReason).HasMaxLength(32);
         });
         // D189 (policy §3): legal holds and the restricted evidence store. No foreign keys to accounts or conversations,
-        // so preserved evidence outlives the records it was captured from; evidence goes when the hold is released.
+        // so preserved evidence outlives its source; release resumes the independent review/police retention schedule.
         model.Entity<LegalHold>(hold =>
         {
             hold.HasIndex(h => h.SourceMediaId).IsUnique().HasFilter("source_media_id IS NOT NULL");
             hold.Property(h => h.Reason).HasMaxLength(LegalHoldPolicy.TextMax);
             hold.Property(h => h.ReleaseConditions).HasMaxLength(LegalHoldPolicy.TextMax);
             hold.Property(h => h.ReleaseReason).HasMaxLength(LegalHoldPolicy.TextMax);
+            // Restricted append-only JSON-line disposition notes; each entry is validated to the text limit.
             hold.Property(h => h.Source).HasMaxLength(32);
             hold.HasIndex(h => new { h.Status, h.ReviewDue });
             hold.HasIndex(h => h.CaseId);
+            hold.HasIndex(h => h.RetentionCaseIds).HasMethod("gin");
+            hold.HasIndex(h => h.RelatedAccountIds).HasMethod("gin");
         });
         model.Entity<LegalHoldScope>(scope =>
         {
@@ -752,6 +755,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             evidence.HasOne<Report>().WithMany().HasForeignKey(e => e.ReportId).OnDelete(DeleteBehavior.Cascade);
             evidence.Property(e => e.Kind).HasMaxLength(32);
             evidence.Property(e => e.Snapshot).HasMaxLength(8192);
+            evidence.HasIndex(e => e.MediaIds).HasMethod("gin");
         });
         model.Entity<Sanction>(sanction =>
         {

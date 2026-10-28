@@ -915,3 +915,36 @@ Final commands/results:
 No schema, public DTO, client UI or design-token changes. No new native build/UI claim; Android/iOS evidence remains in prior slices. The isolated concurrency/recovery suites use fictional adults and synthetic local files, PostgreSQL and Mailpit; the competing screening response is a fake, not remote known-content assurance. Ordinary media regressions use the configured private R2 store. No external email/device delivery or UAT deployment is claimed. Development barriers contain empty marker files only and require no shared local configuration edit. Worker cleanup only resumes hidden pending/passed/uncertain transitions; the ordinary purge retains the full hold-aware disposal policy. Broader retention/backup/registry work remains next.
 
 After testing: main clean at ae41722; ff-only refresh was up to date and Debug solution build passed with zero warnings/errors. Generated host logs were backed up before restoring default main Api/Web/Admin hosts; listener working directories and the original status route HTTP200 were verified. Extra transition APIs stopped and shared local configuration remains unchanged. No merge/deployment/Actions activation.
+
+## Safety retention and disposal authority — 29 October 2026
+
+Scope: issue118 in part, D231–D233. Additive `SafetyReviewRetention` migration applied to shared local PostgreSQL after a restricted local pg_dump backup. No deployment or production backup/restore acceptance. Main's older binaries remain schema-compatible.
+
+| Verification | Actual result |
+| --- | --- |
+| `./scripts/check.sh` | PASS: zero Release warnings/errors, PostgreSQL51, safety retention27 policy checks, portable/Node/HTTP/design/naming/link checks. Final pre-commit repeat PASS (exit0); startup rejection14 also PASS. |
+| `tests/retention/schedule.browser.cjs` | PASS24: calendar clocks, serious/referral, overlaps/release, unknown legacy, actual cross-process coverage writer, finalization refusal and narrow UI, and1,001 uncertain cases ahead of eligible work (no paging starvation). |
+| `tests/retention/worker.browser.cjs` | PASS12: actual hosted coordinator in a throwaway PostgreSQL database with local synthetic file; unavailable hold status stops all phases, restart resumes case/message/media disposal, another restart duplicates no audits. Database dropped and temporary files removed. No R2/provider delivery in this test. |
+| `tests/evidence/holds.browser.cjs` | PASS93: release preserves required copies, retained export, role/independence/linked-review disposition refusals, explicit positive no-review disposition and retry; retained/disposed admin pages. |
+| `tests/evidence/law-enforcement.browser.cjs` | PASS131: expired police records remain while linked copies require provenance; targeted retention expiry precedes final police-record disposal. |
+| `tests/accounts/deletion.browser.cjs` | PASS118: ordinary deletion/export plus expired sign-in mapping while the other member's own history survives. |
+| `tests/messaging/endings.browser.cjs` | PASS45. |
+| `tests/moderation/serious.browser.cjs` | PASS61. |
+| `tests/moderation/moderation.browser.cjs` | PASS144. |
+| `tests/messaging/messaging.browser.cjs` | PASS111. |
+| `tests/media/photos.browser.cjs` | PASS120: released copies remain; only the suite's own synthetic review clocks advance for cleanup. |
+| `tests/messaging/attachments.browser.cjs` | PASS111: counterpart hold captures a deleting sender's photo; actual retained bytes hash matches after ordinary deletion, elevated legal access works, member/blocked reads fail, then targeted fixture expiry/cleanup leaves zero tracked objects. |
+| `tests/media/recovery.browser.cjs` | PASS92; synthetic local files, no real known-content assurance. |
+| `tests/media/transitions.browser.cjs` | PASS26; synthetic local files and real competing API processes. |
+| `tests/privacy/notice.browser.cjs` | PASS10, shared Draft0.4. |
+| Native builds | Signed Android Debug package PASS0 warnings/errors; unsigned `iossimulator-arm64` build PASS0 warnings/errors. No native UI interaction or physical provider/device acceptance is claimed for this slice. |
+
+[Finalizing member](evidence/2026-10-29-retention/web-deletion-finalizing.png), [released retained hold](evidence/2026-10-29-retention/admin-released-retained-hold.png), [disposed hold](evidence/2026-10-29-retention/admin-disposed-hold.png) and [privacy draft](evidence/2026-10-29-retention/web-privacy.png) are fictional/public evidence. Finalization has no recovery buttons and approved support links at390px. R2 counts mean no remaining tracked fixture objects after provider deletion calls; the separate worker test verifies physical local-file removal. No production storage inventory/restore is claimed.
+
+Failures found and corrected: message expiry initially counted eligible text without clearing its body; the first hold regression caught it. Full gate caught a missing privacy period paragraph and unconditional retention-service registration when the foundation host has no database; both fixed. Source review found stale bulk-expiry hold snapshots, conversation-row/preservation lock inversion and oldest1000-case starvation; fixed/re-reviewed, with actual database regressions. Harness corrections: session summary intentionally contains no account ID; self-report SQL violates its constraint; export creation is201; a hold on the counterpart also preserves the deleting sender's photo; closed chat does not offer unsend, so the retention fixture advances its deletion clock directly; still-visible unrelated fixture photos must be marked removed before cleanup. Aborted attachment fixture objects were scoped, independently released and expired using only their own fictional clocks; cleanup confirmed zero. An overlong temporary fictional staff label was rejected by Keycloak and replaced with a shorter label.
+
+Remaining within issue118: explicit operational-history/access/audit/disposition-note expiry (including further referential-tombstone minimisation), persistent banned-identifier registry/reinstatement and isolated backup expiry/restore reconciliation. Existing fallback encryption-version derivation needs a separate rotation fix before UAT. Legal57 remains. No unrestricted external beta, Code signatory/compliance, real known-content match, native push delivery or production acceptance claim.
+
+Final source review reports no remaining concrete defect after keyset paging. Main default host restoration and explicit-refspec push are recorded with the commit/PR ledger; there is no merge or deployment. Actual provider-uncertainty/cancellation races beyond the finalizing-marker refusal still need an isolated fake-admin regression in the remaining retention work; no such external outcome is claimed here.
+
+Main restoration verified: checkout clean at `ae41722`; default API/Web/Admin listeners have main-checkout content roots on5080/5081/5082, and main's original `/api/v1/status` returns200. Shared configuration was not edited; worktree logs were backed up before restoration. Draft PR125 remains open against main.

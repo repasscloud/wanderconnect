@@ -1,3 +1,4 @@
+const {expireFictionalReviews}=require('../retention/fixtures.cjs');
 // Local acceptance for slice AH (D201, D203; policy §5, §6, §10; procedure §4; #85, #76, #91): photos with media
 // quarantine. Every upload is validated, stripped of EXIF/GPS, re-encoded, stored privately (R2), screened by the real
 // image-moderation-api and shown only once it passes. Uncertain and blocked outcomes are driven by an extra API on
@@ -363,6 +364,8 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     assert.notEqual(await sql(`SELECT count(*) FROM media_items WHERE account_id = '${id.ana}' AND status = 'Removed' AND object_key IS NOT NULL`), '0', 'held: removed objects wait'); pass();
     r = await call(st.leg, `/api/admin/holds/${holdId}/release`, { method: 'POST', body: { reason: 'Fictional acceptance test finished', overlapsChecked: true } });
     assert.equal(r.status, 200, JSON.stringify(r.body)); pass();
+    assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id='${holdId}'`))>0,'released review evidence remains'); pass();
+    await expireFictionalReviews(accounts);
     run = await purge();
     assert.match(run.out, /Photos: \d+ objects deleted/); pass();
     assert.equal(await sql(`SELECT count(*) FROM media_items WHERE account_id IN (${accounts.map(a => `'${a}'`).join(',')}) AND object_key IS NOT NULL

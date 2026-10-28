@@ -11,6 +11,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
 builder.Services.AddScoped<AccountResolver>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Founders>();
 // D147, D169: Didit and the members realm's deletion client, from configuration only (locally .local/docker.env).
 builder.Services.AddSwoovrProviders(builder.Configuration);
@@ -20,6 +21,9 @@ builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builde
     builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
 // #49: travel reminders, written by the API's own worker (with a database).
 if (persistence) builder.Services.AddHostedService<Swoovr.Api.Notifications.NotificationWorker>();
+// Synthetic backdated Development fixtures are opt-in; hosted runs sweep hourly with durable due queries.
+if (persistence && builder.Configuration.GetValue("Retention:Worker", !builder.Environment.IsDevelopment()))
+    builder.Services.AddHostedService<Swoovr.Api.Retention.RetentionWorker>();
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
@@ -38,6 +42,7 @@ if (persistence && app.Environment.IsDevelopment())
 app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<MemberMutationAuthority>();
 // #88 (policy §11, §15): every view, query, export, change and refusal on restricted admin routes goes to the append-only log.
 app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));

@@ -56,7 +56,10 @@ public static class DeletionEndpoints
             var (current, denied) = await OwnerAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, account.Id, cancellationToken);
+            await db.Entry(account).ReloadAsync(cancellationToken);
             if (account.Status != AccountStatus.PendingDeletion) return NotPending();
+            if (account.DeletionFinalizingAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeletionNotAllowed, "Final deletion has begun and can no longer be cancelled. Contact Swoovr support if you need help.");
             if (!Fresh(current, configuration, now)) return Stale();
             AccountDeletionPolicy.DeleteNow(account, now);
             Audit.Record(db, now, account.Id, "account", "account.deletion-now", "account", account.Id.ToString());
@@ -69,7 +72,10 @@ public static class DeletionEndpoints
             var (current, denied) = await OwnerAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, account.Id, cancellationToken);
+            await db.Entry(account).ReloadAsync(cancellationToken);
             if (account.Status != AccountStatus.PendingDeletion) return NotPending();
+            if (account.DeletionFinalizingAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeletionNotAllowed, "Final deletion has begun and can no longer be cancelled. Contact Swoovr support if you need help.");
             if (!Fresh(current, configuration, now)) return Stale();
             AccountDeletionPolicy.Cancel(account);
             Audit.Record(db, now, account.Id, "account", "account.deletion-cancelled", "account", account.Id.ToString());
@@ -155,7 +161,7 @@ public static class DeletionEndpoints
 
     public static DeletionView View(Account account, MemberProfile? profile) => new(
         account.Status == AccountStatus.PendingDeletion ? "pending" : "none", account.DeletionRequestedAt, account.DeletionDueAt,
-        profile?.FoundingMember == true, account.DeleteFounderToken);
+        profile?.FoundingMember == true, account.DeleteFounderToken, FinalizingAt: account.DeletionFinalizingAt);
 
     private static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 

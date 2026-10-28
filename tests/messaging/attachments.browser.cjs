@@ -1,3 +1,4 @@
+const {expireFictionalReviews}=require('../retention/fixtures.cjs');
 // Local acceptance for slice AL (#41 in part; policy §5, §14; D203): photos in chat through the media quarantine, a
 // polite end without blocking, and conversation starters from shared intention chips. The recipient sees a photo only
 // once it passed real screening (the owner's image-moderation-api); the sender sees its state; uncertain photos go to
@@ -8,7 +9,7 @@
 const assert = require('node:assert/strict');
 const { execFile, spawn } = require('node:child_process');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, web, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, mailTo } = require('../auth/local-tokens.cjs');
+const { api, web, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, mailTo, elevate } = require('../auth/local-tokens.cjs');
 const { synthetic, withExif, upload } = require('../media/synthetic-images.cjs');
 
 const ADELAIDE = 2078025, EXTRA = 'http://127.0.0.1:5090';
@@ -323,7 +324,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     assert.ok((await list('ana', ab)).some(m => m.id === first && m.photo)); pass(); // history stays readable
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'conversation.ended' AND target_id = '${ab}' AND detail = 'MemberEnded'`), '1'); pass();
 
-    // ---- Account deletion: Eve's chat photo goes with her account (the object is purged; nothing holds Eve).
+    // ---- Account deletion: a hold over counterpart Ana preserves Eve’s photo independently, even though Eve is unnamed.
     await connect('eve', 'ana', 'dating');
     const ea = await start('eve', 'ana');
     r = await send('eve', ea, await synthetic(canvas, { kind: 'noise', type: 'image/jpeg', seed: 47 }));
@@ -332,17 +333,41 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     tk.eve = await memberToken(browser, members.eve);
     assert.equal((await call(tk.eve, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
     run = await purge();
-    assert.equal(await sql(`SELECT count(*) FROM media_items WHERE id = '${eveMedia}' AND object_key IS NOT NULL`), '0'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM media_items WHERE id = '${eveMedia}' AND object_key IS NOT NULL`), '1','counterpart hold keeps actual bytes after owner deletion'); pass();
+    assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE kind='media-item' AND record_id='${eveMedia}'`))>0,'counterpart hold captures media provenance');pass();
     assert.ok(!(await list('ana', ea)).some(m => m.kind === 'photo')); pass();
 
-    console.log(`PASS: chat photos, endings and starters (${passed} checks).`);
+
 
     // ---- Clean up the owner's bucket: release the hold (a legal officer who didn't place it), remove the suite's photos, purge.
     for (const hold of holdIds) {
       r = await call(st.leg, `/api/admin/holds/${hold}/release`, { method: 'POST', body: { reason: 'Fictional acceptance test finished', overlapsChecked: true } });
       assert.equal(r.status, 200, JSON.stringify(r.body));
     }
+    const retainedHold=holdIds[0];
+    // This fixture conversation is already closed; advance its ordinary deletion clock directly, without claiming a closed-chat unsend API.
+    await sql(`UPDATE messages SET deleted_at=now()-interval '31 days' WHERE id='${first}'`);
+    await cli('messages','purge');await purge();
+    assert.equal(await sql(`SELECT status FROM media_items WHERE id='${firstMedia}'`),'Removed','ordinary photo expiry leaves retained review bytes');pass();
+    r=await caseView(st.adm,firstMedia,{caseId,purpose:'Fictional retained review after ordinary deletion'});
+    assert.equal(r.status,200);pass();
+    const retainedBytes=await fetch(`${api}/${r.body.link}`);
+    assert.equal(retainedBytes.status,200);pass();
+    assert.equal(require('node:crypto').createHash('sha256').update(Buffer.from(await retainedBytes.arrayBuffer())).digest('hex'),firstSha,'actual retained review bytes unchanged');pass();
+    const preserved=(token,media,body)=>call(token,`/api/admin/holds/${retainedHold}/media/${media}/link`,{method:'POST',body});
+    assert.equal((await preserved(tk.ben,firstMedia,{purpose:'Fictional denied access'})).status,403);pass();
+    assert.equal((await preserved(st.leg,firstMedia,{})).status,400);pass();
+    await elevate(st.leg,'evidence-export','Fictional retained photo review');
+    r=await preserved(st.leg,firstMedia,{purpose:'Fictional retained photo after hold release'});
+    assert.equal(r.status,200);pass();assert.equal((await fetch(`${api}/${r.body.link}`)).status,200);pass();
+    assert.equal((await preserved(st.leg,badMedia,{purpose:'Fictional blocked negative check'})).status,404);pass();
+    await expireFictionalReviews(accounts);
+    await sql(`UPDATE media_items SET status='Removed',removed_at=coalesce(removed_at,now()),next_screen_at=NULL
+      WHERE account_id IN (${accounts.map(a=>`'${a}'`).join(',')}) AND status IN ('Pending','Passed','Uncertain')`);
+    await purge();
+    assert.equal(await sql(`SELECT count(*) FROM media_items WHERE account_id IN (${accounts.map(a=>`'${a}'`).join(',')}) AND object_key IS NOT NULL`),'0','expired fixture evidence and raw bytes disposed');pass();
     holdIds = [];
+    console.log(`PASS: chat photos, endings and starters (${passed} checks).`);
   } finally {
     await stopExtra();
     if (accounts.length) {
@@ -350,7 +375,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
       await sql(`UPDATE media_items SET status = 'Removed', removed_at = coalesce(removed_at, now()), next_screen_at = NULL WHERE account_id IN (${list}) AND status IN ('Pending', 'Passed', 'Uncertain')`).catch(() => {});
       const run = await purge().catch(() => ({ out: '' }));
       const left = await sql(`SELECT count(*) FROM media_items WHERE account_id IN (${list}) AND object_key IS NOT NULL`).catch(() => '?');
-      console.log(`Suite photo objects left in R2: ${left}${holdIds.length ? ' (a hold is still placed: run tests/media/cleanup.browser.cjs)' : ''}.`);
+      console.log(`Suite photo objects left in R2: ${left}${holdIds.length ? ' (fixture retention cleanup was interrupted)'  : ''}.`);
     }
     await browser.close();
   }

@@ -124,6 +124,12 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<LegalHoldDetail>> HoldStepAsync(Guid id, string step, CancellationToken cancellationToken = default) =>
         SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/admin/holds/{id}/{Uri.EscapeDataString(step)}", null, cancellationToken);
 
+    public Task<ApiResult<LegalHoldDetail>> RetentionDispositionAsync(Guid id, string? reason, bool confirmed, CancellationToken cancellationToken = default) =>
+        SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/admin/holds/{id}/retention-disposition", new HoldRetentionDispositionRequest(reason, confirmed), cancellationToken);
+
+    public Task<ApiResult<MediaReviewLink>> PreservedPhotoAsync(Guid hold, Guid media, string? purpose, CancellationToken cancellationToken = default) =>
+        SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/admin/holds/{hold}/media/{media}/link", new MediaViewRequest(purpose), cancellationToken);
+
     public Task<ApiResult<LegalHoldDetail>> ReviewHoldAsync(Guid id, DateTimeOffset? due, CancellationToken cancellationToken = default) =>
         SendAsync<LegalHoldDetail>(HttpMethod.Post, $"api/admin/holds/{id}/review", new HoldReviewRequest(due), cancellationToken);
 

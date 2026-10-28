@@ -21,7 +21,7 @@ Status key: **Built** (in the prototype, with a decision and tests), **Partly bu
 | Prominent, transparent, plain-language, accessible | §6.1(2) | Partly built | Report and Block on profiles and in chats, Safety & Support (D204), account standing (D208); accessibility floor only (#48) |
 | Review every genuine report, promptly | §6.2(1)(a)–(b) | Built | Every report joins a case in a queue; urgent ones escalate at once (D135) |
 | Tell the complainant the outcome for sexual misconduct and serious violations | §6.2(1)(c) | Partly built | The general outcome shows on Notices and Account standing (D190, D208); the reporter isn't told when it changes → [#117](https://github.com/repasscloud/wanderconnect/issues/117) |
-| Keep review information at least 12 months | §6.2(2) | Partly built | Cases and evidence stay; no written retention schedule that guarantees 12 months → [#118](https://github.com/repasscloud/wanderconnect/issues/118) |
+| Keep review information at least 12 months | §6.2(2) | Partly built | D231–D233 add the [written schedule](RETENTION-SCHEDULE.md), calendar review clocks, independently retained copies/photo references and guarded disposal. Local policy/hold/clock tests pass; broader byte/recovery, operational-history, registry and backup/restore work remains → [#118](https://github.com/repasscloud/wanderconnect/issues/118) |
 | Support resources for complainants | §6.3 | Partly built | Country-aware Safety & Support (D204, D206) and the serious-incident pathway show them; a routine report of sexual misconduct doesn't point the reporter to them → [#117](https://github.com/repasscloud/wanderconnect/issues/117) |
 | Sharing with other participants | §6.4 | N/A | Only if Swoovr signs (Q87) |
 | Law-enforcement point of contact; acting on their information | §6.5(1)–(2) | Built | `/law-enforcement` page and LE cases (D195, D196), legal holds (D188) |
@@ -87,3 +87,7 @@ Status key: **Built** (in the prototype, with a decision and tests), **Partly bu
 | [#121](https://github.com/repasscloud/wanderconnect/issues/121) | Safe-dating advice in onboarding; in-app notice of policy changes | §7.3(1), §7.3(3) |
 
 Sources: the Code of Practice PDF (July 2024) on australianonlinedatingcode.com.au; Department of Infrastructure, "New industry code now operational to make online dating safer"; ANZPAA, *Protocol for information sharing between the online dating industry and Australian policing jurisdictions*.
+
+### Retention implementation progress — 29 October 2026
+
+Under owner D216, the local implementation separates ordinary account/message deletion, qualifying review content, minimal compliance records, police records and backup expiry. Hold release resumes the applicable schedule; it does not by itself erase evidence. Unknown provenance is preserved pending restricted review. The [schedule](RETENTION-SCHEDULE.md) identifies DEFAULT periods, remaining implementation and legal review57. This supports intended Code readiness; no signatory status or independently verified compliance is claimed. See [validation](VALIDATION.md) for actual local database/browser evidence rather than treating a written schedule as operational acceptance.

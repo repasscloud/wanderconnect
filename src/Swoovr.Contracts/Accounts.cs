@@ -26,7 +26,7 @@ public sealed record MemberAccount(
 /// runs. Founder says whether a founder recovery code applies (D173).
 /// </summary>
 public sealed record DeletionView(string State, DateTimeOffset? RequestedAt, DateTimeOffset? DueAt, bool Founder, bool DeleteFounderToken,
-    bool SignedOutEverywhere = false, bool FounderCodeEmailed = false);
+    bool SignedOutEverywhere = false, bool FounderCodeEmailed = false, DateTimeOffset? FinalizingAt = null);
 
 /// <summary>Confirm must be true. Immediately skips the 30-day recovery period; DeleteFounderToken also removes the founder token (#22).</summary>
 public sealed record DeletionRequest(bool Confirm, bool Immediately, bool DeleteFounderToken);

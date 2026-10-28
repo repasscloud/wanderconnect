@@ -72,6 +72,8 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 
 | Suite | File | Last result (29 Oct 2026, AJ–AL run; all passed) |
 | --- | --- | --- |
+| Hosted retention worker/restart | `tests/retention/worker.browser.cjs` | New slice; see VALIDATION.md |
+| Safety retention clocks/authority | `tests/retention/schedule.browser.cjs` | New slice; see VALIDATION.md |
 | API contract dates | `tests/api/versioning.browser.cjs` | New slice; see VALIDATION.md |
 | root admin | `tests/auth/root-admin.browser.cjs` | 9 |
 | accounts | `tests/auth/accounts.browser.cjs` | 121 |
@@ -196,3 +198,11 @@ Operator/reconciliation details: [BLOCKED-MEDIA-RECOVERY.md](BLOCKED-MEDIA-RECOV
 ### Concurrent media transitions (D230)
 
 With worktree Debug hosts running and `Media__Screening__Worker=false`, run `SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node tests/media/transitions.browser.cjs`. It starts two extra APIs with isolated synthetic local files, tests both reviewer orderings, responsive removal during processing, competing automatic workers against a delayed fake screening service, and orphan clear-copy cleanup. It releases only its fixture holds and cleans its own temporary files/rows. Never run it concurrently with another media suite or rebuild during execution. Restart ordinary R2-configured worktree hosts before integrated photo/attachment regressions. `node --test tests/media/recovery-startup.test.cjs` also rejects both publication barrier stages outside Development.
+
+### Safety retention fixtures
+
+`tests/retention/schedule.browser.cjs` uses fictional accounts, unique case/hold UUIDs and backdated SQL clocks to exercise actual PostgreSQL/operator retention. It also races an exclusive preservation writer against the targeted purge and checks the member finalization screen at 390px. It changes no real person's clocks. It restores its synthetic finalization marker and removes its own case/hold fixtures in `finally`. `tests/evidence/holds.browser.cjs` checks that release preserves copies, retained export works, independent no-review disposition is constrained, and linked review evidence cannot bypass its schedule.
+
+Do not backdate arbitrary cases or release real holds to clean tests. A released hold can still require evidence and photo bytes. Use only positively identified fictional test-owned cases and targeted `retention purge --case <id>` after the fixture's applicable schedule has been advanced. Operator `accounts purge <id>` restricts finalization/media sweeping; a global purge must use the actual configured object store, never a substitute local store for R2 metadata.
+
+`tests/retention/worker.browser.cjs` creates and drops its own `swoovr_retention_<uuid>` database, starts only an isolated API on an allocated loopback port with its content root in `src/Swoovr.Api`, and uses local synthetic files. It enables the actual retention worker only after seeding its fixtures, checks fail-closed unavailable hold status, resumes expiry, then restarts to check idempotence. It does not point the local-file store at the owner's database or contact a delivery/screening provider. The two fictional Keycloak sign-ins are local authentication evidence only. Allow roughly two minutes; there is no solution rebuild during the test.

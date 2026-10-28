@@ -103,6 +103,9 @@ public static class ModerationEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+            await using var barrier = await Retention.PreservationLease.ExclusiveAsync(db, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
             if (request.Text is { Length: > ReportPolicy.TextMax }) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidReport, "Keep it under 2,000 characters.");
             var sanction = await db.Sanctions.FindAsync([request.SanctionId], cancellationToken);
             // Another member's sanction reads the same as none.
@@ -154,11 +157,16 @@ public static class ModerationEndpoints
         var category = await db.ReportCategories.SingleOrDefaultAsync(c => c.Id == request.Category && c.Available, cancellationToken);
         if (category is null) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.UnknownCategory, "Pick a reason from the list.");
 
+        await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+        await using var barrier = await Retention.PreservationLease.ExclusiveAsync(db, cancellationToken);
+        if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
+        // Re-read all source content and eligibility only after obtaining disposal authority.
         // Resolve the subject account (its profile is gone after final deletion) and a snapshot of what the reporter saw.
         Guid? subjectId = null;
         MemberProfile? subject = null;
         object? snapshot = null;
         var pairConversations = new List<Guid>();
+        var retainedMedia = new List<Guid>();
         if (subjectType is ReportSubject.Profile or ReportSubject.Bot && Guid.TryParse(request.SubjectId, out var publicId))
         {
             subject = await db.MemberProfiles.SingleOrDefaultAsync(p => p.PublicId == publicId, cancellationToken);
@@ -195,6 +203,7 @@ public static class ModerationEndpoints
                 var kept = chosen ?? (message is not null ? MessagingPolicy.Evidence(all, message) : all.Take(MessagingPolicy.EvidenceBefore + 1).OrderBy(m => m.SentAt).ToList());
                 // #41: a photo message is kept by its media id and SHA-256 (the object itself stays in the store, under any hold).
                 var photoIds = kept.Where(m => m.MediaId is not null).Select(m => m.MediaId!.Value).ToList();
+                retainedMedia.AddRange(photoIds);
                 var hashes = await db.MediaItems.Where(i => photoIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, i => Convert.ToHexStringLower(i.Sha256), cancellationToken);
                 snapshot = new
                 {
@@ -227,7 +236,7 @@ public static class ModerationEndpoints
             report.PoliceReference = EvidenceSeal.Seal(version, evidenceKeys.Encryption[version], reference);
         var item = await AttachAsync(db, report, subjectAccount, subject?.Employee == true, category.Serious, now, cancellationToken);
         db.CaseEvidence.Add(new CaseEvidence { Id = Guid.NewGuid(), CaseId = item.Id, ReportId = report.Id, Kind = Wire(subjectType),
-            Snapshot = JsonSerializer.Serialize(snapshot, SnapshotJson), CapturedAt = now });
+            Snapshot = JsonSerializer.Serialize(snapshot, SnapshotJson), MediaIds = retainedMedia.Distinct().ToArray(), CapturedAt = now });
         Audit.Record(db, now, me, "account", category.Serious ? "report.serious" : "report.created", "moderation-case", item.Id.ToString(), $"{category.Id}:{category.Priority}");
         var closed = new List<Conversation>();
         if (request.Block) await Connections.RequestEndpoints.AddBlockAsync(db, me, subjectAccount, now, cancellationToken, closed);
@@ -239,7 +248,6 @@ public static class ModerationEndpoints
             return await ReportAsync(request, user, accounts, configuration, email, evidence, evidenceKeys, hub, clock, logs, cancellationToken);
         }
         // #82: a block closes the conversation for both members' open chat windows at once.
-        await Connections.MessagingEndpoints.PushClosedAsync(hub, closed, cancellationToken);
         if (category.Serious)
         {
             // A preservation failure never loses the member's report: it is logged and audited for staff to place the hold.
@@ -255,7 +263,18 @@ public static class ModerationEndpoints
             // Every serious report is escalated, even into a case already escalated and acknowledged.
             (item.EscalatedAt, item.AcknowledgedAt, item.AcknowledgedBy) = (null, null, null);
         }
-        if (item.Priority == ReportPriority.Urgent && item.EscalatedAt is null)
+        var escalate = item.Priority == ReportPriority.Urgent && item.EscalatedAt is null;
+        if (escalate)
+        {
+            item.EscalatedAt = now;
+            Audit.Record(db, now, null, "system", "case.escalation-requested", "moderation-case", item.Id.ToString());
+            await db.SaveChangesAsync(cancellationToken); // Ack reset/intent commits before external notification effects.
+        }
+        await barrier.DisposeAsync();
+        await lifecycle.DisposeAsync();
+        await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
+        await Connections.MessagingEndpoints.PushClosedAsync(hub, closed, cancellationToken);
+        if (escalate)
             await EscalateAsync(db, item, category.Id, category.Serious, configuration, email, now, logs, cancellationToken);
         return Results.Created($"/api/me/reports/{report.Id}", new MyReportView(report.Id, Wire(subjectType), category.Id, ReportPolicy.ReporterStatus(item.Status), now,
             null, category.Serious));
@@ -373,14 +392,16 @@ public static class ModerationEndpoints
     }
 
     /// <summary>D135: an in-app notice, and a short email that says only that there is one (Mailpit locally).</summary>
-    private static async Task NotifyAsync(SwoovrDbContext db, IEmailSender email, Guid account, NoticeKind kind, Guid? sanction, DateTimeOffset now, CancellationToken cancellationToken)
+    private static async Task NotifyAsync(SwoovrDbContext db, IEmailSender email, Guid account, NoticeKind kind, Guid? sanction, DateTimeOffset now, CancellationToken cancellationToken, Retention.PreservationLease? barrier = null)
     {
         var notice = new MemberNotice { Id = Guid.NewGuid(), AccountId = account, Kind = kind, SanctionId = sanction, CreatedAt = now };
         db.MemberNotices.Add(notice);
         // #49: account notices also appear in the notification centre (never pushed: this email already tells them).
         db.Notifications.Add(new Notification { Id = Guid.NewGuid(), AccountId = account, Kind = NotificationKind.Account, SubjectId = notice.Id, CreatedAt = now, UpdatedAt = now });
         await db.SaveChangesAsync(cancellationToken);
-        if (await db.Accounts.Where(a => a.Id == account).Select(a => a.Email).SingleOrDefaultAsync(cancellationToken) is { } address)
+        var address = await db.Accounts.Where(a => a.Id == account).Select(a => a.Email).SingleOrDefaultAsync(cancellationToken);
+        if (barrier is not null) await barrier.DisposeAsync();
+        if (address is not null)
             await email.SendAsync(new EmailMessage(address, "A notice about your Swoovr account",
                 """
                 There's a new notice about your Swoovr account. Sign in to Swoovr and open Me to read it.
@@ -391,7 +412,7 @@ public static class ModerationEndpoints
 
     private static void MapAdmin(WebApplication app)
     {
-        var admin = app.MapGroup("/api/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization().AddEndpointFilter<Retention.ModerationLifecycleFilter>();
 
         admin.MapGet("/cases", async (string? queue, string? status, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -439,29 +460,29 @@ public static class ModerationEndpoints
             return Results.Ok(await DetailAsync(db, item, now, cancellationToken));
         });
         admin.MapPost("/cases/{id:guid}/actions", async (Guid id, ModerationActionRequest request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
-            TimeProvider clock, CancellationToken cancellationToken) =>
+            TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
         {
             var (current, item, denied) = await CaseAsync(user, accounts, id, cancellationToken);
             if (denied is not null) return denied;
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             if (item!.Status == CaseStatus.Closed) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This case is closed.");
-            var result = await ActAsync(db, email, current!, item.SubjectAccountId, item, request, now, cancellationToken);
+            var result = await ActAsync(db, email, current!, item.SubjectAccountId, item, request, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context));
             if (result is not null) return result;
             return Results.Ok(await DetailAsync(db, item, now, cancellationToken));
         });
         // Actions on an account without a report (for example after a support contact) follow the same rules.
         admin.MapPost("/accounts/{id:guid}/sanctions", async (Guid id, ModerationActionRequest request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
-            TimeProvider clock, CancellationToken cancellationToken) =>
+            TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;
             var db = accounts.Db!;
             if (await db.MemberProfiles.FindAsync([id], cancellationToken) is null) return Results.NotFound();
             if (request.Action == "dismiss") return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Nothing to dismiss.");
-            return await ActAsync(db, email, current!, id, null, request, clock.GetUtcNow(), cancellationToken) ?? Results.Ok(await SummaryAsync(db, id, clock.GetUtcNow(), cancellationToken));
+            return await ActAsync(db, email, current!, id, null, request, clock.GetUtcNow(), cancellationToken, Retention.ModerationLifecycleFilter.Current(context)) ?? Results.Ok(await SummaryAsync(db, id, clock.GetUtcNow(), cancellationToken));
         });
         admin.MapPost("/sanctions/{id:guid}/lift", async (Guid id, LiftRequest request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
-            TimeProvider clock, CancellationToken cancellationToken) =>
+            TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;
@@ -476,7 +497,7 @@ public static class ModerationEndpoints
             (sanction.LiftedAt, sanction.LiftedBy) = (now, current.Account.Id);
             Audit.Record(db, now, current.Account.Id, "account", "sanction.lifted", "sanction", sanction.Id.ToString(), current.StaffRole.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            await NotifyAsync(db, email, sanction.AccountId, NoticeKind.SanctionLifted, sanction.Id, now, cancellationToken);
+            await NotifyAsync(db, email, sanction.AccountId, NoticeKind.SanctionLifted, sanction.Id, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context));
             return Results.Ok(View(sanction, now));
         });
 
@@ -496,7 +517,7 @@ public static class ModerationEndpoints
             return Results.Ok(rows.Select(r => r with { SanctionKind = JsonNamingPolicy.CamelCase.ConvertName(r.SanctionKind), Status = JsonNamingPolicy.CamelCase.ConvertName(r.Status) }).ToList());
         });
         admin.MapPost("/appeals/{id:guid}/decide", async (Guid id, AppealDecision request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
-            TimeProvider clock, CancellationToken cancellationToken) =>
+            TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;
@@ -514,7 +535,7 @@ public static class ModerationEndpoints
             if (appeal.Status == AppealStatus.Overturned && sanction.LiftedAt is null) (sanction.LiftedAt, sanction.LiftedBy) = (now, current.Account.Id);
             Audit.Record(db, now, current.Account.Id, "account", "appeal." + request.Outcome, "appeal", appeal.Id.ToString(), current.StaffRole.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            await NotifyAsync(db, email, appeal.AccountId, appeal.Status == AppealStatus.Overturned ? NoticeKind.AppealOverturned : NoticeKind.AppealUpheld, sanction.Id, now, cancellationToken);
+            await NotifyAsync(db, email, appeal.AccountId, appeal.Status == AppealStatus.Overturned ? NoticeKind.AppealOverturned : NoticeKind.AppealUpheld, sanction.Id, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context));
             return Results.Ok(new AppealView(appeal.Id, sanction.Id, Wire(appeal.Status), appeal.CreatedAt));
         });
 
@@ -649,7 +670,7 @@ public static class ModerationEndpoints
 
     /// <summary>Applies one action (D133) and notifies the member; returns a refusal, or null when done.</summary>
     private static async Task<IResult?> ActAsync(SwoovrDbContext db, IEmailSender email, CurrentAccount current, Guid subjectId, ModerationCase? item,
-        ModerationActionRequest request, DateTimeOffset now, CancellationToken cancellationToken)
+        ModerationActionRequest request, DateTimeOffset now, CancellationToken cancellationToken, Retention.PreservationLease? barrier = null)
     {
         var action = request.Action switch
         {
@@ -698,7 +719,7 @@ public static class ModerationEndpoints
             {
                 SanctionKind.Warning => NoticeKind.Warning, SanctionKind.Restriction => NoticeKind.Restriction,
                 SanctionKind.Suspension => NoticeKind.Suspension, _ => NoticeKind.Termination,
-            }, sanction.Id, now, cancellationToken);
+            }, sanction.Id, now, cancellationToken, barrier);
         return null;
     }
 
@@ -724,7 +745,7 @@ public static class ModerationEndpoints
         return new((await SummariesAsync(db, [item], cancellationToken))[0], subject?.Employee == true,
             reports.Select(r => new CaseReportView(r.Id, r.ReporterAccountId, Wire(r.SubjectType), r.SubjectRef, r.CategoryId, Wire(r.Priority), r.Text, r.CreatedAt, r.Police)).ToList(),
             evidence.Select(e => new CaseEvidenceView(e.ReportId, e.Kind, e.Snapshot, e.CapturedAt)).ToList(),
-            sanctions.Select(s => View(s, now)).ToList());
+            sanctions.Select(s => View(s, now)).ToList(), item.EvidencePurgedAt);
     }
 
     public static async Task<AccountAdminSummary> SummaryAsync(SwoovrDbContext db, Guid id, DateTimeOffset now, CancellationToken cancellationToken)

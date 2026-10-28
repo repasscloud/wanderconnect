@@ -43,6 +43,7 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     public bool Configured => keys.CurrentVersion is not null;
+    public DateTimeOffset CurrentTime => services.GetRequiredService<TimeProvider>().GetUtcNow();
 
     /// <summary>Live holds and their scopes, for the purge jobs and capture.</summary>
     public async Task<(List<LegalHold> Holds, List<LegalHoldScope> Scopes)> LiveAsync(CancellationToken cancellationToken)
@@ -93,13 +94,16 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
     /// <summary>Appends one entry to a hold's custody chain (ids and machine values only).</summary>
     public async Task CustodyAsync(Guid hold, Guid? actor, string action, string? detail, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
+        await using var ownedTransaction = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
+        // Transaction lock survives until an outer transaction commits; a helper return can never expose an uncommitted predecessor.
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({Retention.PreservationLease.HoldNamespace}, {AccountLifecycleLease.Key(hold)})", cancellationToken);
         var previous = await db.CustodyEvents.Where(c => c.HoldId == hold).OrderByDescending(c => c.Sequence).Select(c => c.Hash).FirstOrDefaultAsync(cancellationToken) ?? [];
-        // Pending entries for the same hold in this unit of work chain on from the newest of them.
-        var pending = db.ChangeTracker.Entries<CustodyEvent>().Where(e => e.State == EntityState.Added && e.Entity.HoldId == hold).Select(e => e.Entity).LastOrDefault();
-        if (pending is not null) previous = pending.Hash;
         var at = DateTimeOffset.FromUnixTimeMilliseconds(now.ToUnixTimeMilliseconds());
         db.CustodyEvents.Add(new CustodyEvent { HoldId = hold, At = at, ActorAccountId = actor, Action = action, Detail = detail, PreviousHash = previous,
             Hash = EvidenceSeal.Chain(previous, hold, at, actor, action, detail) });
+        await db.SaveChangesAsync(cancellationToken);
+        if (ownedTransaction is not null) await ownedTransaction.CommitAsync(cancellationToken);
     }
 
     /// <summary>
@@ -110,6 +114,10 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
     /// </summary>
     public async Task<int> CaptureAsync(LegalHold hold, Guid? actor, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
+        await using var holdMutex = await Retention.PreservationLease.HoldAsync(db, hold.Id, cancellationToken);
+        await db.Entry(hold).ReloadAsync(cancellationToken);
+        if (hold.Status == LegalHoldStatus.Released) throw new InvalidOperationException("Released preservation cannot capture new source data.");
         if (keys.CurrentVersion is not { } version) throw new InvalidOperationException("Evidence keys are not configured.");
         var scopes = await db.LegalHoldScopes.Where(s => s.HoldId == hold.Id).ToListAsync(cancellationToken);
         var accounts = scopes.Where(s => s.Kind == HoldScopeKind.Account).Select(s => s.TargetId).ToList();
@@ -118,8 +126,19 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
             .Select(i => (i.Kind, i.RecordId, Convert.ToHexString(i.Sha256))).ToHashSet();
         var capture = 1 + (await db.EvidenceItems.Where(i => i.HoldId == hold.Id).Select(i => (int?)i.Capture).MaxAsync(cancellationToken) ?? 0);
         var added = 0;
+        var retentionCases = hold.RetentionCaseIds?.ToHashSet();
+        var relatedAccounts = hold.RelatedAccountIds?.ToHashSet();
         void Add(string kind, string source, string recordId, Guid? account, object content)
         {
+            if (account is { } owner) relatedAccounts?.Add(owner);
+            switch (content)
+            {
+                case Conversation c: relatedAccounts?.UnionWith([c.PairLow, c.PairHigh]); break;
+                case ConnectionRequest r: relatedAccounts?.UnionWith([r.FromAccountId, r.ToAccountId]); break;
+                case Block b: relatedAccounts?.UnionWith([b.BlockerAccountId, b.BlockedAccountId]); break;
+            }
+            var reviewCase = content switch { ModerationCase c => (Guid?)c.Id, Report r => r.CaseId, CaseEvidence e => e.CaseId, Sanction s => s.CaseId, _ => null };
+            if (reviewCase is { } related) retentionCases?.Add(related);
             var json = JsonSerializer.Serialize(content, Json);
             var hash = EvidenceSeal.Hash(json);
             if (!known.Add((kind, recordId, Convert.ToHexString(hash)))) return;
@@ -151,7 +170,7 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 Add("contact-history", "contact_histories", past.Id.ToString(), id, new
                 {
                     past.Id, past.AccountId, past.ContactType, past.ValidFrom, past.ValidUntil, past.ChangedBy, past.ChangeReason,
-                    Value = contactKeys.Encryption.ContainsKey(past.EncryptedValue[0]) ? ContactHistoryPolicy.Decrypt(contactKeys.Encryption, past.EncryptedValue) : null,
+                    Value = ContactHistoryPolicy.Decrypt(contactKeys.Encryption, past.EncryptedValue),
                 });
             foreach (var request in await db.ConnectionRequests.Where(r => r.FromAccountId == id || r.ToAccountId == id).ToListAsync(cancellationToken))
                 if (InPeriod(request.CreatedAt)) Add("request", "connection_requests", request.Id.ToString(), id, request);
@@ -162,21 +181,31 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 Add("conversation", "conversations", conversation.Id.ToString(), id, conversation);
                 foreach (var message in await db.Messages.Where(m => m.ConversationId == conversation.Id).OrderBy(m => m.SentAt).ToListAsync(cancellationToken))
                     if (InPeriod(message.SentAt))
+                    {
                         Add("message", "messages", message.Id.ToString(), message.SenderAccountId, new
                         {
                             Message = message,
                             HiddenBy = await db.MessageHides.Where(h => h.MessageId == message.Id).Select(h => new { h.AccountId, h.HiddenAt }).ToListAsync(cancellationToken),
                         });
+                        if (message.MediaId is { } photo && await db.MediaItems.FindAsync([photo], cancellationToken) is { } attachment)
+                            await AddMediaAsync(attachment, Add, cancellationToken);
+                    }
             }
             foreach (var report in await db.Reports.Where(r => r.ReporterAccountId == id || r.SubjectAccountId == id).ToListAsync(cancellationToken))
+            {
                 if (InPeriod(report.CreatedAt))
+                {
+                    retentionCases?.Add(report.CaseId);
+                    relatedAccounts?.UnionWith([report.ReporterAccountId, report.SubjectAccountId]);
                     Add("report", "reports", report.Id.ToString(), id, new
                     {
                         report.Id, report.ReporterAccountId, report.SubjectAccountId, report.SubjectType, report.SubjectRef, report.CategoryId, report.Priority,
                         report.Text, report.CaseId, report.CreatedAt, report.Police,
                         // D190: the reporter's police reference, opened into the sealed evidence item.
-                        PoliceReference = report.PoliceReference is { } sealedReference && keys.Encryption.ContainsKey(sealedReference[0]) ? EvidenceSeal.Open(keys.Encryption, sealedReference) : null,
+                        PoliceReference = report.PoliceReference is { } sealedReference ? EvidenceSeal.Open(keys.Encryption, sealedReference) : null,
                     });
+                }
+            }
             foreach (var item in await db.ModerationCases.Where(c => c.SubjectAccountId == id).ToListAsync(cancellationToken))
             {
                 Add("case", "moderation_cases", item.Id.ToString(), id, item);
@@ -192,40 +221,60 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 if (InPeriod(entry.At)) Add("audit", "audit_entries", entry.Id.ToString(), id, entry);
             await ExtraAsync(hold, id, Add, cancellationToken);
         }
+        if (retentionCases is not null) hold.RetentionCaseIds = retentionCases.Order().ToArray();
+        if (relatedAccounts is not null) hold.RelatedAccountIds = relatedAccounts.Order().ToArray();
         await CustodyAsync(hold.Id, actor, "captured", $"capture:{capture};items:{added}", now, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken); // Capture/dedup/numbering commit while the hold mutex is still owned.
         return added;
     }
 
     /// <summary>D191: the verified identity record, opened into the sealed evidence item (only `legal` can export it).</summary>
     private async Task ExtraAsync(LegalHold hold, Guid account, Action<string, string, string, Guid?, object> add, CancellationToken cancellationToken)
     {
-        // D203: every photo of the account, by hash and object key; while the hold lives no purge deletes the objects.
         foreach (var media in await db.MediaItems.Where(i => i.AccountId == account).ToListAsync(cancellationToken))
-            add("media-item", "media_items", media.Id.ToString(), account, new
-            {
-                media.Id, media.AccountId, media.Status, Sha256 = Convert.ToHexStringLower(media.Sha256), UploadSha256 = Convert.ToHexStringLower(media.UploadSha256),
-                media.ContentType, media.Width, media.Height, media.Bytes, media.CreatedAt, media.ScreenedAt, media.Screener, media.PolicyVersion, media.Signals,
-                media.KnownContentChecked, media.ReviewedBy, media.ReviewedAt, media.ReplacesId, media.CaseId, media.RemovedAt, media.ObjectKey,
-                Placements = await db.MediaPlacements.Where(p => p.MediaId == media.Id).Select(p => p.Scope).ToListAsync(cancellationToken),
-            });
+            await AddMediaAsync(media, add, cancellationToken);
         if (await db.VerifiedIdentities.FindAsync([account], cancellationToken) is not { } record) return;
-        var fields = services.GetRequiredService<Verification.VerifiedIdentityStore>().OpenForEvidence(record);
+        var fields = services.GetRequiredService<Verification.VerifiedIdentityStore>().OpenForEvidence(record)
+            ?? throw new InvalidOperationException("A required identity encryption key is unavailable; preservation is incomplete.");
         add("identity-record", "restricted.verified_identities", account.ToString(), account, new
         {
             record.AccountId, record.SessionId, record.AttemptId, record.VerifiedAt, record.Method, record.Decision, record.IssuingCountry, record.RetainUntil, Fields = fields,
         });
     }
 
+    private async Task AddMediaAsync(MediaItem media, Action<string, string, string, Guid?, object> add, CancellationToken cancellationToken)
+    {
+            add("media-item", "media_items", media.Id.ToString(), media.AccountId, new
+            {
+                media.Id, media.AccountId, media.Status, Sha256 = Convert.ToHexStringLower(media.Sha256), UploadSha256 = Convert.ToHexStringLower(media.UploadSha256),
+                media.ContentType, media.Width, media.Height, media.Bytes, media.CreatedAt, media.ScreenedAt, media.Screener, media.PolicyVersion, media.Signals,
+                media.KnownContentChecked, media.ReviewedBy, media.ReviewedAt, media.ReplacesId, media.CaseId, media.RemovedAt, media.ObjectKey,
+                Placements = await db.MediaPlacements.Where(p => p.MediaId == media.Id).Select(p => p.Scope).ToListAsync(cancellationToken),
+            });
+    }
+
     /// <summary>
     /// Before final deletion erases an account's records, every live hold over it captures them again, so deletion still
     /// completes for everything the member and others see while held records stay in the evidence store (D189).
     /// </summary>
+    public async Task<List<LegalHold>> DeletionHoldsAsync(Guid account, CancellationToken cancellationToken)
+    {
+        var (holds, scopes) = await LiveAsync(cancellationToken);
+        var conversations = await db.Conversations.AsNoTracking().Where(c => c.PairLow == account || c.PairHigh == account).ToListAsync(cancellationToken);
+        return holds.Where(h =>
+        {
+            var named = scopes.Where(s => s.HoldId == h.Id && s.Kind == HoldScopeKind.Account).Select(s => s.TargetId).ToHashSet();
+            var narrowed = scopes.Where(s => s.HoldId == h.Id && s.Kind == HoldScopeKind.Conversation).Select(s => s.TargetId).ToHashSet();
+            return named.Contains(account) || conversations.Any(c => (named.Contains(c.PairLow) || named.Contains(c.PairHigh)) && (narrowed.Count == 0 || narrowed.Contains(c.Id)));
+        }).ToList();
+    }
+
     public async Task<int> PreserveBeforeDeletionAsync(Guid account, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var holds = await (from s in db.LegalHoldScopes join h in db.LegalHolds on s.HoldId equals h.Id
-                           where h.Status != LegalHoldStatus.Released && s.Kind == HoldScopeKind.Account && s.TargetId == account select h).ToListAsync(cancellationToken);
+        await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
+        var holds = await DeletionHoldsAsync(account, cancellationToken);
         var added = 0;
-        foreach (var hold in holds) added += await CaptureAsync(hold, null, now, cancellationToken);
+        foreach (var hold in holds.OrderBy(h => AccountLifecycleLease.Key(h.Id))) added += await CaptureAsync(hold, null, now, cancellationToken);
         if (holds.Count > 0) await db.SaveChangesAsync(cancellationToken);
         return added;
     }
@@ -238,14 +287,20 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
         holds.Any(h => LegalHoldPolicy.Covers(h, scopes, conversation.PairLow, conversation.Id, message.SentAt)
             || LegalHoldPolicy.Covers(h, scopes, conversation.PairHigh, conversation.Id, message.SentAt));
 
-    /// <summary>Releasing a hold erases its evidence items; the hold record and its custody chain stay as the record of what happened.</summary>
-    /// <remarks>Overlapping holds keep their own items (§7: each operates independently), so only this hold's copies go.</remarks>
+    /// <summary>Release ends preservation authority; independent review/police retention continues until its applicable disposition.</summary>
     public async Task<int> ReleaseAsync(LegalHold hold, Guid actor, string reason, DateTimeOffset now, CancellationToken cancellationToken, int overlaps = 0)
     {
+        await using var barrier = await Retention.PreservationLease.ExclusiveAsync(db, cancellationToken);
+        await using var holdMutex = await Retention.PreservationLease.HoldAsync(db, hold.Id, cancellationToken);
+        await db.Entry(hold).ReloadAsync(cancellationToken);
+        now = CurrentTime;
+        await CaptureAsync(hold, actor, now, cancellationToken); // Include covered records added since placement before ending authority.
+        var retention = services.GetRequiredService<Retention.SafetyRetention>();
+        await retention.ResolveProvenanceAsync(hold, cancellationToken);
         (hold.Status, hold.ReleasedAt, hold.ReleasedBy, hold.ReleaseReason) = (LegalHoldStatus.Released, now, actor, reason.Trim());
-        var erased = await db.EvidenceItems.Where(i => i.HoldId == hold.Id).ExecuteDeleteAsync(cancellationToken);
-        await CustodyAsync(hold.Id, actor, "released", $"items-erased:{erased};overlaps:{overlaps}", now, cancellationToken);
-        return erased;
+        await CustodyAsync(hold.Id, actor, "released", $"schedule-resumed;overlaps:{overlaps}", now, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return 0; // Disposal is independently scheduled/retryable, never implied by release.
     }
 
     public string Open(EvidenceItem item) => EvidenceSeal.Open(keys.Encryption, item.Sealed);

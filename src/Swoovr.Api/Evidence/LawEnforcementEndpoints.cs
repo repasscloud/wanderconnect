@@ -20,7 +20,7 @@ public static class LawEnforcementEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var le = app.MapGroup("/api/admin/law-enforcement").RequireAuthorization();
+        var le = app.MapGroup("/api/admin/law-enforcement").RequireAuthorization().AddEndpointFilter<Retention.LawEnforcementLifecycleFilter>();
 
         le.MapGet("/overview", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {

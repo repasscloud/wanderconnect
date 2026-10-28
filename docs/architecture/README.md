@@ -31,3 +31,7 @@ API paths and client contract dates follow [API versioning](API-VERSIONING.md), 
 D223/D224: conversation closure and its recipient centre/outbox item commit together. Existing API notification services own deduplicated dispatch/recovery; per-device attempts record acceptance or uncertainty rather than claiming device delivery. No separate worker project is introduced.
 
 Push provider boundaries, secure device registration and required operator/native acceptance steps are in [PUSH-NOTIFICATIONS.md](PUSH-NOTIFICATIONS.md) (D226–D228).
+
+### Retention authority (D231–D233)
+
+The API retention services use existing Domain policy and Infrastructure persistence; no project is added. See [retention schedule](../delivery/RETENTION-SCHEDULE.md). Account-state, media, global preservation and per-case/per-hold advisory leases order source mutation and disposal across replicas. Coverage changes take exclusive global authority; ordinary saves and destructive work take shared authority. Explicit outer leases cover bulk SQL/object deletion and commits. Conversation row locks follow the global barrier. Evidence numbering and custody chain writes commit while the hold mutex is owned. Unknown provenance or hold status postpones disposal.

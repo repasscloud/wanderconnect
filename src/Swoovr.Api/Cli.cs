@@ -179,61 +179,51 @@ public static class Cli
                 return mediaItem?.PreservationCompletedAt is not null ? 0 : 1;
             case ["messages", "purge", ..]:
             {
-                // D189: text a live legal hold covers is kept until the hold is released.
-                var (purged, kept) = (0, 0);
-                // D195: fail closed when hold status can't be read.
-                if (await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Evidence.EvidencePreservation>().TryLiveAsync(CancellationToken.None) is not { } live)
-                {
-                    Console.Error.WriteLine("Messages: hold status unavailable; nothing purged.");
-                    return 1;
-                }
-                var (holds, scopes) = live;
-                var due = await (from m in db.Messages join c in db.Conversations on m.ConversationId equals c.Id
-                                 where m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && m.Body != "" select new { m, c }).ToListAsync();
-                foreach (var row in due)
-                    if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
-                    else if (MessagingPolicy.Purge(row.m, now)) { row.m.Body = ""; purged++; }
-                // #41: a chat photo deleted for both is kept 30 days like text, then released to `accounts purge`, which
-                // deletes its object unless a hold covers it.
-                var photos = 0;
-                var photoRows = await (from m in db.Messages join c in db.Conversations on m.ConversationId equals c.Id join i in db.MediaItems on m.MediaId equals i.Id
-                                       where m.Kind == MessageKind.Photo && m.DeletedAt != null && m.DeletedAt < now - MessagingPolicy.EvidenceRetention && i.RemovedAt == null
-                                       select new { m, c, i }).ToListAsync();
-                foreach (var row in photoRows)
-                    if (Swoovr.Api.Evidence.EvidencePreservation.MessageHeld(row.m, row.c, holds, scopes)) kept++;
-                    else
-                    {
-                        await using var mediaLease = await Media.MediaAccountLease.AcquireAsync(db, row.i.AccountId, CancellationToken.None);
-                        await db.Entry(row.i).ReloadAsync();
-                        if (db.Entry(row.i).State == EntityState.Detached || row.i.RemovedAt is not null) continue;
-                        row.i.RemovedAt = now;
-                        if (row.i.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (row.i.Status, row.i.NextScreenAt) = (MediaStatus.Removed, null);
-                        await db.SaveChangesAsync(); // Commit the media transition before releasing its lifecycle lease.
-                        photos++;
-                    }
-                await db.SaveChangesAsync();
-                Console.WriteLine($"Messages: {purged} deleted message texts erased, {photos} deleted chat photos released, {kept} kept under a legal hold.");
+                var run = await scope.ServiceProvider.GetRequiredService<Retention.MessageRetention>().PurgeAsync(now, CancellationToken.None);
+                if (run.HoldStatusUnavailable) { Console.Error.WriteLine("Messages: hold status unavailable; remaining records left alone."); return 1; }
+                Console.WriteLine($"Messages: {run.Texts} deleted message texts erased, {run.Photos} deleted chat photos released, {run.Kept} kept under a legal hold.");
                 return 0;
+            }
+            case ["retention", "purge", "--case", var retentionCase] when Guid.TryParse(retentionCase, out var parsedCase):
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<Retention.SafetyRetention>().PurgeAsync(now, CancellationToken.None, parsedCase);
+                Console.WriteLine($"Retention: {run.ContentDisposed} case content sets, {run.CasesDisposed} case records, {run.CopiesDisposed} evidence copies disposed; {run.ReviewRequired} require restricted review.");
+                return run.HoldStatusUnavailable ? 1 : 0;
+            }
+            case ["retention", "purge", "--account", var retentionAccount] when Guid.TryParse(retentionAccount, out var parsedRetentionAccount):
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<Retention.SafetyRetention>().PurgeAsync(now, CancellationToken.None, onlyAccount: parsedRetentionAccount);
+                Console.WriteLine($"Retention: {run.ContentDisposed} case content sets, {run.CasesDisposed} case records, {run.CopiesDisposed} evidence copies disposed; {run.ReviewRequired} require restricted review.");
+                return run.HoldStatusUnavailable ? 1 : 0;
+            }
+            case ["retention", "purge"]:
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<Retention.RetentionJobs>().RunAsync(now, CancellationToken.None);
+                Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted.");
+                return run.FailedClosed || run.Accounts?.Waiting > 0 ? 1 : 0;
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),
             // Didit deletions that failed before, and the end of the two-year retention of tombstones and terminated-email holds.
-            case ["accounts", "purge", ..]:
+            case ["accounts", "purge", .. var accountArgs]:
             {
-                var run = await scope.ServiceProvider.GetRequiredService<AccountDeletion>().PurgeAsync(now, CancellationToken.None);
+                Guid? onlyAccount = accountArgs is [var accountId] && Guid.TryParse(accountId, out var parsedAccount) ? parsedAccount : null;
+                if (accountArgs.Length > 0 && onlyAccount is null) { Console.Error.WriteLine("Usage: accounts purge [account-id]"); return 2; }
+                var run = await scope.ServiceProvider.GetRequiredService<AccountDeletion>().PurgeAsync(now, CancellationToken.None, onlyAccount);
                 if (run.HoldStatusUnavailable)
                 {
                     Console.Error.WriteLine($"Accounts: hold status unavailable; nothing purged ({run.Deleted} deleted before the check failed, {run.Waiting} waiting).");
                     return 1;
                 }
                 // D203: objects of removed, rejected and released-blocked photos go unless a hold needs them; fail closed.
-                if (await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Media.MediaPipeline>().SweepAsync(now, CancellationToken.None) is not { } media)
+                if (await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Media.MediaPipeline>().SweepAsync(now, CancellationToken.None, onlyAccount: onlyAccount) is not { } media)
                 {
                     Console.Error.WriteLine("Photos: hold status unavailable; no photo objects deleted.");
                     return 1;
                 }
                 Console.WriteLine($"Photos: {media.Deleted} objects deleted, {media.Kept} kept.");
+                if (run.Minimized > 0) Console.WriteLine($"Accounts: {run.Minimized} expired identity mappings removed; references remain only for the other member's content.");
                 if (run.CasesExpired > 0) Console.WriteLine($"Law-enforcement cases: {run.CasesExpired} past their seven-year retention erased.");
-                Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} email holds expired, {run.Kept} kept under a legal hold.");
+                Console.WriteLine($"Accounts: {run.Deleted} deleted, {run.Waiting} waiting for Keycloak, {run.ProviderRetries} Didit retries done, {run.Expired} retention ended, {run.HoldsExpired} email holds expired, {run.Kept} kept for an active hold or required retained records.");
                 return run.Waiting > 0 ? 1 : 0;
             }
             // #89: key rotation. Add the new version (for example `Evidence:Keys:2`) to configuration first, then run this;
@@ -269,7 +259,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

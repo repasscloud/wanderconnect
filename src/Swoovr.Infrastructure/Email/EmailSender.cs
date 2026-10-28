@@ -22,7 +22,7 @@ public interface IEmailSender
 /// Local development only: plain SMTP to the Mailpit sink, which delivers nothing. The
 /// production sender is MailerSend's HTTP API (Keycloak design), not built yet.
 /// </summary>
-public sealed class SmtpEmailSender(string host, int port, string from, ILogger<SmtpEmailSender> log) : IEmailSender
+public sealed class SmtpEmailSender(string host, int port, string from, ILogger<SmtpEmailSender> log, TimeSpan? sendTimeout = null) : IEmailSender
 {
     public async Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken) => (await SendOutcomeAsync(message, cancellationToken)).Status == "accepted";
 
@@ -32,7 +32,9 @@ public sealed class SmtpEmailSender(string host, int port, string from, ILogger<
         {
             using var client = new SmtpClient(host, port) { EnableSsl = false, DeliveryMethod = SmtpDeliveryMethod.Network };
             using var mail = new MailMessage(from, message.To, message.Subject, message.Text);
-            await client.SendMailAsync(mail, cancellationToken);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(sendTimeout ?? TimeSpan.FromSeconds(30));
+            await client.SendMailAsync(mail, deadline.Token);
             return new("accepted");
         }
         catch (Exception exception) when (exception is SmtpException or InvalidOperationException or IOException or OperationCanceledException)

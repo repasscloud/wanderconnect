@@ -84,6 +84,9 @@ static class DeletionChecks
         Expect(DeletionText.PendingTitle(new DeletionView("pending", now, now, false, false)) == "Your account is being deleted", "delete now reads as in progress");
         Expect(DeletionText.PendingTitle(new DeletionView("pending", now, now.AddDays(30), false, false)) == "Your account will be deleted", "the recovery period reads as scheduled");
 
+        var finalizing = new Account { Status = AccountStatus.PendingDeletion, DeletionDueAt = now, DeletionFinalizingAt = now };
+        Expect(!AccountDeletionPolicy.Cancel(finalizing) && finalizing.Status == AccountStatus.PendingDeletion, "irreversible purge cannot be cancelled after an uncertain provider outcome");
+        Expect(AccountDeletionPolicy.Due(finalizing, now), "uncertain provider outcome remains due for idempotent retry");
         Console.WriteLine($"PASS: account deletion and export ({checks}).");
     }
 }

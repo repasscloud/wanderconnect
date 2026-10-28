@@ -24,6 +24,14 @@ public sealed class LegalHold
     /// <summary>Durable origin for a media-screening hold; retries never confuse it with another uploaded incident.</summary>
     public Guid? SourceMediaId { get; set; }
     public Guid? CaseId { get; set; }
+    /// <summary>Qualifying cases represented in captured copies. Null is unresolved legacy provenance, never proof of no review.</summary>
+    public Guid[]? RetentionCaseIds { get; set; }
+    /// <summary>Members represented in preserved relationships, including counterpart senders; null is unresolved legacy provenance.</summary>
+    public Guid[]? RelatedAccountIds { get; set; }
+    /// <summary>Legal officer's explicit no-review/no-police retention disposition, only valid with positively established empty case provenance.</summary>
+    public DateTimeOffset? NoReviewRetentionConfirmedAt { get; set; }
+    public Guid? NoReviewRetentionConfirmedBy { get; set; }
+    public string? NoReviewRetentionReason { get; set; }
     /// <summary>Null when Swoovr opened it (a serious-incident report).</summary>
     public Guid? PlacedBy { get; set; }
     public AccountRole PlacedByRole { get; set; }
@@ -58,7 +66,7 @@ public sealed class LegalHoldScope
 /// <summary>
 /// One preserved record (§3: integrity hashes, timestamps, provenance). Content is canonical JSON, sealed with a
 /// versioned evidence key held outside the database; the SHA-256 is of the plain JSON so an export can be checked. Items
-/// are immutable: a later capture adds items, never edits them. Erased when the last hold over them is released.
+/// are immutable: a later capture adds items, never edits them. Disposed only after the applicable review/police schedule and every preservation obligation permit it.
 /// </summary>
 public sealed class EvidenceItem
 {
@@ -219,8 +227,8 @@ public static class LegalHoldPolicy
         && basis is not null && LegalBases.Contains(basis);
 
     /// <summary>A one-time export link works once, before it expires, for a hold that is still live.</summary>
-    public static bool ExportUsable(EvidenceExport? export, LegalHold? hold, DateTimeOffset now) =>
-        export is not null && hold is not null && export.DownloadedAt is null && export.ExpiresAt > now && Live(hold);
+    public static bool ExportUsable(EvidenceExport? export, LegalHold? hold, DateTimeOffset now, bool retainedAccess = false) =>
+        export is not null && hold is not null && export.HoldId == hold.Id && export.DownloadedAt is null && export.ExpiresAt > now && (Live(hold) || retainedAccess);
 }
 
 /// <summary>Sealing and hashing for evidence (D189). Keys come from configuration, never the database.</summary>

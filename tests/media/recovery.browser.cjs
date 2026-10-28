@@ -1,3 +1,4 @@
+const {expireFictionalReviews}=require('../retention/fixtures.cjs');
 // Issue126: real local API/PostgreSQL/Mailpit/crypto, synthetic LocalMediaStore objects and labelled simulated screening.
 // No known-content material, people/photos or remote provider calls. Never mutate shared .local configuration.
 const assert = require('node:assert/strict');
@@ -144,7 +145,8 @@ async function waitFor(check) { for(let i=0;i<120;i++){if(await check())return;a
         const released=await call(legal,`/api/admin/holds/${hold}/release`,{method:'POST',body:{reason:'Fictional local recovery acceptance finished; no real material.',overlapsChecked:true}});
         assert.equal(released.status,200,'fixture hold must release before local object cleanup');
       }
-      // Only this suite's synthetic local objects, after all holds released. No R2 writes/deletes occur here.
+      await expireFictionalReviews(accounts);
+      // Only this suite's synthetic local objects, after all holds released and review clocks advanced. No R2 writes/deletes occur here.
       await sql(`DELETE FROM media_items WHERE account_id IN (${ids})`);
     }
     if(priorStore===undefined)delete process.env.Media__Store;else process.env.Media__Store=priorStore;

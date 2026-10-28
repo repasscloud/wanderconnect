@@ -108,8 +108,13 @@ static class LegalHoldChecks
         Expect(LegalHoldPolicy.ExportUsable(export, active, now.AddMinutes(14)), "usable within 15 minutes");
         Expect(!LegalHoldPolicy.ExportUsable(export, active, now.AddMinutes(16)), "expired after 15 minutes");
         Expect(!LegalHoldPolicy.ExportUsable(export, released, now), "not once the hold is released");
+        var retained = new LegalHold { Id = active.Id, Status = LegalHoldStatus.Released };
+        Expect(LegalHoldPolicy.ExportUsable(export, retained, now, retainedAccess: true), "server-confirmed retained evidence remains accessible to authorised legal export");
+        Expect(!LegalHoldPolicy.ExportUsable(export, retained, now.AddMinutes(16), retainedAccess: true), "retention never extends a download ticket");
+        Expect(!LegalHoldPolicy.ExportUsable(export, released, now, retainedAccess: true), "retention never permits a mismatched hold");
         export.DownloadedAt = now;
         Expect(!LegalHoldPolicy.ExportUsable(export, active, now), "used once");
+        Expect(!LegalHoldPolicy.ExportUsable(export, retained, now, retainedAccess: true), "retained evidence never revives a used ticket");
         Expect(InvitationPolicy.RealmFor(AccountRole.Legal) == AccountRealm.Staff, "legal is a staff-realm role");
 
         Console.WriteLine($"PASS: legal holds and evidence ({checks}).");

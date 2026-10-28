@@ -29,6 +29,8 @@ else if (view is not null)
         <section class="card account-section" aria-label="Pending deletion" data-pending-deletion="true">
             @if (view.SignedOutEverywhere) { <p class="field-help">You've been signed out on your other devices.</p> }
             @if (view.FounderCodeEmailed) { <p class="field-help" data-founder-code-emailed="true">We've emailed your founder recovery code.</p> }
+            @if (view.FinalizingAt is null)
+            {
             <p class="account-actions">
                 <button type="button" class="button" disabled="@busy" @onclick="CancelAsync" data-cancel-deletion>Cancel deletion</button>
                 @if (!DeletingNow)
@@ -36,6 +38,11 @@ else if (view is not null)
                     <button type="button" class="button button-secondary" disabled="@busy" @onclick="DeleteNowAsync" data-delete-now>Delete now</button>
                 }
             </p>
+            }
+            else
+            {
+                <p data-deletion-finalizing><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
+            }
         </section>
     }
     <section class="card account-section" aria-labelledby="export-heading">

@@ -255,6 +255,13 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     if (process.env.SWOOVR_SCREENSHOTS) await page.screenshot({ path: process.env.SWOOVR_SCREENSHOTS + '/data-390.png', fullPage: true });
     await context.close();
 
+    // D170/D233: only this fixture's tombstone clock advances; Bob's own history must survive its expiry.
+    await sql(`UPDATE accounts SET deleted_at=now()-interval '731 days' WHERE id='${ids.ana}'`);
+    await cli('accounts','purge');
+    assert.equal(await sql(`SELECT issuer FROM accounts WHERE id='${ids.ana}'`),'urn:swoovr:retired');pass();
+    assert.equal(await sql(`SELECT count(*) FROM messages WHERE sender_account_id='${ids.bob}' AND conversation_id='${convo}'`),'1','tombstone expiry cannot cascade Bob’s content');pass();
+    assert.deepEqual((await call(tokens.bob,`/api/conversations/${convo}/messages`)).body.items.map(m=>m.text),['Hi Ana, fictional Bob here']);pass();
+
     console.log(`PASS: account deletion and export (${passed} checks).`);
   } finally {
     await browser.close();

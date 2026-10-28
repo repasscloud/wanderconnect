@@ -155,6 +155,10 @@ public static class MediaPolicy
         return item.Status is MediaStatus.Rejected or MediaStatus.Removed;
     }
 
+    /// <summary>Authorised case/legal review only: known blocked/unchecked material never becomes viewable after removal.</summary>
+    public static bool CaseReviewable(MediaItem item) => item.ScreenedAt is not null
+        && item.Status is MediaStatus.Passed or MediaStatus.Uncertain or MediaStatus.Rejected or MediaStatus.Removed;
+
     /// <summary>What the member is told about their own photo. Blocked reads exactly like a rejection (procedure §4: never tip anyone off).</summary>
     public static string MemberState(MediaStatus status) => status switch
     {

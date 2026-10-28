@@ -56,7 +56,7 @@ public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapsho
 public sealed record SanctionView(Guid Id, Guid AccountId, Guid? CaseId, string Kind, string Reason, DateTimeOffset StartsAt, DateTimeOffset? EndsAt,
     bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, Guid CreatedBy, string CreatedByRole, DateTimeOffset? LiftedAt, bool Live);
 public sealed record CaseDetailView(CaseSummaryView Case, bool StaffAffiliatedSubject, IReadOnlyList<CaseReportView> Reports,
-    IReadOnlyList<CaseEvidenceView> Evidence, IReadOnlyList<SanctionView> Sanctions);
+    IReadOnlyList<CaseEvidenceView> Evidence, IReadOnlyList<SanctionView> Sanctions, DateTimeOffset? EvidencePurgedAt = null);
 
 /// <summary>
 /// A staff action (D133): "dismiss", "warn", "restrict", "suspend" or "terminate", with a reason (required except to

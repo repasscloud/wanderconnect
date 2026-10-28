@@ -24,6 +24,8 @@ static class PrivacyNoticeChecks
         Expect(Text("messages").Contains("30 days"), "unsent messages kept 30 days (D167)");
         Expect(Text("holds").Contains("legal hold") && Text("holds").Contains("even if you delete your account"), "evidence holds (D189, D195)");
         Expect(Text("founders").Contains("founder recovery token") && Text("founders").Contains("Also delete my founder recovery token"), "the founder token (D173, #22)");
+        Expect(Text("retention").Contains("12 months") && Text("retention").Contains("24 months")
+            && Text("retention").Contains("overlapping legal holds") && Text("retention").Contains("unknown provenance"), "review retention exceptions and fail-closed provenance (D231)");
         Expect(Text("retention").Contains("30 days") && Text("retention").Contains("2 years"), "deletion and retention (D170)");
         Expect(Text("modes").Contains("Show my main about") && Text("modes").Contains("never your exact location"), "mode consent and distance bands (D199)");
         Expect(Text("choices").Contains("oaic.gov.au") && all.Contains(PrivacyNotice.Contact), "complaints and the contact (Q80)");
@@ -31,7 +33,7 @@ static class PrivacyNoticeChecks
         Expect(!all.Contains("24/7"), "no round-the-clock promise");
         // D203: photos — private until checked, EXIF removed, fingerprint-only known-content matching, deletion unless held.
         Expect(Text("photos").Contains("private until they have been checked") && Text("photos").Contains("EXIF") && Text("photos").Contains("fingerprint")
-            && Text("photos").Contains("unless a legal hold") && Text("photos").Contains("stay with Didit"), "the photos section (D203)");
+            && Text("photos").Contains("safety-review retention period or legal hold") && Text("photos").Contains("stay with Didit"), "the photos section (D203)");
 
         Console.WriteLine($"PASS: privacy notice draft ({checks}).");
     }

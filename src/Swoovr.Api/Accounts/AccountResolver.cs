@@ -87,6 +87,12 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         var issuer = user.FindFirstValue("iss")!;
         var account = await Db.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject, cancellationToken)
             ?? await CreateAsync(issuer, facts, email, now, cancellationToken);
+        await using var state = facts.Realm == AccountRealm.Members ? await AccountLifecycleLease.AcquireAsync(Db, account.Id, cancellationToken) : null;
+        if (state is not null)
+        {
+            await Db.Entry(account).ReloadAsync(cancellationToken);
+            if (Db.Entry(account).State == EntityState.Detached) return null;
+        }
         // D170: a deleted account stays deleted. A token issued just before final deletion is still valid for a few
         // minutes; it gets the tombstone (refused everywhere), never a new profile, and the email isn't written back.
         if (account.Status == AccountStatus.Deleted)

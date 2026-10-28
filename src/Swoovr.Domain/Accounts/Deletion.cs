@@ -77,12 +77,13 @@ public static class AccountDeletionPolicy
         account.DeletionRequestedAt = now;
         account.DeletionDueAt = immediately ? now : now + RecoveryPeriod;
         account.DeleteFounderToken = deleteFounderToken;
+        account.DeletionFinalizingAt = null;
     }
 
     /// <summary>"Delete now" during the recovery period: final deletion on the next purge run.</summary>
     public static bool DeleteNow(Account account, DateTimeOffset now)
     {
-        if (account.Status != AccountStatus.PendingDeletion) return false;
+        if (account.Status != AccountStatus.PendingDeletion || account.DeletionFinalizingAt is not null) return false;
         if (account.DeletionDueAt > now) account.DeletionDueAt = now;
         return true;
     }
@@ -90,7 +91,7 @@ public static class AccountDeletionPolicy
     /// <summary>Cancelling restores the status from before the request, while final deletion hasn't happened.</summary>
     public static bool Cancel(Account account)
     {
-        if (account.Status != AccountStatus.PendingDeletion) return false;
+        if (account.Status != AccountStatus.PendingDeletion || account.DeletionFinalizingAt is not null) return false;
         account.Status = account.DeletionRestoreStatus ?? AccountStatus.Active;
         (account.DeletionRestoreStatus, account.DeletionRequestedAt, account.DeletionDueAt, account.DeleteFounderToken) = (null, null, null, false);
         return true;

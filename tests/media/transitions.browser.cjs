@@ -1,3 +1,4 @@
+const {expireFictionalReviews}=require('../retention/fixtures.cjs');
 // Issue128: deterministic stale-review race with synthetic local files and two actual API processes.
 const assert=require('node:assert/strict');const fs=require('node:fs/promises');const os=require('node:os');const path=require('node:path');
 const {spawn,execFile}=require('node:child_process');const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'playwright');
@@ -95,6 +96,7 @@ async function decision(port,token,id,choice){const r=await fetch(`http://127.0.
   if(fake)await new Promise(r=>fake.close(r));
   if(account&&legal){const holds=await sql(`SELECT h.id FROM legal_holds h JOIN legal_hold_scopes s ON s.hold_id=h.id WHERE s.target_id='${account}' AND h.status<>'Released'`);
    for(const id of holds.split('\n').filter(Boolean))assert.equal((await call(legal,`/api/admin/holds/${id}/release`,{method:'POST',body:{reason:'Fictional synthetic concurrency test complete.',overlapsChecked:true}})).status,200);
+   await expireFictionalReviews([account]);
    await sql(`DELETE FROM media_items WHERE account_id='${account}'`);}
   await fs.rm(folder,{recursive:true,force:true});await browser.close();
  }

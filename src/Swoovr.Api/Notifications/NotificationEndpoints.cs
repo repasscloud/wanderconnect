@@ -122,6 +122,8 @@ public static class NotificationEndpoints
             if (keys.Protector is not { } protector) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Push token storage isn't configured.");
             if (push.Kind == "providers" && registration.Token!.StartsWith("simulated-", StringComparison.Ordinal))
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidDevice, "A real provider token is required.");
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, account, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == account && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
             var hash = protector.Hash(registration.Platform!, registration.Token!);
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             // Serialize capacity/rotation per account as well as token ownership and installation identity.

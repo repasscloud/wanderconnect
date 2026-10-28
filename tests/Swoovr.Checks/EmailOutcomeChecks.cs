@@ -25,7 +25,17 @@ static class EmailOutcomeChecks
             }
             finally { listener.Stop(); }
         }
-        Console.WriteLine("PASS: email acceptance/rejection/uncertainty against fictional loopback SMTP (no external delivery).");
+        var silent = new TcpListener(IPAddress.Loopback, 0); silent.Start();
+        try
+        {
+            var connected = silent.AcceptTcpClientAsync();
+            var bounded = new SmtpEmailSender("127.0.0.1", ((IPEndPoint)silent.LocalEndpoint).Port, "no-reply@example.test", NullLogger<SmtpEmailSender>.Instance, TimeSpan.FromMilliseconds(100));
+            var result = await bounded.SendOutcomeAsync(message, default).WaitAsync(TimeSpan.FromSeconds(5));
+            using var peer = await connected.WaitAsync(TimeSpan.FromSeconds(5));
+            Need(result.Status == "unknown", "silent SMTP peer is bounded and never a known non-acceptance");
+        }
+        finally { silent.Stop(); }
+        Console.WriteLine("PASS: email acceptance/rejection/uncertainty and bounded silent-peer timeout against fictional loopback SMTP (no external delivery).");
     }
     static void Need(bool ok, string name) { if (!ok) throw new Exception("Email outcome: " + name); }
     static async Task ServeAsync(TcpListener listener, string outcome, CancellationToken token)

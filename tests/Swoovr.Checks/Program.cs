@@ -21,6 +21,7 @@ MessagingChecks.Run();
 DobCorrectionChecks.Run();
 DeletionChecks.Run();
 LegalHoldChecks.Run();
+SafetyRetentionChecks.Run();
 LawEnforcementChecks.Run();
 StaffAccessChecks.Run();
 SecurityOperationsChecks.Run();

@@ -50,3 +50,11 @@ Collect consent and purpose for sensitive information; restrict staff access; en
 ## 6. Platform review
 
 As checked 16 October 2026, Apple guidelines include UGC safeguards, restrictions around overt sexual/hookup positioning, login service requirements, account deletion and dating-app differentiation. These are material product constraints, not a guaranteed outcome. Preserve the owner's broad consensual connection vision while evaluating publishable implementations; do not misrepresent the actual product to review teams. Refresh both Apple and Google policies before submission.
+
+## Safety-review retention (D216, D231–D233)
+
+CONFIRMED: evidence used in a qualifying safety review remains independently retained and available to authorised staff after ordinary account, message or photo deletion, for at least 12 months after the applicable completed review/referral. Serious-incident evidence uses a proposed 24-month schedule pending legal review. Compliance records have a two-year minimum. Active and overlapping legal holds override disposal; release resumes the applicable schedule rather than automatically erasing evidence. Unknown provenance must not be treated as proof that evidence is disposable.
+
+DEFAULT: all moderation cases qualify; use calendar-month clocks anchored to the latest closure, referral, appeal decision or evidence export. Keep referenced photo bytes subject to the same restricted access, conflict and screening rules. Known-content material stays sealed and cannot be rendered. An independent legal officer may authorise disposal of unlinked staff-held copies only after positively confirming that no review or police obligation applies. Preserve the other member's own history when a deleted account's ordinary tombstone expires, using a minimal referential stub without its old sign-in mapping.
+
+The [delivery schedule](../delivery/RETENTION-SCHEDULE.md) distinguishes implemented local behaviour, remaining operational-record expiry and backup/registry work, and legal/provider gates. Final deletion becomes non-cancellable before irreversible provider work starts; uncertainty leaves a retryable finalizing state with support links. This is not evidence of Code signatory status or verified compliance.

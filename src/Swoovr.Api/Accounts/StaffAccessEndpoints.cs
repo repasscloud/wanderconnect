@@ -140,7 +140,9 @@ public static class StaffAccessEndpoints
                 case AccessRefusal.NotSeparated: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.LeNotSeparated, "Another officer approves a bulk export.");
                 case AccessRefusal.Used: return Problem(StatusCodes.Status409Conflict, ProblemCodes.ExportUnavailable, "Already approved, or older than 24 hours.");
             }
-            if (await ExcludedAsync(db, me, await HoldAccountsAsync(db, approval.HoldId, cancellationToken), cancellationToken)) return Conflict();
+            var holdAccounts = await HoldAccountsAsync(db, approval.HoldId, cancellationToken);
+            if (holdAccounts is null) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.EvidenceNotConfigured, "Evidence provenance requires restricted review before approval.");
+            if (await ExcludedAsync(db, me, holdAccounts, cancellationToken)) return Conflict();
             (approval.ApprovedBy, approval.ApprovedAt) = (me, now);
             Audit.Record(db, now, me, "account", "evidence.bulk-approved", "legal-hold", approval.HoldId.ToString(), approval.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
@@ -191,8 +193,12 @@ public static class StaffAccessEndpoints
         return StaffAccessPolicy.Excluded(staff, subjects, exclusions, links);
     }
 
-    public static async Task<List<Guid>> HoldAccountsAsync(SwoovrDbContext db, Guid hold, CancellationToken cancellationToken) =>
-        await db.LegalHoldScopes.Where(s => s.HoldId == hold && s.Kind == HoldScopeKind.Account).Select(s => s.TargetId).ToListAsync(cancellationToken);
+    public static async Task<List<Guid>?> HoldAccountsAsync(SwoovrDbContext db, Guid hold, CancellationToken cancellationToken)
+    {
+        var record = await db.LegalHolds.AsNoTracking().SingleOrDefaultAsync(h => h.Id == hold, cancellationToken);
+        if (record?.RelatedAccountIds is null) return null;
+        return await Retention.SafetyRetention.HoldAccountsAsync(db, record, cancellationToken);
+    }
 
     public static IResult Conflict() =>
         Problem(StatusCodes.Status403Forbidden, ProblemCodes.ConflictOfInterest, "A conflict of interest keeps you away from this member's records.");

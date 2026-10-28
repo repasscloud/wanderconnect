@@ -1,6 +1,8 @@
-// Removes every photo object that fictional suite accounts (`fictional.%@example.test`) left in the R2 bucket, for example
+// D231: release alone never shortens qualifying review retention. This broad cleanup does not backdate reviews.
+// For a known run, expire only its caller-owned fictional fixtures through tests/retention/fixtures.cjs first.
+// Attempts policy-permitted cleanup of photo objects that fictional suite accounts (`fictional.%@example.test`) left in the R2 bucket, for example
 // after an aborted run of tests/media/photos.browser.cjs: a fictional legal officer releases those accounts' provisional
-// `media-screening` holds (never anyone else's), their photos are marked removed, and `accounts purge` deletes the objects.
+// `media-screening` holds (never anyone else's), their photos are marked removed, and `accounts purge` deletes eligible objects.
 // Real accounts are never touched. Needs the same hosts and stack as the photos suite.
 const assert = require('node:assert/strict');
 const { execFile } = require('node:child_process');
@@ -43,7 +45,7 @@ const fictional = `SELECT id FROM accounts WHERE email LIKE 'fictional.%@example
     console.log(out.split('\n').filter(l => l.startsWith('Photos')).join('\n'));
     const left = await sql(`SELECT count(*) FROM media_items WHERE object_key IS NOT NULL AND account_id IN (${fictional})`);
     console.log(`Fictional photo objects left: ${left} (holds released: ${holds.length}).`);
-    if (left !== '0') process.exitCode = 1;
+    if (left !== '0') { console.log('Required review/hold retention may still protect these objects; no retention clocks were shortened.'); process.exitCode = 1; }
   } finally {
     await browser.close();
   }

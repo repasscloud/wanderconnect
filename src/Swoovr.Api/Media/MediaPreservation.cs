@@ -26,8 +26,9 @@ public sealed partial class MediaPipeline
     {
         var initial = await db.MediaItems.AsNoTracking().SingleOrDefaultAsync(i => i.Id == id, cancellationToken);
         if (initial is not { Status: MediaStatus.Blocked } || initial.PreservationCompletedAt is not null) return;
-        await using var lease = await MediaAccountLease.AcquireAsync(db, initial.AccountId, cancellationToken);
+        await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, initial.AccountId, cancellationToken);
         {
+            await using var coverage = await Retention.PreservationLease.ExclusiveAsync(db, cancellationToken);
             var item = await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id, cancellationToken);
             if (item is null) return;
             await db.Entry(item).ReloadAsync(cancellationToken);
@@ -99,6 +100,7 @@ public sealed partial class MediaPipeline
                     }
                     else
                     {
+                        await coverage.DisposeAsync(); // Valid hold/case links commit before object and capture work; never upgrade a shared barrier.
                         step = "seal-unavailable";
                         await SealBlockedAsync(item, cancellationToken);
                         await db.SaveChangesAsync(cancellationToken);
@@ -123,6 +125,7 @@ public sealed partial class MediaPipeline
                     // Failed SaveChanges can leave added capture/custody entries; do not commit them through the alert save.
                     foreach (var entry in db.ChangeTracker.Entries().Where(e => e.State == EntityState.Added && e.Entity is EvidenceItem or CustodyEvent).ToList()) entry.State = EntityState.Detached;
                 }
+                await coverage.DisposeAsync();
                 var alerts = await EscalateBlockedAsync(item, @case, now, cancellationToken);
                 if (captured && alerts == "accepted")
                 {
@@ -170,6 +173,7 @@ public sealed partial class MediaPipeline
         if (item.ObjectKey != target) item.PreservationSourceKey ??= item.ObjectKey;
         item.ObjectKey = target;
         await db.SaveChangesAsync(cancellationToken); // Commit canonical evidence location before source deletion.
+        await using var disposalBarrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
         if (item.PreservationSourceKey is { } source && source != target)
         {
             if (!await Store.DeleteAsync(source, cancellationToken)) throw new IOException("source-delete-failed");
