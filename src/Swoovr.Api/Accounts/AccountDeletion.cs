@@ -270,14 +270,13 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
     }
 
     /// <summary>
-    /// The key for terminated-email holds: `Accounts:HoldKey`, or else derived from the current founder secret with its own
+    /// The key for terminated-email holds: `Accounts:HoldKey`, or else derived from founder secret1 with its own
     /// label, so the two uses never share a key. Null when neither exists (no hold is kept and the run says so in logs).
     /// </summary>
     private byte[]? HoldKey()
     {
         if (configuration["Accounts:HoldKey"] is { Length: > 0 } configured) return Encoding.UTF8.GetBytes(configured);
-        if (founders.CurrentVersion is { } version)
-            return HMACSHA256.HashData(founders.Secrets[version], Encoding.UTF8.GetBytes("swoovr:terminated-email-hold:v1"));
+        if (founders.DeriveLegacyKey("swoovr:terminated-email-hold:v1") is { } legacy) return legacy;
         log.LogWarning("No key for terminated-email holds; none kept.");
         return null;
     }

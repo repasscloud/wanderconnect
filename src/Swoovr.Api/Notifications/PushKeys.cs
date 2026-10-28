@@ -23,10 +23,10 @@ public sealed class PushKeys
             try { lookup = Convert.FromBase64String(value); if (lookup.Length != 32) throw new FormatException(); }
             catch (FormatException) { throw new InvalidOperationException("Push token lookup key must be base64-encoded 32 bytes."); }
         }
-        if (environment.IsDevelopment() && founders.CurrentVersion is { } v)
+        if (environment.IsDevelopment())
         {
-            if (keys.Count == 0) keys[1] = HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:push-token:encryption"));
-            lookup ??= HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:push-token:lookup"));
+            if (!keys.ContainsKey(1) && founders.DeriveLegacyKey("swoovr:push-token:encryption") is { } legacy) keys[1] = legacy;
+            lookup ??= founders.DeriveLegacyKey("swoovr:push-token:lookup");
         }
         if (keys.Count > 0 && lookup is not null) Protector = new(keys, lookup);
         else if (config["Push:Provider"] == "providers") throw new InvalidOperationException("Configured push providers require Push:TokenKeys and Push:TokenLookupKey.");

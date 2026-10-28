@@ -18,7 +18,7 @@ public sealed class ContactHistoryKeys(IConfiguration configuration, Founders fo
     public IReadOnlyDictionary<byte, byte[]> Encryption { get; } = Read(configuration, founders);
     public byte? CurrentVersion => Encryption.Count == 0 ? null : Encryption.Keys.Max();
     public byte[]? Lookup => configuration["ContactHistory:LookupKey"] is { Length: > 0 } configured ? Convert.FromBase64String(configured)
-        : founders.CurrentVersion is { } v ? HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:contact-history:lookup:v1")) : null;
+        : founders.DeriveLegacyKey("swoovr:contact-history:lookup:v1");
 
     private static Dictionary<byte, byte[]> Read(IConfiguration configuration, Founders founders)
     {
@@ -27,8 +27,8 @@ public sealed class ContactHistoryKeys(IConfiguration configuration, Founders fo
             if (byte.TryParse(entry.Key, out var version) && entry.Value is { Length: > 0 } value && Convert.FromBase64String(value) is { Length: 32 } key)
                 keys[version] = key;
         // #89: the derived key stays version 1 (still readable) after newer versions are configured, until `keys rotate`.
-        if (!keys.ContainsKey(1) && founders.CurrentVersion is { } v)
-            keys[1] = HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:contact-history:encryption:v1"));
+        if (!keys.ContainsKey(1) && founders.DeriveLegacyKey("swoovr:contact-history:encryption:v1") is { } legacy)
+            keys[1] = legacy;
         return keys;
     }
 

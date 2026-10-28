@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Contracts;
 using Swoovr.Domain;
@@ -24,6 +26,14 @@ public sealed class Founders(IServiceProvider services, IConfiguration configura
 
     public IReadOnlyDictionary<int, byte[]> Secrets { get; } = ReadSecrets(configuration);
     public int? CurrentVersion => Secrets.Count == 0 ? null : Secrets.Keys.Max();
+
+    /// <summary>
+    /// Legacy payloads/fingerprints have version1 (or no version). Their source must stay secret1 even when founder
+    /// coupons rotate. Missing1 means unavailable, never guessing another source under an old label. Hosted configurations must supply explicit feature keys (UAT preparation gate).
+    /// </summary>
+    public byte[]? DeriveLegacyKey(string purpose) => Secrets.TryGetValue(1, out var source)
+        ? HMACSHA256.HashData(source, Encoding.UTF8.GetBytes(purpose)) : null;
+
 
     private static Dictionary<int, byte[]> ReadSecrets(IConfiguration configuration)
     {

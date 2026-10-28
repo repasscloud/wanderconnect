@@ -10,8 +10,7 @@ using Swoovr.Infrastructure.Persistence;
 namespace Swoovr.Api.Evidence;
 
 /// <summary>
-/// The evidence keys (D189): `Evidence:Keys:{n}` (base64, 32 bytes, versioned), or else one derived from the current
-/// founder secret with its own label, so no key is shared with contact history or the email holds. Key Vault when hosted.
+/// The evidence keys (D189): `Evidence:Keys:{n}` (base64, 32 bytes, versioned), or else one derived from founder secret1 with its own label, so no key is shared with contact history or the email holds. Key Vault when hosted.
 /// </summary>
 public sealed class EvidenceKeys(IConfiguration configuration, Founders founders)
 {
@@ -25,16 +24,15 @@ public sealed class EvidenceKeys(IConfiguration configuration, Founders founders
             if (byte.TryParse(entry.Key, out var version) && entry.Value is { Length: > 0 } value && Convert.FromBase64String(value) is { Length: 32 } key)
                 keys[version] = key;
         // #89: the derived key stays version 1 (still readable) after newer versions are configured, until `keys rotate`.
-        if (!keys.ContainsKey(1) && founders.CurrentVersion is { } v)
-            keys[1] = HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:evidence:encryption:v1"));
+        if (!keys.ContainsKey(1) && founders.DeriveLegacyKey("swoovr:evidence:encryption:v1") is { } legacy)
+            keys[1] = legacy;
         return keys;
     }
 }
 
 /// <summary>
 /// Legal holds and evidence preservation (policy §3, §7, §13; D189). Captures what a hold covers into the restricted
-/// evidence store, keeps the hash-chained custody log, tells the purge jobs what they must leave alone, and erases a
-/// hold's evidence when it is released. Nothing here writes content to logs or the audit trail.
+/// evidence store, keeps the hash-chained custody log, tells the purge jobs what they must leave alone, and disposes copies only after release and the applicable independent retention schedule. Nothing here writes content to logs or the audit trail.
 /// </summary>
 public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys keys, ContactHistoryKeys contactKeys)
 {

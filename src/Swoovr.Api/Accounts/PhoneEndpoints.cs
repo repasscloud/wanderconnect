@@ -164,6 +164,5 @@ public static class PhoneEndpoints
 public sealed class PhoneKeys(IConfiguration configuration, Founders founders)
 {
     public byte[]? Key => configuration["Phone:CodeKey"] is { Length: > 0 } configured ? Encoding.UTF8.GetBytes(configured)
-        : founders.CurrentVersion is { } version ? HMACSHA256.HashData(founders.Secrets[version], Encoding.UTF8.GetBytes("swoovr:phone-code:v1"))
-        : null;
+        : founders.DeriveLegacyKey("swoovr:phone-code:v1");
 }

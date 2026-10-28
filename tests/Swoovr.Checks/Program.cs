@@ -4,6 +4,7 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+FallbackKeyChecks.Run();
 ApiContractChecks.Run();
 AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();

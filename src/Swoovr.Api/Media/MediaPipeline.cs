@@ -23,7 +23,7 @@ public sealed record MediaSettings(bool RequireKnownContentCheck, string? Simula
 public sealed class MediaLinks(IConfiguration configuration, Founders founders)
 {
     public byte[]? Key { get; } = configuration["Media:LinkKey"] is { Length: > 0 } configured && Convert.FromBase64String(configured) is { Length: 32 } key ? key
-        : founders.CurrentVersion is { } v ? HMACSHA256.HashData(founders.Secrets[v], "swoovr:media-links:v1"u8) : null;
+        : founders.DeriveLegacyKey("swoovr:media-links:v1");
 
     public string? For(Guid media, string variant, DateTimeOffset now) =>
         Key is null ? null : "api/media/" + MediaPolicy.Link(Key, media, variant, now + MediaPolicy.LinkLifetime);

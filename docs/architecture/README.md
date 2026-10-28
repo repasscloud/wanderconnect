@@ -35,3 +35,5 @@ Push provider boundaries, secure device registration and required operator/nativ
 ### Retention authority (D231–D233)
 
 The API retention services use existing Domain policy and Infrastructure persistence; no project is added. See [retention schedule](../delivery/RETENTION-SCHEDULE.md). Account-state, media, global preservation and per-case/per-hold advisory leases order source mutation and disposal across replicas. Coverage changes take exclusive global authority; ordinary saves and destructive work take shared authority. Explicit outer leases cover bulk SQL/object deletion and commits. Conversation row locks follow the global barrier. Evidence numbering and custody chain writes commit while the hold mutex is owned. Unknown provenance or hold status postpones disposal.
+
+Data-key configuration and the stable legacy fallback boundary are documented in [DATA-KEYS.md](DATA-KEYS.md), D234. The existing Checks project references the API to test actual key consumers; this is a test-layer reference permitted above, not a new application project or a UI bypass.

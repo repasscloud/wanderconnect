@@ -81,6 +81,7 @@ static class PersistenceChecks
             await Modes(options, Check);
             await Travel(options, Check);
             await Messaging(options, Check);
+            await FallbackKeyPersistenceChecks.Run(options, Check);
         }
         finally
         {
