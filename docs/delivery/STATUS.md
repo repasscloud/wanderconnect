@@ -43,7 +43,7 @@ The 16–18 October slices established and tested the foundation, independent po
 
 ## How to run and assess it
 
-Follow [local development](LOCAL-DEVELOPMENT.md) for tools and commands. Run `./scripts/check.sh` for portable builds, policy/state/Node checks, design/link checks and local HTTP gates. Use the [discovery](PHASE-2-DISCOVERY-PREVIEW.md#local-demo) and [connection](PHASE-3-CONNECTION-WEB.md) opt-in instructions for simulations. [Rename validation](SWOOVR-RENAME-2026-10-22.md#validation) records current evidence; [validation history](VALIDATION.md) preserves earlier observations. A passing portable check is not authentication, device or production acceptance.
+Follow [local development](LOCAL-DEVELOPMENT.md) for tools and commands, and the [testing runbook](TESTING.md) for the full local test run (worktree, hosts, every suite, data hygiene). Run `./scripts/check.sh` for portable builds, policy/state/Node checks, design/link checks and local HTTP gates. Use the [discovery](PHASE-2-DISCOVERY-PREVIEW.md#local-demo) and [connection](PHASE-3-CONNECTION-WEB.md) opt-in instructions for simulations. [Rename validation](SWOOVR-RENAME-2026-10-22.md#validation) records current evidence; [validation history](VALIDATION.md) preserves earlier observations. A passing portable check is not authentication, device or production acceptance.
 
 ## What comes next and why
 
