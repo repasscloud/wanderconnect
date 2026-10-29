@@ -23,7 +23,7 @@ async function latestCode(number) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   try {
@@ -154,6 +154,6 @@ async function latestCode(number) {
 
     console.log(`PASS: mobile number verification (${passed} checks${gate ? ', gate on' : ''}).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

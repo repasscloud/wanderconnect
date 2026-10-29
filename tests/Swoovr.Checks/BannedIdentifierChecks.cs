@@ -15,6 +15,16 @@ static class BannedIdentifierChecks
         var count = 0;
         void Check(bool value, string label) { if (!value) throw new Exception(label);count++; }
         var key = Enumerable.Repeat((byte)31, 32).ToArray();
+        var revocationNow=DateTimeOffset.Parse("2026-10-30T00:00:00Z");
+        var cutoff=SessionRevocationPolicy.Cutoff(revocationNow);
+        Check(cutoff==revocationNow.AddSeconds(30),"Retirement cutoff covers the shared admitted issuer skew.");
+        Check(SessionRevocationPolicy.Refuses(cutoff,cutoff,cutoff.ToUnixTimeSeconds().ToString(),cutoff),"Exact skew boundary remains revoked.");
+        Check(SessionRevocationPolicy.Refuses(cutoff,cutoff.AddHours(1),revocationNow.ToUnixTimeSeconds().ToString(),cutoff.AddHours(1)),"Future auth_time cannot revive a token issued before the cutoff.");
+        Check(SessionRevocationPolicy.Refuses(cutoff,cutoff.AddSeconds(2),null,cutoff.AddSeconds(2)),"Missing issuance evidence on a revoked account fails closed.");
+        Check(SessionRevocationPolicy.Refuses(cutoff,cutoff.AddSeconds(31),cutoff.AddSeconds(31).ToUnixTimeSeconds().ToString(),cutoff),"Issuance beyond admitted future skew refuses.");
+        Check(!SessionRevocationPolicy.Refuses(cutoff,cutoff.AddSeconds(2),cutoff.AddSeconds(2).ToUnixTimeSeconds().ToString(),cutoff.AddSeconds(2)),"New authentication and issuance after cutoff can resume following separate recovery.");
+        Check(!SessionRevocationPolicy.Refuses(null,revocationNow,null,revocationNow),"Accounts without revocation retain their existing acceptance behavior.");
+
         var now = DateTimeOffset.Parse("2026-10-29T00:00:00Z");
         var email = BannedIdentifierPolicy.Fingerprint(BannedIdentifierType.Email, " Fictional.Member+tag@Example.Test ", key);
         Check(email.SequenceEqual(BannedIdentifierPolicy.Fingerprint(BannedIdentifierType.Email, "fictional.member+tag@example.test", key)), "Conservative email case/space normalization matches.");
@@ -32,6 +42,20 @@ static class BannedIdentifierChecks
         catch (ArgumentOutOfRangeException) { count++; }
         try { BannedIdentifierPolicy.Fingerprint(BannedIdentifierType.Email, "fictional@example.test", new byte[8]);throw new Exception("Weak key accepted."); }
         catch (ArgumentException) { count++; }
+        var mobileRetirement = BannedIdentifierPolicy.Issue(BannedIdentifierType.Mobile,
+            BannedIdentifierPolicy.Fingerprint(BannedIdentifierType.Mobile,"+61491570159",key),1,Guid.NewGuid(),Guid.NewGuid(),now,"Fictional source case.").Entry;
+        try { BannedIdentifierPolicy.RecordMobileRetirement(mobileRetirement,Guid.NewGuid(),"Fictional ownership review.",now);throw new Exception("Active retirement accepted."); }
+        catch (InvalidOperationException) { count++; }
+        BannedIdentifierPolicy.Revoke(mobileRetirement,Guid.NewGuid(),"Fictional recycled contact review.",now);
+        var retirement = BannedIdentifierPolicy.RecordMobileRetirement(mobileRetirement,Guid.NewGuid()," Fictional ownership review. ",now.AddMinutes(1));
+        Check(retirement.Transition.Action=="mobile-binding-retired" && retirement.Transition.OldStatus==BanStatus.Revoked && retirement.Transition.NewStatus==BanStatus.Revoked,
+            "Mobile retirement appends provenance without changing restriction status.");
+        Check(retirement.Note.TransitionId==retirement.Transition.Id && retirement.Note.CaseId==mobileRetirement.CaseId && retirement.Note.Text=="Fictional ownership review.",
+            "Mobile retirement requires its associated case note.");
+        var wrongType = BannedIdentifierPolicy.Issue(BannedIdentifierType.Email,email,1,Guid.NewGuid(),Guid.NewGuid(),now,"Fictional source.").Entry;
+        BannedIdentifierPolicy.Revoke(wrongType,Guid.NewGuid(),"Fictional review.",now);
+        try { BannedIdentifierPolicy.RecordMobileRetirement(wrongType,Guid.NewGuid(),"Fictional ownership review.",now);throw new Exception("Email retirement accepted by mobile policy."); }
+        catch (InvalidOperationException) { count++; }
         var issued = BannedIdentifierPolicy.Issue(BannedIdentifierType.Email,email,1,Guid.NewGuid(),Guid.NewGuid(),now,"Fictional permanent account restriction.");
         Check(issued.Entry.Status == BanStatus.Active && issued.Entry.BanExpiresAt is null && issued.Entry.IdentifierHash.SequenceEqual(email), "Issuing a permanent restriction preserves only its typed fingerprint.");
         Check(issued.Transition.OldStatus is null && issued.Transition.NewStatus == BanStatus.Active && issued.Note.TransitionId == issued.Transition.Id && issued.Note.CaseId == issued.Entry.CaseId, "Initial transition and associated note describe the same restriction/case.");

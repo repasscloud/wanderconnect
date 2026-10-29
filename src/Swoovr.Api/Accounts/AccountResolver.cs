@@ -106,7 +106,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         if (account.Status == AccountStatus.Deleted)
             return new(facts, result, null, account, [], null, BetaAccess.NotRequired) { LocalPasswordStaff = LocalPasswordStaff };
         // #88 (policy §11): a revoked staff member's sessions end; a token from a sign-in before the revocation is refused.
-        if (StaffAccessPolicy.SessionRevoked(account.SessionsRevokedAt, facts.AuthenticatedAt)) return null;
+        if (SessionRevocationPolicy.Refuses(account.SessionsRevokedAt,facts.AuthenticatedAt,user.FindFirstValue("iat"),now)) return null;
         await using var identifierAuthority = facts.Realm == AccountRealm.Members ? await PreservationLease.SharedAsync(Db,cancellationToken) : null;
         if (facts.Realm == AccountRealm.Members && account.Email is not null && account.EmailAcceptedAt is null)
         {

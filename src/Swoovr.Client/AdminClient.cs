@@ -35,6 +35,8 @@ public sealed class AdminClient(HttpClient transport)
         SendAsync<BannedIdentifierView>(HttpMethod.Post,$"api/admin/banned-identifiers/{id}/review",new IdentifierReviewRequest(reason),cancellationToken);
     public Task<ApiResult<IdentifierWorkflowResult>> RegistryReleaseAsync(IdentifierReleaseRequest request,CancellationToken cancellationToken = default) =>
         SendAsync<IdentifierWorkflowResult>(HttpMethod.Post,"api/admin/banned-identifiers/release",request,cancellationToken);
+    public Task<ApiResult<IdentifierWorkflowResult>> RetireMobileBindingAsync(Guid id,MobileBindingRetirementRequest request,CancellationToken cancellationToken = default) =>
+        SendAsync<IdentifierWorkflowResult>(HttpMethod.Post,$"api/admin/banned-identifiers/{id}/retire-mobile",request,cancellationToken);
     public Task<ApiResult<AccountReinstatementPreview>> ReinstatementAsync(Guid id,CancellationToken cancellationToken = default) =>
         SendAsync<AccountReinstatementPreview>(HttpMethod.Get,$"api/admin/accounts/{id}/reinstatement",null,cancellationToken);
     public Task<ApiResult<IdentifierWorkflowResult>> ReinstateAsync(Guid id,AccountReinstatementRequest request,CancellationToken cancellationToken = default) =>

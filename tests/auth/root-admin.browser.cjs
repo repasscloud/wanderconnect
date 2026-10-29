@@ -19,7 +19,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const env = await fs.readFile('.local/docker.env', 'utf8');
   const secret = env.split('\n').find(line => line.startsWith('SWOOVR_STAFF_WEB_SECRET='))?.split('=')[1];
   await fs.mkdir(output, { recursive: true, mode: 0o700 });
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   // Keycloak refuses a code reused within its window, so wait for a fresh 30-second step.
   // The last used step is kept in the fixture so back-to-back runs do not reuse a code.
@@ -94,5 +94,5 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.deepEqual([...claims.amr].sort(), ['otp', 'pwd']); pass();
     assert.equal((await call(second)).status, 200); pass();
     console.log(`PASS: ${passed} staff-realm checks in actual Edge against local Keycloak 26.8.1: no registration or social sign-in, root admin password + mandatory TOTP (enrolment before first session, code on every sign-in, wrong code rejected), API reports pwd+otp evidence for the staff realm.`);
-  } finally { await browser.close(); }
+  } finally { await edge.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

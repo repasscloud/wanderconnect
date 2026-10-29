@@ -159,6 +159,16 @@ public static class BannedIdentifierPolicy
         return(transition,new BanCaseNote { Id=Guid.NewGuid(),CaseId=row.CaseId,TransitionId=transition.Id,AuthorAccountId=actor,At=at,Text=reason.Trim() });
     }
 
+    /// <summary>Separate reviewed binding retirement; never releases a restriction or restores an account.</summary>
+    public static (BanTransition Transition,BanCaseNote Note) RecordMobileRetirement(BannedIdentifier row,Guid actor,string reason,DateTimeOffset now)
+    {
+        if(row.IdentifierType!=BannedIdentifierType.Mobile || row.Status!=BanStatus.Revoked || row.RevokedAt is null || row.RevokedBy is null)
+            throw new InvalidOperationException("A documented explicitly revoked mobile restriction is required.");
+        var result=RecordReinstatement(row,actor,reason,now);
+        result.Transition.Action="mobile-binding-retired";
+        return result;
+    }
+
     /// <summary>Append truthful system processing provenance without restarting the original expiry/history clock.</summary>
     public static (BanTransition Transition,BanCaseNote Note) Expire(BannedIdentifier row,DateTimeOffset now)
     {

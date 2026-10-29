@@ -24,6 +24,9 @@ static class RegistryClientChecks
         await client.RegistryReviewAsync(id,"Retained following fictional necessity review");Check(handler.Path.EndsWith(id+"/review")&&handler.Body.Contains("necessity"),"review reason preserved");
         await client.RegistryReleaseAsync(new IdentifierReleaseRequest([id],"Fictional ownership review completed"));
         Check(handler.Path=="/api/admin/banned-identifiers/release"&&handler.Body.Contains(id.ToString()),"identifier release uses explicit selected IDs");
+        var retired=await client.RetireMobileBindingAsync(id,new MobileBindingRetirementRequest(true,"Fictional current ownership reviewed"));
+        Check(retired.Ok&&retired.Value!.Changed==1,"mobile retirement result is explicit");
+        Check(handler.Method==HttpMethod.Post&&handler.Path==$"/api/admin/banned-identifiers/{id}/retire-mobile"&&handler.Body.Contains("circumstancesReviewed"),"mobile binding retirement has a separate confirmed POST");
         var preview=await client.ReinstatementAsync(account);Check(preview.Ok&&preview.Value!.Identifiers.Single().Id==id,"server reinstatement preview preserves complete source");
         await client.ReinstateAsync(account,new AccountReinstatementRequest([id],"Fictional independent account review"));
         Check(handler.Path==$"/api/admin/accounts/{account}/reinstate"&&handler.Body.Contains("revokeIdentifierIds"),"account reinstatement separate from release");
@@ -43,7 +46,7 @@ static class RegistryClientChecks
             Version=string.Join(",",request.Headers.GetValues(ApiContract.Header));
             if(Forbidden)return new(HttpStatusCode.Forbidden){Content=JsonContent.Create(new{code="elevated-access-required"})};
             object body=Path.Contains("/lookup")?new[]{entry}:Path.Contains("/reinstatement")?new AccountReinstatementPreview(account,"active",true,null,[entry.CaseId],[entry],true,[entry.Id])
-                :Path.Contains("/reinstate")||Path.EndsWith("/release")?new IdentifierWorkflowResult(1)
+                :Path.Contains("/reinstate")||Path.EndsWith("/release")||Path.EndsWith("/retire-mobile")?new IdentifierWorkflowResult(1)
                 :Path.EndsWith("/review")?entry:Path.Contains(entry.Id.ToString())?new BannedIdentifierDetail(entry,[],[]):new[]{entry};
             var response=new HttpResponseMessage(HttpStatusCode.OK){Content=JsonContent.Create(body,body.GetType())};
             if(Path.StartsWith("/api/admin/banned-identifiers?"))response.Headers.Add("Swoovr-Next-Cursor",BadCursor?"invalid":next.ToString());

@@ -163,10 +163,14 @@ const ADELAIDE = 2078025;
     assert.equal((await call(st.adm, '/api/admin/cases')).status, 200, 'working before'); pass();
     r = await call(root, `/api/admin/staff/${sid.adm}/revoke`, { method: 'POST', body: { reason: 'Fictional: left the company' } });
     assert.equal(r.status, 200); assert.ok(r.body.rolesRemoved >= 1 && r.body.grantsRevoked >= 1); pass();
+    const firstCutoff=await sql(`SELECT extract(epoch from sessions_revoked_at) FROM accounts WHERE id='${sid.adm}'`);
+    const simultaneous=await Promise.all([1,2].map(n=>call(root,`/api/admin/staff/${sid.adm}/revoke`,{method:'POST',body:{reason:'Fictional concurrent revocation '+n}})));
+    assert.ok(simultaneous.every(result=>result.status===200),'independent root requests serialize revocation');pass();
+    assert.ok(Number(await sql(`SELECT extract(epoch from sessions_revoked_at) FROM accounts WHERE id='${sid.adm}'`))>=Number(firstCutoff),'overlapping revocations never lower cutoff');pass();
     assert.equal((await call(st.adm, '/api/admin/cases')).status, 401, 'the session ended'); pass();
     assert.equal(await sql(`SELECT count(*) FROM role_grants WHERE account_id = '${sid.adm}'`), '0'); pass();
     assert.equal(await sql(`SELECT count(*) FROM access_grants WHERE account_id = '${sid.adm}' AND revoked_at IS NULL`), '0'); pass();
-    await sleep(1500); // Keycloak's auth_time has whole seconds; a sign-in in the revocation's own second counts as before it.
+    await sleep(31500); // Shared30s issuer-skew cutoff plus whole-second authentication evidence.
     const again = await staffToken(browser, staff.adm);
     assert.equal((await call(again, '/api/admin/cases')).status, 403, 'a new sign-in has no role'); pass();
 

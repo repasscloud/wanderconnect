@@ -37,6 +37,22 @@ else
             </fieldset>
         </form>
     </section>
+    @if(entry.IdentifierType=="mobile")
+    {
+        <section class="card" data-mobile-retirement>
+            <h2>Retire the old verified mobile binding</h2>
+            <p>After approving a recycled number, separately remove its verified binding from the original terminated account. This ends that account’s Keycloak sessions and preserves restricted contact history. The account ban, email and other credentials remain.</p>
+            <p class="help">Review current ownership and the associated case first. No SMS is sent to the recycled number. Original-account recovery requires a separate review. Allow at least 30 seconds before a recovery sign-in.</p>
+            <form method="post" @formname="retireMobile" @onsubmit="RetireMobileAsync" class="stack" data-registry-retire-mobile data-enhance="false">
+                <AntiforgeryToken />
+                <fieldset disabled="@(!access || entry.Status!="revoked" || detail.History.Any(h=>h.Action=="mobile-binding-retired"))">
+                    <label><input name="bindingReviewed" type="checkbox" value="yes" required /> I reviewed the case and sufficiently verified the circumstances and current ownership supporting retirement.</label>
+                    <label>Explanation<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
+                    <button type="submit" class="secondary">Retire the old mobile binding</button>
+                </fieldset>
+            </form>
+        </section>
+    }
     <section class="card">
         <h2>Recorded history</h2>
         <ul class="list" data-registry-history="@detail.History.Count">
@@ -74,4 +90,14 @@ else
         var result=await Admin.RegistryReleaseAsync(new IdentifierReleaseRequest([Id],Field("reason")));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
         message=result.Ok?(result.Value!.Changed>0?"Identifier restriction revoked. Original account access has not been restored.":"No active restriction changed. Account access is unchanged."):RegistryText.Refusal(result.Status,result.Code);await LoadAsync();
     }
+    private async Task RetireMobileAsync()
+    {
+        if(Field("bindingReviewed")!="yes"){resultCode="400";message="Review the case and verify current circumstances and ownership first.";return;}
+        var result=await Admin.RetireMobileBindingAsync(Id,new MobileBindingRetirementRequest(true,Field("reason")));
+        resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?(result.Value!.Changed>0?"Old verified mobile binding retired and sessions ended. The original account remains terminated.":"The old mobile binding was already retired.")
+            :RegistryText.Refusal(result.Status,result.Code);
+        await LoadAsync();
+    }
+
 }

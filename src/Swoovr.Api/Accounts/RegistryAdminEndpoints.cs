@@ -8,7 +8,7 @@ using static Swoovr.Api.Accounts.AccountEndpoints;
 namespace Swoovr.Api.Accounts;
 
 /// <summary>Separate restricted identifier-release and account-reinstatement operations; no plaintext/hash responses.</summary>
-public static class RegistryAdminEndpoints
+public static partial class RegistryAdminEndpoints
 {
     public static void Map(WebApplication app)
     {
@@ -96,6 +96,7 @@ public static class RegistryAdminEndpoints
             await db.SaveChangesAsync(token);await transaction.CommitAsync(token);
             return Results.Ok(new IdentifierWorkflowResult(changed));
         });
+        api.MapPost("/{id:guid}/retire-mobile",RetireMobileAsync);
         app.MapGet("/api/admin/accounts/{id:guid}/reinstatement",PreviewAsync).RequireAuthorization();
         app.MapPost("/api/admin/accounts/{id:guid}/reinstate",ReinstateAsync).RequireAuthorization();
     }

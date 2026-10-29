@@ -7,7 +7,7 @@ const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright')
 const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, membersRealm, mailTo, sleep } = require('./local-tokens.cjs');
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const extras = [];
   try {
@@ -270,5 +270,5 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
 
     for (const extra of extras) await extra();
     console.log(`PASS: ${passed} account checks against the API and PostgreSQL with real local Keycloak tokens: (issuer, subject) accounts, member area only for members, age entry (DOB, age, blank, invalid) and under-18 lock, admin routes refused to members and unauthenticated callers, root admin only from the application record, staff/venue invitations (validation, revoke) never granting a member account by matching email, adult override, no email in the audit log; private beta gate (not-enrolled API refusal and web notice with the swoovr.com/beta link, admin add/list/revoke, activation bound to the account, revocation ends access, staff not gated, file import by operator command); founding membership (admin grant, code emailed to the mail sink, founder badge, shared/sold/unknown codes refused alike, 5 failures an hour then 429, email change reissues and invalidates, delete-and-return restores the same place, admin invalidate/delete, codes never shown to admins or written to the audit log); the Interactive WebAssembly account page through the backend-for-frontend (founder badge, age entry and validation, coupon refusal, under-18 lock, header and route allow-list, no token in the browser).`);
-  } finally { await browser.close(); }
+  } finally { await edge.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

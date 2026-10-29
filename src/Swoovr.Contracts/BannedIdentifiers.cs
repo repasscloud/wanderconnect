@@ -21,3 +21,6 @@ public sealed record AccountReinstatementPreview(Guid AccountId,string State,boo
 /// <summary>Lawfully minimized staff source metadata; no matchable identifier survives in this receipt.</summary>
 public sealed record BanDispositionView(Guid Id,Guid CaseId,string IdentifierType,string Status,DateTimeOffset EffectiveEnd,DateTimeOffset DisposedAt,IReadOnlyList<BanDispositionReviewView> Reviews);
 public sealed record BanDispositionReviewView(Guid Id,Guid CaseId,Guid ActorId,DateTimeOffset At,string Reason);
+
+/// <summary>Recorded circumstances/ownership review, separate from identifier release.</summary>
+public sealed record MobileBindingRetirementRequest(bool CircumstancesReviewed, string Reason);

@@ -22,7 +22,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const env={...process.env,DOTNET_ENVIRONMENT:'Development',ASPNETCORE_ENVIRONMENT:'Development',ASPNETCORE_URLS:base,
    ConnectionStrings__Swoovr:`Host=127.0.0.1;Port=5433;Database=${database};Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`,
    Founders__Secrets__1:await localEnv('SWOOVR_FOUNDER_SECRET_V1'),Bans__HmacKeys__1:key.toString('base64'),Staff__LocalPasswords:'true',MemberAdmin__ClientSecret:await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET'),
-   Beta__Enabled:'false',Phone__Required:'false',Phone__CodeKey:'fictional-isolated-phone-code-key-123456',Accounts__HoldKey:'fictional-isolated-legacy-hold-key-123456',Media__Store:'local',Media__Local__Path:folder,Media__Screening__Worker:'false',Retention__Worker:'false'};
+   Beta__Enabled:'false',Email__Smtp__Host:'127.0.0.1',Email__Smtp__Port:'1025',Sms__Provider:'simulated',Phone__Required:'false',Phone__CodeKey:'fictional-isolated-phone-code-key-123456',Accounts__HoldKey:'fictional-isolated-legacy-hold-key-123456',Media__Store:'local',Media__Local__Path:folder,Media__Screening__Worker:'false',Retention__Worker:'false'};
   await run('dotnet',[dll,'migrate'],{cwd:apiDir,env});
   const start=async label=>{
    const handle=await fs.open(path.join(folder,label+'.log'),'w');host=spawn('dotnet',[dll],{cwd:apiDir,env,stdio:['ignore',handle.fd,handle.fd]});await handle.close();
@@ -227,10 +227,88 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal(Number(await query(`SELECT count(*) FROM sensitive_access_log WHERE resource='banned-identifiers' AND resource_id='${mobileEntry.id}'`))>=2,true,'matched route metadata records the actual opaque ID');
   equal(await query(`SELECT count(*) FROM sensitive_access_log WHERE coalesce(resource_id,'') LIKE '%@%' OR coalesce(resource_id,'') LIKE '%491570%'`),'0','query values and contacts never enter the access log');
   equal(await query(`SELECT count(*) FROM sensitive_access_log WHERE resource='banned-identifiers' AND actor_account_id='${adminId}'`)>0,true,'restricted registry operations logged');
+  // D249: active verified-mobile retirement is separate from hash release and account reinstatement.
+  const mobileOwner=await createMember('workflow-mobile-retirement'),mobileOwnerJwt=await memberToken(browser,mobileOwner);
+  await request(mobileOwnerJwt,'/api/session');const mobileOwnerId=await query(`SELECT id FROM accounts WHERE subject='${claims(mobileOwnerJwt).sub}'`);
+  const retiredNumber='+61491570991';
+  const pendingOldCode=crypto.randomUUID(),unrelatedOldCode=crypto.randomUUID();
+  await query(`INSERT INTO member_phones(account_id,number,verified_at) VALUES('${mobileOwnerId}','${retiredNumber}',now());`);
+  await query(`INSERT INTO phone_codes(id,account_id,number,code_hash,ip_hash,created_at,expires_at,failed_attempts)
+   VALUES('${pendingOldCode}','${mobileOwnerId}','${retiredNumber}',decode(repeat('21',32),'hex'),decode(repeat('22',32),'hex'),now(),now()+interval '10 minutes',0),
+   ('${unrelatedOldCode}','${mobileOwnerId}','+61491570992',decode(repeat('23',32),'hex'),decode(repeat('24',32),'hex'),now(),now()+interval '10 minutes',0);`);
+  equal((await terminate(mobileOwnerId)).status,200,'retirement source has real termination provenance');
+  const retiringBan=await query(`SELECT b.id FROM banned_identifiers b JOIN moderation_cases c ON c.id=b.case_id WHERE c.subject_account_id='${mobileOwnerId}' AND b.identifier_type='Mobile'`);
+  const retireRoute=`/api/admin/banned-identifiers/${retiringBan}/retire-mobile`,retireBody={circumstancesReviewed:true,reason:'Fictional recycled number ownership and case reviewed; preserve original ban.'};
+  equal((await request(mobileOwnerJwt,retireRoute,'POST',retireBody)).status,403,'member cannot retire own binding');
+  equal((await request(adminToken,retireRoute,'POST',retireBody)).status,409,'active restriction cannot be retired');
+  await request(adminToken,'/api/admin/banned-identifiers/release','POST',{identifierIds:[retiringBan],reason:'Fictional independent recycled number review.'});
+  equal((await request(adminToken,retireRoute,'POST',{...retireBody,circumstancesReviewed:false})).status,400,'binding retirement requires separate circumstances review');
+  await query(`UPDATE member_phones SET number='+61491570992' WHERE account_id='${mobileOwnerId}'`);
+  equal((await request(adminToken,retireRoute,'POST',retireBody)).status,409,'a different current binding is never removed');
+  await query(`UPDATE member_phones SET number='${retiredNumber}' WHERE account_id='${mobileOwnerId}'`);
+  await request(adminToken,`/api/admin/staff-links/${otherId}`,'PUT',{memberAccountId:mobileOwnerId});
+  equal((await request(otherJwt,retireRoute,'POST',retireBody)).status,403,'personal association refuses binding retirement');
+  const originalSecret=env.MemberAdmin__ClientSecret;
+  await stop();env.MemberAdmin__ClientSecret='fictional-invalid-service-credential';await start('mobile-provider-unavailable');
+  equal((await request(adminToken,retireRoute,'POST',retireBody)).status,503,'uncertain provider logout retains binding');
+  equal(await query(`SELECT count(*) FROM member_phones WHERE account_id='${mobileOwnerId}'`),'1','provider refusal leaves unique binding intact');
+  equal(await query(`SELECT count(*) FROM ban_transitions WHERE banned_identifier_id='${retiringBan}' AND action='mobile-binding-retired'`),'0','provider refusal cannot record success');
+  await stop();env.MemberAdmin__ClientSecret=originalSecret;await start('mobile-provider-restored');
+  await query(`CREATE FUNCTION fixture_reject_retirement_note() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF EXISTS(SELECT 1 FROM ban_transitions WHERE id=NEW.transition_id AND action='mobile-binding-retired') THEN RAISE EXCEPTION 'Fictional retirement note failure'; END IF; RETURN NEW; END $$;
+    CREATE TRIGGER fixture_reject_retirement_note BEFORE INSERT ON ban_case_notes FOR EACH ROW EXECUTE FUNCTION fixture_reject_retirement_note();`);
+  equal((await request(adminToken,retireRoute,'POST',retireBody)).status>=500,true,'required retirement note failure aborts local operation');
+  equal((await fs.readFile(path.join(folder,'mobile-provider-restored.log'),'utf8')).includes('Fictional retirement note failure'),true,'injected note trigger was actually reached, not masked by another constraint');
+  equal(await query(`SELECT count(*) FROM member_phones WHERE account_id='${mobileOwnerId}'`),'1','database rollback preserves binding after safe remote logout');
+  equal(await query(`SELECT count(*) FROM contact_histories WHERE account_id='${mobileOwnerId}'`),'0','failed retirement leaves no partial archive');
+  equal(await query(`SELECT count(*) FROM accounts WHERE id='${mobileOwnerId}' AND sessions_revoked_at IS NULL`),'1','failed note rolls back API revocation watermark with the binding transaction');
+  equal(await query(`SELECT count(*) FROM phone_codes WHERE id='${pendingOldCode}' AND used_at IS NULL`),'1','note rollback also rolls back pending-code invalidation');
+  await query(`DROP TRIGGER fixture_reject_retirement_note ON ban_case_notes; DROP FUNCTION fixture_reject_retirement_note();`);
+  // A new fictional session proves the successful retry actually signs out current sessions.
+  await memberToken(browser,mobileOwner);
+  equal((await realm('/users/'+claims(mobileOwnerJwt).sub+'/sessions')).length>0,true,'source has actual Keycloak session before retirement');
+  const retired=await request(adminToken,retireRoute,'POST',retireBody);
+  equal(retired.status,200,'retirement success status; code='+(retired.body?.code||'none'));
+  equal(retired.body.changed,1,'separate retirement frees current reviewed binding');
+  equal((await realm('/users/'+claims(mobileOwnerJwt).sub+'/sessions')).length,0,'retirement revokes actual source Keycloak sessions');
+  equal(await query(`SELECT count(*) FROM member_phones WHERE account_id='${mobileOwnerId}'`),'0','only the original verified-phone binding removed');
+  equal(await query(`SELECT email FROM accounts WHERE id='${mobileOwnerId}'`),mobileOwner.email,'unrelated original email preserved');
+  equal(await query(`SELECT count(*) FROM phone_codes WHERE id='${pendingOldCode}' AND used_at IS NOT NULL`),'1','same-contact pending challenge cannot reclaim a retired number');
+  equal(await query(`SELECT count(*) FROM phone_codes WHERE id='${unrelatedOldCode}' AND used_at IS NULL`),'1','unrelated pending challenge is preserved');
+  equal(await query(`SELECT count(*) FROM sanctions WHERE account_id='${mobileOwnerId}' AND kind='Termination' AND lifted_at IS NULL`),'1','retirement does not restore original account');
+  equal(await query(`SELECT count(*) FROM contact_histories WHERE account_id='${mobileOwnerId}' AND change_reason='staff-binding-retirement'`),'1','restricted encrypted prior binding archived');
+  equal(await query(`SELECT count(*) FROM ban_case_notes n JOIN ban_transitions t ON n.transition_id=t.id WHERE t.banned_identifier_id='${retiringBan}' AND t.action='mobile-binding-retired'`),'1','immutable success and associated case note committed once');
+  equal((await request(mobileOwnerJwt,'/api/session')).status,401,'pre-retirement JWT is refused by the API watermark');
+  await sleep(31500); // Conservative30s issuer skew plus whole-second auth_time resolution.
+  const retainedCredentials=await memberToken(browser,mobileOwner);
+  equal((await request(retainedCredentials,'/api/me/profile')).body.code,'account-suspended','unrelated provider password/email still authenticate but original account ban remains');
+  equal((await request(adminToken,retireRoute,'POST',retireBody)).body.changed,0,'same completed retirement retry is idempotent');
+  await query(`INSERT INTO member_phones(account_id,number,verified_at) VALUES('${mobileOwnerId}','+61491570992',now());`);
+  equal((await request(adminToken,retireRoute,'POST',retireBody)).status,409,'old completion cannot remove a later binding');
+  await query(`DELETE FROM member_phones WHERE account_id='${mobileOwnerId}'`);
+  const mobileRecipient=await createMember('workflow-mobile-recipient'),recipientJwt=await memberToken(browser,mobileRecipient);
+  await request(recipientJwt,'/api/session');
+  equal((await request(recipientJwt,'/api/me/phone','POST',{number:retiredNumber})).status,200,'released retired number can begin ordinary verification');
+
+  const recipientId=await query(`SELECT id FROM accounts WHERE subject='${claims(recipientJwt).sub}'`),fictionalCode='123456';
+  const verifiedHash=crypto.createHmac('sha256',Buffer.from(env.Phone__CodeKey)).update(recipientId.replaceAll('-','')+'|'+retiredNumber+'|'+fictionalCode).digest('hex');
+  await query(`UPDATE phone_codes SET code_hash=decode('${verifiedHash}','hex') WHERE account_id='${recipientId}' AND number='${retiredNumber}'`);
+  equal((await request(recipientJwt,'/api/me/phone/confirm','POST',{number:retiredNumber,code:fictionalCode})).status,200,'ordinary confirm can attach released number after active binding retirement');
+  equal(await query(`SELECT number FROM member_phones WHERE account_id='${recipientId}'`),retiredNumber,'unique binding belongs only to newly verified fictional recipient');
+  // The code above is a synthetic test fixture, not SMS delivery/current ownership evidence.
+  const recoveryPreview=await request(adminToken,`/api/admin/accounts/${mobileOwnerId}/reinstatement`);
+  equal(recoveryPreview.body.eligible,true,'old-account restoration still requires its independent reviewed workflow');
+  equal((await request(adminToken,`/api/admin/accounts/${mobileOwnerId}/reinstate`,'POST',{revokeIdentifierIds:recoveryPreview.body.requiredIdentifierIds,reason:'Fictional independent original-account recovery reviewed after mobile retirement.'})).status,200,'only explicit separate account recovery reinstates original member');
+  equal((await request(mobileOwnerJwt,'/api/session')).status,401,'old JWT stays refused after later reinstatement');
+  equal((await request(retainedCredentials,'/api/session')).status,200,'a fresh authentication with preserved unrelated credentials works after reviewed recovery');
+
   console.log(`PASS: registry population/release/reinstatement workflows (${checks} checks; fictional local identities, real isolated API/PostgreSQL; no delivery or hosted Entra evidence).`);
  } finally {
   if(replica&&replica.exitCode===null){const exited=once(replica,'exit');replica.kill('SIGTERM');await exited;}
   await stop();
+  const privateLogs=path.join('.local/log-backups','mobile-retirement-workflow-'+new Date().toISOString().replaceAll(/[^0-9TZ]/g,''));
+  await fs.mkdir(privateLogs,{recursive:true,mode:0o700});
+  for(const file of await fs.readdir(folder))if(file.endsWith('.log')){const target=path.join(privateLogs,file);await fs.copyFile(path.join(folder,file),target);await fs.chmod(target,0o600);}
+  console.log('PRIVATE LOGS: '+privateLogs);
   await edge.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

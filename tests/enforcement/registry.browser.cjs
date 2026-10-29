@@ -12,7 +12,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const apiDir=path.join(process.cwd(),'src/Swoovr.Api'),dll=path.join(apiDir,'bin/Debug/net10.0/Swoovr.Api.dll');
  const probe=net.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));
  const base='http://127.0.0.1:'+probe.address().port;await new Promise(resolve=>probe.close(resolve));
- const browser=await chromium.launch({channel:'msedge',headless:true});let host,replica,created=false,checks=0;
+ const edge=await require('../auth/managed-edge.cjs').managedEdge(chromium),browser=edge.browser;let host,replica,created=false,checks=0;
  const query=text=>run('docker',['exec','swoovr-local-postgres-1','psql','-U','swoovr','-d',database,'-v','ON_ERROR_STOP=1','-tAc',text]);
  const equal=(actual,expected,label)=>{assert.equal(actual,expected,label);checks++;};
  const stop=async()=>{if(!host||host.exitCode!==null)return;const exited=once(host,'exit');host.kill('SIGTERM');await Promise.race([exited,sleep(4000)]);if(host.exitCode===null){host.kill('SIGKILL');await exited;}host=null;};
@@ -256,6 +256,6 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  } finally {
   if(replica&&replica.exitCode===null){const exited=once(replica,'exit');replica.kill('SIGTERM');await exited;}
   await stop();
-  await browser.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
+  await edge.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

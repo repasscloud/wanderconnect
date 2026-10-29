@@ -11,7 +11,7 @@ const { web, createMember, createStaff, appToken, staffToken, rootAdminToken, cl
 const ADELAIDE = 2078025, MELBOURNE = 2158177;
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   try {
@@ -156,6 +156,6 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
 
     console.log(`PASS: app parity (${passed} checks).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

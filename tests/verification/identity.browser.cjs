@@ -30,7 +30,7 @@ async function latestText(number, pattern) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   try {
@@ -42,9 +42,8 @@ async function latestText(number, pattern) {
       return response.status;
     };
     await sql(`DELETE FROM member_phones WHERE number IN ('${e164(156)}', '${e164(157)}', '${e164(158)}'); DELETE FROM phone_codes WHERE number IN ('${e164(156)}', '${e164(157)}', '${e164(158)}')`);
-    // Earlier runs' holds on the same fictional numbers (keyed hashes, so they can't be told apart) would stop a fresh
-    // two-year hold being written; the local database holds fictional data only.
-    await sql(`DELETE FROM terminated_phone_holds WHERE created_at < now() - interval '10 minutes'`);
+    // Legacy hash-only markers have no source provenance. Never erase unrelated rows as fixture cleanup.
+    // Current termination uses the typed registry; recycle only positively matched fictional numbers through its reviewed API.
     const root = await rootAdminToken(browser);
     // Reserved fictional number is deliberately recycled between suite runs through the reviewed API, not SQL history deletion.
     await elevate(root,'identifier-release','Fictional reserved-number fixture review');
@@ -215,6 +214,6 @@ async function latestText(number, pattern) {
 
     console.log(`PASS: verified identity store and contact-change security (${passed} checks).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exit(1); });

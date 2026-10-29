@@ -35,7 +35,7 @@ const signInForm = member => async page => {
 };
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   try {
     const alice = await createMember('mobile');
@@ -136,6 +136,6 @@ const signInForm = member => async page => {
     await context.close();
     console.log(`PASS: mobile client acceptance, ${passed} checks (public PKCE client, redirect allow-list, no implicit/password grant, verifier and replay, API audience and areas, rotation, end session, beta gate).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

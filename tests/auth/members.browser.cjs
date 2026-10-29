@@ -37,7 +37,7 @@ async function secret() {
 
 (async () => {
   await fs.mkdir(output, { recursive: true, mode: 0o700 });
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   const shot = (page, name) => page.screenshot({ path: `${output}/${name}.png`, fullPage: true });
   let passed = 0; const pass = () => passed++;
   try {
@@ -229,5 +229,5 @@ async function secret() {
     await shot(page, 'account-320');
     await context.close();
     console.log(`PASS: ${passed} members-realm checks in actual Edge against local Keycloak 26.8.1: launch splash once per session (reduced-motion cross-fade) then Keycloak, prototype sign-in screens light/dark with Helvetica Neue computed on every text element and arrival stagger rules, 18+ blocking registration, email-first verification, server-side web session, password and passkey sign-in, API token validation negatives, 3-failure lockout cleared by reset, invitation-only venues/staff realms, 320px account page.`);
-  } finally { await browser.close(); }
+  } finally { await edge.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

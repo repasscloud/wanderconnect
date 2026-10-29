@@ -152,7 +152,7 @@ public static class StaffAccessEndpoints
         });
 
         // §11, §15: revoking a staff member removes their roles and grants and ends their sessions (the API refuses every token
-        // authenticated before now). Root admin only; never the root admin themselves.
+        // authenticated through the admitted issuer-skew cutoff). Root admin only; never the root admin themselves.
         app.MapPost("/api/admin/staff/{id:guid}/revoke", async (Guid id, StaffRevokeRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
             CancellationToken cancellationToken) =>
         {
@@ -162,8 +162,10 @@ public static class StaffAccessEndpoints
             if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > StaffAccessPolicy.PurposeMax)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Record why (up to 500 characters).");
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current.Account!.Id);
+            await using var state=await AccountLifecycleLease.AcquireAsync(db,id,cancellationToken);
             var target = await db.Accounts.FindAsync([id], cancellationToken);
             if (target is null || target.Realm != AccountRealm.Staff || target.IsRootAdmin || target.Id == me) return Results.NotFound();
+            await db.Entry(target).ReloadAsync(cancellationToken);
             var roles = await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);
             var grants = await db.AccessGrants.Where(g => g.AccountId == id && g.RevokedAt == null).ExecuteUpdateAsync(u => u.SetProperty(g => g.RevokedAt, now)
                 .SetProperty(g => g.RevokedBy, me).SetProperty(g => g.RevokedReason, "staff-revoked"), cancellationToken);
@@ -171,7 +173,8 @@ public static class StaffAccessEndpoints
             if (target.Email is { } email)
                 await db.Invitations.Where(i => i.Email == email && i.Realm == AccountRealm.Staff && i.AcceptedAt == null && i.RevokedAt == null)
                     .ExecuteUpdateAsync(u => u.SetProperty(i => i.RevokedAt, now), cancellationToken);
-            target.SessionsRevokedAt = now;
+            var cutoff=SessionRevocationPolicy.Cutoff(now);
+            if(target.SessionsRevokedAt is null||target.SessionsRevokedAt<cutoff)target.SessionsRevokedAt=cutoff;
             Audit.Record(db, now, me, "account", "staff.revoked", "account", id.ToString(), $"roles:{roles};grants:{grants}");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(new StaffRevokeResult(roles, grants, false));
