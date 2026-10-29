@@ -154,7 +154,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   };
   const unrelated=await makeSource('unrelated-login',true);
   const unrelatedReply=await provider(unrelated.route,'POST',unrelated.body);
-  equal(unrelatedReply.status,200,'Retire reviewed mailbox while preserving unrelated login; code='+(unrelatedReply.body?.code||'none')); 
+  equal(unrelatedReply.status,200,'Retire reviewed mailbox while preserving unrelated login; code='+(unrelatedReply.body?.code||'none'));
   equal((await provider('/users/'+unrelated.id+'/email-binding')).body.username,unrelated.view.username,'Actual unrelated provider username preserved');
   equal(await query(`SELECT login_retired FROM swoovr_email_retirement WHERE user_id='${unrelated.id}'`),'f','Provider marker distinguishes unrelated login');
   const rollback=await makeSource('late-rollback',false,true);
