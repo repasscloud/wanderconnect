@@ -184,6 +184,12 @@ public static class Cli
                 Console.WriteLine($"Messages: {run.Texts} deleted message texts erased, {run.Photos} deleted chat photos released, {run.Kept} kept under a legal hold.");
                 return 0;
             }
+            case ["bans", "backfill"]:
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<RegistryPopulation>().BackfillAsync(now,CancellationToken.None);
+                Console.WriteLine($"Registry backfill: {run.Sanctions} terminations inspected; {run.Restrictions} restrictions added; {run.Unresolved} lack usable current contact provenance.");
+                return run.Unresolved > 0 ? 1 : 0;
+            }
             case ["staff", "conflicts", "reconcile"]:
             {
                 var history = scope.ServiceProvider.GetRequiredService<StaffConflictHistory>();
@@ -268,7 +274,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | bans backfill | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

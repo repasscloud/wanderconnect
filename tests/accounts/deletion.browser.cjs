@@ -2,7 +2,7 @@
 // Deletion: a fresh sign-in, immediate deactivation (out of discovery, signed out everywhere, pending requests
 // cancelled), cancel within 30 days, delete now, `accounts purge` (Keycloak user deleted, personal data removed, a
 // tombstone left, history readable by the other member as "Deleted member"), founders (code emailed, token kept or
-// deleted on request), terminated members (a keyed email hold, a returning member flagged to the admin queue).
+// deleted on request), terminated members (a persistent typed registry restriction, returning application registration refused).
 // Export: once a day, a one-time 15-minute link, the member's own data only. Negative cases: staff, other members'
 // links, stale sign-ins, tampered bodies, unknown links, restricted members still able to leave. The web page in Edge:
 // download, delete, the pending-deletion screen and the sign-in-again step.
@@ -173,8 +173,9 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE target_id IN ('${ids.ana}','${ids.cat}','${ids.fou}','${ids.ter}') AND detail LIKE '%@%'`), '0', 'no email in the audit'); pass();
     assert.equal(await sql(`SELECT count(*) FROM founder_tokens WHERE place = ${place}`), '0', 'the founder token went as asked'); pass();
     assert.equal(await sql(`SELECT count(*) FROM founder_places WHERE place = ${place}`), '1', 'the founding place is never reassigned'); pass();
-    assert.equal(Number(await sql('SELECT count(*) FROM terminated_email_holds')), holdsBefore + 1, 'a hold for the terminated member only'); pass();
+    assert.equal(Number(await sql('SELECT count(*) FROM terminated_email_holds')), holdsBefore, 'registry provenance avoids recreating legacy holds'); pass();
     assert.equal(await sql(`SELECT count(*) FROM sanctions WHERE account_id = '${ids.ter}'`), '1', 'moderation records are kept'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM banned_identifiers b JOIN moderation_cases c ON b.case_id=c.id WHERE c.subject_account_id='${ids.ter}' AND b.identifier_type='Email' AND b.status='Active'`),'1','active email restriction survives deletion');pass();
 
     // Bob keeps the history, read-only, with a deleted member.
     const after = (await call(tokens.bob, '/api/conversations')).body.find(c => c.id === convo);
@@ -191,18 +192,13 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     // Purging again does nothing more.
     assert.match(await cli('accounts', 'purge'), /Accounts: 0 deleted, 0 waiting/); pass();
 
-    // The terminated member returns with the same email: an admin-queue case, nothing blocked.
+    // D217: provider authentication is possible, but banned email cannot create a new application member.
     const back = { email: members.ter.email, password: 'Correct-horse-' + crypto.randomBytes(6).toString('hex') };
     await kc('/users', 'POST', { username: back.email, email: back.email, firstName: 'Fictional', enabled: true, emailVerified: true, credentials: [{ type: 'password', value: back.password, temporary: false }] });
     await cli('beta', 'add', back.email);
     const backToken = await memberToken(browser, back);
-    assert.equal((await call(backToken, '/api/me')).status, 200, 'not blocked'); pass();
-    const backId = await sql(`SELECT id FROM accounts WHERE subject = '${claims(backToken).sub}'`);
-    assert.equal(await sql(`SELECT queue || '|' || system_flag FROM moderation_cases WHERE subject_account_id = '${backId}'`), 'Admin|returning-terminated'); pass();
-    const cases = (await call(root, '/api/admin/cases?queue=admin')).body;
-    const flagged = (Array.isArray(cases) ? cases : cases?.items ?? []).find(c => c.subjectAccountId === backId);
-    if (flagged) { assert.equal(flagged.systemFlag, 'returning-terminated'); pass(); }
-    await sql(`UPDATE moderation_cases SET status = 'Closed', closed_at = now() WHERE subject_account_id = '${backId}'`);
+    assert.deepEqual(code(await call(backToken, '/api/me')), [403,'identifier-restricted']);pass();
+    assert.equal(await sql(`SELECT count(*) FROM accounts WHERE subject = '${claims(backToken).sub}'`),'0','no returning application mapping');pass();
 
     // Stale sign-ins (Accounts:ReauthSeconds on the test hosts).
     while (Date.now() / 1000 - claims(staleExp).auth_time < REAUTH_SECONDS + 5) await sleep(1000);

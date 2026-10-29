@@ -88,6 +88,20 @@ public static class BannedIdentifierPolicy
     public static bool Blocks(BannedIdentifier row, DateTimeOffset now) =>
         row.Status == BanStatus.Active && (row.BanExpiresAt is null || row.BanExpiresAt > now);
 
+    public static (BannedIdentifier Entry, BanTransition Transition, BanCaseNote Note) Issue(BannedIdentifierType type,byte[] fingerprint,int version,Guid caseId,
+        Guid? actor,DateTimeOffset bannedAt,string reason)
+    {
+        if (!Enum.IsDefined(type) || fingerprint.Length != 32 || version < 1 || caseId == Guid.Empty || actor == Guid.Empty)
+            throw new ArgumentException("Documented typed fingerprint provenance is required.");
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > ReasonMax) throw new ArgumentException("A bounded explanation is required.",nameof(reason));
+        var at = bannedAt.ToUniversalTime();
+        var entry = new BannedIdentifier { Id = Guid.NewGuid(),IdentifierType = type,IdentifierHash = [..fingerprint],KeyVersion = version,
+            CaseId = caseId,BanReasonCode = "permanent-account-ban",Status = BanStatus.Active,BannedAt = at };
+        var transition = new BanTransition { Id = Guid.NewGuid(),BannedIdentifierId = entry.Id,CaseId = caseId,ActorAccountId = actor,
+            At = at,Action = "created",NewStatus = BanStatus.Active,Reason = reason.Trim(),NewValues = JsonSerializer.Serialize(entry,SnapshotOptions) };
+        return (entry,transition,new BanCaseNote { Id = Guid.NewGuid(),CaseId = caseId,TransitionId = transition.Id,AuthorAccountId = actor,At = at,Text = reason.Trim() });
+    }
+
     /// <summary>Creates one auditable identifier-only transition; callers commit row, event and note atomically.</summary>
     public static (BanTransition Transition, BanCaseNote Note) Revoke(BannedIdentifier row, Guid actor, string reason, DateTimeOffset now)
     {
@@ -103,6 +117,23 @@ public static class BannedIdentifierPolicy
         transition.NewStatus = row.Status;transition.NewExpiresAt = row.BanExpiresAt;transition.NewValues = JsonSerializer.Serialize(row, SnapshotOptions);
         return (transition, new BanCaseNote { Id = Guid.NewGuid(), CaseId = row.CaseId, TransitionId = transition.Id,
             AuthorAccountId = actor, At = at, Text = reason.Trim() });
+    }
+
+    public static (BanTransition Transition,BanCaseNote Note) ReviewNecessity(BannedIdentifier row,Guid actor,string reason,DateTimeOffset now)
+    {
+        if(row.Status!=BanStatus.Active||row.BanExpiresAt<=now)throw new InvalidOperationException("Only an active unexpired restriction can be reviewed as necessary.");
+        var result=RecordReinstatement(row,actor,reason,now);
+        result.Transition.Action="necessity-reviewed";
+        return result;
+    }
+
+    public static (BanTransition Transition,BanCaseNote Note) RecordReinstatement(BannedIdentifier row,Guid actor,string reason,DateTimeOffset now)
+    {
+        if(actor==Guid.Empty||string.IsNullOrWhiteSpace(reason)||reason.Trim().Length>ReasonMax)throw new ArgumentException("A staff actor and bounded explanation are required.");
+        var at=now.ToUniversalTime();var before=JsonSerializer.Serialize(row,SnapshotOptions);row.LastReviewedAt=at;
+        var transition=new BanTransition { Id=Guid.NewGuid(),BannedIdentifierId=row.Id,CaseId=row.CaseId,ActorAccountId=actor,At=at,Action="account-reinstated",
+            OldStatus=row.Status,NewStatus=row.Status,OldExpiresAt=row.BanExpiresAt,NewExpiresAt=row.BanExpiresAt,Reason=reason.Trim(),OldValues=before,NewValues=JsonSerializer.Serialize(row,SnapshotOptions) };
+        return(transition,new BanCaseNote { Id=Guid.NewGuid(),CaseId=row.CaseId,TransitionId=transition.Id,AuthorAccountId=actor,At=at,Text=reason.Trim() });
     }
 
     /// <summary>DEFAULT inactive history minimum; active restrictions and missing transition provenance cannot expire.</summary>

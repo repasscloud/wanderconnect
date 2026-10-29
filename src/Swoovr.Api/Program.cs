@@ -41,17 +41,18 @@ if (persistence && app.Environment.IsDevelopment())
 }
 app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();
-app.UseAuthorization();
 app.UseMiddleware<IdentifierCheckMiddleware>();
-app.UseMiddleware<MemberMutationAuthority>();
-// #88 (policy §11, §15): every view, query, export, change and refusal on restricted admin routes goes to the append-only log.
+// Wrap authorization and handlers so refused/failed sensitive requests are recorded too.
 app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();
+app.UseAuthorization();
+app.UseMiddleware<MemberMutationAuthority>();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);
 ContactHistoryEndpoints.Map(app);
+RegistryAdminEndpoints.Map(app);
 StaffAccessEndpoints.Map(app);
 Swoovr.Api.Security.SecurityEndpoints.Map(app);
 Swoovr.Api.Evidence.LegalHoldEndpoints.Map(app);

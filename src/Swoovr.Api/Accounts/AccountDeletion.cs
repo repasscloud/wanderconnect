@@ -147,6 +147,19 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
     {
         await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, id, cancellationToken);
         await using var mediaLease = await AccountLifecycleLease.AcquireMediaAsync(db, id, cancellationToken);
+        // Capture verified contact provenance before any irreversible provider/source removal. Never revive revoked entries.
+        await using (var registryAuthority = await Retention.PreservationLease.ExclusiveAsync(db,cancellationToken))
+        {
+            var candidate = await db.Accounts.SingleAsync(a=>a.Id==id,cancellationToken);await db.Entry(candidate).ReloadAsync(cancellationToken);
+            if(!AccountDeletionPolicy.Due(candidate,now))return false;
+            var terminations = await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.LiftedAt==null&&s.StartsAt<=now).ToListAsync(cancellationToken);
+            if(terminations.Count>0)
+            {
+                await using var registryTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+                foreach(var termination in terminations)await services.GetRequiredService<RegistryPopulation>().StageAsync(termination,now,cancellationToken);
+                await db.SaveChangesAsync(cancellationToken);await registryTransaction.CommitAsync(cancellationToken);
+            }
+        }
         await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
         var account = await db.Accounts.SingleAsync(a => a.Id == id, cancellationToken);
         await db.Entry(account).ReloadAsync(cancellationToken);
@@ -199,14 +212,16 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
         // D171: a terminated member leaves only a keyed hash of their email, for two years, to flag a return for review.
         var terminated = await db.Sanctions.AnyAsync(s => s.AccountId == id && s.Kind == SanctionKind.Termination && s.LiftedAt == null, cancellationToken);
-        if (terminated && account.Email is { } email && HoldKey() is { } holdKey)
+        var enforcementCases = await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.CaseId!=null).Select(s=>s.CaseId!.Value).ToArrayAsync(cancellationToken);
+        var registryRecorded = await db.BannedIdentifiers.AnyAsync(b=>enforcementCases.Contains(b.CaseId),cancellationToken);
+        if (terminated && !registryRecorded && account.Email is { } email && HoldKey() is { } holdKey)
         {
             var hash = HoldHash(holdKey, email);
             if (!await db.TerminatedEmailHolds.AnyAsync(h => h.EmailHash == hash, cancellationToken))
                 db.TerminatedEmailHolds.Add(new TerminatedEmailHold { EmailHash = hash, CreatedAt = now, ExpiresAt = now + AccountDeletionPolicy.TerminatedHold });
         }
         // #87: and the verified mobile number's keyed hash, so the number verifying another account is flagged (never blocked).
-        if (terminated && HoldKey() is { } phoneKey && await db.MemberPhones.Where(p => p.AccountId == id).Select(p => p.Number).SingleOrDefaultAsync(cancellationToken) is { } number)
+        if (terminated && !registryRecorded && HoldKey() is { } phoneKey && await db.MemberPhones.Where(p => p.AccountId == id).Select(p => p.Number).SingleOrDefaultAsync(cancellationToken) is { } number)
         {
             var hash = PhoneHoldHash(phoneKey, number);
             if (!await db.TerminatedPhoneHolds.AnyAsync(h => h.PhoneHash == hash, cancellationToken))

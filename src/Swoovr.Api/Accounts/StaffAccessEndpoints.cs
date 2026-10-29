@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Contracts;
 using Swoovr.Domain;
@@ -235,22 +236,43 @@ public sealed class SensitiveAccessMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context, IServiceProvider services, TimeProvider clock, ILogger<SensitiveAccessMiddleware> log)
     {
-        await next(context);
-        if (StaffAccessPolicy.Classify(context.Request.Method, context.Request.Path.Value ?? "", context.Response.StatusCode) is not var (resource, id, action)) return;
-        // Its own scope, so the request's tracked changes are never flushed here.
-        await using var scope = services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
-        if (scope.ServiceProvider.GetService<SwoovrDbContext>() is not { } db) return;
+        Exception? failure=null;
+        try { await next(context); }
+        catch(Exception exception) { failure=exception;throw; }
+        finally
+        {
+            var status=failure is IdentifierCheckException known?known.Status:failure is not null?500:context.Response.StatusCode;
+            await RecordAsync(context,services,clock,log,status);
+        }
+    }
+
+    private static string AuditPath(HttpContext context)
+    {
+        if(context.GetEndpoint() is not RouteEndpoint route)return context.Request.Path.Value??"";
+        // Use matched literals and GUID route values only. Tokens, query values and body data never enter this path.
+        return "/"+string.Join("/",route.RoutePattern.PathSegments.Select(segment=>string.Concat(segment.Parts.Select(part=>part switch
+        {
+            RoutePatternLiteralPart literal=>literal.Content,
+            RoutePatternSeparatorPart separator=>separator.Content,
+            RoutePatternParameterPart parameter=>Guid.TryParse(context.Request.RouteValues[parameter.Name]?.ToString(),out var id)?id.ToString():"_",
+            _=>"_",
+        }))));
+    }
+
+    private static async Task RecordAsync(HttpContext context,IServiceProvider services,TimeProvider clock,ILogger<SensitiveAccessMiddleware> log,int status)
+    {
+        if(StaffAccessPolicy.Classify(context.Request.Method,AuditPath(context),status)is not var(resource,id,action))return;
+        await using var scope=services.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
+        if(scope.ServiceProvider.GetService<SwoovrDbContext>()is not{}db)return;
         try
         {
-            Guid? actor = null;
-            if (context.User.FindFirstValue("sub") is { } subject && context.User.FindFirstValue("iss") is { } issuer)
-                actor = await db.Accounts.Where(a => a.Issuer == issuer && a.Subject == subject).Select(a => (Guid?)a.Id).SingleOrDefaultAsync(context.RequestAborted);
-            await AppendAsync(db, clock.GetUtcNow(), actor, action, resource, id, context.Response.StatusCode, CancellationToken.None);
+            using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            Guid? actor=null;
+            if(context.User.FindFirstValue("sub")is{}subject&&context.User.FindFirstValue("iss")is{}issuer)
+                actor=await db.Accounts.Where(a=>a.Issuer==issuer&&a.Subject==subject).Select(a=>(Guid?)a.Id).SingleOrDefaultAsync(deadline.Token);
+            await AppendAsync(db,clock.GetUtcNow(),actor,action,resource,id,status,deadline.Token);
         }
-        catch (Exception exception)
-        {
-            log.LogError(exception, "Sensitive-access log entry not written.");
-        }
+        catch(Exception exception){log.LogError(exception,"Sensitive-access log entry not written.");}
     }
 
     public static async Task AppendAsync(SwoovrDbContext db, DateTimeOffset now, Guid? actor, string action, string resource, string? id, int status, CancellationToken cancellationToken)

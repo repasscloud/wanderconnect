@@ -53,6 +53,22 @@ public sealed class BannedIdentifierRegistry(SwoovrDbContext db, BannedIdentifie
         throw Restricted(type);
     }
 
+    public async Task<List<BannedIdentifier>> FindAsync(BannedIdentifierType type,string input,DateTimeOffset now,CancellationToken token,bool activeOnly = false)
+    {
+        if (!keys.Configured || BannedIdentifierPolicy.Normalise(type,input) is not { } value) throw Unavailable();
+        var query = db.BannedIdentifiers.Where(b => b.IdentifierType == type);
+        if (activeOnly) query = query.Where(b => b.Status == BanStatus.Active && (b.BanExpiresAt == null || b.BanExpiresAt > now));
+        var versions = await query.Select(b => b.KeyVersion).Distinct().ToListAsync(token);
+        if (versions.Any(v => !keys.HasVersion(v))) throw Unavailable();
+        var matches = new List<BannedIdentifier>();
+        foreach (var version in versions)
+        {
+            var hash = keys.Fingerprint(type,value,version);
+            matches.AddRange(await query.Where(b => b.KeyVersion == version && b.IdentifierHash == hash).ToListAsync(token));
+        }
+        return matches;
+    }
+
     public async Task<int?> SweepAttemptsAsync(DateTimeOffset now,CancellationToken token)
     {
         await using var barrier = await PreservationLease.SharedAsync(db,token);

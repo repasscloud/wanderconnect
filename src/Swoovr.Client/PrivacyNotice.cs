@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.4, 29 October 2026";
+    public const string Version = "Draft 0.5, 29 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -32,8 +32,9 @@ public static class PrivacyNotice
             "Only our security and legal officer can open an identity record, for a recorded reason, with time-limited access that is logged. Other staff see only that an identity is on file, when, and the issuing country.",
         ]),
         new("bans", "Keeping banned members off Swoovr", [
-            "If an account is terminated for breaking our rules, we keep keyed fingerprints (one-way hashes) of its email address and mobile number, and of the legal name and date of birth on its identity record, for 2 years.",
-            "If someone registers or verifies with a matching fingerprint, our team reviews it. A match is never treated as proof on its own and never blocks anyone automatically.",
+            "If an account is permanently terminated, we keep keyed fingerprints of its current verified email address and mobile number in a restricted safety registry. The registry stores no plaintext contact values. Active restrictions can have no automatic expiry; their continued necessity is reviewed, and the proposed longer retention remains subject to legal review.",
+            "An active, unexpired email or mobile restriction prevents that identifier from being registered or attached to an account. It does not prove who owns the identifier now, and a refused identifier change does not automatically ban an otherwise legitimate account. Contact Swoovr Support if a number or address was reassigned or a restriction may be wrong. Authorized staff can review and release the identifier independently of the original account ban, with a recorded explanation.",
+            "We separately keep a keyed fingerprint of a terminated member’s verified legal name and date of birth for 2 years. A matching identity goes to staff review; that identity match alone does not automatically block an account.",
         ]),
         new("contact-history", "Your previous mobile numbers and email addresses", [
             "When you change your verified mobile number or email address, we keep the previous one, encrypted, for 2 years from the change, so we can look into misuse and enforce bans. We tell the old number or address that it changed, never the new one.",
@@ -71,7 +72,7 @@ public static class PrivacyNotice
             "When you ask to delete your account, it is hidden at once. You can cancel within 30 days of the request until final deletion starts (or ask for deletion straight away); then we erase your profile, messages you sent, identity record and the rest of your personal information, and ask Didit to delete your verification sessions.",
             "We normally keep a minimal record that the account existed for 2 years. If the other person keeps their own messages, a minimal reference remains so their history still works; your old sign-in mapping is removed.",
             "Closed police-case records follow a seven-year retention period. Backups are planned to expire on daily 30-day, weekly 4-week and monthly 12-month schedules; production backup and restore readiness is still being prepared.",
-            "If your account was terminated, we keep the identity record, contact history and ban fingerprints described above for 2 years.",
+            "If your account was terminated, we normally keep its identity record and contact history for 2 years. Active email/mobile restrictions follow the separate review process above. Our draft schedule proposes keeping revoked or expired identifier history for at least 24 months after its latest ending or review, with longer preservation where legally required; legal review and disposal controls are still being prepared.",
             "Safety-review evidence is retained for at least 12 months after the latest completed review or referral; our draft serious-incident schedule uses 24 months. Minimal review and compliance records normally remain for 24 months. Open reviews and active or overlapping legal holds postpone disposal. Released copies follow the applicable review or police-record schedule; unknown provenance requires restricted review before disposal.",
         ]),
         new("founders", "Founding members' recovery token", [

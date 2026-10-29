@@ -466,7 +466,7 @@ public static class ModerationEndpoints
             if (denied is not null) return denied;
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             if (item!.Status == CaseStatus.Closed) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This case is closed.");
-            var result = await ActAsync(db, email, current!, item.SubjectAccountId, item, request, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context));
+            var result = await ActAsync(db, email, current!, item.SubjectAccountId, item, request, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context), accounts.Services.GetRequiredService<RegistryPopulation>());
             if (result is not null) return result;
             return Results.Ok(await DetailAsync(db, item, now, cancellationToken));
         });
@@ -479,7 +479,7 @@ public static class ModerationEndpoints
             var db = accounts.Db!;
             if (await db.MemberProfiles.FindAsync([id], cancellationToken) is null) return Results.NotFound();
             if (request.Action == "dismiss") return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Nothing to dismiss.");
-            return await ActAsync(db, email, current!, id, null, request, clock.GetUtcNow(), cancellationToken, Retention.ModerationLifecycleFilter.Current(context)) ?? Results.Ok(await SummaryAsync(db, id, clock.GetUtcNow(), cancellationToken));
+            return await ActAsync(db, email, current!, id, null, request, clock.GetUtcNow(), cancellationToken, Retention.ModerationLifecycleFilter.Current(context), accounts.Services.GetRequiredService<RegistryPopulation>()) ?? Results.Ok(await SummaryAsync(db, id, clock.GetUtcNow(), cancellationToken));
         });
         admin.MapPost("/sanctions/{id:guid}/lift", async (Guid id, LiftRequest request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
             TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
@@ -490,6 +490,7 @@ public static class ModerationEndpoints
             var sanction = await db.Sanctions.FindAsync([id], cancellationToken);
             if (sanction is null) return Results.NotFound();
             if (!Enforcement.Live(sanction, now)) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This action has already ended.");
+            if (sanction.Kind == SanctionKind.Termination) return Problem(409, ProblemCodes.InvalidRequest, "Use the restricted account reinstatement workflow to reconcile identifier restrictions.");
             var subject = await db.MemberProfiles.FindAsync([sanction.AccountId], cancellationToken);
             var refusal = ModerationPolicy.Check(ModerationAction.Lift, current!.StaffRole, subject?.Employee == true,
                 await OwnAccountAsync(db, current.Account!.Id, sanction.AccountId, cancellationToken), reason: request.Reason, lifting: sanction);
@@ -527,6 +528,7 @@ public static class ModerationEndpoints
             if (appeal.Status != AppealStatus.Pending) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This appeal has been decided.");
             if (request.Outcome is not ("uphold" or "overturn")) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Uphold or overturn.");
             var sanction = await db.Sanctions.SingleAsync(s => s.Id == appeal.SanctionId, cancellationToken);
+            if (request.Outcome == "overturn" && sanction.Kind == SanctionKind.Termination && sanction.LiftedAt is null) return Problem(409, ProblemCodes.InvalidRequest, "Use the restricted account reinstatement workflow before recording a termination appeal outcome.");
             var subject = await db.MemberProfiles.FindAsync([sanction.AccountId], cancellationToken);
             var refusal = ModerationPolicy.MayDecideAppeal(sanction, current!.Account!.Id, current.StaffRole, subject?.Employee == true,
                 await OwnAccountAsync(db, current.Account.Id, sanction.AccountId, cancellationToken));
@@ -677,7 +679,7 @@ public static class ModerationEndpoints
 
     /// <summary>Applies one action (D133) and notifies the member; returns a refusal, or null when done.</summary>
     private static async Task<IResult?> ActAsync(SwoovrDbContext db, IEmailSender email, CurrentAccount current, Guid subjectId, ModerationCase? item,
-        ModerationActionRequest request, DateTimeOffset now, CancellationToken cancellationToken, Retention.PreservationLease? barrier = null)
+        ModerationActionRequest request, DateTimeOffset now, CancellationToken cancellationToken, Retention.PreservationLease? barrier = null, RegistryPopulation? population = null)
     {
         var action = request.Action switch
         {
@@ -685,6 +687,7 @@ public static class ModerationEndpoints
             "suspend" => ModerationAction.Suspend, "terminate" => ModerationAction.Terminate, _ => (ModerationAction?)null,
         };
         if (action is null) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Unknown action.");
+        if (!await db.Accounts.AnyAsync(a=>a.Id==subjectId&&a.Realm==AccountRealm.Members,cancellationToken)) return Results.NotFound();
         var subject = await db.MemberProfiles.FindAsync([subjectId], cancellationToken);
         var staffAffiliated = subject?.Employee == true || item?.Queue == CaseQueue.Admin;
         var duration = request.Days is { } days ? TimeSpan.FromDays(days) : (TimeSpan?)null;
@@ -716,6 +719,8 @@ public static class ModerationEndpoints
                 CreatedBy = current.Account.Id, CreatedByRole = current.StaffRole,
             };
             db.Sanctions.Add(sanction);
+            if (kind == SanctionKind.Termination)
+                await (population ?? throw new InvalidOperationException("Registry population is not configured.")).StageAsync(sanction,now,cancellationToken);
         }
         if (item is not null) (item.Status, item.UpdatedAt) = (CaseStatus.Reviewed, now);
         Audit.Record(db, now, current.Account.Id, "account", "moderation." + request.Action, item is null ? "account" : "moderation-case",

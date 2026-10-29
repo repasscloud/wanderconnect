@@ -3,7 +3,7 @@
 // schema; staff see only "on file"; the `legal` role opens one record for a recorded purpose; the member's export has
 // their own record; an ordinary deletion erases it, a terminated member's is kept two years and a later identical
 // identity is flagged (never blocked); a held account's record is preserved as evidence. #87: a terminated member's
-// number is held and flagged when it returns; changing number needs a fresh sign-in, tells the old number (never the new
+// number is blocked by the typed registry when it returns; changing number needs a fresh sign-in, tells the old number (never the new
 // one) and ends the account's other sessions; an email change tells the old address; the admin contact-history screen.
 // Needs the local stack, the enrolled fictional root admin, Didit settings in .local/docker.env and hosts built from this
 // checkout started with Phone__Required=false and Accounts__ReauthSeconds=45. Every person and document is fictional.
@@ -46,6 +46,13 @@ async function latestText(number, pattern) {
     // two-year hold being written; the local database holds fictional data only.
     await sql(`DELETE FROM terminated_phone_holds WHERE created_at < now() - interval '10 minutes'`);
     const root = await rootAdminToken(browser);
+    // Reserved fictional number is deliberately recycled between suite runs through the reviewed API, not SQL history deletion.
+    await elevate(root,'identifier-release','Fictional reserved-number fixture review');
+    const oldNumbers=await call(root,'/api/admin/banned-identifiers/lookup',{method:'POST',body:{type:'mobile',value:e164(158),purpose:'Review reserved fictional number from previous acceptance runs'}});
+    assert.equal(oldNumbers.status,200);
+    const oldIds=oldNumbers.body.filter(b=>b.status==='active').map(b=>b.id);
+    if(oldIds.length)assert.equal((await call(root,'/api/admin/banned-identifiers/release',{method:'POST',body:{identifierIds:oldIds,reason:'Reserved fictional test number recycled for another acceptance run; original account sanctions remain.'}})).status,200);
+
     const names = ['ana', 'ter', 'twin', 'ret', 'chg', 'eml', 'held'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('idn-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
@@ -137,16 +144,15 @@ async function latestText(number, pattern) {
     assert.match(await cli('accounts', 'purge'), /0 waiting for Keycloak/);
     assert.equal(await sql(`SELECT count(*) FROM restricted.verified_identities WHERE account_id = '${ids.ana}'`), '0', 'ordinary deletion erased it'); pass();
     assert.equal(await sql(`SELECT round(extract(epoch from retain_until - now()) / 86400) FROM restricted.verified_identities WHERE account_id = '${ids.ter}'`), '730', 'terminated: kept two years'); pass();
-    assert.ok(Number(await sql(`SELECT count(*) FROM terminated_phone_holds WHERE expires_at > now() + interval '729 days'`)) >= 1, 'the number is held'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM banned_identifiers b JOIN moderation_cases c ON b.case_id=c.id WHERE c.subject_account_id='${ids.ter}' AND b.identifier_type='Mobile' AND b.status='Active' AND b.ban_expires_at IS NULL`),'1','typed mobile restriction survives deletion');pass();
     // The same identity (written differently) verifying another account is flagged, not blocked.
     await approve('twin', { ...TERRA, first_name: 'FICTIONAL', last_name: 'terra example' });
     assert.equal(await sql(`SELECT system_flag || '/' || queue FROM moderation_cases WHERE subject_account_id = '${ids.twin}'`), 'returning-terminated-identity/Admin'); pass();
     assert.equal((await call(tokens.twin, '/api/me')).status, 200, 'never blocked'); pass();
-    // The held number verifying another account is flagged too.
-    assert.equal((await call(tokens.ret, '/api/me/phone', { method: 'POST', body: { number: local(158) } })).status, 200);
-    const retCode = (await latestText(e164(158), /Your Swoovr code is \d{6}/)).match(/(\d{6})/)[1];
-    assert.equal((await call(tokens.ret, '/api/me/phone/confirm', { method: 'POST', body: { number: local(158), code: retCode } })).status, 200, 'not refused'); pass();
-    assert.equal(await sql(`SELECT system_flag FROM moderation_cases WHERE subject_account_id = '${ids.ret}'`), 'returning-terminated-phone'); pass();
+    // D217: attaching a restricted mobile is refused without banning the legitimate account.
+    assert.deepEqual(code(await call(tokens.ret, '/api/me/phone', { method: 'POST', body: { number: local(158) } })),[403,'identifier-restricted']);pass();
+    assert.equal(await sql(`SELECT count(*) FROM member_phones WHERE account_id='${ids.ret}'`),'0','refused attachment changes no contact');pass();
+    assert.equal((await call(tokens.ret,'/api/me')).status,200,'otherwise legitimate account remains usable');pass();
 
     // #87: changing number needs a fresh sign-in, tells the old number and ends the account's other sessions.
     assert.equal((await call(tokens.chg, '/api/me/phone', { method: 'POST', body: { number: local(156) } })).status, 200, 'the first number needs no fresh sign-in');

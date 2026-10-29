@@ -16,6 +16,10 @@ static class StaffAccessChecks
         Func<AccountRole, bool> legal = r => r == AccountRole.Legal, adminRole = r => r == AccountRole.Admin, support = r => r == AccountRole.Support;
 
         // Requests.
+        Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.IdentifierRelease,"Fictional reviewed reassignment",adminRole)==AccessRefusal.None,"admins may request separate identifier-release permission");
+        Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.AccountReinstatement,"Fictional reviewed reinstatement",adminRole)==AccessRefusal.None,"admins may request separate reinstatement permission");
+        Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.IdentifierRelease,"Fictional",support)==AccessRefusal.NotPermitted,"support cannot release identifiers");
+        Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.AccountReinstatement,"Fictional",legal)==AccessRefusal.NotPermitted,"legal evidence role cannot reinstate accounts");
         Expect(StaffAccessPolicy.CheckRequest("identity-open", "Fictional police request REF-1", legal) == AccessRefusal.None, "legal opens identities");
         Expect(StaffAccessPolicy.CheckRequest("evidence-export", "Fictional disclosure", legal) == AccessRefusal.None, "legal exports evidence");
         Expect(StaffAccessPolicy.CheckRequest("termination", "Fictional serious breach", adminRole) == AccessRefusal.None, "admins terminate");
@@ -78,6 +82,10 @@ static class StaffAccessChecks
         Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/law-enforcement/cases/{id}/verify", 200) == ("le-case", id.ToString(), "change"), "case changes");
         Expect(StaffAccessPolicy.Classify("GET", $"/api/admin/accounts/{id}/summary", 200) is null, "ordinary admin routes aren't sensitive");
         Expect(StaffAccessPolicy.Classify("GET", "/api/me", 200) is null, "member routes aren't logged here");
+        Expect(StaffAccessPolicy.Classify("POST","/api/admin/banned-identifiers/lookup",200)==("banned-identifiers",null,"query"),"registry lookup is a restricted query without the value");
+        Expect(StaffAccessPolicy.Classify("GET",$"/API/ADMIN/BANNED-IDENTIFIERS/{id}",403)==("banned-identifiers",id.ToString(),"refused"),"route casing cannot bypass sensitive logging");
+        Expect(StaffAccessPolicy.Classify("POST",$"/api/admin/accounts/{id}/reinstate",200)==("account-reinstatement",id.ToString(),"change"),"account reinstatement is audited separately");
+
 
         // The chain.
         var entries = new List<SensitiveAccess>();

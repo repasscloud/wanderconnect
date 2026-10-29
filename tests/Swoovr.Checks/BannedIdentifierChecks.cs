@@ -32,6 +32,9 @@ static class BannedIdentifierChecks
         catch (ArgumentOutOfRangeException) { count++; }
         try { BannedIdentifierPolicy.Fingerprint(BannedIdentifierType.Email, "fictional@example.test", new byte[8]);throw new Exception("Weak key accepted."); }
         catch (ArgumentException) { count++; }
+        var issued = BannedIdentifierPolicy.Issue(BannedIdentifierType.Email,email,1,Guid.NewGuid(),Guid.NewGuid(),now,"Fictional permanent account restriction.");
+        Check(issued.Entry.Status == BanStatus.Active && issued.Entry.BanExpiresAt is null && issued.Entry.IdentifierHash.SequenceEqual(email), "Issuing a permanent restriction preserves only its typed fingerprint.");
+        Check(issued.Transition.OldStatus is null && issued.Transition.NewStatus == BanStatus.Active && issued.Note.TransitionId == issued.Transition.Id && issued.Note.CaseId == issued.Entry.CaseId, "Initial transition and associated note describe the same restriction/case.");
         var row = new BannedIdentifier { Status = BanStatus.Active, BannedAt = now.AddDays(-1) };
         Check(BannedIdentifierPolicy.Blocks(row, now), "Active indefinite restriction blocks.");
         row.BanExpiresAt = now.AddTicks(1);Check(BannedIdentifierPolicy.Blocks(row, now), "Future expiry blocks.");

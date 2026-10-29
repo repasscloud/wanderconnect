@@ -25,6 +25,8 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
       assert.ok(html.includes(phrase), phrase);
     pass();
     assert.ok(!html.includes('24/7') && !html.includes('privacy@swoovr.app')); pass();
+    for(const phrase of ['Active restrictions can have no automatic expiry','prevents that identifier','independently of the original account ban','24 months'])assert.ok(html.includes(phrase),phrase);pass();
+    assert.ok(!html.includes('never blocks anyone automatically'),'contact restrictions are distinct from identity-review flags');pass();
     // The sign-up page's link (theme file in this branch).
     const theme = await fs.readFile('containers/keycloak/themes/swoovr/login/register-commons.ftl', 'utf8');
     assert.ok(theme.includes('properties.swoovrPrivacyUrl') && theme.includes('privacyNoticeLink')); pass();
@@ -48,7 +50,10 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     await page.locator('[data-privacy-link]').first().evaluate(a => a.click());
     await page.waitForSelector('[data-privacy-notice]');
     assert.ok((await page.locator('[data-draft]').innerText()).startsWith('DRAFT')); pass();
-    if (output) await page.screenshot({ path: output + '/web-privacy.png', fullPage: true });
+    if (output) {
+      await page.screenshot({ path: output + '/web-privacy.png', fullPage: true });
+      await page.locator('[data-privacy-section="bans"]').screenshot({path:output+'/web-privacy-bans.png'});
+    }
     await context.close();
 
     console.log(`PASS: privacy notice draft (${passed} checks).`);

@@ -19,7 +19,8 @@ static class PrivacyNoticeChecks
         Expect(Text("identity").Contains("legal first and last name") && Text("identity").Contains("issuing country") && Text("identity").Contains("expiry date"), "the identity record's fields (D191)");
         Expect(Text("identity").Contains("never keep your document number, address, document images, selfie, liveness or biometric data"), "what's never kept");
         Expect(Text("identity").Contains("30 days"), "Didit's 30 days (D186)");
-        Expect(Text("bans").Contains("2 years") && Text("bans").Contains("never treated as proof"), "ban matching, reviewed, never proof (D171, D191)");
+        Expect(Text("bans").Contains("2 years") && Text("bans").Contains("does not prove who owns") && Text("bans").Contains("identity match alone does not automatically block"), "identity review remains distinct from contact blocking (D191, D217)");
+        Expect(Text("bans").Contains("active, unexpired") && Text("bans").Contains("independently of the original account ban") && Text("bans").Contains("subject to legal review"), "restricted contact blocking, correction and legal gate (D217)");
         Expect(Text("contact-history").Contains("2 years") && Text("contact-history").Contains("never the new one"), "contact history (D187, #87)");
         Expect(Text("messages").Contains("30 days"), "unsent messages kept 30 days (D167)");
         Expect(Text("holds").Contains("legal hold") && Text("holds").Contains("even if you delete your account"), "evidence holds (D189, D195)");
