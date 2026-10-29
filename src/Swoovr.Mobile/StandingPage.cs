@@ -33,6 +33,11 @@ public sealed class StandingPage : ContentPage
 			body.Children.Add(Ui.Text("Your account standing isn't available right now.", id: "StandingRefused"));
 			return;
 		}
+        if(s.EmailChangeProblem is {} issue)
+            body.Children.Add(Ui.Card(Ui.Text(AccountText.EmailChangeHeading,"SectionHeading"),
+                Ui.Text(AccountText.EmailChangeMessage(issue),id:"EmailChangeMessage"),Ui.Text(AccountText.EmailChangeHelp),
+                Ui.Button("Contact Support","EmailChangeSupport",()=>Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)),primary:false),
+                Ui.Button("Sign in again","EmailChangeRefresh",async()=>{if(await MainPage.RefreshSignInAsync())await Shell.Current.Navigation.PopToRootAsync();else body.Children.Add(Ui.Text("Sign-in was cancelled or unavailable. Try again or contact Support."));},primary:false)));
 		var status = new List<View> { Ui.Text($"Status: {StandingText.State(s.State)}", "SectionHeading", "StandingState") };
 		if (s.Actions.Count == 0) status.Add(Ui.Text("Nothing to do.", "FooterClaims", "StandingNoActions"));
 		foreach (var a in s.Actions)

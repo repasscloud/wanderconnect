@@ -100,6 +100,20 @@ static class PhoneChecks
         Expect(wrongKey, "the wrong key reads nothing");
         Expect(!ContactHistoryPolicy.Encrypt(1, encKey, number).SequenceEqual(ContactHistoryPolicy.Encrypt(1, encKey, number)), "a fresh nonce each time");
 
+        var claimAt=now.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Expect(!EmailClaimPolicy.CanAdopt(claimAt,null,now),"unknown acceptance clock refuses contact adoption");
+        Expect(EmailClaimPolicy.CanAdopt(claimAt,now.AddSeconds(-1),now),"newer email evidence can advance accepted contact");
+        Expect(!EmailClaimPolicy.CanAdopt(claimAt,now,now),"same-second ambiguous claim cannot reverse a change");
+        Expect(!EmailClaimPolicy.CanAdopt(claimAt,now.AddSeconds(1),now),"older claim cannot roll contact back");
+        foreach(var invalid in new string?[]{null,"bad","-1","999999999999999999999",now.AddSeconds(6).ToUnixTimeSeconds().ToString()})
+            Expect(!EmailClaimPolicy.CanAdopt(invalid,now.AddDays(-1),now),"unknown/future email issuance cannot adopt a changed contact");
+        var skewedNew=now.AddSeconds(2).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var skewedOld=now.AddSeconds(1).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var skewedAcceptance=EmailClaimPolicy.AcceptanceClock(skewedNew,now);
+        Expect(skewedAcceptance==now.AddSeconds(2),"accepted clock retains tolerated issuer-ahead evidence");
+        Expect(!EmailClaimPolicy.CanAdopt(skewedOld,skewedAcceptance,now),"older tolerated-skew token cannot reverse newer acceptance");
+        Expect(EmailClaimPolicy.AcceptanceClock(claimAt,now)==now,"server acceptance time is the minimum watermark");
+        Expect(EmailClaimPolicy.AcceptanceClock(null,now)==now.AddSeconds(5),"unknown legacy issuance uses conservative skew boundary");
         Console.WriteLine($"PASS: mobile number verification ({checks}).");
     }
 

@@ -5,6 +5,24 @@ namespace Swoovr.Domain;
 
 public enum ContactType { Email, Mobile }
 
+/// <summary>Only newer validated token evidence may replace an already accepted email; authentication remains Keycloak's job.</summary>
+public static class EmailClaimPolicy
+{
+    public static DateTimeOffset AcceptanceClock(string? issuedAt, DateTimeOffset now) =>
+        IssuedAt(issuedAt,now) is {} issued ? (issued > now ? issued : now) : now.AddSeconds(5);
+
+    public static bool CanAdopt(string? issuedAt, DateTimeOffset? lastChange, DateTimeOffset now)
+        => IssuedAt(issuedAt,now) is {} issued && lastChange is not null && issued > lastChange;
+
+    private static DateTimeOffset? IssuedAt(string? issuedAt, DateTimeOffset now)
+    {
+        if (!long.TryParse(issuedAt, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+            || seconds <= 0 || seconds > DateTimeOffset.MaxValue.ToUnixTimeSeconds()) return null;
+        var issued = DateTimeOffset.FromUnixTimeSeconds(seconds);
+        return issued <= now.AddSeconds(5) ? issued : null;
+    }
+}
+
 /// <summary>
 /// A previous verified email address or mobile number (internal trust and safety policy §4, owner Q72/D184, D187). The
 /// value is kept only encrypted (AES-GCM, key outside the database) with a keyed HMAC for exact-match lookups, for a

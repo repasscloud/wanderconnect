@@ -22,7 +22,8 @@ public static class StandingEndpoints
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, barredExempt: true, phoneExempt: true);
             if (denied is not null) return denied;
-            return Results.Ok(await StandingAsync(accounts.Db!, current!.Profile!, current.Facts.EmailVerified, accounts.PhoneRequired, clock.GetUtcNow(), cancellationToken));
+            return Results.Ok((await StandingAsync(accounts.Db!, current!.Profile!, current.Facts.EmailVerified, accounts.PhoneRequired, clock.GetUtcNow(), cancellationToken))
+                with { EmailChangeProblem = current.EmailChangeProblem });
         }).RequireAuthorization();
 
         var admin = app.MapGroup("/api/admin").RequireAuthorization();

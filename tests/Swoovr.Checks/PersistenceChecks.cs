@@ -32,7 +32,21 @@ static class PersistenceChecks
             DbContextOptions<SwoovrDbContext> options = new DbContextOptionsBuilder<SwoovrDbContext>().UseNpgsql(connection).Options;
             await using (var db = new SwoovrDbContext(options))
             {
+                await db.Database.MigrateAsync("20261029011346_BanCheckQuotas");
+                var legacyEmail = Guid.NewGuid();var legacyEmpty = Guid.NewGuid();
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO accounts(id,issuer,subject,realm,email,status,is_root_admin,created_at,last_seen_at)
+                    VALUES({legacyEmail},'https://issuer.example.test','fictional-clock-email','Members','fictional.clock@example.test','Active',false,now()-interval '1 day',now()),
+                          ({legacyEmpty},'https://issuer.example.test','fictional-clock-empty','Members',NULL,'Active',false,now()-interval '1 day',now())
+                    """);
+                var beforeUpgrade = DateTimeOffset.UtcNow;
                 await db.Database.MigrateAsync();
+                var acceptedAt = await db.Accounts.Where(a=>a.Id==legacyEmail).Select(a=>a.EmailAcceptedAt).SingleAsync();
+                Check("legacy accepted email gets conservative migration watermark",acceptedAt>=beforeUpgrade && acceptedAt<=DateTimeOffset.UtcNow.AddSeconds(5));
+                Check("legacy null email gets no invented acceptance clock",await db.Accounts.Where(a=>a.Id==legacyEmpty).Select(a=>a.EmailAcceptedAt).SingleAsync() is null);
+                await db.Database.MigrateAsync();
+                Check("repeat migration cannot advance accepted email clock",await db.Accounts.Where(a=>a.Id==legacyEmail).Select(a=>a.EmailAcceptedAt).SingleAsync()==acceptedAt);
+                await db.Accounts.Where(a=>a.Id==legacyEmail||a.Id==legacyEmpty).ExecuteDeleteAsync();
                 Check("no pending migrations", !(await db.Database.GetPendingMigrationsAsync()).Any());
             }
 

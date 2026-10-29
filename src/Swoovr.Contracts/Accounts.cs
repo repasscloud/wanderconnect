@@ -19,7 +19,8 @@ public sealed record MemberAccount(
     string AccountState = "active",
     string DobCheck = "none",
     bool PhoneVerified = false,
-    bool PhoneRequired = false);
+    bool PhoneRequired = false,
+    string? EmailChangeProblem = null);
 
 /// <summary>
 /// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion

@@ -24,7 +24,7 @@ public static class AccountEndpoints
                 Wire(current.Facts.Realm), Wire(current.Evidence.Method), current.Evidence.MultiFactor,
                 current.Facts.EmailVerified, current.Facts.AdultAttestedAt is not null,
                 current.Allows(AccountRole.Member), current.Allows(AccountRole.Admin), current.Allows(AccountRole.Support),
-                Wire(current.Beta)));
+                Wire(current.Beta), current.EmailChangeProblem));
         }).RequireAuthorization();
 
         var me = app.MapGroup("/api/me").RequireAuthorization();
@@ -36,7 +36,7 @@ public static class AccountEndpoints
             var state = current!.Account!.Status == AccountStatus.PendingDeletion ? "pendingDeletion" : current.Enforcement.State;
             var phone = await accounts.Db!.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken);
             return Results.Ok(View(current.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), state) with
-                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone });
+                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, EmailChangeProblem = current.EmailChangeProblem });
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>

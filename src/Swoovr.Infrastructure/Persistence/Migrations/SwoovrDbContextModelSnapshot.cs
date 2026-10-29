@@ -121,6 +121,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<DateTimeOffset?>("EmailAcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_accepted_at");
+
                     b.Property<bool>("IsRootAdmin")
                         .HasColumnType("boolean")
                         .HasColumnName("is_root_admin");

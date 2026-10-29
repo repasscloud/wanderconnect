@@ -16,6 +16,7 @@
 </section>
 @if (standing is { } s)
 {
+    <EmailChangeNotice Problem="@s.EmailChangeProblem" />
     <section class="card account-section" aria-labelledby="state-heading">
         <h2 id="state-heading">Status: <span data-standing-state="@s.State">@StandingText.State(s.State)</span></h2>
         @if (s.Actions.Count > 0)

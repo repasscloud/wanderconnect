@@ -56,6 +56,10 @@ public partial class MainPage : ContentPage
 	private void ShowAccount(SessionSummary? session, ApiResult<MemberAccount>? me)
 	{
 		ShowStatus(null);
+		EmailChangeCard.IsVisible = session?.EmailChangeProblem is not null;
+		EmailChangeHeading.Text = AccountText.EmailChangeHeading;
+		EmailChangeHelp.Text = AccountText.EmailChangeHelp;
+		EmailChangeMessage.Text = session?.EmailChangeProblem is {} issue ? AccountText.EmailChangeMessage(issue) : null;
 		(SignedOutPanel.IsVisible, AccountPanel.IsVisible) = (false, true);
 		if (session is null)
 		{
@@ -67,7 +71,7 @@ public partial class MainPage : ContentPage
 		var blocked = AccountText.BetaBlocked(session);
 		(Heading.Text, Intro.Text) = blocked
 			? ("Almost there.", "You're signed in. The Swoovr app opens once your email is on the private beta list.")
-			: ("You're in.", "You're signed in to the Swoovr development preview. Profiles, matching and messages aren't connected to accounts yet.");
+			: ("You're in.", "Manage your Swoovr account, profile and connections.");
 		BetaNotice.IsVisible = blocked;
 		Method.Text = AccountText.MethodLabel(session.Method) + (session.MultiFactor ? " + one-time code" : "");
 		EmailVerified.Text = session.EmailVerified ? "Verified" : "Not verified yet";
@@ -128,6 +132,21 @@ public partial class MainPage : ContentPage
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 	private async void OnStanding(object? sender, EventArgs e) => await Ui.PushAsync(new StandingPage());
+	private async void OnEmailSupport(object? sender, EventArgs e) => await Launcher.Default.OpenAsync(StandingText.SupportUrl);
+	internal static async Task<bool> RefreshSignInAsync()
+	{
+		try { return await Auth.SignInAsync(reauthenticate: true); }
+		catch (Exception error) when (error is NativeSignInException or HttpRequestException or TaskCanceledException) { return false; }
+	}
+	private async void OnEmailRefresh(object? sender, EventArgs e)
+	{
+		if (busy) return;
+		busy = true;
+		bool refreshed;
+		try { refreshed = await RefreshSignInAsync(); await RefreshAsync(); }
+		finally { busy = false; }
+		if (!refreshed) ShowStatus("Sign-in was cancelled or unavailable. Try again or contact Support.");
+	}
 	private async void OnNotifications(object? sender, EventArgs e) => await Ui.PushAsync(new NotificationsPage());
 	private async void OnSafety(object? sender, EventArgs e) => await Ui.PushAsync(new SafetyPage());
 	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());

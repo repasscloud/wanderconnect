@@ -142,7 +142,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     r = await call(tokens.fou, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: true } });
     assert.deepEqual([r.status, r.body.deleteFounderToken, r.body.founderCodeEmailed], [200, true, false]); pass();
 
-    // A terminated member may still delete; their email leaves a hold that flags a return (D171).
+    // A terminated member may still delete; the typed contact restriction survives and blocks reuse (D217).
     await elevate(root, 'termination', 'Fictional termination for the deletion suite'); // #88
     const term = await call(root, `/api/admin/accounts/${ids.ter}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional test termination' } });
     assert.ok([200, 201].includes(term.status), 'terminated'); pass();
@@ -159,7 +159,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     assert.match(purge, /Accounts: \d+ deleted, 0 waiting for Keycloak/); pass();
     assert.doesNotMatch(purge, /@/); pass();
     for (const n of ['ana', 'cat', 'fou', 'ter']) {
-      const row = (await sql(`SELECT status || '|' || coalesce(email, '') || '|' || (deleted_at IS NOT NULL) FROM accounts WHERE id = '${ids[n]}'`));
+      const row = (await sql(`SELECT status || '|' || coalesce(email, '') || '|' || (deleted_at IS NOT NULL AND email_accepted_at IS NULL) FROM accounts WHERE id = '${ids[n]}'`));
       assert.equal(row, 'Deleted||true', n + ' is a tombstone'); pass();
       assert.equal(await sql(`SELECT count(*) FROM member_profiles WHERE account_id = '${ids[n]}'`), '0'); pass();
       assert.equal((await kc('/users?exact=true&email=' + encodeURIComponent(members[n].email))).length, 0, n + "'s Keycloak user deleted"); pass();

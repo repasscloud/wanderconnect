@@ -97,11 +97,70 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const {localRealmApi}=await import('../../scripts/auth/provision.mjs');const realm=await localRealmApi({realm:'swoovr-members-dev'});
   await realm('/users/'+claims(allowedToken).sub,'PUT',{username:changed,email:changed,emailVerified:true});
   const changedToken=await memberToken(browser,{...allowed,email:changed});
-  equal((await request(changedToken,'/api/session')).status,403,'restricted verified email change is refused before application adoption');
+  const changedSession=await request(changedToken,'/api/session');
+  equal(changedSession.status,200,'otherwise legitimate member can recover using only the new token');
+  equal((await changedSession.json()).emailChangeProblem,'identifier-restricted','neutral change warning without adopting email');
+  equal(changedSession.headers.get('cache-control'),'no-store','contact warning is not cacheable');
+  equal((await request(changedToken,'/api/me/profile')).status,200,'new-token member retains profile access');
+  equal((await request(changedToken,'/api/me/standing')).status,200,'new-token member can reach standing and support');
   equal(await query(`SELECT email FROM accounts WHERE id='${account}'`),allowed.email,'application email was not changed');
   equal(await query(`SELECT status FROM accounts WHERE id='${account}'`),'Active','email refusal does not create an account ban');
   equal((await request(allowedToken,'/api/me/profile')).status,200,'the existing legitimate session remains usable');
+  let throttled;
+  for(let n=0;n<22;n++){const response=await request(changedToken,'/api/session');equal(response.status,200,'contact quota cannot trap an existing member');throttled=await response.json();}
+  equal(throttled.emailChangeProblem,'too-many-requests','quota blocks adoption with a neutral warning');
+  equal(await query(`SELECT email FROM accounts WHERE id='${account}'`),allowed.email,'quota refusal keeps accepted contact');
   await realm('/users/'+claims(allowedToken).sub,'PUT',{username:allowed.email,email:allowed.email,emailVerified:true});
+  const correctedToken=await memberToken(browser,allowed);
+  equal((await (await request(correctedToken,'/api/session')).json()).emailChangeProblem,null,'correcting provider email clears warning without an old token');
+  // Explicit fixture-clock advance after proving correction needs no additional admission quota.
+  await query(`UPDATE ban_check_attempts SET at=at-interval '2 hours' WHERE account_id='${account}' AND identifier_type='Email'`);
+  const acceptedNew='fictional.accepted.'+crypto.randomUUID()+'@example.test';
+  await realm('/users/'+claims(allowedToken).sub,'PUT',{username:acceptedNew,email:acceptedNew,emailVerified:true});
+  const acceptedToken=await memberToken(browser,{...allowed,email:acceptedNew});
+  equal((await (await request(acceptedToken,'/api/session')).json()).emailChangeProblem,null,'allowed newer email is adopted normally');
+  equal(await query(`SELECT email FROM accounts WHERE id='${account}'`),acceptedNew,'accepted email advances');
+  const oldClaim=await request(allowedToken,'/api/session');
+  equal(oldClaim.status,200,'older email token does not trap the existing member');
+  equal((await oldClaim.json()).emailChangeProblem,'email-session-refresh-required','older claim is refused only for contact adoption');
+  equal(await query(`SELECT email FROM accounts WHERE id='${account}'`),acceptedNew,'older token cannot reverse accepted email');
+  equal(await query(`SELECT count(*) FROM contact_histories WHERE account_id='${account}' AND contact_type='Email'`),'1','refused claims create no duplicate contact history');
+
+
+  // Both token versions precede first Swoovr admission: the accepted initial contact also needs a watermark.
+  const reverse=await createMember('registry-reverse'),reverseOld=await memberToken(browser,reverse);
+  const reverseEmail='fictional.reverse.'+crypto.randomUUID()+'@example.test';
+  await realm('/users/'+claims(reverseOld).sub,'PUT',{username:reverseEmail,email:reverseEmail,emailVerified:true});
+  const reverseNew=await memberToken(browser,{...reverse,email:reverseEmail});
+  equal((await request(reverseNew,'/api/session')).status,200,'newer token admitted first');
+  const reverseResult=await request(reverseOld,'/api/session');
+  equal(reverseResult.status,200,'older pre-registration token retains only existing access');
+  equal((await reverseResult.json()).emailChangeProblem,'email-session-refresh-required','initial accepted email cannot be reversed by an older token');
+  equal(await query(`SELECT email FROM accounts WHERE subject='${claims(reverseOld).sub}'`),reverseEmail,'initial accepted email remains authoritative');
+  // Legacy profile with no previously accepted email: the first verified adoption must also establish its clock.
+  await query(`UPDATE accounts SET email=NULL,email_accepted_at=NULL WHERE subject='${claims(reverseOld).sub}'`);
+  equal((await request(reverseNew,'/api/session')).status,200,'first email attaches to a profile with no accepted email');
+  equal((await (await request(reverseOld,'/api/session')).json()).emailChangeProblem,'email-session-refresh-required','null-to-email acceptance also prevents rollback');
+  equal(await query(`SELECT count(*) FROM accounts WHERE subject='${claims(reverseOld).sub}' AND email_accepted_at IS NOT NULL`),'1','initial adoption clock committed');
+  await addBan('Email',reverse.email);
+  const reverseId=await query(`SELECT id FROM accounts WHERE subject='${claims(reverseOld).sub}'`);
+  await query(`DELETE FROM member_profiles WHERE account_id='${reverseId}'`);
+  equal((await request(reverseOld,'/api/session')).status,403,'existing mapping without a profile cannot bypass admission');
+  equal(await query(`SELECT count(*) FROM member_profiles WHERE account_id='${reverseId}'`),'0','refused profileless admission stays incomplete');
+  equal((await request(reverseNew,'/api/session')).status,200,'permitted email can restore the synthetic missing profile');
+  await query(`UPDATE accounts SET email=NULL,email_accepted_at=NULL WHERE id='${reverseId}'`);
+  equal((await request(reverseOld,'/api/session')).status,403,'existing profile without an accepted email cannot bypass admission');
+  equal(await query(`SELECT count(*) FROM accounts WHERE id='${reverseId}' AND email IS NULL`),'1','refused initial email not adopted');
+  equal((await request(reverseNew,'/api/session')).status,200,'permitted first email still completes adoption');
+  await query(`UPDATE accounts SET email_accepted_at=NULL WHERE id='${reverseId}'`);
+  equal((await request(reverseNew,'/api/session')).status,200,'legacy writer missing clock does not block same-email access');
+  const frozenClock=await query(`SELECT email_accepted_at FROM accounts WHERE id='${reverseId}'`);
+  assert.ok(frozenClock);checks++;
+  equal((await (await request(reverseOld,'/api/session')).json()).emailChangeProblem,'email-session-refresh-required','conservative legacy boundary rejects older differing claim');
+  equal(await query(`SELECT email_accepted_at FROM accounts WHERE id='${reverseId}'`),frozenClock,'legacy boundary freezes once rather than moving on every request');
+
+
+
 
   const quota=await createMember('registry-quota'),quotaToken=await memberToken(browser,quota);
   equal((await request(quotaToken,'/api/session')).status,200,'quota member registered');
@@ -150,13 +209,22 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal((await request(quotaToken,'/api/me/phone','POST',{number:'+61491570159'})).status,429,'rotation does not reset the caller quota');
   const second=await createMember('registry-second-key'),secondToken=await memberToken(browser,second);await addBan('Email',second.email,2,key2);
   equal((await request(secondToken,'/api/session')).status,403,'current2 fingerprint also blocks');
+  const keyFailureEmail='fictional.key-failure.'+crypto.randomUUID()+'@example.test';
+  await realm('/users/'+claims(allowedToken).sub,'PUT',{username:keyFailureEmail,email:keyFailureEmail,emailVerified:true});
+  const keyFailureToken=await memberToken(browser,{...allowed,email:keyFailureEmail});
   await stop();delete env.Bans__HmacKeys__1;await start('missing-old-key');
+  const preserved=await request(keyFailureToken,'/api/session');equal(preserved.status,200,'unavailable matching cannot trap an existing member');
+  equal((await preserved.json()).emailChangeProblem,'identifier-check-unavailable','missing-key warning refuses only contact adoption');
+  equal(await query(`SELECT email FROM accounts WHERE id='${account}'`),acceptedNew,'unknown key leaves accepted address intact');
+
   const fresh=await createMember('registry-missing-key'),freshToken=await memberToken(browser,fresh);
   const unavailable=await request(freshToken,'/api/session');equal(unavailable.status,503,'missing active historical key fails closed for all checks of that type');
   equal((await unavailable.json()).code,'identifier-check-unavailable','key availability failure is neutral');
   equal(await query(`SELECT count(*) FROM accounts WHERE subject='${claims(freshToken).sub}'`),'0','unavailable matching cannot create a new member');
   await query(`UPDATE banned_identifiers SET status='Expired',ban_expires_at=now()-interval '1 second' WHERE identifier_type='Email' AND key_version=1;`);
   equal((await request(freshToken,'/api/session')).status,200,'expired restrictions do not require unavailable old matching keys');
+  equal((await (await request(keyFailureToken,'/api/session')).json()).emailChangeProblem,null,'adoption resumes when matching can safely complete');
+  equal(await query(`SELECT email FROM accounts WHERE id='${account}'`),keyFailureEmail,'safe new email adopted after availability resumes');
   equal((await request(secondToken,'/api/session')).status,403,'unrelated current active restriction remains enforced');
 
   // Quota records are operational metadata, not the primary ban/evidence store; live holds override their one-day TTL.

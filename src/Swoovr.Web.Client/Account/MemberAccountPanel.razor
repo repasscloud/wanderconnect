@@ -17,11 +17,12 @@
     else
     {
         <h1>You're in, @Name.</h1>
-        <p>You're signed in to the Swoovr development preview. Profiles, matching and messages aren't connected to accounts yet.</p>
+        <p>Manage your Swoovr account, profile and connections.</p>
     }
 </div>
 @if (loaded)
 {
+    <EmailChangeNotice Problem="@session?.EmailChangeProblem" />
     <section class="card account-session" aria-label="Your session">
         @if (session is null)
         {
