@@ -48,6 +48,7 @@ AppearanceSyncChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
 await NativeSignInChecks.Run();
+await RegistryClientChecks.Run();
 await PersistenceChecks.Run();
 
 var expected = new FoundationStatus("Swoovr.Api", "foundation");

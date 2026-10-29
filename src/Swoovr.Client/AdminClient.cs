@@ -10,6 +10,35 @@ namespace Swoovr.Client;
 public sealed class AdminClient(HttpClient transport)
 {
     private readonly HttpClient http = ApiContractClient.Configure(transport);
+
+    public async Task<ApiResult<BannedIdentifierPage>> RegistryAsync(Guid? caseId = null,bool due = true,Guid? after = null,CancellationToken cancellationToken = default)
+    {
+        var path = "api/admin/banned-identifiers?due="+(due ? "true" : "false")
+            +(caseId is {} review ? "&caseId="+review : "")+(after is {} cursor ? "&after="+cursor : "");
+        using var response = await http.GetAsync(path,cancellationToken);
+        var items = await ReadAsync<List<BannedIdentifierView>>(response,cancellationToken);
+        if (!items.Ok) return new(items.Status,null,items.Code);
+        Guid? next = null;
+        if (response.Headers.TryGetValues("Swoovr-Next-Cursor",out var values))
+        {
+            var headers = values.ToArray();
+            if (headers.Length != 1 || !Guid.TryParse(headers[0],out var selected)) throw new InvalidOperationException("API returned an invalid registry continuation.");
+            next = selected;
+        }
+        return new(items.Status,new BannedIdentifierPage(items.Value!,next),null);
+    }
+    public Task<ApiResult<List<BannedIdentifierView>>> RegistryLookupAsync(IdentifierLookup request,CancellationToken cancellationToken = default) =>
+        SendAsync<List<BannedIdentifierView>>(HttpMethod.Post,"api/admin/banned-identifiers/lookup",request,cancellationToken);
+    public Task<ApiResult<BannedIdentifierDetail>> RegistryEntryAsync(Guid id,CancellationToken cancellationToken = default) =>
+        SendAsync<BannedIdentifierDetail>(HttpMethod.Get,$"api/admin/banned-identifiers/{id}",null,cancellationToken);
+    public Task<ApiResult<BannedIdentifierView>> RegistryReviewAsync(Guid id,string reason,CancellationToken cancellationToken = default) =>
+        SendAsync<BannedIdentifierView>(HttpMethod.Post,$"api/admin/banned-identifiers/{id}/review",new IdentifierReviewRequest(reason),cancellationToken);
+    public Task<ApiResult<IdentifierWorkflowResult>> RegistryReleaseAsync(IdentifierReleaseRequest request,CancellationToken cancellationToken = default) =>
+        SendAsync<IdentifierWorkflowResult>(HttpMethod.Post,"api/admin/banned-identifiers/release",request,cancellationToken);
+    public Task<ApiResult<AccountReinstatementPreview>> ReinstatementAsync(Guid id,CancellationToken cancellationToken = default) =>
+        SendAsync<AccountReinstatementPreview>(HttpMethod.Get,$"api/admin/accounts/{id}/reinstatement",null,cancellationToken);
+    public Task<ApiResult<IdentifierWorkflowResult>> ReinstateAsync(Guid id,AccountReinstatementRequest request,CancellationToken cancellationToken = default) =>
+        SendAsync<IdentifierWorkflowResult>(HttpMethod.Post,$"api/admin/accounts/{id}/reinstate",request,cancellationToken);
     public Task<ApiResult<List<CaseSummaryView>>> CasesAsync(string? queue = null, string? status = null, CancellationToken cancellationToken = default) =>
         SendAsync<List<CaseSummaryView>>(HttpMethod.Get, $"api/admin/cases?queue={Uri.EscapeDataString(queue ?? "")}&status={Uri.EscapeDataString(status ?? "")}", null, cancellationToken);
 
@@ -278,6 +307,11 @@ public sealed class AdminClient(HttpClient transport)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body, body.GetType()) };
         using var response = await http.SendAsync(request, cancellationToken);
+        return await ReadAsync<T>(response,cancellationToken);
+    }
+
+    private static async Task<ApiResult<T>> ReadAsync<T>(HttpResponseMessage response,CancellationToken cancellationToken)
+    {
         var status = (int)response.StatusCode;
         if (response.IsSuccessStatusCode)
             return new(status, await response.Content.ReadFromJsonAsync<T>(cancellationToken) ?? throw new InvalidOperationException("API returned an empty body."), null);

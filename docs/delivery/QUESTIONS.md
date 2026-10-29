@@ -2086,3 +2086,9 @@ From [ONLINE-DATING-CODE.md](ONLINE-DATING-CODE.md) (#55, DRAFT, not legal advic
 | ID | Issue | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Q90 | [#124](https://github.com/repasscloud/wanderconnect/issues/124) | OPEN | Provisioning and actual UAT deployment; independent implementation continues | Approve region, Container Apps vs App Service, Keycloak, PostgreSQL, Key Vault, Cloudflare, MailerSend, screening, backups, naming and subscription owner? | Establishes residency, costs and operator ownership | D221: Australia East, Container Apps, PostgreSQL Flexible Server, Key Vault, Cloudflare proxy, MailerSend HTTP, private screening, isolated Blob backups; owner creates/selects subscription. Full proposal in issue | Awaiting owner |
+
+## Active contact retirement — 29 October 2026
+
+| ID | Issue | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Q91 | [#131](https://github.com/repasscloud/wanderconnect/issues/131) | OPEN | Final active-binding reassignment/recovery policy; independent work continues | After approved identifier release, retire only the reviewed active email/login or verified-mobile binding, preserving original termination/history and unrelated credentials; what original-member recovery/notification conditions apply? | Registry revocation alone does not free unique provider/contact bindings; mailbox recovery must not expose the old account to a new owner | D249: separate restricted audited retirement, revoke old sessions, disable the retired mailbox recovery path, preserve unrelated credentials/history/ban, independently review old-account recovery, fail closed on uncertain provider update | Awaiting owner |

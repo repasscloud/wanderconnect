@@ -87,6 +87,7 @@ static class StaffAccessChecks
         Expect(StaffAccessPolicy.Classify("POST","/api/admin/banned-identifiers/lookup",200)==("banned-identifiers",null,"query"),"registry lookup is a restricted query without the value");
         Expect(StaffAccessPolicy.Classify("GET",$"/API/ADMIN/BANNED-IDENTIFIERS/{id}",403)==("banned-identifiers",id.ToString(),"refused"),"route casing cannot bypass sensitive logging");
         Expect(StaffAccessPolicy.Classify("POST",$"/api/admin/accounts/{id}/reinstate",200)==("account-reinstatement",id.ToString(),"change"),"account reinstatement is audited separately");
+        Expect(StaffAccessPolicy.Classify("GET",$"/api/admin/accounts/{id}/reinstatement",200)==("account-reinstatement",id.ToString(),"view"),"restricted reinstatement preview is an audited view");
 
 
         // The chain.

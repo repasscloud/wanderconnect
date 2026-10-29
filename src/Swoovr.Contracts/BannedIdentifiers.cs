@@ -12,3 +12,8 @@ public sealed record IdentifierWorkflowResult(int Changed);
 public sealed record BanHistoryView(Guid Id, Guid CaseId, Guid? ActorId, DateTimeOffset At, string Action, string? OldStatus, string NewStatus, string Reason);
 public sealed record BanNoteView(Guid CaseId, Guid TransitionId, Guid? AuthorId, DateTimeOffset At, string Text);
 public sealed record BannedIdentifierDetail(BannedIdentifierView Entry, IReadOnlyList<BanHistoryView> History, IReadOnlyList<BanNoteView> Notes);
+/// <summary>Typed client wrapper for the API's metadata array and opaque continuation header.</summary>
+public sealed record BannedIdentifierPage(IReadOnlyList<BannedIdentifierView> Items, Guid? NextCursor);
+/// <summary>Fresh restricted staff snapshot only; the action rechecks eligibility and exact selected IDs.</summary>
+public sealed record AccountReinstatementPreview(Guid AccountId,string State,bool Eligible,string? BlockedCode,
+    IReadOnlyList<Guid> CaseIds,IReadOnlyList<BannedIdentifierView> Identifiers,bool OtherSanctions,IReadOnlyList<Guid> RequiredIdentifierIds);

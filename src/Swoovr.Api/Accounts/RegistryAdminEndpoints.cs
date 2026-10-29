@@ -22,9 +22,13 @@ public static class RegistryAdminEndpoints
             if (BannedIdentifierPolicy.Normalise(type,request.Value) is null) return Problem(400,ProblemCodes.InvalidRequest,"Give a valid identifier.");
             var db = accounts.Db!;var now = clock.GetUtcNow();
             await using var barrier = await PreservationLease.SharedAsync(db,token);
+            now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);if(denied is not null)return denied;
+            var access=await StaffAccessEndpoints.GrantAsync(db,current!.Account!.Id,StaffAccessPolicy.IdentifierRelease,now,token);
+            if(access is null)return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.IdentifierRelease);
+            // The recorded active grant supplies the authoritative purpose; never copy queried values/body purpose to generic logs.
+            Audit.Record(db,now,current.Account.Id,"account","registry.lookup",detail:$"{type};access:{access.Id}");await db.SaveChangesAsync(token);
             var rows = await accounts.Services.GetRequiredService<BannedIdentifierRegistry>().FindAsync(type,request.Value,now,token);
             if (await ExcludedAsync(db,current!.Account!.Id,rows,token)) return StaffAccessEndpoints.Conflict();
-            Audit.Record(db,now,current.Account.Id,"account","registry.lookup",detail:type.ToString());await db.SaveChangesAsync(token);
             http.Response.Headers["Cache-Control"] = "no-store";
             return Results.Ok(rows.OrderByDescending(b=>b.BannedAt).Select(View));
         });
@@ -70,6 +74,7 @@ public static class RegistryAdminEndpoints
             var now=clock.GetUtcNow();var(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);if(denied is not null)return denied;
             if(!Reason(request.Reason))return Problem(400,ProblemCodes.InvalidRequest,"Record why retaining this restriction remains necessary.");
             var db=accounts.Db!;await using var barrier=await PreservationLease.ExclusiveAsync(db,token);
+            now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);if(denied is not null)return denied;
             var row=await db.BannedIdentifiers.SingleOrDefaultAsync(b=>b.Id==id,token);if(row is null)return Results.NotFound();
             if(await ExcludedAsync(db,current!.Account!.Id,[row],token))return StaffAccessEndpoints.Conflict();
             if(!BannedIdentifierPolicy.Blocks(row,now))return Problem(409,ProblemCodes.InvalidRequest,"Only an active restriction can be retained through necessity review.");
@@ -82,6 +87,7 @@ public static class RegistryAdminEndpoints
             if(!Reason(request.Reason)||request.IdentifierIds is not {Count:>0 and <=100})return Problem(400,ProblemCodes.InvalidRequest,"Select restrictions and record a bounded explanation.");
             var ids=request.IdentifierIds.Distinct().ToArray();var db=accounts.Db!;
             await using var barrier=await PreservationLease.ExclusiveAsync(db,token);
+            now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);if(denied is not null)return denied;
             var rows=await db.BannedIdentifiers.Where(b=>ids.Contains(b.Id)).ToListAsync(token);if(rows.Count!=ids.Length)return Results.NotFound();
             if(await ExcludedAsync(db,current!.Account!.Id,rows,token))return StaffAccessEndpoints.Conflict();
             await using var transaction=await db.Database.BeginTransactionAsync(token);var changed=0;
@@ -90,6 +96,7 @@ public static class RegistryAdminEndpoints
             await db.SaveChangesAsync(token);await transaction.CommitAsync(token);
             return Results.Ok(new IdentifierWorkflowResult(changed));
         });
+        app.MapGet("/api/admin/accounts/{id:guid}/reinstatement",PreviewAsync).RequireAuthorization();
         app.MapPost("/api/admin/accounts/{id:guid}/reinstate",ReinstateAsync).RequireAuthorization();
     }
 
@@ -100,40 +107,82 @@ public static class RegistryAdminEndpoints
         if(!Reason(request.Reason)||request.RevokeIdentifierIds is null||request.RevokeIdentifierIds.Count>100)return Problem(400,ProblemCodes.InvalidRequest,"Record an explanation and explicitly reconcile identifier restrictions.");
         var db=accounts.Db!;await using var state=await AccountLifecycleLease.AcquireAsync(db,id,token);
         await using var barrier=await PreservationLease.ExclusiveAsync(db,token);
-        var account=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==id&&a.Realm==AccountRealm.Members,token);
-        if(account is null)return Results.NotFound();await db.Entry(account).ReloadAsync(token);
-        if(account.Status!=AccountStatus.Active||!await db.MemberProfiles.AnyAsync(p=>p.AccountId==id,token))return Problem(409,ProblemCodes.InvalidRequest,"Deleted, deleting or locked accounts cannot be reinstated here.");
-        var sanctions=await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.LiftedAt==null).ToListAsync(token);
-        if(sanctions.Count==0)return Problem(409,ProblemCodes.InvalidRequest,"There is no active account termination to reinstate.");
-        var cases=await db.ModerationCases.Where(c=>c.SubjectAccountId==id).Select(c=>c.Id).ToArrayAsync(token);
-        var historyRows=await db.BannedIdentifiers.Where(b=>cases.Contains(b.CaseId)).ToListAsync(token);
-        if(historyRows.Count==0)return Problem(409,ProblemCodes.InvalidRequest,"Enforcement provenance needs review before account reinstatement.");
-        var rows=await db.BannedIdentifiers.Where(b=>cases.Contains(b.CaseId)&&b.Status==BanStatus.Active&&(b.BanExpiresAt==null||b.BanExpiresAt>now)).ToListAsync(token);
-        var subjects=new List<Guid>{id};foreach(var caseId in cases)subjects.AddRange(await SafetyRetention.CaseAccountsAsync(db,caseId,token));
-        if(await StaffAccessEndpoints.ExcludedAsync(db,current!.Account!.Id,subjects,token))return StaffAccessEndpoints.Conflict();
+        now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.AccountReinstatement,now,token);if(denied is not null)return denied;
+        var(data,refused)=await ReinstatementDataAsync(db,accounts,current!,id,now,token);if(refused is not null)return refused;
+        if(data!.BlockedCode is {} blocked)return Problem(409,ProblemCodes.InvalidRequest,BlockedMessage(blocked));
+        var actor=current!.Account!.Id;
+        var rows=data.Required;var historyRows=data.History;var sanctions=data.Terminations;
         var selected=request.RevokeIdentifierIds.Distinct().ToHashSet();
         if(!selected.SetEquals(rows.Select(b=>b.Id)))return Problem(409,ProblemCodes.InvalidRequest,"Explicitly reconcile every applicable active identifier restriction before reinstatement.");
-        var registry=accounts.Services.GetRequiredService<BannedIdentifierRegistry>();
-        var known=new List<BannedIdentifier>();
-        if(account.Email is { } email)known.AddRange(await registry.FindAsync(BannedIdentifierType.Email,email,now,token,true));
-        var phone=await db.MemberPhones.Where(p=>p.AccountId==id).Select(p=>p.Number).SingleOrDefaultAsync(token);
-        if(phone is not null)known.AddRange(await registry.FindAsync(BannedIdentifierType.Mobile,phone,now,token,true));
-        if(known.Any(b=>!selected.Contains(b.Id)))return Problem(409,ProblemCodes.InvalidRequest,"Another active identifier restriction requires separate review before reinstatement.");
         await using var transaction=await db.Database.BeginTransactionAsync(token);
-        foreach(var row in rows)StageRelease(db,row,current.Account.Id,request.Reason,now);
+        foreach(var row in rows)StageRelease(db,row,actor,request.Reason,now);
         foreach(var row in historyRows.GroupBy(b=>b.CaseId).Select(g=>g.First()))
         {
-            var(review,note)=BannedIdentifierPolicy.RecordReinstatement(row,current.Account.Id,request.Reason,now);db.BanTransitions.Add(review);db.BanCaseNotes.Add(note);
+            var(review,note)=BannedIdentifierPolicy.RecordReinstatement(row,actor,request.Reason,now);db.BanTransitions.Add(review);db.BanCaseNotes.Add(note);
         }
         foreach(var sanction in sanctions)
         {
-            sanction.LiftedAt=now;sanction.LiftedBy=current.Account.Id;
+            sanction.LiftedAt=now;sanction.LiftedBy=actor;
             db.MemberNotices.Add(new MemberNotice { Id=Guid.NewGuid(),AccountId=id,Kind=NoticeKind.SanctionLifted,SanctionId=sanction.Id,CreatedAt=now });
         }
-        Audit.Record(db,now,current.Account.Id,"account","account.reinstated","account",id.ToString(),$"terminations:{sanctions.Count};identifiers:{rows.Count}");
+        Audit.Record(db,now,actor,"account","account.reinstated","account",id.ToString(),$"terminations:{sanctions.Count};identifiers:{rows.Count}");
         await db.SaveChangesAsync(token);await transaction.CommitAsync(token);
         return Results.Ok(new IdentifierWorkflowResult(sanctions.Count));
     }
+
+    private sealed record ReinstatementData(Account Account,List<Sanction> Terminations,Guid[] Cases,
+        List<BannedIdentifier> History,List<BannedIdentifier> Required,bool OtherSanctions,string? BlockedCode);
+
+    private static async Task<IResult> PreviewAsync(Guid id,ClaimsPrincipal user,AccountResolver accounts,TimeProvider clock,HttpContext http,CancellationToken token)
+    {
+        http.Response.Headers["Cache-Control"]="no-store";
+        var now=clock.GetUtcNow();var(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.AccountReinstatement,now,token);if(denied is not null)return denied;
+        var db=accounts.Db!;await using var state=await AccountLifecycleLease.AcquireAsync(db,id,token);
+        await using var barrier=await PreservationLease.ExclusiveAsync(db,token);
+        now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.AccountReinstatement,now,token);if(denied is not null)return denied;
+        var(data,refused)=await ReinstatementDataAsync(db,accounts,current!,id,now,token);if(refused is not null)return refused;
+        return Results.Ok(new AccountReinstatementPreview(id,Wire(data!.Account.Status),data.BlockedCode is null,data.BlockedCode,
+            data.History.Select(b=>b.CaseId).Concat(data.Terminations.Where(s=>s.CaseId!=null).Select(s=>s.CaseId!.Value)).Where(review=>data.Cases.Contains(review)).Distinct().ToArray(),
+            data.History.OrderByDescending(b=>b.BannedAt).Select(View).ToArray(),data.OtherSanctions,data.Required.Select(b=>b.Id).ToArray()));
+    }
+
+    // Caller owns target state and exclusive preservation. One source of truth serves preview and action; neither trusts a client eligibility decision.
+    private static async Task<(ReinstatementData? Data,IResult? Denied)> ReinstatementDataAsync(Swoovr.Infrastructure.Persistence.SwoovrDbContext db,
+        AccountResolver accounts,CurrentAccount current,Guid id,DateTimeOffset now,CancellationToken token)
+    {
+        var account=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==id&&a.Realm==AccountRealm.Members,token);
+        if(account is null)return(null,Results.NotFound());await db.Entry(account).ReloadAsync(token);
+        if(await StaffAccessEndpoints.ExcludedAsync(db,current.Account!.Id,[id],token))return(null,StaffAccessEndpoints.Conflict());
+        if(account.Status!=AccountStatus.Active||!await db.MemberProfiles.AnyAsync(p=>p.AccountId==id,token))
+            return(new(account,[],[],[],[],false,"account-not-restorable"),null);
+        var other=await db.Sanctions.AnyAsync(s=>s.AccountId==id&&s.Kind!=SanctionKind.Termination&&s.LiftedAt==null&&s.StartsAt<=now&&(s.EndsAt==null||s.EndsAt>now),token);
+        var sanctions=await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.LiftedAt==null).ToListAsync(token);
+        if(sanctions.Count==0)return(new(account,[],[],[],[],other,"no-termination"),null);
+        var cases=await db.ModerationCases.Where(c=>c.SubjectAccountId==id).Select(c=>c.Id).ToArrayAsync(token);
+        var reporters=await db.Reports.Where(r=>cases.Contains(r.CaseId)).Select(r=>r.ReporterAccountId).Distinct().ToListAsync(token);reporters.Add(id);
+        if(await StaffAccessEndpoints.ExcludedAsync(db,current.Account.Id,reporters,token))return(null,StaffAccessEndpoints.Conflict());
+        var history=await db.BannedIdentifiers.Where(b=>cases.Contains(b.CaseId)).ToListAsync(token);
+        var required=history.Where(b=>BannedIdentifierPolicy.Blocks(b,now)).ToList();
+        string? blocked=history.Count==0||sanctions.Any(s=>s.CaseId is null||!history.Any(b=>b.CaseId==s.CaseId))?"missing-enforcement-provenance":required.Count>100?"too-many-restrictions":null;
+        if(blocked is null)
+        {
+            var registry=accounts.Services.GetRequiredService<BannedIdentifierRegistry>();var known=new List<BannedIdentifier>();
+            if(account.Email is{}email)known.AddRange(await registry.FindAsync(BannedIdentifierType.Email,email,now,token,true));
+            var phone=await db.MemberPhones.Where(p=>p.AccountId==id).Select(p=>p.Number).SingleOrDefaultAsync(token);
+            if(phone is not null)known.AddRange(await registry.FindAsync(BannedIdentifierType.Mobile,phone,now,token,true));
+            var own=required.Select(b=>b.Id).ToHashSet();if(known.Any(b=>!own.Contains(b.Id)))blocked="identifier-review-needed";
+        }
+        return(new(account,sanctions,cases,history,required,other,blocked),null);
+    }
+
+    private static string BlockedMessage(string code)=>code switch
+    {
+        "account-not-restorable"=>"Deleted, deleting or locked accounts cannot be reinstated here.",
+        "no-termination"=>"There is no active account termination to reinstate.",
+        "missing-enforcement-provenance"=>"Enforcement provenance needs review before account reinstatement.",
+        "too-many-restrictions"=>"More identifier restrictions require a separate restricted review.",
+        _=>"Another active identifier restriction requires separate review before reinstatement.",
+    };
 
     private static async Task<(CurrentAccount? Current,IResult? Denied)> AuthorizeAsync(ClaimsPrincipal user,AccountResolver accounts,string? capability,DateTimeOffset now,CancellationToken token)
     {

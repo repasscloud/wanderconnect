@@ -170,7 +170,7 @@ public static class StaffAccessPolicy
             "banned-identifiers" => ("banned-identifiers", Id(3), false),
             "cases" => ("moderation-case", Id(3), false),
             "appeals" => ("moderation-appeal", Id(3), false),
-            "accounts" when parts.Length > 4 && parts[4] == "reinstate" => ("account-reinstatement", Id(3), false),
+            "accounts" when parts.Length > 4 && parts[4] is "reinstate" or "reinstatement" => ("account-reinstatement", Id(3), false),
             "contact-history" => ("contact-history", null, false),
             "access" => ("access", Id(4), false),
             "staff" => ("staff", Id(3), false),

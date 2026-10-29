@@ -1,0 +1,77 @@
+@page "/registry/{Id:guid}"
+@inject AdminClient Admin
+<PageTitle>Identifier restriction — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/registry">Identifier review</a> / Restriction</p>
+<h1>Identifier restriction</h1>
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+<p><a href="/access">Elevated access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/registry/@Id">Sign in again</a></p>
+@if (detail is null) { <p data-registry-detail="missing">@loadError</p> }
+else
+{
+    var entry=detail.Entry;
+    <section class="card" data-registry-detail="@entry.Id"><RegistryEntries Rows="@(new[] {entry})" /></section>
+    <p class="help">Open <a href="/cases/@entry.CaseId" data-registry-case>the associated case</a>. Verify current circumstances sufficiently to justify your decision. Do not copy identity documents, private messages or full contact values into these notes. Every change requires a recorded explanation.</p>
+    @if (!access) { <p class="notice" data-registry-access="required">Ask for identifier-release access under Elevated access before reviewing or releasing a restriction.</p> }
+    <section class="card">
+        <h2>Necessity review</h2>
+        <p class="help">Record why continuing an active restriction remains justified. An inactive restriction cannot be reactivated here.</p>
+        <form method="post" @formname="review" @onsubmit="ReviewAsync" class="stack" data-registry-review data-enhance="false">
+            <AntiforgeryToken />
+            <fieldset disabled="@(!access || !live)">
+                <label><input name="reviewed" type="checkbox" value="yes" required /> I reviewed the case and the continuing need for this restriction.</label>
+                <label>Explanation<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
+                <button type="submit" class="secondary" data-registry-retain>Record necessity review</button>
+            </fieldset>
+        </form>
+    </section>
+    <section class="card">
+        <h2>Revoke Identifier Restriction</h2>
+        <p>Releasing this identifier does not restore the original account, release other identifiers or remove case history.</p>
+        <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="stack" data-registry-release data-enhance="false">
+            <AntiforgeryToken />
+            <fieldset disabled="@(!access || entry.Status!="active")">
+                <label><input name="caseReviewed" type="checkbox" value="yes" required /> I reviewed the associated case.</label>
+                <label><input name="circumstancesVerified" type="checkbox" value="yes" required /> I sufficiently verified the circumstances supporting release.</label>
+                <label>Explanation<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
+                <button type="submit" data-registry-revoke>Revoke this identifier restriction</button>
+            </fieldset>
+        </form>
+    </section>
+    <section class="card">
+        <h2>Recorded history</h2>
+        <ul class="list" data-registry-history="@detail.History.Count">
+            @foreach(var history in detail.History)
+            {
+                <li><strong>@history.Action</strong> · @history.At.ToUniversalTime().ToString("d MMM yyyy HH:mm 'UTC'")<p>@history.OldStatus → @history.NewStatus</p><blockquote>@history.Reason</blockquote><p class="help">Staff: @(history.ActorId?.ToString()??"System") · case <a href="/cases/@history.CaseId">@history.CaseId.ToString()[..8]</a></p></li>
+            }
+        </ul>
+    </section>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private BannedIdentifierDetail? detail;
+    private bool access,live;
+    private string? message,resultCode,loadError;
+    protected override async Task OnInitializedAsync()=>await LoadAsync();
+    private async Task LoadAsync()
+    {
+        var result=await Admin.RegistryEntryAsync(Id);detail=result.Value;
+        loadError=result.Ok?null:RegistryText.Refusal(result.Status,result.Code);
+        access=(await Admin.GrantsAsync()).Value?.Any(g=>g.Active&&g.Capability=="identifier-release")==true;
+        live=detail?.Entry is {Status:"active"} entry&&(entry.ExpiresAt is null||entry.ExpiresAt>DateTimeOffset.UtcNow);
+    }
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    private async Task ReviewAsync()
+    {
+        if(Field("reviewed")!="yes"){resultCode="400";message="Review the case and confirm the continuing need first.";return;}
+        var result=await Admin.RegistryReviewAsync(Id,Field("reason"));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?"Necessity review recorded.":RegistryText.Refusal(result.Status,result.Code);await LoadAsync();
+    }
+    private async Task ReleaseAsync()
+    {
+        if(Field("caseReviewed")!="yes"||Field("circumstancesVerified")!="yes"){resultCode="400";message="Review the case and verify the circumstances before releasing the identifier.";return;}
+        var result=await Admin.RegistryReleaseAsync(new IdentifierReleaseRequest([Id],Field("reason")));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?(result.Value!.Changed>0?"Identifier restriction revoked. Original account access has not been restored.":"No active restriction changed. Account access is unchanged."):RegistryText.Refusal(result.Status,result.Code);await LoadAsync();
+    }
+}

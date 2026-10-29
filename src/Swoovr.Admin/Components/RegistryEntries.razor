@@ -1,0 +1,21 @@
+@if (Rows is { Count: > 0 })
+{
+    <ul class="list registry-entries" data-registry-entries="@Rows.Count">
+        @foreach (var row in Rows)
+        {
+            <li data-registry-entry="@row.Id" data-registry-status="@row.Status">
+                <h3><a href="/registry/@row.Id">@RegistryText.Type(row.IdentifierType) restriction</a> · @row.Status</h3>
+                <dl class="facts">
+                    <div><dt>Reason</dt><dd>@RegistryText.Reason(row.ReasonCode)</dd></div>
+                    <div><dt>Source case</dt><dd><a href="/cases/@row.CaseId">Case @row.CaseId.ToString()[..8]</a></dd></div>
+                    <div><dt>Enforced</dt><dd>@row.BannedAt.ToUniversalTime().ToString("d MMM yyyy")</dd></div>
+                    <div><dt>Expiry</dt><dd>@(row.ExpiresAt?.ToUniversalTime().ToString("d MMM yyyy HH:mm 'UTC'") ?? "No scheduled expiry")</dd></div>
+                    <div><dt>Necessity review due</dt><dd>@row.ReviewDue.ToUniversalTime().ToString("d MMM yyyy")</dd></div>
+                    <div><dt>Matching attempts</dt><dd>@row.MatchCount</dd></div>
+                </dl>
+            </li>
+        }
+    </ul>
+}
+else { <p data-registry-entries="none">No restrictions in this view.</p> }
+@code { [Parameter] public IReadOnlyList<BannedIdentifierView>? Rows { get; set; } }

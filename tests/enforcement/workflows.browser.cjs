@@ -132,7 +132,9 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal(await query(`SELECT status FROM banned_identifiers WHERE id='${mobileEntry.id}'`),'Active','other identifier not released');
   equal((await request(returningJwt,'/api/session')).status,200,'released email can register legitimately');
   equal((await request(returningJwt,'/api/me/phone','POST',{number:'+61491570159'})).status,403,'unreviewed mobile still blocked');
+  const deniedPreview=await request(adminToken,`/api/admin/accounts/${original}/reinstatement`);equal(deniedPreview.status,403,'preview requires separate reinstatement capability');equal(deniedPreview.body.code,'elevated-access-required','preview needs separate reinstatement capability');
   await grant(adminToken,'account-reinstatement');
+  const deletedPreview=await request(adminToken,`/api/admin/accounts/${original}/reinstatement`);equal(deletedPreview.status,200,'authorized deleted-account preview');equal(deletedPreview.body.eligible,false,'preview cannot offer deleted-account restoration');
   equal((await request(adminToken,`/api/admin/accounts/${original}/reinstate`,'POST',{revokeIdentifierIds:[mobileEntry.id],reason:'Fictional review'})).status,409,'deleted account cannot be resurrected');
 
   const second=await createMember('workflow-reinstate'),secondJwt=await memberToken(browser,second);
@@ -151,6 +153,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal((await request(adminToken,`/api/admin/accounts/${secondId}/reinstate`,'POST',{revokeIdentifierIds:[],reason:'Fictional incomplete reconciliation'})).status,409,'reinstatement must explicitly reconcile identifiers');
   equal((await request(adminToken,`/api/admin/accounts/${secondId}/reinstate`,'POST',{revokeIdentifierIds:[secondBan,mobileEntry.id],reason:'Fictional unrelated identifiers'})).status,409,'reinstatement cannot release unrelated restrictions');
   equal((await request(adminToken,`/api/admin/accounts/${secondId}/sanctions`,'POST',{action:'restrict',reason:'Fictional independent restriction',days:7,noMessages:true})).status,200,'independent restriction exists');
+  const restorePreview=await request(adminToken,`/api/admin/accounts/${secondId}/reinstatement`);equal(restorePreview.status,200,'fresh authorized reinstatement preview');equal(restorePreview.body.eligible,true,'server prepares eligible current source');assert.deepEqual(restorePreview.body.requiredIdentifierIds,[secondBan]);checks++;equal(restorePreview.body.otherSanctions,true,'preview does not promise other restrictions end');
   equal((await request(adminToken,`/api/admin/accounts/${secondId}/reinstate`,'POST',{revokeIdentifierIds:[secondBan],reason:'Fictional account review completed; applicable restriction explicitly released.'})).status,200,'explicit account reinstatement');
   equal(await query(`SELECT count(*) FROM sanctions WHERE account_id='${secondId}' AND kind='Termination' AND lifted_at IS NULL`),'0','termination lifted');
   equal((await request(secondJwt,'/api/me/profile')).body.code,'account-restricted','other sanctions remain independent');
