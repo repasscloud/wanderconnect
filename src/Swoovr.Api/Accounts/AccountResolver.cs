@@ -105,6 +105,12 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         // minutes; it gets the tombstone (refused everywhere), never a new profile, and the email isn't written back.
         if (account.Status == AccountStatus.Deleted)
             return new(facts, result, null, account, [], null, BetaAccess.NotRequired) { LocalPasswordStaff = LocalPasswordStaff };
+        // A durable retirement intent precedes remote effects. Never adopt old claims after its binding is retired.
+        if (account.EmailRetiredAt is not null)
+        {
+            if (await Db.EmailRetirementOperations.AnyAsync(o => o.AccountId == account.Id && o.State != EmailRetirementState.Completed, cancellationToken)) return null;
+            email = null;
+        }
         // #88 (policy §11): a revoked staff member's sessions end; a token from a sign-in before the revocation is refused.
         if (SessionRevocationPolicy.Refuses(account.SessionsRevokedAt,facts.AuthenticatedAt,user.FindFirstValue("iat"),now)) return null;
         await using var identifierAuthority = facts.Realm == AccountRealm.Members ? await PreservationLease.SharedAsync(Db,cancellationToken) : null;

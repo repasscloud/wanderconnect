@@ -99,6 +99,7 @@ static class PersistenceChecks
             await FallbackKeyPersistenceChecks.Run(options, Check);
             await StaffConflictPersistenceChecks.Run(options, Check);
             await BannedIdentifierPersistenceChecks.Run(options, Check);
+            await EmailRetirementPersistenceChecks.Run(options, Check);
         }
         finally
         {

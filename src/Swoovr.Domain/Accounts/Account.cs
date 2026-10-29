@@ -19,6 +19,8 @@ public sealed class Account
     public string? Email { get; set; }
     /// <summary>Current verified email's acceptance watermark (including tolerated issuer skew/legacy uncertainty); older claims cannot reverse it.</summary>
     public DateTimeOffset? EmailAcceptedAt { get; set; }
+    /// <summary>D249: reviewed binding retired; suppress claim adoption until independent original-account recovery.</summary>
+    public DateTimeOffset? EmailRetiredAt { get; set; }
     public AccountStatus Status { get; set; }
     /// <summary>A short machine reason such as "underage-dob"; never free text from a client.</summary>
     public string? StatusReason { get; set; }

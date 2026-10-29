@@ -97,6 +97,8 @@ public static partial class RegistryAdminEndpoints
             return Results.Ok(new IdentifierWorkflowResult(changed));
         });
         api.MapPost("/{id:guid}/retire-mobile",RetireMobileAsync);
+        api.MapPost("/{id:guid}/retire-email",RetireEmailAsync);
+        api.MapGet("/{id:guid}/email-retirement",EmailRetirementAsync);
         app.MapGet("/api/admin/accounts/{id:guid}/reinstatement",PreviewAsync).RequireAuthorization();
         app.MapPost("/api/admin/accounts/{id:guid}/reinstate",ReinstateAsync).RequireAuthorization();
     }
@@ -162,6 +164,8 @@ public static partial class RegistryAdminEndpoints
         if(await StaffAccessEndpoints.ExcludedAsync(db,current.Account!.Id,[id],token))return(null,StaffAccessEndpoints.Conflict());
         if(account.Status!=AccountStatus.Active||!await db.MemberProfiles.AnyAsync(p=>p.AccountId==id,token))
             return(new(account,[],[],[],[],[],false,"account-not-restorable"),null);
+        if(account.EmailRetiredAt is not null)
+            return(new(account,[],[],[],[],[],false,"contact-recovery-required"),null);
         var other=await db.Sanctions.AnyAsync(s=>s.AccountId==id&&s.Kind!=SanctionKind.Termination&&s.LiftedAt==null&&s.StartsAt<=now&&(s.EndsAt==null||s.EndsAt>now),token);
         var sanctions=await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.LiftedAt==null).ToListAsync(token);
         var cases=await db.ModerationCases.Where(c=>c.SubjectAccountId==id).Select(c=>c.Id).ToArrayAsync(token);
@@ -185,6 +189,7 @@ public static partial class RegistryAdminEndpoints
     private static string BlockedMessage(string code)=>code switch
     {
         "account-not-restorable"=>"Deleted, deleting or locked accounts cannot be reinstated here.",
+        "contact-recovery-required"=>"A retired login requires separate original-account recovery before reinstatement.",
         "no-termination"=>"There is no active account termination to reinstate.",
         "missing-enforcement-provenance"=>"Enforcement provenance needs review before account reinstatement.",
         "too-many-restrictions"=>"More identifier restrictions require a separate restricted review.",

@@ -36,6 +36,7 @@ public static class ProviderSetup
             services.AddScoped<RegistryExpiry>();
             services.AddScoped<RegistryDisposal>();
             services.AddScoped<RegistryPopulation>();
+            services.AddScoped<EmailRetirementProcessor>();
             services.AddScoped<StaffConflictHistory>();
             services.AddScoped<Retention.SafetyRetention>();
             services.AddScoped<Retention.MessageRetention>();
@@ -44,6 +45,7 @@ public static class ProviderSetup
         services.AddScoped<Microsoft.EntityFrameworkCore.Diagnostics.ISaveChangesInterceptor, Retention.PreservationSaveInterceptor>();
         services.AddScoped<PhoneKeys>();
         services.AddScoped<ContactHistoryKeys>();
+        services.AddScoped<EmailRetirementCommands>();
         // D189: legal holds and the evidence store (keys from configuration, else derived from the founder secret).
         services.AddScoped<Swoovr.Api.Evidence.EvidenceKeys>();
         services.AddScoped<Swoovr.Api.Evidence.EvidencePreservation>();

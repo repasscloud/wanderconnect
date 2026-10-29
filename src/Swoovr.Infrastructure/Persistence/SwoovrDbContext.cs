@@ -15,6 +15,7 @@ namespace Swoovr.Infrastructure.Persistence;
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
 {
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<EmailRetirementOperation> EmailRetirementOperations => Set<EmailRetirementOperation>();
     public DbSet<BannedIdentifier> BannedIdentifiers => Set<BannedIdentifier>();
     public DbSet<BanDispositionReview> BanDispositionReviews => Set<BanDispositionReview>();
     public DbSet<BanDisposition> BanDispositions => Set<BanDisposition>();
@@ -118,6 +119,16 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             account.Property(a => a.StatusReason).HasMaxLength(64);
             // The purge job finds due deletions and expired tombstones (D170).
             account.HasIndex(a => new { a.Status, a.DeletionDueAt });
+        });
+        model.Entity<EmailRetirementOperation>(operation =>
+        {
+            // Restricted intent survives source deletion; no cascading destruction of uncertain provider work.
+            operation.HasIndex(o => o.AccountId).IsUnique();
+            operation.HasIndex(o => new { o.State, o.NextAttemptAt });
+            operation.HasIndex(o => o.CaseId);
+            operation.HasOne<BannedIdentifier>().WithMany().HasForeignKey(o=>o.RegistryId).OnDelete(DeleteBehavior.Restrict);
+            operation.HasOne<ModerationCase>().WithMany().HasForeignKey(o=>o.CaseId).OnDelete(DeleteBehavior.Restrict);
+            operation.Property(o => o.Outcome).HasMaxLength(32);
         });
         model.Entity<DataExport>(export =>
         {

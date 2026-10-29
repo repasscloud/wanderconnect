@@ -196,6 +196,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
         {
             case "contact-history":
                 foreach (var row in await db.ContactHistories.ToListAsync(cancellationToken)) Apply(row.EncryptedValue, v => row.EncryptedValue = v);
+                foreach (var row in await db.EmailRetirementOperations.ToListAsync(cancellationToken)) Apply(row.EncryptedCommand, v => row.EncryptedCommand = v);
                 break;
             case "evidence":
                 // Evidence items are immutable in content: the SHA-256 is of the plain JSON, so re-sealing never changes it.
@@ -224,7 +225,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
     {
         var firsts = set switch
         {
-            "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).ToListAsync(cancellationToken),
+            "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).Concat(db.EmailRetirementOperations.Select(o=>o.EncryptedCommand)).ToListAsync(cancellationToken),
             "evidence" => await db.EvidenceItems.Select(i => i.Sealed).ToListAsync(cancellationToken),
             "police" => (await db.Reports.Where(r => r.PoliceReference != null).Select(r => r.PoliceReference).ToListAsync(cancellationToken)).Select(v => v!).ToList(),
             _ => await db.VerifiedIdentities.Select(i => i.Sealed).ToListAsync(cancellationToken),

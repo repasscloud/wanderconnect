@@ -146,6 +146,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
     private async Task<bool> FinalDeleteAsync(Guid id, DateTimeOffset now, CancellationToken cancellationToken)
     {
         await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, id, cancellationToken);
+        if (await db.EmailRetirementOperations.AnyAsync(o=>o.AccountId==id&&o.State!=EmailRetirementState.Completed,cancellationToken)) return false;
         await using var mediaLease = await AccountLifecycleLease.AcquireMediaAsync(db, id, cancellationToken);
         // Capture verified contact provenance before any irreversible provider/source removal. Never revive revoked entries.
         await using (var registryAuthority = await Retention.PreservationLease.ExclusiveAsync(db,cancellationToken))

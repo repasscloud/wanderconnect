@@ -7,6 +7,7 @@
 // Needs the local stack, the enrolled fictional root admin and hosts built from this checkout. Every person is fictional.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
 const { api, admin, sleep, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, elevate } = require('../auth/local-tokens.cjs');
 
@@ -161,7 +162,42 @@ const ADELAIDE = 2078025;
     assert.equal((await call(root, `/api/admin/staff/${ids.x}/revoke`, { method: 'POST', body: { reason: 'x' } })).status, 404, 'not a member'); pass();
     assert.equal((await call(root, `/api/admin/staff/${crypto.randomUUID()}/revoke`, { method: 'POST', body: { reason: 'x' } })).status, 404); pass();
     assert.equal((await call(st.adm, '/api/admin/cases')).status, 200, 'working before'); pass();
-    r = await call(root, `/api/admin/staff/${sid.adm}/revoke`, { method: 'POST', body: { reason: 'Fictional: left the company' } });
+    // Keep the root's ordinary last-seen save out of this ordering probe: it must reach the revocation writer.
+    await sql(`UPDATE accounts SET last_seen_at=now() WHERE realm='Staff' AND subject='${claims(root).sub}'`);
+    const holder=spawn('docker',['exec','-i','swoovr-local-postgres-1','psql','-U','swoovr','-d','swoovr','-v','ON_ERROR_STOP=1','-At'],{stdio:['pipe','pipe','pipe']});
+    holder.stdin.on('error',()=>{});let holderOutput='',holderError='';
+    holder.stdout.on('data',chunk=>{holderOutput+=chunk.toString();});holder.stderr.on('data',chunk=>{holderError+=chunk.toString().slice(0,1000);});
+    const holderClosed=new Promise(resolve=>{holder.once('exit',resolve);holder.once('error',()=>resolve(-1));});
+    let pending;
+    try {
+      holder.stdin.write("BEGIN; SELECT pg_advisory_xact_lock(1347568979,0); SELECT 'retirement-authority-held';\n");
+      for(let attempt=0;attempt<100&&!holderOutput.includes('retirement-authority-held');attempt++){
+        if(holder.exitCode!==null)throw new Error('Owned preservation probe exited before acquiring authority.');await sleep(20);
+      }
+      assert.ok(holderOutput.includes('retirement-authority-held'),'owned preservation authority is held');pass();
+      let settled=false;
+      pending=call(root, `/api/admin/staff/${sid.adm}/revoke`, { method: 'POST', body: { reason: 'Fictional: left the company' } });
+      pending.then(()=>{settled=true;},()=>{settled=true;});
+      // .NET Guid.ToByteArray uses little endian for its first three fields; lock objid is unsigned in pg_locks.
+      const targetBytes=Buffer.from(sid.adm.replaceAll('-',''),'hex');targetBytes.subarray(0,4).reverse();targetBytes.subarray(4,6).reverse();targetBytes.subarray(6,8).reverse();
+      const targetLock=crypto.createHash('sha256').update(targetBytes).digest().readUInt32BE(0);let waiting=false;
+      for(let attempt=0;attempt<100;attempt++){
+        waiting=Number(await sql(`SELECT count(*) FROM pg_locks p JOIN pg_locks a ON a.pid=p.pid
+          WHERE p.locktype='advisory' AND p.database=(SELECT oid FROM pg_database WHERE datname='swoovr')
+          AND p.classid=1347568979 AND p.objid=0 AND NOT p.granted
+          AND a.locktype='advisory' AND a.classid=${0x41434354} AND a.objid=${targetLock} AND a.granted`))>0;
+        if(waiting||settled)break;await sleep(20);
+      }
+      assert.ok(waiting&&!settled,'target staff lifecycle writer waits for the active provider-effect authority');pass();
+      assert.ok(Number(await sql(`SELECT count(*) FROM role_grants WHERE account_id='${sid.adm}'`))>0
+        &&Number(await sql(`SELECT count(*) FROM access_grants WHERE account_id='${sid.adm}' AND revoked_at IS NULL`))>0,
+        'bulk roles/grants remain present until preservation authority is obtained');pass();
+    } finally {
+      holder.stdin.end('ROLLBACK;\n');
+      if(await Promise.race([holderClosed,sleep(3000).then(()=>null)])===null){holder.kill('SIGKILL');await holderClosed;}
+    }
+    if(holderError)throw new Error('Owned preservation probe reported a PostgreSQL error.');
+    r=await pending;
     assert.equal(r.status, 200); assert.ok(r.body.rolesRemoved >= 1 && r.body.grantsRevoked >= 1); pass();
     const firstCutoff=await sql(`SELECT extract(epoch from sessions_revoked_at) FROM accounts WHERE id='${sid.adm}'`);
     const simultaneous=await Promise.all([1,2].map(n=>call(root,`/api/admin/staff/${sid.adm}/revoke`,{method:'POST',body:{reason:'Fictional concurrent revocation '+n}})));

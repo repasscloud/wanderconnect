@@ -125,6 +125,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("email_accepted_at");
 
+                    b.Property<DateTimeOffset?>("EmailRetiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_retired_at");
+
                     b.Property<bool>("IsRootAdmin")
                         .HasColumnType("boolean")
                         .HasColumnName("is_root_admin");
@@ -1395,6 +1399,89 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasFilter("resolved_at IS NULL");
 
                     b.ToTable("dob_reviews");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EmailRetirementOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccessGrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_grant_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<byte[]>("EncryptedCommand")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("encrypted_command");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<Guid>("RegistryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registry_id");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<Guid>("RequestedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_retirement_operations");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_retirement_operations_account_id");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_email_retirement_operations_case_id");
+
+                    b.HasIndex("RegistryId")
+                        .HasDatabaseName("ix_email_retirement_operations_registry_id");
+
+                    b.HasIndex("State", "NextAttemptAt")
+                        .HasDatabaseName("ix_email_retirement_operations_state_next_attempt_at");
+
+                    b.ToTable("email_retirement_operations");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>
@@ -6082,6 +6169,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_dob_reviews_id_verification_attempts_attempt_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EmailRetirementOperation", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_retirement_operations_moderation_cases_case_id");
+
+                    b.HasOne("Swoovr.Domain.BannedIdentifier", null)
+                        .WithMany()
+                        .HasForeignKey("RegistryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_retirement_operations_banned_identifiers_registry_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>

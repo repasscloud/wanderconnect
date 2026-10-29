@@ -24,3 +24,7 @@ public sealed record BanDispositionReviewView(Guid Id,Guid CaseId,Guid ActorId,D
 
 /// <summary>Recorded circumstances/ownership review, separate from identifier release.</summary>
 public sealed record MobileBindingRetirementRequest(bool CircumstancesReviewed, string Reason);
+
+public sealed record EmailBindingRetirementRequest(bool CircumstancesReviewed,string Reason);
+/// <summary>Restricted operation metadata only; never raw contact, CAS snapshot or provider diagnostic.</summary>
+public sealed record EmailBindingRetirementView(Guid OperationId,string State,DateTimeOffset RequestedAt,DateTimeOffset UpdatedAt,DateTimeOffset? CompletedAt);

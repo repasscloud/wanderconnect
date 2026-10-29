@@ -15,6 +15,23 @@ public sealed class RegistryDisposal(SwoovrDbContext db,EvidencePreservation evi
     {
         var disposed=0;var expired=0;Guid? after=null;
         if(await evidence.TryHeldAccountsAsync(token) is null)return new(0,0,true);
+        // Completed commands have an independent24-calendar-month clock and the same current case/hold authority.
+        Guid? commandAfter=null;
+        while(true)
+        {
+            var commands=db.EmailRetirementOperations.Where(o=>o.State==EmailRetirementState.Completed&&o.CompletedAt!=null&&o.CompletedAt.Value.AddMonths(24)<=now);
+            if(commandAfter is{}cursor)commands=commands.Where(o=>o.Id.CompareTo(cursor)>0);
+            var finished=await commands.OrderBy(o=>o.Id).Select(o=>o.Id).Take(200).ToListAsync(token);
+            if(finished.Count==0)break;
+            foreach(var operation in finished)
+            {
+                await using var authority=await PreservationLease.ExclusiveAsync(db,token);
+                if(await evidence.TryHeldAccountsAsync(token) is null)return new(0,0,true);
+                if(await db.Database.SqlQuery<bool>($"SELECT email_retirement_delete_safe({operation}) AS \"Value\"").SingleAsync(token))
+                    await db.EmailRetirementOperations.Where(o=>o.Id==operation).ExecuteDeleteAsync(token);
+            }
+            commandAfter=finished[^1];
+        }
         while(true)
         {
             var query=db.BannedIdentifiers.Where(b=>b.Status!=BanStatus.Active);
@@ -27,6 +44,7 @@ public sealed class RegistryDisposal(SwoovrDbContext db,EvidencePreservation evi
                 if(await evidence.TryHeldAccountsAsync(token) is null)return new(disposed,expired,true);
                 var row=await db.BannedIdentifiers.SingleOrDefaultAsync(b=>b.Id==id,token);
                 if(row is null)continue;await db.Entry(row).ReloadAsync(token);
+                if(await db.EmailRetirementOperations.AnyAsync(o=>o.RegistryId==id,token))continue;
                 if(!BannedIdentifierPolicy.MayDisposeHistory(row,now,false,now))continue;
                 // The same database predicate guards both this choice and every actual DELETE, including direct SQL.
                 if(!await db.Database.SqlQuery<bool>($"SELECT ban_history_disposal_safe({id}) AS \"Value\"").SingleAsync(token))continue;

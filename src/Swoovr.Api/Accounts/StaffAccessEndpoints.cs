@@ -33,7 +33,11 @@ public static class StaffAccessEndpoints
             var (current, denied) = await AnyStaffAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
-            switch (StaffAccessPolicy.CheckRequest(request.Capability, request.Purpose, current.Allows))
+            await using var staffState=await AccountLifecycleLease.AcquireAsync(db,me,cancellationToken);
+            await using var authority=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+            (current,denied)=await AnyStaffAsync(user,accounts,cancellationToken);if(denied is not null)return denied;
+            now=clock.GetUtcNow();
+            switch (StaffAccessPolicy.CheckRequest(request.Capability, request.Purpose, current!.Allows))
             {
                 case AccessRefusal.Unknown: return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Unknown capability.");
                 case AccessRefusal.NotPermitted: return Results.Forbid();
@@ -55,8 +59,12 @@ public static class StaffAccessEndpoints
             var (current, denied) = await AnyStaffAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
+            await using var staffState=await AccountLifecycleLease.AcquireAsync(db,me,cancellationToken);
+            await using var authority=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+            (current,denied)=await AnyStaffAsync(user,accounts,cancellationToken);if(denied is not null)return denied;
+            now=clock.GetUtcNow();
             var grant = await db.AccessGrants.FindAsync([id], cancellationToken);
-            if (grant is null || grant.AccountId != me && !current.IsRootAdmin) return Results.NotFound();
+            if (grant is null || grant.AccountId != me && !current!.IsRootAdmin) return Results.NotFound();
             if (step == "renew")
             {
                 switch (StaffAccessPolicy.CheckRenew(grant, me, now))
@@ -163,6 +171,9 @@ public static class StaffAccessEndpoints
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Record why (up to 500 characters).");
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current.Account!.Id);
             await using var state=await AccountLifecycleLease.AcquireAsync(db,id,cancellationToken);
+            await using var authority=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+            (current,denied)=await AnyStaffAsync(user,accounts,cancellationToken);if(denied is not null)return denied;
+            if(!current!.IsRootAdmin)return Results.Forbid();now=clock.GetUtcNow();
             var target = await db.Accounts.FindAsync([id], cancellationToken);
             if (target is null || target.Realm != AccountRealm.Staff || target.IsRootAdmin || target.Id == me) return Results.NotFound();
             await db.Entry(target).ReloadAsync(cancellationToken);

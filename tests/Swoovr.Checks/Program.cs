@@ -47,6 +47,7 @@ ChatAttachmentChecks.Run();
 await EmailOutcomeChecks.Run();
 await PushProviderChecks.Run();
 await ContactIdentityChecks.Run();
+EmailRetirementChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
