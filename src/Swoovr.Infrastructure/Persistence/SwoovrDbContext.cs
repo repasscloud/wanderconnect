@@ -16,6 +16,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
 {
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<BannedIdentifier> BannedIdentifiers => Set<BannedIdentifier>();
+    public DbSet<BanDispositionReview> BanDispositionReviews => Set<BanDispositionReview>();
+    public DbSet<BanDisposition> BanDispositions => Set<BanDisposition>();
     public DbSet<BanTransition> BanTransitions => Set<BanTransition>();
     public DbSet<BanCaseNote> BanCaseNotes => Set<BanCaseNote>();
     public DbSet<BanCheckAttempt> BanCheckAttempts => Set<BanCheckAttempt>();
@@ -300,6 +302,23 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
                 t.HasCheckConstraint("ck_ban_count", "match_count >= 0");
                 t.HasCheckConstraint("ck_ban_revoked", "status <> 'Revoked' OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND ban_expires_at IS NOT NULL)");
                 t.HasCheckConstraint("ck_ban_expired", "status <> 'Expired' OR ban_expires_at IS NOT NULL");
+            });
+        });
+        model.Entity<BanDispositionReview>(review=>
+        {
+            review.HasOne<BanDisposition>().WithMany().HasForeignKey(r=>r.DispositionId).OnDelete(DeleteBehavior.Restrict);
+            review.Property(r=>r.Reason).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+            review.HasIndex(r=>new{r.CaseId,r.At});
+            review.ToTable(t=>t.HasCheckConstraint("ck_ban_disposition_review_reason","length(btrim(reason)) BETWEEN 1 AND 1000"));
+        });
+        model.Entity<BanDisposition>(receipt =>
+        {
+            receipt.HasOne<ModerationCase>().WithMany().HasForeignKey(r=>r.CaseId).OnDelete(DeleteBehavior.Restrict);
+            receipt.HasIndex(r=>new{r.CaseId,r.IdentifierType});
+            receipt.ToTable(t=>
+            {
+                t.HasCheckConstraint("ck_ban_disposition_kind","identifier_type IN ('Email','Mobile') AND status IN ('Revoked','Expired')");
+                t.HasCheckConstraint("ck_ban_disposition_clock","history_until >= ((effective_end AT TIME ZONE 'UTC') + interval '24 months') AT TIME ZONE 'UTC' AND disposed_at >= history_until");
             });
         });
         model.Entity<BanTransition>(entry =>

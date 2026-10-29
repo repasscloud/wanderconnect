@@ -5,7 +5,13 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { execFile } = require('node:child_process');
 
-const keycloak = 'http://localhost:8180', api = 'http://127.0.0.1:5080', web = 'http://localhost:5081', admin = 'http://localhost:5082';
+// An isolated SSR runner may pair its owned loopback API with an owned throwaway database.
+// Require both overrides together; other suites retain the normal local stack unchanged.
+const isolatedApi=process.env.SWOOVR_TEST_API_BASE,isolatedDatabase=process.env.SWOOVR_TEST_APP_DATABASE;
+if(Boolean(isolatedApi)!==Boolean(isolatedDatabase)||isolatedDatabase&&!/^swoovr_registry_ui_[0-9a-f]{32}$/.test(isolatedDatabase)
+ ||isolatedApi&&!/^http:\/\/127\.0\.0\.1:[0-9]{1,5}$/.test(isolatedApi))throw new Error('Use paired owned loopback API and registry UI database test overrides.');
+const database=isolatedDatabase||'swoovr';
+const keycloak = 'http://localhost:8180', api = isolatedApi||'http://127.0.0.1:5080', web = 'http://localhost:5081', admin = 'http://localhost:5082';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
 
@@ -162,7 +168,7 @@ async function elevate(token, capability, purpose = 'Fictional acceptance test')
 
 /** Runs an API operator command with the local database connection. */
 async function cli(...args) {
-  const connection = `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
+  const connection = `Host=127.0.0.1;Port=5433;Database=${database};Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
   const dll = 'src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll';
   // `accounts purge` deletes Keycloak users through the API's deletion client (D169) and Didit sessions (D173), and keys
   // terminated-email holds from the founder secret as the hosts do (D171).
@@ -182,7 +188,7 @@ async function cli(...args) {
 
 /** Runs SQL in the local database container and returns trimmed rows. */
 function sql(query) {
-  return new Promise((resolve, reject) => execFile('docker', ['exec', 'swoovr-local-postgres-1', 'psql', '-U', 'swoovr', '-d', 'swoovr', '-tAc', query],
+  return new Promise((resolve, reject) => execFile('docker', ['exec', 'swoovr-local-postgres-1', 'psql', '-U', 'swoovr', '-d', database, '-tAc', query],
     (error, stdout, stderr) => error ? reject(new Error(stderr)) : resolve(stdout.trim())));
 }
 

@@ -213,7 +213,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         // D171: a terminated member leaves only a keyed hash of their email, for two years, to flag a return for review.
         var terminated = await db.Sanctions.AnyAsync(s => s.AccountId == id && s.Kind == SanctionKind.Termination && s.LiftedAt == null, cancellationToken);
         var enforcementCases = await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.CaseId!=null).Select(s=>s.CaseId!.Value).ToArrayAsync(cancellationToken);
-        var registryRecorded = await db.BannedIdentifiers.AnyAsync(b=>enforcementCases.Contains(b.CaseId),cancellationToken);
+        var registryRecorded = await db.BannedIdentifiers.AnyAsync(b=>enforcementCases.Contains(b.CaseId),cancellationToken)
+            || await db.BanDispositions.AnyAsync(d=>enforcementCases.Contains(d.CaseId),cancellationToken);
         if (terminated && !registryRecorded && account.Email is { } email && HoldKey() is { } holdKey)
         {
             var hash = HoldHash(holdKey, email);

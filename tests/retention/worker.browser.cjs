@@ -14,7 +14,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const root=process.cwd(),apiDir=path.join(root,'src/Swoovr.Api'),dll=path.join(apiDir,'bin/Debug/net10.0/Swoovr.Api.dll');
  const portProbe=net.createServer();await new Promise((resolve,reject)=>{portProbe.once('error',reject);portProbe.listen(0,'127.0.0.1',resolve)});
  const base='http://127.0.0.1:'+portProbe.address().port;await new Promise(resolve=>portProbe.close(resolve));
- const browser=await chromium.launch({channel:'msedge',headless:true});let host,created=false,checks=0;
+ const edge=await require('../auth/managed-edge.cjs').managedEdge(chromium),browser=edge.browser;let host,created=false,checks=0;
  const query=text=>run('docker',['exec','swoovr-local-postgres-1','psql','-U','swoovr','-d',database,'-v','ON_ERROR_STOP=1','-tAc',text]);
  const equal=(a,b,label)=>{assert.equal(a,b,label);checks++;};
  const stop=async()=>{if(!host)return;const current=host;host=null;const exited=once(current,'exit');current.kill('SIGTERM');await Promise.race([exited,sleep(4000)]);if(current.exitCode===null){current.kill('SIGKILL');await exited;}};
@@ -93,6 +93,6 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal(await query(`SELECT count(*) FROM ban_case_notes n JOIN ban_transitions t ON n.transition_id=t.id WHERE t.banned_identifier_id='${expiryBan}' AND n.case_id='${expiryCase}'`),'1','hosted expiry retains linked case note');
   console.log(`PASS: hosted retention worker (${checks} checks; throwaway PostgreSQL, local synthetic files, actual restart; no external delivery).`);
  }finally{
-  await stop();await browser.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
+  await stop();await edge.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1});

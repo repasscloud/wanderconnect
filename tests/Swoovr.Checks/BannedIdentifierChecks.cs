@@ -63,6 +63,14 @@ static class BannedIdentifierChecks
         {
             try{BannedIdentifierPolicy.Expire(candidate,now);throw new Exception("Non-due expiry accepted.");}catch(InvalidOperationException){count++;}
         }
+        Check(!BannedIdentifierPolicy.MayDisposeHistory(overdue,now,true,now),"Hold overrides an otherwise due inactive history clock.");
+        Check(!BannedIdentifierPolicy.MayDisposeHistory(overdue,now,false,null),"Unknown/open case obligation cannot authorize registry disposal.");
+        Check(!BannedIdentifierPolicy.MayDisposeHistory(overdue,now,false,now.AddTicks(1)),"Case record obligation independently extends registry history.");
+        Check(!BannedIdentifierPolicy.MayDisposeHistory(overdue,now,false,now,now.AddDays(-1)),"Later recorded non-expiry history extends the minimum even when a legacy row clock is stale.");
+        var receipt=BannedIdentifierPolicy.Disposition(overdue,now,false,now);
+        Check(receipt.Id==overdue.Id&&receipt.CaseId==overdue.CaseId&&receipt.Status==BanStatus.Expired&&receipt.EffectiveEnd==overdue.BanExpiresAt,"Minimal disposition retains source and inactive end without reviving matching.");
+        var receiptJson=System.Text.Json.JsonSerializer.Serialize(receipt);
+        Check(!receiptJson.Contains("Hash")&&!receiptJson.Contains("KeyVersion")&&!receiptJson.Contains("Reason")&&!receiptJson.Contains(Convert.ToBase64String(email)),"Disposition contains no matchable fingerprint, key provenance or copied free text.");
         var actor = Guid.NewGuid();
         var (transition, note) = BannedIdentifierPolicy.Revoke(row, actor, "Fictional reassigned identifier reviewed independently.", now);
         Check(row.Status == BanStatus.Revoked && row.RevokedAt == now && row.RevokedBy == actor && row.BanExpiresAt == now && row.LastReviewedAt == now, "Identifier release sets all required timestamps and staff attribution.");

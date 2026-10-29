@@ -1,13 +1,15 @@
 // Real local API/Keycloak/Admin SSR. Every adult/contact/reason is fictional; verified email ownership is provisioned,
 // not a delivered-email claim. SQL backdating is only a due-review clock fixture. Needs normal phone-off hosts.
+if(!process.env.SWOOVR_TEST_APP_DATABASE){console.error('Run tests/enforcement/admin-isolated.browser.cjs to use an owned disposable UI database.');process.exit(2);}
 const assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'playwright');
 const {admin,createMember,createStaff,memberToken,staffToken,rootAdminToken,cli,sql,call,claims}=require('../auth/local-tokens.cjs');
 (async()=>{
- const browser=await chromium.launch({channel:'msedge',headless:true});let context,checks=0;
+ const edge=await require('../auth/managed-edge.cjs').managedEdge(chromium),browser=edge.browser;let context,checks=0;
  const equal=(actual,expected,label)=>{assert.equal(actual,expected,label);checks++;};
  try{
   const root=await rootAdminToken(browser),staff=await createStaff('registry-ui'),support=await createStaff('registry-ui-support');
+  await call(root,'/api/session');await cli('root-admin','grant',claims(root).sub);
   for(const [person,role] of [[staff,'admin'],[support,'support']])equal((await call(root,'/api/admin/invitations',{method:'POST',body:{email:person.email,role}})).status,201,'fictional staff invitation');
   const staffJwt=await staffToken(browser,staff),supportJwt=await staffToken(browser,support);await call(staffJwt,'/api/session');await call(supportJwt,'/api/session');
   const staffId=await sql(`SELECT id FROM accounts WHERE subject='${claims(staffJwt).sub}'`);
@@ -81,6 +83,22 @@ const {admin,createMember,createStaff,memberToken,staffToken,rootAdminToken,cli,
   equal(await sql(`SELECT count(*) FROM sanctions WHERE account_id='${secondId}' AND kind='Termination' AND lifted_at IS NULL`),'0','UI lifts termination only');
   equal((await call(secondJwt,'/api/me/profile')).body.code,'account-restricted','independent restriction still enforced');
   equal(await sql(`SELECT count(*) FROM ban_transitions t JOIN banned_identifiers b ON t.banned_identifier_id=b.id JOIN moderation_cases c ON b.case_id=c.id WHERE c.subject_account_id='${secondId}' AND t.action='account-reinstated'`),'1','reinstatement explanation retained');
+  // Synthetic old enforcement history, current real fictional login and actual reviewed SSR reinstatement.
+  const old=await createMember('registry-ui-disposed');await cli('beta','add',old.email);const oldJwt=await memberToken(browser,old);await call(oldJwt,'/api/session');
+  const oldId=await sql(`SELECT id FROM accounts WHERE subject='${claims(oldJwt).sub}'`);
+  const fixture=require('./historical-fixture.cjs');const oldSource=await fixture.releasedHistory(sql,{accountId:oldId,staffId,email:old.email,key:Buffer.alloc(32,31)});
+  const oldClosure=await sql(`SELECT closed_at FROM moderation_cases WHERE id='${oldSource.dispositionCase}'`);
+  await fixture.disposeFixture(sql,oldSource.dispositionBan);
+  await page.goto(admin+`/accounts/${oldId}/reinstate`);await page.waitForSelector('[data-reinstatement=eligible]');
+  equal(await page.locator(`[data-disposition="${oldSource.dispositionBan}"]`).count(),1,'staff sees minimized source receipt');
+  equal(await page.locator('input[name=identifiers]').count(),0,'disposed fingerprint is not offered for new matching or release');
+  equal((await page.content()).includes(oldSource.fingerprint.toString('base64')),false,'SSR receipt contains no hash snapshot');
+  await page.locator('input[name=reviewed]').check();await page.locator('textarea[name=reason]').fill('Fictional cases reviewed after lawful fingerprint disposal; original account reinstatement independently justified.');
+  await page.click('[data-reinstate-account]');await page.waitForSelector('[data-result=ok]');
+  equal(await page.locator('[data-disposition-review]').count(),1,'new immutable case review visible after minimized-source reinstatement');
+  equal(await sql(`SELECT closed_at FROM moderation_cases WHERE id='${oldSource.dispositionCase}'`),oldClosure,'UI action preserves original closure history');
+  await page.locator('[data-disposed-identifiers]').scrollIntoViewIfNeeded();await page.evaluate(async()=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
+  if(output)await page.screenshot({path:output+'/registry-disposed-history-mobile.png'});
   equal((await call(root,`/api/admin/staff-links/${staffId}`,{method:'PUT',body:{memberAccountId:secondId}})).status,204,'declare explicit personal association');
   const secondEntry=await sql(`SELECT b.id FROM banned_identifiers b JOIN moderation_cases c ON b.case_id=c.id WHERE c.subject_account_id='${secondId}'`);
   await page.goto(admin+'/registry/'+secondEntry);equal(await page.locator('[data-registry-detail=missing]').count(),1,'personal conflict also refuses UI detail');
@@ -90,5 +108,5 @@ const {admin,createMember,createStaff,memberToken,staffToken,rootAdminToken,cli,
   equal(await supportPage.locator('[data-registry-load=refused]').count(),1,'support role cannot read registry metadata');
   equal(await supportPage.locator('[data-registry-search]').isDisabled(),true,'support has no release lookup control');
   console.log(`PASS: staff registry UI (${checks} checks; fictional provider administration, actual API/SSR/Edge, synthetic due clock; no real ownership or delivery proof).`);
- }finally{if(context)await context.close();await browser.close();}
+ }finally{if(context)await context.close();await edge.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

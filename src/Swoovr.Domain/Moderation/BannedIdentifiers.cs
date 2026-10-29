@@ -27,6 +27,29 @@ public sealed class BannedIdentifier
     public long MatchCount { get; set; }
 }
 
+/// <summary>Nonmatchable continuity after lawful fingerprint/history disposal; no contact, HMAC or copied reason.</summary>
+public sealed class BanDisposition
+{
+    public Guid Id { get; set; }
+    public Guid CaseId { get; set; }
+    public BannedIdentifierType IdentifierType { get; set; }
+    public BanStatus Status { get; set; }
+    public DateTimeOffset EffectiveEnd { get; set; }
+    public DateTimeOffset HistoryUntil { get; set; }
+    public DateTimeOffset DisposedAt { get; set; }
+}
+
+/// <summary>New restricted case note/event after original matchable history was lawfully disposed.</summary>
+public sealed class BanDispositionReview
+{
+    public Guid Id { get; set; }
+    public Guid DispositionId { get; set; }
+    public Guid CaseId { get; set; }
+    public Guid ActorAccountId { get; set; }
+    public DateTimeOffset At { get; set; }
+    public string Reason { get; set; } = "";
+}
+
 /// <summary>Restricted immutable transition evidence; never copied into generic logs or member responses.</summary>
 public sealed class BanTransition
 {
@@ -149,12 +172,32 @@ public static class BannedIdentifierPolicy
         return(transition,new BanCaseNote{Id=Guid.NewGuid(),CaseId=row.CaseId,TransitionId=transition.Id,At=transition.At,Text=reason});
     }
 
+    public static BanDispositionReview RecordReinstatement(BanDisposition receipt,Guid actor,string reason,DateTimeOffset now)
+    {
+        if(actor==Guid.Empty||receipt.Id==Guid.Empty||receipt.CaseId==Guid.Empty||string.IsNullOrWhiteSpace(reason)||reason.Trim().Length>ReasonMax)
+            throw new ArgumentException("A documented disposition, staff actor and bounded explanation are required.");
+        return new(){Id=Guid.NewGuid(),DispositionId=receipt.Id,CaseId=receipt.CaseId,ActorAccountId=actor,At=now.ToUniversalTime(),Reason=reason.Trim()};
+    }
+
+    public static bool MayDisposeHistory(BannedIdentifier row,DateTimeOffset now,bool held,DateTimeOffset? recordsUntil,DateTimeOffset? latestHistory=null) =>
+        !held&&recordsUntil is{}records&&records<=now&&HistoryUntil(row,latestHistory) is{}history&&history<=now;
+
+    /// <summary>Caller additionally owns authority and trustworthy current hold/case checks; this is not authorization.</summary>
+    public static BanDisposition Disposition(BannedIdentifier row,DateTimeOffset now,bool held,DateTimeOffset? recordsUntil,DateTimeOffset? latestHistory=null)
+    {
+        if(row.Id==Guid.Empty||row.CaseId==Guid.Empty||!Enum.IsDefined(row.IdentifierType)||!MayDisposeHistory(row,now,held,recordsUntil,latestHistory))
+            throw new InvalidOperationException("Inactive history is not eligible for disposal.");
+        var ended=row.Status==BanStatus.Revoked?row.RevokedAt!.Value:row.BanExpiresAt!.Value;
+        return new(){Id=row.Id,CaseId=row.CaseId,IdentifierType=row.IdentifierType,Status=row.Status,
+            EffectiveEnd=ended.ToUniversalTime(),HistoryUntil=HistoryUntil(row,latestHistory)!.Value,DisposedAt=now.ToUniversalTime()};
+    }
+
     /// <summary>DEFAULT inactive history minimum; active restrictions and missing transition provenance cannot expire.</summary>
-    public static DateTimeOffset? HistoryUntil(BannedIdentifier row)
+    public static DateTimeOffset? HistoryUntil(BannedIdentifier row,DateTimeOffset? latestHistory=null)
     {
         var ended = row.Status switch { BanStatus.Revoked => row.RevokedAt, BanStatus.Expired => row.BanExpiresAt, _ => null };
         if (ended is null) return null;
-        var latest = new[] { ended.Value, row.BannedAt, row.LastReviewedAt ?? ended.Value }.Max();
+        var latest = new[] { ended.Value, row.BannedAt, row.LastReviewedAt ?? ended.Value, latestHistory ?? ended.Value }.Max();
         return latest.ToUniversalTime().AddMonths(HistoryMonths);
     }
 }

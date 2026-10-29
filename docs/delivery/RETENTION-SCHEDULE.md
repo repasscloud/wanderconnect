@@ -40,3 +40,8 @@ D240–D242: current verified contact restrictions now populate atomically with 
 
 
 D250: the hourly/one-shot coordinator now appends scheduled Active→Expired registry transitions with linked system case notes. Expiry already stops matches at the original instant; delayed job processing does not extend the inactive clock or imply a staff necessity review. It deletes no held or unheld evidence. Immutable-history disposal remains unimplemented; do not treat this reconciliation as the complete24-month operational disposal control.
+
+
+D251–D253 supersede the earlier implementation gaps above for inactive registry history: the coordinator now performs bounded disposal after the latest effective end/review/non-expiry event/note plus24 calendar months and related case/hold obligations. It atomically replaces matchable snapshots/reasons/notes with a minimal nonmatchable disposition. Missing terminal/creation/note provenance and unknown preservation refuse erasure. Active restrictions still have no automatic disposal.
+
+Minimal dispositions persist only for continuing original termination or related preservation/compliance obligations. They prevent reconstruction of released identifiers and support independent account reinstatement after history expiry. New reinstatement reviews have a fresh independent24-month record obligation, derived from explicit review events without changing original closure. Once enforcement and all obligations end, dispose reviews/receipts; case/tombstone disposal can resume. Further legacy/operational retention and backup/restore work remains; no complete issue118 or UAT-readiness claim.

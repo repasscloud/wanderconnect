@@ -15,7 +15,7 @@ const { api, admin, createMember, createStaff, memberToken, staffToken, rootAdmi
 const ADELAIDE = 2078025;
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   const output = process.env.SWOOVR_SCREENSHOTS;
@@ -245,6 +245,6 @@ const ADELAIDE = 2078025;
 
     console.log(`PASS: legal holds and evidence (${passed} checks).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exit(1); });

@@ -16,4 +16,8 @@ public sealed record BannedIdentifierDetail(BannedIdentifierView Entry, IReadOnl
 public sealed record BannedIdentifierPage(IReadOnlyList<BannedIdentifierView> Items, Guid? NextCursor);
 /// <summary>Fresh restricted staff snapshot only; the action rechecks eligibility and exact selected IDs.</summary>
 public sealed record AccountReinstatementPreview(Guid AccountId,string State,bool Eligible,string? BlockedCode,
-    IReadOnlyList<Guid> CaseIds,IReadOnlyList<BannedIdentifierView> Identifiers,bool OtherSanctions,IReadOnlyList<Guid> RequiredIdentifierIds);
+    IReadOnlyList<Guid> CaseIds,IReadOnlyList<BannedIdentifierView> Identifiers,bool OtherSanctions,IReadOnlyList<Guid> RequiredIdentifierIds,IReadOnlyList<BanDispositionView>? Dispositions=null);
+
+/// <summary>Lawfully minimized staff source metadata; no matchable identifier survives in this receipt.</summary>
+public sealed record BanDispositionView(Guid Id,Guid CaseId,string IdentifierType,string Status,DateTimeOffset EffectiveEnd,DateTimeOffset DisposedAt,IReadOnlyList<BanDispositionReviewView> Reviews);
+public sealed record BanDispositionReviewView(Guid Id,Guid CaseId,Guid ActorId,DateTimeOffset At,string Reason);

@@ -120,6 +120,8 @@ public static class RegistryAdminEndpoints
         {
             var(review,note)=BannedIdentifierPolicy.RecordReinstatement(row,actor,request.Reason,now);db.BanTransitions.Add(review);db.BanCaseNotes.Add(note);
         }
+        foreach(var receipt in data.Dispositions.GroupBy(d=>d.CaseId).Select(g=>g.First()))
+            db.BanDispositionReviews.Add(BannedIdentifierPolicy.RecordReinstatement(receipt,actor,request.Reason,now));
         foreach(var sanction in sanctions)
         {
             sanction.LiftedAt=now;sanction.LiftedBy=actor;
@@ -131,7 +133,7 @@ public static class RegistryAdminEndpoints
     }
 
     private sealed record ReinstatementData(Account Account,List<Sanction> Terminations,Guid[] Cases,
-        List<BannedIdentifier> History,List<BannedIdentifier> Required,bool OtherSanctions,string? BlockedCode);
+        List<BannedIdentifier> History,List<BanDisposition> Dispositions,List<BannedIdentifier> Required,bool OtherSanctions,string? BlockedCode);
 
     private static async Task<IResult> PreviewAsync(Guid id,ClaimsPrincipal user,AccountResolver accounts,TimeProvider clock,HttpContext http,CancellationToken token)
     {
@@ -141,9 +143,13 @@ public static class RegistryAdminEndpoints
         await using var barrier=await PreservationLease.ExclusiveAsync(db,token);
         now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.AccountReinstatement,now,token);if(denied is not null)return denied;
         var(data,refused)=await ReinstatementDataAsync(db,accounts,current!,id,now,token);if(refused is not null)return refused;
+        var dispositionIds=data!.Dispositions.Select(d=>d.Id).ToArray();
+        var reviews=await db.BanDispositionReviews.Where(r=>dispositionIds.Contains(r.DispositionId)).OrderBy(r=>r.At).ToListAsync(token);
         return Results.Ok(new AccountReinstatementPreview(id,Wire(data!.Account.Status),data.BlockedCode is null,data.BlockedCode,
-            data.History.Select(b=>b.CaseId).Concat(data.Terminations.Where(s=>s.CaseId!=null).Select(s=>s.CaseId!.Value)).Where(review=>data.Cases.Contains(review)).Distinct().ToArray(),
-            data.History.OrderByDescending(b=>b.BannedAt).Select(View).ToArray(),data.OtherSanctions,data.Required.Select(b=>b.Id).ToArray()));
+            data.History.Select(b=>b.CaseId).Concat(data.Dispositions.Select(d=>d.CaseId)).Concat(data.Terminations.Where(s=>s.CaseId!=null).Select(s=>s.CaseId!.Value)).Where(review=>data.Cases.Contains(review)).Distinct().ToArray(),
+            data.History.OrderByDescending(b=>b.BannedAt).Select(View).ToArray(),data.OtherSanctions,data.Required.Select(b=>b.Id).ToArray(),
+            data.Dispositions.Select(d=>new BanDispositionView(d.Id,d.CaseId,Wire(d.IdentifierType),Wire(d.Status),d.EffectiveEnd,d.DisposedAt,
+                reviews.Where(r=>r.DispositionId==d.Id).Select(r=>new BanDispositionReviewView(r.Id,r.CaseId,r.ActorAccountId,r.At,r.Reason)).ToArray())).ToArray()));
     }
 
     // Caller owns target state and exclusive preservation. One source of truth serves preview and action; neither trusts a client eligibility decision.
@@ -154,16 +160,16 @@ public static class RegistryAdminEndpoints
         if(account is null)return(null,Results.NotFound());await db.Entry(account).ReloadAsync(token);
         if(await StaffAccessEndpoints.ExcludedAsync(db,current.Account!.Id,[id],token))return(null,StaffAccessEndpoints.Conflict());
         if(account.Status!=AccountStatus.Active||!await db.MemberProfiles.AnyAsync(p=>p.AccountId==id,token))
-            return(new(account,[],[],[],[],false,"account-not-restorable"),null);
+            return(new(account,[],[],[],[],[],false,"account-not-restorable"),null);
         var other=await db.Sanctions.AnyAsync(s=>s.AccountId==id&&s.Kind!=SanctionKind.Termination&&s.LiftedAt==null&&s.StartsAt<=now&&(s.EndsAt==null||s.EndsAt>now),token);
         var sanctions=await db.Sanctions.Where(s=>s.AccountId==id&&s.Kind==SanctionKind.Termination&&s.LiftedAt==null).ToListAsync(token);
-        if(sanctions.Count==0)return(new(account,[],[],[],[],other,"no-termination"),null);
         var cases=await db.ModerationCases.Where(c=>c.SubjectAccountId==id).Select(c=>c.Id).ToArrayAsync(token);
         var reporters=await db.Reports.Where(r=>cases.Contains(r.CaseId)).Select(r=>r.ReporterAccountId).Distinct().ToListAsync(token);reporters.Add(id);
         if(await StaffAccessEndpoints.ExcludedAsync(db,current.Account.Id,reporters,token))return(null,StaffAccessEndpoints.Conflict());
         var history=await db.BannedIdentifiers.Where(b=>cases.Contains(b.CaseId)).ToListAsync(token);
+        var dispositions=await db.BanDispositions.Where(d=>cases.Contains(d.CaseId)).ToListAsync(token);
         var required=history.Where(b=>BannedIdentifierPolicy.Blocks(b,now)).ToList();
-        string? blocked=history.Count==0||sanctions.Any(s=>s.CaseId is null||!history.Any(b=>b.CaseId==s.CaseId))?"missing-enforcement-provenance":required.Count>100?"too-many-restrictions":null;
+        string? blocked=sanctions.Count==0?"no-termination":sanctions.Any(s=>s.CaseId is null||!history.Any(b=>b.CaseId==s.CaseId)&&!dispositions.Any(d=>d.CaseId==s.CaseId))?"missing-enforcement-provenance":required.Count>100?"too-many-restrictions":null;
         if(blocked is null)
         {
             var registry=accounts.Services.GetRequiredService<BannedIdentifierRegistry>();var known=new List<BannedIdentifier>();
@@ -172,7 +178,7 @@ public static class RegistryAdminEndpoints
             if(phone is not null)known.AddRange(await registry.FindAsync(BannedIdentifierType.Mobile,phone,now,token,true));
             var own=required.Select(b=>b.Id).ToHashSet();if(known.Any(b=>!own.Contains(b.Id)))blocked="identifier-review-needed";
         }
-        return(new(account,sanctions,cases,history,required,other,blocked),null);
+        return(new(account,sanctions,cases,history,dispositions,required,other,blocked),null);
     }
 
     private static string BlockedMessage(string code)=>code switch

@@ -14,7 +14,7 @@ const { web, admin, sleep, localEnv, createMember, createStaff, memberToken, sta
 const ADELAIDE = 2078025, MELBOURNE = 2158177;
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
@@ -342,6 +342,6 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     await rootContext.close(); await subContext.close(); await context.close();
     console.log(`PASS: reports and moderation acceptance, ${passed} checks (categories as data, reports consolidated into one case with evidence and no text in the audit, self/unknown/other-market/another pair's request/bot mismatch/unsupported/tampered refused, report and block in one step, abuse limit that never stops urgent reports, urgent escalation email with ids only and acknowledgement before closing, staff-affiliated cases admin-only, support limits (no suspend, 30 days, reason, scope), restriction out of discovery and no new requests at once, existing contact kept, notices and a notice-only email, reporter sees reviewed but not the outcome, suspension bars everything but account/notices/appeals, appeals once and by someone else, overturn lifts at once, support can't lift an admin's action, automatic expiry, own-account conflict via the staff link, admin-only termination, home-city override, complimentary Plus granted/extended/revoked with limits, BFF allow-list, web report and notices, admin app sign-in without tokens in the browser, queue, warn from a case, Plus grant refused for support and done by an admin).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

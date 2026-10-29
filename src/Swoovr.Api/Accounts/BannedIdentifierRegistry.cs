@@ -80,6 +80,9 @@ public sealed class BannedIdentifierRegistry(SwoovrDbContext db, BannedIdentifie
         var cases = live.SelectMany(h => (h.RetentionCaseIds ?? []).Concat(h.CaseId is { } id ? [id] : [])).Distinct().ToArray();
         var protectedBans = await (from b in db.BannedIdentifiers join c in db.ModerationCases on b.CaseId equals c.Id
             where cases.Contains(c.Id) || held.Contains(c.SubjectAccountId) select b.Id).ToArrayAsync(token);
+        var protectedDispositions=await (from d in db.BanDispositions join c in db.ModerationCases on d.CaseId equals c.Id
+            where cases.Contains(c.Id)||held.Contains(c.SubjectAccountId) select d.Id).ToArrayAsync(token);
+        protectedBans=protectedBans.Concat(protectedDispositions).Distinct().ToArray();
         var cutoff = now.AddDays(-1);
         return await db.BanCheckAttempts.Where(a => a.At < cutoff && (a.AccountId == null || !held.Contains(a.AccountId.Value))
             && !a.MatchedBanIds.Any(id => protectedBans.Contains(id))).ExecuteDeleteAsync(token);

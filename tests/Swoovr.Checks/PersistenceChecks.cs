@@ -47,6 +47,7 @@ static class PersistenceChecks
                 await db.Database.MigrateAsync();
                 Check("repeat migration cannot advance accepted email clock",await db.Accounts.Where(a=>a.Id==legacyEmail).Select(a=>a.EmailAcceptedAt).SingleAsync()==acceptedAt);
                 await db.Accounts.Where(a=>a.Id==legacyEmail||a.Id==legacyEmpty).ExecuteDeleteAsync();
+                await RegistryDispositionPersistenceChecks.Run(options, Check);
                 Check("no pending migrations", !(await db.Database.GetPendingMigrationsAsync()).Any());
             }
 

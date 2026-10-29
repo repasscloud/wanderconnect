@@ -9,7 +9,7 @@ const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright')
 const { web, createMember, cli, memberToken, call, sql, claims } = require('../auth/local-tokens.cjs');
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
@@ -53,11 +53,16 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     if (output) {
       await page.screenshot({ path: output + '/web-privacy.png', fullPage: true });
       await page.locator('[data-privacy-section="bans"]').screenshot({path:output+'/web-privacy-bans.png'});
+      // Focus actual viewports; a tall element capture stitches the fixed mobile nav across its text.
+      await page.locator('[data-privacy-section="retention"] p').filter({hasText:'After identifier fingerprints and their history are lawfully disposed'}).evaluate(p=>p.scrollIntoView({block:'center'}));
+      await page.screenshot({path:output+'/web-privacy-retention.png'});
+      await page.locator('[data-privacy-section="staff"] p').filter({hasText:'Staff with a known personal conflict'}).evaluate(p=>p.scrollIntoView({block:'center'}));
+      await page.screenshot({path:output+'/web-privacy-staff-mobile.png'});
     }
     await context.close();
 
     console.log(`PASS: privacy notice draft (${passed} checks).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exit(1); });

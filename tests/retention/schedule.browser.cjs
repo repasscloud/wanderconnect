@@ -6,7 +6,7 @@ const { randomUUID } = require('node:crypto');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
 const { createMember, memberToken, call, sql, cli, claims, web } = require('../auth/local-tokens.cjs');
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   const cases = [], holds = []; let checks = 0, fixtureAccount;
   const equal = (actual, expected, label) => { assert.equal(actual, expected, label); checks++; };
   try {
@@ -113,6 +113,6 @@ const { createMember, memberToken, call, sql, cli, claims, web } = require('../a
     if(fixtureAccount) await sql(`UPDATE accounts SET status='Active',deletion_requested_at=NULL,deletion_due_at=NULL,deletion_finalizing_at=NULL WHERE id='${fixtureAccount}' AND deletion_finalizing_at IS NOT NULL`);
     if(holds.length) await sql(`DELETE FROM legal_hold_scopes WHERE hold_id IN (${holds.map(x=>`'${x}'`).join(',')}); DELETE FROM legal_holds WHERE id IN (${holds.map(x=>`'${x}'`).join(',')});`);
     if(cases.length) await sql(`DELETE FROM moderation_cases WHERE id IN (${cases.map(x=>`'${x}'`).join(',')});`);
-    await browser.close();
+    await edge.close();
   }
 })().catch(error=>{ console.error(error);process.exitCode=1; });

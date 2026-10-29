@@ -16,7 +16,7 @@ const ADELAIDE = 2078025;
 const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   try {
@@ -260,6 +260,6 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
 
     console.log(`PASS: account deletion and export (${passed} checks).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

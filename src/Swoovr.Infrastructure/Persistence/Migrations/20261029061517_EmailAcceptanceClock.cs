@@ -19,7 +19,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
             // Legacy rows do not prove the first email-acceptance instant. Pin a migration-time/skew watermark;
             // the same email stays usable, but an older differing claim must reauthenticate before adoption.
-            migrationBuilder.Sql("UPDATE accounts SET email_accepted_at = CURRENT_TIMESTAMP + interval '5 seconds' WHERE email IS NOT NULL");
+            migrationBuilder.Sql("UPDATE accounts SET email_accepted_at = CURRENT_TIMESTAMP + interval '5 seconds' WHERE email IS NOT NULL;");
         }
 
         /// <inheritdoc />

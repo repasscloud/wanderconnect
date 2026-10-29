@@ -17,6 +17,19 @@ else
         <h3>Associated cases</h3>
         <ul class="list">@foreach(var review in preview.CaseIds){<li><a href="/cases/@review" data-reinstatement-case>Case @review.ToString()[..8]</a></li>}</ul>
         <RegistryEntries Rows="@preview.Identifiers" />
+        @if(preview.Dispositions is{Count:>0})
+        {
+            <section data-disposed-identifiers><h3>Disposed identifier history</h3>
+                <p class="help">Only minimal source dispositions remain. These receipts contain no contact fingerprint and are not used to check an email or mobile number. The original fingerprint and history were lawfully disposed.</p>
+                @foreach(var receipt in preview.Dispositions)
+                {
+                    <div class="card" data-disposition="@receipt.Id"><p>@RegistryText.Type(receipt.IdentifierType) restriction @receipt.Status; ended @receipt.EffectiveEnd.ToString("d MMM yyyy"). <a href="/cases/@receipt.CaseId">Source case @receipt.CaseId.ToString()[..8]</a>.</p>
+                    @foreach(var review in receipt.Reviews){<blockquote data-disposition-review="@review.Id">@review.Reason <span class="help">Recorded @review.At.ToString("d MMM yyyy HH:mm 'UTC'") · staff @review.ActorId.ToString()[..8]</span></blockquote>}
+                    </div>
+                }
+            </section>
+        }
+
     </section>
     <form method="post" @formname="reinstate" @onsubmit="ReinstateAsync" class="stack card" data-reinstatement-form data-enhance="false">
         <AntiforgeryToken />

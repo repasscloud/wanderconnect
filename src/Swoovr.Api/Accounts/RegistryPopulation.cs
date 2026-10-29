@@ -34,6 +34,8 @@ public sealed class RegistryPopulation(SwoovrDbContext db,BannedIdentifierKeys k
         foreach (var (type,value) in identifiers)
         {
             if (value is null) continue;
+            // Lawfully disposed released history remains authoritative; do not recreate it from surviving contact data.
+            if(await db.BanDispositions.AnyAsync(d=>d.CaseId==reviewId&&d.IdentifierType==type,token))continue;
             // Existing active, revoked or expired entries are authoritative: migration/deletion never silently reactivates one.
             var existing = await db.BannedIdentifiers.Where(b => b.CaseId == reviewId && b.IdentifierType == type).ToListAsync(token);
             var already = existing.Any(b => keys.HasVersion(b.KeyVersion) && keys.Fingerprint(type,value,b.KeyVersion).SequenceEqual(b.IdentifierHash))
@@ -68,7 +70,7 @@ public sealed class RegistryPopulation(SwoovrDbContext db,BannedIdentifierKeys k
                 var added = await StageAsync(sanction,now,token);
                 await db.SaveChangesAsync(token);await transaction.CommitAsync(token);
                 count++;restrictions+=added;
-                if (!await db.BannedIdentifiers.AnyAsync(b => b.CaseId == sanction.CaseId,token)) unresolved++;
+                if (!await db.BannedIdentifiers.AnyAsync(b => b.CaseId == sanction.CaseId,token)&&!await db.BanDispositions.AnyAsync(d=>d.CaseId==sanction.CaseId,token)) unresolved++;
             }
             after = page[^1];db.ChangeTracker.Clear();
         }

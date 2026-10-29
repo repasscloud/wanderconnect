@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.5, 29 October 2026";
+    public const string Version = "Draft 0.6, 29 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -65,14 +65,15 @@ public static class PrivacyNotice
         ]),
         new("staff", "Who at Swoovr can see your information", [
             "Our support and moderation staff see what they need to handle reports and appeals. Sensitive records (identity records, evidence, contact history) are restricted to named staff, need time-limited access with a recorded reason, and every view, search and export is logged in a record that can't be edited.",
-            "Staff with a personal connection to you are kept out of anything about you.",
+            "Staff with a known personal conflict are excluded from related restricted reviews. Other administrative access follows separate role permissions.",
         ]),
         new("retention", "How long we keep information", [
             "While your account is open, we keep your information for as long as you use Swoovr.",
             "When you ask to delete your account, it is hidden at once. You can cancel within 30 days of the request until final deletion starts (or ask for deletion straight away); then we erase your profile, messages you sent, identity record and the rest of your personal information, and ask Didit to delete your verification sessions.",
             "We normally keep a minimal record that the account existed for 2 years. If the other person keeps their own messages, a minimal reference remains so their history still works; your old sign-in mapping is removed.",
             "Closed police-case records follow a seven-year retention period. Backups are planned to expire on daily 30-day, weekly 4-week and monthly 12-month schedules; production backup and restore readiness is still being prepared.",
-            "If your account was terminated, we normally keep its identity record and contact history for 2 years. Active email/mobile restrictions follow the separate review process above. Our draft schedule proposes keeping revoked or expired identifier history for at least 24 months after its latest ending or review, with longer preservation where legally required; legal review and disposal controls are still being prepared.",
+            "If your account was terminated, we normally keep its identity record and contact history for 2 years. Active email/mobile restrictions follow the separate review process above. Our draft schedule proposes keeping revoked or expired identifier history for at least 24 months after its latest ending or review, with longer preservation where legally required. This draft schedule still needs legal review.",
+            "After identifier fingerprints and their history are lawfully disposed, we may keep a minimal record of the decision while the original account ban or preservation duties continue. That record still links to its case and account; it contains no contact fingerprint and is not used to match an address or number. New staff reviews have their own retention period.",
             "Safety-review evidence is retained for at least 12 months after the latest completed review or referral; our draft serious-incident schedule uses 24 months. Minimal review and compliance records normally remain for 24 months. Open reviews and active or overlapping legal holds postpone disposal. Released copies follow the applicable review or police-record schedule; unknown provenance requires restricted review before disposal.",
         ]),
         new("founders", "Founding members' recovery token", [

@@ -436,6 +436,99 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BanDisposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset>("DisposedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("disposed_at");
+
+                    b.Property<DateTimeOffset>("EffectiveEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_end");
+
+                    b.Property<DateTimeOffset>("HistoryUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("history_until");
+
+                    b.Property<string>("IdentifierType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("identifier_type");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ban_dispositions");
+
+                    b.HasIndex("CaseId", "IdentifierType")
+                        .HasDatabaseName("ix_ban_dispositions_case_id_identifier_type");
+
+                    b.ToTable("ban_dispositions", t =>
+                        {
+                            t.HasCheckConstraint("ck_ban_disposition_clock", "history_until >= ((effective_end AT TIME ZONE 'UTC') + interval '24 months') AT TIME ZONE 'UTC' AND disposed_at >= history_until");
+
+                            t.HasCheckConstraint("ck_ban_disposition_kind", "identifier_type IN ('Email','Mobile') AND status IN ('Revoked','Expired')");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BanDispositionReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<Guid>("DispositionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disposition_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ban_disposition_reviews");
+
+                    b.HasIndex("DispositionId")
+                        .HasDatabaseName("ix_ban_disposition_reviews_disposition_id");
+
+                    b.HasIndex("CaseId", "At")
+                        .HasDatabaseName("ix_ban_disposition_reviews_case_id_at");
+
+                    b.ToTable("ban_disposition_reviews", t =>
+                        {
+                            t.HasCheckConstraint("ck_ban_disposition_review_reason", "length(btrim(reason)) BETWEEN 1 AND 1000");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BanTransition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5777,6 +5870,26 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_ban_case_notes_ban_transitions_transition_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BanDisposition", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ban_dispositions_moderation_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BanDispositionReview", b =>
+                {
+                    b.HasOne("Swoovr.Domain.BanDisposition", null)
+                        .WithMany()
+                        .HasForeignKey("DispositionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ban_disposition_reviews_ban_dispositions_disposition_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.BanTransition", b =>

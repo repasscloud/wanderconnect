@@ -45,7 +45,9 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
         var exported = await (from e in db.EvidenceExports join h in db.LegalHolds on e.HoldId equals h.Id
                               where h.CaseId == item.Id || h.RetentionCaseIds != null && h.RetentionCaseIds.Contains(item.Id)
                               select (DateTimeOffset?)e.CreatedAt).MaxAsync(token);
-        var latest = new[] { item.EscalatedAt, disclosed, appeal, exported }.Where(d => d is not null).Max();
+        var reinstated=await db.BanTransitions.Where(t=>t.CaseId==item.Id&&t.Action=="account-reinstated").Select(t=>(DateTimeOffset?)t.At).MaxAsync(token);
+        var dispositionReview=await db.BanDispositionReviews.Where(r=>r.CaseId==item.Id).Select(r=>(DateTimeOffset?)r.At).MaxAsync(token);
+        var latest = new[] { item.EscalatedAt, disclosed, appeal, exported, reinstated, dispositionReview }.Where(d => d is not null).Max();
         return SafetyRetentionPolicy.ForCase(item, serious, latest);
     }
 
@@ -307,7 +309,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                 && (h.Status != LegalHoldStatus.Released || db.EvidenceItems.Any(e => e.HoldId == h.Id)), token)) continue;
             // D217: preserve the minimal case reference while registry/history rows still require it. Content above
             // follows its own clock; active anti-abuse necessity does not retain original evidence indefinitely.
-            if (await db.BannedIdentifiers.AnyAsync(b => b.CaseId == id,token)) continue;
+            if (await db.BannedIdentifiers.AnyAsync(b => b.CaseId == id,token) || await db.BanDispositions.AnyAsync(d=>d.CaseId==id,token)) continue;
             await db.ModerationCases.Where(c => c.Id == id).ExecuteDeleteAsync(token);
             Audit.Record(db, now, null, "retention", "case.records-expired", "moderation-case", id.ToString());
             await db.SaveChangesAsync(token);

@@ -12,7 +12,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const apiDir=path.join(process.cwd(),'src/Swoovr.Api'),dll=path.join(apiDir,'bin/Debug/net10.0/Swoovr.Api.dll');
  const probe=net.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));
  const base='http://127.0.0.1:'+probe.address().port;await new Promise(resolve=>probe.close(resolve));
- const browser=await chromium.launch({channel:'msedge',headless:true});let host,replica,created=false,checks=0;
+ const edge=await require('../auth/managed-edge.cjs').managedEdge(chromium),browser=edge.browser;let host,replica,created=false,checks=0;
  const query=text=>run('docker',['exec','swoovr-local-postgres-1','psql','-U','swoovr','-d',database,'-v','ON_ERROR_STOP=1','-tAc',text]);
  const equal=(actual,expected,label)=>{assert.equal(actual,expected,label);checks++;};
  const stop=async()=>{if(!host||host.exitCode!==null)return;const exited=once(host,'exit');host.kill('SIGTERM');await Promise.race([exited,sleep(4000)]);if(host.exitCode===null){host.kill('SIGKILL');await exited;}host=null;};
@@ -181,6 +181,45 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal(await query(`SELECT count(*) FROM banned_identifiers`),before,'known-provenance backfill is idempotent');
   equal(await query(`SELECT status FROM banned_identifiers WHERE id='${earlyBan}'`),'Revoked','backfill cannot silently reactivate a released restriction');
 
+  // Consistent old temporal fixture: real current local login, synthetic historical enforcement clocks/events.
+  // Do not backdate immutable events from the live workflow above or claim historical provider activity.
+  const historical=await createMember('workflow-disposition'),historicalJwt=await memberToken(browser,historical);await request(historicalJwt,'/api/session');
+  const historicalId=await query(`SELECT id FROM accounts WHERE subject='${claims(historicalJwt).sub}'`);
+  const {dispositionCase,dispositionBan,dispositionTerm,fingerprint}=await require('./historical-fixture.cjs').releasedHistory(query,{accountId:historicalId,staffId:adminId,email:historical.email,key});
+  const oldClosed=await query(`SELECT closed_at FROM moderation_cases WHERE id='${dispositionCase}'`);
+  let refused=false;try{await run('dotnet',[dll,'retention','purge'],{cwd:apiDir,env:{...env,Evidence__HoldCheckUnavailable:'true'}});}catch{refused=true;}
+  equal(refused,true,'unavailable preservation refuses coordinated disposal');equal(await query(`SELECT count(*) FROM banned_identifiers WHERE id='${dispositionBan}'`),'1','failed-closed coordinator keeps due source');
+  await Promise.all([run('dotnet',[dll,'retention','purge'],{cwd:apiDir,env}),run('dotnet',[dll,'retention','purge'],{cwd:apiDir,env})]);
+  equal(await query(`SELECT count(*) FROM banned_identifiers WHERE id='${dispositionBan}'`),'0','coordinated workers dispose due fingerprint once');
+  equal(await query(`SELECT count(*) FROM ban_transitions WHERE banned_identifier_id='${dispositionBan}'`),'0','old match snapshots and reasons disposed');
+  equal(await query(`SELECT count(*) FROM ban_case_notes WHERE case_id='${dispositionCase}'`),'0','old linked note text disposed');
+  equal(await query(`SELECT count(*) FROM ban_dispositions WHERE id='${dispositionBan}'`),'1','minimal nonmatchable source receipt remains');
+  await run('dotnet',[dll,'bans','backfill'],{cwd:apiDir,env});
+  equal(await query(`SELECT count(*) FROM banned_identifiers WHERE case_id='${dispositionCase}'`),'0','backfill cannot reconstruct a disposed released restriction');
+  const minimizedPreview=await request(adminToken,`/api/admin/accounts/${historicalId}/reinstatement`);
+  equal(minimizedPreview.status,200,'authorized minimized source preview');equal(minimizedPreview.body.eligible,true,'lawful history expiry does not permanently block original account review');
+  assert.deepEqual(minimizedPreview.body.requiredIdentifierIds,[]);checks++;equal(minimizedPreview.body.dispositions[0].id,dispositionBan,'source disposition shown independently of matching');
+  equal(JSON.stringify(minimizedPreview.body).includes(fingerprint.toString('base64')),false,'minimized preview has no fingerprint snapshot');
+  equal((await request(adminToken,`/api/admin/accounts/${historicalId}/reinstate`,'POST',{revokeIdentifierIds:[],reason:'Fictional new reviewed reinstatement after lawful match history disposal.'})).status,200,'original account can be reviewed and reinstated after match history expiry');
+  equal(await query(`SELECT count(*) FROM sanctions WHERE id='${dispositionTerm}' AND lifted_at IS NULL`),'0','actual restricted workflow lifts original termination');
+  equal(await query(`SELECT count(*) FROM ban_disposition_reviews WHERE disposition_id='${dispositionBan}' AND case_id='${dispositionCase}'`),'1','new reinstatement has its own immutable case review');
+  equal(await query(`SELECT closed_at FROM moderation_cases WHERE id='${dispositionCase}'`),oldClosed,'new review does not rewrite original closure');
+  await run('dotnet',[dll,'retention','purge'],{cwd:apiDir,env});
+  equal(await query(`SELECT count(*) FROM ban_dispositions WHERE id='${dispositionBan}'`),'1','new review independently prevents immediate receipt expiry');
+  const restoredPreview=await request(adminToken,`/api/admin/accounts/${historicalId}/reinstatement`);equal(restoredPreview.body.blockedCode,'no-termination','post-action preview remains a snapshot rather than enabling another restore');
+  equal(restoredPreview.body.dispositions[0].reviews.length,1,'authorized staff can read newly recorded case review');
+
+  const receiptHold=crypto.randomUUID();
+  await query(`INSERT INTO legal_holds(id,status,reason,source,placed_by_role,placed_at,review_due,case_id,related_account_ids,retention_case_ids)
+    VALUES('${receiptHold}','Active','Fictional post-disposal preservation scope','staff','Legal',now(),now()+interval '1 month','${dispositionCase}',ARRAY['${historicalId}']::uuid[],ARRAY['${dispositionCase}']::uuid[]);
+   INSERT INTO legal_hold_scopes(hold_id,kind,target_id) VALUES('${receiptHold}','Account','${historicalId}');
+   INSERT INTO ban_check_attempts(caller_hash,key_version,identifier_type,account_id,matched_ban_ids,at)
+    VALUES(decode(repeat('61',32),'hex'),1,'Email',NULL,ARRAY['${dispositionBan}']::uuid[],now()-interval '2 days');`);
+  await run('dotnet',[dll,'retention','purge'],{cwd:apiDir,env});
+  equal(await query(`SELECT count(*) FROM ban_check_attempts WHERE '${dispositionBan}'::uuid=ANY(matched_ban_ids)`),'1','new hold protects historical match references through minimal disposition');
+  await query(`UPDATE legal_holds SET status='Released' WHERE id='${receiptHold}'`);await run('dotnet',[dll,'retention','purge'],{cwd:apiDir,env});
+  equal(await query(`SELECT count(*) FROM ban_check_attempts WHERE '${dispositionBan}'::uuid=ANY(matched_ban_ids)`),'0','release resumes the independent quota TTL for disposed-source references');
+
   const mixed=await request(adminToken,`/API/ADMIN/BANNED-IDENTIFIERS/${mobileEntry.id}`);equal(mixed.status,200,'matched route spelling remains authorized');
   equal((await request(null,'/api/admin/banned-identifiers/lookup','POST',{type:'email',value:member.email,purpose:'Fictional unauthenticated lookup'})).status,401,'unauthenticated registry lookup refused');
   equal(Number(await query(`SELECT count(*) FROM sensitive_access_log WHERE resource='banned-identifiers' AND status=401`))>0,true,'authorization refusal is audited');
@@ -192,6 +231,6 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  } finally {
   if(replica&&replica.exitCode===null){const exited=once(replica,'exit');replica.kill('SIGTERM');await exited;}
   await stop();
-  await browser.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
+  await edge.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1;});
