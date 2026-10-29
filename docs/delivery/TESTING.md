@@ -217,3 +217,7 @@ Do not backdate arbitrary cases or release real holds to clean tests. A released
 `./scripts/check.sh` includes actual API-service checks in the disposable PostgreSQL database: unconfirmed then confirmed fake provider deletion; finalizing cancellation refusal; held-copy continuity; historical-link backfill; minimum-period/manual-reason preservation; police/unknown membership; expiry without resurrection; and a deterministic SQL-snapshot read/archive race. No external provider uncertainty is simulated as live evidence.
 
 `tests/staff/access.browser.cjs` also deletes a fictional personal account through local Keycloak and checks independent access versus linked refusal before/after deletion, replacement and hold release. `tests/moderation/moderation.browser.cjs` tests historical exclusions on lower/mixed/upper-case route literals. Run the existing hold, law-enforcement, identity, deletion and isolated-worker suites after changes to shared conflict authority.
+
+### Banned-identifier foundation (D236)
+
+`./scripts/check.sh` includes typed HMAC/status/calendar and actual server key-ring checks plus disposable PostgreSQL registry constraints, immutable UPDATE/DELETE/TRUNCATE refusals and all-or-nothing revocation/event/case-note behavior. Test data is fictional; no shared database migration or host change is required. These checks do not prove registration/email/mobile enforcement or authorized admin workflows: run the integrated suites once those paths are wired, before calling118 complete.

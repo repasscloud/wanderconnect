@@ -63,3 +63,7 @@ The [delivery schedule](../delivery/RETENTION-SCHEDULE.md) distinguishes impleme
 ### Staff conflict continuity (D235)
 
 CONFIRMED D134/D146/D197: staff cannot decide cases concerning their own explicitly linked personal account; conflict exclusions also protect identity, held evidence and police access. DEFAULT: retain the minimal explicit association independently of ordinary profile deletion or a replacement link. Historical audited links are authoritative, never inferred from matching email. Actions concerning a case's reporter are included. Preserve exclusions while related retained data remains and for at least24 calendar months after the latest declaration/association; unknown preservation membership fails closed. Expiry removes eligible source assertions atomically. This does not change the existing case-list/read scope.
+
+### Banned identifiers (D217; foundation D236)
+
+CONFIRMED: active unexpired normalized email/mobile restrictions block registration or that identifier change. Releasing an identifier does not reinstate the original account or release its other restrictions. Authorized staff require a mandatory explanation, associated case note and immutable before/after audit in the same transaction. Reinstatement explicitly reconciles applicable restrictions. Fingerprints remain potentially personal information; keys live outside the database. The registry/schema/key foundation exists locally; registration/change enforcement, staff actions, necessity reviews and disposal are still required before this requirement is implemented end to end.

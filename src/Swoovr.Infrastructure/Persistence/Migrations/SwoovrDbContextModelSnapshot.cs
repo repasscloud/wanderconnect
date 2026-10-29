@@ -326,6 +326,221 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BanCaseNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid?>("AuthorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_account_id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("TransitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transition_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ban_case_notes");
+
+                    b.HasIndex("TransitionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ban_case_notes_transition_id");
+
+                    b.HasIndex("CaseId", "At")
+                        .HasDatabaseName("ix_ban_case_notes_case_id_at");
+
+                    b.ToTable("ban_case_notes");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BanTransition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid>("BannedIdentifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("banned_identifier_id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset?>("NewExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("new_expires_at");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("new_status");
+
+                    b.Property<string>("NewValues")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("new_values");
+
+                    b.Property<DateTimeOffset?>("OldExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("old_expires_at");
+
+                    b.Property<string>("OldStatus")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("old_status");
+
+                    b.Property<string>("OldValues")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("old_values");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ban_transitions");
+
+                    b.HasIndex("BannedIdentifierId")
+                        .HasDatabaseName("ix_ban_transitions_banned_identifier_id");
+
+                    b.HasIndex("CaseId", "At")
+                        .HasDatabaseName("ix_ban_transitions_case_id_at");
+
+                    b.ToTable("ban_transitions", t =>
+                        {
+                            t.HasCheckConstraint("ck_ban_transition_reason", "length(btrim(reason)) BETWEEN 1 AND 1000");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BannedIdentifier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("BanExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ban_expires_at");
+
+                    b.Property<string>("BanReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ban_reason_code");
+
+                    b.Property<DateTimeOffset>("BannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("banned_at");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<byte[]>("IdentifierHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("identifier_hash");
+
+                    b.Property<string>("IdentifierType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("identifier_type");
+
+                    b.Property<int>("KeyVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("key_version");
+
+                    b.Property<DateTimeOffset?>("LastMatchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_matched_at");
+
+                    b.Property<DateTimeOffset?>("LastReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_reviewed_at");
+
+                    b.Property<long>("MatchCount")
+                        .HasColumnType("bigint")
+                        .HasColumnName("match_count");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_banned_identifiers");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_banned_identifiers_case_id");
+
+                    b.HasIndex("Status", "BanExpiresAt")
+                        .HasDatabaseName("ix_banned_identifiers_status_ban_expires_at");
+
+                    b.HasIndex("IdentifierType", "KeyVersion", "IdentifierHash")
+                        .HasDatabaseName("ix_banned_identifiers_identifier_type_key_version_identifier_h~");
+
+                    b.ToTable("banned_identifiers", t =>
+                        {
+                            t.HasCheckConstraint("ck_ban_count", "match_count >= 0");
+
+                            t.HasCheckConstraint("ck_ban_expired", "status <> 'Expired' OR ban_expires_at IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_ban_hash", "octet_length(identifier_hash) = 32 AND key_version > 0");
+
+                            t.HasCheckConstraint("ck_ban_kind", "identifier_type IN ('Email', 'Mobile') AND status IN ('Active', 'Revoked', 'Expired')");
+
+                            t.HasCheckConstraint("ck_ban_reason", "ban_reason_code ~ '^[a-z][a-z0-9-]{1,63}$'");
+
+                            t.HasCheckConstraint("ck_ban_revoked", "status <> 'Revoked' OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND ban_expires_at IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BetaEnrolment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5484,6 +5699,36 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_appeals_sanctions_sanction_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BanCaseNote", b =>
+                {
+                    b.HasOne("Swoovr.Domain.BanTransition", null)
+                        .WithMany()
+                        .HasForeignKey("TransitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ban_case_notes_ban_transitions_transition_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BanTransition", b =>
+                {
+                    b.HasOne("Swoovr.Domain.BannedIdentifier", null)
+                        .WithMany()
+                        .HasForeignKey("BannedIdentifierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ban_transitions_banned_identifiers_banned_identifier_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BannedIdentifier", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_banned_identifiers_moderation_cases_case_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Block", b =>

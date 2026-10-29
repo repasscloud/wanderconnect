@@ -83,6 +83,7 @@ static class PersistenceChecks
             await Messaging(options, Check);
             await FallbackKeyPersistenceChecks.Run(options, Check);
             await StaffConflictPersistenceChecks.Run(options, Check);
+            await BannedIdentifierPersistenceChecks.Run(options, Check);
         }
         finally
         {

@@ -15,6 +15,9 @@ namespace Swoovr.Infrastructure.Persistence;
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
 {
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<BannedIdentifier> BannedIdentifiers => Set<BannedIdentifier>();
+    public DbSet<BanTransition> BanTransitions => Set<BanTransition>();
+    public DbSet<BanCaseNote> BanCaseNotes => Set<BanCaseNote>();
     public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
@@ -271,6 +274,41 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             entry.Property(e => e.ResourceId).HasMaxLength(64);
             entry.HasIndex(e => new { e.ActorAccountId, e.At });
             entry.HasIndex(e => new { e.Resource, e.ResourceId });
+        });
+        model.Entity<BannedIdentifier>(ban =>
+        {
+            ban.Property(b => b.BanReasonCode).HasMaxLength(64);
+            ban.HasIndex(b => new { b.IdentifierType, b.KeyVersion, b.IdentifierHash });
+            ban.HasIndex(b => new { b.Status, b.BanExpiresAt });
+            ban.HasIndex(b => b.CaseId);
+            // Opaque case provenance survives ordinary member deletion; no cascading account relationship.
+            ban.HasOne<ModerationCase>().WithMany().HasForeignKey(b => b.CaseId).OnDelete(DeleteBehavior.Restrict);
+            ban.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_ban_hash", "octet_length(identifier_hash) = 32 AND key_version > 0");
+                t.HasCheckConstraint("ck_ban_kind", "identifier_type IN ('Email', 'Mobile') AND status IN ('Active', 'Revoked', 'Expired')");
+                t.HasCheckConstraint("ck_ban_reason", "ban_reason_code ~ '^[a-z][a-z0-9-]{1,63}$'");
+                t.HasCheckConstraint("ck_ban_count", "match_count >= 0");
+                t.HasCheckConstraint("ck_ban_revoked", "status <> 'Revoked' OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND ban_expires_at IS NOT NULL)");
+                t.HasCheckConstraint("ck_ban_expired", "status <> 'Expired' OR ban_expires_at IS NOT NULL");
+            });
+        });
+        model.Entity<BanTransition>(entry =>
+        {
+            entry.Property(e => e.Action).HasMaxLength(32);
+            entry.Property(e => e.Reason).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+            entry.Property(e => e.OldValues).HasColumnType("jsonb");
+            entry.Property(e => e.NewValues).HasColumnType("jsonb");
+            entry.HasOne<BannedIdentifier>().WithMany().HasForeignKey(e => e.BannedIdentifierId).OnDelete(DeleteBehavior.Restrict);
+            entry.HasIndex(e => new { e.CaseId, e.At });
+            entry.ToTable(t => t.HasCheckConstraint("ck_ban_transition_reason", "length(btrim(reason)) BETWEEN 1 AND 1000"));
+        });
+        model.Entity<BanCaseNote>(note =>
+        {
+            note.Property(n => n.Text).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+            note.HasOne<BanTransition>().WithMany().HasForeignKey(n => n.TransitionId).OnDelete(DeleteBehavior.Restrict);
+            note.HasIndex(n => n.TransitionId).IsUnique();
+            note.HasIndex(n => new { n.CaseId, n.At });
         });
         model.Entity<StaffExclusion>(exclusion =>
         {
