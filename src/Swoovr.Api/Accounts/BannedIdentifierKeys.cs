@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Hosting;
 
 namespace Swoovr.Api.Accounts;
@@ -35,6 +37,13 @@ public sealed class BannedIdentifierKeys
         }
         else if (parsed.Count > 0) CurrentVersion = parsed.Keys.Max();
         keys = new ReadOnlyDictionary<int, byte[]>(parsed);
+    }
+
+    public byte[] QuotaHash(string kind, string value, int version)
+    {
+        if (kind is not ("caller" or "address")) throw new ArgumentException("Unknown quota purpose.", nameof(kind));
+        if (!keys.TryGetValue(version, out var key)) throw new InvalidOperationException("Required banned-identifier HMAC key is unavailable.");
+        return HMACSHA256.HashData(key, Encoding.UTF8.GetBytes("swoovr/banned-check/" + kind + "\0" + value));
     }
 
     public bool HasVersion(int version) => keys.ContainsKey(version);

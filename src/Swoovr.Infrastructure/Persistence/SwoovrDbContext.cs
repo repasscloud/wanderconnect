@@ -18,6 +18,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<BannedIdentifier> BannedIdentifiers => Set<BannedIdentifier>();
     public DbSet<BanTransition> BanTransitions => Set<BanTransition>();
     public DbSet<BanCaseNote> BanCaseNotes => Set<BanCaseNote>();
+    public DbSet<BanCheckAttempt> BanCheckAttempts => Set<BanCheckAttempt>();
     public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
@@ -274,6 +275,14 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             entry.Property(e => e.ResourceId).HasMaxLength(64);
             entry.HasIndex(e => new { e.ActorAccountId, e.At });
             entry.HasIndex(e => new { e.Resource, e.ResourceId });
+        });
+        model.Entity<BanCheckAttempt>(attempt =>
+        {
+            attempt.HasIndex(a => new { a.CallerHash, a.KeyVersion, a.IdentifierType, a.At });
+            attempt.HasIndex(a => new { a.AddressHash, a.KeyVersion, a.At });
+            attempt.HasIndex(a => a.At);
+            attempt.HasIndex(a => a.MatchedBanIds).HasMethod("gin");
+            attempt.ToTable(t => t.HasCheckConstraint("ck_ban_attempt_hash", "octet_length(caller_hash) = 32 AND (address_hash IS NULL OR octet_length(address_hash) = 32) AND key_version > 0"));
         });
         model.Entity<BannedIdentifier>(ban =>
         {

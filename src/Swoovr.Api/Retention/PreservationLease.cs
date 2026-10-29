@@ -12,6 +12,7 @@ public sealed class PreservationLease : IAsyncDisposable
 {
     public const int BarrierNamespace = 0x50524553;
     public const int HoldNamespace = 0x484F4C44;
+    public const int BanQuotaNamespace = 0x42414E52;
     public const int CaseNamespace = 0x43415345;
     private readonly SwoovrDbContext db;
     private readonly int space, key;
@@ -21,6 +22,7 @@ public sealed class PreservationLease : IAsyncDisposable
     public static Task<PreservationLease> SharedAsync(SwoovrDbContext db, CancellationToken token) => OpenAsync(db, BarrierNamespace, 0, true, token);
     public static Task<PreservationLease> ExclusiveAsync(SwoovrDbContext db, CancellationToken token) => OpenAsync(db, BarrierNamespace, 0, false, token);
     public static Task<PreservationLease> HoldAsync(SwoovrDbContext db, Guid hold, CancellationToken token) => OpenAsync(db, HoldNamespace, AccountLifecycleLease.Key(hold), false, token);
+    public static Task<PreservationLease> BanQuotaAsync(SwoovrDbContext db, Guid quota, CancellationToken token) => OpenAsync(db, BanQuotaNamespace, AccountLifecycleLease.Key(quota), false, token);
     public static Task<PreservationLease> CaseAsync(SwoovrDbContext db, Guid review, CancellationToken token) => OpenAsync(db, CaseNamespace, AccountLifecycleLease.Key(review), false, token);
     private static async Task<PreservationLease> OpenAsync(SwoovrDbContext db, int space, int key, bool shared, CancellationToken token)
     {

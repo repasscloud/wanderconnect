@@ -75,6 +75,12 @@ static class BannedIdentifierChecks
         }
         var one = Convert.ToBase64String(key);var two = Convert.ToBase64String(Enumerable.Repeat((byte)32,32).ToArray());
         var ring = Keys(false, ("Bans:HmacKeys:1",one),("Bans:HmacKeys:2",two));
+        Check(!ring.QuotaHash("caller","fictional@example.test",1).SequenceEqual(ring.QuotaHash("address","fictional@example.test",1)), "Quota caller and address purposes are separated.");
+        Check(!ring.QuotaHash("caller","fictional@example.test",1).SequenceEqual(ring.Fingerprint(BannedIdentifierType.Email,"fictional@example.test",1)), "Quota fingerprints cannot be reused as identifier fingerprints.");
+        try { ring.QuotaHash("email","fictional@example.test",1);throw new Exception("Unknown quota purpose accepted."); }
+        catch (ArgumentException) { count++; }
+        try { ring.QuotaHash("caller","fictional",99);throw new Exception("Missing quota key accepted."); }
+        catch (InvalidOperationException) { count++; }
         Check(ring.Configured && ring.CurrentVersion == 2 && ring.HasVersion(1), "Hosted explicit ring retains historical1 and uses2 for new fingerprints.");
         Check(ring.Fingerprint(BannedIdentifierType.Email,"fictional.member+tag@example.test",1).SequenceEqual(email), "Actual server key consumer preserves old fingerprint matching.");
         Check(!Keys(false,("Founders:Secrets:1",Convert.ToHexString(key))).Configured, "Hosted environments never derive an implicit ban key.");

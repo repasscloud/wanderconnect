@@ -27,6 +27,8 @@ public static class ProviderSetup
         // Host-free smoke/simulation configurations deliberately have no persistence context.
         if (!string.IsNullOrWhiteSpace(configuration.GetConnectionString("Swoovr")))
         {
+            services.AddScoped<BannedIdentifierKeys>();
+            services.AddScoped<BannedIdentifierRegistry>();
             services.AddScoped<StaffConflictHistory>();
             services.AddScoped<Retention.SafetyRetention>();
             services.AddScoped<Retention.MessageRetention>();

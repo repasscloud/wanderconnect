@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Contracts;
+using Swoovr.Api.Retention;
 using Swoovr.Domain;
 using Swoovr.Infrastructure.Persistence;
 using static Swoovr.Api.Accounts.AccountEndpoints;
@@ -35,6 +36,7 @@ public static class PhoneEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
+            await using var identifierAuthority = await PreservationLease.SharedAsync(db,cancellationToken);
             if (PhoneVerificationPolicy.Normalise(request.Number) is not { } number)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPhone, "Enter a mobile number, for example 0412 345 678 or +61 412 345 678.");
             if (keys.Key is not { } key) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Mobile verification isn't available right now.");
@@ -61,6 +63,7 @@ public static class PhoneEndpoints
                     await db.SaveChangesAsync(cancellationToken);
                     return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.PhoneCodeLimit, "Too many codes. Try again in an hour.");
             }
+            await CheckNumberAsync(user,accounts,account.Id,number,now,cancellationToken);
             var code = PhoneVerificationPolicy.NewCode();
             var row = new PhoneCode
             {
@@ -70,6 +73,7 @@ public static class PhoneEndpoints
             db.PhoneCodes.Add(row);
             Audit.Record(db, now, account.Id, "account", "phone.code-sent", "phone-code", row.Id.ToString(), sender.Kind);
             await db.SaveChangesAsync(cancellationToken);
+            await identifierAuthority.DisposeAsync();
             if (!await sender.SendCodeAsync(number, code, cancellationToken))
                 return Problem(StatusCodes.Status502BadGateway, ProblemCodes.PhoneSendFailed, "We couldn't send a code just now. Try again.");
             return Results.Ok(await ViewAsync(db, account.Id, sender, accounts.PhoneRequired, now, cancellationToken));
@@ -81,6 +85,7 @@ public static class PhoneEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
+            await using var identifierAuthority = await PreservationLease.SharedAsync(db,cancellationToken);
             if (PhoneVerificationPolicy.Normalise(request.Number) is not { } number)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPhone, "Enter the number the code was sent to.");
             if (keys.Key is not { } key) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Mobile verification isn't available right now.");
@@ -97,6 +102,7 @@ public static class PhoneEndpoints
                     _ => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhoneCodeWrong, "That code isn't right. Check it and try again."),
                 };
             }
+            await CheckNumberAsync(user,accounts,account.Id,number,now,cancellationToken);
             // D181: one member account per verified number; the answer doesn't say whose.
             if (await db.MemberPhones.AnyAsync(p => p.Number == number && p.AccountId != account.Id, cancellationToken))
             {
@@ -118,6 +124,7 @@ public static class PhoneEndpoints
             catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another."); }
             // #87 (policy §8): a number a terminated member used is flagged to the admin queue, never refused.
             await deletion.FlagIfReturningPhoneAsync(account.Id, number, now, cancellationToken);
+            await identifierAuthority.DisposeAsync();
             if (replaced is not null)
             {
                 // #87 (policy §4): tell the old number, without the new one, and end every other session of the account.
@@ -129,6 +136,14 @@ public static class PhoneEndpoints
             }
             return Results.Ok(await ViewAsync(db, account.Id, sender, accounts.PhoneRequired, now, cancellationToken));
         });
+    }
+
+    private static Task CheckNumberAsync(ClaimsPrincipal user,AccountResolver accounts,Guid account,string number,DateTimeOffset now,CancellationToken token)
+    {
+        var context = accounts.Services.GetService<IHttpContextAccessor>()?.HttpContext;
+        var configuration = accounts.Services.GetRequiredService<IConfiguration>();
+        return accounts.Services.GetRequiredService<BannedIdentifierRegistry>().RequireAllowedAsync(BannedIdentifierType.Mobile,number,
+            user.FindFirstValue("iss") + "\0" + user.FindFirstValue("sub"),context is null ? null : ClientAddress(context,configuration),account,now,token);
     }
 
     private static async Task<PhoneView> ViewAsync(SwoovrDbContext db, Guid accountId, IVerificationMessageSender sender, bool required, DateTimeOffset now,

@@ -368,6 +368,70 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("ban_case_notes");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BanCheckAttempt", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<byte[]>("AddressHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("address_hash");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<byte[]>("CallerHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("caller_hash");
+
+                    b.Property<string>("IdentifierType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("identifier_type");
+
+                    b.Property<int>("KeyVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("key_version");
+
+                    b.PrimitiveCollection<Guid[]>("MatchedBanIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("matched_ban_ids");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ban_check_attempts");
+
+                    b.HasIndex("At")
+                        .HasDatabaseName("ix_ban_check_attempts_at");
+
+                    b.HasIndex("MatchedBanIds")
+                        .HasDatabaseName("ix_ban_check_attempts_matched_ban_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("MatchedBanIds"), "gin");
+
+                    b.HasIndex("AddressHash", "KeyVersion", "At")
+                        .HasDatabaseName("ix_ban_check_attempts_address_hash_key_version_at");
+
+                    b.HasIndex("CallerHash", "KeyVersion", "IdentifierType", "At")
+                        .HasDatabaseName("ix_ban_check_attempts_caller_hash_key_version_identifier_type_~");
+
+                    b.ToTable("ban_check_attempts", t =>
+                        {
+                            t.HasCheckConstraint("ck_ban_attempt_hash", "octet_length(caller_hash) = 32 AND (address_hash IS NULL OR octet_length(address_hash) = 32) AND key_version > 0");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.BanTransition", b =>
                 {
                     b.Property<Guid>("Id")

@@ -208,6 +208,7 @@ public static class Cli
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.RetentionJobs>().RunAsync(now, CancellationToken.None);
                 Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted; {run.ConflictRecordsExpired} minimal staff associations expired.");
+                if (run.FailedClosed) Console.Error.WriteLine("Retention stopped: preservation status or membership was unavailable.");
                 return run.FailedClosed || run.Accounts?.Waiting > 0 ? 1 : 0;
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),

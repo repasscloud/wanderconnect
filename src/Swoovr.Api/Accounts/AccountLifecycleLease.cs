@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Infrastructure.Persistence;
 
@@ -9,12 +10,19 @@ namespace Swoovr.Api.Accounts;
 public sealed class AccountLifecycleLease : IAsyncDisposable
 {
     public const int Namespace = 0x41434354;
+    public const int RegistrationNamespace = 0x52454749;
     public const int MediaNamespace = 0x4D454449;
     public static int Key(Guid account) => BinaryPrimitives.ReadInt32BigEndian(SHA256.HashData(account.ToByteArray()));
     private readonly SwoovrDbContext db;
     private readonly int key, space;
     private int disposed;
     private AccountLifecycleLease(SwoovrDbContext db, int key, int space) { this.db = db; this.key = key; this.space = space; }
+    /// <summary>Unknown member mappings serialize by authenticated issuer/subject before allocating an account-state lock.</summary>
+    public static async Task<AccountLifecycleLease> AcquireRegistrationAsync(SwoovrDbContext db,string issuer,string subject,CancellationToken token)
+    {
+        var identity = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(issuer + "\0" + subject)).AsSpan(0,16));
+        return await OpenAsync(db,identity,RegistrationNamespace,false,token) ?? throw new InvalidOperationException("Registration lease unavailable.");
+    }
     public static async Task<AccountLifecycleLease> AcquireAsync(SwoovrDbContext db, Guid account, CancellationToken token) =>
         await OpenAsync(db, account, Namespace, false, token) ?? throw new InvalidOperationException("Media lease unavailable.");
     public static Task<AccountLifecycleLease?> TryAcquireAsync(SwoovrDbContext db, Guid account, CancellationToken token) => OpenAsync(db, account, Namespace, true, token);

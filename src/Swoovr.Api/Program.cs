@@ -42,6 +42,7 @@ if (persistence && app.Environment.IsDevelopment())
 app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<IdentifierCheckMiddleware>();
 app.UseMiddleware<MemberMutationAuthority>();
 // #88 (policy §11, §15): every view, query, export, change and refusal on restricted admin routes goes to the append-only log.
 app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();

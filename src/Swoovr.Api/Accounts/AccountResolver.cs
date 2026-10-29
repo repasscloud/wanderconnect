@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Api.Auth;
+using Swoovr.Api.Retention;
 using Swoovr.Domain;
 using Swoovr.Infrastructure.Persistence;
 
@@ -85,8 +86,11 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
                 BetaAccessPolicy.Evaluate(BetaEnabled, persistence: false, facts.Realm, Guid.Empty, facts.EmailVerified, email, []));
 
         var issuer = user.FindFirstValue("iss")!;
-        var account = await Db.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject, cancellationToken)
-            ?? await CreateAsync(issuer, facts, email, now, cancellationToken);
+        var account = await Db.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject, cancellationToken);
+        if (account is null)
+            account = facts.Realm == AccountRealm.Members
+                ? await CreateMemberAsync(issuer,facts,email,now,cancellationToken)
+                : await CreateAsync(issuer,facts,email,now,cancellationToken);
         await using var state = facts.Realm == AccountRealm.Members ? await AccountLifecycleLease.AcquireAsync(Db, account.Id, cancellationToken) : null;
         if (state is not null)
         {
@@ -99,6 +103,10 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             return new(facts, result, null, account, [], null, BetaAccess.NotRequired) { LocalPasswordStaff = LocalPasswordStaff };
         // #88 (policy §11): a revoked staff member's sessions end; a token from a sign-in before the revocation is refused.
         if (StaffAccessPolicy.SessionRevoked(account.SessionsRevokedAt, facts.AuthenticatedAt)) return null;
+        await using var identifierAuthority = facts.Realm == AccountRealm.Members ? await PreservationLease.SharedAsync(Db,cancellationToken) : null;
+        var existingProfile = facts.Realm == AccountRealm.Members ? await Db.MemberProfiles.FindAsync([account.Id],cancellationToken) : null;
+        if (facts.Realm == AccountRealm.Members && email is not null && (account.Email != email || existingProfile is null))
+            await CheckEmailAsync(email,issuer,facts.Subject,account.Id,now,cancellationToken);
         var emailChanged = email is not null && account.Email is not null && account.Email != email;
         // D187 (policy §4): a verified email that changed (in Keycloak) goes to the encrypted contact history.
         if (emailChanged && services.GetRequiredService<ContactHistoryKeys>().Record(account.Id, ContactType.Email, account.Email!, null, now, account.Id, "changed") is { } previous)
@@ -110,6 +118,14 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             account.LastSeenAt = now;
             await Db.SaveChangesAsync(cancellationToken);
         }
+        MemberProfile? profile = null;
+        if (facts.Realm == AccountRealm.Members)
+        {
+            profile = existingProfile ?? await CreateProfileAsync(account.Id, facts, email, now, cancellationToken);
+        }
+        else
+            await AcceptInvitationsAsync(account, facts, result, email, now, cancellationToken);
+        if (identifierAuthority is not null) await identifierAuthority.DisposeAsync();
         // #87 (policy §4, §14): the previous address hears that it changed, never what to.
         if (previousEmail is not null && facts.Realm == AccountRealm.Members)
             await services.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>().SendAsync(new Swoovr.Infrastructure.Email.EmailMessage(previousEmail,
@@ -121,20 +137,38 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
 
                 — Swoovr (RePass Cloud Pty Ltd)
                 """), cancellationToken);
-        MemberProfile? profile = null;
-        if (facts.Realm == AccountRealm.Members)
-        {
-            profile = await Db.MemberProfiles.FindAsync([account.Id], cancellationToken)
-                ?? await CreateProfileAsync(account.Id, facts, email, now, cancellationToken);
-            // D65: a founder whose verified email changed gets a new token; the old one stops working.
-            if (emailChanged && profile.FoundingMember)
-                await services.GetRequiredService<Founders>().ReissueForEmailChangeAsync(account, profile, now, cancellationToken);
-        }
-        else
-            await AcceptInvitationsAsync(account, facts, result, email, now, cancellationToken);
+        // External mail must not hold the global preservation barrier.
+        if (emailChanged && profile is { FoundingMember: true })
+            await services.GetRequiredService<Founders>().ReissueForEmailChangeAsync(account,profile,now,cancellationToken);
         var roles = await Db.RoleGrants.Where(r => r.AccountId == account.Id).ToListAsync(cancellationToken);
         var beta = await BetaAsync(account, facts, email, now, cancellationToken);
         return new(facts, result, email, account, roles, profile, beta) { LocalPasswordStaff = LocalPasswordStaff };
+    }
+
+    private async Task<Account> CreateMemberAsync(string issuer,ValidatedSessionFacts facts,string? email,DateTimeOffset now,CancellationToken token)
+    {
+        await using var registration = await AccountLifecycleLease.AcquireRegistrationAsync(Db!,issuer,facts.Subject,token);
+        var existing = await Db!.Accounts.SingleOrDefaultAsync(a => a.Issuer == issuer && a.Subject == facts.Subject,token);
+        if (existing is not null) return existing;
+        var id = Guid.NewGuid();
+        await using var state = await AccountLifecycleLease.AcquireAsync(Db,id,token);
+        await using var barrier = await PreservationLease.SharedAsync(Db,token);
+        if (email is not null) await CheckEmailAsync(email,issuer,facts.Subject,null,now,token);
+        // Keep the committed quota attempt, but never commit a partial account/profile registration.
+        await using var transaction = await Db.Database.BeginTransactionAsync(token);
+        var account = await CreateAsync(issuer,facts,email,now,token,id);
+        if (account.Id != id) throw new DbUpdateConcurrencyException("Registration changed. Retry.");
+        await CreateProfileAsync(id,facts,email,now,token);
+        await transaction.CommitAsync(token);
+        return account;
+    }
+
+    private Task CheckEmailAsync(string email,string issuer,string subject,Guid? account,DateTimeOffset now,CancellationToken token)
+    {
+        var context = services.GetService<IHttpContextAccessor>()?.HttpContext;
+        var address = context is null ? null : PhoneEndpoints.ClientAddress(context,configuration);
+        return services.GetRequiredService<BannedIdentifierRegistry>().RequireAllowedAsync(BannedIdentifierType.Email,email,
+            issuer + "\0" + subject,address,account,now,token);
     }
 
     /// <summary>
@@ -164,11 +198,11 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         return access;
     }
 
-    private async Task<Account> CreateAsync(string issuer, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task<Account> CreateAsync(string issuer, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken, Guid? proposedId = null)
     {
         var account = new Account
         {
-            Id = Guid.NewGuid(), Issuer = issuer, Subject = facts.Subject, Realm = facts.Realm, Email = email,
+            Id = proposedId ?? Guid.NewGuid(), Issuer = issuer, Subject = facts.Subject, Realm = facts.Realm, Email = email,
             Status = AccountStatus.Active, CreatedAt = now, LastSeenAt = now,
         };
         Db!.Accounts.Add(account);
@@ -184,6 +218,8 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
 
     private async Task<MemberProfile> CreateProfileAsync(Guid accountId, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken)
     {
+        await using var transaction = Db!.Database.CurrentTransaction is null
+            ? await Db.Database.BeginTransactionAsync(cancellationToken) : null;
         var profile = new MemberProfile
         {
             AccountId = accountId,
@@ -204,15 +240,19 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         try
         {
             await Db.SaveChangesAsync(cancellationToken);
-            // D171: a returning terminated member is flagged to the admin queue, never blocked.
-            await services.GetRequiredService<AccountDeletion>().FlagIfReturningAsync(accountId, email, now, cancellationToken);
-            return profile;
         }
         catch (DbUpdateException)
         {
             Db.ChangeTracker.Clear();
-            return await Db.MemberProfiles.SingleAsync(p => p.AccountId == accountId, cancellationToken);
+            var raced = await Db.MemberProfiles.SingleAsync(p => p.AccountId == accountId, cancellationToken);
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+            return raced;
         }
+        // Legacy flag preservation remains required until D217 backfill/workflows replace it. A flag failure must
+        // abort this transaction, not be mistaken for a concurrent profile insert and silently committed.
+        await services.GetRequiredService<AccountDeletion>().FlagIfReturningAsync(accountId, email, now, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+        return profile;
     }
 
     /// <summary>

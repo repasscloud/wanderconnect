@@ -114,3 +114,16 @@ public static class BannedIdentifierPolicy
         return latest.ToUniversalTime().AddMonths(HistoryMonths);
     }
 }
+
+/// <summary>Short-lived, content-free authenticated check quota; hashes never include the queried email/mobile.</summary>
+public sealed class BanCheckAttempt
+{
+    public long Id { get; set; }
+    public byte[] CallerHash { get; set; } = [];
+    public byte[]? AddressHash { get; set; }
+    public int KeyVersion { get; set; }
+    public BannedIdentifierType IdentifierType { get; set; }
+    public Guid? AccountId { get; set; }
+    public Guid[] MatchedBanIds { get; set; } = [];
+    public DateTimeOffset At { get; set; }
+}

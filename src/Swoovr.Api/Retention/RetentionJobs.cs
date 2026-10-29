@@ -5,7 +5,7 @@ namespace Swoovr.Api.Retention;
 
 public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0);
 
-public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts)
+public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans)
 {
     public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token)
     {
@@ -19,7 +19,8 @@ public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accoun
         var objects = await media.SweepAsync(now, token);
         if (objects is null) return new(reviews, deleted, expired, 0, 0, true);
         var associations = await conflicts.PurgeAsync(now, token);
-        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, associations.HoldStatusUnavailable, associations.Expired);
+        var attempts = await bans.SweepAttemptsAsync(now,token);
+        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, associations.HoldStatusUnavailable || attempts is null, associations.Expired);
     }
 }
 
@@ -35,7 +36,7 @@ public sealed class RetentionWorker(IServiceScopeFactory scopes, TimeProvider cl
             {
                 await using var scope = scopes.CreateAsyncScope();
                 var result = await scope.ServiceProvider.GetRequiredService<RetentionJobs>().RunAsync(clock.GetUtcNow(), stoppingToken);
-                if (result.FailedClosed) log.LogError("Retention run stopped because preservation status was unavailable.");
+                if (result.FailedClosed) log.LogError("Retention run stopped because preservation status or membership was unavailable.");
                 else log.LogInformation("Retention: {Cases} case records, {Content} case content sets, {Copies} copies disposed; {Review} require restricted review; {Conflicts} minimal staff associations expired.",
                     result.Safety.CasesDisposed, result.Safety.ContentDisposed, result.Safety.CopiesDisposed, result.Safety.ReviewRequired, result.ConflictRecordsExpired);
             }

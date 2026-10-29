@@ -53,6 +53,8 @@ Builds Release, runs the policy/Node checks (`tests/Swoovr.Checks`, persistence 
 
 Build Debug **in the worktree**, then start its hosts (this stops whatever hosts are running, including the owner's, and signs everyone out):
 
+Before every host restart (including restoring main), preserve the actual `.local/logs/api.log`, `.local/logs/web.log` and `.local/logs/admin.log` in a timestamped `.local/log-backups/` directory with private0600 files. The launcher overwrites those files; `.local/api.log` and the other legacy root paths are not the current log locations. Back up any shared configuration file before editing it too.
+
 ```sh
 cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build Swoovr.Local.sln -c Debug && Phone__Required=false Accounts__ReauthSeconds=45 bash .local/run-hosts.sh > /tmp/hosts.log 2>&1; tail -1 /tmp/hosts.log
 ```
@@ -221,3 +223,9 @@ Do not backdate arbitrary cases or release real holds to clean tests. A released
 ### Banned-identifier foundation (D236)
 
 `./scripts/check.sh` includes typed HMAC/status/calendar and actual server key-ring checks plus disposable PostgreSQL registry constraints, immutable UPDATE/DELETE/TRUNCATE refusals and all-or-nothing revocation/event/case-note behavior. Test data is fictional; no shared database migration or host change is required. These checks do not prove registration/email/mobile enforcement or authorized admin workflows: run the integrated suites once those paths are wired, before calling118 complete.
+
+### Registry enforcement (D237–D239)
+
+`SWOOVR_PLAYWRIGHT_PATH=... node tests/enforcement/registry.browser.cjs` creates/drops an isolated `swoovr_bans_<uuid>` PostgreSQL database, starts API replicas on allocated loopback ports and uses real local Keycloak authentication for fictional adults. It does not replace the owner's hosts or mutate the owner application database. It seeds restrictions and synthetic code/hold/clock/fault fixtures directly, so it does not establish staff ban/revocation workflows or real contact ownership/delivery. Build Debug first; never rebuild during the run.
+
+Coverage includes blocked first application registration with no mapping/profile, approved neutral/no-store messages, refusal before mobile challenge creation, late restriction at confirmation, legitimate old contacts/session retained, verified Keycloak email change refused by the application, historical-key enforcement/missing-key failure, caller quota across two replicas, address quota and key rotation, actual registration wait during a database transition, concurrent registration uniqueness, profile/case failure rollback and retry, quota hold/unknown/release expiry, and referenced case metadata with separate content expiry. Run the default-host phone suite and the normal accounts/identity/deletion/retention suites for shared resolver/job changes.

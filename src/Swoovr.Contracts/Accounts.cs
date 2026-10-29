@@ -56,6 +56,8 @@ public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
 /// <summary>Problem codes the API returns in a problem response's "code" extension.</summary>
 public static class ProblemCodes
 {
+    public const string IdentifierRestricted = "identifier-restricted";
+    public const string IdentifierCheckUnavailable = "identifier-check-unavailable";
     public const string PersistenceUnavailable = "persistence-unavailable";
     public const string AccountLocked = "account-locked";
     public const string BetaNotEnrolled = "beta-not-enrolled";
