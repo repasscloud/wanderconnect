@@ -55,6 +55,11 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    VALUES('${conversation}',least('${a}'::uuid,'${b}'::uuid),greatest('${a}'::uuid,'${b}'::uuid),now()-interval '50 days',now()-interval '40 days');
    INSERT INTO messages(id,conversation_id,sender_account_id,kind,body,sent_at,deleted_at)
    VALUES('${message}','${conversation}','${a}','Text','Fictional ordinary expired text',now()-interval '40 days',now()-interval '31 days');`);
+  const expiryCase=crypto.randomUUID(),expiryBan=crypto.randomUUID();
+  await query(`INSERT INTO moderation_cases(id,subject_account_id,status,queue,priority,created_at,updated_at,closed_at)
+   VALUES('${expiryCase}','${a}','Closed','Admin','Normal',now(),now(),now());
+   INSERT INTO banned_identifiers(id,identifier_type,identifier_hash,key_version,case_id,ban_reason_code,status,banned_at,ban_expires_at,match_count)
+   VALUES('${expiryBan}','Email',decode(repeat('31',32),'hex'),1,'${expiryCase}','permanent-account-ban','Active',now()-interval '2 days',now()-interval '1 day',0);`);
   await stop();env.Retention__Worker='true';env.Evidence__HoldCheckUnavailable='true';const closedLog=await start('closed');
   for(let n=0;n<120;n++){
    if((await fs.readFile(closedLog,'utf8')).includes('Retention run stopped'))break;
@@ -63,6 +68,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal(await query(`SELECT count(*) FROM moderation_cases WHERE id='${review}'`),'1','unavailable hold status preserves review records');
   equal(await query(`SELECT body FROM messages WHERE id='${message}'`),'Fictional ordinary expired text','unavailable hold status stops later message phase');
   await fs.access(path.join(folder,objectKey));checks++;
+  equal(await query(`SELECT status FROM banned_identifiers WHERE id='${expiryBan}'`),'Active','unavailable preservation stops later expiry reconciliation');
   await stop();env.Evidence__HoldCheckUnavailable='false';await start('first');
   for(let n=0;n<120;n++){
    if(await query(`SELECT count(*) FROM audit_entries WHERE action='case.records-expired' AND target_id='${review}'`)==='1'
@@ -82,6 +88,9 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   }
   equal(await query(`SELECT count(*) FROM audit_entries WHERE action='case.content-expired' AND target_id='${review}'`),'1','restart does not duplicate completed work');
   equal(await query(`SELECT count(*) FROM audit_entries WHERE action='case.records-expired' AND target_id='${review}'`),'1','record disposal stays idempotent');
+  equal(await query(`SELECT status FROM banned_identifiers WHERE id='${expiryBan}'`),'Expired','hosted coordinator reconciles due restriction');
+  equal(await query(`SELECT count(*) FROM ban_transitions WHERE banned_identifier_id='${expiryBan}' AND action='expired' AND actor_account_id IS NULL`),'1','restart appends one system expiry event');
+  equal(await query(`SELECT count(*) FROM ban_case_notes n JOIN ban_transitions t ON n.transition_id=t.id WHERE t.banned_identifier_id='${expiryBan}' AND n.case_id='${expiryCase}'`),'1','hosted expiry retains linked case note');
   console.log(`PASS: hosted retention worker (${checks} checks; throwaway PostgreSQL, local synthetic files, actual restart; no external delivery).`);
  }finally{
   await stop();await browser.close();if(created)await sql(`DROP DATABASE ${database} WITH (FORCE)`);await fs.rm(folder,{recursive:true,force:true});

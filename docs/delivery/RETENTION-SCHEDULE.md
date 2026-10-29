@@ -37,3 +37,6 @@ D239: authenticated identifier-check quota metadata expires after24 hours by the
 
 
 D240–D242: current verified contact restrictions now populate atomically with permanent termination and survive ordinary final deletion. Backfill uses positive active-sanction/case provenance and never reactivates revoked rows. Authorized explicit necessity review records why an active restriction remains justified; it does not renew an inactive restriction. These workflows do not yet dispose of immutable history or resolve unversioned hash-only legacy sources. The six-month review interval is DEFAULT, and the broader legal57 gate remains.
+
+
+D250: the hourly/one-shot coordinator now appends scheduled Active→Expired registry transitions with linked system case notes. Expiry already stops matches at the original instant; delayed job processing does not extend the inactive clock or imply a staff necessity review. It deletes no held or unheld evidence. Immutable-history disposal remains unimplemented; do not treat this reconciliation as the complete24-month operational disposal control.

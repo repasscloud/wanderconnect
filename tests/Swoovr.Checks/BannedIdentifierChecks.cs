@@ -52,6 +52,17 @@ static class BannedIdentifierChecks
         row.Status = BanStatus.Revoked;row.RevokedAt = null;
         Check(BannedIdentifierPolicy.HistoryUntil(row) is null, "Missing revocation provenance cannot permit history disposal.");
         row.Id = Guid.NewGuid();row.CaseId = Guid.NewGuid();row.Status = BanStatus.Active;row.LastReviewedAt = null;
+        var overdue=BannedIdentifierPolicy.Issue(BannedIdentifierType.Email,email,1,Guid.NewGuid(),null,now.AddYears(-3),"Fictional original restriction.").Entry;
+        overdue.BanExpiresAt=now.AddYears(-2);
+        var expiry=BannedIdentifierPolicy.Expire(overdue,now);
+        Check(overdue.Status==BanStatus.Expired&&overdue.BanExpiresAt==now.AddYears(-2)&&overdue.LastReviewedAt is null,"Worker expiry keeps original expiry and does not invent necessity review.");
+        Check(expiry.Transition.ActorAccountId is null&&expiry.Transition.At==now&&expiry.Transition.Action=="expired"&&expiry.Note.AuthorAccountId is null,"Expiry records actual system processing time without staff attribution.");
+        Check(expiry.Transition.OldStatus==BanStatus.Active&&expiry.Transition.NewStatus==BanStatus.Expired&&expiry.Note.TransitionId==expiry.Transition.Id,"Expiry event and case note share provenance.");
+        Check(BannedIdentifierPolicy.HistoryUntil(overdue)==now,"Delayed expiry processing does not restart the24-month inactive clock.");
+        foreach(var candidate in new[]{new BannedIdentifier{Status=BanStatus.Active},new BannedIdentifier{Status=BanStatus.Active,BanExpiresAt=now.AddTicks(1)},overdue})
+        {
+            try{BannedIdentifierPolicy.Expire(candidate,now);throw new Exception("Non-due expiry accepted.");}catch(InvalidOperationException){count++;}
+        }
         var actor = Guid.NewGuid();
         var (transition, note) = BannedIdentifierPolicy.Revoke(row, actor, "Fictional reassigned identifier reviewed independently.", now);
         Check(row.Status == BanStatus.Revoked && row.RevokedAt == now && row.RevokedBy == actor && row.BanExpiresAt == now && row.LastReviewedAt == now, "Identifier release sets all required timestamps and staff attribution.");

@@ -29,6 +29,7 @@ public static class ProviderSetup
         {
             services.AddScoped<BannedIdentifierKeys>();
             services.AddScoped<BannedIdentifierRegistry>();
+            services.AddScoped<RegistryExpiry>();
             services.AddScoped<RegistryPopulation>();
             services.AddScoped<StaffConflictHistory>();
             services.AddScoped<Retention.SafetyRetention>();

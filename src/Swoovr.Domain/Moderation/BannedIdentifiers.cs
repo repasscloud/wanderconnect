@@ -136,6 +136,19 @@ public static class BannedIdentifierPolicy
         return(transition,new BanCaseNote { Id=Guid.NewGuid(),CaseId=row.CaseId,TransitionId=transition.Id,AuthorAccountId=actor,At=at,Text=reason.Trim() });
     }
 
+    /// <summary>Append truthful system processing provenance without restarting the original expiry/history clock.</summary>
+    public static (BanTransition Transition,BanCaseNote Note) Expire(BannedIdentifier row,DateTimeOffset now)
+    {
+        if(row.Id==Guid.Empty||row.CaseId==Guid.Empty||row.Status!=BanStatus.Active||row.BanExpiresAt is null||row.BanExpiresAt>now)
+            throw new InvalidOperationException("Only a documented due active restriction can expire.");
+        var before=JsonSerializer.Serialize(row,SnapshotOptions);row.Status=BanStatus.Expired;
+        const string reason="Scheduled identifier restriction expired. Original expiry and account enforcement remain unchanged.";
+        var transition=new BanTransition {Id=Guid.NewGuid(),BannedIdentifierId=row.Id,CaseId=row.CaseId,At=now.ToUniversalTime(),Action="expired",
+            OldStatus=BanStatus.Active,NewStatus=BanStatus.Expired,OldExpiresAt=row.BanExpiresAt,NewExpiresAt=row.BanExpiresAt,
+            Reason=reason,OldValues=before,NewValues=JsonSerializer.Serialize(row,SnapshotOptions)};
+        return(transition,new BanCaseNote{Id=Guid.NewGuid(),CaseId=row.CaseId,TransitionId=transition.Id,At=transition.At,Text=reason});
+    }
+
     /// <summary>DEFAULT inactive history minimum; active restrictions and missing transition provenance cannot expire.</summary>
     public static DateTimeOffset? HistoryUntil(BannedIdentifier row)
     {

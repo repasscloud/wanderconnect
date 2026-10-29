@@ -213,7 +213,7 @@ public static class Cli
             case ["retention", "purge"]:
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.RetentionJobs>().RunAsync(now, CancellationToken.None);
-                Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted; {run.ConflictRecordsExpired} minimal staff associations expired.");
+                Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted; {run.ConflictRecordsExpired} minimal staff associations expired; {run.IdentifierRestrictionsExpired} scheduled identifier restrictions expired.");
                 if (run.FailedClosed) Console.Error.WriteLine("Retention stopped: preservation status or membership was unavailable.");
                 return run.FailedClosed || run.Accounts?.Waiting > 0 ? 1 : 0;
             }

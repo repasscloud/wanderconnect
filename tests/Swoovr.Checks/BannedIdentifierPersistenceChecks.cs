@@ -9,7 +9,7 @@ static class BannedIdentifierPersistenceChecks
     public static async Task Run(DbContextOptions<SwoovrDbContext> options, Action<string, bool> check)
     {
         await using var db = new SwoovrDbContext(options);
-        var now = DateTimeOffset.UtcNow;var member = Guid.NewGuid();var staff = Guid.NewGuid();var review = Guid.NewGuid();
+        var now = new DateTimeOffset(DateTimeOffset.UtcNow.UtcTicks / 10 * 10, TimeSpan.Zero);var member = Guid.NewGuid();var staff = Guid.NewGuid();var review = Guid.NewGuid();
         db.Accounts.Add(new Account { Id = member, Issuer = "https://issuer.example.test/realms/members", Subject = "fictional-ban-" + member, Realm = AccountRealm.Members, Status = AccountStatus.Deleted, CreatedAt = now, LastSeenAt = now });
         db.ModerationCases.Add(new ModerationCase { Id = review, SubjectAccountId = member, Status = CaseStatus.Closed, Queue = CaseQueue.Admin, CreatedAt = now, UpdatedAt = now, ClosedAt = now });
         await db.SaveChangesAsync();
@@ -68,5 +68,32 @@ static class BannedIdentifierPersistenceChecks
             }
         }
         check("failed tampering leaves both history records intact", await db.BanTransitions.CountAsync(t => t.BannedIdentifierId == row.Id) == 1 && await db.BanCaseNotes.CountAsync(n => n.TransitionId == committed.Id) == 1);
+        var expiryRow=NewRow();expiryRow.BanExpiresAt=now;db.BannedIdentifiers.Add(expiryRow);
+        var future=NewRow();future.BanExpiresAt=now.AddSeconds(1);db.BannedIdentifiers.Add(future);
+        var indefinite=NewRow();db.BannedIdentifiers.Add(indefinite);await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE FUNCTION expiry_fixture_refuse() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN IF NEW.text LIKE 'Scheduled identifier restriction expired.%' THEN RAISE EXCEPTION 'fictional expiry note fault'; END IF; RETURN NEW; END $$;
+            CREATE TRIGGER expiry_fixture_refuse BEFORE INSERT ON ban_case_notes FOR EACH ROW EXECUTE FUNCTION expiry_fixture_refuse();
+            """);
+        await using(var failing=new SwoovrDbContext(options))
+        {
+            var refused=false;try{await new Swoovr.Api.Accounts.RegistryExpiry(failing).RunAsync(now,CancellationToken.None);}catch(DbUpdateException){refused=true;}
+            check("expiry note fault rolls back intended status transition",refused);
+        }
+        await db.Entry(expiryRow).ReloadAsync();
+        check("failed expiry preserves active status and has no orphan event",expiryRow.Status==BanStatus.Active&&!await db.BanTransitions.AnyAsync(t=>t.BannedIdentifierId==expiryRow.Id));
+        await db.Database.ExecuteSqlRawAsync("DROP TRIGGER expiry_fixture_refuse ON ban_case_notes; DROP FUNCTION expiry_fixture_refuse();");
+        async Task<int> Sweep(){await using var replica=new SwoovrDbContext(options);return await new Swoovr.Api.Accounts.RegistryExpiry(replica).RunAsync(now,CancellationToken.None);}
+        var replicas=await Task.WhenAll(Sweep(),Sweep());
+        check("two expiry replicas commit one transition at exact boundary",replicas.Sum()==1&&await db.BanTransitions.CountAsync(t=>t.BannedIdentifierId==expiryRow.Id&&t.Action=="expired")==1);
+        await db.Entry(expiryRow).ReloadAsync();await db.Entry(future).ReloadAsync();await db.Entry(indefinite).ReloadAsync();
+        check("expiry preserves original clock and distinguishes future/indefinite/revoked",expiryRow.Status==BanStatus.Expired&&expiryRow.BanExpiresAt==now&&expiryRow.LastReviewedAt==null&&future.Status==BanStatus.Active&&indefinite.Status==BanStatus.Active&&row.Status==BanStatus.Revoked);
+        check("expiry note and system event retain associated source",await db.BanCaseNotes.AnyAsync(n=>n.CaseId==review&&n.AuthorAccountId==null&&db.BanTransitions.Any(t=>t.Id==n.TransitionId&&t.BannedIdentifierId==expiryRow.Id&&t.ActorAccountId==null&&t.NewStatus==BanStatus.Expired)));
+        check("expiry rerun is idempotent and leaves original termination",await Sweep()==0&&await db.Sanctions.AnyAsync(x=>x.Id==sanction.Id&&x.LiftedAt==null));
+        for(var i=0;i<201;i++){var bulk=NewRow();bulk.BanExpiresAt=now;db.BannedIdentifiers.Add(bulk);}await db.SaveChangesAsync();
+        check("expiry keyset continues beyond one bounded page",await Sweep()==201&&await Sweep()==0);
+
+
     }
 }

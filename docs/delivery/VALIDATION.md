@@ -1093,3 +1093,17 @@ Known gap: tested reuse first deletes the original fictional provider account. R
 
 
 Main restoration verified: clean ae41722 equals origin/main, ff-only up to date, main Debug0 warnings/errors. Actual logs preserved0600 under `.local/log-backups/registry-ui-main-restore-20261029T202532/`; default main hosts restored with API original `/api/v1/status`200, web200, admin302 and all three listener cwd in main src. Root fixture differs only in lastOtpStep and remains0600. No shared config/schema/credential-value change, merge, deployment or Actions activation. Issue118 remains open.
+
+
+## Scheduled registry expiry — 29 October 2026 (D250; Q91/D249 answer recorded)
+
+Initial missing-method compile red established the absent expiry operation. Domain policy now records a system Expired event/note only for a documented due Active restriction, without changing original expiry/LastReviewedAt or account enforcement. Production matching already handles time independently. Keyset page200 processing reloads under exclusive preservation and commits status/history/note in one EF save; processed entities detach without clearing unrelated coordinator tracking. No record/hold/evidence erasure or migration.
+
+First standalone domain checks passed with PostgreSQL explicitly skipped (no test DB env). First full gate failed in MSBuild with four child-node MSB4166 exits; no source compile/test failure or retained diagnostic file was available. One clean retry passed115 PostgreSQL. Final `./scripts/check.sh` passed with zero warnings/errors,58 registry policy/key checks and116 PostgreSQL checks: exact/future/indefinite/inactive boundary, note-fault rollback, no orphan event, concurrent replica convergence, system attribution, original clocks and201 due records across page boundary. PostgreSQL fixture clock is normalized to microsecond precision; future fixture uses one second, not an unrepresentable100ns step. Read-only review found no actionable consistency/concurrency issue and did not rerun tests. Final Debug build0 warnings/errors.
+
+Hosted worker initial16 PASS on an isolated DB: unavailable hold status stops later expiry; resumed coordinator/restart appends exactly one system event and linked case note; preexisting media/message/review disposal regressions still pass. Final worker after tracker-bound change is recorded below. No shared app data migration/host/config change, member/admin UI change, new screenshot requirement or native/device claim. Main default hosts remain restored at ae41722 throughout; no merge/deploy/Actions. Bounded inactive-history disposal, legacy hash-only provenance, active binding retirement and backups remain required under118.
+
+Owner answered Q91 in chat: “Approve recommended default.” QUESTIONS.md is ANSWERED and D249 CONFIRMED. The answer authorizes the proposed separate audited retirement/recovery policy; it does not establish that active provider/mobile reassignment has been implemented or tested. Issue131 will close with the PR recording that answer; implementation continues under118.
+
+
+Final hosted worker16 PASS after the bounded-tracking change, exit0 verified before commit. Final check58 policy/key and116 PostgreSQL PASS; Debug0 warnings/errors. No browser UI change or native build needed. Main checkout remains clean ae41722 with its original default hosts; this slice never replaced them. Q91 answer is included with D249 and will be linked to this commit;118 stays open.

@@ -40,3 +40,8 @@ Staff UI implementation details (DEFAULT; next slice after4387ef1): use a typed 
 
 
 Staff UI slice complete locally (D247–D248): typed-client13, isolated workflows97, Edge42 and staff81; full check109PG. HTML no-store verified from actual antiforgery responses. Current-contact retirement gap explicitly Q91/131, proposed D249; do not conflate hash release with removal of an active provider/mobile binding. Continue legacy hash-only provenance, bounded immutable/operational retention and backups independently.
+
+
+## Operational expiry prerequisite to bounded disposal
+
+Expiry already permits matching at the scheduled instant without a worker. Reconcile overdue Active rows to Expired with an atomic immutable system transition and associated case note before designing inactive-history disposal. Never change the original expiry/review clocks, never reactivate/revoke, never label a system expiry as staff ownership review. Hold preservation prevents erasure, not truthful append-only status history; this job erases no records. Process bounded keyset pages under exclusive preservation authority, recheck current rows, commit each event/note/status together; reruns/replicas must be idempotent. Missing case provenance must fail rather than fabricate a subject. Test exact expiry/future/indefinite/revoked/invalid clocks, actual PostgreSQL note failure rollback, repeat and concurrent runs. Wire hourly/one-shot retention with counts-only output. Legacy hash-only conversion, bounded history deletion and backups remain required after this prerequisite.
