@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+ <changeSet id="swoovr-contact-policy-1" author="swoovr">
+  <preConditions onFail="HALT"><dbms type="postgresql"/></preConditions>
+  <sql splitStatements="false"><![CDATA[
+CREATE TABLE swoovr_email_retirement (
+ user_id varchar(36) PRIMARY KEY REFERENCES user_entity(id) ON DELETE CASCADE,
+ realm_id varchar(36) NOT NULL,
+ operation_id varchar(36) NOT NULL UNIQUE,
+ sink_email varchar(254) NOT NULL,
+ login_retired boolean NOT NULL,
+ retired_at timestamptz NOT NULL,
+ CONSTRAINT swoovr_retirement_operation CHECK(operation_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
+ CONSTRAINT swoovr_retirement_sink CHECK(sink_email='retired.'||operation_id||'@swoovr.invalid')
+);
+CREATE FUNCTION swoovr_retirement_source() RETURNS trigger LANGUAGE plpgsql VOLATILE AS $guard$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM user_entity WHERE id=NEW.user_id AND realm_id=NEW.realm_id
+   AND federation_link IS NULL AND service_account_client_link IS NULL) THEN
+   RAISE EXCEPTION 'Swoovr contact retirement requires a local nonservice source.' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;
+$guard$;
+CREATE TRIGGER swoovr_retirement_source BEFORE INSERT OR UPDATE ON swoovr_email_retirement
+ FOR EACH ROW EXECUTE FUNCTION swoovr_retirement_source();
+CREATE FUNCTION swoovr_retired_contact_guard() RETURNS trigger LANGUAGE plpgsql VOLATILE AS $guard$
+DECLARE policy swoovr_email_retirement%ROWTYPE;
+BEGIN
+ SELECT * INTO policy FROM swoovr_email_retirement WHERE user_id=NEW.id;
+ IF FOUND AND (NEW.realm_id IS DISTINCT FROM policy.realm_id OR NEW.email IS DISTINCT FROM policy.sink_email
+   OR NEW.email_verified IS DISTINCT FROM false OR (policy.login_retired AND NEW.username IS DISTINCT FROM policy.sink_email)) THEN
+   RAISE EXCEPTION 'Swoovr retired contact policy refuses this update.' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END;
+$guard$;
+CREATE TRIGGER swoovr_retired_contact_guard BEFORE UPDATE OF realm_id,email,email_verified,username ON user_entity
+ FOR EACH ROW EXECUTE FUNCTION swoovr_retired_contact_guard();
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>
