@@ -18,8 +18,29 @@ const ADELAIDE = 2078025;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   const output = process.env.SWOOVR_SCREENSHOTS;
+  const database=process.env.SWOOVR_TEST_APP_DATABASE||'swoovr';
+  async function withAuthority(space,key,probe) {
+    assert.ok([0x50524553,0x41434354].includes(space)&&Number.isInteger(key));
+    const holder=spawn('docker',['exec','-i','swoovr-local-postgres-1','psql','-U','swoovr','-d',database,'-v','ON_ERROR_STOP=1','-At'],{stdio:['pipe','pipe','pipe']});
+    holder.stdin.on('error',()=>{});let output='',error='';
+    holder.stdout.on('data',chunk=>{output+=chunk.toString();});holder.stderr.on('data',chunk=>{error=(error+chunk.toString()).slice(-1000);});
+    const closed=new Promise(resolve=>{holder.once('exit',resolve);holder.once('error',()=>resolve(-1));});
+    try {
+      holder.stdin.write(`BEGIN; SELECT pg_advisory_xact_lock(${space},${key}); SELECT 'owned-authority-ready';\n`);
+      for(let attempt=0;attempt<100&&!output.includes('owned-authority-ready');attempt++){
+        if(holder.exitCode!==null)throw new Error('Owned authority probe exited before acquiring its lock.');await sleep(20);
+      }
+      assert.ok(output.includes('owned-authority-ready'),'owned authority is held');pass();
+      await probe();
+    } finally {
+      holder.stdin.end('ROLLBACK;\n');
+      if(await Promise.race([closed,sleep(3000).then(()=>null)])===null){holder.kill('SIGKILL');await closed;}
+    }
+    if(error)throw new Error('Owned authority probe reported a PostgreSQL error.');
+  }
   try {
     const root = await rootAdminToken(browser);
+    if(process.env.SWOOVR_TEST_APP_DATABASE){await call(root,'/api/session');await cli('root-admin','grant',claims(root).sub);}
     const names = ['x', 'y', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'history', 'replacement'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('acc-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
@@ -164,26 +185,31 @@ const ADELAIDE = 2078025;
     assert.equal((await call(st.adm, '/api/admin/cases')).status, 200, 'working before'); pass();
     // Keep the root's ordinary last-seen save out of this ordering probe: it must reach the revocation writer.
     await sql(`UPDATE accounts SET last_seen_at=now() WHERE realm='Staff' AND subject='${claims(root).sub}'`);
-    const holder=spawn('docker',['exec','-i','swoovr-local-postgres-1','psql','-U','swoovr','-d','swoovr','-v','ON_ERROR_STOP=1','-At'],{stdio:['pipe','pipe','pipe']});
-    holder.stdin.on('error',()=>{});let holderOutput='',holderError='';
-    holder.stdout.on('data',chunk=>{holderOutput+=chunk.toString();});holder.stderr.on('data',chunk=>{holderError+=chunk.toString().slice(0,1000);});
-    const holderClosed=new Promise(resolve=>{holder.once('exit',resolve);holder.once('error',()=>resolve(-1));});
-    let pending;
-    try {
-      holder.stdin.write("BEGIN; SELECT pg_advisory_xact_lock(1347568979,0); SELECT 'retirement-authority-held';\n");
-      for(let attempt=0;attempt<100&&!holderOutput.includes('retirement-authority-held');attempt++){
-        if(holder.exitCode!==null)throw new Error('Owned preservation probe exited before acquiring authority.');await sleep(20);
+    // .NET Guid.ToByteArray uses little endian for its first three fields; pg_locks objid is unsigned.
+    const targetBytes=Buffer.from(sid.adm.replaceAll('-',''),'hex');targetBytes.subarray(0,4).reverse();targetBytes.subarray(4,6).reverse();targetBytes.subarray(6,8).reverse();
+    const digest=crypto.createHash('sha256').update(targetBytes).digest(),targetLock=digest.readUInt32BE(0),signedTargetLock=digest.readInt32BE(0);
+    const delegated=await grant(st.adm,'identifier-release','Fictional owner-lock regression');assert.equal(delegated.status,201);pass();
+    let revokeGrant;
+    await withAuthority(0x41434354,signedTargetLock,async()=>{
+      let settled=false;revokeGrant=call(root,`/api/admin/access/grants/${delegated.body.id}/revoke`,{method:'POST'});
+      revokeGrant.then(()=>{settled=true;},()=>{settled=true;});let waiting=false;
+      for(let attempt=0;attempt<100;attempt++){
+        waiting=Number(await sql(`SELECT count(*) FROM pg_locks WHERE locktype='advisory'
+          AND database=(SELECT oid FROM pg_database WHERE datname=current_database()) AND classid=${0x41434354} AND objid=${targetLock} AND NOT granted`))>0;
+        if(waiting||settled)break;await sleep(20);
       }
-      assert.ok(holderOutput.includes('retirement-authority-held'),'owned preservation authority is held');pass();
+      assert.ok(waiting&&!settled,'root grant revocation waits for the approving staff owner');pass();
+      assert.equal(await sql(`SELECT count(*) FROM access_grants WHERE id='${delegated.body.id}' AND revoked_at IS NULL`),'1','approval remains current until its owner lock releases');pass();
+    });
+    const grantRevoked=await revokeGrant;assert.equal(grantRevoked.status,200);assert.equal(grantRevoked.body.active,false);pass();
+    let pending;
+    await withAuthority(0x50524553,0,async()=>{
       let settled=false;
       pending=call(root, `/api/admin/staff/${sid.adm}/revoke`, { method: 'POST', body: { reason: 'Fictional: left the company' } });
-      pending.then(()=>{settled=true;},()=>{settled=true;});
-      // .NET Guid.ToByteArray uses little endian for its first three fields; lock objid is unsigned in pg_locks.
-      const targetBytes=Buffer.from(sid.adm.replaceAll('-',''),'hex');targetBytes.subarray(0,4).reverse();targetBytes.subarray(4,6).reverse();targetBytes.subarray(6,8).reverse();
-      const targetLock=crypto.createHash('sha256').update(targetBytes).digest().readUInt32BE(0);let waiting=false;
+      pending.then(()=>{settled=true;},()=>{settled=true;});let waiting=false;
       for(let attempt=0;attempt<100;attempt++){
         waiting=Number(await sql(`SELECT count(*) FROM pg_locks p JOIN pg_locks a ON a.pid=p.pid
-          WHERE p.locktype='advisory' AND p.database=(SELECT oid FROM pg_database WHERE datname='swoovr')
+          WHERE p.locktype='advisory' AND p.database=(SELECT oid FROM pg_database WHERE datname=current_database())
           AND p.classid=1347568979 AND p.objid=0 AND NOT p.granted
           AND a.locktype='advisory' AND a.classid=${0x41434354} AND a.objid=${targetLock} AND a.granted`))>0;
         if(waiting||settled)break;await sleep(20);
@@ -192,11 +218,7 @@ const ADELAIDE = 2078025;
       assert.ok(Number(await sql(`SELECT count(*) FROM role_grants WHERE account_id='${sid.adm}'`))>0
         &&Number(await sql(`SELECT count(*) FROM access_grants WHERE account_id='${sid.adm}' AND revoked_at IS NULL`))>0,
         'bulk roles/grants remain present until preservation authority is obtained');pass();
-    } finally {
-      holder.stdin.end('ROLLBACK;\n');
-      if(await Promise.race([holderClosed,sleep(3000).then(()=>null)])===null){holder.kill('SIGKILL');await holderClosed;}
-    }
-    if(holderError)throw new Error('Owned preservation probe reported a PostgreSQL error.');
+    });
     r=await pending;
     assert.equal(r.status, 200); assert.ok(r.body.rolesRemoved >= 1 && r.body.grantsRevoked >= 1); pass();
     const firstCutoff=await sql(`SELECT extract(epoch from sessions_revoked_at) FROM accounts WHERE id='${sid.adm}'`);

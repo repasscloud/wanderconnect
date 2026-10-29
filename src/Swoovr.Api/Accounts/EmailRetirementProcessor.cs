@@ -11,10 +11,12 @@ public sealed class EmailRetirementProcessor(SwoovrDbContext db,IContactIdentity
     public async Task ProcessAsync(Guid id,CancellationToken token)
     {
         if(!provider.ContactRetirementConfigured)return;
-        var source=await db.EmailRetirementOperations.Where(o=>o.Id==id).Select(o=>(Guid?)o.AccountId).SingleOrDefaultAsync(token);
+        var source=await db.EmailRetirementOperations.Where(o=>o.Id==id).Select(o=>new{o.AccountId,o.RequestedBy}).SingleOrDefaultAsync(token);
         if(source is null)return;
-        await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,source.Value,token);
-        await using var authority=await PreservationLease.ExclusiveAsync(db,token);
+        // Approval writers lock this same staff owner. Canonical ordering avoids source/approver deadlocks;
+        // shared preservation still excludes case/hold/registry mutations without stopping unrelated member writes.
+        await using var lifecycle=await AccountLifecycleLease.AcquireManyAsync(db,[source.AccountId,source.RequestedBy],token);
+        await using var authority=await PreservationLease.SharedAsync(db,token);
         var operation=await db.EmailRetirementOperations.SingleOrDefaultAsync(o=>o.Id==id,token);
         if(operation is null)return;await db.Entry(operation).ReloadAsync(token);
         if(operation.State==EmailRetirementState.Completed)return;

@@ -107,9 +107,39 @@ static class EmailRetirementPersistenceChecks
         var additionalRelease=BannedIdentifierPolicy.Revoke(additional.Entry,actor,"Fictional separately reviewed later release.",now);
         db.BanTransitions.Add(additionalRelease.Transition);db.BanCaseNotes.Add(additionalRelease.Note);await db.SaveChangesAsync();
         await db.EmailRetirementOperations.Where(o=>o.Id==operation.Id).ExecuteUpdateAsync(u=>u.SetProperty(o=>o.State,EmailRetirementState.Pending));
+        fake.Pause=true;
+        var processing=Process();await fake.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Task? unrelated=null;var progressed=false;
+        try
+        {
+            var sourceKey=(long)unchecked((uint)AccountLifecycleLease.Key(owner));var actorKey=(long)unchecked((uint)AccountLifecycleLease.Key(actor));
+            check("paused processor retains both source and approving actor authority",await db.Database.SqlQuery<bool>($"""
+                SELECT EXISTS(SELECT 1 FROM pg_locks s JOIN pg_locks a ON a.pid=s.pid JOIN pg_locks p ON p.pid=s.pid
+                WHERE s.locktype='advisory' AND s.database=(SELECT oid FROM pg_database WHERE datname=current_database())
+                  AND s.classid::bigint={AccountLifecycleLease.Namespace} AND s.objid::bigint={sourceKey} AND s.granted
+                  AND a.locktype='advisory' AND a.classid::bigint={AccountLifecycleLease.Namespace} AND a.objid::bigint={actorKey} AND a.granted
+                  AND p.locktype='advisory' AND p.classid::bigint={Swoovr.Api.Retention.PreservationLease.BarrierNamespace} AND p.objid=0 AND p.mode='ShareLock' AND p.granted) AS "Value"
+                """).SingleAsync());
+            async Task MemberWrite()
+            {
+                await using var replica=new SwoovrDbContext(options);var other=Guid.NewGuid();
+                await using var lifecycle=await AccountLifecycleLease.AcquireAsync(replica,other,CancellationToken.None);
+                await using var authority=await Swoovr.Api.Retention.PreservationLease.SharedAsync(replica,CancellationToken.None);
+                replica.Accounts.Add(new Account{Id=other,Issuer=Provider.Issuer,Subject=Guid.NewGuid().ToString(),Realm=AccountRealm.Members,
+                    Status=AccountStatus.Active,CreatedAt=now,LastSeenAt=now});await replica.SaveChangesAsync();
+            }
+            unrelated=MemberWrite();progressed=await Task.WhenAny(unrelated,Task.Delay(TimeSpan.FromSeconds(3)))==unrelated;
+        }
+        finally
+        {
+            fake.Release.TrySetResult(true);await processing.WaitAsync(TimeSpan.FromSeconds(10));
+            if(unrelated is not null)await unrelated.WaitAsync(TimeSpan.FromSeconds(10));fake.Pause=false;
+        }
+        check("unrelated member write remains available while provider effect is stalled",progressed);
+        var committedPosts=fake.Posts+1;
         fake.Status=IdentityContactState.NotRecorded;fake.CommitThenThrow=true;
         var interrupted=false;try{await Process();}catch(HttpRequestException){interrupted=true;}
-        check("injected crash after fake provider commit leaves completion unclaimed",interrupted&&fake.Posts==1&&(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).State==EmailRetirementState.Pending);
+        check("injected crash after fake provider commit leaves completion unclaimed",interrupted&&fake.Posts==committedPosts&&(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).State==EmailRetirementState.Pending);
         await db.AccessGrants.Where(g=>g.Id==grant.Id).ExecuteUpdateAsync(u=>u.SetProperty(g=>g.RevokedAt,now));
         db.StaffExclusions.Add(new StaffExclusion{StaffAccountId=actor,SubjectAccountId=owner,CreatedBy=actor,CreatedAt=now,Reason="Fictional later conflict"});await db.SaveChangesAsync();
         processorClock.Now=now.AddMinutes(10);
@@ -128,9 +158,9 @@ static class EmailRetirementPersistenceChecks
         }
         finally {await db.Database.ExecuteSqlRawAsync("DROP TRIGGER fictional_email_completion_fault ON email_retirement_operations;DROP FUNCTION fictional_email_completion_fault();");}
         await Process();var completed=await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id);
-        check("new replica reconciles committed receipt after human grant revocation and conflict",completed.State==EmailRetirementState.Completed&&completed.CompletedAt!=null&&fake.Posts==1);
+        check("new replica reconciles committed receipt after human grant revocation and conflict",completed.State==EmailRetirementState.Completed&&completed.CompletedAt!=null&&fake.Posts==committedPosts);
         check("completion keeps encrypted evidence instead of silently erasing held material",completed.EncryptedCommand.SequenceEqual(operation.EncryptedCommand));
-        await Process();check("completed retries never issue another provider attempt",fake.Posts==1);
+        await Process();check("completed retries never issue another provider attempt",fake.Posts==committedPosts);
         check("tokens issued during delayed pending window remain refused after completion",await Resolve() is null);
         var resolved=await Resolve(now.AddMinutes(11));
         check("completed source never re-adopts claimed retired email",resolved is not null&&resolved.VerifiedEmail is null&&resolved.Account!.Email is null
@@ -202,9 +232,16 @@ static class EmailRetirementPersistenceChecks
     {
         public const string Issuer="https://issuer.example.test/realms/members";
         public bool Configured=true;public bool ContactRetirementConfigured=>Configured;public string ContactIssuer=>Issuer;
-        public IdentityContactState Status;public bool CommitThenThrow;public int Posts;
+        public IdentityContactState Status;public bool CommitThenThrow,Pause;public int Posts;
+        public TaskCompletionSource<bool> Started=new(TaskCreationOptions.RunContinuationsAsynchronously),Release=new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task<IdentityEmailBindingResult> ReadEmailBindingAsync(Guid subject,CancellationToken token)=>throw new NotSupportedException();
         public Task<IdentityContactState> EmailRetirementStatusAsync(Guid subject,Guid operation,CancellationToken token)=>Task.FromResult(Status);
-        public Task<IdentityContactState> RetireEmailBindingAsync(IdentityEmailBinding binding,Guid operation,CancellationToken token){Posts++;if(CommitThenThrow){Status=IdentityContactState.Retired;throw new HttpRequestException("Fictional post-commit crash");}return Task.FromResult(Status);}
+        public async Task<IdentityContactState> RetireEmailBindingAsync(IdentityEmailBinding binding,Guid operation,CancellationToken token)
+        {
+            Posts++;
+            if(Pause){Started.TrySetResult(true);await Release.Task.WaitAsync(token);return IdentityContactState.Unavailable;}
+            if(CommitThenThrow){Status=IdentityContactState.Retired;throw new HttpRequestException("Fictional post-commit crash");}
+            return Status;
+        }
     }
 }

@@ -59,11 +59,14 @@ public static class StaffAccessEndpoints
             var (current, denied) = await AnyStaffAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
-            await using var staffState=await AccountLifecycleLease.AcquireAsync(db,me,cancellationToken);
+            var owner=await db.AccessGrants.Where(g=>g.Id==id).Select(g=>(Guid?)g.AccountId).SingleOrDefaultAsync(cancellationToken);
+            if(owner is null||owner!=me&&!current!.IsRootAdmin)return Results.NotFound();
+            // Root revocation of another staff member's grant must serialize with that approval owner too.
+            await using var staffState=await AccountLifecycleLease.AcquireManyAsync(db,[me,owner.Value],cancellationToken);
             await using var authority=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
             (current,denied)=await AnyStaffAsync(user,accounts,cancellationToken);if(denied is not null)return denied;
             now=clock.GetUtcNow();
-            var grant = await db.AccessGrants.FindAsync([id], cancellationToken);
+            var grant = await db.AccessGrants.SingleOrDefaultAsync(g=>g.Id==id&&g.AccountId==owner.Value,cancellationToken);
             if (grant is null || grant.AccountId != me && !current!.IsRootAdmin) return Results.NotFound();
             if (step == "renew")
             {
