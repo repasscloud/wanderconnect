@@ -110,6 +110,7 @@ public static class StaffAccessEndpoints
             var realms = await db.Accounts.Where(a => a.Id == request.StaffAccountId || a.Id == request.SubjectAccountId).ToDictionaryAsync(a => a.Id, a => a.Realm, cancellationToken);
             if (realms.GetValueOrDefault(request.StaffAccountId) != AccountRealm.Staff || realms.GetValueOrDefault(request.SubjectAccountId) != AccountRealm.Members)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "A staff account and a member account.");
+            await using var barrier = await Retention.PreservationLease.ExclusiveAsync(db, cancellationToken);
             if (!await db.StaffExclusions.AnyAsync(e => e.StaffAccountId == request.StaffAccountId && e.SubjectAccountId == request.SubjectAccountId, cancellationToken))
                 db.StaffExclusions.Add(new StaffExclusion { StaffAccountId = request.StaffAccountId, SubjectAccountId = request.SubjectAccountId, Reason = request.Reason.Trim(), CreatedBy = me, CreatedAt = now });
             Audit.Record(db, now, me, "account", "access.excluded", "account", request.StaffAccountId.ToString(), request.SubjectAccountId.ToString());
@@ -188,9 +189,14 @@ public static class StaffAccessEndpoints
     public static async Task<bool> ExcludedAsync(SwoovrDbContext db, Guid staff, IReadOnlyCollection<Guid> subjects, CancellationToken cancellationToken)
     {
         if (subjects.Count == 0) return false;
-        var exclusions = await db.StaffExclusions.Where(e => e.StaffAccountId == staff && subjects.Contains(e.SubjectAccountId)).ToListAsync(cancellationToken);
-        var links = await db.StaffMemberLinks.Where(l => l.StaffAccountId == staff && subjects.Contains(l.MemberAccountId)).ToListAsync(cancellationToken);
-        return StaffAccessPolicy.Excluded(staff, subjects, exclusions, links);
+        if (subjects.Contains(staff)) return true;
+        var staffKey = staff.ToString();
+        var memberKeys = subjects.Select(s => s.ToString()).ToArray();
+        // One SQL snapshot: old link/new archive must never be missed across two separate reads.
+        return await db.StaffExclusions.Where(e => e.StaffAccountId == staff && subjects.Contains(e.SubjectAccountId)).Select(_ => 1)
+            .Concat(db.StaffMemberLinks.Where(l => l.StaffAccountId == staff && subjects.Contains(l.MemberAccountId)).Select(_ => 1))
+            .Concat(db.AuditEntries.Where(a => a.Action == "staff-link.set" && a.ActorAccountId != null && a.TargetId == staffKey && memberKeys.Contains(a.Detail!)).Select(_ => 1))
+            .AnyAsync(cancellationToken);
     }
 
     public static async Task<List<Guid>?> HoldAccountsAsync(SwoovrDbContext db, Guid hold, CancellationToken cancellationToken)

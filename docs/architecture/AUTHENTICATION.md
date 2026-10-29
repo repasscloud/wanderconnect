@@ -37,3 +37,10 @@ These are acceptance criteria. No live authentication endpoints, fake JWT valida
 ## Phase 1 independent policy slice
 
 `Swoovr.Domain.AccountAccessPolicy` now evaluates trusted application facts for coarse account-area access. It is not registered as an API authorization handler and does not authenticate any request. [Slice scope and adapter obligations](../delivery/PHASE-1-ACCESS-POLICY.md) explain the trust boundary. SignInMethod values are internal application categories, not Keycloak claims or capabilities. Provider uncertainty must map to no session or Unknown, never an optimistic email-method default. No adapter is configured. `HasApprovedPrivilegedEmailEvidence` is a reserved server policy verdict, not an exclusive account classification. No production code can currently supply that verdict; it must remain false until the configured session-evidence contract validates verified email and fresh direct email authentication under D14.
+
+
+## Retained conflict authority (D235)
+
+Explicit staff-personal links are also minimal staff exclusions, saved atomically with link changes and final member deletion. `StaffConflictHistory` reconciles historical `staff-link.set` assertions with recorded actor/time; no email inference. `ExcludedAsync` reads current links, exclusions and historical assertions in one SQL statement, preventing an archive/delete race between separate reads. Moderation write guards use case subject/reporter membership and the matched endpoint’s route metadata rather than request-path spelling. Existing identity/hold/police guards consume the same exclusion authority.
+
+Retention takes exclusive preservation authority. It keeps associations while related account/history, case, hold/copy metadata or police records remain; unknown membership fails closed. Once the DEFAULT24-month minimum and every related obligation end, source assertions and the exclusion expire in one transaction. No new identity credential or authentication session is created.

@@ -3,12 +3,13 @@ using Swoovr.Api.Media;
 
 namespace Swoovr.Api.Retention;
 
-public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed);
+public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0);
 
-public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media)
+public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts)
 {
     public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token)
     {
+        await conflicts.ReconcileAsync(now, token);
         var reviews = await safety.PurgeAsync(now, token);
         if (reviews.HoldStatusUnavailable) return new(reviews, null, null, 0, 0, true);
         var deleted = await accounts.PurgeAsync(now, token);
@@ -16,7 +17,9 @@ public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accoun
         var expired = await messages.PurgeAsync(now, token);
         if (expired.HoldStatusUnavailable) return new(reviews, deleted, expired, 0, 0, true);
         var objects = await media.SweepAsync(now, token);
-        return new(reviews, deleted, expired, objects?.Deleted ?? 0, objects?.Kept ?? 0, objects is null);
+        if (objects is null) return new(reviews, deleted, expired, 0, 0, true);
+        var associations = await conflicts.PurgeAsync(now, token);
+        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, associations.HoldStatusUnavailable, associations.Expired);
     }
 }
 
@@ -33,8 +36,8 @@ public sealed class RetentionWorker(IServiceScopeFactory scopes, TimeProvider cl
                 await using var scope = scopes.CreateAsyncScope();
                 var result = await scope.ServiceProvider.GetRequiredService<RetentionJobs>().RunAsync(clock.GetUtcNow(), stoppingToken);
                 if (result.FailedClosed) log.LogError("Retention run stopped because preservation status was unavailable.");
-                else log.LogInformation("Retention: {Cases} case records, {Content} case content sets, {Copies} copies disposed; {Review} require restricted review.",
-                    result.Safety.CasesDisposed, result.Safety.ContentDisposed, result.Safety.CopiesDisposed, result.Safety.ReviewRequired);
+                else log.LogInformation("Retention: {Cases} case records, {Content} case content sets, {Copies} copies disposed; {Review} require restricted review; {Conflicts} minimal staff associations expired.",
+                    result.Safety.CasesDisposed, result.Safety.ContentDisposed, result.Safety.CopiesDisposed, result.Safety.ReviewRequired, result.ConflictRecordsExpired);
             }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
             { log.LogError("Retention run failed ({ErrorType}); remaining due records retry next run.", error.GetType().Name); }

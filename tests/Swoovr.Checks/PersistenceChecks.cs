@@ -82,6 +82,7 @@ static class PersistenceChecks
             await Travel(options, Check);
             await Messaging(options, Check);
             await FallbackKeyPersistenceChecks.Run(options, Check);
+            await StaffConflictPersistenceChecks.Run(options, Check);
         }
         finally
         {

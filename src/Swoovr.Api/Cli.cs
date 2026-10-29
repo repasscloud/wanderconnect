@@ -184,6 +184,14 @@ public static class Cli
                 Console.WriteLine($"Messages: {run.Texts} deleted message texts erased, {run.Photos} deleted chat photos released, {run.Kept} kept under a legal hold.");
                 return 0;
             }
+            case ["staff", "conflicts", "reconcile"]:
+            {
+                var history = scope.ServiceProvider.GetRequiredService<StaffConflictHistory>();
+                var added = await history.ReconcileAsync(now, CancellationToken.None);
+                var expired = await history.PurgeAsync(now, CancellationToken.None);
+                Console.WriteLine($"Staff conflicts: {added} historical associations preserved, {expired.Expired} expired.");
+                return expired.HoldStatusUnavailable ? 1 : 0;
+            }
             case ["retention", "purge", "--case", var retentionCase] when Guid.TryParse(retentionCase, out var parsedCase):
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.SafetyRetention>().PurgeAsync(now, CancellationToken.None, parsedCase);
@@ -199,7 +207,7 @@ public static class Cli
             case ["retention", "purge"]:
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.RetentionJobs>().RunAsync(now, CancellationToken.None);
-                Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted.");
+                Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted; {run.ConflictRecordsExpired} minimal staff associations expired.");
                 return run.FailedClosed || run.Accounts?.Waiting > 0 ? 1 : 0;
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),
@@ -259,7 +267,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

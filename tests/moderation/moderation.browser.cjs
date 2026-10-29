@@ -209,7 +209,18 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     const ownCase = await caseOf('own');
     assert.deepEqual(code(await act('adm', ownCase, { action: 'warn', reason: 'x' })), [403, 'moderation-not-permitted']); pass();
     assert.deepEqual(code(await call(st.adm, `/api/admin/cases/${ownCase}/close`, { method: 'POST' })), [403, 'moderation-not-permitted']); pass();
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.plus } })).status, 204); pass();
+    for (const path of [`/api/admin/cases/${ownCase}/close`, `/api/admin/Cases/${ownCase}/close`, `/API/ADMIN/CASES/${ownCase}/close`, `/api/admin/%63ases/${ownCase}/close`]) {
+      assert.deepEqual(code(await call(st.adm, path, { method: 'POST' })), [403, 'conflict-of-interest'], 'historical association guards every route casing'); pass();
+    }
     assert.equal((await act('sup', ownCase, { action: 'dismiss' })).status, 200); pass();
+    // A retained reporter association also excludes case actions, appeal decisions and sanction lifts.
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.rep } })).status, 204); pass();
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.plus } })).status, 204); pass();
+    for (const path of [`/api/admin/cases/${subCase}/review`, `/api/admin/Cases/${subCase}/actions`, `/api/admin/Appeals/${appealId}/decide`, `/api/admin/Sanctions/${restriction.id}/lift`]) {
+      assert.deepEqual(code(await call(st.adm, path, { method: 'POST', body: { action: 'warn', reason: 'Fictional conflict check', outcome: 'uphold' } })), [403, 'conflict-of-interest'], 'historical reporter conflict applies before mutation'); pass();
+    }
+
 
     // Termination is permanent and admin-only.
     root = await rootAdminToken(browser); // a fresh sign-in for the sensitive action

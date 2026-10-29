@@ -210,3 +210,10 @@ Do not backdate arbitrary cases or release real holds to clean tests. A released
 ### Actual key-configuration regression checks
 
 `FallbackKeyChecks` in the existing Checks project references API key classes directly (permitted test-layer dependency). It uses fictional founder1/founder2 and explicit feature keys, never `.local` secret values. `FallbackKeyPersistenceChecks` uses the throwaway PostgreSQL database to check the real legacy email/mobile lookup consumers. `check.sh` includes both. The security browser suite temporarily uses its private `.local/test-rotation-keys.json` to reseal every set2 and back1 in `finally`; back up that file before changes and verify `keys status` after testing. The phone browser suite must use default reauthentication, because its flow waits61 seconds; restart with defaults for it, then the documented overrides for the other suites.
+
+
+### Staff conflict continuity (D235)
+
+`./scripts/check.sh` includes actual API-service checks in the disposable PostgreSQL database: unconfirmed then confirmed fake provider deletion; finalizing cancellation refusal; held-copy continuity; historical-link backfill; minimum-period/manual-reason preservation; police/unknown membership; expiry without resurrection; and a deterministic SQL-snapshot read/archive race. No external provider uncertainty is simulated as live evidence.
+
+`tests/staff/access.browser.cjs` also deletes a fictional personal account through local Keycloak and checks independent access versus linked refusal before/after deletion, replacement and hold release. `tests/moderation/moderation.browser.cjs` tests historical exclusions on lower/mixed/upper-case route literals. Run the existing hold, law-enforcement, identity, deletion and isolated-worker suites after changes to shared conflict authority.

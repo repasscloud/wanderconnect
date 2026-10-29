@@ -13,6 +13,8 @@ Safety retention D231–D233 (`fb41eff`) is locally implemented under issue118 i
 
 Legacy fallback key compatibility D234 is locally fixed: adding a newer founder secret preserves encryption1, lookup fingerprints, phone challenges, media signatures and protected device tokens; founder coupons still use their newest version. Actual old-code authenticated-decryption red then17 API-consumer checks and55 PostgreSQL checks PASS. Phone52, security36, identity38, holds93, notifications109 and photos120 regressions PASS. [Data-key procedure](../architecture/DATA-KEYS.md) distinguishes future prevention from historical recovery. Next: [staff conflict provenance129](https://github.com/repasscloud/wanderconnect/issues/129), remaining operational retention, banned identifiers and backup/restore work under118; then the remaining Phase0 queue. Full gate/55 PostgreSQL and startup14 pass; main-host restoration and commit evidence are recorded in validation and the draft PR ledger.
 
+Staff conflict continuity D235 / [129](https://github.com/repasscloud/wanderconnect/issues/129) is locally implemented: explicit associations survive personal-account deletion and relinking, historical audit provenance is reconciled, and eligible minimal associations expire without reconstruction. Source regressions cover provider uncertainty and one-snapshot read/archive ordering. Browser staff81, moderation155, holds93, police131, identity38, deletion118 and isolated worker12 pass; route-metadata checks include mixed-case and encoded paths. Moderation route casing now matches ASP.NET routing; case-list/read scope is unchanged. Operational history expiry, banned registry and backups remain under118.
+
 ## What exists and where
 
 | Area | Implemented | Location / remaining boundary |

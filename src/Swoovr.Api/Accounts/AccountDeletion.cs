@@ -243,6 +243,9 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.Notifications.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.NotificationModeMutes.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.NotificationSettings.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        var conflicts = services.GetRequiredService<StaffConflictHistory>();
+        foreach (var link in await db.StaffMemberLinks.AsNoTracking().Where(l => l.MemberAccountId == id || l.StaffAccountId == id).ToListAsync(cancellationToken))
+            await conflicts.PreserveAsync(link, now, cancellationToken);
         await db.StaffMemberLinks.Where(l => l.MemberAccountId == id || l.StaffAccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.BetaEnrolments.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);

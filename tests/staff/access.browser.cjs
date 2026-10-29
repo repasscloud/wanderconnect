@@ -19,7 +19,7 @@ const ADELAIDE = 2078025;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
     const root = await rootAdminToken(browser);
-    const names = ['x', 'y', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6'];
+    const names = ['x', 'y', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'history', 'replacement'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('acc-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
     const tokens = {}, ids = {};
@@ -29,8 +29,8 @@ const ADELAIDE = 2078025;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
       if (n === 'x' || n === 'y') await matchReady(tokens[n]);
     }
-    const staff = { l1: await createStaff('acc-l1'), l2: await createStaff('acc-l2'), adm: await createStaff('acc-adm'), sup: await createStaff('acc-sup') };
-    for (const [n, role] of [['l1', 'legal'], ['l2', 'legal'], ['adm', 'admin'], ['sup', 'support']])
+    const staff = { l1: await createStaff('acc-l1'), l2: await createStaff('acc-l2'), l3: await createStaff('acc-l3'), adm: await createStaff('acc-adm'), sup: await createStaff('acc-sup') };
+    for (const [n, role] of [['l1', 'legal'], ['l2', 'legal'], ['l3', 'legal'], ['adm', 'admin'], ['sup', 'support']])
       assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {}, sid = {};
     for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); }
@@ -94,6 +94,28 @@ const ADELAIDE = 2078025;
     assert.equal((await call(st.l2, `/api/admin/holds/${xHold}`)).status, 200); pass();
     assert.deepEqual(code(await call(st.adm, `/api/admin/accounts/${ids.x}/sanctions`, { method: 'POST', body: { action: 'warn', reason: 'Fictional' } })), [403, 'conflict-of-interest']); pass();
     assert.ok((await call(st.l2, '/api/admin/access/exclusions')).body.filter(e => e.subjectAccountId === ids.x).length >= 2); pass();
+
+    // Explicit personal associations survive final account deletion and a later link replacement.
+    assert.equal((await call(root, `/api/admin/staff-links/${sid.l1}`, { method: 'PUT', body: { memberAccountId: ids.history } })).status, 204); pass();
+    const historicalHold = await call(st.l2, '/api/admin/holds', { method: 'POST', body: { reason: 'Fictional historical conflict preservation', accountIds: [ids.history] } });
+    assert.equal(historicalHold.status, 201); pass();
+    const historyPath = `/api/admin/holds/${historicalHold.body.id}`;
+    assert.deepEqual(code(await call(st.l1, historyPath)), [403, 'conflict-of-interest']); pass();
+    tokens.history = await memberToken(browser, members.history);
+    assert.equal((await call(tokens.history, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200); pass();
+    await cli('accounts', 'purge', ids.history);
+    assert.equal(await sql(`SELECT count(*) FROM member_profiles WHERE account_id = '${ids.history}'`), '0'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM staff_member_links WHERE member_account_id = '${ids.history}'`), '0'); pass();
+    assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${historicalHold.body.id}'`)) > 0); pass();
+    assert.deepEqual(code(await call(st.l1, historyPath)), [403, 'conflict-of-interest'], 'retained copies remain excluded after provider deletion'); pass();
+    assert.equal((await call(st.l2, historyPath)).status, 200, 'independent officer retains access'); pass();
+    assert.equal((await call(root, `/api/admin/staff-links/${sid.l1}`, { method: 'PUT', body: { memberAccountId: ids.replacement } })).status, 204); pass();
+    assert.deepEqual(code(await call(st.l1, historyPath)), [403, 'conflict-of-interest'], 'replacement never clears the former association'); pass();
+    assert.deepEqual(code(await openIdentity(st.l1, ids.replacement)), [403, 'conflict-of-interest']); pass();
+    await cli('staff', 'conflicts', 'reconcile');
+    assert.deepEqual(code(await call(st.l1, historyPath)), [403, 'conflict-of-interest'], 'operator reconciliation retains the exclusion'); pass();
+    assert.equal((await call(st.l3, historyPath + '/release', { method: 'POST', body: { reason: 'Fictional conflict test completed', overlapsChecked: true } })).status, 200); pass();
+    assert.deepEqual(code(await call(st.l1, historyPath)), [403, 'conflict-of-interest'], 'release does not remove retained-copy conflicts'); pass();
 
     // Bulk exports need a second officer's approval.
     const bulk = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'].map(n => ids[n]);

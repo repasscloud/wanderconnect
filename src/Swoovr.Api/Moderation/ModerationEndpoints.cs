@@ -548,12 +548,19 @@ public static class ModerationEndpoints
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             var staff = await db.Accounts.FindAsync([staffId], cancellationToken);
             if (staff is not { Realm: AccountRealm.Staff }) return Results.NotFound();
+            var conflicts = accounts.Services.GetRequiredService<StaffConflictHistory>();
             var existing = await db.StaffMemberLinks.FindAsync([staffId], cancellationToken);
-            if (existing is not null) db.StaffMemberLinks.Remove(existing);
+            if (existing is not null)
+            {
+                await conflicts.PreserveAsync(existing, now, cancellationToken);
+                db.StaffMemberLinks.Remove(existing);
+            }
             if (request.MemberAccountId is { } member)
             {
                 if (await db.Accounts.FindAsync([member], cancellationToken) is not { Realm: AccountRealm.Members }) return Results.NotFound();
-                db.StaffMemberLinks.Add(new StaffMemberLink { StaffAccountId = staffId, MemberAccountId = member, LinkedAt = now, LinkedBy = current!.Account!.Id });
+                var link = new StaffMemberLink { StaffAccountId = staffId, MemberAccountId = member, LinkedAt = now, LinkedBy = current!.Account!.Id };
+                db.StaffMemberLinks.Add(link);
+                await conflicts.PreserveAsync(link, now, cancellationToken);
             }
             Audit.Record(db, now, current!.Account!.Id, "account", request.MemberAccountId is null ? "staff-link.removed" : "staff-link.set", "account", staffId.ToString(),
                 request.MemberAccountId?.ToString());
