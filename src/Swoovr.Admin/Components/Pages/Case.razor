@@ -99,7 +99,7 @@ else
         <input name="PreserveForm.Reason" placeholder="Why this needs preserving" maxlength="1000" required />
         <button type="submit" class="secondary" data-preserve>Place a provisional hold</button>
     </form>
-    <h2>Actions on this account</h2>
+    <h2>Actions recorded for this case</h2>
     <SanctionList Sanctions="detail.Sanctions" ReturnUrl="@($"/cases/{Id}")" />
 }
 @code {

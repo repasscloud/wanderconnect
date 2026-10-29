@@ -420,6 +420,9 @@ public static class ModerationEndpoints
             if (denied is not null) return denied;
             var db = accounts.Db!;
             var query = db.ModerationCases.AsQueryable();
+            var excluded = StaffAccessEndpoints.ExcludedSubjects(db,current!.Account!.Id);
+            query = query.Where(c => !excluded.Contains(c.SubjectAccountId)
+                && !db.Reports.Any(r => r.CaseId == c.Id && excluded.Contains(r.ReporterAccountId)));
             // Support never sees the admin queue (D134).
             if (current!.StaffRole != AccountRole.Admin) query = query.Where(c => c.Queue == CaseQueue.Support);
             else if (Enum.TryParse<CaseQueue>(queue, true, out var q)) query = query.Where(c => c.Queue == q);
@@ -430,7 +433,7 @@ public static class ModerationEndpoints
         });
         admin.MapGet("/cases/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, item, denied) = await CaseAsync(user, accounts, id, cancellationToken);
+            var (current, item, denied) = await CaseAsync(user, accounts, id, cancellationToken, read: true);
             return denied ?? Results.Ok(await DetailAsync(accounts.Db!, item!, clock.GetUtcNow(), cancellationToken));
         });
         admin.MapPost("/cases/{id:guid}/{step:regex(^(review|acknowledge|close)$)}", async (Guid id, string step, ClaimsPrincipal user, AccountResolver accounts,
@@ -508,10 +511,13 @@ public static class ModerationEndpoints
             if (denied is not null) return denied;
             var db = accounts.Db!;
             var wanted = Enum.TryParse<AppealStatus>(status, true, out var s) ? s : AppealStatus.Pending;
+            var excluded = StaffAccessEndpoints.ExcludedSubjects(db,current!.Account!.Id);
             var rows = await (from a in db.Appeals
                               join sanction in db.Sanctions on a.SanctionId equals sanction.Id
                               join p in db.MemberProfiles on a.AccountId equals p.AccountId
                               where a.Status == wanted && (current!.StaffRole == AccountRole.Admin || !p.Employee && sanction.CreatedByRole != AccountRole.Admin)
+                                  && !excluded.Contains(a.AccountId)
+                                  && !db.Reports.Any(r => r.CaseId == sanction.CaseId && excluded.Contains(r.ReporterAccountId))
                               orderby a.CreatedAt
                               select new AppealAdminView(a.Id, a.SanctionId, a.AccountId, sanction.Kind.ToString(), a.Text, a.Status.ToString(), a.CreatedAt, a.DecidedBy, a.DecidedAt))
                 .Take(200).ToListAsync(cancellationToken);
@@ -668,12 +674,15 @@ public static class ModerationEndpoints
 
     /// <summary>A case the caller's role may open: support never sees the admin queue (404, like an unknown id).</summary>
     private static async Task<(CurrentAccount? Current, ModerationCase? Case, IResult? Denied)> CaseAsync(ClaimsPrincipal user, AccountResolver accounts, Guid id,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool read = false)
     {
         var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
         if (denied is not null) return (null, null, denied);
         var item = await accounts.Db!.ModerationCases.FindAsync([id], cancellationToken);
         if (item is null || item.Queue == CaseQueue.Admin && current!.StaffRole != AccountRole.Admin) return (null, null, Results.NotFound());
+        if (read && await StaffAccessEndpoints.ExcludedAsync(accounts.Db,current!.Account!.Id,
+            await Retention.SafetyRetention.CaseAccountsAsync(accounts.Db,id,cancellationToken),cancellationToken))
+            return (null,null,StaffAccessEndpoints.Conflict());
         return (current, item, null);
     }
 
@@ -752,7 +761,7 @@ public static class ModerationEndpoints
     {
         var reports = await db.Reports.Where(r => r.CaseId == item.Id).OrderBy(r => r.CreatedAt).ToListAsync(cancellationToken);
         var evidence = await db.CaseEvidence.Where(e => e.CaseId == item.Id).OrderBy(e => e.CapturedAt).ToListAsync(cancellationToken);
-        var sanctions = await db.Sanctions.Where(s => s.AccountId == item.SubjectAccountId).OrderByDescending(s => s.StartsAt).ToListAsync(cancellationToken);
+        var sanctions = await db.Sanctions.Where(s => s.AccountId == item.SubjectAccountId && s.CaseId == item.Id).OrderByDescending(s => s.StartsAt).ToListAsync(cancellationToken);
         var subject = await db.MemberProfiles.FindAsync([item.SubjectAccountId], cancellationToken);
         return new((await SummariesAsync(db, [item], cancellationToken))[0], subject?.Employee == true,
             reports.Select(r => new CaseReportView(r.Id, r.ReporterAccountId, Wire(r.SubjectType), r.SubjectRef, r.CategoryId, Wire(r.Priority), r.Text, r.CreatedAt, r.Police)).ToList(),

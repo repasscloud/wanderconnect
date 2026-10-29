@@ -16,7 +16,11 @@ public sealed class ModerationLifecycleFilter : IEndpointFilter
         var (current, denied) = await AdminEndpoints.StaffAsync(http.User, resolver, AccountRole.Support, http.RequestAborted);
         if (denied is not null) return denied;
         if (http.RequestServices.GetService<SwoovrDbContext>() is not { } db) return await next(context);
-        await using var barrier = HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method)
+        var path = (http.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "";
+        // Detail returns report evidence after participant checks. Keep their membership stable through the response
+        // projection; ordinary report writes participate shared. Lists filter conflicts in their single SQL query.
+        var detail = path.Equals("/api/admin/cases/{id:guid}",StringComparison.OrdinalIgnoreCase);
+        await using var barrier = !detail && (HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method))
             ? await PreservationLease.SharedAsync(db, http.RequestAborted) : await PreservationLease.ExclusiveAsync(db, http.RequestAborted);
         http.Items[typeof(ModerationLifecycleFilter)] = barrier;
         try

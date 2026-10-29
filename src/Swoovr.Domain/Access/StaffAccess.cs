@@ -168,6 +168,8 @@ public static class StaffAccessPolicy
             "disclosures" => ("disclosures", null, false),
             "law-enforcement" => ("le-case", Id(4), parts.Length > 3 && parts[3] == "audit-export"),
             "banned-identifiers" => ("banned-identifiers", Id(3), false),
+            "cases" => ("moderation-case", Id(3), false),
+            "appeals" => ("moderation-appeal", Id(3), false),
             "accounts" when parts.Length > 4 && parts[4] == "reinstate" => ("account-reinstatement", Id(3), false),
             "contact-history" => ("contact-history", null, false),
             "access" => ("access", Id(4), false),

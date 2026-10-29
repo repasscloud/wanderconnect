@@ -82,6 +82,8 @@ static class StaffAccessChecks
         Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/law-enforcement/cases/{id}/verify", 200) == ("le-case", id.ToString(), "change"), "case changes");
         Expect(StaffAccessPolicy.Classify("GET", $"/api/admin/accounts/{id}/summary", 200) is null, "ordinary admin routes aren't sensitive");
         Expect(StaffAccessPolicy.Classify("GET", "/api/me", 200) is null, "member routes aren't logged here");
+        Expect(StaffAccessPolicy.Classify("GET",$"/api/admin/Cases/{id}",403)==("moderation-case",id.ToString(),"refused"),"case evidence read refusals are restricted metadata");
+        Expect(StaffAccessPolicy.Classify("GET","/api/admin/appeals",200)==("moderation-appeal",null,"query"),"appeal-list audit omits its query values/content");
         Expect(StaffAccessPolicy.Classify("POST","/api/admin/banned-identifiers/lookup",200)==("banned-identifiers",null,"query"),"registry lookup is a restricted query without the value");
         Expect(StaffAccessPolicy.Classify("GET",$"/API/ADMIN/BANNED-IDENTIFIERS/{id}",403)==("banned-identifiers",id.ToString(),"refused"),"route casing cannot bypass sensitive logging");
         Expect(StaffAccessPolicy.Classify("POST",$"/api/admin/accounts/{id}/reinstate",200)==("account-reinstatement",id.ToString(),"change"),"account reinstatement is audited separately");

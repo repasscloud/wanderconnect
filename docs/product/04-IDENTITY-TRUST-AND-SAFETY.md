@@ -76,3 +76,6 @@ D240–D242 DEFAULT implementation under CONFIRMED D217: authenticated permanent
 
 
 D243–D245 DEFAULT implementation under D217: an already admitted member with a profile and accepted email keeps existing access/standing when a different Keycloak email is refused. Web/app account and standing show a neutral contact-adoption warning with approved support and normal reauthentication. Initial/profileless/identifierless admission stays blocking. Quota/key failures refuse adoption rather than trapping the member; correction to the accepted address needs no old token. Persist initial/subsequent accepted-email evidence so older token claims cannot reverse it, including tolerated clock skew. Provider email ownership/form behavior and native UI proof remain separate from API/browser evidence.
+
+
+D246 DEFAULT: known retained staff subject/reporter conflicts also exclude case detail/evidence, case queue and appeal-list reads. Filter before result limits; preserve support/admin separation. A case detail shows actions recorded for that case only. Case participant authorization and evidence projection share preservation authority. Ordinary account-summary and other administrative read scopes are unchanged; no general administrative privacy claim follows from these specific controls.

@@ -186,6 +186,18 @@ public static class StaffAccessEndpoints
     public static IResult NeedsGrant(string capability) =>
         Problem(StatusCodes.Status403Forbidden, ProblemCodes.ElevatedAccessRequired, $"Ask for time-limited access ({capability}) with a recorded purpose first.");
 
+    /// <summary>Correlated conflict subjects for list filtering before pagination (§5).</summary>
+    public static IQueryable<Guid> ExcludedSubjects(SwoovrDbContext db, Guid staff)
+    {
+        var staffKey = staff.ToString();
+        // Correlated membership stays inside the caller's SQL snapshot; never infer people from an address.
+        return db.Accounts.Where(a => a.Id == staff
+            || db.StaffExclusions.Any(e => e.StaffAccountId == staff && e.SubjectAccountId == a.Id)
+            || db.StaffMemberLinks.Any(l => l.StaffAccountId == staff && l.MemberAccountId == a.Id)
+            || db.AuditEntries.Any(e => e.Action == "staff-link.set" && e.ActorAccountId != null && e.TargetId == staffKey && e.Detail == a.Id.ToString()))
+            .Select(a => a.Id);
+    }
+
     /// <summary>Whether a conflict of interest keeps this staff member from any of these members (§5).</summary>
     public static async Task<bool> ExcludedAsync(SwoovrDbContext db, Guid staff, IReadOnlyCollection<Guid> subjects, CancellationToken cancellationToken)
     {

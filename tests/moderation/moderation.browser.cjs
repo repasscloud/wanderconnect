@@ -213,6 +213,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     for (const path of [`/api/admin/cases/${ownCase}/close`, `/api/admin/Cases/${ownCase}/close`, `/API/ADMIN/CASES/${ownCase}/close`, `/api/admin/%63ases/${ownCase}/close`]) {
       assert.deepEqual(code(await call(st.adm, path, { method: 'POST' })), [403, 'conflict-of-interest'], 'historical association guards every route casing'); pass();
     }
+    for(const path of [`/api/admin/cases/${ownCase}`,`/api/admin/%63ases/${ownCase}`]){assert.deepEqual(code(await call(st.adm,path)),[403,'conflict-of-interest']);pass();}
     assert.equal((await act('sup', ownCase, { action: 'dismiss' })).status, 200); pass();
     // A retained reporter association also excludes case actions, appeal decisions and sanction lifts.
     assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.rep } })).status, 204); pass();
@@ -221,6 +222,10 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
       assert.deepEqual(code(await call(st.adm, path, { method: 'POST', body: { action: 'warn', reason: 'Fictional conflict check', outcome: 'uphold' } })), [403, 'conflict-of-interest'], 'historical reporter conflict applies before mutation'); pass();
     }
 
+
+    assert.deepEqual(code(await call(st.adm,`/api/admin/Cases/${subCase}`)),[403,'conflict-of-interest'],'retained reporter association also guards evidence reads');pass();
+    assert.equal((await call(st.adm,'/api/admin/cases?status=all')).body.some(c=>c.id===subCase),false,'reporter-conflicted case absent from queue');pass();
+    assert.equal((await call(st.adm,'/api/admin/appeals?status=overturned')).body.some(a=>a.id===appealId),false,'reporter-conflicted appeal text absent from list');pass();
 
     // Termination is permanent and admin-only.
     root = await rootAdminToken(browser); // a fresh sign-in for the sensitive action

@@ -74,6 +74,35 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const otherId=await query(`SELECT id FROM accounts WHERE subject='${claims(otherJwt).sub}'`);
   equal((await request(adminToken,`/api/admin/staff-links/${otherId}`,'PUT',{memberAccountId:original})).status,204,'explicit personal association');
   equal((await request(otherJwt,'/api/admin/banned-identifiers/'+emailEntry.id)).status,403,'personal conflict refuses registry detail');
+  equal((await request(otherJwt,'/api/admin/cases/'+emailEntry.caseId)).status,403,'associated case review cannot bypass personal conflict');
+  equal((await request(otherJwt,'/api/admin/cases?status=all')).body.some(c=>c.id===emailEntry.caseId),false,'conflicted source case is absent from queue');
+  const reviewer=await createStaff('workflow-reporter-reviewer'),reviewerJwt=await staffToken(browser,reviewer);
+  equal((await request(adminToken,'/api/admin/invitations','POST',{email:reviewer.email,role:'admin'})).status,201,'invite independent reporter-associated staff');
+  await request(reviewerJwt,'/api/session');const reviewerId=await query(`SELECT id FROM accounts WHERE subject='${claims(reviewerJwt).sub}'`);
+
+  const visibleMember=await createMember('workflow-visible-case'),visibleJwt=await memberToken(browser,visibleMember);
+  await request(visibleJwt,'/api/session');const visibleId=await query(`SELECT id FROM accounts WHERE subject='${claims(visibleJwt).sub}'`),visibleCase=crypto.randomUUID();
+  await query(`INSERT INTO moderation_cases(id,subject_account_id,status,queue,priority,created_at,updated_at)
+   SELECT gen_random_uuid(),'${original}','Closed','Admin','High',now()-interval '2 days',now()-interval '2 days' FROM generate_series(1,201);
+   INSERT INTO moderation_cases(id,subject_account_id,status,queue,priority,created_at,updated_at) VALUES('${visibleCase}','${visibleId}','Closed','Admin','High',now(),now());`);
+  equal((await request(otherJwt,'/api/admin/cases?status=all')).body.some(c=>c.id===visibleCase),true,'conflicted queue prefix cannot starve later allowed cases');
+  equal((await request(adminToken,`/api/admin/staff-links/${reviewerId}`,'PUT',{memberAccountId:visibleId})).status,204,'explicit reporter-personal association');
+  const siblingCase=crypto.randomUUID(),reportId=crypto.randomUUID();
+  await query(`INSERT INTO reports(id,reporter_account_id,subject_account_id,subject_type,subject_ref,category_id,priority,text,case_id,created_at)
+   VALUES('${reportId}','${visibleId}','${original}','Profile','${original}',(SELECT id FROM report_categories LIMIT 1),'High','Fictional reporter statement for restricted case.','${emailEntry.caseId}',now());
+   INSERT INTO moderation_cases(id,subject_account_id,status,queue,priority,created_at,updated_at) VALUES('${siblingCase}','${original}','Closed','Admin','High',now(),now());`);
+  equal((await request(reviewerJwt,'/api/admin/cases/'+emailEntry.caseId)).status,403,'reporter association refuses source case evidence');
+  const sibling=await request(reviewerJwt,'/api/admin/cases/'+siblingCase);equal(sibling.status,200,'unrelated case remains available');
+  equal(sibling.body.sanctions.some(s=>s.caseId===emailEntry.caseId),false,'allowed sibling case cannot project conflicted case sanctions');
+
+  const reader=query(`BEGIN; SELECT pg_advisory_xact_lock_shared(${0x50524553},0); SELECT pg_sleep(3); COMMIT;`);
+  for(let n=0;n<100;n++){if(Number(await query(`SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND database=(SELECT oid FROM pg_database WHERE datname='${database}') AND classid=${0x50524553} AND objid=0 AND mode='ShareLock' AND granted`)))break;if(n===99)throw new Error('Fixture preservation reader not established.');await sleep(10);}
+  const detailRead=request(adminToken,'/api/admin/cases/'+visibleCase);let detailWait=false;
+  for(let n=0;n<100;n++){if(Number(await query(`SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND database=(SELECT oid FROM pg_database WHERE datname='${database}') AND classid=${0x50524553} AND objid=0 AND mode='ExclusiveLock' AND NOT granted`))){detailWait=true;break;}await sleep(10);}
+  equal(detailWait,true,'case detail obtains exclusive membership authority before evidence projection');await reader;
+  equal((await detailRead).status,200,'allowed detail resumes after authority is released');
+  equal(await query(`SELECT count(*) FROM sensitive_access_log WHERE actor_account_id='${otherId}' AND resource='moderation-case' AND resource_id='${emailEntry.caseId}' AND status=403`),'1','refused case evidence read is audited without content');
+
   equal((await request(otherJwt,'/api/admin/banned-identifiers/release','POST',{identifierIds:[emailEntry.id],reason:'Fictional conflicted release request'})).status,403,'personal conflict refuses release');
 
   // Actual local Keycloak deletion of this fictional person; registry is independently retained.
@@ -81,6 +110,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   equal((await request(freshOriginal,'/api/me/deletion','POST',{confirm:true,immediately:true,deleteFounderToken:false})).status,200,'terminated member can request deletion');
   await run('dotnet',[dll,'accounts','purge',original],{cwd:apiDir,env});
   equal(await query(`SELECT status FROM accounts WHERE id='${original}'`),'Deleted','fictional original deleted');
+  equal((await request(otherJwt,'/api/admin/Cases/'+emailEntry.caseId)).status,403,'retained personal association still refuses deleted-source evidence read');
   equal(await query(`SELECT count(*) FROM banned_identifiers WHERE status='Active'`),'2','deletion retains active restrictions');
   equal(await query(`SELECT count(*) FROM terminated_email_holds`),'0','new registry flow does not recreate legacy email marker');
   const {localRealmApi}=await import('../../scripts/auth/provision.mjs');const realm=await localRealmApi({realm:'swoovr-members-dev'});
@@ -107,6 +137,8 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
   const second=await createMember('workflow-reinstate'),secondJwt=await memberToken(browser,second);
   await request(secondJwt,'/api/session');const secondId=await query(`SELECT id FROM accounts WHERE subject='${claims(secondJwt).sub}'`);
+  equal((await request(adminToken,`/api/admin/staff-links/${otherId}`,'PUT',{memberAccountId:secondId})).status,204,'replace personal link after prior deletion');
+  equal((await request(otherJwt,'/api/admin/cases/'+emailEntry.caseId)).status,403,'relinking cannot restore access to retained original case');
   equal((await terminate(secondId)).status,200,'second original terminated');
   const secondBan=await query(`SELECT b.id FROM banned_identifiers b JOIN moderation_cases c ON b.case_id=c.id WHERE c.subject_account_id='${secondId}'`);
   const terminationId=await query(`SELECT id FROM sanctions WHERE account_id='${secondId}' AND kind='Termination'`);
