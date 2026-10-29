@@ -31,6 +31,7 @@ import org.keycloak.storage.UserStoragePrivateUtil;
 @Consumes(MediaType.APPLICATION_JSON)
 public final class ContactRetirementResource {
     private final KeycloakSession session;
+    private String callerIssuer;
     public ContactRetirementResource(KeycloakSession session) { this.session=session; }
     public record RetirementRequest(String operationId,String expectedEmail,String expectedUsername) { }
 
@@ -47,6 +48,7 @@ public final class ContactRetirementResource {
         var management=session.clients().getClientByClientId(realm,"realm-management");
         if(management==null||!new AdminAuth(realm,auth.token(),user,client).hasAppRole(management,"manage-users"))
             throw ProviderProtocol.refusal(403,"manage-users-required");
+        callerIssuer=auth.token().getIssuer();
         return realm;
     }
     private EntityManager database() { return session.getProvider(JpaConnectionProvider.class).getEntityManager(); }
@@ -62,8 +64,9 @@ public final class ContactRetirementResource {
     }
     @GET @Path("capabilities")
     public Response capabilities() {
-        authorize();requireGuard();
-        return ProviderProtocol.reply(200,Map.of("keycloak",ContactEntityProviderFactory.KEYCLOAK_VERSION,"retireEmail",true,"schema",1));
+        var realm=authorize();requireGuard();
+        return ProviderProtocol.reply(200,Map.of("keycloak",ContactEntityProviderFactory.KEYCLOAK_VERSION,"retireEmail",true,"schema",1,
+            "realm",realm.getName(),"issuer",callerIssuer));
     }
     public record EmailBinding(String userId,String email,String username,boolean emailVerified,boolean enabled) { }
     @GET @Path("users/{userId}/email-binding")

@@ -22,7 +22,11 @@ public static class ProviderSetup
         var keycloak = configuration.GetSection("Keycloak").Get<KeycloakOptions>() ?? new KeycloakOptions();
         services.AddSingleton(new IdentityAdminOptions(keycloak.BaseUrl, keycloak.MembersRealm,
             configuration["MemberAdmin:ClientId"] ?? "swoovr-api-accounts", configuration["MemberAdmin:ClientSecret"]));
-        services.AddHttpClient<IIdentityAdmin, KeycloakIdentityAdmin>(http => http.Timeout = TimeSpan.FromSeconds(15));
+        services.AddSingleton(new ContactPolicyContract(Swoovr.Contracts.ApiContract.Header,Swoovr.Contracts.ApiContract.Initial,
+            keycloak.Issuer(keycloak.MembersRealm),configuration.GetValue("MemberAdmin:ContactRetirementEnabled",false)));
+        services.AddHttpClient<IIdentityAdmin, KeycloakIdentityAdmin>(http => http.Timeout = TimeSpan.FromSeconds(15))
+            .ConfigurePrimaryHttpMessageHandler(()=>new SocketsHttpHandler{AllowAutoRedirect=false}).RemoveAllLoggers();
+        services.AddScoped<IContactIdentityAdmin>(provider=>(IContactIdentityAdmin)provider.GetRequiredService<IIdentityAdmin>());
         services.AddScoped<AccountDeletion>();
         // Host-free smoke/simulation configurations deliberately have no persistence context.
         if (!string.IsNullOrWhiteSpace(configuration.GetConnectionString("Swoovr")))

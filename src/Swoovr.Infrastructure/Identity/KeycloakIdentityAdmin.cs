@@ -19,7 +19,7 @@ public sealed record IdentityAdminOptions(string BaseUrl, string Realm, string C
 /// token endpoint, then POST /admin/realms/{realm}/users/{id}/logout and DELETE /admin/realms/{realm}/users/{id}.
 /// The user id is the token's subject. Statuses only are logged: Keycloak's error bodies can echo user data.
 /// </summary>
-public sealed partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions options, TimeProvider clock, ILogger<KeycloakIdentityAdmin> log) : IIdentityAdmin
+public sealed partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions options, TimeProvider clock, ILogger<KeycloakIdentityAdmin> log, ContactPolicyContract? contactPolicy = null) : IIdentityAdmin, IContactIdentityAdmin
 {
     private string? token;
     private DateTimeOffset tokenExpires;

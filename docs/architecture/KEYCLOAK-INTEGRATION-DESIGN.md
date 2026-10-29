@@ -199,3 +199,7 @@ Exact client IDs, mapper names, token and session lifetimes beyond those stated,
 ## Needed from outside the repository
 
 Apple Developer account (Services ID, key, Private Email Relay domain), Google OAuth client, Entra app registration in the RePass Cloud tenant, MailerSend account and DNS records for `swoovr.app`, and hosting for Keycloak and its database. None are configured or claimed by this document.
+
+## Reviewed contact retirement boundary (D249, D255–D256)
+
+CONFIRMED D249 permits a separate audited retirement of a reviewed recycled contact without restoring or transferring its original account. The pinned provider in `containers/keycloak/contact-policy/` owns raw-binding CAS, current-state confirmation, login guards and provider sessions. The Domain contact interface and Infrastructure adapter receive canonical API version and trusted member issuer from API composition; Infrastructure gains no Contracts/API dependency. Capabilities must match that issuer and realm. The adapter is explicitly disabled by default, never falls back to an ordinary Admin profile PUT and treats missing/ambiguous responses as unconfirmed. Durable application intent, staff workflow and separately reviewed original-account recovery remain unfinished; transport validation does not satisfy those authorization/recovery requirements.

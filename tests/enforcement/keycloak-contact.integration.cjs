@@ -216,6 +216,14 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   await query(`UPDATE user_entity SET email='${sink}',email_constraint='${sink}' WHERE id='${userId}'`);
   equal((await provider(retireRoute+'/'+operation)).status,200,'Explicit fixture repair restores truthful provider completion');
 
+  if(process.env.SWOOVR_TEST_CONTACT_ADAPTER==='1'){
+   const typed=await makeSource('typed-adapter'),operationId=crypto.randomUUID();
+   const output=await run('dotnet',['tests/Swoovr.Checks/bin/Debug/net10.0/Swoovr.Checks.dll','--contact-provider-probe'],{env:{...process.env,
+    SWOOVR_TEST_CONTACT_BASE:base,SWOOVR_TEST_CONTACT_REALM:realm,SWOOVR_TEST_CONTACT_SUBJECT:typed.id,
+    SWOOVR_TEST_CONTACT_OPERATION:operationId,SWOOVR_TEST_CONTACT_SECRET:clientSecret}});
+   await fs.writeFile(path.join(folder,'typed-adapter.log'),output,{mode:0o600});console.log(output);
+   equal(await query(`SELECT operation_id FROM swoovr_email_retirement WHERE user_id='${typed.id}'`),operationId,'Real .NET adapter wrote exactly its bound provider operation');
+  }
   console.log('PASS: '+checks+' isolated Keycloak/PostgreSQL schema-guard checks. Actual custom endpoint/CAS and guard; browser registration, ownership and delivery not proved.');
  }finally{
   let cleanupError;
