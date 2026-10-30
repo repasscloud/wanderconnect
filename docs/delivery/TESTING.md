@@ -408,3 +408,7 @@ The same fixed allowlist now accepts messaging, endings and attachments. Run att
 ### D275 beta invitations and expiry
 
 After Debug build, run the fixed owned runner with `Beta__Invitations__Enabled=true Beta__Invitations__PublicBaseUrl=http://localhost:5081/ SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/beta-invitations.browser.cjs` and the Playwright/screenshots variables above. Its explicit feature selector is required. This runs actual Admin/API/worker/local Mailpit acceptance with fictional addresses, never external sending. Run other regressions with invitations off to avoid backfilling any queue. PostgreSQL tests cover delivery/recovery/concurrency, positively observed revoke contention and source clocks/held expiry. No builds while browser suites run. Native compilation is required when the shared draft privacy notice changes; it does not establish native UI/device delivery.
+
+### D276 founder capacity
+
+After Debug build, use `Founders__Places=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/founder-capacity.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path above. The fixed allowlist requires the explicit one-place configuration. It owns the API/database and uses synthetic SQL verification state, actual concurrent HTTP grants and local Mailpit; no Didit/payment/real delivery claim. No UI source changed, so no screenshot/native rerun is required. Do not build during this suite.
