@@ -8,7 +8,7 @@
 // fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { api, web, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, GLENELG = 2070830, MELBOURNE = 2158177, DARWIN = 2073124;
 const TEST_MARKET = 'test-darwin-t';
@@ -192,8 +192,8 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     assert.equal((await call(tokens.trd, '/api/admin/accounts/' + ids.trd + '/trips')).status, 403); pass();
 
     // Home-location checks (D150): consistent inside, inconsistent outside, flagged for review after three days, never punished.
-    const home = (who, body, headers = {}) => fetch('http://127.0.0.1:5080/api/me/home-check', { method: 'POST',
-      headers: { Authorization: 'Bearer ' + tokens[who], 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) })
+    const home = (who, body, headers = {}) => fetch(api + '/api/me/home-check', { method: 'POST',
+      headers: { Authorization: 'Bearer ' + tokens[who], 'Content-Type': 'application/json', 'Swoovr-Version': '2026-10-28', ...headers }, body: JSON.stringify(body) })
       .then(async res => ({ status: res.status, body: await res.json().catch(() => null) }));
     assert.deepEqual([(await home('lou', here())).body.outcome], ['consistent']); pass();
     assert.deepEqual(code(await home('lou', here({ accuracyMetres: 9000 }))), [400, 'location-unusable']); pass();

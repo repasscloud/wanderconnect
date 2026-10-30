@@ -13,3 +13,5 @@ US.TX	Texas	Texas	4736286
 US.IL	Illinois	Illinois	4896861
 US.NY	New York	New York	5128638
 US.MA	Massachusetts	Massachusetts	6254926
+AU.03	Northern Territory	Northern Territory	2064513
+CH.ZH	Zurich	Zurich	2657895

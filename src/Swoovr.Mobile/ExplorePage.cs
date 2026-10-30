@@ -19,6 +19,8 @@ public sealed class ExplorePage : ContentPage
 	private List<ConnectionModeView> modes = [];
 	private string selected = "";
 	private bool interested;
+    private long requestRevision;
+    protected override void OnDisappearing(){requestRevision++;base.OnDisappearing();}
 
 	public ExplorePage()
 	{
@@ -29,10 +31,13 @@ public sealed class ExplorePage : ContentPage
 	protected override async void OnAppearing()
 	{
 		base.OnAppearing();
+        var revision=++requestRevision;
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Explore", "PageTitle"));
 		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to see who's on Swoovr.", id: "ExploreSignedOut")); return; }
+		if(revision!=requestRevision)return;
 		var (catalogue, own) = (await Ui.Members!.ModesAsync(), await Ui.Members.ProfileAsync());
+        if(revision!=requestRevision)return;
 		if (catalogue.Value is null || own.Value is null)
 		{
 			body.Children.Add(Ui.Barred(catalogue.Code ?? own.Code, "ExploreBarred") ?? Ui.Text("We couldn't load Explore.", id: "ExploreRefused"));
@@ -56,11 +61,19 @@ public sealed class ExplorePage : ContentPage
 
 	private async Task SelectAsync(string modeId)
 	{
+        var revision=++requestRevision;
 		selected = modeId;
 		control.Children.Clear();
 		foreach (var mode in modes) control.Children.Add(Ui.Chip(mode.Label, mode.Id == selected, $"Mode_{mode.Id}", () => SelectAsync(mode.Id)));
 		results.Children.Clear();
-		var result = await Ui.Members!.ExploreAsync(modeId);
+        ApiResult<ExploreResult> result;
+        try{result=await Ui.Members!.ExploreAsync(modeId);}
+        catch(Exception error)when(error is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException or NotSupportedException)
+        {
+            if(revision==requestRevision)results.Children.Add(Ui.Text("We couldn't load Explore. Try again later.",id:"ExploreRefused"));
+            return;
+        }
+        if(revision!=requestRevision||selected!=modeId)return;
 		if (Ui.Barred(result.Code, "ExploreBarred") is { } barred) { results.Children.Add(barred); return; }
 		if (MemberText.ExploreNotice(result.Code, Label(modeId)) is { } notice)
 		{
@@ -76,9 +89,13 @@ public sealed class ExplorePage : ContentPage
 			}
 			return;
 		}
-		if (result.Value is null) { results.Children.Add(Ui.Text("We couldn't load Explore. Try again later.", id: "ExploreRefused")); return; }
+		if (result.Value is not{People:not null}) { results.Children.Add(Ui.Text("We couldn't load Explore. Try again later.", id: "ExploreRefused")); return; }
 		if (result.Value.Market is { } market) results.Children.Add(Ui.Text($"People in {market}", "FieldLabel", "ExploreMarket"));
-		if (result.Value.People.Count == 0) results.Children.Add(Ui.Text($"No one is showing in {Label(modeId)} yet.", id: "ExploreEmpty"));
+		if (result.Value.People.Count == 0) results.Children.Add(Ui.Text(DiscoveryText.Empty, id: "ExploreEmpty"));
+		results.Children.Add(Ui.Card(Ui.Text(DiscoveryText.Context, "FooterClaims", "DiscoveryGuidance"),
+			Ui.Text(DiscoveryText.Choices, "FooterClaims"),
+			Ui.Button("Review filters", "DiscoveryFilters", () => Ui.PushAsync(new MatchingPage()), primary: false),
+			Ui.Button("Travel", "DiscoveryTravel", () => Ui.PushAsync(new TravelPage()), primary: false)));
 		foreach (var person in result.Value.People) results.Children.Add(Tile(person));
 	}
 

@@ -1,3 +1,4 @@
+@implements IDisposable
 @* Explore (D92, Interactive WebAssembly): the four-mode segmented control, then the people the API returns for the
    selected mode. Labels and order come from the API's mode records; the API decides who appears (both have the mode
    on, the person made it visible, adult, on the beta, both living in the same open market, D125) and which badges each
@@ -66,12 +67,20 @@
             </div>
         }
         else if (state == "loading") { <p role="status">Loading…</p> }
-        else if (people.Count == 0)
+        else if (state == "unavailable")
         {
-            <p class="field-help" data-explore-empty>No one is showing in @Label(selected) yet.</p>
+            <p role="status" data-explore-unavailable>We couldn't load these profiles. Try again later.</p>
         }
         else
         {
+            <section class="card notice" data-discovery-guidance>
+                @if (people.Count == 0) { <p data-explore-empty>@DiscoveryText.Empty</p> }
+                <p class="field-help">@DiscoveryText.Context</p>
+                <p class="field-help">@DiscoveryText.Choices</p>
+                <p><a href="/me/matching" data-discovery-filters>Review filters</a> · <a href="/travel" data-discovery-travel>Travel</a></p>
+            </section>
+            @if (people.Count > 0)
+            {
             <div class="people-grid">
                 @foreach (var person in people)
                 {
@@ -82,6 +91,7 @@
                     </ProfileTile>
                 }
             </div>
+            }
         }
     </section>
 }
@@ -92,6 +102,9 @@
     private bool interested, busy;
     private string selected = "";
     private string state = "loading";
+    private long requestRevision;
+    private bool disposed;
+    public void Dispose(){disposed=true;requestRevision++;}
     private List<ConnectionModeView> modes = [];
     private MyProfileView? mine;
     private IReadOnlyList<ProfileCard> people = [];
@@ -124,13 +137,23 @@
 
     private async Task SelectAsync(string modeId)
     {
-        (selected, state, people) = (modeId, "loading", []);
-        var result = await Members.ExploreAsync(modeId);
+        if(disposed)return;
+        var revision=++requestRevision;
+        (selected, state, people,market) = (modeId, "loading", [],null);
+        ApiResult<ExploreResult> result;
+        try{result=await Members.ExploreAsync(modeId);}
+        catch(Exception error)when(error is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException or NotSupportedException)
+        {
+            if(!disposed&&revision==requestRevision)(state,people,market)=("unavailable",[],null);
+            return;
+        }
+        if(disposed||revision!=requestRevision||selected!=modeId)return;
         (state, people, market) = result.Code switch
         {
             ProblemCodes.ModeNotEnabled => ("off", [], market),
             ProblemCodes.HomeCityRequired or ProblemCodes.MarketNotOpen or ProblemCodes.DateOfBirthRequired or ProblemCodes.DatingDetailsRequired => (result.Code, [], null),
-            _ => ("ready", (IReadOnlyList<ProfileCard>?)result.Value?.People ?? [], result.Value?.Market),
+            _ when result.Ok && result.Value is {People:not null} found => ("ready", (IReadOnlyList<ProfileCard>)found.People, found.Market),
+            _ => ("unavailable", [], null),
         };
     }
 
