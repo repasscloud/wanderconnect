@@ -53,7 +53,7 @@
     </ul>
     @if (reporting is { } reported)
     {
-        <ReportForm SubjectType="message" SubjectId="@reported.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
+        <ReportForm SubjectType="message" SubjectId="@reported.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Submitted="() => reportSent=true" Blocked="Closed" />
     }
     @if (conversation.CanSend && messages.Count == 0 && starters.Count > 0)
     {
@@ -109,14 +109,15 @@
     }
     @if (reportingConversation)
     {
-        <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
+        <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Submitted="() => reportSent=true" Blocked="Closed" />
     }
 }
 @* Outside the conversation block, so "This chat is closed." still shows once a block or disconnect closes it (#82). *@
 <p role="status" aria-live="polite" class="field-help" data-chat-status="@status">@message</p>
+@if(reportSent && conversation is null){<p role="status">@ReportFollowUpText.Confirmation</p><ReportSupport />}
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
-    private bool loaded, busy, more, live, reportingConversation, confirmBlock, ending;
+    private bool loaded, busy, more, live, reportingConversation, confirmBlock, ending, reportSent;
     private string? draft, status, message, closing;
     private List<ConversationStarter> starters = [];
     private Guid? reporting;

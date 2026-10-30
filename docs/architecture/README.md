@@ -55,3 +55,6 @@ Individual content moderation (D265) remains in existing feature layers: case-sc
 
 
 D266 keeps text-harm boundaries inside the existing projects: Domain owns the replaceable bounded detector and candidate/intent state; Api commits encrypted inspection work with source writes, resolves actual server history and staff authority, and processes own-initiative cases; Infrastructure maps their durable lifecycle; Contracts/Client carry restricted staff projections and shared draft privacy copy. No external text provider, fabricated member reporter, automatic sanction or new project is introduced. Retained message participants remain conflict provenance after source loss.
+
+
+D267 adds source-bound report outcome checkpoints in existing Domain/Infrastructure and transactional producers in Api. Composite report/case/reporter provenance, monotonic metadata revisions, current centre ownership/recipient checks and source-clock cleanup prevent orphan or private-content notifications. Shared Client support copy feeds existing Web/native surfaces; no new service/project or reporter push/email dispatcher is introduced. Existing sanction/member notices remain independent post-commit effects.

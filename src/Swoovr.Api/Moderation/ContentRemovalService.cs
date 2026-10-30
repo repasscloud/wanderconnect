@@ -101,6 +101,8 @@ public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,E
         Audit.Record(db,now,actor,"account","content.removed","content-removal",request.CommandId.ToString(),request.Field);
         await db.SaveChangesAsync(token);
         if(message is null)await Swoovr.Api.Profiles.ProfilePrivacy.CaptureAsync(db,subject.Value,now,token);
+        // Original removal/evidence/notice sources are saved under the existing state/barrier/case authority.
+        await ReportOutcomeCapture.InTransactionAsync(db,caseId,now,token);
         await transaction.CommitAsync(token);
         return new(request.CommandId,caseId,request.Field,now,false);
     }

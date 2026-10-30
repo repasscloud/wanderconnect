@@ -23,6 +23,7 @@ public sealed class StandingPage : ContentPage
 		base.OnAppearing();
 		body.Children.Clear();
 		body.Children.Add(Ui.Text(StandingText.Title, "PageTitle"));
+        body.Children.Add(ReportFollowUpPage.SupportCard());
 		body.Children.Add(Ui.Text(StandingText.Intro, "FooterClaims"));
         body.Children.Add(Ui.Card(Ui.Text("Contact Swoovr support", "SectionHeading"),
             Ui.Button("Contact Support", "StandingSupportWeb", () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)), primary: false),

@@ -138,7 +138,13 @@ public static partial class RegistryAdminEndpoints
             db.MemberNotices.Add(new MemberNotice { Id=Guid.NewGuid(),AccountId=id,Kind=NoticeKind.SanctionLifted,SanctionId=sanction.Id,CreatedAt=now });
         }
         Audit.Record(db,now,actor,"account","account.reinstated","account",id.ToString(),$"terminations:{sanctions.Count};identifiers:{rows.Count}");
-        await db.SaveChangesAsync(token);await transaction.CommitAsync(token);
+        await db.SaveChangesAsync(token);
+        foreach(var sourceCase in sanctions.Where(s=>s.CaseId!=null).Select(s=>s.CaseId!.Value).Distinct().Order())
+        {
+            await using var outcomeCase=await PreservationLease.CaseAsync(db,sourceCase,token);
+            await Swoovr.Api.Moderation.ReportOutcomeCapture.InTransactionAsync(db,sourceCase,now,token);
+        }
+        await transaction.CommitAsync(token);
         return Results.Ok(new IdentifierWorkflowResult(sanctions.Count));
     }
 

@@ -354,3 +354,14 @@ SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib
 ```
 
 The feature remains off in the default product configuration. The finite runner includes this suite only when explicitly enabled, and restores main hosts/removes its owned API/database in finally. This journey uses actual profile/mode/message writes, background processing, restricted evidence and confirmed Admin human review. It does not establish detection accuracy, real email receipt or native OS UI. Run the affected moderation, privacy, deletion, notification, app-parity, accessibility and retention suites with detection off to protect existing default behaviour. No build may overlap browser execution.
+
+
+### Report outcomes and complaint guidance (D267)
+
+After the coordinated Debug build, run the exact owned selector:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/outcomes.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/outcomes.browser.cjs SWOOVR_SCREENSHOTS=docs/delivery/evidence node tests/meeting/isolated.browser.cjs
+```
+
+It uses real routine Web reporting, generic reporter centre updates, actual human action/lift/closure, current ownership/barred checks, support links and report-plus-block follow-up. A temporary constraint in the owned DB injects a checkpoint failure to prove report/optional-block rollback. It never touches main's schema; the runner restores main hosts and drops its owned DB/API. Also run moderation, serious, content/text review, reinstatement workflows, deletion, notifications, native-client parity, accessibility and retention suites for the touched producers/centre/lifecycle. Native compilation does not establish OS UI or external receipt. Never rebuild while browser suites are active.

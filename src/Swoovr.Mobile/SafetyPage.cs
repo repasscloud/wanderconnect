@@ -151,6 +151,7 @@ public sealed class SafetyPage : ContentPage
 			(subjectType, subjectId) = (null, null);
 			await LoadAsync();
 			body.Children.Insert(1, Ui.Card(Ui.Text("Your report was sent", "SectionHeading", "SeriousDone"), Ui.Text(MemberText.SeriousPromise)));
+            body.Children.Insert(2,ReportFollowUpPage.SupportCard());
 		}));
 		views.Add(message);
 		return Ui.Card([.. views]);

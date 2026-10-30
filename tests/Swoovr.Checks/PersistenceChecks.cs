@@ -105,6 +105,7 @@ static class PersistenceChecks
             await ContentRemovalPersistenceChecks.Run(options, Check);
             await TextHarmPersistenceChecks.Run(options, Check);
             await TextHarmRuntimeChecks.Run(options, Check);
+            await ReportOutcomePersistenceChecks.Run(options, Check);
             await ContentRemovalGuardChecks.Run(options, Check);
             await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
         }

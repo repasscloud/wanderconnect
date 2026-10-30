@@ -5315,6 +5315,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_reports");
 
+                    b.HasAlternateKey("Id", "CaseId", "ReporterAccountId")
+                        .HasName("ak_reports_id_case_id_reporter_account_id");
+
                     b.HasIndex("CaseId")
                         .HasDatabaseName("ix_reports_case_id");
 
@@ -5518,6 +5521,44 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                             Priority = "Normal",
                             Serious = false,
                             SortOrder = 10
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ReportOutcomeState", b =>
+                {
+                    b.Property<Guid>("ReportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("report_id");
+
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<Guid>("SourceAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_account_id");
+
+                    b.Property<Guid>("SourceCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_case_id");
+
+                    b.HasKey("ReportId")
+                        .HasName("pk_report_outcome_states");
+
+                    b.HasIndex("SourceCaseId", "SourceAccountId")
+                        .HasDatabaseName("ix_report_outcome_states_source_case_id_source_account_id");
+
+                    b.HasIndex("ReportId", "SourceCaseId", "SourceAccountId")
+                        .HasDatabaseName("ix_report_outcome_states_report_id_source_case_id_source_accou~");
+
+                    b.ToTable("report_outcome_states", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_report_outcome_checkpoint", "revision>=0 AND (fingerprint IS NULL OR fingerprint ~ '^[0-9a-f]{64}$')");
                         });
                 });
 
@@ -7623,6 +7664,24 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_reports_accounts_subject_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ReportOutcomeState", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("SourceCaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_report_outcome_states_moderation_cases_source_case_id");
+
+                    b.HasOne("Swoovr.Domain.Report", null)
+                        .WithMany()
+                        .HasForeignKey("ReportId", "SourceCaseId", "SourceAccountId")
+                        .HasPrincipalKey("Id", "CaseId", "ReporterAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_report_outcome_states_reports_report_id_source_case_id_sour~");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.RoleGrant", b =>

@@ -1,12 +1,13 @@
 @* Report a profile, request or bot (D131): a reason from the configured list, an optional note (up to 2,000
    characters) and an optional block in the same step. The member sees only that it was submitted and, later, its
-   review status; never the outcome. Reporting and blocking are independent. *@
+   review status and broad general outcome; never action details. Reporting and blocking are independent. *@
 @inject MemberClient Members
 <section class="card account-section" aria-labelledby="report-heading" data-report="@(done ? "sent" : open ? "open" : "idle")">
     <h2 id="report-heading">Report</h2>
     @if (done)
     {
-        <p role="status" data-report-done>Thanks. Your report was submitted. You can follow its status under Me → Notices and reports.</p>
+        <p role="status" data-report-done>@ReportFollowUpText.Confirmation</p>
+        <ReportSupport />
     }
     else if (!open)
     {
@@ -35,6 +36,7 @@
     [Parameter, EditorRequired] public string Name { get; set; } = "";
     /// <summary>Called after a report that also blocked, so the page can show the block.</summary>
     [Parameter] public EventCallback Blocked { get; set; }
+    [Parameter] public EventCallback Submitted { get; set; }
     private bool open, busy, done, block;
     private string? category, text, status, message;
     private List<ReportCategoryView> categories = [];
@@ -53,6 +55,7 @@
         if (result.Ok)
         {
             done = true;
+            await Submitted.InvokeAsync();
             if (block) await Blocked.InvokeAsync();
             return;
         }

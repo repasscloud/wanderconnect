@@ -35,7 +35,7 @@ public static class ModerationEndpoints
         api.MapPost("/reports", ReportAsync);
         api.MapGet("/me/reports", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, barredExempt:true);
             if (denied is not null) return denied;
             var db = accounts.Db!;
             // D190: the general outcome once the case is closed: whether any action followed the report, never which.
@@ -45,7 +45,7 @@ public static class ModerationEndpoints
                               where r.ReporterAccountId == current!.Account!.Id
                               orderby r.CreatedAt descending
                               select new { r.Id, r.SubjectType, r.CategoryId, c.Status, r.CreatedAt, k.Serious,
-                                  Action = db.Sanctions.Any(s => s.CaseId == c.Id && s.StartsAt >= r.CreatedAt) }).Take(100).ToListAsync(cancellationToken);
+                                  Action = db.Sanctions.Any(s => s.CaseId == c.Id && s.StartsAt >= r.CreatedAt)||db.Set<ContentRemoval>().Any(x=>x.CaseId==c.Id&&x.RemovedAt>=r.CreatedAt) }).Take(100).ToListAsync(cancellationToken);
             return Results.Ok(mine.Select(r => new MyReportView(r.Id, Wire(r.SubjectType), r.CategoryId, ReportPolicy.ReporterStatus(r.Status), r.CreatedAt,
                 ReportPolicy.Outcome(r.Status, r.Action), r.Serious)).ToList());
         });
@@ -241,6 +241,8 @@ public static class ModerationEndpoints
         if (category.Serious && Clean(request.PoliceReference) is { } reference && evidenceKeys.CurrentVersion is { } version)
             report.PoliceReference = EvidenceSeal.Seal(version, evidenceKeys.Encryption[version], reference);
         var item = await AttachAsync(db, report, subjectAccount, subject?.Employee == true, category.Serious, now, cancellationToken);
+        await using var reportCase = await Retention.PreservationLease.CaseAsync(db,item.Id,cancellationToken);
+        await using var reportTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
         db.CaseEvidence.Add(new CaseEvidence { Id = Guid.NewGuid(), CaseId = item.Id, ReportId = report.Id, Kind = Wire(subjectType),
             Snapshot = JsonSerializer.Serialize(snapshot, SnapshotJson), MediaIds = retainedMedia.Distinct().ToArray(), CapturedAt = now });
         if(meetingContext is{}meeting)
@@ -254,10 +256,20 @@ public static class ModerationEndpoints
         try { await db.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException)
         {
-            // A concurrent report opened the case first; join it.
+            // A concurrent report opened the case first; join it only after releasing the failed transaction/leases.
+            await reportTransaction.RollbackAsync(cancellationToken);
+            await reportTransaction.DisposeAsync();
             db.ChangeTracker.Clear();
+            await reportCase.DisposeAsync();
+            await barrier.DisposeAsync();
+            await lifecycle.DisposeAsync();
             return await ReportAsync(request, user, accounts, configuration, email, evidence, evidenceKeys, hub, clock, logs, cancellationToken);
         }
+        // New report/checkpoint baseline commits with evidence and optional block; no historical notification backfill.
+        await ReportOutcomeCapture.InTransactionAsync(db,item.Id,now,cancellationToken);
+        await reportTransaction.CommitAsync(cancellationToken);
+        await reportTransaction.DisposeAsync();
+        await reportCase.DisposeAsync();
         // #82: a block closes the conversation for both members' open chat windows at once.
         if (category.Serious)
         {
@@ -461,6 +473,8 @@ public static class ModerationEndpoints
             var refusal = ModerationPolicy.Check(ModerationAction.Acknowledge, current!.StaffRole, subject?.Employee == true || item.Queue == CaseQueue.Admin,
                 await OwnAccountAsync(db, current.Account!.Id, item.SubjectAccountId, cancellationToken));
             if (refusal != ModerationRefusal.None) return Refused(refusal);
+            await using var outcomeCase=await Retention.PreservationLease.CaseAsync(db,id,cancellationToken);
+            await using var outcomeTransaction=step=="close"?await db.Database.BeginTransactionAsync(cancellationToken):null;
             switch (step)
             {
                 case "review" when item.Status == CaseStatus.Open: item.Status = CaseStatus.UnderReview; break;
@@ -477,6 +491,12 @@ public static class ModerationEndpoints
             item.UpdatedAt = now;
             Audit.Record(db, now, current.Account.Id, "account", "case." + step, "moderation-case", item.Id.ToString(), current.StaffRole.ToString());
             await db.SaveChangesAsync(cancellationToken);
+            if(outcomeTransaction is not null)
+            {
+                await ReportOutcomeCapture.InTransactionAsync(db,id,now,cancellationToken);
+                await outcomeTransaction.CommitAsync(cancellationToken);
+                await outcomeTransaction.DisposeAsync();
+            }
             return Results.Ok(await DetailAsync(db, item, now, cancellationToken));
         });
         admin.MapPost("/cases/{id:guid}/actions", async (Guid id, ModerationActionRequest request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
@@ -515,9 +535,15 @@ public static class ModerationEndpoints
             var refusal = ModerationPolicy.Check(ModerationAction.Lift, current!.StaffRole, subject?.Employee == true,
                 await OwnAccountAsync(db, current.Account!.Id, sanction.AccountId, cancellationToken), reason: request.Reason, lifting: sanction);
             if (refusal != ModerationRefusal.None) return Refused(refusal);
+            await using var outcomeCase=sanction.CaseId is{}caseId?await Retention.PreservationLease.CaseAsync(db,caseId,cancellationToken):null;
+            await using var outcomeTransaction=await db.Database.BeginTransactionAsync(cancellationToken);
             (sanction.LiftedAt, sanction.LiftedBy) = (now, current.Account.Id);
             Audit.Record(db, now, current.Account.Id, "account", "sanction.lifted", "sanction", sanction.Id.ToString(), current.StaffRole.ToString());
             await db.SaveChangesAsync(cancellationToken);
+            if(sanction.CaseId is{}sourceCase)await ReportOutcomeCapture.InTransactionAsync(db,sourceCase,now,cancellationToken);
+            await outcomeTransaction.CommitAsync(cancellationToken);
+            await outcomeTransaction.DisposeAsync();
+            if(outcomeCase is not null)await outcomeCase.DisposeAsync();
             await NotifyAsync(db, email, sanction.AccountId, NoticeKind.SanctionLifted, sanction.Id, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context));
             return Results.Ok(View(sanction, now));
         });
@@ -556,10 +582,16 @@ public static class ModerationEndpoints
             var refusal = ModerationPolicy.MayDecideAppeal(sanction, current!.Account!.Id, current.StaffRole, subject?.Employee == true,
                 await OwnAccountAsync(db, current.Account.Id, sanction.AccountId, cancellationToken));
             if (refusal != ModerationRefusal.None) return Refused(refusal);
+            await using var outcomeCase=sanction.CaseId is{}caseId?await Retention.PreservationLease.CaseAsync(db,caseId,cancellationToken):null;
+            await using var outcomeTransaction=await db.Database.BeginTransactionAsync(cancellationToken);
             (appeal.Status, appeal.DecidedBy, appeal.DecidedAt) = (request.Outcome == "overturn" ? AppealStatus.Overturned : AppealStatus.Upheld, current.Account.Id, now);
             if (appeal.Status == AppealStatus.Overturned && sanction.LiftedAt is null) (sanction.LiftedAt, sanction.LiftedBy) = (now, current.Account.Id);
             Audit.Record(db, now, current.Account.Id, "account", "appeal." + request.Outcome, "appeal", appeal.Id.ToString(), current.StaffRole.ToString());
             await db.SaveChangesAsync(cancellationToken);
+            if(sanction.CaseId is{}sourceCase)await ReportOutcomeCapture.InTransactionAsync(db,sourceCase,now,cancellationToken);
+            await outcomeTransaction.CommitAsync(cancellationToken);
+            await outcomeTransaction.DisposeAsync();
+            if(outcomeCase is not null)await outcomeCase.DisposeAsync();
             await NotifyAsync(db, email, appeal.AccountId, appeal.Status == AppealStatus.Overturned ? NoticeKind.AppealOverturned : NoticeKind.AppealUpheld, sanction.Id, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context));
             return Results.Ok(new AppealView(appeal.Id, sanction.Id, Wire(appeal.Status), appeal.CreatedAt));
         });
@@ -727,6 +759,9 @@ public static class ModerationEndpoints
         if (action == ModerationAction.Terminate && await StaffAccessEndpoints.GrantAsync(db, current.Account.Id, StaffAccessPolicy.Termination, now, cancellationToken) is null)
             return StaffAccessEndpoints.NeedsGrant(StaffAccessPolicy.Termination);
         if (await StaffAccessEndpoints.ExcludedAsync(db, current.Account.Id, [subjectId], cancellationToken)) return StaffAccessEndpoints.Conflict();
+        await using var outcomeCase=item is not null?await Retention.PreservationLease.CaseAsync(db,item.Id,cancellationToken):null;
+        // RegistryPopulation may save source state: own the transaction BEFORE staging the sanction/registry changes.
+        await using var outcomeTransaction=await db.Database.BeginTransactionAsync(cancellationToken);
         Sanction? sanction = null;
         if (action != ModerationAction.Dismiss)
         {
@@ -752,6 +787,10 @@ public static class ModerationEndpoints
         Audit.Record(db, now, current.Account.Id, "account", "moderation." + request.Action, item is null ? "account" : "moderation-case",
             (item?.Id ?? subjectId).ToString(), $"{current.StaffRole}:{sanction?.Id}");
         await db.SaveChangesAsync(cancellationToken);
+        if(item is not null)await ReportOutcomeCapture.InTransactionAsync(db,item.Id,now,cancellationToken);
+        await outcomeTransaction.CommitAsync(cancellationToken);
+        await outcomeTransaction.DisposeAsync();
+        if(outcomeCase is not null)await outcomeCase.DisposeAsync();
         if (sanction is not null)
             await NotifyAsync(db, email, subjectId, sanction.Kind switch
             {

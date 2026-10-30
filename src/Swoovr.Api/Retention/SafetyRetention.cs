@@ -326,6 +326,8 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
             if (await db.BannedIdentifiers.AnyAsync(b => b.CaseId == id,token) || await db.BanDispositions.AnyAsync(d=>d.CaseId==id,token)
                 || await db.EmailRetirementOperations.AnyAsync(o=>o.CaseId==id,token)) continue;
             await using var recordTransaction=await db.Database.BeginTransactionAsync(token);
+            var reportIds=db.Reports.Where(r=>r.CaseId==id).Select(r=>r.Id);
+            await db.Notifications.Where(n=>n.Kind==NotificationKind.ReportOutcome&&n.SubjectId!=null&&reportIds.Contains(n.SubjectId.Value)).ExecuteDeleteAsync(token);
             await db.Set<TextHarmReview>().Where(r=>r.CaseId==id).ExecuteDeleteAsync(token);
             await db.Set<ContentRemoval>().Where(r=>r.CaseId==id).ExecuteDeleteAsync(token);
             await db.ModerationCases.Where(c => c.Id == id).ExecuteDeleteAsync(token);

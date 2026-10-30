@@ -39,6 +39,7 @@ public sealed class NotificationsPage : ContentPage
 		foreach (var n in centre.Items)
         {
 			rows.Add(Ui.Text($"{(n.Read ? "" : "• ")}{n.Title} · {n.At.ToLocalTime():d MMM, HH:mm}", n.Read ? null : "TileName", $"Notification_{n.Id}"));
+            if(n.Kind=="reportOutcome")rows.Add(Ui.Button("Open Notices and reports","ReportOutcome_"+n.Id,()=>Ui.PushAsync(new NoticesPage()),primary:false));
             if(n.Link=="/me/meeting-safety")rows.Add(Ui.Button("Open meeting safety","MeetingNotification_"+n.Id,()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));
         }
 		if (centre.Unread > 0) rows.Add(Ui.Button("Mark all as read", "NotificationsReadAll", async () => { await Ui.Members.ReadAllNotificationsAsync(); await LoadAsync(); }, primary: false));

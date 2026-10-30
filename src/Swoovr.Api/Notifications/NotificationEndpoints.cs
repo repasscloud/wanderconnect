@@ -16,6 +16,7 @@ public static class NotificationLinks
     public static async Task<string> ForAsync(SwoovrDbContext db, Notification n, CancellationToken cancellationToken) => n.Kind switch
     {
         NotificationKind.Message or NotificationKind.ConversationEnded => $"/chats/{n.SubjectId}",
+        NotificationKind.ReportOutcome => "/me/notices",
         NotificationKind.Request => "/connections",
         NotificationKind.Connection when n.ActorAccountId is { } actor
             && await db.MemberProfiles.Where(p => p.AccountId == actor).Select(p => (Guid?)p.PublicId).SingleOrDefaultAsync(cancellationToken) is { } person
@@ -33,7 +34,7 @@ public static class NotificationLinks
 /// <summary>
 /// The member's notification centre and settings (#49; policy §10). The centre is worded when read: an item from someone
 /// now blocked (either way), restricted, suspended, terminated or deleted disappears, and a barred member sees account
-/// notices only. Settings: kinds, push, email, private previews, quiet hours, muted modes and photos in chat. Push devices
+/// notices and own-report updates only. Settings: kinds, push, email, private previews, quiet hours, muted modes and photos in chat. Push devices
 /// use configured APNs/FCM or explicitly labelled Development simulation (D210).
 /// </summary>
 public static class NotificationEndpoints
@@ -189,8 +190,11 @@ public static class NotificationEndpoints
     /// <summary>The centre as the member may see it now: worded here, from ids, with the rules applied again.</summary>
     public static async Task<NotificationCentre> CentreAsync(SwoovrDbContext db, Guid me, bool barred, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account))
+        if(!await db.Accounts.AnyAsync(a=>a.Id==me&&a.Status==AccountStatus.Active,cancellationToken))return new([],0);
+        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account || n.Kind==NotificationKind.ReportOutcome))
             .OrderByDescending(n => n.UpdatedAt).Take(NotificationPolicy.PageSize * 2).ToListAsync(cancellationToken);
+        var outcomeIds=rows.Where(n=>n.Kind==NotificationKind.ReportOutcome&&n.SubjectId!=null).Select(n=>n.SubjectId!.Value).ToList();
+        var ownOutcomes=await db.Reports.Where(r=>r.ReporterAccountId==me&&outcomeIds.Contains(r.Id)).Select(r=>r.Id).ToListAsync(cancellationToken);
         var actors = rows.Where(n => n.ActorAccountId is not null).Select(n => n.ActorAccountId!.Value).Distinct().ToList();
         var allowed = new Dictionary<Guid, bool>();
         foreach (var actor in actors) allowed[actor] = await Notifier.AllowedAsync(db, me, actor, now, cancellationToken);
@@ -202,11 +206,13 @@ public static class NotificationEndpoints
         var items = new List<NotificationView>();
         foreach (var n in rows)
         {
+            if(n.Kind==NotificationKind.ReportOutcome&&(n.SubjectId is not{}source||!ownOutcomes.Contains(source)||n.ActorAccountId!=null||n.ModeId!=null))continue;
             if (n.ActorAccountId is { } actor && !allowed[actor]) continue;
             var name = n.ActorAccountId is { } who && names.TryGetValue(who, out var known) ? known : "Someone";
             var mode = n.ModeId is { } id && labels.TryGetValue(id, out var label) ? label : null;
             string? title = n.Kind switch
             {
+                NotificationKind.ReportOutcome => "There is an update to a report you submitted. Open Notices and reports to review it.",
                 NotificationKind.ConversationEnded => ConversationEnding.Notification,
                 NotificationKind.MeetingSafety => "You have a meeting safety update. Open it to check in.",
                 NotificationKind.Message => n.Count > 1 ? $"{n.Count} new messages from {name}" : $"New message from {name}",

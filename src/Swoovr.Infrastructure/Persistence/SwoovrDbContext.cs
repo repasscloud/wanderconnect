@@ -1002,6 +1002,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             g.HasIndex(x=>x.TokenHash).IsUnique();g.HasIndex(x=>x.RecipientId);
             g.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_read_grant","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '4 hours'"));
         });
+        model.AddReportOutcomes();
         model.Entity<TextHarmIntent>(i=>
         {
             i.Property(x=>x.ModeId).HasMaxLength(32);i.Property(x=>x.Result).HasMaxLength(32);

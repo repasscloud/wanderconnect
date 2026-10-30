@@ -14,6 +14,7 @@ MeetingSafetyChecks.Run();
 MeetingSafetyContactAccessChecks.Run();
 ContentRemovalChecks.Run();
 TextHarmChecks.Run();
+ReportOutcomeChecks.Run((name,ok)=>{if(!ok)throw new Exception("Report outcome: "+name);});
 BannedIdentifierChecks.Run();
 FallbackKeyChecks.Run();
 ApiContractChecks.Run();

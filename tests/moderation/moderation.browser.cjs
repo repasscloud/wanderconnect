@@ -161,11 +161,13 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     assert.ok(mine); assert.ok(!/restrict|sanction|warn|suspend/i.test(JSON.stringify(r.body))); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'moderation.%' AND detail LIKE '%rude%'`), '0'); pass();
 
-    // An admin suspends: no normal member functions, but the account, notices and appeals stay open.
+    // An admin suspends: no normal member functions, but the account, notices, own reports and appeals stay open.
     r = await act('adm', subCase, { action: 'suspend', reason: 'Fictional reason: suspension for review.', days: 14 });
     assert.equal(r.status, 200); pass();
-    for (const path of ['/api/explore?mode=dating', '/api/me/profile', '/api/connections', '/api/me/reports'])
+    for (const path of ['/api/explore?mode=dating', '/api/me/profile', '/api/connections'])
     { assert.deepEqual(code(await call(tokens.sub, path)), [403, 'account-suspended'], path); pass(); }
+    const barredReports=await call(tokens.sub,'/api/me/reports');assert.equal(barredReports.status,200);pass();
+    assert.ok(!barredReports.body.some(report=>report.id===mine.id),'barred read remains reporter-owned');pass();
     assert.equal((await call(tokens.sub, '/api/me')).status, 200); pass();
     assert.equal((await call(tokens.rep, `/api/profiles/${pid.sub}`)).status, 404); pass(); // even for a connected member
     const suspension = (await call(tokens.sub, '/api/me/notices')).body.find(n => n.kind === 'suspension').sanction;
