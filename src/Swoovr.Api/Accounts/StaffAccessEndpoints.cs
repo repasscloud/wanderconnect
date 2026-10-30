@@ -90,8 +90,7 @@ public static class StaffAccessEndpoints
             if (denied is not null) return denied;
             if (!current!.IsRootAdmin && !current.Allows(AccountRole.Legal)) return Results.Forbid();
             var take = Math.Clamp(limit ?? 200, 1, 1000);
-            var entries = (await accounts.Db!.SensitiveAccessLog.OrderByDescending(e => e.Sequence).Take(take).ToListAsync(cancellationToken)).OrderBy(e => e.Sequence).ToList();
-            var intact = StaffAccessPolicy.ChainIntact(entries);
+            var (entries,intact) = await Swoovr.Api.Retention.AuditRetention.ReadAsync(accounts.Db!,take,cancellationToken);
             // #89: a broken chain is a critical security incident.
             if (!intact) await accounts.Services.GetRequiredService<Security.SecurityAlerts>().ChainBrokenAsync("access-log-chain-broken", "The sensitive-access log's hash chain is broken.", DateTimeOffset.UtcNow, cancellationToken);
             return Results.Ok(new SensitiveAccessLogView(entries.Select(e => new SensitiveAccessView(e.Sequence, e.At, e.ActorAccountId, e.Action, e.Resource, e.ResourceId, e.Status)).ToList(), intact));
@@ -308,7 +307,7 @@ public sealed class SensitiveAccessMiddleware(RequestDelegate next)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlRawAsync($"SELECT pg_advisory_xact_lock({ChainLock})", cancellationToken);
-        var previous = await db.SensitiveAccessLog.OrderByDescending(e => e.Sequence).Select(e => e.Hash).FirstOrDefaultAsync(cancellationToken) ?? [];
+        var previous = await db.SensitiveAccessLog.OrderByDescending(e => e.Sequence).Select(e => e.Hash).FirstOrDefaultAsync(cancellationToken) ?? await Swoovr.Api.Retention.AuditRetention.TailAsync(db,cancellationToken);
         var at = DateTimeOffset.FromUnixTimeMilliseconds(now.ToUnixTimeMilliseconds());
         db.SensitiveAccessLog.Add(new SensitiveAccess
         {

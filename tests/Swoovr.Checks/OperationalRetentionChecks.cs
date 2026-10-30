@@ -84,6 +84,8 @@ static class OperationalRetentionChecks
             check("a ready bit without a valid reconciliation receipt is refused",!await RestoreReadiness.ReadyAsync(db,CancellationToken.None));
             await db.Database.ExecuteSqlRawAsync("UPDATE swoovr_operations.restore_guard SET authority_sha256=repeat('a',64),reconciled_at=now()");
             check("structurally valid operator receipt opens readiness only after reconciliation",await RestoreReadiness.ReadyAsync(db,CancellationToken.None));
+            // A separate empty database below exercises complete audit-prefix expiry without unrelated safety fixtures.
+            await AuditRetentionChecks.Run(sourceOptions,check);
             check("empty legacy inventory is import-ready",!(await RegistryLegacyAudit.ReadAsync(db,now,CancellationToken.None)).RequiresReview);
             var legacyHash=Enumerable.Repeat((byte)17,32).ToArray();
             db.TerminatedEmailHolds.Add(new(){EmailHash=legacyHash,CreatedAt=now.AddYears(-1),ExpiresAt=now.AddYears(1)});
