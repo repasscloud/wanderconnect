@@ -47,7 +47,8 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                               select (DateTimeOffset?)e.CreatedAt).MaxAsync(token);
         var reinstated=await db.BanTransitions.Where(t=>t.CaseId==item.Id&&t.Action=="account-reinstated").Select(t=>(DateTimeOffset?)t.At).MaxAsync(token);
         var dispositionReview=await db.BanDispositionReviews.Where(r=>r.CaseId==item.Id).Select(r=>(DateTimeOffset?)r.At).MaxAsync(token);
-        var latest = new[] { item.EscalatedAt, disclosed, appeal, exported, reinstated, dispositionReview }.Where(d => d is not null).Max();
+        var removed=await db.Set<ContentRemoval>().Where(r=>r.CaseId==item.Id).Select(r=>(DateTimeOffset?)r.RemovedAt).MaxAsync(token);
+        var latest = new[] { item.EscalatedAt, disclosed, appeal, exported, reinstated, dispositionReview, removed }.Where(d => d is not null).Max();
         return SafetyRetentionPolicy.ForCase(item, serious, latest);
     }
 
@@ -86,7 +87,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                 {
                     case "case": if (!Guid.TryParse(copy.RecordId, out var id) || !Member("subjectAccountId")) return; cases.Add(id); break;
                     case "report": if (!Case("caseId") || !Member("reporterAccountId") || !Member("subjectAccountId")) return; break;
-                    case "case-evidence":
+                    case "case-evidence": case "content-removal":
                         if (!Case("caseId") || !root.TryGetProperty("reportId", out var reportField) || !reportField.TryGetGuid(out var reportId)) return;
                         var sourceReport = await db.Reports.AsNoTracking().SingleOrDefaultAsync(r => r.Id == reportId, token);
                         if (sourceReport is null) return; // Missing participant provenance requires independent review.
@@ -244,37 +245,8 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
         // Establish legacy references before any case/report source row can be disposed.
         foreach (var hold in await db.LegalHolds.Where(h => (h.RetentionCaseIds == null || h.RelatedAccountIds == null) && db.EvidenceItems.Any(e => e.HoldId == h.Id)).ToListAsync(token))
             await ResolveProvenanceAsync(hold, token);
-        await foreach (var id in ClosedCaseIdsAsync(onlyCase, onlyAccount, token))
-        {
-            await using var barrier = await PreservationLease.SharedAsync(db, token);
-            await using var caseMutex = await PreservationLease.CaseAsync(db, id, token);
-            var item = await db.ModerationCases.SingleOrDefaultAsync(c => c.Id == id, token);
-            if (item is null) continue;
-            await db.Entry(item).ReloadAsync(token);
-            var accounts = await CaseAccountsAsync(db, id, token);
-            var held = await evidence.TryHeldAccountsAsync(token);
-            if (held is null) return new(records, contents, copies, reviews, true);
-            if (accounts.Any(held.Contains) || await db.LegalHolds.AnyAsync(h => h.Status != LegalHoldStatus.Released
-                && (h.CaseId == id || h.RetentionCaseIds != null && h.RetentionCaseIds.Contains(id)), token)) continue;
-            if (await UnresolvedCopyObligationAsync(id, accounts, token)) { reviews++; continue; }
-            var window = await CaseWindowAsync(item, token);
-            if (item.EvidencePurgedAt is null && SafetyRetentionPolicy.MayDispose(window.ContentUntil, now, false))
-            {
-                var legacy = await db.CaseEvidence.Where(e => e.CaseId == id && e.MediaIds == null).ToListAsync(token);
-                if (legacy.Any(e => !ReviewMediaReferences.Read(e.Kind, e.Snapshot).Known)) { reviews++; continue; }
-                await using var transaction = await db.Database.BeginTransactionAsync(token);
-                await db.CaseEvidence.Where(e => e.CaseId == id).ExecuteDeleteAsync(token);
-                await db.Reports.Where(r => r.CaseId == id).ExecuteUpdateAsync(u => u.SetProperty(r => r.Text, (string?)null).SetProperty(r => r.PoliceReference, (byte[]?)null), token);
-                var sanctions = db.Sanctions.Where(s => s.CaseId == id).Select(s => s.Id);
-                await db.Appeals.Where(a => sanctions.Contains(a.SanctionId)).ExecuteUpdateAsync(u => u.SetProperty(a => a.Text, (string?)null), token);
-                await db.Sanctions.Where(s => s.CaseId == id).ExecuteUpdateAsync(u => u.SetProperty(s => s.Reason, "Historical enforcement decision; detailed record retention ended."), token);
-                item.EvidencePurgedAt = now;
-                Audit.Record(db, now, null, "retention", "case.content-expired", "moderation-case", id.ToString());
-                await db.SaveChangesAsync(token);
-                await transaction.CommitAsync(token);
-                contents++;
-            }
-        }
+        // Dispose independently due released copies first: guarded source erasure must not run while a
+        // retained copy still pins it, including copies whose own deadline is reached in this same run.
         // A released copy may still be needed by its review or police-case schedule, or by an overlapping live hold.
         var released = await db.LegalHolds.Where(h => h.Status == LegalHoldStatus.Released && db.EvidenceItems.Any(e => e.HoldId == h.Id)
             && (onlyCase == null || h.CaseId == onlyCase || h.RetentionCaseIds != null && h.RetentionCaseIds.Contains(onlyCase.Value))
@@ -299,6 +271,40 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
             var item = await db.ModerationCases.SingleOrDefaultAsync(c => c.Id == id, token);
             if (item is null) continue;
             await db.Entry(item).ReloadAsync(token);
+            var accounts = await CaseAccountsAsync(db, id, token);
+            var held = await evidence.TryHeldAccountsAsync(token);
+            if (held is null) return new(records, contents, copies, reviews, true);
+            if (accounts.Any(held.Contains) || await db.LegalHolds.AnyAsync(h => h.Status != LegalHoldStatus.Released
+                && (h.CaseId == id || h.RetentionCaseIds != null && h.RetentionCaseIds.Contains(id)), token)) continue;
+            if (await UnresolvedCopyObligationAsync(id, accounts, token)) { reviews++; continue; }
+            var window = await CaseWindowAsync(item, token);
+            if (item.EvidencePurgedAt is null && SafetyRetentionPolicy.MayDispose(window.ContentUntil, now, false))
+            {
+                var legacy = await db.CaseEvidence.Where(e => e.CaseId == id && e.MediaIds == null).ToListAsync(token);
+                if (legacy.Any(e => !ReviewMediaReferences.Read(e.Kind, e.Snapshot).Known)) { reviews++; continue; }
+                await using var transaction = await db.Database.BeginTransactionAsync(token);
+                // The guarded evidence transition sees this flag within the same atomic case-content transaction.
+                await db.ModerationCases.Where(c=>c.Id==id).ExecuteUpdateAsync(set=>set.SetProperty(c=>c.EvidencePurgedAt,now),token);
+                await db.Set<ContentRemoval>().Where(r=>r.CaseId==id&&r.SealedSnapshot!=null).ExecuteUpdateAsync(set=>set.SetProperty(r=>r.SealedSnapshot,(byte[]?)null).SetProperty(r=>r.SnapshotHash,Array.Empty<byte>()).SetProperty(r=>r.EvidenceDisposedAt,now),token);
+                await db.CaseEvidence.Where(e => e.CaseId == id).ExecuteDeleteAsync(token);
+                await db.Reports.Where(r => r.CaseId == id).ExecuteUpdateAsync(u => u.SetProperty(r => r.Text, (string?)null).SetProperty(r => r.PoliceReference, (byte[]?)null), token);
+                var sanctions = db.Sanctions.Where(s => s.CaseId == id).Select(s => s.Id);
+                await db.Appeals.Where(a => sanctions.Contains(a.SanctionId)).ExecuteUpdateAsync(u => u.SetProperty(a => a.Text, (string?)null), token);
+                await db.Sanctions.Where(s => s.CaseId == id).ExecuteUpdateAsync(u => u.SetProperty(s => s.Reason, "Historical enforcement decision; detailed record retention ended."), token);
+                item.EvidencePurgedAt = now;
+                Audit.Record(db, now, null, "retention", "case.content-expired", "moderation-case", id.ToString());
+                await db.SaveChangesAsync(token);
+                await transaction.CommitAsync(token);
+                contents++;
+            }
+        }
+        await foreach (var id in ClosedCaseIdsAsync(onlyCase, onlyAccount, token))
+        {
+            await using var barrier = await PreservationLease.SharedAsync(db, token);
+            await using var caseMutex = await PreservationLease.CaseAsync(db, id, token);
+            var item = await db.ModerationCases.SingleOrDefaultAsync(c => c.Id == id, token);
+            if (item is null) continue;
+            await db.Entry(item).ReloadAsync(token);
             var held = await evidence.TryHeldAccountsAsync(token);
             if (held is null) return new(records, contents, copies, reviews, true);
             var accounts = await CaseAccountsAsync(db, id, token);
@@ -311,9 +317,12 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
             // follows its own clock; active anti-abuse necessity does not retain original evidence indefinitely.
             if (await db.BannedIdentifiers.AnyAsync(b => b.CaseId == id,token) || await db.BanDispositions.AnyAsync(d=>d.CaseId==id,token)
                 || await db.EmailRetirementOperations.AnyAsync(o=>o.CaseId==id,token)) continue;
+            await using var recordTransaction=await db.Database.BeginTransactionAsync(token);
+            await db.Set<ContentRemoval>().Where(r=>r.CaseId==id).ExecuteDeleteAsync(token);
             await db.ModerationCases.Where(c => c.Id == id).ExecuteDeleteAsync(token);
             Audit.Record(db, now, null, "retention", "case.records-expired", "moderation-case", id.ToString());
             await db.SaveChangesAsync(token);
+            await recordTransaction.CommitAsync(token);
             records++;
         }
         return new(records, contents, copies, reviews);

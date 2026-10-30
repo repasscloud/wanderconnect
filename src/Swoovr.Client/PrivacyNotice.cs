@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.7, 30 October 2026";
+    public const string Version = "Draft 0.8, 30 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -62,6 +62,10 @@ public static class PrivacyNotice
             "Shared links normally expire at the final expected end plus 24 hours, with a maximum of 30 days from their creation; after home safe, end or cancel, final-status access lasts up to 24 hours unless the link expires or is revoked sooner. Expired links never resume. Ordinary meeting-safety records are scheduled for deletion 30 days after final closure, unless a linked incident, safety review or legal hold requires preservation. Withdrawn or expired contact records have a separate deletion schedule and may remain while required by those records.",
             "Optional after-meeting feedback appears only in your own member features and does not automatically change another person's reputation. It may still be accessed or preserved through lawful restricted safety or legal processes. An incident report can include meeting context without automatically notifying the person reported.",
             "Swoovr does not monitor emergencies or dispatch responders. Missed check-ins are unconfirmed, not proof of an emergency; alerts are not guaranteed to arrive. Calling emergency services opens your device's dialler, and alerting a contact by SMS opens its composer. Opening either does not prove a call or message was sent. An optional location link is explicitly chosen and generated on your device; Swoovr receives no exact coordinates.",
+        ]),
+        new("moderated-content", "Text removed after moderation", [
+            "Authorised staff can remove an individual profile-text field or a reported text message. Account standing records the action; a removed message is shown as removed by Swoovr rather than as a message the sender unsent.",
+            "The exact removed text and the review explanation are kept as restricted encrypted case evidence, including after the ordinary source is deleted. The applicable case-content retention, review and legal-hold rules decide when that evidence can be erased; a separate minimal decision record follows its own retention period. The reporter and internal review explanation are not disclosed through the account notice.",
         ]),
         new("holds", "Evidence we must preserve", [
             "Sometimes we must preserve information, for example after a serious safety report or a verified request from police. A legal hold keeps the records it covers in a restricted, encrypted evidence store, even if you delete your account, while the hold applies and afterwards for any applicable safety-review or police-record retention period.",

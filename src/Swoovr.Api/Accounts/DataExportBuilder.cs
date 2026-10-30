@@ -52,8 +52,8 @@ public static class DataExportBuilder
                     m.MediaId is { } y && media.TryGetValue(y, out var j) && j.RemovedAt is not null))
                 .Select(m => new
                 {
-                    from = m.Kind == MessageKind.System ? "system" : m.SenderAccountId == id ? "you" : "them", kind = m.Kind.ToString().ToLowerInvariant(), text = m.Kind == MessageKind.System ? ConversationEnding.SystemText(m.SenderAccountId == id) : MessagingPolicy.VisibleText(m), m.SentAt,
-                    deleted = m.DeletedAt is not null, photo = m.DeletedAt is null ? m.MediaId : null,
+                    from = m.Kind == MessageKind.System ? "system" : m.SenderAccountId == id ? "you" : "them", kind = m.ModerationRemovedAt!=null?"removed-by-moderation":m.Kind.ToString().ToLowerInvariant(), text = m.Kind == MessageKind.System ? ConversationEnding.SystemText(m.SenderAccountId == id) : MessagingPolicy.VisibleText(m), m.SentAt,
+                    removedByModeration = m.ModerationRemovedAt is not null, deleted = m.DeletedAt is not null, photo = m.DeletedAt is null ? m.MediaId : null,
                     photoState = m.SenderAccountId == id && m.DeletedAt is null && m.MediaId is { } p && media.TryGetValue(p, out var item) ? MediaPolicy.MemberState(item.Status) : null,
                 }),
         });

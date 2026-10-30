@@ -1002,6 +1002,14 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             g.HasIndex(x=>x.TokenHash).IsUnique();g.HasIndex(x=>x.RecipientId);
             g.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_read_grant","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '4 hours'"));
         });
+        model.Entity<ContentRemoval>(r=>
+        {
+            r.Property(x=>x.Field).HasMaxLength(24);r.Property(x=>x.ModeId).HasMaxLength(32);
+            r.HasIndex(x=>x.CaseId);r.HasIndex(x=>x.SubjectAccountId);r.HasIndex(x=>x.MessageId);
+            r.HasOne<ModerationCase>().WithMany().HasForeignKey(x=>x.CaseId).OnDelete(DeleteBehavior.Restrict);
+            r.HasOne<Report>().WithMany().HasForeignKey(x=>x.ReportId).OnDelete(DeleteBehavior.Restrict);
+            r.ToTable(t=>t.HasCheckConstraint("ck_content_removal_evidence","(sealed_snapshot IS NOT NULL AND octet_length(snapshot_hash)=32 AND octet_length(sealed_snapshot)>=29 AND evidence_disposed_at IS NULL) OR (sealed_snapshot IS NULL AND octet_length(snapshot_hash)=0 AND evidence_disposed_at IS NOT NULL AND evidence_disposed_at>=removed_at)"));
+        });
         model.Entity<AuditEntry>(audit =>
         {
             audit.Property(a => a.Actor).HasMaxLength(16);

@@ -68,6 +68,15 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<CaseDetailView>> CaseAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<CaseDetailView>(HttpMethod.Get, $"api/admin/cases/{id}", null, cancellationToken);
 
+    public Task<ApiResult<List<ContentRemovalSource>>> ContentSourcesAsync(Guid caseId, CancellationToken cancellationToken = default) =>
+        SendAsync<List<ContentRemovalSource>>(HttpMethod.Get, $"api/admin/cases/{caseId}/content-sources", null, cancellationToken);
+
+    public Task<ApiResult<ContentRemovalReceipt>> RemoveContentAsync(Guid caseId, ContentRemovalRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<ContentRemovalReceipt>(HttpMethod.Post, $"api/admin/cases/{caseId}/content-removals", request, cancellationToken);
+
+    public Task<ApiResult<ContentRemovalEvidence>> ContentEvidenceAsync(Guid caseId, Guid removalId, CancellationToken cancellationToken = default) =>
+        SendAsync<ContentRemovalEvidence>(HttpMethod.Get, $"api/admin/cases/{caseId}/content-removals/{removalId}", null, cancellationToken);
+
     /// <summary>"review", "acknowledge" or "close".</summary>
     public Task<ApiResult<CaseDetailView>> CaseStepAsync(Guid id, string step, CancellationToken cancellationToken = default) =>
         SendAsync<CaseDetailView>(HttpMethod.Post, $"api/admin/cases/{id}/{Uri.EscapeDataString(step)}", null, cancellationToken);

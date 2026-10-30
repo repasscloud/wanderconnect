@@ -67,6 +67,8 @@ public static class StandingText
         "termination" => "Account closed",
         "dob-verified" => "Date of birth confirmed",
         "dob-not-verified" => "Date of birth couldn't be confirmed",
+        "profile-text-removed" => "Profile text removed by Swoovr",
+        "message-removed" => "A message removed by Swoovr",
         "photo-not-approved" => "A photo wasn't approved",
         _ => "Decision",
     };

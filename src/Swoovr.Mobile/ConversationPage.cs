@@ -17,6 +17,10 @@ public sealed class ConversationPage : ContentPage
 	private readonly Entry draft = Ui.Entry("MessageInput", "Message", MessagingPolicyLimits.TextMax);
 	private readonly Label status = Ui.Text(null, id: "ChatStatus");
 	private readonly List<MessageView> messages = [];
+    private readonly HashSet<Guid> removedMessages=[];
+    private bool reconciling;
+    private readonly List<MessageView> refreshArrivals=[];
+    private MessageView Project(MessageView value)=>MessageText.ApplyKnownRemoval(value,removedMessages);
 	private MessagesHubClient? hub;
 	private readonly SemaphoreSlim refreshGate = new(1, 1);
 
@@ -38,6 +42,7 @@ public sealed class ConversationPage : ContentPage
 		await refreshGate.WaitAsync();
 		try
 		{
+            reconciling=true;refreshArrivals.Clear();
 			body.Children.Clear();
 			var conversation = (await Ui.Members!.ConversationAsync(id)).Value;
 			if (conversation is null)
@@ -52,7 +57,8 @@ public sealed class ConversationPage : ContentPage
 			body.Children.Add(Ui.Detach(thread));
 			var page = await Ui.Members.MessagesAsync(id);
 			messages.Clear();
-			messages.AddRange(page.Value?.Items.Reverse() ?? []);
+			messages.AddRange((page.Value?.Items.Reverse()??[]).Select(Project));
+            var arrivals=refreshArrivals.ToArray();reconciling=false;foreach(var item in arrivals)Upsert(item);
 			if (conversation.CanSend && messages.Count == 0 && (await Ui.Members.StartersAsync(id)).Value is { Count: > 0 } starters)
 				body.Children.Add(Ui.Card([Ui.Text("Something to start with:", "FooterClaims"), .. starters.Select((s, i) => (View)Ui.Button(s.Text, $"Starter_{i}", () =>
 				{
@@ -81,12 +87,13 @@ public sealed class ConversationPage : ContentPage
 			if (hub is null && MainPage.Auth.MessagesHub() is { } live)
 			{
 				hub = live;
+                hub.Reconnected += () => MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
 				// A photo's state changes arrive as the same message again (#41): replace it in place.
 				hub.Message += m => MainThread.BeginInvokeOnMainThread(() => { if (m.ConversationId == id) { Upsert(m); Draw(); } });
 				hub.Deleted += d => MainThread.BeginInvokeOnMainThread(() => { if (d.ConversationId == id && MarkDeleted(d.MessageId)) Draw(); });
 				// #82: a block, disconnect or deletion closes the chat at once.
 				hub.Closed += c => MainThread.BeginInvokeOnMainThread(() => { if (c.ConversationId == id) Closed(); });
-				try { await hub.StartAsync(); status.Text = null; }
+				try { await hub.StartAsync(); foreach(var item in (await Ui.Members.MessagesAsync(id)).Value?.Items.Reverse()??[])Upsert(item); Draw(); status.Text = null; }
 				catch (Exception error) when (error is HttpRequestException or InvalidOperationException) { status.Text = "Live updates are off. Reopen the chat to see new messages."; }
 			}
 		}
@@ -94,7 +101,7 @@ public sealed class ConversationPage : ContentPage
 		{
 			body.Children.Add(Ui.Text("The conversation couldn't be refreshed. Reopen it to try again.", id: "ChatRefreshFailed"));
 		}
-		finally { refreshGate.Release(); }
+		finally { reconciling=false;refreshGate.Release(); }
 	}
 
 	protected override async void OnDisappearing()
@@ -146,6 +153,8 @@ public sealed class ConversationPage : ContentPage
 
 	private void Upsert(MessageView m)
 	{
+        if(reconciling)refreshArrivals.Add(m);
+        m=Project(m);
 		var index = messages.FindIndex(x => x.Id == m.Id);
 		if (index >= 0) messages[index] = m; else messages.Add(m);
 	}

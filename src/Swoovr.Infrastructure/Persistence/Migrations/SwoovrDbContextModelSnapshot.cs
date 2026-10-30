@@ -1091,6 +1091,82 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("contact_histories");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ContentRemoval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_account_id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset?>("EvidenceDisposedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("evidence_disposed_at");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("field");
+
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<DateTimeOffset>("RemovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("removed_at");
+
+                    b.Property<Guid>("ReportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("report_id");
+
+                    b.Property<byte[]>("SealedSnapshot")
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed_snapshot");
+
+                    b.Property<byte[]>("SnapshotHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("snapshot_hash");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_content_removal");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_content_removal_case_id");
+
+                    b.HasIndex("MessageId")
+                        .HasDatabaseName("ix_content_removal_message_id");
+
+                    b.HasIndex("ReportId")
+                        .HasDatabaseName("ix_content_removal_report_id");
+
+                    b.HasIndex("SubjectAccountId")
+                        .HasDatabaseName("ix_content_removal_subject_account_id");
+
+                    b.ToTable("content_removal", t =>
+                        {
+                            t.HasCheckConstraint("ck_content_removal_evidence", "(sealed_snapshot IS NOT NULL AND octet_length(snapshot_hash)=32 AND octet_length(sealed_snapshot)>=29 AND evidence_disposed_at IS NULL) OR (sealed_snapshot IS NULL AND octet_length(snapshot_hash)=0 AND evidence_disposed_at IS NOT NULL AND evidence_disposed_at>=removed_at)");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Conversation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4088,6 +4164,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("media_id");
 
+                    b.Property<Guid?>("ModerationRemovalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moderation_removal_id");
+
+                    b.Property<DateTimeOffset?>("ModerationRemovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("moderation_removed_at");
+
                     b.Property<Guid>("SenderAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("sender_account_id");
@@ -6693,6 +6777,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TripId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_connection_requests_trips_trip_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ContentRemoval", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_content_removal_moderation_cases_case_id");
+
+                    b.HasOne("Swoovr.Domain.Report", null)
+                        .WithMany()
+                        .HasForeignKey("ReportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_content_removal_reports_report_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Conversation", b =>

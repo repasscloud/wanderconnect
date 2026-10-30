@@ -332,3 +332,14 @@ After Debug build, run isolated `tests/retention/worker.browser.cjs`; on normal 
 `python3 -m unittest discover -s tests/backups -p 'test_*.py'` is included in check.sh: calendar/catalogue/bundle policy, Azure protocol fakes and UTC cadence. Actual tools: set `SWOOVR_AGE` to verified age1.3.2, then run `python3 tests/backups/roundtrip.integration.py`. Application/paired provider drills are selected by the backup hook in `tests/enforcement/keycloak-contact.integration.cjs`; inspect that suite's environment selector before invocation. They create only owned databases/containers/private temporary synthetic media and clean them on exit. Build Debug API before these tests; never rebuild during browser execution. `node --test tests/media/recovery-startup.test.cjs` and the isolated retention worker browser are regressions. Compile the prepared backup-storage Bicep module with a verified Bicep executable; no provision/deploy command is part of checks. See BACKUP-RESTORE.md for authority/fence prerequisites and hosted gaps.
 
 D262 audit-prefix/operational retention: actual PostgreSQL checks create only owned `swoovr_audit_<uuid>` databases and drop them; they never disable triggers or truncate/rewrite fixtures. Cover active/unresolved released holds, metadata preservation, verified prefix/suffix hashes, empty-log continuation, null/future authority refusal, ordinary DML refusal, aged grants/incidents/audits and completion. Build Debug API before serial `SWOOVR_TEST_STAFF_ACCESS=1 SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node tests/enforcement/admin-isolated.browser.cjs`, then the isolated retention-worker browser. The wrapper preserves main API/Web and restores the positively identified original Admin; back up/retain the actual root fixture counter, never roll it backward.
+
+
+### Individual content removal (D265)
+
+After the coordinated Debug build, run `tests/moderation/content.browser.cjs` through the owned runner:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/content.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/content.browser.cjs SWOOVR_SCREENSHOTS=docs/delivery/evidence node tests/meeting/isolated.browser.cjs
+```
+
+This proves actual API/Admin/Web and automatic Web reconnect behaviour with fictional people in an owned database. It restores main Web/Admin in its finally block. Run the affected privacy, safety, serious-report, deletion, notifications, app-parity, accessibility, retention schedule and owned retention-worker suites as well; no rebuild may overlap browser execution. The schedule concurrency writer must use the same validated database override as its fixture/purge operations. Native compilation does not prove OS UI or physical delivery.

@@ -12,7 +12,7 @@ public sealed record ReviewMediaReferences(bool Known, IReadOnlyList<Guid> Ids)
             using var document = JsonDocument.Parse(snapshot);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return new(false, []);
-            if (kind is "profile" or "bot" or "request") return new(true, []);
+            if (kind is "profile" or "bot" or "request" or "content-removal" or "meeting-safety") return new(true, []);
             if (kind is not ("message" or "conversation") || !root.TryGetProperty("messages", out var messages) || messages.ValueKind != JsonValueKind.Array)
                 return new(false, []);
             var ids = new HashSet<Guid>();

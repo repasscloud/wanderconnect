@@ -41,6 +41,7 @@ public static class ProviderSetup
             services.AddScoped<Retention.SafetyRetention>();
             services.AddScoped<Retention.OperationalRetention>();
             services.AddScoped<Safety.MeetingSafetyStore>();
+            services.AddScoped<Moderation.ContentRemovalService>();
             services.AddScoped<Safety.MeetingSafetyContactVerification>();
             services.AddScoped<Safety.MeetingSafetySchedule>();
             services.AddScoped<Safety.MeetingSafetyDelivery>();

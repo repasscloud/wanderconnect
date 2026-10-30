@@ -40,7 +40,7 @@ const run=(command,args,options={})=>new Promise((resolve,reject)=>execFile(comm
    for(const id of listeners)try{process.kill(Number(id),'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}
    await sleep(1000);adminHost=await start(path.join(adminDir,'bin/Debug/net10.0/Swoovr.Admin.dll'),adminDir,{...webEnv,ASPNETCORE_URLS:'http://localhost:5082',Keycloak__Authority:'http://localhost:8180/realms/swoovr-staff-dev',Keycloak__ClientSecret:await localEnv('SWOOVR_STAFF_WEB_SECRET')},path.join(folder,'admin.log'));await healthy('http://localhost:5082/signed-out',adminHost);
 
-   const suites=['tests/privacy/notice.browser.cjs','tests/safety/resources.browser.cjs','tests/moderation/serious.browser.cjs','tests/accounts/deletion.browser.cjs','tests/notifications/notifications.browser.cjs','tests/mobile/app-parity.browser.cjs','tests/accessibility/pages.browser.cjs'];
+   const suites=['tests/privacy/notice.browser.cjs','tests/safety/resources.browser.cjs','tests/moderation/serious.browser.cjs','tests/moderation/content.browser.cjs','tests/accounts/deletion.browser.cjs','tests/notifications/notifications.browser.cjs','tests/mobile/app-parity.browser.cjs','tests/accessibility/pages.browser.cjs','tests/retention/schedule.browser.cjs'];
    const from=process.env.SWOOVR_MEETING_REGRESSION_START;const first=from?suites.findIndex(s=>s===from):0;if(first<0)throw Error('Unknown owned regression start selector.');
    const through=process.env.SWOOVR_MEETING_REGRESSION_END;const last=through?suites.findIndex(s=>s===through):suites.length-1;if(last<first)throw Error('Unknown or reversed owned regression end selector.');
    for(const suite of suites.slice(first,last+1))

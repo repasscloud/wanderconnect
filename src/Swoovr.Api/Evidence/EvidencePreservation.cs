@@ -210,6 +210,13 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 foreach (var evidence in await db.CaseEvidence.Where(e => e.CaseId == item.Id).ToListAsync(cancellationToken))
                     Add("case-evidence", "case_evidence", evidence.Id.ToString(), id, evidence);
             }
+            foreach(var removal in await db.Set<ContentRemoval>().AsNoTracking().Where(r=>r.SubjectAccountId==id||db.Reports.Any(report=>report.Id==r.ReportId&&report.ReporterAccountId==id)).ToListAsync(cancellationToken))
+            {
+                retentionCases?.Add(removal.CaseId);relatedAccounts?.Add(removal.SubjectAccountId);
+                var original=removal.SealedSnapshot is null?null:EvidenceSeal.Open(keys.Encryption,removal.SealedSnapshot);
+                if(original is not null&&!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(EvidenceSeal.Hash(original),removal.SnapshotHash))throw new InvalidOperationException("Content-removal evidence integrity unavailable.");
+                Add("content-removal","content_removal",removal.Id.ToString(),removal.SubjectAccountId,new{removal.Id,removal.CaseId,removal.ReportId,removal.SubjectAccountId,removal.ActorAccountId,removal.Field,removal.ModeId,removal.MessageId,removal.RemovedAt,removal.EvidenceDisposedAt,original});
+            }
             foreach (var sanction in await db.Sanctions.Where(s => s.AccountId == id).ToListAsync(cancellationToken))
                 Add("sanction", "sanctions", sanction.Id.ToString(), id, sanction);
             foreach (var attempt in await db.IdVerificationAttempts.Where(a => a.AccountId == id).ToListAsync(cancellationToken))

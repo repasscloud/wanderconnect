@@ -378,6 +378,7 @@ public static class MessagingEndpoints
     /// </summary>
     public static MessageView View(Message message, Guid viewer, DateTimeOffset now, MediaItem? media = null, Media.MediaLinks? links = null)
     {
+        if(message.ModerationRemovedAt!=null)return new(message.Id,message.ConversationId,message.SenderAccountId==viewer,"removed-by-moderation","Removed by Swoovr.",message.SentAt,false);
         if (message.Kind == MessageKind.System)
             return new(message.Id, message.ConversationId, false, "system", ConversationEnding.SystemText(message.SenderAccountId == viewer), message.SentAt, false);
         PhotoView? photo = null;

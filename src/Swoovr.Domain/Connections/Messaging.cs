@@ -44,6 +44,8 @@ public sealed class Message
     public string Body { get; set; } = "";
     public DateTimeOffset SentAt { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+    public DateTimeOffset? ModerationRemovedAt { get; set; }
+    public Guid? ModerationRemovalId { get; set; }
     /// <summary>A photo message's media item (purpose "attachment"); the recipient sees it only once it passed screening.</summary>
     public Guid? MediaId { get; set; }
 }
@@ -103,7 +105,7 @@ public static class MessagingPolicy
 
     /// <summary>Rule 8: only the sender, only within five minutes, only once.</summary>
     public static bool MayDeleteForBoth(Message message, Guid me, DateTimeOffset now) =>
-        message.Kind is MessageKind.Text or MessageKind.Photo && message.SenderAccountId == me && message.DeletedAt is null && now - message.SentAt <= DeleteWindow;
+        message.Kind is MessageKind.Text or MessageKind.Photo && message.SenderAccountId == me && message.DeletedAt is null && message.ModerationRemovedAt is null && now - message.SentAt <= DeleteWindow;
 
     /// <summary>
     /// Whether a message is listed for a member: not hidden by them, not before they hid the conversation. A message
@@ -113,7 +115,7 @@ public static class MessagingPolicy
         !hiddenByMe && (conversationHiddenAt is null || message.SentAt > conversationHiddenAt);
 
     /// <summary>What a member reads of a message: its text, or nothing once it's deleted for both (Q59).</summary>
-    public static string VisibleText(Message message) => message.DeletedAt is null ? message.Body : "";
+    public static string VisibleText(Message message) => message.ModerationRemovedAt is not null ? "Removed by Swoovr." : message.DeletedAt is null ? message.Body : "";
 
     /// <summary>Rules 18–19: the reported message and up to twenty before it, oldest first.</summary>
     public static IReadOnlyList<Message> Evidence(IEnumerable<Message> conversation, Message reported) =>

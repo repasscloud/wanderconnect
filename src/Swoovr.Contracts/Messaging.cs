@@ -7,7 +7,7 @@ namespace Swoovr.Contracts;
 public sealed record ConversationView(Guid Id, PersonSummary Person, DateTimeOffset CreatedAt, DateTimeOffset? LastMessageAt, bool CanSend, bool Closed = false);
 
 /// <summary>
-/// A message as one member sees it. CanDelete: theirs and within five minutes (delete for both, rule 8). Deleted: shown
+/// A message as one member sees it. Kind removed-by-moderation carries neutral text and cannot be unsent; it is distinct from member deletion. CanDelete: theirs and within five minutes (delete for both, rule 8). Deleted: shown
 /// as deleted, with no text (Q59, D167); the text stays on the server for 30 days for investigations. A photo message
 /// (#41) carries Photo (a short-lived link) once it passed screening; the sender also sees PhotoState: checking,
 /// in-review, approved or not-approved (a blocked photo reads as not-approved). The recipient never sees a photo message before it passed.

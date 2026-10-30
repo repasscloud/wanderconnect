@@ -139,7 +139,7 @@ public sealed class Appeal
     public DateTimeOffset? DecidedAt { get; set; }
 }
 
-public enum NoticeKind { Warning, Restriction, Suspension, Termination, AppealUpheld, AppealOverturned, SanctionLifted }
+public enum NoticeKind { Warning, Restriction, Suspension, Termination, AppealUpheld, AppealOverturned, SanctionLifted, ContentRemoved }
 
 /// <summary>An in-app notice to a member about an action on their account (D135); optionally also emailed.</summary>
 public sealed class MemberNotice

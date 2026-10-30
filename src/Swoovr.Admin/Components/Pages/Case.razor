@@ -45,6 +45,7 @@ else
                 @if (r.Text is not null) { <blockquote>@r.Text</blockquote> }</li>
         }
     </ul>
+    <p><a href="/cases/@Id/content">Review individual text removals and retained evidence</a></p>
     <h2>Evidence</h2>
     <ul class="list" data-evidence>
         @foreach (var e in detail.Evidence) { <li><span class="help">@e.Kind, captured @e.CapturedAt.ToString("d MMM HH:mm")</span><pre>@e.Snapshot</pre></li> }

@@ -200,6 +200,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
                 foreach (var row in await db.TrustedContacts.ToListAsync(cancellationToken)) Apply(row.DestinationEncrypted, v => row.DestinationEncrypted = v);
                 break;
             case "evidence":
+                foreach(var row in await db.Set<ContentRemoval>().Where(r=>r.SealedSnapshot!=null).ToListAsync(cancellationToken))Apply(row.SealedSnapshot!,value=>row.SealedSnapshot=value);
                 // Evidence items are immutable in content: the SHA-256 is of the plain JSON, so re-sealing never changes it.
                 var ids = await db.EvidenceItems.Select(i => i.Id).ToListAsync(cancellationToken);
                 foreach (var page in ids.Chunk(200))
@@ -227,7 +228,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
         var firsts = set switch
         {
             "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).Concat(db.EmailRetirementOperations.Select(o=>o.EncryptedCommand)).Concat(db.TrustedContacts.Select(c=>c.DestinationEncrypted)).ToListAsync(cancellationToken),
-            "evidence" => await db.EvidenceItems.Select(i => i.Sealed).ToListAsync(cancellationToken),
+            "evidence" => await db.EvidenceItems.Select(i => i.Sealed).Concat(db.Set<ContentRemoval>().Where(r=>r.SealedSnapshot!=null).Select(r=>r.SealedSnapshot!)).ToListAsync(cancellationToken),
             "police" => (await db.Reports.Where(r => r.PoliceReference != null).Select(r => r.PoliceReference).ToListAsync(cancellationToken)).Select(v => v!).ToList(),
             _ => await db.VerifiedIdentities.Select(i => i.Sealed).ToListAsync(cancellationToken),
         };

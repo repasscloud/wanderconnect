@@ -78,7 +78,7 @@ const { createMember, memberToken, call, sql, cli, claims, web } = require('../a
     // A concurrent coverage writer wins before a waiting purge rechecks authority. Actual PostgreSQL sessions.
     const concurrent = await fixture({ age:25 }), concurrentHold=randomUUID(); holds.push(concurrentHold);
     const tag='swoovr-retention-'+randomUUID();
-    const writer = new Promise((resolve,reject)=>execFile('docker',['exec','swoovr-local-postgres-1','psql','-U','swoovr','-d','swoovr','-v','ON_ERROR_STOP=1','-c',`
+    const writer = new Promise((resolve,reject)=>execFile('docker',['exec','swoovr-local-postgres-1','psql','-U','swoovr','-d',process.env.SWOOVR_TEST_APP_DATABASE||'swoovr','-v','ON_ERROR_STOP=1','-c',`
       SET application_name='${tag}'; SELECT pg_advisory_lock(1347568979,0); SELECT pg_sleep(3);
       INSERT INTO legal_holds (id,status,reason,source,case_id,placed_by_role,placed_at,review_due,retention_case_ids,related_account_ids)
       VALUES ('${concurrentHold}','Active','Fictional concurrent retention hold','staff','${concurrent.id}','Legal',now(),now()+interval '1 day',ARRAY['${concurrent.id}']::uuid[],ARRAY['${account}']::uuid[]);

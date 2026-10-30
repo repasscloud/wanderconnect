@@ -148,6 +148,7 @@ public static class MemberText
         "termination" => "Your account has been closed",
         "appealUpheld" => "Your appeal wasn't accepted",
         "appealOverturned" => "Your appeal was accepted",
+        "contentRemoved" => "Content removed by Swoovr",
         "sanctionLifted" => "An action on your account was lifted",
         _ => "Notice",
     };

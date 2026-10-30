@@ -90,6 +90,7 @@ Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
+if(persistence) Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
