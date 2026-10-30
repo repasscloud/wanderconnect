@@ -105,7 +105,7 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | privacy notice | `tests/privacy/notice.browser.cjs` | 10 |
 | photos | `tests/media/photos.browser.cjs` | 119 |
 | Safety & Support | `tests/safety/resources.browser.cjs` | 58 |
-| accessibility floor | `tests/accessibility/pages.browser.cjs` | 19 pages |
+| accessibility floor | `tests/accessibility/pages.browser.cjs` | 25 public/member pages at390/320 |
 | notifications (AJ) | `tests/notifications/notifications.browser.cjs` | 98 |
 | account standing (AK) | `tests/moderation/standing.browser.cjs` | 71 |
 | neutral conversation endings/support | `tests/messaging/endings.browser.cjs` | See current VALIDATION.md |
@@ -379,3 +379,7 @@ Run `PolicyNotices__Enabled=true SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONL
 ## Discovery guidance and mode-response ordering (D270)
 
 After the Debug build has completed, select `tests/discovery/mode-race.browser.cjs,tests/discovery/guidance.browser.cjs,tests/discovery/matching.browser.cjs,tests/discovery/market.browser.cjs,tests/travel/travel.browser.cjs,tests/travel/traveller-search.browser.cjs` with `SWOOVR_MEETING_REGRESSION_SUITES` in the owned runner described above. Set both `SWOOVR_MEETING_REGRESSIONS=1` and `SWOOVR_MEETING_ONLY_REGRESSIONS=1`. The race suite delays an actual eligible response; guidance uses explicitly synthetic empty/short/error projections over actual eligible responses. Both require the owned database. The public GeoNames fixture includes Darwin/Palmerston for actual market-boundary tests. Do not rebuild while these suites run.
+
+## Accessibility release gate (D271)
+
+Run `tests/accessibility/pages.browser.cjs,tests/accessibility/interactions.browser.cjs` as an explicit subset of the owned runner after the Debug build completes. The expanded suite tests actual keyboard skip focus, the rendered16 personal scheme/mode combinations,200% CSS text resize, forced-color/reduced-motion media emulation and8 authenticated staff pages. It shares `tests/accessibility/audit.cjs` with the existing floor. No browser builds may overlap. [Release checklist](ACCESSIBILITY-RELEASE-GATE.md) requires actual human screen-reader/device/zoom evidence separately; automation cannot sign those off.

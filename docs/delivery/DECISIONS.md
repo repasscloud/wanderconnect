@@ -687,3 +687,9 @@ Owner decisions are recorded before implementation. [Full owner requirements and
 | Decision | Status / source | Decision | Boundary |
 |---|---|---|---|
 | D270 | DEFAULT implementation under the owner’s original Phase 0 queue, issues43/82; CONFIRMED D188 and existing D193 for live closures | Explain successful empty and short Explore results with shared web/native copy and explicit filter/Travel choices. Preserve D125 markets, D137 reciprocal filters and D142 Travel eligibility. Ignore stale mode requests so an older mode response cannot populate the current mode. | No population/activity estimates, ranking changes, automatic widening or fake supply. Transport/HTTP failures are unavailable, never empty results. Issue82 was already implemented in D193; PR125 reconciles its closure with fresh actual live-client evidence. |
+
+## Accessibility release gate — 31 October 2026
+
+| Decision | Status / source | Decision | Boundary |
+|---|---|---|---|
+| D271 | DEFAULT implementation under CONFIRMED D179 and the owner’s Phase0 queue, issue48 | Extend the actual browser floor to keyboard skip focus, rendered personal-theme light/dark modes, text resizing, reduced motion, forced colors and staff pages. Require a finite human/native assistive-technology checklist before external UAT approval. | Automated/build evidence cannot mark VoiceOver/TalkBack, physical-device interaction, actual zoom or WCAG compliance passed. Keep optional access information/member visibility unchanged. |

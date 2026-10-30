@@ -55,3 +55,7 @@ Optional verified-ownership or self-declared badges must differ. Provide an expl
 ## 6. Required design deliverables for implementation
 
 Mobile and desktop layouts for all core screens; loading/empty/error/denied states; light/dark tokens; typography; icons with accessible labels; keyboard focus and screen-reader reading order; reduced motion; large text; image descriptions; privacy-safe notifications. The [SVG board](../design/screen-board.svg) is a concept layout, not final pixel-perfect production UI. The two PNGs preserve the prior conversation's visual concepts.
+
+### Accessibility release gate (D271 DEFAULT)
+
+Core journeys must remain keyboard-accessible with visible focus and a working skip-to-main control on member and staff layouts. Test narrow reflow, enlarged text, personal themes, forced colors and reduced motion. External UAT approval requires the finite automated and human/native checklist in delivery/ACCESSIBILITY-RELEASE-GATE.md; a successful build or DOM audit is not assistive-technology sign-off. Optional access information/visibility and matching rules remain unchanged.

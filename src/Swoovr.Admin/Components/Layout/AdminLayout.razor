@@ -1,4 +1,6 @@
+@inject NavigationManager Navigation
 @inherits LayoutComponentBase
+<a class="skip-link" data-skip-main href="@(Navigation.Uri.Split('#')[0] + "#main-content")" data-enhance="false">Skip to content</a>
 <header class="admin-header">
     <a class="admin-brand" href="/">Swoovr admin</a>
     <nav aria-label="Admin">
@@ -19,4 +21,4 @@
     </nav>
     <form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form>
 </header>
-<main class="admin-main">@Body</main>
+<main id="main-content" tabindex="-1" class="admin-main">@Body</main>

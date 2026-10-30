@@ -12,7 +12,7 @@
         @Tab("Me", "user", "/account", Path.StartsWith("/account") || Path.StartsWith("/settings") || Path.StartsWith("/me/"))
     </nav>
 </header>
-<main id="main-content">@Body</main>
+<main id="main-content" tabindex="-1">@Body</main>
 <footer class="app-footer"><p>A connection platform in progress.</p></footer>
 @code {
     private bool Prototype => Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled");

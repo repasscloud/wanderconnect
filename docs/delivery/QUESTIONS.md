@@ -1954,12 +1954,12 @@ The owner pasted Codex's product review and strategic roadmap on 27 October 2026
 | [#40](https://github.com/repasscloud/wanderconnect/issues/40) | Complete meeting-safety system | UNDECIDED |
 | [#41](https://github.com/repasscloud/wanderconnect/issues/41) | Messaging quality and conversation management | UNDECIDED |
 | [#42](https://github.com/repasscloud/wanderconnect/issues/42) | Business accounts and organisations | UNDECIDED |
-| [#43](https://github.com/repasscloud/wanderconnect/issues/43) | Discovery when the local network is small (network density) | UNDECIDED |
+| [#43](https://github.com/repasscloud/wanderconnect/issues/43) | Discovery when the local network is small (network density) | D270 DEFAULT implemented under the owner’s Phase0 queue; PR125 closes43 |
 | [#44](https://github.com/repasscloud/wanderconnect/issues/44) | Explainable compatibility and preference management | UNDECIDED |
 | [#45](https://github.com/repasscloud/wanderconnect/issues/45) | Places and Experiences system | UNDECIDED |
 | [#46](https://github.com/repasscloud/wanderconnect/issues/46) | Recurring social interaction (event series, following organisers) | UNDECIDED |
 | [#47](https://github.com/repasscloud/wanderconnect/issues/47) | Reputation and positive conduct signals (research first) | UNDECIDED |
-| [#48](https://github.com/repasscloud/wanderconnect/issues/48) | Accessibility as a release requirement | UNDECIDED |
+| [#48](https://github.com/repasscloud/wanderconnect/issues/48) | Accessibility as a release requirement | D271 DEFAULT gate and automated coverage implemented; human/device sign-off remains OPEN before external UAT |
 | [#49](https://github.com/repasscloud/wanderconnect/issues/49) | Notification and privacy controls | UNDECIDED |
 | [#50](https://github.com/repasscloud/wanderconnect/issues/50) | Account standing, appeals and support transparency (self-service) | UNDECIDED |
 | [#51](https://github.com/repasscloud/wanderconnect/issues/51) | Product analytics, experimentation and the beta scorecard | UNDECIDED |

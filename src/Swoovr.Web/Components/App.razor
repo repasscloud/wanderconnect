@@ -1,3 +1,4 @@
+@inject NavigationManager Navigation
 <!DOCTYPE html>
 <html lang="en" data-scheme="standard" data-theme="light">
 
@@ -17,8 +18,9 @@
 </head>
 
 <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" data-skip-main href="@(Navigation.Uri.Split('#')[0] + "#main-content")" data-enhance="false">Skip to content</a>
     <Routes />
+    <script src="@Assets["skip-main.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["appearance-settings.js"]"></script>
     <script src="@Assets["location.js"]"></script>
