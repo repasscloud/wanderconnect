@@ -49,6 +49,8 @@ public static class ProviderSetup
             services.AddScoped<Analytics.BetaJourneyRecorder>();
             services.AddScoped<Analytics.BetaScorecardQuery>();
             services.AddScoped<Analytics.BetaJourneyRetention>();
+            services.AddScoped<BetaInvitationDelivery>();
+            services.AddScoped<BetaEnrolmentRetention>();
             services.AddScoped<Moderation.ModerationTransparencyRecorder>();
             services.AddScoped<Moderation.ModerationInspectionRecorder>();
             services.AddScoped<Moderation.ModerationTransparencyQuery>();

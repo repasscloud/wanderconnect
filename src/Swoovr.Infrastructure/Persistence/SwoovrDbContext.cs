@@ -942,6 +942,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<BetaEnrolment>(enrolment =>
         {
             enrolment.Property(e => e.Email).HasMaxLength(254);
+            enrolment.Property(e=>e.InvitationState).HasMaxLength(24).HasDefaultValue("not-queued");
+            enrolment.Property(e=>e.InvitationAttempts).HasDefaultValue(0);
+            enrolment.Property(e=>e.InvitationOutcomeCode).HasMaxLength(48);
+            enrolment.HasIndex(e=>new{e.InvitationState,e.InvitationNextAttemptAt});
+            enrolment.ToTable(t=>t.HasCheckConstraint("ck_beta_invitation","invitation_state IN ('not-queued','pending','dispatching','accepted','rejected','unknown','cancelled','expired') AND invitation_attempts BETWEEN 0 AND 3 AND ((invitation_state='not-queued' AND invitation_queued_at IS NULL AND invitation_attempts=0) OR (invitation_state<>'not-queued' AND invitation_queued_at IS NOT NULL))"));
             enrolment.Property(e=>e.IosDistributionState).HasMaxLength(24).HasDefaultValue("not-recorded");
             enrolment.Property(e=>e.IosDistributionRevision).HasDefaultValue(0L);
             enrolment.ToTable(t=>t.HasCheckConstraint("ck_beta_ios_record","ios_distribution_state IN ('not-recorded','not-invited','invited','accepted','removed') AND ios_distribution_revision>=0 AND ((ios_distribution_revision=0 AND ios_distribution_changed_at IS NULL AND ios_distribution_changed_by IS NULL) OR (ios_distribution_revision>0 AND ios_distribution_changed_at IS NOT NULL AND ios_distribution_changed_by IS NOT NULL))"));

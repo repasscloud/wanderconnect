@@ -70,7 +70,7 @@ public static class AdminEndpoints
         {
             var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
-            var (result, enrolment) = await BetaEnrolments.AddAsync(accounts.Db!, request.Email, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
+            var (result, enrolment) = await BetaEnrolments.AddAsync(accounts.Db!, request.Email, current!.Account!.Id, clock.GetUtcNow(), cancellationToken,queueInvitation:accounts.Services.GetRequiredService<IConfiguration>().GetValue("Beta:Invitations:Enabled",false));
             return result switch
             {
                 BetaEnrolments.AddResult.InvalidEmail => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Enrolment needs a full email address."),

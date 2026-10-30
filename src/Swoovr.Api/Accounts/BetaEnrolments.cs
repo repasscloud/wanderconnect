@@ -14,12 +14,12 @@ public static class BetaEnrolments
     public enum AddResult { Added, AlreadyEnrolled, InvalidEmail }
 
     public static async Task<(AddResult Result, BetaEnrolment? Enrolment)> AddAsync(SwoovrDbContext db, string? email, Guid? actor,
-        DateTimeOffset now, CancellationToken cancellationToken)
+        DateTimeOffset now, CancellationToken cancellationToken,bool queueInvitation=false)
     {
         if (EmailAddress.Normalise(email) is not { } normalised) return (AddResult.InvalidEmail, null);
         var live = await db.BetaEnrolments.SingleOrDefaultAsync(e => e.Email == normalised && e.RevokedAt == null, cancellationToken);
         if (live is not null) return (AddResult.AlreadyEnrolled, live);
-        var enrolment = new BetaEnrolment { Id = Guid.NewGuid(), Email = normalised, CreatedAt = now, CreatedBy = actor };
+        var enrolment = new BetaEnrolment { Id = Guid.NewGuid(), Email = normalised, CreatedAt = now, CreatedBy = actor,InvitationState=queueInvitation?"pending":"not-queued",InvitationQueuedAt=queueInvitation?now:null,InvitationNextAttemptAt=queueInvitation?now:null };
         db.BetaEnrolments.Add(enrolment);
         Audit.Record(db, now, actor, actor is null ? "cli" : "account", "beta.added", "beta-enrolment", enrolment.Id.ToString());
         try { await db.SaveChangesAsync(cancellationToken); }
@@ -65,5 +65,5 @@ public static class BetaEnrolments
     }
 
     public static BetaEnrolmentView View(BetaEnrolment e) => new(e.Id, e.Email, e.CreatedAt,
-        e.RevokedAt is not null ? "revoked" : e.ActivatedAt is not null ? "activated" : "pending", e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.IosDistributionRevision>0?"staff-recorded-not-provider-verified":"not-recorded");
+        e.RevokedAt is not null ? "revoked" : e.ActivatedAt is not null ? "activated" : "pending", e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.IosDistributionRevision>0?"staff-recorded-not-provider-verified":"not-recorded",e.InvitationState,e.InvitationAttempts,e.InvitationQueuedAt,e.InvitationCompletedAt);
 }

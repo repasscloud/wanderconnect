@@ -119,6 +119,7 @@ static class PersistenceChecks
             await PolicyAcceptancePersistenceChecks.Run(options, Check);
             await BetaAnalyticsPersistenceChecks.Run(options, Check);
             await BetaEnrolmentOperationsChecks.Run(options, Check);
+            await BetaInvitationChecks.Run(options, Check);
             await ContentRemovalGuardChecks.Run(options, Check);
             await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
         }

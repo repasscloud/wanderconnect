@@ -5,10 +5,11 @@ namespace Swoovr.Api.Retention;
 
 public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0, int IdentifierRestrictionsExpired = 0, int IdentifierHistoriesDisposed = 0, int IdentifierReceiptsExpired = 0, int OperationalHoldsExpired = 0);
 
-public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational, Swoovr.Infrastructure.Persistence.SwoovrDbContext db, Swoovr.Api.Safety.MeetingSafetyRetention meetingSafety, Swoovr.Api.Moderation.TextHarmRetention textHarm,Swoovr.Api.Moderation.ModerationTransparencyRetention reporting,Swoovr.Api.Notifications.PolicyNoticeRetention policyNotices,Swoovr.Api.Analytics.BetaJourneyRetention betaJourney)
+public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational, Swoovr.Infrastructure.Persistence.SwoovrDbContext db, Swoovr.Api.Safety.MeetingSafetyRetention meetingSafety, Swoovr.Api.Moderation.TextHarmRetention textHarm,Swoovr.Api.Moderation.ModerationTransparencyRetention reporting,Swoovr.Api.Notifications.PolicyNoticeRetention policyNotices,Swoovr.Api.Analytics.BetaJourneyRetention betaJourney,BetaEnrolmentRetention betaEnrolments)
 {
     public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token,bool restoring=false)
     {
+        if(!await betaEnrolments.PurgeAsync(token))return new(new SafetyRetentionRun(0,0,0,0,true),null,null,0,0,true);
         if(!await betaJourney.PurgeAsync(token))return new(new SafetyRetentionRun(0,0,0,0,true),null,null,0,0,true);
         if(await policyNotices.PurgeAsync(token) is null)return new(new SafetyRetentionRun(0,0,0,0,true),null,null,0,0,true);
         if(!await reporting.PurgeAsync(token))return new(new SafetyRetentionRun(0,0,0,0,true),null,null,0,0,true);

@@ -15,11 +15,11 @@ namespace Swoovr.Api;
 public static class Cli
 {
 
-    private static async Task<int> AddAll(SwoovrDbContext db, IEnumerable<string> emails, DateTimeOffset now)
+    private static async Task<int> AddAll(SwoovrDbContext db, IEnumerable<string> emails, DateTimeOffset now,bool queueInvitation)
     {
         var (added, existing, invalid) = (0, 0, 0);
         foreach (var email in emails)
-            switch ((await BetaEnrolments.AddAsync(db, email, null, now, CancellationToken.None)).Result)
+            switch ((await BetaEnrolments.AddAsync(db, email, null, now, CancellationToken.None,queueInvitation)).Result)
             {
                 case BetaEnrolments.AddResult.Added: added++; break;
                 case BetaEnrolments.AddResult.AlreadyEnrolled: existing++; break;
@@ -54,6 +54,7 @@ public static class Cli
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSwoovrProviders(builder.Configuration);
         builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment());
+        BetaInvitationDelivery.PublicOrigin(builder.Configuration,builder.Environment.IsDevelopment());
         var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
         // D203: `accounts purge` deletes media objects (never the screening worker here).
         builder.Configuration["Media:Screening:Worker"] = "false";
@@ -171,9 +172,9 @@ public static class Cli
             }
             case ["beta", "add", "--file", var path, ..]:
                 // One address per line; blank lines and lines starting with # are ignored.
-                return await AddAll(db, File.ReadLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')), now);
+                return await AddAll(db, File.ReadLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')), now,builder.Configuration.GetValue("Beta:Invitations:Enabled",false));
             case ["beta", "add", .. var emails] when emails.Length > 0:
-                return await AddAll(db, emails, now);
+                return await AddAll(db, emails, now,builder.Configuration.GetValue("Beta:Invitations:Enabled",false));
             case ["beta", "revoke", var email, ..]:
             {
                 var normalised = EmailAddress.Normalise(email);

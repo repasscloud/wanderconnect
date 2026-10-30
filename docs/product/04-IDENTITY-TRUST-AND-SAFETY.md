@@ -130,3 +130,5 @@ Show shared connection advice at first use and Profile, and meeting advice befor
 ### Beta access and distribution records (D273 DEFAULT)
 
 Admins manage pre-authorised verified-email beta access. Private iOS distribution status is a separately labelled staff report with revision/audit, not Apple verification or an access grant. Existing live connections must not receive new message content or message notifications after beta access is removed. Preserve independent data/deletion rights and neutral account/safety updates; beta removal is not a relationship block or consent withdrawal. Corporate intake remains owned by swoovr.com (D91).
+
+D275 DEFAULT: when invitation email is explicitly enabled, only a newly added beta enrolment queues one message. Show queue, acceptance, refusal or unknown separately from beta activation and external iOS status; never claim delivery from acceptance. Cancel before dispatch for revoked/already activated enrolments, bound known-no-effect retries and avoid repeating uncertain sends. Enrolment source expiry is distinct from email expiry and honours preservation; proposed90-day inactive/revoked clocks remain subject to legal57.

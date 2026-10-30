@@ -1,6 +1,6 @@
 # Beta enrolment operations
 
-D273 DEFAULT implements the Admin operations and iOS record parts of25 under CONFIRMED D62/D76/D91. Invitation email/provider preparation remains under25; completed private distribution still requires the owner's external Apple channel. No live invitation or provider verification is claimed.
+D273 DEFAULT implements the Admin operations and iOS record parts of25 under CONFIRMED D62/D76/D91. D275 adds [invitation queue and expiry](BETA-INVITATIONS-AND-EXPIRY.md); the evidence below describes the original D273 scope. Completed private distribution still requires the owner's external Apple channel. No live invitation or provider verification is claimed.
 
 ## Staff workflow and contract
 

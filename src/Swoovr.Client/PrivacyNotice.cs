@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.13, 31 October 2026";
+    public const string Version = "Draft 0.14, 31 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -72,7 +72,7 @@ public static class PrivacyNotice
             "Explicitly published safety updates can appear in your notification centre. The ordinary delivery queue and minimal per-member receipt expire after 60 days, unless preservation requires longer, including when the profile has already been deleted. We keep a version disposition without member or operator identifiers to prevent accidental reuse. These notices do not send email or push. Reading educational safety advice does not create a new acknowledgement or consent record.",
         ]),
         new("beta-access", "Private beta access records", [
-            "We keep beta pre-authorisation, activation and revocation records to manage invitation-only access. Staff may record the status of private iOS distribution work managed outside Swoovr. This is a staff report, not verification from Apple or proof of current access through every other account requirement.",
+            "We keep beta pre-authorisation, activation and revocation records to manage invitation-only access. When enabled, we use your pre-authorised email for an invitation and keep minimal queue, attempt and outcome records; provider acceptance is separate from delivery. Unactivated unlinked records ordinarily expire after 90 days, and revoked records after 90 days from revocation; legal holds or retained evidence may postpone this. Staff may record the status of private iOS distribution work managed outside Swoovr. This is a staff report, not verification from Apple or proof of current access through every other account requirement.",
             "Enrolments linked to your account are included in your own data export and erased from the ordinary account at final deletion. Required independent encrypted evidence can remain under the separate preservation rules. An unlinked or historical access record may need a privacy request to identify and review it safely.",
         ]),
         new("beta-analytics", "Understanding the beta", [

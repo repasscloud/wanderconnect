@@ -735,6 +735,41 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<DateTimeOffset?>("InvitationAttemptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invitation_attempted_at");
+
+                    b.Property<int>("InvitationAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("invitation_attempts");
+
+                    b.Property<DateTimeOffset?>("InvitationCompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invitation_completed_at");
+
+                    b.Property<DateTimeOffset?>("InvitationNextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invitation_next_attempt_at");
+
+                    b.Property<string>("InvitationOutcomeCode")
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("invitation_outcome_code");
+
+                    b.Property<DateTimeOffset?>("InvitationQueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invitation_queued_at");
+
+                    b.Property<string>("InvitationState")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasDefaultValue("not-queued")
+                        .HasColumnName("invitation_state");
+
                     b.Property<DateTimeOffset?>("IosDistributionChangedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ios_distribution_changed_at");
@@ -772,8 +807,13 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_beta_enrolments_email")
                         .HasFilter("revoked_at IS NULL");
 
+                    b.HasIndex("InvitationState", "InvitationNextAttemptAt")
+                        .HasDatabaseName("ix_beta_enrolments_invitation_state_invitation_next_attempt_at");
+
                     b.ToTable("beta_enrolments", t =>
                         {
+                            t.HasCheckConstraint("ck_beta_invitation", "invitation_state IN ('not-queued','pending','dispatching','accepted','rejected','unknown','cancelled','expired') AND invitation_attempts BETWEEN 0 AND 3 AND ((invitation_state='not-queued' AND invitation_queued_at IS NULL AND invitation_attempts=0) OR (invitation_state<>'not-queued' AND invitation_queued_at IS NOT NULL))");
+
                             t.HasCheckConstraint("ck_beta_ios_record", "ios_distribution_state IN ('not-recorded','not-invited','invited','accepted','removed') AND ios_distribution_revision>=0 AND ((ios_distribution_revision=0 AND ios_distribution_changed_at IS NULL AND ios_distribution_changed_by IS NULL) OR (ios_distribution_revision>0 AND ios_distribution_changed_at IS NOT NULL AND ios_distribution_changed_by IS NOT NULL))");
                         });
                 });

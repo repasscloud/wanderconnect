@@ -404,3 +404,7 @@ The same fixed allowlist now accepts messaging, endings and attachments. Run att
 ### D274 application email
 
 `dotnet run --project tests/Swoovr.Checks -- --mailersend-checks` runs fake HTTP/configuration checks without any external request. The full gate includes the same tests. After Debug build, the owned meeting runner with `SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=0 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/deletion.browser.cjs` exercises actual local meeting/contact emails and founder/deletion email consumers through Mailpit. No build during browsers. Mailpit acceptance does not establish MailerSend or recipient delivery.
+
+### D275 beta invitations and expiry
+
+After Debug build, run the fixed owned runner with `Beta__Invitations__Enabled=true Beta__Invitations__PublicBaseUrl=http://localhost:5081/ SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/beta-invitations.browser.cjs` and the Playwright/screenshots variables above. Its explicit feature selector is required. This runs actual Admin/API/worker/local Mailpit acceptance with fictional addresses, never external sending. Run other regressions with invitations off to avoid backfilling any queue. PostgreSQL tests cover delivery/recovery/concurrency, positively observed revoke contention and source clocks/held expiry. No builds while browser suites run. Native compilation is required when the shared draft privacy notice changes; it does not establish native UI/device delivery.

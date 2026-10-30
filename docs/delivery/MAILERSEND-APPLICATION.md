@@ -1,6 +1,6 @@
 # MailerSend application sender
 
-D274 DEFAULT prepares actual HTTP sending behind explicit configuration. Nothing is provisioned, enabled externally or sent to MailerSend during this slice. Enrolment invitation queue/expiry, founder hosting/last-place acceptance and full UAT configuration remain in the original queue.
+D274 DEFAULT prepares actual HTTP sending behind explicit configuration. Nothing is provisioned, enabled externally or sent to MailerSend during this slice. D275 adds [enrolment invitation queue/expiry](BETA-INVITATIONS-AND-EXPIRY.md); founder hosting/last-place acceptance and full UAT configuration remain in the original queue.
 
 Set runtime nonsecret configuration `Email__Provider=mailersend`, `Email__From` to the owner's verified mailbox (optional display name) and `Email__MailerSend__TimeoutSeconds=15`. Resolve `Email__MailerSend__ApiToken` from the future Key Vault reference. DEFAULT vault secret name: `swoovr-uat-mailersend-api-token`; managed identity must have approved secret read permission. This document creates/uploads/binds no secret. Keep tokens out of argv, images and configuration files. Rotate the vault value and restart/revise the containers so newly resolved options take effect.
 

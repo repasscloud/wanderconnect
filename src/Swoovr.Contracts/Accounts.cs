@@ -246,7 +246,7 @@ public sealed record FounderTokenView(Guid Id, int Place, int SecretVersion, str
 
 public sealed record BetaEnrolmentRequest(string Email);
 public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt,
-    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded");
+    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded",string InvitationState="not-queued",int InvitationAttempts=0,DateTimeOffset? InvitationQueuedAt=null,DateTimeOffset? InvitationCompletedAt=null);
 public sealed record IosDistributionUpdate(string State,long ExpectedRevision,bool Confirm);
 
 public sealed record InvitationRequest(string Email, string Role, Guid? VenueId);

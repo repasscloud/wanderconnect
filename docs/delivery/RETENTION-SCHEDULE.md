@@ -76,3 +76,7 @@ D269 DEFAULT policy records: ordinary explicit approved-version acceptance remai
 ## Beta journey observations (D272 DEFAULT)
 
 `beta_journey_days`: current UTC day plus89 previous UTC dates; coordinated due queries delete older ordinary records. Active holds, retained encrypted beta-journey copies and unknown hold provenance defer expiry. Final ordinary account deletion preserves required independent evidence then erases the source; own exports include only the caller’s daily metadata. Collection may be disabled without disabling expiry. No event body, trait, mode, location, counterpart, IP or device field exists. Period remains a DEFAULT for legal57 review.
+
+## Beta enrolments and invitation metadata (D275 DEFAULT)
+
+`beta_enrolments`: unactivated unlinked rows expire90 days after creation; revoked rows expire90 days after revocation (creation age does not shorten this clock). Active linked rows remain until ordinary account deletion. Invitation fields share the source's lifecycle; no duplicate address/body outbox exists. Pending invitation effects expire72 hours after queueing, independently of source retention/access. Shared/exclusive preservation and row locks coordinate worker/expiry/activation. Unknown hold provenance/status stops expiry; held/retained-copy accounts defer linked expiry, and any unresolved held/copy population conservatively defers unlinked expiry because an address does not establish historical identity. Independently preserved copies follow existing review/hold clocks. Legal57 remains open.
