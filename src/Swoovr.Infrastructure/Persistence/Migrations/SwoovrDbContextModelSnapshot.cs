@@ -4735,6 +4735,222 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("moderation_cases");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ModerationInspectionTotal", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<string>("Environment")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("environment");
+
+                    b.Property<string>("Definition")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("definition");
+
+                    b.Property<long>("CompletedInspections")
+                        .HasColumnType("bigint")
+                        .HasColumnName("completed_inspections");
+
+                    b.Property<long>("CreatedCandidates")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_candidates");
+
+                    b.Property<long>("FailedProcessingAttempts")
+                        .HasColumnType("bigint")
+                        .HasColumnName("failed_processing_attempts");
+
+                    b.Property<long>("IncompleteHistory")
+                        .HasColumnType("bigint")
+                        .HasColumnName("incomplete_history");
+
+                    b.HasKey("Day", "Environment", "Definition")
+                        .HasName("pk_moderation_inspection_totals");
+
+                    b.ToTable("moderation_inspection_totals", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_inspection_total_counts", "completed_inspections>=0 AND incomplete_history>=0 AND incomplete_history<=completed_inspections AND created_candidates>=0 AND created_candidates<=completed_inspections AND failed_processing_attempts>=0 AND (definition<>'image-screening-unversioned' OR incomplete_history=0)");
+
+                            t.HasCheckConstraint("ck_inspection_total_dimensions", "environment IN ('unknown','production','local-synthetic') AND definition IN ('local-text-rules-v1','image-screening-unversioned')");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ModerationTransparencyFact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("action");
+
+                    b.Property<DateTimeOffset>("ActionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("action_at");
+
+                    b.Property<string>("AutomationDefinition")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("automation_definition");
+
+                    b.Property<bool>("BasisReviewed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("basis_reviewed");
+
+                    b.Property<string>("CountryProvenance")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("country_provenance");
+
+                    b.Property<string>("DetectionMechanism")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("detection_mechanism");
+
+                    b.Property<string>("EnforcementMechanism")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("enforcement_mechanism");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("environment");
+
+                    b.Property<string>("HomeCountryAtAction")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("home_country_at_action");
+
+                    b.Property<string>("Initiative")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("initiative");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<string>("ReviewedPolicyBasis")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reviewed_policy_basis");
+
+                    b.Property<Guid?>("SourceCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_case_id");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("source_kind");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_moderation_transparency_facts");
+
+                    b.HasIndex("ActionAt", "Environment")
+                        .HasDatabaseName("ix_moderation_transparency_facts_action_at_environment");
+
+                    b.HasIndex("SourceCaseId", "SubjectAccountId")
+                        .HasDatabaseName("ix_moderation_transparency_facts_source_case_id_subject_accoun~");
+
+                    b.HasIndex("SourceKind", "SourceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_moderation_transparency_facts_source_kind_source_id");
+
+                    b.ToTable("moderation_transparency_facts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_transparency_fact_basis", "reviewed_policy_basis IN ('unknown','harassment','threats-violence','sexual-abuse','child-safety','fraud-scam','hate-discrimination','privacy','other-reviewed') AND basis_reviewed=(reviewed_policy_basis<>'unknown')");
+
+                            t.HasCheckConstraint("ck_transparency_fact_country", "(country_provenance='member-declared-home-at-action' AND home_country_at_action IN ('AU','other')) OR (country_provenance='unknown' AND home_country_at_action='unknown')");
+
+                            t.HasCheckConstraint("ck_transparency_fact_mechanisms", "detection_mechanism IN ('unknown','member-report','staff-review','local-text-rules','image-screening') AND enforcement_mechanism IN ('unknown','human','automated-screening') AND initiative IN ('unknown','reported','own-initiative') AND automation_definition IN ('none','unknown','local-text-rules-v1','image-screening-unversioned') AND environment IN ('unknown','production','local-synthetic')");
+
+                            t.HasCheckConstraint("ck_transparency_fact_source", "id <> '00000000-0000-0000-0000-000000000000'::uuid AND source_id <> '00000000-0000-0000-0000-000000000000'::uuid AND subject_account_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (source_case_id IS NULL OR source_case_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((source_kind='sanction' AND action='termination') OR (source_kind IN ('content-removal','media-decision') AND action='content-removal')) AND recorded_at >= action_at");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ModerationTransparencySnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AggregateJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("aggregate_json");
+
+                    b.Property<string>("DefinitionVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("definition_version");
+
+                    b.Property<int>("EndingYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("ending_year");
+
+                    b.Property<DateTimeOffset>("FinalizedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finalized_at");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<DateTimeOffset>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("generated_at");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.HasKey("Id")
+                        .HasName("pk_moderation_transparency_snapshots");
+
+                    b.HasIndex("EndingYear", "Fingerprint")
+                        .IsUnique()
+                        .HasDatabaseName("ix_moderation_transparency_snapshots_ending_year_fingerprint");
+
+                    b.HasIndex("EndingYear", "Revision")
+                        .IsUnique()
+                        .HasDatabaseName("ix_moderation_transparency_snapshots_ending_year_revision");
+
+                    b.ToTable("moderation_transparency_snapshots", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_transparency_snapshot", "ending_year BETWEEN 2 AND 9998 AND revision>0 AND fingerprint ~ '^[0-9a-f]{64}$' AND octet_length(aggregate_json)<=200000 AND jsonb_typeof(aggregate_json::jsonb)='object'");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")

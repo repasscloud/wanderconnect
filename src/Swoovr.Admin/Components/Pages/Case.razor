@@ -85,6 +85,14 @@ else
                     <option value="terminate">Terminate (admins)</option>
                 </select></label>
             <label>Reason (shown to the member)<textarea name="ActForm.Reason" maxlength="1000" rows="3"></textarea></label>
+            <label>Reviewed policy basis for termination (unknown if not assessed)<select name="ActForm.PolicyBasis">
+                @foreach(var basis in ModerationReportingText.Bases){<option value="@basis">@ModerationReportingText.Basis(basis)</option>}
+            </select></label>
+            <label>Reviewed detection source for termination<select name="ActForm.ReportingSource"><option value="unknown">Unknown / not assessed</option><option value="staff">Direct staff observation</option>
+                @foreach(var report in detail.Reports){<option value="@($"report:{report.Id}")">Member report @report.Id</option>}
+                @foreach(var candidate in reportingCandidates){<option value="@($"text:{candidate.Id}")">Local text candidate @candidate.Id</option>}
+            </select></label>
+            <p class="field-help">Reporting metadata records an explicit review. It does not infer a policy violation from a report category or detector label. Country is the saved home declaration at action, not verified residence.</p>
             <label>Days<input name="ActForm.Days" type="number" min="1" max="90" /></label>
             <fieldset><legend>Recorded with a restriction (the member is fully restricted either way, Q55)</legend>
                 <label><input type="checkbox" name="ActForm.HideFromDiscovery" value="true" /> Out of discovery</label>
@@ -135,6 +143,8 @@ else
         public string? Action { get; set; }
         public string? Reason { get; set; }
         public int? Days { get; set; }
+        public string? PolicyBasis { get; set; }
+        public string? ReportingSource { get; set; }
         public bool HideFromDiscovery { get; set; }
         public bool NoNewRequests { get; set; }
         public bool NoMessages { get; set; }
@@ -146,11 +156,13 @@ else
     {
         var result = await Admin.CaseAsync(Id);
         detail = result.Value;
+        reportingCandidates=result.Ok?(await Admin.TextHarmCandidatesAsync(Id)).Value??[]:[];
         if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
         shownAtReport = result.Ok ? (await Admin.ProfileAtReportAsync(Id)).Value : null;
     }
 
     private ProfileAtReport? shownAtReport;
+    private List<TextHarmCandidateSummary> reportingCandidates=[];
 
     private async Task StepAsync()
     {
@@ -162,7 +174,7 @@ else
     private async Task ActAsync()
     {
         var f = ActForm ?? new();
-        var result = await Admin.ActAsync(Id, new ModerationActionRequest(f.Action ?? "", f.Reason, f.Days, f.HideFromDiscovery, f.NoNewRequests, f.NoMessages));
+        var result = await Admin.ActAsync(Id, new ModerationActionRequest(f.Action ?? "", f.Reason, f.Days, f.HideFromDiscovery, f.NoNewRequests, f.NoMessages,ModerationReportingText.Choice(f.PolicyBasis,f.ReportingSource)));
         Show(result.Status, result.Code, "Action applied. The member has a notice.");
         await LoadAsync();
     }

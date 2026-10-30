@@ -261,9 +261,9 @@ static class TextHarmRuntimeChecks
         var services=new ServiceCollection();services.AddLogging();services.AddSingleton<IConfiguration>(configuration);
         services.AddSingleton<IHostEnvironment>(new Development());services.AddSingleton<TimeProvider>(clock);services.AddSingleton<IEmailSender>(new Sink());
         services.AddScoped(_=>new SwoovrDbContext(options));services.AddScoped<Founders>();services.AddScoped<ContactHistoryKeys>();services.AddScoped<EvidenceKeys>();
-        services.AddScoped<EvidencePreservation>();services.AddScoped<SafetyRetention>();services.AddScoped<ContentRemovalService>();
+        services.AddScoped<EvidencePreservation>();services.AddScoped<SafetyRetention>();services.AddScoped<ContentRemovalService>();services.AddScoped<ModerationTransparencyRecorder>();
         services.AddSingleton(new TextHarmRules(true));services.AddSingleton<RecordingDetector>();services.AddSingleton<ITextHarmDetector>(p=>p.GetRequiredService<RecordingDetector>());
-        services.AddScoped<TextHarmQueue>();services.AddScoped<TextHarmProcessor>();services.AddScoped<TextHarmCandidateReviewService>();return services.BuildServiceProvider();
+        services.AddScoped<ModerationInspectionRecorder>();services.AddScoped<ModerationTransparencyRecorder>();services.AddScoped<TextHarmQueue>();services.AddScoped<TextHarmProcessor>();services.AddScoped<TextHarmCandidateReviewService>();return services.BuildServiceProvider();
     }
     private sealed class RecordingDetector:ITextHarmDetector
     {

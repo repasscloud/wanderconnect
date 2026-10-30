@@ -12,7 +12,7 @@ public sealed record TextHarmSnapshot(string Text,TextHarmSource Source,Guid Sou
     string Detector,string Version,TextHarmHistory History,IReadOnlyList<TextHarmSignal> Signals);
 
 /// <summary>Durable inspection only; never sanctions, messages, member notices or external email.</summary>
-public sealed class TextHarmProcessor(SwoovrDbContext db,EvidenceKeys keys,EvidencePreservation evidence,ITextHarmDetector detector,TimeProvider clock)
+public sealed class TextHarmProcessor(SwoovrDbContext db,EvidenceKeys keys,EvidencePreservation evidence,ITextHarmDetector detector,TimeProvider clock,ModerationInspectionRecorder inspectionTotals)
 {
     // SQL aliases match these CLR names explicitly; values are parameterized, never concatenated identifiers/input.
     public sealed class HistoryRow { public Guid Id{get;set;} public string Body{get;set;}=""; public Guid Recipient{get;set;} }
@@ -52,7 +52,7 @@ public sealed class TextHarmProcessor(SwoovrDbContext db,EvidenceKeys keys,Evide
         var assessment=await detector.DetectAsync(new(intent.AccountId,intent.Source,text,history),token);
         if(assessment.Signals.Count==0)
         {
-            await CompleteAsync(intent,"no-signal",now,token);
+            await CompleteAsync(intent,"no-signal",now,token,history,false);
             await tx.CommitAsync(token);return new("no-signal");
         }
         var urgent=assessment.Signals.Any(s=>s.Category=="threats");
@@ -89,7 +89,7 @@ public sealed class TextHarmProcessor(SwoovrDbContext db,EvidenceKeys keys,Evide
                 item.Id,"text-harm-threat",now,token);
         }
         Audit.Record(db,now,null,"system","text-harm.candidate","text-harm-review",review.Id.ToString(),urgent?"urgent":"review");
-        await CompleteAsync(intent,urgent?"candidate-urgent":"candidate",now,token);
+        await CompleteAsync(intent,urgent?"candidate-urgent":"candidate",now,token,history,true);
         await tx.CommitAsync(token);
         // Caller invokes/retries EscalateAsync only AFTER this method returns and all leases have disposed.
         return new("created",review.Id,item.Id,urgent);
@@ -125,11 +125,12 @@ public sealed class TextHarmProcessor(SwoovrDbContext db,EvidenceKeys keys,Evide
         var currentPeer=conversation.PairLow==message.SenderAccountId?conversation.PairHigh:conversation.PairLow;
         return new(true,rows.Count(m=>BoundedTextHarmDetector.Normalise(m.Body)==normalized),rows.Select(m=>m.Recipient).Append(currentPeer).Distinct().Count());
     }
-    private async Task CompleteAsync(TextHarmIntent intent,string result,DateTimeOffset now,CancellationToken token)
+    private async Task CompleteAsync(TextHarmIntent intent,string result,DateTimeOffset now,CancellationToken token,TextHarmHistory? inspectedHistory=null,bool createdCandidate=false)
     {
         // Requires root's new-source hold inventory BEFORE activation; no loss of held intent evidence.
         await evidence.PreserveBeforeDeletionAsync(intent.AccountId,now,token);
         intent.ProcessedAt=now;intent.Result=result;intent.SealedText=null;
+        if(inspectedHistory is not null)await inspectionTotals.CompletedAsync(ModerationInspectionRecorder.TextDefinition,intent.Id,!inspectedHistory.Complete,createdCandidate,token);
         await db.SaveChangesAsync(token);
     }
 }

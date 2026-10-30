@@ -86,6 +86,8 @@ public static class DataExportBuilder
                 identity.ShowGender, identity.ShowOrientation, identity.ShowAge, identity.DatingShowMe,
             },
             modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals, meetingSafety,
+            reportingCountryDeclarations = await db.Set<ModerationTransparencyFact>().Where(f=>f.SubjectAccountId==id&&f.Action=="termination")
+                .Select(f=>new{f.ActionAt,f.Action,f.HomeCountryAtAction,f.CountryProvenance}).ToListAsync(cancellationToken),
             idVerification = verification, entitlements,
             // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
             photos = photos ?? [],

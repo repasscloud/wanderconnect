@@ -217,6 +217,11 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 if(original is not null&&!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(EvidenceSeal.Hash(original),removal.SnapshotHash))throw new InvalidOperationException("Content-removal evidence integrity unavailable.");
                 Add("content-removal","content_removal",removal.Id.ToString(),removal.SubjectAccountId,new{removal.Id,removal.CaseId,removal.ReportId,removal.SubjectAccountId,removal.ActorAccountId,removal.Field,removal.ModeId,removal.MessageId,removal.RemovedAt,removal.EvidenceDisposedAt,original});
             }
+            foreach(var fact in await db.Set<ModerationTransparencyFact>().AsNoTracking().Where(f=>f.SubjectAccountId==id||f.SourceCaseId!=null&&db.Reports.Any(r=>r.CaseId==f.SourceCaseId&&r.ReporterAccountId==id)).ToListAsync(cancellationToken))
+            {
+                if(fact.SourceCaseId is{}reviewId)retentionCases?.Add(reviewId);relatedAccounts?.UnionWith([id,fact.SubjectAccountId]);
+                Add("moderation-transparency","moderation_transparency_facts",fact.Id.ToString(),id,fact);
+            }
             foreach(var review in await db.Set<TextHarmReview>().AsNoTracking().Where(r=>r.SubjectAccountId==id||r.RelatedAccountIds.Contains(id)).ToListAsync(cancellationToken))
             {
                 retentionCases?.Add(review.CaseId);relatedAccounts?.UnionWith(review.RelatedAccountIds);

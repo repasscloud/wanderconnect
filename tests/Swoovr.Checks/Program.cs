@@ -14,6 +14,7 @@ MeetingSafetyChecks.Run();
 MeetingSafetyContactAccessChecks.Run();
 ContentRemovalChecks.Run();
 TextHarmChecks.Run();
+Swoovr.Checks.ModerationTransparencyChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
 ReportOutcomeChecks.Run((name,ok)=>{if(!ok)throw new Exception("Report outcome: "+name);});
 BannedIdentifierChecks.Run();
 FallbackKeyChecks.Run();

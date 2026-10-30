@@ -23,7 +23,7 @@ static class ContentRemovalPersistenceChecks
         var services=new ServiceCollection();services.AddLogging();services.AddSingleton<IHostEnvironment>(new Development());services.AddSingleton<TimeProvider>(TimeProvider.System);services.AddScoped<Swoovr.Api.Retention.SafetyRetention>();services.AddSingleton<IConfiguration>(config);
         services.AddSingleton<IEmailSender>(new Sink());services.AddScoped(_=>new SwoovrDbContext(options));
         services.AddScoped<Founders>();services.AddScoped<ContactHistoryKeys>();services.AddScoped<EvidenceKeys>();
-        services.AddScoped<EvidencePreservation>();services.AddScoped<ContentRemovalService>();
+        services.AddScoped<EvidencePreservation>();services.AddScoped<ContentRemovalService>();services.AddScoped<ModerationTransparencyRecorder>();
         await using var provider=services.BuildServiceProvider();await using var scope=provider.CreateAsyncScope();
         var db=scope.ServiceProvider.GetRequiredService<SwoovrDbContext>();var service=scope.ServiceProvider.GetRequiredService<ContentRemovalService>();
         var now=DateTimeOffset.UtcNow.AddMonths(-14);var subject=Guid.NewGuid();var actor=Guid.NewGuid();var reporter=Guid.NewGuid();var review=Guid.NewGuid();var report=Guid.NewGuid();
@@ -55,6 +55,7 @@ static class ContentRemovalPersistenceChecks
         var again=await service.RemoveAsync(actor,review,command,now.AddSeconds(1),CancellationToken.None);
         check("success clears only targeted core field",await db.MemberProfiles.AnyAsync(p=>p.AccountId==subject&&p.About==null&&p.DisplayName=="Fictional Content Subject"));
         check("retry is idempotent",!first.AlreadyApplied&&again.AlreadyApplied&&await db.Set<ContentRemoval>().CountAsync(r=>r.Id==command.CommandId)==1);
+        check("content reporting does not collect unneeded home country",await db.Set<ModerationTransparencyFact>().AnyAsync(f=>f.SourceId==command.CommandId&&f.HomeCountryAtAction=="unknown"&&f.CountryProvenance=="unknown"));
         var retained=await db.Set<ContentRemoval>().SingleAsync(r=>r.Id==command.CommandId);
         var opened=EvidenceSeal.Open(scope.ServiceProvider.GetRequiredService<EvidenceKeys>().Encryption,retained.SealedSnapshot!);
         check("encrypted independent evidence retains exact removed text",opened.Contains("Fictional original profile text")

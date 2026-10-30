@@ -8,7 +8,7 @@ Status key: **Built** (in the prototype, with a decision and tests), **Partly bu
 
 DEFAULT D264 adds reviewable [terms/community draft](TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md), [moderator playbook](MODERATOR-GUIDANCE-DRAFT.md), [leader charter](TRUST-SAFETY-LEADER-ROLE-DRAFT.md), [law-enforcement/industry plan](LAW-ENFORCEMENT-COOPERATION-PLAN-DRAFT.md), [self-assessment template](SAFETY-BY-DESIGN-SELF-ASSESSMENT-DRAFT.md) and [compliance register](CODE-COMPLIANCE-REGISTER-DRAFT.md). These are drafts, not approved live terms, a named appointment, completed training/assessment, executed agreements or compliance verification. Legal57 and actual operating evidence remain required. Public terms/guidelines pages and versioned acceptance remain technical work under113; no member is bound to this draft through this slice.
 
-D236–D262 now cover the local registry/admission/reinstatement/contact-retirement/expiry and retention/recovery implementation; hosted backup/network/job acceptance remains under118. D263 adds locally tested voluntary meeting safety, which supports member empowerment but does not guarantee physical safety. D265 adds locally tested specific profile-text/message removal; D266 adds optional locally tested text-harm candidates and human review, without verified accuracy; D267 adds locally tested centre-only reporter outcome checkpoints and complaint/support guidance;120/121 remain software gaps;48 remains a release gate. D215 is an intention to sign only. The benchmark text below retains its original dated Code section mapping and awaits legal applicability review.
+D236–D262 now cover the local registry/admission/reinstatement/contact-retirement/expiry and retention/recovery implementation; hosted backup/network/job acceptance remains under118. D263 adds locally tested voluntary meeting safety, which supports member empowerment but does not guarantee physical safety. D265 adds locally tested specific profile-text/message removal; D266 adds optional locally tested text-harm candidates and human review, without verified accuracy; D267 adds locally tested centre-only reporter outcome checkpoints and complaint/support guidance;D268 adds prospective annual aggregate preparation with explicit historical/accuracy/training gaps;121 remains a software gap;48 remains a release gate. D215 is an intention to sign only. The benchmark text below retains its original dated Code section mapping and awaits legal applicability review.
 
 ## Summary
 
@@ -33,14 +33,14 @@ D236–D262 now cover the local registry/admission/reinstatement/contact-retirem
 | Law-enforcement point of contact; acting on their information | §6.5(1)–(2) | Built | `/law-enforcement` page and LE cases (D195, D196), legal holds (D188) |
 | Invite police to an MOU; report imminent threats; risk-assess every report | §6.5(3)–(4) | Partly built | Police-contact procedure (D195), urgent escalation (D135, D190); MOUs and the ANZPAA information-sharing protocol are operational → [#119](https://github.com/repasscloud/wanderconnect/issues/119) |
 | Trust and Safety Leader, team, oversight, training | §7.1(1)–(2), §7.2 | Organisational | Roles exist in software (support, admin, legal; D134, D197); D264 charter/plan/templates; named people, actual staffing/training/urgent coverage remain → [#119](https://github.com/repasscloud/wanderconnect/issues/119) |
-| Collect data aligned with the reports | §7.1(3) | Partly built | Audit log and LE transparency aggregates (D196); no moderation metrics → [#120](https://github.com/repasscloud/wanderconnect/issues/120) |
+| Collect data aligned with the reports | §7.1(3) | Partly built | D268 prospective action receipts and anonymous totals; incomplete historical coverage → [#120](https://github.com/repasscloud/wanderconnect/issues/120) |
 | Safe-dating advice at onboarding and in relevant communications | §7.3(1) | Gap | Safety & Support exists (D204) but isn't part of onboarding → [#121](https://github.com/repasscloud/wanderconnect/issues/121) |
 | Policies easy to find, plain, accessible, kept up to date | §7.3(2) | Partly built | Privacy Draft0.7 and D264 terms/community draft; approved public pages/versioned acceptance remain113/57, accessibility release gate48 |
 | Tell members about significant policy changes | §7.3(3) | Gap | The notification centre (D207) could carry them → [#121](https://github.com/repasscloud/wanderconnect/issues/121) |
 | Industry collaboration and forums | §7.4 | Organisational | Only if Swoovr signs (Q87) → [#119](https://github.com/repasscloud/wanderconnect/issues/119) |
 | Compliance rating and Safety by Design self-assessment | §3.2, §4.1 | Partly built | D264 template/register; completed assessment, legal review and external process outstanding → [#119](https://github.com/repasscloud/wanderconnect/issues/119) |
 | Records of compliance measures for 2 years | §8.2(2) | Partly built | DECISIONS.md, VALIDATION.md and the audit log are a start; no compliance register → [#119](https://github.com/repasscloud/wanderconnect/issues/119) |
-| Annual Code report to eSafety; published transparency report | §8.3, §8.4 | Gap | Terminations by policy basis, moderation by mechanism, automation and its error rates → [#120](https://github.com/repasscloud/wanderconnect/issues/120) |
+| Annual Code report to eSafety; published transparency report | §8.3, §8.4 | Internal preparation; publication/operations open | D268 protected aggregate export/revisions, explicit unknown history, unmeasured accuracy/training; no publication/submission → [#120](https://github.com/repasscloud/wanderconnect/issues/120) |
 
 ## Section by section
 
@@ -75,7 +75,7 @@ D236–D262 now cover the local registry/admission/reinstatement/contact-retirem
 
 - **§8.2** Keep records of compliance measures for 2 years.
 - **§8.3** An annual Code report to eSafety by 31 August (steps taken, volume of complaints, why the steps are proportionate), and updates about significant functional changes.
-- **§8.4** A published transparency report by 31 August each year for the year to 30 June: Australian accounts terminated by policy basis, content moderated by detection and enforcement mechanism, information about own-initiative moderation and training, and the use of automation with its purposes and indicators of accuracy and error. The audit log has the raw events; nothing aggregates them.
+- **§8.4** A published transparency report by 31 August each year for the year to 30 June: Australian accounts terminated by policy basis, content moderated by detection and enforcement mechanism, information about own-initiative moderation and training, and the use of automation with its purposes and indicators of accuracy and error. D268 now prepares prospective aggregate subsets; historical completeness, measured classifier accuracy, actual training and publication/submission remain unverified. See [implementation](MODERATION-ANNUAL-DATA.md).
 
 ## Issues opened for the gaps
 

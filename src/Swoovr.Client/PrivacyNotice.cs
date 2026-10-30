@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.9, 30 October 2026";
+    public const string Version = "Draft 0.10, 30 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -66,6 +66,10 @@ public static class PrivacyNotice
         new("text-review", "Text safety review", [
             "When enabled, local automated rules inspect newly submitted profile about text and text messages for limited threat, payment-request, repetitive-message and bulk-outreach signals. These rules can miss harm or flag legitimate conversations and quotations. They do not establish misconduct or automatically restrict an account.",
             "A rule match creates restricted encrypted evidence for authorised human review. Staff decide whether any action is needed; the ordinary account-notice and review pathways apply when a person takes an action. Inspection work is encrypted, and completed processing receipts contain no message text and expire after 30 days unless preservation requires longer. Candidate evidence follows the separate safety-case retention and legal-hold rules.",
+        ]),
+        new("moderation-reporting", "Moderation reporting records", [
+            "We keep minimal restricted records of moderation decisions for annual reporting, including the action, its reviewed policy basis and how it was detected and enforced. For account terminations, we record whether your declared home country at the time was Australia, another country or unknown. This is not verified residence. These reporting records contain no message text, contact values or staff free-text explanation.",
+            "The draft reporting schedule keeps these linked records for 36 months, with longer preservation where a hold or retained evidence requires it. We also keep anonymous daily processing totals for 36 months and internal annual aggregates afterwards. Aggregates hide small numeric groups, disclose unknown coverage and do not establish classifier accuracy or completed staff training.",
         ]),
         new("moderated-content", "Text removed after moderation", [
             "Authorised staff can remove an individual profile-text field or a reported text message. Account standing records the action; a removed message is shown as removed by Swoovr rather than as a message the sender unsent.",

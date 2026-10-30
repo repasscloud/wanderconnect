@@ -365,3 +365,9 @@ SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib
 ```
 
 It uses real routine Web reporting, generic reporter centre updates, actual human action/lift/closure, current ownership/barred checks, support links and report-plus-block follow-up. A temporary constraint in the owned DB injects a checkpoint failure to prove report/optional-block rollback. It never touches main's schema; the runner restores main hosts and drops its owned DB/API. Also run moderation, serious, content/text review, reinstatement workflows, deletion, notifications, native-client parity, accessibility and retention suites for the touched producers/centre/lifecycle. Native compilation does not establish OS UI or external receipt. Never rebuild while browser suites are active.
+
+### Annual moderation data (D268)
+
+`SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/transparency.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/transparency.browser.cjs node tests/meeting/isolated.browser.cjs` runs the protected API/Admin export/internal-save journey against an owned database, with fictional identities. Set SWOOVR_PLAYWRIGHT_PATH as above. The runner restores the original Web/Admin hosts; do not rebuild during browser execution. Pure and actual PostgreSQL source/receipt/counter/revision checks run in `./scripts/check.sh`.
+
+For the changed media receipt/counter paths, select `tests/media/reporting.browser.cjs` in the same owned runner with `Media__Screening__Worker=true Media__Screening__Simulate=uncertain`, then repeat with `blocked`. Screening is explicitly simulated and all uploaded pixels are synthetic/local. The default regression list excludes this suite unless either simulation is selected. `SWOOVR_MEETING_REGRESSION_SUITES` can select a comma-separated subset of the fixed allowlist; unknown/duplicate names are refused.

@@ -65,6 +65,11 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", createScopeForErrors: true); app.UseHsts(); }
+app.Use(async(context,next)=>
+{
+    if(context.Request.Path.StartsWithSegments("/code-reports"))context.Response.Headers.CacheControl="no-store";
+    await next(context);
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
@@ -100,6 +105,11 @@ app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admi
 {
     if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.(review|case)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
     return await admin.MediaAsync("api/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
+}).RequireAuthorization();
+app.MapGet("/code-reports/{year:int}/export",async(int year,Swoovr.Client.AdminClient admin,CancellationToken token)=>
+{
+    var(status,body)=await admin.ModerationReportExportAsync(year,token);
+    return body is null?Results.StatusCode(status):Results.File(body,"application/json",$"swoovr-code-report-{year}.json");
 }).RequireAuthorization();
 app.MapRazorComponents<App>().RequireAuthorization();
 app.Run();

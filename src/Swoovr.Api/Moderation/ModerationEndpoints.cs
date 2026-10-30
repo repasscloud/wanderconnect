@@ -506,7 +506,7 @@ public static class ModerationEndpoints
             if (denied is not null) return denied;
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             if (item!.Status == CaseStatus.Closed) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This case is closed.");
-            var result = await ActAsync(db, email, current!, item.SubjectAccountId, item, request, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context), accounts.Services.GetRequiredService<RegistryPopulation>());
+            var result = await ActAsync(db, email, current!, item.SubjectAccountId, item, request, now, cancellationToken, Retention.ModerationLifecycleFilter.Current(context), accounts.Services.GetRequiredService<RegistryPopulation>(),accounts.Services.GetRequiredService<ModerationTransparencyRecorder>());
             if (result is not null) return result;
             return Results.Ok(await DetailAsync(db, item, now, cancellationToken));
         });
@@ -519,7 +519,7 @@ public static class ModerationEndpoints
             var db = accounts.Db!;
             if (await db.MemberProfiles.FindAsync([id], cancellationToken) is null) return Results.NotFound();
             if (request.Action == "dismiss") return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Nothing to dismiss.");
-            return await ActAsync(db, email, current!, id, null, request, clock.GetUtcNow(), cancellationToken, Retention.ModerationLifecycleFilter.Current(context), accounts.Services.GetRequiredService<RegistryPopulation>()) ?? Results.Ok(await SummaryAsync(db, id, clock.GetUtcNow(), cancellationToken));
+            return await ActAsync(db, email, current!, id, null, request, clock.GetUtcNow(), cancellationToken, Retention.ModerationLifecycleFilter.Current(context), accounts.Services.GetRequiredService<RegistryPopulation>(),accounts.Services.GetRequiredService<ModerationTransparencyRecorder>()) ?? Results.Ok(await SummaryAsync(db, id, clock.GetUtcNow(), cancellationToken));
         });
         admin.MapPost("/sanctions/{id:guid}/lift", async (Guid id, LiftRequest request, ClaimsPrincipal user, AccountResolver accounts, IEmailSender email,
             TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
@@ -737,7 +737,7 @@ public static class ModerationEndpoints
 
     /// <summary>Applies one action (D133) and notifies the member; returns a refusal, or null when done.</summary>
     private static async Task<IResult?> ActAsync(SwoovrDbContext db, IEmailSender email, CurrentAccount current, Guid subjectId, ModerationCase? item,
-        ModerationActionRequest request, DateTimeOffset now, CancellationToken cancellationToken, Retention.PreservationLease? barrier = null, RegistryPopulation? population = null)
+        ModerationActionRequest request, DateTimeOffset now, CancellationToken cancellationToken, Retention.PreservationLease? barrier = null, RegistryPopulation? population = null, ModerationTransparencyRecorder? reporting=null)
     {
         var action = request.Action switch
         {
@@ -782,6 +782,13 @@ public static class ModerationEndpoints
             db.Sanctions.Add(sanction);
             if (kind == SanctionKind.Termination)
                 await (population ?? throw new InvalidOperationException("Registry population is not configured.")).StageAsync(sanction,now,cancellationToken);
+        }
+        if(sanction?.Kind==SanctionKind.Termination)
+        {
+            ModerationTransparencyMetadata metadata;
+            try{metadata=await ModerationTransparencyRecorder.ChoiceAsync(db,sanction.CaseId,request.Reporting,cancellationToken);}
+            catch(ArgumentException){return Problem(400,ProblemCodes.InvalidRequest,"Check the reviewed reporting basis and source.");}
+            await (reporting??throw new InvalidOperationException("Reporting is not configured.")).StageSanctionAsync(sanction,now,metadata,cancellationToken);
         }
         if (item is not null) (item.Status, item.UpdatedAt) = (CaseStatus.Reviewed, now);
         Audit.Record(db, now, current.Account.Id, "account", "moderation." + request.Action, item is null ? "account" : "moderation-case",

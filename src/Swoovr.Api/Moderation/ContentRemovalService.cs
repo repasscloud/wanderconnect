@@ -13,7 +13,7 @@ public sealed class ContentRemovalRefusal(int status,string code):Exception("Con
 {public int Status{get;}=status;public string Code{get;}=code;}
 
 /// <summary>Case-scoped field removal with independent encrypted evidence and exact-source comparison.</summary>
-public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,EvidencePreservation evidence)
+public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,EvidencePreservation evidence,ModerationTransparencyRecorder reporting)
 {
     private sealed record Snapshot(string Text,string Reason,string ExpectedSha256);
     private static ContentRemovalRefusal Refuse(int status,string code)=>new(status,code);
@@ -87,8 +87,13 @@ public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,E
         var originalJson=JsonSerializer.Serialize(new Snapshot(text,request.Reason.Trim(),request.ExpectedSourceSha256));
         var sealedSnapshot=EvidenceSeal.Seal(version,keys.Encryption[version],originalJson);
         await using var transaction=await db.Database.BeginTransactionAsync(token);
-        db.Set<ContentRemoval>().Add(new(){Id=request.CommandId,CaseId=caseId,ReportId=request.ReportId,SubjectAccountId=subject.Value,ActorAccountId=actor,
-            Field=request.Field,ModeId=request.ModeId,MessageId=request.MessageId,RemovedAt=now,SealedSnapshot=sealedSnapshot,SnapshotHash=EvidenceSeal.Hash(originalJson)});
+        var removal=new ContentRemoval{Id=request.CommandId,CaseId=caseId,ReportId=request.ReportId,SubjectAccountId=subject.Value,ActorAccountId=actor,
+            Field=request.Field,ModeId=request.ModeId,MessageId=request.MessageId,RemovedAt=now,SealedSnapshot=sealedSnapshot,SnapshotHash=EvidenceSeal.Hash(originalJson)};
+        db.Set<ContentRemoval>().Add(removal);
+        ModerationTransparencyMetadata metadata;
+        try{metadata=await ModerationTransparencyRecorder.ChoiceAsync(db,caseId,request.Reporting,token);}
+        catch(ArgumentException){throw Refuse(400,"invalid-reporting-metadata");}
+        await reporting.StageContentRemovalAsync(removal,now,metadata,token);
         if(message is not null){message.Body="";message.ModerationRemovedAt=now;message.ModerationRemovalId=request.CommandId;}
         else if(mode is not null){mode.About=null;mode.ShareCoreAbout=false;mode.UpdatedAt=now;}
         else profile!.About=null;

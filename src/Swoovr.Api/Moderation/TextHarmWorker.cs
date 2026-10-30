@@ -30,7 +30,12 @@ public sealed class TextHarmWorker(IServiceScopeFactory scopes,TimeProvider cloc
                             await using var scope=scopes.CreateAsyncScope();
                             await scope.ServiceProvider.GetRequiredService<TextHarmProcessor>().ProcessAsync(id,token);
                         }
-                        catch(Exception error)when(!token.IsCancellationRequested){log.LogError("Text inspection remains pending ({ErrorType}).",error.GetType().Name);}
+                        catch(Exception)when(!token.IsCancellationRequested)
+                        {
+                            await using var failureScope=scopes.CreateAsyncScope();
+                            await failureScope.ServiceProvider.GetRequiredService<ModerationInspectionRecorder>().FailedAttemptAsync(ModerationInspectionRecorder.TextDefinition,token);
+                            log.LogError("Text inspection remains pending; a processing attempt failed.");
+                        }
                     }
                     cursor=ids[^1];
                 }

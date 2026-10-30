@@ -128,26 +128,43 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
                 return;
             case ScreeningVerdict.Passed:
                 item.KnownContentChecked = decision.KnownContentChecked;
-                await PassCoreAsync(item, null, now, cancellationToken);
+                await PassCoreAsync(item, null, now, cancellationToken,inspectionCompleted:true);
                 return;
             case ScreeningVerdict.Uncertain:
                 (item.Status, item.ScreenedAt, item.KnownContentChecked, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Uncertain, now, decision.KnownContentChecked, null, null);
                 Audit.Record(db, now, null, "system", "media.uncertain", "media", item.Id.ToString(), decision.Reason);
-                await db.SaveChangesAsync(cancellationToken);
+                await SaveModerationAsync(item,true,true,false,now,cancellationToken);
                 await AttachmentChangedAsync(item, now, cancellationToken);
                 return;
             case ScreeningVerdict.Blocked:
                 item.KnownContentChecked = true;
-                await BlockCoreAsync(item, null, "known-content-match", now, cancellationToken);
+                await BlockCoreAsync(item, null, "known-content-match", now, cancellationToken,inspectionCompleted:true);
                 return;
         }
+    }
+
+    private async Task SaveModerationAsync(MediaItem item,bool inspected,bool candidate,bool refused,DateTimeOffset now,CancellationToken token)
+    {
+        await using var barrier=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,token);
+        var owns=db.Database.CurrentTransaction is null;
+        await using var transaction=owns?await db.Database.BeginTransactionAsync(token):null;
+        if(refused)await db.MediaPlacements.Where(p=>p.MediaId==item.Id).ExecuteDeleteAsync(token);
+        if(refused)await services.GetRequiredService<Swoovr.Api.Moderation.ModerationTransparencyRecorder>().StageMediaDecisionAsync(item,inspected,now,token);
+        if(inspected)await services.GetRequiredService<Swoovr.Api.Moderation.ModerationInspectionRecorder>().CompletedAsync(
+            Swoovr.Api.Moderation.ModerationInspectionRecorder.ImageDefinition,item.Id,false,candidate,token);
+        await db.SaveChangesAsync(token);
+        if(transaction is not null)await transaction.CommitAsync(token);
     }
 
     private async Task PendingAsync(MediaItem item, string reason, DateTimeOffset now, CancellationToken cancellationToken)
     {
         (item.LastScreenError, item.NextScreenAt) = (reason, MediaPolicy.NextAttempt(item.ScreenAttempts, now));
         if (item.ScreenAttempts == 1) Audit.Record(db, now, null, "system", "media.pending", "media", item.Id.ToString(), reason);
+        await using var barrier=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+        await using var transaction=db.Database.CurrentTransaction is null?await db.Database.BeginTransactionAsync(cancellationToken):null;
+        await services.GetRequiredService<Swoovr.Api.Moderation.ModerationInspectionRecorder>().FailedInTransactionAsync(Swoovr.Api.Moderation.ModerationInspectionRecorder.ImageDefinition,item.Id,cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        if(transaction is not null)await transaction.CommitAsync(cancellationToken);
         log.LogInformation("Media {Id} stays pending: {Reason}.", item.Id, reason);
     }
 
@@ -162,7 +179,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         return await PassCoreAsync(item, reviewer, now, cancellationToken);
     }
 
-    private async Task<bool> PassCoreAsync(MediaItem item, Guid? reviewer, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task<bool> PassCoreAsync(MediaItem item, Guid? reviewer, DateTimeOffset now, CancellationToken cancellationToken,bool inspectionCompleted=false)
     {
         var data = await Store!.GetAsync(item.ObjectKey!, cancellationToken) ?? throw new IOException("Media object missing.");
         await PublicationBarrierAsync(item.Id, "after-read", cancellationToken);
@@ -183,7 +200,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         {
             // A chat photo never goes on a profile; the recipient sees it from now on (#41).
             Audit.Record(db, now, reviewer, reviewer is null ? "system" : "account", "media.passed", "media", item.Id.ToString(), reviewer is null ? "attachment" : "review");
-            await db.SaveChangesAsync(cancellationToken);
+            await SaveModerationAsync(item,inspectionCompleted,false,false,now,cancellationToken);
             await DeleteSupersededCopyAsync(quarantined, cancellationToken);
             await AttachmentChangedAsync(item, now, cancellationToken);
             return true;
@@ -202,7 +219,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             (original.Status, original.RemovedAt) = (MediaStatus.Removed, now);
             Audit.Record(db, now, item.AccountId, "account", "media.removed", "media", original.Id.ToString(), "replaced");
         }
-        await db.SaveChangesAsync(cancellationToken);
+        await SaveModerationAsync(item,inspectionCompleted,false,false,now,cancellationToken);
         await DeleteSupersededCopyAsync(quarantined, cancellationToken);
         if (original is not null) await DeleteObjectIfAllowedAsync(original, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
@@ -224,7 +241,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         return true;
     }
 
-    private async Task BlockCoreAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task BlockCoreAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken,bool inspectionCompleted=false)
     {
         if (item.Status != MediaStatus.Blocked)
         {
@@ -232,9 +249,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             if (actor is not null) (item.ReviewedBy, item.ReviewedAt) = (actor, now);
             item.PreservationPendingAt = now; item.NextPreservationAt = now; item.PreservationLegacy = false;
             item.PreservationSourceKey = item.ObjectKey;
-            await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
             Audit.Record(db, now, actor, actor is null ? "system" : "account", "media.blocked", "media", item.Id.ToString(), reason);
-            await db.SaveChangesAsync(cancellationToken); // Durable refusal/work precedes every object/hold/email effect.
+            await SaveModerationAsync(item,inspectionCompleted,false,true,now,cancellationToken); // Source, fact and inspection total precede effects.
         }
         await RecoverBlockedAsync(item.Id, now, cancellationToken);
     }
@@ -246,9 +262,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         await db.Entry(item).ReloadAsync(cancellationToken);
         if (db.Entry(item).State == EntityState.Detached || item.RemovedAt is not null || item.Status is not (MediaStatus.Uncertain or MediaStatus.Passed)) return false;
         (item.Status, item.ReviewedBy, item.ReviewedAt, item.ReviewReason, item.NextScreenAt) = (MediaStatus.Rejected, reviewer, now, reason, null);
-        await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
         Audit.Record(db, now, reviewer, "account", "media.rejected", "media", item.Id.ToString());
-        await db.SaveChangesAsync(cancellationToken);
+        await SaveModerationAsync(item,false,false,true,now,cancellationToken);
         await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
         await AttachmentChangedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);

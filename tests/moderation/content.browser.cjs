@@ -117,11 +117,13 @@ async function login(page,base,user,destination){
   await page.locator('[data-content-result="confirmation-required"]').waitFor();
   check(await sql(`SELECT count(*) FROM content_removal WHERE case_id='${caseId}'`)==='0','real SSR POST refuses unchecked confirmation');
   await page.fill('[name="RemovalForm.Reason"]','Fictional SSR single-field removal reason');
+  await page.selectOption('[name="RemovalForm.PolicyBasis"]','harassment');
   await page.check('[name="RemovalForm.Confirmed"]');
   await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('[data-remove-content]')]);check(await page.locator('[data-content-result]').getAttribute('data-content-result')==='ok','confirmed SSR form records the reviewed content action');
   await page.screenshot({path:path.join(folder,'admin-removal-recorded-390.png'),fullPage:true});
   const coreId=await sql(`SELECT id FROM content_removal WHERE case_id='${caseId}' AND field='about'`);
   check(/^[0-9a-f-]{36}$/.test(coreId),'SSR mutation durably records an individual removal');
+  check(await sql(`SELECT reviewed_policy_basis||'/'||detection_mechanism FROM moderation_transparency_facts WHERE source_id='${coreId}'`)==='harassment/member-report','SSR action records explicit basis and actual same-case report source');
   let own=(await call(tokens.subject,'/api/me/profile')).body;
   check(own.about===null&&own.displayName==='Fictional content subject'&&own.modes.find(m=>m.mode==='friends'||m.modeId==='friends'||m.id==='friends')?.about==='FICTIONAL FRIENDS TEXT subject','core removal leaves display name and mode text intact');
   phase='mode-field-only';

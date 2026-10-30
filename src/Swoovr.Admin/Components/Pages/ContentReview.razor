@@ -46,6 +46,8 @@ else
                 <label>Staff reason (retained with restricted evidence)
                     <textarea name="RemovalForm.Reason" rows="4" maxlength="1000" required></textarea>
                 </label>
+                <label>Explicitly reviewed policy basis<select name="RemovalForm.PolicyBasis">@foreach(var basis in ModerationReportingText.Bases){<option value="@basis">@ModerationReportingText.Basis(basis)</option>}</select></label>
+                <p>Unknown is valid when a policy basis has not been separately assessed. The captured member report is the detection source for this removal.</p>
                 <label><input type="checkbox" name="RemovalForm.Confirmed" value="true" required /> I reviewed this exact text and confirm removal of this single field or message.</label>
                 <button type="submit" data-remove-content>Remove this content</button>
             </form>
@@ -84,6 +86,7 @@ else
         public Guid? MessageId { get; set; }
         public string? Sha256 { get; set; }
         public string? Reason { get; set; }
+        public string? PolicyBasis { get; set; }
         public bool Confirmed { get; set; }
     }
     private CaseDetailView? detail;
@@ -132,7 +135,7 @@ else
         var current = sources.FirstOrDefault(s => s.ReportId == f.ReportId && s.Field == f.Field && s.ModeId == f.ModeId && s.MessageId == f.MessageId);
         if (current is null || current.Sha256 != f.Sha256)
         { message = "The source is no longer available or has changed. Reload and review the current text before removing it."; resultCode = "source-changed"; selected = null; return; }
-        var result = await Admin.RemoveContentAsync(Id, new(f.CommandId, f.ReportId, f.Field!, f.ModeId, f.MessageId, f.Sha256!, f.Reason));
+        var result = await Admin.RemoveContentAsync(Id, new(f.CommandId, f.ReportId, f.Field!, f.ModeId, f.MessageId, f.Sha256!, f.Reason,new(f.PolicyBasis,"member-report",f.ReportId)));
         receipt = result.Value;
         Show(result.Status, result.Code, "Content removal recorded. The member has a standing notice and the original is retained as evidence.");
         selected = null;

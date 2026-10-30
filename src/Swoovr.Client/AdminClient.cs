@@ -332,6 +332,13 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<TextHarmCandidateEvidence>> TextHarmEvidenceAsync(Guid caseId,Guid reviewId,CancellationToken token=default)=>SendAsync<TextHarmCandidateEvidence>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",null,token);
     public Task<ApiResult<TextHarmCandidateReviewReceipt>> ReviewTextHarmAsync(Guid caseId,Guid reviewId,TextHarmCandidateReviewRequest request,CancellationToken token=default)=>SendAsync<TextHarmCandidateReviewReceipt>(HttpMethod.Post,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",request,token);
 
+    public Task<ApiResult<ModerationTransparencyExport>> ModerationReportAsync(int year,CancellationToken token=default)=>SendAsync<ModerationTransparencyExport>(HttpMethod.Get,$"api/admin/moderation-transparency/{year}",null,token);
+    public Task<ApiResult<int>> SaveModerationReportAsync(int year,CancellationToken token=default)=>SendAsync<int>(HttpMethod.Post,$"api/admin/moderation-transparency/{year}/revisions",null,token);
+    public async Task<(int Status,byte[]? Body)> ModerationReportExportAsync(int year,CancellationToken token=default)
+    {
+        using var response=await http.GetAsync($"api/admin/moderation-transparency/{year}/export",token);
+        return ((int)response.StatusCode,response.IsSuccessStatusCode?await response.Content.ReadAsByteArrayAsync(token):null);
+    }
     private async Task<int> StatusAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };

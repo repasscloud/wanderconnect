@@ -36,6 +36,7 @@ builder.Services.AddSignalR();
 var app = builder.Build();
 // Fail at startup/command bootstrap if configured push is unsafe or incomplete.
 app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
+Swoovr.Api.Moderation.ModerationTransparencyRecorder.Dataset(app.Environment,app.Configuration);
 if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)){using var textScope=app.Services.CreateScope();if(textScope.ServiceProvider.GetRequiredService<Swoovr.Api.Evidence.EvidenceKeys>().CurrentVersion is null)throw new InvalidOperationException("Text review requires configured evidence keys.");}
 using (var pushScope = app.Services.CreateScope())
     pushScope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>();
@@ -92,7 +93,7 @@ Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
-if(persistence){Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);}
+if(persistence){Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);

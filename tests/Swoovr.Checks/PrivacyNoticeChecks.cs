@@ -27,6 +27,7 @@ static class PrivacyNoticeChecks
         Expect(Text("founders").Contains("founder recovery token") && Text("founders").Contains("Also delete my founder recovery token"), "the founder token (D173, #22)");
         Expect(Text("retention").Contains("12 months") && Text("retention").Contains("24 months")
             && Text("retention").Contains("overlapping legal holds") && Text("retention").Contains("unknown provenance"), "review retention exceptions and fail-closed provenance (D231)");
+        Expect(Text("moderation-reporting").Contains("36 months") && Text("moderation-reporting").Contains("not verified residence"), "reporting receipt purpose and independent retention (D268)");
         Expect(Text("retention").Contains("30 days") && Text("retention").Contains("2 years"), "deletion and retention (D170)");
         Expect(Text("modes").Contains("Show my main about") && Text("modes").Contains("never your exact location"), "mode consent and distance bands (D199)");
         Expect(Text("choices").Contains("oaic.gov.au") && all.Contains(PrivacyNotice.Contact), "complaints and the contact (Q80)");
