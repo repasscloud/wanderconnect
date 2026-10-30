@@ -1519,3 +1519,11 @@ Initial isolated chat-photo regression failed at the first approved-photo assert
 Configured chat-photo rerun PASS111 (`/tmp/swoovr-beta-admin-attachments-configured.log`), runner exit0, zero owned photo objects left. The original failed unconfigured run is retained above. Fictional320px staff accessibility capture also inspected. MAIN clean/original hosts200 with Web/Admin cwdMAIN; new beta columns absent MAIN, owned UI/beta-operation databases0.
 
 Final D273 `./scripts/check.sh` exit0 (`/tmp/swoovr-beta-admin-final-check.log`):551 actual PostgreSQL,33 backup and3 startup-refusal checks plus existing pure/HTTP/naming/design gates PASS; builds0 warnings/errors. The required check ran after all browsers exited. External Apple operations, hosted Entra, real email/push delivery and native OS UI remain unverified. No deployment, merge or Actions activation.
+
+## D274 — application MailerSend adapter,31 October2026
+
+Registered fake-provider tests first: build failed with16 missing MailerSend type errors as expected (`/tmp/swoovr-mailersend-red.log`),0 warnings. After implementation, focused `dotnet run --project tests/Swoovr.Checks -- --mailersend-checks` exit0:69 fake HTTP/configuration checks PASS (`/tmp/swoovr-mailersend-focused.log`). No external request was made. Read-only source review found no high/medium findings and ran no tests. Actual local browser consumers/full gate follow; no provider/device/delivery claim.
+
+D274 actual owned local browsers PASS meeting129 and deletion/export118 (`/tmp/swoovr-mailersend-local-browser.log`), runner exit0. This includes actual worker/Mailpit contact notifications and founder/deletion email consumers with the new shared email registration, not MailerSend delivery. Owned database/API removed and original Web/Admin restored. No build overlapped browsers; no UI/theme/native source changed.
+
+Final D274 `./scripts/check.sh` exit0 (`/tmp/swoovr-mailersend-final-check.log`):69 fake HTTP/configuration email checks,551 actual PostgreSQL,33 backup,3 startup-refusal and existing pure/HTTP/naming/design gates PASS0 warnings/errors. No builds overlapped browsers. No native/UI source changed; no new native/device evidence claimed. No external sending, deployment, merge or Actions activation.

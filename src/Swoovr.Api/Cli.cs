@@ -53,8 +53,7 @@ public static class Cli
         builder.Services.AddScoped<Founders>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSwoovrProviders(builder.Configuration);
-        builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
-            builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
+        builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment());
         var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
         // D203: `accounts purge` deletes media objects (never the screening worker here).
         builder.Configuration["Media:Screening:Worker"] = "false";

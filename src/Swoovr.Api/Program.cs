@@ -18,8 +18,7 @@ builder.Services.AddScoped<Founders>();
 builder.Services.AddSwoovrProviders(builder.Configuration);
 // D201, D203: photo storage (R2), screening (image-moderation-api) and the quarantine pipeline.
 Swoovr.Api.Media.MediaSetup.AddSwoovrMedia(builder.Services, builder.Configuration, builder.Environment, persistence);
-builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builder.Configuration.GetValue("Email:Smtp:Port", 0),
-    builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
+builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment());
 // #49: travel reminders, written by the API's own worker (with a database).
 if (persistence) builder.Services.AddHostedService<Swoovr.Api.Notifications.NotificationWorker>();
 if (persistence && builder.Configuration.GetValue("MemberAdmin:ContactRetirementEnabled",false)

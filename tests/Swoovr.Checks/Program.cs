@@ -4,6 +4,8 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--mailersend-checks"]){await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});return;}
+
 if(args is ["--contact-provider-probe"])
 {
     await ContactIdentityProviderProbe.Run();
@@ -55,6 +57,7 @@ NotificationChecks.Run();
 StandingChecks.Run();
 ChatAttachmentChecks.Run();
 await EmailOutcomeChecks.Run();
+await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
 await PushProviderChecks.Run();
 await ContactIdentityChecks.Run();
 EmailRetirementChecks.Run();

@@ -20,7 +20,7 @@ public interface IEmailSender
 
 /// <summary>
 /// Local development only: plain SMTP to the Mailpit sink, which delivers nothing. The
-/// production sender is MailerSend's HTTP API (Keycloak design), not built yet.
+/// hosted application sender is MailerSend's HTTP API, selected separately through configuration.
 /// </summary>
 public sealed class SmtpEmailSender(string host, int port, string from, ILogger<SmtpEmailSender> log, TimeSpan? sendTimeout = null) : IEmailSender
 {
