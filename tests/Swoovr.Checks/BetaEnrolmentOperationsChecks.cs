@@ -49,7 +49,9 @@ static class BetaEnrolmentOperationsChecks
             check("concurrent iOS records have one CAS winner and one conflict",races.Count(r=>r==BetaEnrolments.IosUpdateResult.Updated)==1&&races.Count(r=>r==BetaEnrolments.IosUpdateResult.Conflict)==1);
             check("iOS metadata never changes beta web access state",(await db.BetaEnrolments.AsNoTracking().SingleAsync(e=>e.Id==oldId)) is{RevokedAt:null,AccountId:not null,ActivatedAt:not null});
             check("unknown enrolment is not created by distribution recording",(await BetaEnrolments.RecordIosAsync(db,Guid.NewGuid(),new("invited",0,true),staff,now,default)).Result==BetaEnrolments.IosUpdateResult.NotFound);
+            await new AppearanceStore(db,TimeProvider.System).SaveAsync(member,new(new("coral","system"),0,Guid.NewGuid()),default);
             var encoded=JsonSerializer.Serialize(await DataExportBuilder.BuildAsync(db,await db.Accounts.SingleAsync(a=>a.Id==member),now,default));
+            check("own data includes private appearance metadata",encoded.Contains("appearance")&&encoded.Contains("coral"));
             check("own data includes enrolment and iOS metadata without staff actor",encoded.Contains("betaEnrolments")&&encoded.Contains("IosDistributionState")&&!encoded.Contains(staff.ToString()));
             var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["Evidence:Keys:1"]=Convert.ToBase64String(Enumerable.Repeat((byte)43,32).ToArray())}).Build();
             using var services=new ServiceCollection().AddSingleton(db).AddSingleton<IConfiguration>(config).AddSingleton<IHostEnvironment>(new Host()).AddSingleton(TimeProvider.System).AddLogging().BuildServiceProvider();
@@ -82,6 +84,9 @@ static class BetaEnrolmentOperationsChecks
             check("held linked revoked beta sources are not expired",await expiry.PurgeAsync(default)&&await db.BetaEnrolments.AnyAsync(e=>e.Id==oldId));
             await db.LegalHolds.Where(h=>h.Id==hold.Id).ExecuteUpdateAsync(set=>set.SetProperty(h=>h.Status,LegalHoldStatus.Released).SetProperty(h=>h.ReleasedAt,now));
             check("retained beta evidence continues to defer source expiry after release",await expiry.PurgeAsync(default)&&await db.BetaEnrolments.AnyAsync(e=>e.Id==oldId)&&await db.BetaEnrolments.AnyAsync(e=>e.Id==heldUnlinked.Id));
+            check("private appearance is independently captured as encrypted evidence",await db.EvidenceItems.AnyAsync(e=>e.Kind=="appearance"&&e.AccountId==member));
+            await db.Set<MemberAppearance>().Where(a=>a.AccountId==member).ExecuteDeleteAsync();
+            check("appearance source erasure preserves its independent encrypted copy",!await db.Set<MemberAppearance>().AnyAsync(a=>a.AccountId==member)&&await db.EvidenceItems.AnyAsync(e=>e.Kind=="appearance"&&e.AccountId==member));
             check("linked beta enrolment is captured as encrypted independent evidence",await db.EvidenceItems.AnyAsync(e=>e.Kind=="beta-enrolment"&&e.AccountId==member&&e.RecordId==oldId.ToString()));
             await db.BetaEnrolments.Where(e=>e.AccountId==member).ExecuteDeleteAsync();
             check("ordinary beta erasure keeps preserved enrolment evidence",!await db.BetaEnrolments.AnyAsync(e=>e.AccountId==member)&&await db.EvidenceItems.AnyAsync(e=>e.Kind=="beta-enrolment"&&e.RecordId==oldId.ToString()));

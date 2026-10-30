@@ -32,6 +32,7 @@ const ADELAIDE = 2078025;
       await call(tokens[n], '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
       await matchReady(tokens[n]);
     }
+    assert.equal((await call(tokens.ana,'/api/me/appearance',{method:'PUT',headers:{'Swoovr-Appearance-Owner':require('node:crypto').createHash('sha256').update(claims(tokens.ana).iss+'\0'+claims(tokens.ana).sub).digest('hex')},body:{preference:{scheme:'pride',mode:'dark'},expectedRevision:0,changeId:require('node:crypto').randomUUID()}})).status,200);pass();
     // Ana and Bob talk (one message deleted for both); Cat talks with Bob and, separately, with Dan.
     const connect = async (a, b) => {
       const req = await call(tokens[a], '/api/requests', { method: 'POST', body: { to: pid[b], mode: 'friends' } });
@@ -138,6 +139,8 @@ const ADELAIDE = 2078025;
     assert.match(await cli('accounts', 'purge'), /Accounts: [1-9]\d* deleted/);
     assert.equal(await sql(`SELECT status FROM accounts WHERE id = '${ids.ana}'`), 'Deleted'); pass();
     if(process.env.SWOOVR_TEST_APP_DATABASE){
+      assert.equal(await sql(`SELECT count(*) FROM member_appearances WHERE account_id='${ids.ana}'`),'0','held deletion erases ordinary appearance');pass();
+      assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id='${holdId}' AND kind='appearance' AND account_id='${ids.ana}'`),'1','held deletion retains independent encrypted appearance');pass();
       assert.equal(await sql(`SELECT count(*) FROM policy_acceptances WHERE account_id='${ids.ana}'`),'0','held final deletion erases ordinary acceptance after real provider deletion');pass();
       assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id='${holdId}' AND kind='policy-acceptance'`),'1','active hold retains independent encrypted acceptance proof');pass();
     }

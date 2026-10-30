@@ -3874,6 +3874,45 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberAppearance", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("LastChangeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("last_change_id");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("mode");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("Scheme")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("scheme");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_member_appearances");
+
+                    b.ToTable("member_appearances", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_member_appearance_revision", "revision>0 AND last_change_id<>'00000000-0000-0000-0000-000000000000'::uuid");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -7867,6 +7906,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_meeting_safety_recipients_trusted_contacts_trusted_contact_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MemberAppearance", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithOne()
+                        .HasForeignKey("Swoovr.Domain.MemberAppearance", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_appearances_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>

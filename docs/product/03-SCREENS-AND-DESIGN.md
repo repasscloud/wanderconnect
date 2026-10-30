@@ -59,3 +59,5 @@ Mobile and desktop layouts for all core screens; loading/empty/error/denied stat
 ### Accessibility release gate (D271 DEFAULT)
 
 Core journeys must remain keyboard-accessible with visible focus and a working skip-to-main control on member and staff layouts. Test narrow reflow, enlarged text, personal themes, forced colors and reduced motion. External UAT approval requires the finite automated and human/native checklist in delivery/ACCESSIBILITY-RELEASE-GATE.md; a successful build or DOM audit is not assistive-technology sign-off. Optional access information/visibility and matching rules remain unchanged.
+
+D277 DEFAULT prepares member account appearance persistence/transport under the confirmed personal-theme rules. Revisions and repeat-safe change IDs prevent silent overwrites; a captured account-scope precondition prevents a pending edit following a switched session into another account. Source export/deletion/preservation are private. D278 supplies the actual WebAssembly/native settings/cache integration; this backend preparation does not change public guest settings or imply colours are identity/visibility/entitlement data.

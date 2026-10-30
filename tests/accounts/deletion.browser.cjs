@@ -33,6 +33,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
       await call(tokens[n], '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
       await matchReady(tokens[n]);
     }
+    assert.equal((await call(tokens.ana,'/api/me/appearance',{method:'PUT',headers:{'Swoovr-Appearance-Owner':require('node:crypto').createHash('sha256').update(claims(tokens.ana).iss+'\0'+claims(tokens.ana).sub).digest('hex')},body:{preference:{scheme:'coral',mode:'system'},expectedRevision:0,changeId:crypto.randomUUID()}})).status,200);pass();
     const staleExp = tokens.exp; // signed in now; stale once REAUTH_SECONDS have passed
 
     // The gate: signed out, staff and tampered bodies.
@@ -66,6 +67,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     assert.equal(download.status, 200); assert.match(download.headers.get('content-disposition') ?? '', /attachment; filename=swoovr-data-\d{4}-\d{2}-\d{2}\.json/); pass();
     const exported = JSON.parse(await download.text());
     assert.equal(exported.format, 'swoovr-data-export/1'); pass();
+    assert.deepEqual([exported.appearance.scheme,exported.appearance.mode,exported.appearance.revision],['coral','system',1]);pass();
     assert.equal(exported.account.email, members.ana.email); assert.equal(exported.profile.displayName, 'Fictional Del ana'); pass();
     assert.equal(exported.profile.dateOfBirth, '1990-01-01'); assert.equal(exported.profile.homeCity.startsWith('Adelaide'), true); pass();
     assert.deepEqual(exported.modes.map(m => m.mode), ['friends']); pass();
@@ -164,7 +166,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
       assert.equal(await sql(`SELECT count(*) FROM member_profiles WHERE account_id = '${ids[n]}'`), '0'); pass();
       assert.equal((await kc('/users?exact=true&email=' + encodeURIComponent(members[n].email))).length, 0, n + "'s Keycloak user deleted"); pass();
     }
-    for (const table of ['member_modes', 'mode_filters', 'member_identities', 'trips', 'data_exports', 'beta_enrolments'])
+    for (const table of ['member_modes', 'mode_filters', 'member_identities', 'trips', 'data_exports', 'beta_enrolments', 'member_appearances'])
     { assert.equal(await sql(`SELECT count(*) FROM ${table} WHERE account_id = '${ids.ana}'`), '0', table); pass(); }
     assert.equal(await sql(`SELECT count(*) FROM connection_requests WHERE '${ids.ana}' IN (from_account_id, to_account_id)`), '0', 'requests'); pass();
     assert.equal(await sql(`SELECT count(*) FROM messages WHERE sender_account_id = '${ids.ana}'`), '0', "Ana's messages are gone"); pass();

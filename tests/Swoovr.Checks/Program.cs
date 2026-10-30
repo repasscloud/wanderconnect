@@ -66,6 +66,8 @@ ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
+AppearanceCacheChecks.Run();
+await AppearanceClientChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
 await NativeSignInChecks.Run();

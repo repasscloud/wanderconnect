@@ -193,9 +193,9 @@ function sql(query) {
 }
 
 /** Calls the API with a bearer token. */
-async function call(token, path, { method = 'GET', body } = {}) {
+async function call(token, path, { method = 'GET', body, headers = {} } = {}) {
   const response = await fetch(api + path, { method, headers: {
-    'Swoovr-Version': '2026-10-28',
+    'Swoovr-Version': '2026-10-28', ...headers,
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const text = await response.text();

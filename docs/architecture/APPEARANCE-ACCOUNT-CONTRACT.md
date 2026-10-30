@@ -1,0 +1,19 @@
+# Member appearance account contract
+
+D277 DEFAULT implements the server/portable part of D21 and issue27. D278 supplies the actual member WebAssembly/native settings and storage bindings; this contract does not claim those clients are already wired. Canonical eight scheme IDs and requested system/light/dark values derive from read-only design input through check_design.py; no arbitrary CSS/resource names or identity meaning are accepted. No project is added.
+
+## HTTP
+
+Stable `GET/PUT /api/me/appearance` use the common `Swoovr-Version` date header and no-store. The authenticated member account is the only owner; no account ID appears in the DTO or route. Existing beta/account/sanction gates remain. Age/phone/policy-onboarding gates do not make a free appearance choice a paid or verified trait. Staff callers cannot use this member endpoint.
+
+GET returns204 when there is no stored choice and writes nothing. Otherwise it returns `{preference:{scheme,mode},revision}`. Unknown stored values display Standard/System with the existing revision; GET does not repair the stored row. PUT accepts `{preference,expectedRevision,changeId}`. A first explicit write expects0 and creates revision1. Subsequent writes compare the stored revision and increment it once. Exact retries with the most recently accepted change ID/preference/expected revision return that same accepted revision, without another write/audit event. Reusing that ID with different data refuses. Other stale writes return409 `{code:'appearance-conflict',current:<snapshot>}`. Long-max revision is terminal/read-only; its exact last acknowledgement remains usable. No client clock resolves conflicts.
+
+## Session/account binding
+
+`Swoovr-Appearance-Owner` is an opaque hash of the authenticated issuer/subject, a cache/dispatch precondition rather than authentication. Successful GET (including204) returns it. PUT requires the captured value: missing/invalid400, changed authenticated identity409 appearance-account-changed with no preference snapshot. GET optionally accepts the same guard for a refresh. The API still derives ownership from its validated account, never from this header. A request authenticated with a switched session therefore cannot apply the previous account's queued edit to the new account. BFF forwards only this appearance-specific header alongside the normal date contract; tokens/cookies remain server-side. Typed clients reject missing/wrong-owner success projections and never silently rebind pending work.
+
+## Persistence, privacy and portability
+
+The existing Domain/Infrastructure projects store one private member_appearances row: scheme, requested mode, revision, last change ID and server update time. Account lifecycle/preservation leases serialize writes with deletion/capture; fresh active-member status is rechecked after waiting. The audit records only an appearance change, not chosen colours. Own export includes the source; final ordinary deletion erases it, and required independent encrypted account evidence retains its own copy under existing clocks. These choices do not affect matching, visibility, identity, permissions or entitlements.
+
+AppearanceSyncState retains the existing activation tickets and adds an exportable account cache: current choice, confirmed baseline, unchanged in-flight retry identity and known conflict. Malformed caches are ignored; sign-out exports none and restores the distinct guest choice. A clean cache can refresh, but a response cannot overwrite an edit made during HTTP or a pending conflict. Persist exact cache JSON text, not an object roundtrip through JavaScript64-bit numbers. D278 must scope storage to the authenticated owner, clear it on sign-out/account switch and send the captured owner on every pending write. The portable model alone is not storage/authentication integration.

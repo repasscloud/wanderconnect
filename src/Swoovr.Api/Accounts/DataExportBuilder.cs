@@ -87,6 +87,7 @@ public static class DataExportBuilder
             },
             modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals, meetingSafety,
             policyNoticeReceipts=await (from recipient in db.Set<PolicyNoticeRecipient>() join publication in db.Set<PolicyNoticePublication>() on recipient.PublicationId equals publication.Id where recipient.AccountId==id select new{publication.Version,recipient.Status,recipient.CreatedAt,recipient.CompletedAt,publication.PurgeAfter}).ToListAsync(cancellationToken),
+            appearance=await db.Set<MemberAppearance>().Where(a=>a.AccountId==id).Select(a=>new{a.Scheme,a.Mode,a.Revision,a.LastChangeId,a.UpdatedAt}).SingleOrDefaultAsync(cancellationToken),
             betaEnrolments=await db.BetaEnrolments.Where(e=>e.AccountId==id).Select(e=>new{e.Id,e.Email,e.CreatedAt,e.RevokedAt,e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.InvitationState,e.InvitationAttempts,e.InvitationQueuedAt,e.InvitationAttemptedAt,e.InvitationCompletedAt,e.InvitationNextAttemptAt,e.InvitationOutcomeCode}).ToListAsync(cancellationToken),
             betaJourneyObservations=await db.Set<BetaJourneyDay>().Where(r=>r.AccountId==id).Select(r=>new{r.Day,r.Dataset,r.ExploreSucceeded,r.ExploreHasPeer}).ToListAsync(cancellationToken),
             policyAcceptances=await db.Set<PolicyAcceptance>().Where(p=>p.AccountId==id).Select(p=>new{p.Version,p.ContentSha256,p.AcceptedAt}).ToListAsync(cancellationToken),

@@ -20,7 +20,7 @@ public static partial class Bff
     private const string Uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
     private const string MeetingSafetyPaths="me/meeting-safety(?:/contacts(?:/"+Uuid+"(?:/(?:resend|compose))?)?|/sessions(?:/"+Uuid+"/actions)?)?";
-    [GeneratedRegex(@"^api/(session|me|me/policies|me/policies/accept|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
+    [GeneratedRegex(@"^api/(session|me|me/policies|me/policies/accept|me/age|me/coupons|me/appearance|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
         + "|requests|requests/" + Uuid + "/(accept|decline|withdraw|disconnect)|connections|blocks|blocks/" + Uuid
         + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/notifications|me/notifications/read|me/notifications/" + Uuid + "/read|me/notification-settings|me/standing|" + MeetingSafetyPaths + "|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide|photos|end|starters)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
@@ -75,6 +75,7 @@ public static partial class Bff
             // Forward explicit dates unchanged, including invalid/duplicate values: the API owns rejection.
             if (context.Request.Headers.TryGetValue(ApiContract.Header, out var versions))
                 request.Headers.TryAddWithoutValidation(ApiContract.Header, versions.ToArray());
+            if(path=="api/me/appearance"&&context.Request.Headers.TryGetValue(AppearanceOwner.Header,out var owner))request.Headers.TryAddWithoutValidation(AppearanceOwner.Header,owner.ToArray());
             // D181: the browser's address for the API's per-address limits (believed only from a trusted proxy).
             if (context.Connection.RemoteIpAddress is { } address) request.Headers.TryAddWithoutValidation("X-Forwarded-For", address.ToString());
             if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Count > 0)
@@ -90,6 +91,7 @@ public static partial class Bff
             context.Response.Headers.Append("Vary", ApiContract.Header);
             if (response.Headers.TryGetValues(ApiContract.Header, out var selectedVersions))
                 context.Response.Headers[ApiContract.Header] = selectedVersions.ToArray();
+            if(path=="api/me/appearance"&&response.Headers.TryGetValues(AppearanceOwner.Header,out var owners)&&owners.Take(2).ToArray() is{Length:1} selected&&AppearanceOwner.Valid(selected[0]))context.Response.Headers[AppearanceOwner.Header]=selected[0];
             // Body and content type only: no API cookies or authentication challenges reach the browser.
             if (response.Content.Headers.ContentType is { } contentType) context.Response.ContentType = contentType.ToString();
             await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);

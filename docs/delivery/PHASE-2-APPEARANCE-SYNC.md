@@ -28,3 +28,5 @@ Fresh pre-merge Codex review found an additional case: normalized remote default
 
 
 Revision exhaustion correction18 October2026: long.MaxValue is accepted as an explicit terminal revision. The final save acknowledgement clears its in-flight retry; IsRevisionExhausted prevents any further BeginSave/Select. A newer pre-ack local choice stays visible as unsaved with terminal status instead of retrying forever. Terminal loads/conflicts expose the same read-only state. This supersedes the earlier default reserving MaxValue and rejecting its acknowledgement.75 appearance-state cases cover the boundary.
+
+D277 follow-up: [account backend/portable cache](APPEARANCE-ACCOUNT-BACKEND.md) now adds actual authenticated API/BFF/typed transport, lifecycle persistence and an owner-bound dispatch precondition. The original pure-state evidence above remains historical; actual client UI/storage integration is D278.

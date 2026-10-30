@@ -276,6 +276,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         foreach (var link in await db.StaffMemberLinks.AsNoTracking().Where(l => l.MemberAccountId == id || l.StaffAccountId == id).ToListAsync(cancellationToken))
             await conflicts.PreserveAsync(link, now, cancellationToken);
         await db.StaffMemberLinks.Where(l => l.MemberAccountId == id || l.StaffAccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.Set<MemberAppearance>().Where(a=>a.AccountId==id).ExecuteDeleteAsync(cancellationToken);
         await db.BetaEnrolments.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.DataExports.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);

@@ -14,7 +14,7 @@ public sealed record ApiResult<T>(int Status, T? Value, string? Code)
 /// HttpClient rooted at the web host's backend-for-frontend (/bff/), which holds the tokens
 /// server-side; a native client would root it at the API with its own bearer handler.
 /// </summary>
-public sealed class MemberClient(HttpClient transport)
+public sealed partial class MemberClient(HttpClient transport)
 {
     private readonly HttpClient http = ApiContractClient.Configure(transport);
     public Task<ApiResult<ApprovedPolicyDocumentView>> ApprovedPoliciesAsync(string version,CancellationToken token=default)=>SendAsync<ApprovedPolicyDocumentView>(new HttpRequestMessage(HttpMethod.Get,"api/policies/"+Uri.EscapeDataString(version)),token);

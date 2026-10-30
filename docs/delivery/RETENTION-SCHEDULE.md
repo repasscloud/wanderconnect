@@ -80,3 +80,7 @@ D269 DEFAULT policy records: ordinary explicit approved-version acceptance remai
 ## Beta enrolments and invitation metadata (D275 DEFAULT)
 
 `beta_enrolments`: unactivated unlinked rows expire90 days after creation; revoked rows expire90 days after revocation (creation age does not shorten this clock). Active linked rows remain until ordinary account deletion. Invitation fields share the source's lifecycle; no duplicate address/body outbox exists. Pending invitation effects expire72 hours after queueing, independently of source retention/access. Shared/exclusive preservation and row locks coordinate worker/expiry/activation. Unknown hold provenance/status stops expiry; held/retained-copy accounts defer linked expiry, and any unresolved held/copy population conservatively defers unlinked expiry because an address does not establish historical identity. Independently preserved copies follow existing review/hold clocks. Legal57 remains open.
+
+## Member appearance preference (D277 DEFAULT)
+
+member_appearances remains with the active account, participates in the owner's export and is erased at final ordinary deletion. Account lifecycle/preservation serialization prevents a queued write recreating it after deletion starts. Required encrypted appearance copies follow the existing qualifying-review/hold clocks independently. Appearance-change audit omits the chosen scheme/mode and follows ordinary audit retention. No device/other-member/trait or billing record is added.

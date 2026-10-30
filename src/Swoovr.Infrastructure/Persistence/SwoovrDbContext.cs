@@ -939,6 +939,13 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             token.Property(t => t.InvalidatedReason).HasMaxLength(32);
             token.HasOne<FounderPlace>().WithMany().HasForeignKey(t => t.Place).OnDelete(DeleteBehavior.Restrict);
         });
+        model.Entity<MemberAppearance>(appearance=>
+        {
+            appearance.ToTable("member_appearances",t=>t.HasCheckConstraint("ck_member_appearance_revision","revision>0 AND last_change_id<>'00000000-0000-0000-0000-000000000000'::uuid"));
+            appearance.HasKey(a=>a.AccountId);
+            appearance.Property(a=>a.Scheme).HasMaxLength(32);appearance.Property(a=>a.Mode).HasMaxLength(16);
+            appearance.HasOne<Account>().WithOne().HasForeignKey<MemberAppearance>(a=>a.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
         model.Entity<BetaEnrolment>(enrolment =>
         {
             enrolment.Property(e => e.Email).HasMaxLength(254);

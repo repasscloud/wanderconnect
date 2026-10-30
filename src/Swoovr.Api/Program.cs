@@ -77,6 +77,7 @@ app.UseMiddleware<MemberMutationAuthority>();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
+if(persistence)AppearanceEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);
 ContactHistoryEndpoints.Map(app);

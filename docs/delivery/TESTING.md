@@ -412,3 +412,9 @@ After Debug build, run the fixed owned runner with `Beta__Invitations__Enabled=t
 ### D276 founder capacity
 
 After Debug build, use `Founders__Places=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/founder-capacity.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path above. The fixed allowlist requires the explicit one-place configuration. It owns the API/database and uses synthetic SQL verification state, actual concurrent HTTP grants and local Mailpit; no Didit/payment/real delivery claim. No UI source changed, so no screenshot/native rerun is required. Do not build during this suite.
+
+### D277 appearance account backend
+
+After Debug build, select `tests/appearance/account-api.browser.cjs` in the fixed owned runner with regressions/only-regressions enabled and the Playwright path above. Use a fictional evidence directory for the new shared privacy paragraph capture. It exercises actual API/Keycloak/BFF, no-store/absence, revision/idempotence/concurrency, malformed input, unknown-value fallback and captured-owner refusal after session identity changes. It does not establish a settings UI/storage/native integration. Existing guest browser24 remains the UI baseline for D278.
+
+Run affected `tests/accounts/deletion.browser.cjs` and `tests/evidence/holds.browser.cjs`: they now seed appearance through the actual guarded API and prove own export/ordinary erasure/independent held copies. Also run privacy notice acceptance after the shared draft changes. Full repository gate includes actual PostgreSQL contested deletion and revision tests, original83 portable state, new persisted state and typed fake HTTP checks. Do not rebuild while browsers run. Keep cache JSON as exact text across JS to retain64-bit revision values.

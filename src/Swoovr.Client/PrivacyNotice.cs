@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.14, 31 October 2026";
+    public const string Version = "Draft 0.15, 31 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -70,6 +70,10 @@ public static class PrivacyNotice
         new("policy-records", "Policy versions and safety updates", [
             "The proposed terms and community guidelines are drafts and are not in force. Reading them or signing in does not record acceptance. When an approved version is explicitly required, we record your deliberate acceptance with its version, content digest and server time. Ordinary acceptance records are erased during final account deletion; independently preserved evidence follows its own review and legal-hold rules.",
             "Explicitly published safety updates can appear in your notification centre. The ordinary delivery queue and minimal per-member receipt expire after 60 days, unless preservation requires longer, including when the profile has already been deleted. We keep a version disposition without member or operator identifiers to prevent accidental reuse. These notices do not send email or push. Reading educational safety advice does not create a new acknowledgement or consent record.",
+        ]),
+        new("appearance", "Your appearance preferences", [
+            "We can keep your colour scheme and requested System, Light or Dark display mode with your account, together with a revision, last-change identifier and update time so changes do not silently overwrite one another. This changes only your own interface and is not shown on your profile or to other members.",
+            "Appearance is free. We do not use a scheme to infer identity, gender, sexuality or intentions, or to change matching, visibility, permissions or benefits. Account preferences are included in your own data export and erased at final account deletion; required independent encrypted evidence can remain under the separate preservation rules.",
         ]),
         new("beta-access", "Private beta access records", [
             "We keep beta pre-authorisation, activation and revocation records to manage invitation-only access. When enabled, we use your pre-authorised email for an invitation and keep minimal queue, attempt and outcome records; provider acceptance is separate from delivery. Unactivated unlinked records ordinarily expire after 90 days, and revoked records after 90 days from revocation; legal holds or retained evidence may postpone this. Staff may record the status of private iOS distribution work managed outside Swoovr. This is a staff report, not verification from Apple or proof of current access through every other account requirement.",

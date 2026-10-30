@@ -217,6 +217,8 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 if(original is not null&&!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(EvidenceSeal.Hash(original),removal.SnapshotHash))throw new InvalidOperationException("Content-removal evidence integrity unavailable.");
                 Add("content-removal","content_removal",removal.Id.ToString(),removal.SubjectAccountId,new{removal.Id,removal.CaseId,removal.ReportId,removal.SubjectAccountId,removal.ActorAccountId,removal.Field,removal.ModeId,removal.MessageId,removal.RemovedAt,removal.EvidenceDisposedAt,original});
             }
+            if(await db.Set<MemberAppearance>().AsNoTracking().SingleOrDefaultAsync(a=>a.AccountId==id,cancellationToken) is{}appearance)
+                Add("appearance","member_appearances",id.ToString(),id,appearance);
             foreach(var enrolment in await db.BetaEnrolments.AsNoTracking().Where(e=>e.AccountId==id).ToListAsync(cancellationToken))
                 Add("beta-enrolment","beta_enrolments",enrolment.Id.ToString(),id,enrolment);
             foreach(var observation in await db.Set<BetaJourneyDay>().AsNoTracking().Where(r=>r.AccountId==id).ToListAsync(cancellationToken))
