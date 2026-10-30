@@ -1002,6 +1002,21 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             g.HasIndex(x=>x.TokenHash).IsUnique();g.HasIndex(x=>x.RecipientId);
             g.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_read_grant","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '4 hours'"));
         });
+        model.Entity<TextHarmIntent>(i=>
+        {
+            i.Property(x=>x.ModeId).HasMaxLength(32);i.Property(x=>x.Result).HasMaxLength(32);
+            i.HasIndex(x=>new{x.ProcessedAt,x.CreatedAt});i.HasIndex(x=>x.AccountId);
+            i.HasIndex(x=>new{x.AccountId,x.Source,x.SourceId,x.Revision}).IsUnique();
+            i.ToTable(t=>t.HasCheckConstraint("ck_text_harm_intent","(processed_at IS NULL AND sealed_text IS NOT NULL AND octet_length(sealed_text)>=29 AND result IS NULL) OR (processed_at IS NOT NULL AND sealed_text IS NULL AND result IS NOT NULL)"));
+        });
+        model.Entity<TextHarmReview>(r=>
+        {
+            r.Property(x=>x.ModeId).HasMaxLength(32);r.Property(x=>x.SourceRevision).HasMaxLength(36);
+            r.Property(x=>x.DetectorVersion).HasMaxLength(80);r.Property(x=>x.Outcome).HasMaxLength(32);
+            r.HasIndex(x=>x.IntentId).IsUnique();r.HasIndex(x=>x.CaseId);r.HasIndex(x=>x.SubjectAccountId);
+            r.HasOne<ModerationCase>().WithMany().HasForeignKey(x=>x.CaseId).OnDelete(DeleteBehavior.Restrict);
+            r.ToTable(t=>t.HasCheckConstraint("ck_text_harm_review","(sealed_evidence IS NOT NULL AND octet_length(sealed_evidence)>=29 AND evidence_disposed_at IS NULL) OR (sealed_evidence IS NULL AND evidence_disposed_at IS NOT NULL)"));
+        });
         model.Entity<ContentRemoval>(r=>
         {
             r.Property(x=>x.Field).HasMaxLength(24);r.Property(x=>x.ModeId).HasMaxLength(32);

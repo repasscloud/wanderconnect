@@ -136,6 +136,7 @@ public static class MessagingEndpoints
                 case SendRefusal.RateLimited: return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.TooManyRequests, "That's a lot of messages. Slow down a little.");
             }
             var message = new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Text, Body = MessagingPolicy.CleanText(request.Text)!, SentAt = now };
+            accounts.Services.GetRequiredService<Swoovr.Api.Moderation.TextHarmQueue>().Enqueue(me,TextHarmSource.Message,message.Id,null,message.Body,now);
             db.Messages.Add(message);
             conversation.LastMessageAt = now;
             await db.SaveChangesAsync(cancellationToken);

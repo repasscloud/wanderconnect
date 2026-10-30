@@ -30,11 +30,13 @@ if (persistence && builder.Configuration.GetValue("Retention:Worker", !builder.E
     builder.Services.AddHostedService<Swoovr.Api.Retention.RetentionWorker>();
 builder.Services.AddRateLimiter(options=>{options.RejectionStatusCode=429;options.AddPolicy("meeting-safety-public",http=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=600,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
 if(persistence && builder.Configuration.GetValue("MeetingSafety:Enabled",false) && builder.Configuration.GetValue("MeetingSafety:Worker",true)) builder.Services.AddHostedService<Swoovr.Api.Safety.MeetingSafetyWorker>();
+if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)&&builder.Configuration.GetValue("TextHarm:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Moderation.TextHarmWorker>();
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
 // Fail at startup/command bootstrap if configured push is unsafe or incomplete.
 app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
+if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)){using var textScope=app.Services.CreateScope();if(textScope.ServiceProvider.GetRequiredService<Swoovr.Api.Evidence.EvidenceKeys>().CurrentVersion is null)throw new InvalidOperationException("Text review requires configured evidence keys.");}
 using (var pushScope = app.Services.CreateScope())
     pushScope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>();
 // Do not start hosted senders, cleanup jobs, migrations or ingress against quarantined restored data.
@@ -90,7 +92,7 @@ Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
-if(persistence) Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);
+if(persistence){Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);}
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);

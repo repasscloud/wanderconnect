@@ -328,6 +328,10 @@ public sealed class AdminClient(HttpClient transport)
         return ((int)response.StatusCode, response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync(cancellationToken) : null);
     }
 
+    public Task<ApiResult<List<TextHarmCandidateSummary>>> TextHarmCandidatesAsync(Guid caseId,CancellationToken token=default)=>SendAsync<List<TextHarmCandidateSummary>>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates",null,token);
+    public Task<ApiResult<TextHarmCandidateEvidence>> TextHarmEvidenceAsync(Guid caseId,Guid reviewId,CancellationToken token=default)=>SendAsync<TextHarmCandidateEvidence>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",null,token);
+    public Task<ApiResult<TextHarmCandidateReviewReceipt>> ReviewTextHarmAsync(Guid caseId,Guid reviewId,TextHarmCandidateReviewRequest request,CancellationToken token=default)=>SendAsync<TextHarmCandidateReviewReceipt>(HttpMethod.Post,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",request,token);
+
     private async Task<int> StatusAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };

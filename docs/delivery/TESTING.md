@@ -343,3 +343,14 @@ SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib
 ```
 
 This proves actual API/Admin/Web and automatic Web reconnect behaviour with fictional people in an owned database. It restores main Web/Admin in its finally block. Run the affected privacy, safety, serious-report, deletion, notifications, app-parity, accessibility, retention schedule and owned retention-worker suites as well; no rebuild may overlap browser execution. The schedule concurrency writer must use the same validated database override as its fixture/purge operations. Native compilation does not prove OS UI or physical delivery.
+
+
+### Text-harm candidates (D266)
+
+Use the owned runner with the explicit feature flag after the coordinated Debug build:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright TextHarm__Enabled=true SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/text-harm.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/text-harm.browser.cjs SWOOVR_SCREENSHOTS=docs/delivery/evidence node tests/meeting/isolated.browser.cjs
+```
+
+The feature remains off in the default product configuration. The finite runner includes this suite only when explicitly enabled, and restores main hosts/removes its owned API/database in finally. This journey uses actual profile/mode/message writes, background processing, restricted evidence and confirmed Admin human review. It does not establish detection accuracy, real email receipt or native OS UI. Run the affected moderation, privacy, deletion, notification, app-parity, accessibility and retention suites with detection off to protect existing default behaviour. No build may overlap browser execution.

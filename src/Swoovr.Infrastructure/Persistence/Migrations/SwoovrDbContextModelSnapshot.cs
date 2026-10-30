@@ -3851,6 +3851,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("share_core_about");
 
+                    b.Property<Guid?>("TextRevision")
+                        .HasColumnType("uuid")
+                        .HasColumnName("text_revision");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -4107,6 +4111,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("public_id")
                         .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid?>("TextRevision")
+                        .HasColumnType("uuid")
+                        .HasColumnName("text_revision");
 
                     b.HasKey("AccountId")
                         .HasName("pk_member_profiles");
@@ -6358,6 +6366,177 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("terminated_phone_holds");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TextHarmIntent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<string>("Result")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("result");
+
+                    b.Property<Guid>("Revision")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revision");
+
+                    b.Property<byte[]>("SealedText")
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed_text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_text_harm_intent");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_text_harm_intent_account_id");
+
+                    b.HasIndex("ProcessedAt", "CreatedAt")
+                        .HasDatabaseName("ix_text_harm_intent_processed_at_created_at");
+
+                    b.HasIndex("AccountId", "Source", "SourceId", "Revision")
+                        .IsUnique()
+                        .HasDatabaseName("ix_text_harm_intent_account_id_source_source_id_revision");
+
+                    b.ToTable("text_harm_intent", t =>
+                        {
+                            t.HasCheckConstraint("ck_text_harm_intent", "(processed_at IS NULL AND sealed_text IS NOT NULL AND octet_length(sealed_text)>=29 AND result IS NULL) OR (processed_at IS NOT NULL AND sealed_text IS NULL AND result IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TextHarmReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.PrimitiveCollection<string[]>("Categories")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("categories");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DetectorVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("detector_version");
+
+                    b.Property<DateTimeOffset?>("EvidenceDisposedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("evidence_disposed_at");
+
+                    b.Property<Guid>("IntentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("intent_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.PrimitiveCollection<Guid[]>("RelatedAccountIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("related_account_ids");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
+
+                    b.PrimitiveCollection<string[]>("Rules")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("rules");
+
+                    b.Property<byte[]>("SealedEvidence")
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed_evidence");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<string>("SourceRevision")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("source_revision");
+
+                    b.Property<Guid>("SubjectAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_account_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_text_harm_review");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_text_harm_review_case_id");
+
+                    b.HasIndex("IntentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_text_harm_review_intent_id");
+
+                    b.HasIndex("SubjectAccountId")
+                        .HasDatabaseName("ix_text_harm_review_subject_account_id");
+
+                    b.ToTable("text_harm_review", t =>
+                        {
+                            t.HasCheckConstraint("ck_text_harm_review", "(sealed_evidence IS NOT NULL AND octet_length(sealed_evidence)>=29 AND evidence_disposed_at IS NULL) OR (sealed_evidence IS NULL AND evidence_disposed_at IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7497,6 +7676,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_staff_member_links_accounts_staff_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TextHarmReview", b =>
+                {
+                    b.HasOne("Swoovr.Domain.ModerationCase", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_text_harm_review_moderation_cases_case_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>

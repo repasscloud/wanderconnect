@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.8, 30 October 2026";
+    public const string Version = "Draft 0.9, 30 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -62,6 +62,10 @@ public static class PrivacyNotice
             "Shared links normally expire at the final expected end plus 24 hours, with a maximum of 30 days from their creation; after home safe, end or cancel, final-status access lasts up to 24 hours unless the link expires or is revoked sooner. Expired links never resume. Ordinary meeting-safety records are scheduled for deletion 30 days after final closure, unless a linked incident, safety review or legal hold requires preservation. Withdrawn or expired contact records have a separate deletion schedule and may remain while required by those records.",
             "Optional after-meeting feedback appears only in your own member features and does not automatically change another person's reputation. It may still be accessed or preserved through lawful restricted safety or legal processes. An incident report can include meeting context without automatically notifying the person reported.",
             "Swoovr does not monitor emergencies or dispatch responders. Missed check-ins are unconfirmed, not proof of an emergency; alerts are not guaranteed to arrive. Calling emergency services opens your device's dialler, and alerting a contact by SMS opens its composer. Opening either does not prove a call or message was sent. An optional location link is explicitly chosen and generated on your device; Swoovr receives no exact coordinates.",
+        ]),
+        new("text-review", "Text safety review", [
+            "When enabled, local automated rules inspect newly submitted profile about text and text messages for limited threat, payment-request, repetitive-message and bulk-outreach signals. These rules can miss harm or flag legitimate conversations and quotations. They do not establish misconduct or automatically restrict an account.",
+            "A rule match creates restricted encrypted evidence for authorised human review. Staff decide whether any action is needed; the ordinary account-notice and review pathways apply when a person takes an action. Inspection work is encrypted, and completed processing receipts contain no message text and expire after 30 days unless preservation requires longer. Candidate evidence follows the separate safety-case retention and legal-hold rules.",
         ]),
         new("moderated-content", "Text removed after moderation", [
             "Authorised staff can remove an individual profile-text field or a reported text message. Account standing records the action; a removed message is shown as removed by Swoovr rather than as a message the sender unsent.",

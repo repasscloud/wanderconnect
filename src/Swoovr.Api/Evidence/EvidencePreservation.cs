@@ -217,6 +217,17 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 if(original is not null&&!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(EvidenceSeal.Hash(original),removal.SnapshotHash))throw new InvalidOperationException("Content-removal evidence integrity unavailable.");
                 Add("content-removal","content_removal",removal.Id.ToString(),removal.SubjectAccountId,new{removal.Id,removal.CaseId,removal.ReportId,removal.SubjectAccountId,removal.ActorAccountId,removal.Field,removal.ModeId,removal.MessageId,removal.RemovedAt,removal.EvidenceDisposedAt,original});
             }
+            foreach(var review in await db.Set<TextHarmReview>().AsNoTracking().Where(r=>r.SubjectAccountId==id||r.RelatedAccountIds.Contains(id)).ToListAsync(cancellationToken))
+            {
+                retentionCases?.Add(review.CaseId);relatedAccounts?.UnionWith(review.RelatedAccountIds);
+                var original=review.SealedEvidence is null?null:EvidenceSeal.Open(keys.Encryption,review.SealedEvidence);
+                Add("text-harm-review","text_harm_review",review.Id.ToString(),id,new{review.Id,review.CaseId,review.SubjectAccountId,review.RelatedAccountIds,review.Source,review.SourceId,review.ModeId,review.CreatedAt,review.ReviewedAt,review.Outcome,original});
+            }
+            foreach(var intent in await db.Set<TextHarmIntent>().AsNoTracking().Where(i=>i.AccountId==id&&i.SealedText!=null).ToListAsync(cancellationToken))
+            {
+                relatedAccounts?.Add(id);
+                Add("text-harm-intent","text_harm_intent",intent.Id.ToString(),id,new{intent.Id,intent.AccountId,intent.Source,intent.SourceId,intent.ModeId,intent.CreatedAt,original=EvidenceSeal.Open(keys.Encryption,intent.SealedText!)});
+            }
             foreach (var sanction in await db.Sanctions.Where(s => s.AccountId == id).ToListAsync(cancellationToken))
                 Add("sanction", "sanctions", sanction.Id.ToString(), id, sanction);
             foreach (var attempt in await db.IdVerificationAttempts.Where(a => a.AccountId == id).ToListAsync(cancellationToken))

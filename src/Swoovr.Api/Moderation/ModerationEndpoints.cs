@@ -433,7 +433,8 @@ public static class ModerationEndpoints
             var query = db.ModerationCases.AsQueryable();
             var excluded = StaffAccessEndpoints.ExcludedSubjects(db,current!.Account!.Id);
             query = query.Where(c => !excluded.Contains(c.SubjectAccountId)
-                && !db.Reports.Any(r => r.CaseId == c.Id && excluded.Contains(r.ReporterAccountId)));
+                && !db.Reports.Any(r => r.CaseId == c.Id && excluded.Contains(r.ReporterAccountId))
+                && !db.Set<TextHarmReview>().Any(r=>r.CaseId==c.Id&&r.RelatedAccountIds.Any(person=>excluded.Contains(person))));
             // Support never sees the admin queue (D134).
             if (current!.StaffRole != AccountRole.Admin) query = query.Where(c => c.Queue == CaseQueue.Support);
             else if (Enum.TryParse<CaseQueue>(queue, true, out var q)) query = query.Where(c => c.Queue == q);
@@ -453,6 +454,9 @@ public static class ModerationEndpoints
             var (current, item, denied) = await CaseAsync(user, accounts, id, cancellationToken);
             if (denied is not null) return denied;
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
+            // Serialize the pending-candidate check and case state change with durable inspection.
+            await using var reviewBarrier=await Retention.PreservationLease.ExclusiveAsync(db,cancellationToken);
+            await db.Entry(item!).ReloadAsync(cancellationToken);
             var subject = await db.MemberProfiles.FindAsync([item!.SubjectAccountId], cancellationToken);
             var refusal = ModerationPolicy.Check(ModerationAction.Acknowledge, current!.StaffRole, subject?.Employee == true || item.Queue == CaseQueue.Admin,
                 await OwnAccountAsync(db, current.Account!.Id, item.SubjectAccountId, cancellationToken));
@@ -462,6 +466,8 @@ public static class ModerationEndpoints
                 case "review" when item.Status == CaseStatus.Open: item.Status = CaseStatus.UnderReview; break;
                 case "acknowledge" when item.EscalatedAt is not null && item.AcknowledgedAt is null: (item.AcknowledgedAt, item.AcknowledgedBy) = (now, current.Account.Id); break;
                 case "close" when item.Status != CaseStatus.Closed:
+                    if(await db.Set<TextHarmReview>().AnyAsync(r=>r.CaseId==id&&r.ReviewedAt==null,cancellationToken))
+                        return Problem(StatusCodes.Status409Conflict,ProblemCodes.InvalidRequest,"Review pending text candidates before closing this case.");
                     if (item.EscalatedAt is not null && item.AcknowledgedAt is null)
                         return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "Acknowledge the urgent report first.");
                     (item.Status, item.ClosedAt, item.ClosedBy) = (CaseStatus.Closed, now, current.Account.Id);

@@ -35,6 +35,7 @@ public sealed class MemberMode
     public bool Visible { get; set; }
     /// <summary>D175: an "about" for this mode only. Without one, the core about shows here only with consent (#91).</summary>
     public string? About { get; set; }
+    public Guid? TextRevision { get; set; }
     /// <summary>#91 (policy §6): the member agreed to show their core about in this mode. Null (never asked) means no.</summary>
     public bool? ShareCoreAbout { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

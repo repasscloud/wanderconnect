@@ -13,6 +13,7 @@ if(args is ["--contact-provider-probe"])
 MeetingSafetyChecks.Run();
 MeetingSafetyContactAccessChecks.Run();
 ContentRemovalChecks.Run();
+TextHarmChecks.Run();
 BannedIdentifierChecks.Run();
 FallbackKeyChecks.Run();
 ApiContractChecks.Run();

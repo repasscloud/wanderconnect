@@ -42,6 +42,10 @@ public static class ProviderSetup
             services.AddScoped<Retention.OperationalRetention>();
             services.AddScoped<Safety.MeetingSafetyStore>();
             services.AddScoped<Moderation.ContentRemovalService>();
+            var textRules=new TextHarmRules(configuration.GetValue("TextHarm:Enabled",false),configuration.GetValue("TextHarm:RepeatedMessages",5),configuration.GetValue("TextHarm:BulkRecipients",10));
+            if(!textRules.Valid)throw new InvalidOperationException("Invalid text review thresholds.");
+            services.AddSingleton(textRules);services.AddSingleton<ITextHarmDetector,BoundedTextHarmDetector>();
+            services.AddScoped<Moderation.TextHarmProcessor>();services.AddScoped<Moderation.TextHarmCandidateReviewService>();services.AddScoped<Moderation.TextHarmQueue>();services.AddScoped<Moderation.TextHarmRetention>();
             services.AddScoped<Safety.MeetingSafetyContactVerification>();
             services.AddScoped<Safety.MeetingSafetySchedule>();
             services.AddScoped<Safety.MeetingSafetyDelivery>();

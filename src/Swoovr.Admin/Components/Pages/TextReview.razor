@@ -1,0 +1,61 @@
+@page "/cases/{Id:guid}/text-review"
+@inject AdminClient Admin
+<PageTitle>Text candidates — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/cases/@Id">Case</a> / Text candidates</p>
+<h1>Text candidates for human review</h1>
+<p>A local rule match is a review candidate. It does not establish misconduct, consent or intent. Quotes and legitimate conversations can match. No automatic sanction or member notice follows detection.</p>
+@if(message is not null){<p role="status" class="notice" data-text-review-result>@message</p>}
+@if(candidates is null){<p>Not available to your role, or sign in again to continue.</p>}
+else
+{
+    <ul class="list" data-text-candidates>
+    @foreach(var row in candidates){<li><a href="/cases/@Id/text-review?candidate=@row.Id">@row.Source @(row.ModeId is null?"":"· "+row.ModeId)</a> · @row.CreatedAt.ToString("d MMM yyyy HH:mm") · @(row.Outcome??"Awaiting human review")</li>}
+    </ul>
+    @if(candidates.Count==0){<p>No retained automated text candidates are available for this case.</p>}
+    @if(evidence is not null)
+    {
+        <h2>Restricted source evidence</h2>
+        <p>Source: @evidence.Source. Access is audited. Rule labels are machine signals, not a policy verdict.</p>
+        <p>Rules: @string.Join(", ",evidence.Rules)</p>
+        <pre data-text-evidence>@evidence.Text</pre>
+        @if(evidence.ReviewedAt is not null){<p>Recorded outcome: @evidence.Outcome · @evidence.ReviewedAt.Value.ToString("d MMM yyyy HH:mm")</p>}
+        else
+        {
+            <form method="post" @formname="text-review" @onsubmit="ReviewAsync" class="stack" data-text-review-form data-enhance="false">
+                <AntiforgeryToken />
+                <input type="hidden" name="ReviewForm.ReviewId" value="@evidence.Id" />
+                <label>Human review outcome<select name="ReviewForm.Outcome" required><option value="reviewed-no-action">No action after human review</option><option value="actioned">Existing action applies to this candidate</option></select></label>
+                <p>Take any enforcement action through the case first. An actioned outcome requires one actual sanction or matching content-removal reference, created after this candidate.</p>
+                <label>Sanction reference (optional)<input name="ReviewForm.SanctionId" maxlength="36" /></label>
+                <label>Content-removal reference (optional)<input name="ReviewForm.RemovalId" maxlength="36" /></label>
+                <label><input type="checkbox" name="ReviewForm.Confirmed" value="true" required /> I reviewed the source and context and am recording my own decision.</label>
+                <button type="submit" data-record-text-review>Record human review</button>
+            </form>
+        }
+    }
+}
+@code {
+    [Parameter]public Guid Id{get;set;}
+    [SupplyParameterFromQuery(Name="candidate")]public Guid? Candidate{get;set;}
+    [SupplyParameterFromForm(FormName="text-review")]public ReviewModel? ReviewForm{get;set;}
+    public sealed class ReviewModel{public Guid ReviewId{get;set;}public string? Outcome{get;set;}public string? SanctionId{get;set;}public string? RemovalId{get;set;}public bool Confirmed{get;set;}}
+    private List<TextHarmCandidateSummary>? candidates;
+    private TextHarmCandidateEvidence? evidence;
+    private string? message;
+    protected override async Task OnInitializedAsync(){await LoadAsync();}
+    private async Task LoadAsync()
+    {
+        candidates=(await Admin.TextHarmCandidatesAsync(Id)).Value;
+        if(Candidate is{}candidate)evidence=(await Admin.TextHarmEvidenceAsync(Id,candidate)).Value;
+    }
+    private async Task ReviewAsync()
+    {
+        if(ReviewForm is not{Confirmed:true} form){message="Review the source and confirm your decision.";return;}
+        Guid? sanction=null,removal=null;
+        if(!string.IsNullOrWhiteSpace(form.SanctionId)){if(!Guid.TryParse(form.SanctionId,out var parsed)){message="Check the sanction reference.";return;}sanction=parsed;}
+        if(!string.IsNullOrWhiteSpace(form.RemovalId)){if(!Guid.TryParse(form.RemovalId,out var parsed)){message="Check the removal reference.";return;}removal=parsed;}
+        var result=await Admin.ReviewTextHarmAsync(Id,form.ReviewId,new(form.Outcome??"",sanction,removal));
+        message=result.Ok?"Human review recorded. Detection alone does not notify the member.":"This review cannot be recorded. Reload the case or sign in again, then check your authority and action references.";
+        Candidate=form.ReviewId;await LoadAsync();
+    }
+}

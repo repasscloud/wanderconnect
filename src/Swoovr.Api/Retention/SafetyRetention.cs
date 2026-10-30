@@ -16,7 +16,8 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
 {
     public static async Task<List<Guid>> CaseAccountsAsync(SwoovrDbContext db, Guid id, CancellationToken token) =>
         (await db.ModerationCases.Where(c => c.Id == id).Select(c => c.SubjectAccountId).ToListAsync(token))
-        .Concat(await db.Reports.Where(r => r.CaseId == id).Select(r => r.ReporterAccountId).ToListAsync(token)).Distinct().ToList();
+        .Concat(await db.Reports.Where(r => r.CaseId == id).Select(r => r.ReporterAccountId).ToListAsync(token))
+        .Concat((await db.Set<TextHarmReview>().Where(r=>r.CaseId==id).Select(r=>r.RelatedAccountIds).ToListAsync(token)).SelectMany(ids=>ids)).Distinct().ToList();
 
     public static async Task<List<Guid>> HoldAccountsAsync(SwoovrDbContext db, LegalHold hold, CancellationToken token)
     {
@@ -32,6 +33,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
     {
         if (await (from a in db.Appeals join s in db.Sanctions on a.SanctionId equals s.Id
                    where s.CaseId == item.Id && a.Status == AppealStatus.Pending select a.Id).AnyAsync(token)) return new(null, null);
+        if(await db.Set<TextHarmReview>().AnyAsync(r=>r.CaseId==item.Id&&r.ReviewedAt==null,token))return new(null,null);
         var serious = item.SystemFlag == "media-known-content"
             || await db.AuditEntries.AnyAsync(a => a.Action == "report.serious" && a.TargetId == item.Id.ToString(), token)
             || await db.MediaItems.AnyAsync(i => i.CaseId == item.Id && i.Status == MediaStatus.Blocked, token)
@@ -48,7 +50,8 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
         var reinstated=await db.BanTransitions.Where(t=>t.CaseId==item.Id&&t.Action=="account-reinstated").Select(t=>(DateTimeOffset?)t.At).MaxAsync(token);
         var dispositionReview=await db.BanDispositionReviews.Where(r=>r.CaseId==item.Id).Select(r=>(DateTimeOffset?)r.At).MaxAsync(token);
         var removed=await db.Set<ContentRemoval>().Where(r=>r.CaseId==item.Id).Select(r=>(DateTimeOffset?)r.RemovedAt).MaxAsync(token);
-        var latest = new[] { item.EscalatedAt, disclosed, appeal, exported, reinstated, dispositionReview, removed }.Where(d => d is not null).Max();
+        var textReview=await db.Set<TextHarmReview>().Where(r=>r.CaseId==item.Id).Select(r=>(DateTimeOffset?)(r.ReviewedAt??r.CreatedAt)).MaxAsync(token);
+        var latest = new[] { item.EscalatedAt, disclosed, appeal, exported, reinstated, dispositionReview, removed, textReview }.Where(d => d is not null).Max();
         return SafetyRetentionPolicy.ForCase(item, serious, latest);
     }
 
@@ -87,6 +90,10 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                 {
                     case "case": if (!Guid.TryParse(copy.RecordId, out var id) || !Member("subjectAccountId")) return; cases.Add(id); break;
                     case "report": if (!Case("caseId") || !Member("reporterAccountId") || !Member("subjectAccountId")) return; break;
+                    case "text-harm-review":
+                        if(!Case("caseId")||!Member("subjectAccountId")||!root.TryGetProperty("relatedAccountIds",out var related)||related.ValueKind!=JsonValueKind.Array)return;
+                        foreach(var person in related.EnumerateArray()){if(!person.TryGetGuid(out var participant))return;accounts.Add(participant);}break;
+                    case "text-harm-intent": if(!Member("accountId"))return;break;
                     case "case-evidence": case "content-removal":
                         if (!Case("caseId") || !root.TryGetProperty("reportId", out var reportField) || !reportField.TryGetGuid(out var reportId)) return;
                         var sourceReport = await db.Reports.AsNoTracking().SingleOrDefaultAsync(r => r.Id == reportId, token);
@@ -286,6 +293,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                 // The guarded evidence transition sees this flag within the same atomic case-content transaction.
                 await db.ModerationCases.Where(c=>c.Id==id).ExecuteUpdateAsync(set=>set.SetProperty(c=>c.EvidencePurgedAt,now),token);
                 await db.Set<ContentRemoval>().Where(r=>r.CaseId==id&&r.SealedSnapshot!=null).ExecuteUpdateAsync(set=>set.SetProperty(r=>r.SealedSnapshot,(byte[]?)null).SetProperty(r=>r.SnapshotHash,Array.Empty<byte>()).SetProperty(r=>r.EvidenceDisposedAt,now),token);
+                await db.Set<TextHarmReview>().Where(r=>r.CaseId==id&&r.SealedEvidence!=null).ExecuteUpdateAsync(set=>set.SetProperty(r=>r.SealedEvidence,(byte[]?)null).SetProperty(r=>r.EvidenceDisposedAt,now),token);
                 await db.CaseEvidence.Where(e => e.CaseId == id).ExecuteDeleteAsync(token);
                 await db.Reports.Where(r => r.CaseId == id).ExecuteUpdateAsync(u => u.SetProperty(r => r.Text, (string?)null).SetProperty(r => r.PoliceReference, (byte[]?)null), token);
                 var sanctions = db.Sanctions.Where(s => s.CaseId == id).Select(s => s.Id);
@@ -318,6 +326,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
             if (await db.BannedIdentifiers.AnyAsync(b => b.CaseId == id,token) || await db.BanDispositions.AnyAsync(d=>d.CaseId==id,token)
                 || await db.EmailRetirementOperations.AnyAsync(o=>o.CaseId==id,token)) continue;
             await using var recordTransaction=await db.Database.BeginTransactionAsync(token);
+            await db.Set<TextHarmReview>().Where(r=>r.CaseId==id).ExecuteDeleteAsync(token);
             await db.Set<ContentRemoval>().Where(r=>r.CaseId==id).ExecuteDeleteAsync(token);
             await db.ModerationCases.Where(c => c.Id == id).ExecuteDeleteAsync(token);
             Audit.Record(db, now, null, "retention", "case.records-expired", "moderation-case", id.ToString());
