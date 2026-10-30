@@ -4,7 +4,7 @@
 <p class="breadcrumb"><a href="/registry">Identifier review</a> / Restriction</p>
 <h1>Identifier restriction</h1>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<p><a href="/access">Elevated access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/registry/@Id">Sign in again</a></p>
+<p><a href="/access">Elevated access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/registry/@Id" data-enhance-nav="false">Sign in again</a></p>
 @if (detail is null) { <p data-registry-detail="missing">@loadError</p> }
 else
 {

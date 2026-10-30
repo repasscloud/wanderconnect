@@ -1,8 +1,10 @@
+using Swoovr.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
 using Swoovr.Web.Auth;
 using Swoovr.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+HostRuntime.Configure(builder,HostKind.Web);
 // Public capability paths must never appear in automatic request start/finish logs.
 builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 
@@ -32,6 +34,8 @@ builder.Services.AddHttpClient<Swoovr.Client.PrototypeConversationClient>(http =
 });
 
 var app = builder.Build();
+HostRuntime.Use(app,HostKind.Web);
+HostRuntime.MapPortalHealth(app);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

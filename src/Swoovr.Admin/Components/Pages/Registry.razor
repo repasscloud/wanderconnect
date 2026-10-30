@@ -4,7 +4,7 @@
 <h1>Identifier review</h1>
 <p class="help">Restricted staff records. A match does not establish who owns an address or number now. Review the associated case and verify the circumstances before releasing a restriction. Identifier release and account reinstatement are separate actions.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<p><a href="/access">Elevated access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/registry">Sign in again</a></p>
+<p><a href="/access">Elevated access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/registry" data-enhance-nav="false">Sign in again</a></p>
 <section class="card">
     <h2>Find an identifier</h2>
     @if (grant is null) { <p class="help" data-lookup-access="required">Ask for identifier-release access with a recorded purpose before searching.</p> }

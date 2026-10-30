@@ -1,3 +1,4 @@
+using Swoovr.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -9,6 +10,7 @@ using Swoovr.Admin.Components;
 // staff realm. It calls the protected admin API server-side with the staff member's token, which never reaches the
 // browser (the cookie holds only a session key). Every rule is enforced by the API; this app only presents it.
 var builder = WebApplication.CreateBuilder(args);
+HostRuntime.Configure(builder,HostKind.Admin);
 builder.Services.AddRazorComponents();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
@@ -64,6 +66,8 @@ auth.AddOpenIdConnect(options =>
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+HostRuntime.Use(app,HostKind.Admin);
+HostRuntime.MapPortalHealth(app);
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", createScopeForErrors: true); app.UseHsts(); }
 app.Use(async(context,next)=>
 {

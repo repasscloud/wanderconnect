@@ -1,3 +1,4 @@
+using Swoovr.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Api;
@@ -8,6 +9,7 @@ using Swoovr.Infrastructure.Email;
 using Swoovr.Infrastructure.Persistence;
 if (args.Length > 0 && !args[0].StartsWith('-')) return await Cli.RunAsync(args);
 var builder = WebApplication.CreateBuilder(args);
+HostRuntime.Configure(builder,HostKind.Api);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
@@ -35,6 +37,7 @@ if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)&&builde
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
+HostRuntime.Use(app,HostKind.Api);
 if(app.Services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>().Resolve(app.Configuration["Policies:RequiredVersion"],DateTimeOffset.UtcNow).State==Swoovr.Domain.PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("No matching effective approved policy exists; drafts cannot be activated.");
 // Fail at startup/command bootstrap if configured push is unsafe or incomplete.
 app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
@@ -74,6 +77,7 @@ app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<MemberMutationAuthority>();
+ApiReadiness.Map(app);
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);

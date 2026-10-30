@@ -164,6 +164,8 @@ public static class PhoneEndpoints
     public static string? ClientAddress(HttpContext context, IConfiguration configuration)
     {
         var remote = context.Connection.RemoteIpAddress;
+        // Hosted trusted forwarding already selected the client. Never parse a leftover chain a second time.
+        if(context.Items.ContainsKey("swoovr.forwarded-address-processed"))return remote?.ToString();
         var trusted = configuration.GetSection("Phone:TrustedProxies").Get<string[]>() ?? ["127.0.0.1", "::1"];
         if (remote is not null && trusted.Any(t => IPAddress.TryParse(t, out var ip) && ip.Equals(remote.IsIPv4MappedToIPv6 ? remote.MapToIPv4() : remote))
             && context.Request.Headers["X-Forwarded-For"].ToString().Split(',')[0].Trim() is { Length: > 0 } forwarded && IPAddress.TryParse(forwarded, out var client))

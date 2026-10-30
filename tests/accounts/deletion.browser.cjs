@@ -250,7 +250,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     assert.equal(await sql(`SELECT status FROM accounts WHERE id = '${ids.webm}'`), 'Active'); pass();
     await page.goto(web + '/connections');
     assert.equal(new URL(page.url()).pathname, '/connections', 'the app opens again'); pass();
-    if (process.env.SWOOVR_SCREENSHOTS) await page.screenshot({ path: process.env.SWOOVR_SCREENSHOTS + '/data-390.png', fullPage: true });
+    if (process.env.SWOOVR_SCREENSHOTS) { await page.goto(web + '/account/data'); await page.waitForSelector('[data-data-panel=none]'); await page.screenshot({ path: process.env.SWOOVR_SCREENSHOTS + '/data-390.png', fullPage: true }); }
     await context.close();
 
     // D170/D233: only this fixture's tombstone clock advances; Bob's own history must survive its expiry.

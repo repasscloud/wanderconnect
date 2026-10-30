@@ -1,0 +1,32 @@
+using Swoovr.Hosting;
+static class HostingPolicyChecks
+{
+    public static void Run()
+    {
+        var count=0;void Expect(bool ok,string name){if(!ok)throw new Exception(name);count++;}
+        static Dictionary<string,string?> Api()=>new(StringComparer.OrdinalIgnoreCase){
+            ["Hosting:PublicOrigin"]="https://api.uat.swoovr.app",["Hosting:TrustedProxyNetworks"]="10.42.0.0/23",["AllowedHosts"]="api.uat.swoovr.app",["Email:From"]="Swoovr <no-reply@example.test>",["Moderation:EscalationEmail"]="safety@example.test",["Moderation:EscalationBackupEmail"]="backup@example.test",["ConnectionStrings:Swoovr"]="fictional-connection-validated-by-database-adapter",["Keycloak:BaseUrl"]="https://auth.uat.swoovr.app",["Keycloak:MembersRealm"]="swoovr-members",["Keycloak:VenuesRealm"]="swoovr-venues",["Keycloak:StaffRealm"]="swoovr-staff",["Keycloak:StaffSsoAlias"]="entra",
+            ["Email:Provider"]="mailersend",["Email:MailerSend:ApiToken"]="fictional-provider-validated-separately",["Sms:Provider"]="twilio",["Sms:Twilio:AccountSid"]="fictional",["Sms:Twilio:AuthToken"]="fictional",["Sms:Twilio:From"]="+15005550006",["Push:Provider"]="disabled",
+            ["Media:Store"]="r2",["Media:R2:Endpoint"]="https://objects.example.test",["Media:R2:Bucket"]="fictional-private",["Media:R2:AccessKeyId"]="fictional",["Media:R2:SecretAccessKey"]="fictional",["Media:Screening:BaseUrl"]="https://screening.internal.example.test",
+            ["Didit:ApiKey"]="fictional",["Didit:WorkflowId"]="fictional",["Didit:WebhookSecret"]="fictional",["MemberAdmin:ClientId"]="swoovr-api-accounts",["MemberAdmin:ClientSecret"]="fictional",
+            ["Founders:Secrets:1"]=new('a',44),["Phone:CodeKey"]=new('b',44),["Bans:HmacKeys:1"]=Convert.ToBase64String(new byte[32]),["ContactHistory:Keys:1"]=Convert.ToBase64String(new byte[32]),["ContactHistory:LookupKey"]=Convert.ToBase64String(new byte[32]),["Evidence:Keys:1"]=Convert.ToBase64String(new byte[32]),["IdentityStore:Keys:1"]=Convert.ToBase64String(new byte[32]),["IdentityStore:HmacKey"]=Convert.ToBase64String(new byte[32]),["Push:TokenKeys:1"]=Convert.ToBase64String(new byte[32]),["Push:TokenLookupKey"]=Convert.ToBase64String(new byte[32])};
+        static string[] Errors(Dictionary<string,string?> c,HostKind h=HostKind.Api,string env="Uat",bool serving=true)=>HostingPolicy.Validate(h,env,c,serving).ToArray();
+        Expect(Errors(Api()).Length==0,"complete fictional API configuration passes pure policy only");
+        foreach(var env in new[]{"Uat","Production","Staging","development-typo"})foreach(var host in Enum.GetValues<HostKind>())
+        {var c=Api();c["Staff:LocalPasswords"]="true";Expect(Errors(c,host,env).Contains("development-only:Staff:LocalPasswords"),"local staff refusal on every hosted host/environment");}
+        foreach(var pair in new[]{("Prototype:Enabled","true"),("Evidence:HoldCheckUnavailable","true"),("DetailedErrors","true"),("Media:Screening:Simulate","blocked"),("Media:Screening:RequireKnownContentCheck","false"),("Media:Publication:BarrierDirectory","/fictional"),("Media:Preservation:Fault","fictional"),("Keycloak:RequireHttpsMetadata","false"),("Phone:Required","false"),("Retention:Worker","false"),("Media:Screening:Worker","false"),("Sms:Provider","simulated"),("Push:Provider","simulated"),("Email:Provider","smtp"),("Media:Store","local")})
+        {var c=Api();c[pair.Item1]=pair.Item2;Expect(Errors(c).Length>0,"unsafe setting refused: "+pair.Item1);Expect(Errors(c,env:"Development").Length==0,"Development fixtures preserved");}
+        foreach(var key in new[]{"ConnectionStrings:Swoovr","Keycloak:BaseUrl","Keycloak:StaffSsoAlias","Didit:ApiKey","MemberAdmin:ClientSecret","Founders:Secrets:1","Phone:CodeKey","Bans:HmacKeys:1","ContactHistory:Keys:1","ContactHistory:LookupKey","Evidence:Keys:1","IdentityStore:Keys:1","IdentityStore:HmacKey","Push:TokenKeys:1","Push:TokenLookupKey"})
+        {var c=Api();c.Remove(key);Expect(Errors(c).Length>0,"missing critical configuration refused: "+key);}
+        foreach(var value in new[]{"http://auth.example.test","https://localhost","https://mailpit","https://auth.example.test/realms/swoovr-members-dev","https://user:secret@auth.example.test","https://auth.example.test/?private=value"})
+        {var c=Api();c["Keycloak:BaseUrl"]=value;Expect(Errors(c).Contains("unsafe-url:Keycloak:BaseUrl"),"unsafe hosted authority refused");}
+        {var c=Api();c["Keycloak:MembersRealm"]="swoovr-members-dev";Expect(Errors(c).Contains("hosted-realm:Keycloak:MembersRealm"),"development realm refused");c=Api();c["Phone:Required"]="yes";Expect(Errors(c).Contains("invalid-boolean:Phone:Required"),"invalid boolean fails closed");}
+        foreach(var key in new[]{"ContactHistory:Keys:1","ContactHistory:LookupKey","Evidence:Keys:1","IdentityStore:HmacKey"}){var c=Api();c[key]="not-base64";Expect(Errors(c).Length>0,"invalid key bytes refused");}
+        foreach(var h in new[]{HostKind.Web,HostKind.Admin})
+        {var c=new Dictionary<string,string?>{{"Hosting:PublicOrigin","https://uat.swoovr.app"},{"Hosting:TrustedProxyNetworks","10.42.0.0/23"},{"AllowedHosts","uat.swoovr.app"},{"Keycloak:Authority","https://auth.uat.swoovr.app/realms/"+(h==HostKind.Web?"swoovr-members":"swoovr-staff")},{"Keycloak:ClientId",h==HostKind.Web?"swoovr-web":"swoovr-admin-web"},{"Keycloak:ClientSecret","fictional"},{"Api:BaseUrl","https://api.internal.example.test/"}};Expect(Errors(c,h).Length==0,"complete fictional portal policy");c["Api:BaseUrl"]="http://localhost:5080";Expect(Errors(c,h).Contains("unsafe-url:Api:BaseUrl"),"portal never defaults to local API in hosted mode");}
+        foreach(var value in new[]{"0.0.0.0/0","::/0","not-a-network"}){var c=Api();c["Hosting:TrustedProxyNetworks"]=value;Expect(Errors(c).Contains("trusted-proxy-networks-required"),"unbounded/invalid proxy trust refused");}
+        {var c=Api();c["AllowedHosts"]="*";Expect(Errors(c).Contains("explicit-allowed-hosts-required"),"wildcard hosts refused");c=Api();c["Hosting:PublicOrigin"]="https://api.uat.swoovr.app/path";Expect(Errors(c).Contains("public-origin-required"),"public origin cannot carry path");}
+        Expect(Errors(new(),serving:false).Length==0,"minimal one-shot command does not demand unrelated live services");
+        Console.WriteLine($"PASS hosted configuration policy: {count} pure checks; no provider/network/hosted readiness claim.");
+    }
+}

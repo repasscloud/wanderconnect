@@ -7,7 +7,7 @@
 </nav>
 @if (refused is not null)
 {
-    <p class="notice" role="alert">@refused <a href="/sign-in?reauth=true">Sign in again</a></p>
+    <p class="notice" role="alert">@refused <a href="/sign-in?reauth=true" data-enhance-nav="false">Sign in again</a></p>
 }
 else if (cases.Count == 0)
 {

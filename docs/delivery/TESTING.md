@@ -422,3 +422,7 @@ Run affected `tests/accounts/deletion.browser.cjs` and `tests/evidence/holds.bro
 ### Account appearance (D278)
 
 Run `node --test tests/appearance/account-cache.test.cjs` and `dotnet run --project tests/Swoovr.Checks -- --appearance-client-checks` for pure/cache/fake-transport checks. Actual local account controls use the owned runner selector `tests/appearance/account-sync.browser.cjs`; retain `tests/appearance/web.browser.cjs` for all guest choices/storage denial/navigation, and `tests/appearance/account-api.browser.cjs` for authenticated API/BFF authorization. Build all touched hosts before starting any browser suite. Native build evidence is distinct from native UI/device evidence.
+
+### Hosted policy, health and CSP (D279)
+
+`dotnet run --project tests/Swoovr.Checks -- --hosting-checks` exercises pure configuration, actual forwarded-header middleware with fictional request contexts and SMS DI selection without outbound requests. The required gate runs `tests/hosting/startup.test.cjs` against all three compiled Release hosts (unsafe/missing hosted configuration must exit before listening). The owned browser selector `tests/hosting/ready.browser.cjs` checks real local database/schema/fence and portal readiness plus security headers. Retain account appearance/logout, guest, messaging, meeting-safety and staff regressions under CSP. Real Azure/Cloudflare ingress and provider health remain separate deployment acceptance.

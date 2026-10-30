@@ -9,6 +9,7 @@ namespace Swoovr.Infrastructure.Messaging;
 /// <summary>Twilio Programmable Messaging settings (D153, D154): account SID, auth token and the sender number.</summary>
 public sealed record TwilioOptions(string? AccountSid, string? AuthToken, string? From, Uri BaseUrl)
 {
+    public static bool HostedEndpoint(Uri uri)=>uri.Scheme=="https"&&uri.UserInfo.Length==0&&uri.Query.Length==0&&uri.Fragment.Length==0&&uri.AbsolutePath=="/"&&(uri.Host=="api.twilio.com"||uri.Host.StartsWith("api.",StringComparison.Ordinal)&&uri.Host.EndsWith(".twilio.com",StringComparison.Ordinal));
     public bool Configured => !string.IsNullOrWhiteSpace(AccountSid) && !string.IsNullOrWhiteSpace(AuthToken) && !string.IsNullOrWhiteSpace(From);
 }
 
@@ -74,4 +75,12 @@ public sealed class SimulatedMessageSender(IEmailSender email, bool localSink) :
             "SIMULATED: no text message was sent. This is the local development sink.\n\n" + text), cancellationToken);
 
     public static string Address(string number) => $"sms-{number.TrimStart('+')}@simulated.swoovr.invalid";
+}
+
+/// <summary>Explicitly disabled: no outbound call and no simulated/live delivery claim.</summary>
+public sealed class DisabledMessageSender:IVerificationMessageSender
+{
+    public string Kind=>"disabled";
+    public Task<bool> SendCodeAsync(string number,string code,CancellationToken cancellationToken)=>Task.FromResult(false);
+    public Task<bool> SendNoticeAsync(string number,string text,CancellationToken cancellationToken)=>Task.FromResult(false);
 }

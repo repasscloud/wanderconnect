@@ -64,6 +64,11 @@ try:
     # Health and SignalR protocol paths have no date contract.
     with urllib.request.urlopen(urllib.request.Request(api+'health/live', headers={'Swoovr-Version': 'invalid'})) as r:
         assert r.status == 200
+    for base in [api,web]:
+        try: urllib.request.urlopen(base+'health/ready'); raise AssertionError('unconfigured host must not be ready')
+        except urllib.error.HTTPError as error:
+            assert error.code == 503 and json.load(error)=={'status':'not-ready'}
+            assert error.headers['Cache-Control']=='no-store'
     with urllib.request.urlopen(web) as r:
         html = r.read().decode()
         assert 'Swoovr' in html and 'not connected' in html

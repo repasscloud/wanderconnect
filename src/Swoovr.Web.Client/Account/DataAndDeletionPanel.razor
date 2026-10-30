@@ -21,7 +21,7 @@ else if (view is not null)
     {
         <section class="card account-section notice" role="status" data-reauth-required="true">
             <p>@DeletionText.SignInAgain</p>
-            <p><a class="button" href="/account/reauthenticate?returnUrl=@Uri.EscapeDataString(ReturnUrl)">Sign in again</a></p>
+            <p><a class="button" href="/account/reauthenticate?returnUrl=@Uri.EscapeDataString(ReturnUrl)" data-enhance-nav="false">Sign in again</a></p>
         </section>
     }
     @if (view.State == "pending")

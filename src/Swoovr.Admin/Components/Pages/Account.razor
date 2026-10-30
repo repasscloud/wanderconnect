@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Account — Swoovr admin</PageTitle>
 <p class="breadcrumb"><a href="/accounts">Accounts</a> / Account</p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id">Sign in again</a> }</p> }
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id" data-enhance-nav="false">Sign in again</a> }</p> }
 @if (account is null)
 {
     <p data-account="missing">@(loadError ?? "Not found.")</p>

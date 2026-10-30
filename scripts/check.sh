@@ -8,7 +8,7 @@ python3 scripts/keycloak_realms.py
 node --test tests/auth-harness/*.test.mjs tests/appearance/*.test.cjs tests/meeting/*.test.cjs
 dotnet restore Swoovr.Local.sln --ignore-failed-sources -p:NuGetAudit=false
 dotnet build Swoovr.Local.sln --no-restore --configuration Release
-node --test tests/policies/startup.test.cjs
+node --test tests/policies/startup.test.cjs tests/hosting/*.test.cjs
 # Persistence checks use the local PostgreSQL container when it is running (./scripts/docker-local.sh up);
 # otherwise Swoovr.Checks prints a SKIP line. Each run uses its own throwaway database.
 if [[ -z "${SWOOVR_TEST_DATABASE:-}" && -f .local/docker.env ]] && grep -q '^SWOOVR_DB_PASSWORD=' .local/docker.env \

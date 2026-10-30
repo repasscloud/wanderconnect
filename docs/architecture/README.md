@@ -62,3 +62,5 @@ D267 adds source-bound report outcome checkpoints in existing Domain/Infrastruct
 Application email remains an Infrastructure adapter composed by API/operator commands, with authentication email owned separately by Keycloak. See [APPLICATION-EMAIL.md](APPLICATION-EMAIL.md) (D274) for explicit MailerSend selection, local SMTP boundaries and acceptance/uncertainty semantics. No project is added.
 
 Private member appearance uses existing Domain/Infrastructure persistence and API-owned authorization/revision/lifecycle checks. The typed client/portable cache remain client-safe. See [APPEARANCE-ACCOUNT-CONTRACT.md](APPEARANCE-ACCOUNT-CONTRACT.md), D277; actual UI/storage wiring is the next appearance slice.
+
+D279 compiles the same server-only `src/Hosting` source into Api, Web and Admin. It owns hosted configuration/proxy/security-header composition, with no extra project or UI dependency on API/Infrastructure/Domain. The API separately owns database/schema/restore readiness; portals make a bounded health request to the API. See [hosted configuration](../delivery/HOSTED-CONFIGURATION-AND-HEALTH.md). Existing typed clients and authentication ownership are unchanged.

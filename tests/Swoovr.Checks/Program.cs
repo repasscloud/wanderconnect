@@ -4,6 +4,8 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--hosting-checks"]){HostingPolicyChecks.Run();await HostingProxyChecks.Run();await SmsSelectionChecks.Run();return;}
+
 if(args is ["--appearance-client-checks"]){AppearanceSyncChecks.Run();AppearanceCacheChecks.Run();await AppearanceClientChecks.Run();await AppearanceCoordinatorChecks.Run();return;}
 
 if(args is ["--mailersend-checks"]){await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});return;}
@@ -16,6 +18,9 @@ if(args is ["--contact-provider-probe"])
 
 if(args is ["--policy-checks"]){PublicPolicyDraftChecks.Run();PolicyNoticeChecks.Run();await PersistenceChecks.Run(policiesOnly:true);return;}
 
+HostingPolicyChecks.Run();
+await HostingProxyChecks.Run();
+await SmsSelectionChecks.Run();
 PublicPolicyDraftChecks.Run();
 PolicyNoticeChecks.Run();
 MeetingSafetyChecks.Run();

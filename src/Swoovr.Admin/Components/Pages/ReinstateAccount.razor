@@ -4,7 +4,7 @@
 <p class="breadcrumb"><a href="/accounts/@Id">Account</a> / Reinstatement</p>
 <h1>Reinstate Account</h1>
 <p>Reinstatement lifts account termination only. Other restrictions and preservation obligations remain. It never resurrects a deleted account. Releasing an identifier independently belongs in <a href="/registry">Identifier review</a>.</p>
-<p><a href="/access">Request account-reinstatement access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/accounts/@Id/reinstate">Sign in again</a></p>
+<p><a href="/access">Request account-reinstatement access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/accounts/@Id/reinstate" data-enhance-nav="false">Sign in again</a></p>
 @if(message is not null){<p class="notice" role="status" data-result="@resultCode">@message</p>}
 @if(preview is null){<p data-reinstatement="unavailable">@loadError</p>}
 else

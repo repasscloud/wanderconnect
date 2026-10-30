@@ -33,6 +33,7 @@ public static class Cli
     public static async Task<int> RunAsync(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args[1..]);
+        Swoovr.Hosting.HostRuntime.Configure(builder,Swoovr.Hosting.HostKind.Api,serving:false);
         if(args is ["backups","reconcile",var restoreTarget,_,_])
         {
             if(!System.Text.RegularExpressions.Regex.IsMatch(restoreTarget,"^swoovr_restore_[0-9a-f]{32}$"))return 2;

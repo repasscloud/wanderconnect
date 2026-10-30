@@ -7,7 +7,7 @@
 @if (message is not null)
 {
     <p class="notice" role="status" data-content-result="@resultCode">@message
-        @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/cases/@Id/content">Sign in again</a> }
+        @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/cases/@Id/content" data-enhance-nav="false">Sign in again</a> }
     </p>
 }
 @if (detail is null)

@@ -26,12 +26,17 @@ def call(base,path='',body=None,expected=200,raw=None):
         assert value['isSimulation'] is True and 'no-store' in headers['Cache-Control']
         return value
 
-def run(mode,enabled,port,tests):
-    env=dict(os.environ,ASPNETCORE_ENVIRONMENT=mode,ASPNETCORE_URLS=f'http://127.0.0.1:{port}',Prototype__Enabled=str(enabled).lower())
+def run(mode,enabled,port,tests,expect_startup_refused=False):
+    env=dict(os.environ,ASPNETCORE_ENVIRONMENT=mode,DOTNET_ENVIRONMENT=mode,ASPNETCORE_URLS=f'http://127.0.0.1:{port}',Prototype__Enabled=str(enabled).lower())
     with tempfile.TemporaryFile() as log:
         p=subprocess.Popen(['dotnet',str(root/'src/Swoovr.Api/bin/Release/net10.0/Swoovr.Api.dll')],cwd=root/'src/Swoovr.Api',env=env,stdout=log,stderr=log)
         base=f'http://127.0.0.1:{port}'
         try:
+            if expect_startup_refused:
+                assert p.wait(timeout=15) != 0
+                log.seek(0); output=log.read().decode()
+                assert "development-only:Prototype:Enabled" in output and "Now listening on" not in output
+                return
             for _ in range(100):
                 try:
                     urllib.request.urlopen(base+'/health/live',timeout=2).close();break
@@ -100,6 +105,6 @@ def tests(base):
     call(base,body={'travel':'local'},expected=429)
 
 run('Development',False,5197,lambda b:call(b,body={'travel':'local'},expected=404))
-run('Production',True,5198,lambda b:call(b,body={'travel':'local'},expected=404))
+run('Production',True,5198,lambda b:call(b,body={'travel':'local'},expected=404),expect_startup_refused=True)
 run('Development',True,5199,tests)
 print('PASS: fictional conversation HTTP gates, lifecycle/current block projections, malformed/bounded input, within-process concurrent CAS and capacity.')

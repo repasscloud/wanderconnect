@@ -83,18 +83,7 @@ public static class ProviderSetup
         // #89: security alerts and key rotation.
         services.AddScoped<Swoovr.Api.Security.SecurityAlerts>();
         services.AddScoped<Swoovr.Api.Security.KeyRotation>();
-        // D153, D174: Twilio only when Sms:Provider is "twilio"; otherwise the labelled simulated sender, which writes to
-        // the local mail sink in Development and sends nothing anywhere else.
-        var twilio = new TwilioOptions(configuration["Sms:Twilio:AccountSid"], configuration["Sms:Twilio:AuthToken"], configuration["Sms:Twilio:From"],
-            new Uri(configuration["Sms:Twilio:BaseUrl"] ?? "https://api.twilio.com/"));
-        if (configuration["Sms:Provider"] == "twilio" && twilio.Configured)
-        {
-            services.AddSingleton(twilio);
-            services.AddHttpClient<IVerificationMessageSender, TwilioMessageSender>(http => http.Timeout = TimeSpan.FromSeconds(15));
-        }
-        else
-            services.AddSingleton<IVerificationMessageSender>(provider => new SimulatedMessageSender(provider.GetRequiredService<Swoovr.Infrastructure.Email.IEmailSender>(),
-                provider.GetRequiredService<IHostEnvironment>().IsDevelopment()));
+        services.AddSwoovrSms(configuration);
         // D210: credentials are configuration secrets, never a fallback trigger. Provider HTTP logging is removed:
         // APNs puts the token in its path; neither URI, payload nor authorization header may reach normal logs.
         services.AddHttpClient("swoovr-push", http => http.Timeout = TimeSpan.FromSeconds(15))

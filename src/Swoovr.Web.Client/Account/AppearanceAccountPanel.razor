@@ -8,7 +8,7 @@
 @if(sync is null || sync.State.IsLoading)
 {
     <p role="status" data-account-appearance-status>@(sync?.Message ?? "Loading account appearance…")</p>
-    @if(sync?.NeedsSignIn==true){<a class="button" href="/account/sign-in" data-enhance="false">Sign in to sync</a>}
+    @if(sync?.NeedsSignIn==true){<a class="button" href="/account/sign-in" data-enhance-nav="false">Sign in to sync</a>}
     @if(sync is not null){<button class="quiet-button" @onclick="RetryAsync" disabled="@sync.Busy">Retry sync</button>}
 }
 else
@@ -48,7 +48,7 @@ else
             <p role="status" aria-live="polite" data-account-appearance-status>@sync!.Message</p>
             <p class="field-help">Your colours are private. Changes apply now and sync to your account. @(!sync!.Blocked && !sync.CacheAvailable ? "Applied for this visit; device storage is unavailable." : "")</p>
             @if(sync.State.Conflict is not null || sync.MissingConflict){<div class="account-actions" data-appearance-conflict><button type="button" @onclick="()=>ResolveAsync(true)">Keep this device’s choice</button><button type="button" @onclick="()=>ResolveAsync(false)">Use the account choice</button></div>}
-            @if(sync.NeedsSignIn){<a class="button" href="/account/sign-in" data-enhance="false">Sign in to sync</a>}
+            @if(sync.NeedsSignIn){<a class="button" href="/account/sign-in" data-enhance-nav="false">Sign in to sync</a>}
             @if(sync.Blocked){<a class="button" href="/settings/appearance" data-enhance="false">Reload appearance</a>}else{<button type="button" class="quiet-button" @onclick="RetryAsync" disabled="@sync.Busy">Retry sync</button>}
             <button type="button" class="quiet-button" data-reset @onclick="ResetAsync" disabled="@(sync!.Blocked || sync.State.IsRevisionExhausted)">Reset appearance</button>
         </div>
