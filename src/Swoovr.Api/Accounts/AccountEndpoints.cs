@@ -180,6 +180,9 @@ public static class AccountEndpoints
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.PhoneVerificationRequired, "Verify your mobile number to keep using Swoovr."));
         if(!barredExempt&&!policyExempt&&accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken))
             return(null,Problem(403,ProblemCodes.PolicyAcceptanceRequired,"Review and explicitly accept the currently required approved policies under Me."));
+        if(!enforcement.Barred&&current.Facts.Realm==AccountRealm.Members&&current.Profile is {Bot:false}
+            &&accounts.Services.GetService<Swoovr.Api.Analytics.BetaJourneyRecorder>() is{}journey)
+            await journey.RecordAsync(current.Account.Id,false,false,cancellationToken);
         return (current with { Enforcement = enforcement }, null);
     }
 

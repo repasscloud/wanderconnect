@@ -753,6 +753,41 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("beta_enrolments");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.BetaJourneyDay", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<string>("Dataset")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("dataset");
+
+                    b.Property<bool>("ExploreHasPeer")
+                        .HasColumnType("boolean")
+                        .HasColumnName("explore_has_peer");
+
+                    b.Property<bool>("ExploreSucceeded")
+                        .HasColumnType("boolean")
+                        .HasColumnName("explore_succeeded");
+
+                    b.HasKey("AccountId", "Day", "Dataset")
+                        .HasName("pk_beta_journey_days");
+
+                    b.HasIndex("Day")
+                        .HasDatabaseName("ix_beta_journey_days_day");
+
+                    b.ToTable("beta_journey_days", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_beta_journey_day", "dataset IN ('unknown','local-synthetic','production') AND (NOT explore_has_peer OR explore_succeeded)");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Block", b =>
                 {
                     b.Property<Guid>("BlockerAccountId")
@@ -7260,6 +7295,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_banned_identifiers_moderation_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.BetaJourneyDay", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_beta_journey_days_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Block", b =>

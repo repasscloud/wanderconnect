@@ -383,3 +383,7 @@ After the Debug build has completed, select `tests/discovery/mode-race.browser.c
 ## Accessibility release gate (D271)
 
 Run `tests/accessibility/pages.browser.cjs,tests/accessibility/interactions.browser.cjs` as an explicit subset of the owned runner after the Debug build completes. The expanded suite tests actual keyboard skip focus, the rendered16 personal scheme/mode combinations,200% CSS text resize, forced-color/reduced-motion media emulation and8 authenticated staff pages. It shares `tests/accessibility/audit.cjs` with the existing floor. No browser builds may overlap. [Release checklist](ACCESSIBILITY-RELEASE-GATE.md) requires actual human screen-reader/device/zoom evidence separately; automation cannot sign those off.
+
+## Beta scorecard (D272)
+
+After the Debug build, run `BetaAnalytics__Enabled=true SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/analytics/scorecard.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path. The fixed allowlist requires the explicit feature flag. Actual current-day API observations and Admin rendering are separate from explicitly synthetic historical SQL rows for suppression. The full repository gate runs owned PostgreSQL calculations/dedupe/disabled/export/preservation/expiry cases. Run affected privacy, deletion, held deletion, retention, app parity and both accessibility suites; the expanded floor now includes the scorecard as a ninth staff page. Never rebuild during browsers.

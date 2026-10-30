@@ -1,0 +1,30 @@
+@page "/beta-scorecard"
+@inject AdminClient Admin
+<PageTitle>Beta scorecard — Swoovr admin</PageTitle>
+<h1>Beta scorecard</h1>
+<p>Internal beta operations. These are retained source subsets and observed lower bounds, not population totals, statistically reliable outcomes or findings about individual members.</p>
+<form method="get" class="row"><label>Completed UTC week<select name="weeksAgo">@for(var n=1;n<=12;n++){<option value="@n" selected="@(n==SelectedWeek)">@n week(s) ago</option>}</select></label><button type="submit">Load scorecard</button></form>
+@if(report is null){<p role="status" data-beta-unavailable>Scorecard unavailable for this role or week.</p>}
+else
+{
+    <section data-beta-scorecard>
+        <p>@report.FromInclusive.ToString("yyyy-MM-dd") to @report.UntilExclusive.ToString("yyyy-MM-dd") exclusive, UTC.</p>
+        <p data-beta-scope>Dataset: @report.Dataset. Collection: @report.Collection. Coverage: @report.Coverage.</p>
+        <p>Unavailable and suppressed values are not zero. A reciprocal send is not evidence of delivery, satisfaction, chemistry or safety.</p>
+        <ul class="list">@foreach(var metric in report.Metrics)
+        {
+            <li data-beta-metric="@metric.Key" data-beta-status="@metric.Status"><h2>@metric.Key</h2><p>@metric.Definition</p>
+                <p>Status: @metric.Status</p>
+                @if(metric.Numerator is{}numerator){<p>Count / numerator: @numerator. @if(metric.Denominator is{}denominator){<span>Denominator: @denominator.</span>} @if(metric.Percentage is{}percentage){<span>@percentage.ToString("0.0")%</span>}</p>}
+                else{<p>Numeric result unavailable.</p>}
+            </li>
+        }</ul>
+        <h2>Limits</h2><ul>@foreach(var limit in report.Limitations){<li>@limit</li>}</ul>
+    </section>
+}
+@code{
+    [SupplyParameterFromQuery(Name="weeksAgo")]public int? Week{get;set;}
+    private int SelectedWeek=>Week??1;
+    private BetaScorecardResult? report;
+    protected override async Task OnInitializedAsync(){report=(await Admin.BetaScorecardAsync(SelectedWeek)).Value;}
+}

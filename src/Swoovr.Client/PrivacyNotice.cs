@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.11, 31 October 2026";
+    public const string Version = "Draft 0.12, 31 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -70,6 +70,11 @@ public static class PrivacyNotice
         new("policy-records", "Policy versions and safety updates", [
             "The proposed terms and community guidelines are drafts and are not in force. Reading them or signing in does not record acceptance. When an approved version is explicitly required, we record your deliberate acceptance with its version, content digest and server time. Ordinary acceptance records are erased during final account deletion; independently preserved evidence follows its own review and legal-hold rules.",
             "Explicitly published safety updates can appear in your notification centre. The ordinary delivery queue and minimal per-member receipt expire after 60 days, unless preservation requires longer, including when the profile has already been deleted. We keep a version disposition without member or operator identifiers to prevent accidental reuse. These notices do not send email or push. Reading educational safety advice does not create a new acknowledgement or consent record.",
+        ]),
+        new("beta-analytics", "Understanding the beta", [
+            "When first-party beta observations are enabled, we keep one record per account and UTC day showing authenticated member API activity, whether Explore successfully loaded and whether it returned at least one eligible profile. Activity can include background requests; it does not prove that you read a screen, were online to another member or wanted to contact anyone.",
+            "These records contain no filters, mode, intention, location, device or IP information, counterpart identifiers or message content. Authorised administrators can read a bounded internal scorecard using aggregated observations and retained product records, with small numbers suppressed. We do not use it for advertising, member ranking or automatic safety actions, and do not analyse private feedback for it.",
+            "Ordinary daily observation records expire after 90 days or with final account deletion. Evidence preservation can retain encrypted copies separately. Missing observations and deleted source records limit what the scorecard can establish; it is not a complete history or a measure of relationship success.",
         ]),
         new("moderation-reporting", "Moderation reporting records", [
             "We keep minimal restricted records of moderation decisions for annual reporting, including the action, its reviewed policy basis and how it was detected and enforced. For account terminations, we record whether your declared home country at the time was Australia, another country or unknown. This is not verified residence. These reporting records contain no message text, contact values or staff free-text explanation.",

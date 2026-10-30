@@ -693,3 +693,9 @@ Owner decisions are recorded before implementation. [Full owner requirements and
 | Decision | Status / source | Decision | Boundary |
 |---|---|---|---|
 | D271 | DEFAULT implementation under CONFIRMED D179 and the owner’s Phase0 queue, issue48 | Extend the actual browser floor to keyboard skip focus, rendered personal-theme light/dark modes, text resizing, reduced motion, forced colors and staff pages. Require a finite human/native assistive-technology checklist before external UAT approval. | Automated/build evidence cannot mark VoiceOver/TalkBack, physical-device interaction, actual zoom or WCAG compliance passed. Keep optional access information/member visibility unchanged. |
+
+## Beta scorecard — 31 October 2026
+
+| Decision | Status / source | Decision | Boundary |
+|---|---|---|---|
+| D272 | DEFAULT implementation under the owner’s current Phase0 queue, issue51; supersedes the D179 deferral for this bounded scope | Default-off first-party daily authenticated-activity/Explore observations; Admin-only fixed completed-week scorecard with explicit retained-source denominators, observed API-return lower bounds, global small/complementary-cell suppression and not-recorded unmeasured outcomes. Retain90 UTC dates with own export/deletion and independent held evidence. | No traits, locations, mode filters, counterpart IDs, content, external analytics SDK, advertising, ranking or automated safety action. Background API activity is disclosed. Default-off collection and draft privacy text do not imply legal57 approval or complete history. |

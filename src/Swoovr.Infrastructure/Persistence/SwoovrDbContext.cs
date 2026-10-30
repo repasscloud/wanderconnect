@@ -1005,6 +1005,12 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.AddReportOutcomes();
         model.AddModerationTransparency();
         model.AddPolicyNotices();
+        model.Entity<BetaJourneyDay>(b=>
+        {
+            b.ToTable("beta_journey_days");b.HasKey(x=>new{x.AccountId,x.Day,x.Dataset});b.Property(x=>x.Dataset).HasMaxLength(24);
+            b.HasOne<Account>().WithMany().HasForeignKey(x=>x.AccountId).OnDelete(DeleteBehavior.Cascade);b.HasIndex(x=>x.Day);
+            b.ToTable(t=>t.HasCheckConstraint("ck_beta_journey_day","dataset IN ('unknown','local-synthetic','production') AND (NOT explore_has_peer OR explore_succeeded)"));
+        });
         var acceptance=model.Entity<PolicyAcceptance>();acceptance.ToTable("policy_acceptances");acceptance.HasKey(a=>new{a.AccountId,a.Version});
         acceptance.Property(a=>a.Version).HasMaxLength(40);acceptance.Property(a=>a.ContentSha256).HasMaxLength(64);
         acceptance.HasOne<Account>().WithMany().HasForeignKey(a=>a.AccountId).OnDelete(DeleteBehavior.Cascade);

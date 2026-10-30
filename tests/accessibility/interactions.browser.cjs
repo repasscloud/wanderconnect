@@ -31,7 +31,7 @@ try{
  await staffPage.goto(admin+'/sign-in');await staffPage.fill('#username',staff.email);await staffPage.fill('#password',staff.password);await Promise.all([staffPage.waitForURL(admin+'/'),staffPage.click('#kc-login')]);
  await staffPage.waitForLoadState('networkidle');const asset=await staffContext.request.get(await staffPage.locator('script[src*="skip-main"]').getAttribute('src').then(src=>new URL(src,admin).href));check(asset.status()===200&&/javascript/.test(asset.headers()['content-type']||''),'staff bypass asset is actual JavaScript');check((await asset.body()).length>0,'staff bypass asset has nonempty body');const skip=staffPage.locator('.skip-link');check(await skip.count()===1,'staff layout provides skip link');
  if(await skip.count()){await skip.focus();await staffPage.keyboard.press('Enter');await staffPage.waitForTimeout(300);check(await staffPage.evaluate(()=>document.activeElement?.id==='main-content'),'staff skip link moves focus to main');}
- for(const route of ['/','/accounts','/cases','/appeals','/media','/holds','/registry','/code-reports']){
+ for(const route of ['/','/accounts','/cases','/appeals','/media','/holds','/registry','/code-reports','/beta-scorecard']){
   await staffPage.goto(admin+route);await staffPage.waitForSelector('main h1');
   for(const width of [390,320]){await staffPage.setViewportSize({width,height:844});const problems=await staffPage.evaluate(audit);check(!problems.length,`staff ${route}@${width}: ${problems.join('; ')}`);}
  }
@@ -39,5 +39,5 @@ try{
  await staffPage.evaluate(()=>document.documentElement.style.fontSize='');if(await skip.count())await skip.focus();
  if(process.env.SWOOVR_SCREENSHOTS){await fs.mkdir(process.env.SWOOVR_SCREENSHOTS,{recursive:true});await staffPage.screenshot({path:path.join(process.env.SWOOVR_SCREENSHOTS,'staff-accessibility-320.png'),fullPage:false});}
  assert.equal(failures.length,0,failures.join('\n'));
- console.log(`PASS: expanded accessibility (${checks} checks; ${palettes.length*2} rendered theme modes, keyboard,200% text, reduced motion, forced colors,8 staff pages).`);
+ console.log(`PASS: expanded accessibility (${checks} checks; ${palettes.length*2} rendered theme modes, keyboard,200% text, reduced motion, forced colors,9 staff pages).`);
 }finally{for(const context of contexts)await context.close();await edge.close();}})().catch(e=>{console.error(e.message);process.exitCode=1;});

@@ -332,6 +332,7 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<TextHarmCandidateEvidence>> TextHarmEvidenceAsync(Guid caseId,Guid reviewId,CancellationToken token=default)=>SendAsync<TextHarmCandidateEvidence>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",null,token);
     public Task<ApiResult<TextHarmCandidateReviewReceipt>> ReviewTextHarmAsync(Guid caseId,Guid reviewId,TextHarmCandidateReviewRequest request,CancellationToken token=default)=>SendAsync<TextHarmCandidateReviewReceipt>(HttpMethod.Post,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",request,token);
 
+    public Task<ApiResult<BetaScorecardResult>> BetaScorecardAsync(int weeksAgo=1,CancellationToken token=default)=>SendAsync<BetaScorecardResult>(HttpMethod.Get,$"api/admin/beta-scorecard?weeksAgo={weeksAgo}",null,token);
     public Task<ApiResult<ModerationTransparencyExport>> ModerationReportAsync(int year,CancellationToken token=default)=>SendAsync<ModerationTransparencyExport>(HttpMethod.Get,$"api/admin/moderation-transparency/{year}",null,token);
     public Task<ApiResult<int>> SaveModerationReportAsync(int year,CancellationToken token=default)=>SendAsync<int>(HttpMethod.Post,$"api/admin/moderation-transparency/{year}/revisions",null,token);
     public async Task<(int Status,byte[]? Body)> ModerationReportExportAsync(int year,CancellationToken token=default)

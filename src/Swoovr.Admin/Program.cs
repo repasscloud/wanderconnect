@@ -67,7 +67,7 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", createScopeForErrors: true); app.UseHsts(); }
 app.Use(async(context,next)=>
 {
-    if(context.Request.Path.StartsWithSegments("/code-reports"))context.Response.Headers.CacheControl="no-store";
+    if(context.Request.Path.StartsWithSegments("/code-reports")||context.Request.Path.StartsWithSegments("/beta-scorecard"))context.Response.Headers.CacheControl="no-store";
     await next(context);
 });
 app.UseAuthentication();

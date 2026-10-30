@@ -1962,7 +1962,7 @@ The owner pasted Codex's product review and strategic roadmap on 27 October 2026
 | [#48](https://github.com/repasscloud/wanderconnect/issues/48) | Accessibility as a release requirement | D271 DEFAULT gate and automated coverage implemented; human/device sign-off remains OPEN before external UAT |
 | [#49](https://github.com/repasscloud/wanderconnect/issues/49) | Notification and privacy controls | UNDECIDED |
 | [#50](https://github.com/repasscloud/wanderconnect/issues/50) | Account standing, appeals and support transparency (self-service) | UNDECIDED |
-| [#51](https://github.com/repasscloud/wanderconnect/issues/51) | Product analytics, experimentation and the beta scorecard | UNDECIDED |
+| [#51](https://github.com/repasscloud/wanderconnect/issues/51) | Product analytics, experimentation and the beta scorecard | D272 DEFAULT bounded scorecard under the owner’s current Phase0 queue; historical D179 deferral superseded for this scope |
 | [#52](https://github.com/repasscloud/wanderconnect/issues/52) | Commercial operations and transaction handling | UNDECIDED |
 | [#53](https://github.com/repasscloud/wanderconnect/issues/53) | Trust, safety and privacy roadmap | UNDECIDED |
 | [#54](https://github.com/repasscloud/wanderconnect/issues/54) | Decide the policy for private explicit albums against App Store and Google Play rules | UNDECIDED |

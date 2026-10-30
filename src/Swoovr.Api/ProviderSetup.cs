@@ -46,6 +46,9 @@ public static class ProviderSetup
             services.AddScoped<Notifications.PolicyNoticePublisher>();
             services.AddScoped<Notifications.PolicyNoticeRetention>();
             services.AddScoped<Policies.PolicyAcceptanceService>();
+            services.AddScoped<Analytics.BetaJourneyRecorder>();
+            services.AddScoped<Analytics.BetaScorecardQuery>();
+            services.AddScoped<Analytics.BetaJourneyRetention>();
             services.AddScoped<Moderation.ModerationTransparencyRecorder>();
             services.AddScoped<Moderation.ModerationInspectionRecorder>();
             services.AddScoped<Moderation.ModerationTransparencyQuery>();

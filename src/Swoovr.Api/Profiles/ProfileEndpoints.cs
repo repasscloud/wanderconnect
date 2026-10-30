@@ -136,8 +136,10 @@ public static class ProfileEndpoints
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Searches.LimitedAsync(db, current.Profile!.AccountId, "search", clock.GetUtcNow(), cancellationToken) is { } limited) return limited;
-            return Results.Ok(new ExploreResult(selected.Id, await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken,
-                accounts.Services.GetRequiredService<Media.MediaLinks>()), market.Name));
+            var people=await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken,
+                accounts.Services.GetRequiredService<Media.MediaLinks>());
+            await accounts.Services.GetRequiredService<Swoovr.Api.Analytics.BetaJourneyRecorder>().RecordAsync(current.Account!.Id,true,people.Count>0,cancellationToken);
+            return Results.Ok(new ExploreResult(selected.Id,people,market.Name));
         });
         // D175: ?mode= is the mode the profile was opened from; the view shows that mode and the modes the pair is connected in.
         api.MapGet("/profiles/{id:guid}", async (Guid id, string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,

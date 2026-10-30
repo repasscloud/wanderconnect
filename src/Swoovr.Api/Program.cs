@@ -86,6 +86,7 @@ Swoovr.Api.Evidence.LegalHoldEndpoints.Map(app);
 Swoovr.Api.Evidence.LawEnforcementEndpoints.Map(app);
 Swoovr.Api.Verification.IdentityEndpoints.Map(app);
 AdminEndpoints.Map(app);
+if(persistence)Swoovr.Api.Analytics.BetaScorecardEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfileEndpoints.Map(app);
 Swoovr.Api.Profiles.MarketEndpoints.Map(app);
 Swoovr.Api.Connections.RequestEndpoints.Map(app);

@@ -117,6 +117,7 @@ static class PersistenceChecks
             await ModerationTransparencyRetentionChecks.Run(options, Check);
             await PolicyNoticePersistenceChecks.Run(options, Check);
             await PolicyAcceptancePersistenceChecks.Run(options, Check);
+            await BetaAnalyticsPersistenceChecks.Run(options, Check);
             await ContentRemovalGuardChecks.Run(options, Check);
             await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
         }

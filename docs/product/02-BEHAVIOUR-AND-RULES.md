@@ -77,3 +77,7 @@ DEFAULT D263: invitations expire after seven days. External meeting details requ
 ### Small result sets (D270 DEFAULT)
 
 Successful empty/short discovery lists explain the actual market, mode and reciprocal-filter scope without estimating population or activity. Offer explicit review of filters, enabled modes and Travel; never change those choices automatically. Errors are unavailable, not empty supply. Only the latest selected mode response may populate its cards.
+
+### Internal beta analytics (D272 DEFAULT)
+
+Default-off first-party daily activity/discovery observations support a protected aggregate scorecard. Store no traits, filters, mode, location, counterpart, body, IP or device data. Disclose background API activity, retained-source denominators and incomplete observed returns; suppress small/complementary cells. Do not infer chemistry, attendance, availability, confirmed offending or member quality. No advertising, ranking or automated moderation use. Own export/deletion and independent held-evidence retention apply. See delivery/BETA-SCORECARD.md.

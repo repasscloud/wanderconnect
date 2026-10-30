@@ -266,6 +266,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.DobReviews.Where(r => r.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Entitlements.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberNotices.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.Set<BetaJourneyDay>().Where(r=>r.AccountId==id).ExecuteDeleteAsync(cancellationToken);
         await db.Set<PolicyAcceptance>().Where(p=>p.AccountId==id).ExecuteDeleteAsync(cancellationToken);
         await db.PushDevices.Where(d => d.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Notifications.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
