@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Swoovr.Api.Accounts;
 using Swoovr.Domain;
 using Swoovr.Infrastructure.Email;
@@ -32,6 +33,21 @@ public static class Cli
     public static async Task<int> RunAsync(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args[1..]);
+        if(args is ["backups","reconcile",var restoreTarget,_,_])
+        {
+            if(!System.Text.RegularExpressions.Regex.IsMatch(restoreTarget,"^swoovr_restore_[0-9a-f]{32}$"))return 2;
+            // Same PG* secret/environment context as the authenticated operator restore; no connection secret in argv.
+            var connection=new NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Swoovr")??"");
+            connection.Database=restoreTarget;
+            if(Environment.GetEnvironmentVariable("PGHOST") is{}host)connection.Host=host;
+            if(Environment.GetEnvironmentVariable("PGPORT") is{}port)connection.Port=int.Parse(port,System.Globalization.CultureInfo.InvariantCulture);
+            if(Environment.GetEnvironmentVariable("PGUSER") is{}login)connection.Username=login;
+            if(Environment.GetEnvironmentVariable("PGPASSWORD") is{}password)connection.Password=password;
+            if(Environment.GetEnvironmentVariable("PGSSLROOTCERT") is{}certificate)connection.RootCertificate=certificate;
+            if(Environment.GetEnvironmentVariable("PGSSLMODE") is{}ssl)connection.SslMode=ssl switch
+            {"verify-full"=>SslMode.VerifyFull,"verify-ca"=>SslMode.VerifyCA,"require"=>SslMode.Require,"disable"=>SslMode.Disable,"allow"=>SslMode.Allow,"prefer"=>SslMode.Prefer,_=>throw new InvalidOperationException("Unsupported restore TLS mode.")};
+            builder.Configuration["ConnectionStrings:Swoovr"]=connection.ConnectionString;
+        }
         // Commands print their own short results; host and SQL logging would only add noise.
         builder.Logging.ClearProviders();
         builder.Services.AddScoped<Founders>();
@@ -55,6 +71,13 @@ public static class Cli
         var db = scope.ServiceProvider.GetRequiredService<SwoovrDbContext>();
         var pushKeys = scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>();
         var now = DateTimeOffset.UtcNow;
+        var restoreSafe=args is ["migrate",..] or ["backups","bundle"] or ["backups","reconcile",_,_,_]
+            or ["keys","status"] or ["bans","legacy-status"];
+        if(!restoreSafe&&!await Swoovr.Api.Retention.RestoreReadiness.ReadyAsync(db,CancellationToken.None))
+        {
+            Console.Error.WriteLine("Restored database remains fenced; only migration, read-only capture/status and explicit reconciliation commands are allowed.");
+            return 2;
+        }
         switch (args)
         {
             // D111: GeoNames place data (cities1000, admin1CodesASCII, countryInfo) from a folder; see scripts/geonames.sh.
@@ -68,6 +91,14 @@ public static class Cli
             case ["push", "tokens", "protect"]:
                 if (pushKeys.Protector is null) { Console.Error.WriteLine("Push token protection is not configured."); return 2; }
                 Console.WriteLine($"Push registrations protected: {await Swoovr.Api.Notifications.PushDeviceMaintenance.ProtectLegacyAsync(db, pushKeys, CancellationToken.None)}.");
+                return 0;
+            case ["backups","reconcile",var target,var archive,var authoritySha]:
+                await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Recovery.RestoreReconciliation>().RunAsync(target,archive,authoritySha,CancellationToken.None);
+                Console.WriteLine("Restore reconciliation completed: current media verified, expiry/holds reconciled, restored API sessions/device addresses revoked. Serving receipt prepared; paired Keycloak and ingress approval remain separate.");
+                return 0;
+            case ["backups", "bundle"]:
+                // Binary stdout only. The operator wrapper must stream it directly into authenticated encryption.
+                await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Recovery.BackupBundle>().WriteAsync(Console.OpenStandardOutput(),CancellationToken.None);
                 return 0;
             case ["migrate", ..]:
                 await db.Database.MigrateAsync();
@@ -290,7 +321,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | contacts reconcile | root-admin grant <staff subject> | bans backfill | bans legacy-status | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: migrate | backups bundle | backups reconcile <owned-target-db> <authenticated-bundle-path> <authority-sha256> | contacts reconcile | root-admin grant <staff subject> | bans backfill | bans legacy-status | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

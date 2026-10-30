@@ -77,6 +77,13 @@ static class OperationalRetentionChecks
             check("lawful police group expires after the latest seven-year activity window",(await purge.RunAsync(now,CancellationToken.None)).HoldsDisposed==1);
             check("police disclosure/redaction/transfer expire with the group",!await db.Disclosures.AnyAsync(d=>d.HoldId==policeHold.Id)&&!await db.EvidenceRedactions.AnyAsync(d=>d.ExportId==policeExport.Id)&&!await db.LeTransfers.AnyAsync(t=>t.Id==transfer.Id));
             check("police record expiry resumes after related operational disposal",(await accounts.PurgeAsync(now,CancellationToken.None)).CasesExpired==1&&!await db.LeCases.AnyAsync(c=>c.Id==police.Id));
+            check("fresh database without a restore marker is not a restored database",await RestoreReadiness.ReadyAsync(db,CancellationToken.None));
+            await db.Database.ExecuteSqlRawAsync("CREATE SCHEMA swoovr_operations; CREATE TABLE swoovr_operations.restore_guard(id integer PRIMARY KEY,ready boolean NOT NULL,role text NOT NULL DEFAULT 'api',generation_id text,restored_at timestamptz,authority_sha256 text,reconciled_at timestamptz); INSERT INTO swoovr_operations.restore_guard(id,ready,generation_id,restored_at,authority_sha256,reconciled_at) VALUES(1,false,'fictional',now(),NULL,NULL);");
+            check("restored database remains fenced before reconciliation",!await RestoreReadiness.ReadyAsync(db,CancellationToken.None));
+            await db.Database.ExecuteSqlRawAsync("UPDATE swoovr_operations.restore_guard SET ready=true");
+            check("a ready bit without a valid reconciliation receipt is refused",!await RestoreReadiness.ReadyAsync(db,CancellationToken.None));
+            await db.Database.ExecuteSqlRawAsync("UPDATE swoovr_operations.restore_guard SET authority_sha256=repeat('a',64),reconciled_at=now()");
+            check("structurally valid operator receipt opens readiness only after reconciliation",await RestoreReadiness.ReadyAsync(db,CancellationToken.None));
             check("empty legacy inventory is import-ready",!(await RegistryLegacyAudit.ReadAsync(db,now,CancellationToken.None)).RequiresReview);
             var legacyHash=Enumerable.Repeat((byte)17,32).ToArray();
             db.TerminatedEmailHolds.Add(new(){EmailHash=legacyHash,CreatedAt=now.AddYears(-1),ExpiresAt=now.AddYears(1)});

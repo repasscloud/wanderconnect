@@ -40,3 +40,5 @@ Data-key configuration and the stable legacy fallback boundary are documented in
 
 
 D255 DEFAULT adds a provider artifact inside the existing Keycloak authentication boundary, not another .NET application project. `containers/keycloak/contact-policy` compares/retire bindings inside the provider transaction and enforces its minimal policy in the provider database. The API must never directly write that database. The Java/internal-JPA interfaces are pinned to26.8.1, compile toJava21 and fail on an untested provider version; upgrades require actual isolated compatibility tests. Main realm/image is unchanged; application orchestration and staff authorization/durable recovery remain to be connected.
+
+D261 recovery stays inside the existing API/infrastructure boundaries: API-owned snapshot/private-media bundling and hold-aware reconciliation, operator-only Python encryption/storage transport and an excluded operations readiness schema. It adds no application project or public authentication endpoint. [Backup/restore boundary and operator procedure](../delivery/BACKUP-RESTORE.md).

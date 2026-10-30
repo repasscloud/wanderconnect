@@ -7,14 +7,14 @@ public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accoun
 
 public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational)
 {
-    public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token)
+    public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token,bool restoring=false)
     {
         await conflicts.ReconcileAsync(now, token);
         var records = await operational.RunAsync(now, token);
         if(records.FailedClosed)return new(new SafetyRetentionRun(0,0,0,0,true),null,null,0,0,true);
         var reviews = await safety.PurgeAsync(now, token);
         if (reviews.HoldStatusUnavailable) return new(reviews, null, null, 0, 0, true);
-        var deleted = await accounts.PurgeAsync(now, token);
+        var deleted = await accounts.PurgeAsync(now, token,finalize:!restoring);
         if (deleted.HoldStatusUnavailable) return new(reviews, deleted, null, 0, 0, true);
         var expired = await messages.PurgeAsync(now, token);
         if (expired.HoldStatusUnavailable) return new(reviews, deleted, expired, 0, 0, true);

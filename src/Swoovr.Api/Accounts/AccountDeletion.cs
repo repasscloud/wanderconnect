@@ -48,7 +48,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         return new(DeletionRequestError.None, signedOut, emailed);
     }
 
-    public async Task<PurgeRun> PurgeAsync(DateTimeOffset now, CancellationToken cancellationToken, Guid? onlyAccount = null)
+    public async Task<PurgeRun> PurgeAsync(DateTimeOffset now, CancellationToken cancellationToken, Guid? onlyAccount = null,bool finalize=true)
     {
         var (deleted, waiting) = (0, 0);
         var due = await db.Accounts.Where(a => a.Status == AccountStatus.PendingDeletion && a.DeletionDueAt <= now && (onlyAccount == null || a.Id == onlyAccount)).Select(a => a.Id).ToListAsync(cancellationToken);
@@ -59,14 +59,14 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
             return new(0, due.Count, 0, 0, 0, 0, 0, HoldStatusUnavailable: true);
         }
         var retention = services.GetRequiredService<Retention.SafetyRetention>();
-        foreach (var id in due)
+        foreach (var id in finalize?due:[])
         {
             if (await FinalDeleteAsync(id, now, cancellationToken)) deleted++; else waiting++;
             db.ChangeTracker.Clear();
         }
         // Didit deletions that failed earlier: the attempt rows (session ids and outcomes only) stay until Didit confirms.
         var retries = 0;
-        foreach (var attempt in await (from t in db.IdVerificationAttempts join a in db.Accounts on t.AccountId equals a.Id
+        if(finalize)foreach (var attempt in await (from t in db.IdVerificationAttempts join a in db.Accounts on t.AccountId equals a.Id
                                        where a.Status == AccountStatus.Deleted && (onlyAccount == null || a.Id == onlyAccount) select t).ToListAsync(cancellationToken))
             if (await verification.DeleteSessionAsync(attempt.SessionId, cancellationToken)) { db.IdVerificationAttempts.Remove(attempt); retries++; }
         await db.SaveChangesAsync(cancellationToken);

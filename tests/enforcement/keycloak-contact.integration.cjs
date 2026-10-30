@@ -7,6 +7,8 @@ const {localEnv,sql}=require('../auth/local-tokens.cjs');
 const run=(cmd,args,options={})=>{const {captureCombined=false,...settings}=options;return new Promise((resolve,reject)=>execFile(cmd,args,{maxBuffer:8*1024*1024,...settings},(error,out,err)=>error?reject(new Error(cmd+' exited '+error.code+': '+err.slice(-1600))):resolve((captureCombined?out+err:out).trim())));};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 (async()=>{
+ const backups=process.env.SWOOVR_TEST_BACKUP_WORKFLOW;
+ if(backups!==undefined&&backups!=='1')throw new Error('Use only the explicit owned backup-workflow selector.');
  const workflow=process.env.SWOOVR_TEST_CONTACT_WORKFLOW;
  if(workflow!==undefined&&workflow!=='1')throw new Error('Use only the explicit owned contact-workflow selector.');
  const javaHome=process.env.SWOOVR_KEYCLOAK_JAVA_HOME,libs=process.env.SWOOVR_KEYCLOAK_LIBS;
@@ -228,6 +230,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    equal(await query(`SELECT operation_id FROM swoovr_email_retirement WHERE user_id='${typed.id}'`),operationId,'Real .NET adapter wrote exactly its bound provider operation');
   }
   if(workflow==='1')await require('./contact-workflow.browser.cjs').run({base,container,bootstrapUser:env.KC_BOOTSTRAP_ADMIN_USERNAME,bootstrapPassword:bootstrap,folder,providerQuery:query});
+  if(backups==='1')console.log(await run('python3',['tests/backups/keycloak.integration.py'],{env:{...process.env,SWOOVR_TEST_BACKUP_KC_CONTAINER:container,SWOOVR_TEST_BACKUP_KC_DATABASE:database,SWOOVR_TEST_BACKUP_KC_BASE:base},maxBuffer:1024*1024}));
   console.log('PASS: '+checks+' isolated Keycloak/PostgreSQL schema-guard checks. Component matrix alone does not prove browser registration, ownership or delivery; optional workflow reports separately.');
  }finally{
   let cleanupError;

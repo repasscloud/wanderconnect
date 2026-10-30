@@ -34,6 +34,13 @@ var app = builder.Build();
 app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
 using (var pushScope = app.Services.CreateScope())
     pushScope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>();
+// Do not start hosted senders, cleanup jobs, migrations or ingress against quarantined restored data.
+if(persistence)
+{
+    await using var restoreScope=app.Services.CreateAsyncScope();
+    if(!await Swoovr.Api.Retention.RestoreReadiness.ReadyAsync(restoreScope.ServiceProvider.GetRequiredService<SwoovrDbContext>(),CancellationToken.None))
+        throw new InvalidOperationException("Restored database is fenced or readiness is unavailable. Complete operator reconciliation before starting hosts.");
+}
 // DEFAULT: development applies migrations on start; other environments run `migrate` first.
 if (persistence && app.Environment.IsDevelopment())
 {

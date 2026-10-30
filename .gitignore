@@ -509,3 +509,12 @@ docs/ignore-this-file.txt
 **/google-services.json
 **/*.p8
 **/*service-account*.json
+
+# Source tooling/tests only; the generic Visual Studio Backup*/ rule otherwise hides these directories.
+!/scripts/backups/
+/scripts/backups/*
+!/scripts/backups/*.py
+!/tests/backups/
+/tests/backups/*
+!/tests/backups/*.py
+!/scripts/backups/requirements.txt
