@@ -101,6 +101,8 @@ static class PersistenceChecks
             await BannedIdentifierPersistenceChecks.Run(options, Check);
             await EmailRetirementPersistenceChecks.Run(options, Check);
             await OperationalRetentionChecks.Run(options, Check);
+            await MeetingSafetyPersistenceChecks.Run(options, Check);
+            await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
         }
         finally
         {

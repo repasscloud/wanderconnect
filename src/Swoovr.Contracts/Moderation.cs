@@ -11,7 +11,7 @@ public sealed record ReportCategoryView(string Id, string Label);
 /// Serious incidents (D190) add Police ("contacted", "will-contact" or "not-now"), an optional PoliceReference (up to 100
 /// characters, kept encrypted) and MessageIds: up to 20 messages from the reported conversation chosen as evidence.
 public sealed record NewReport(string SubjectType, string SubjectId, string Category, string? Text, bool Block, string? Police = null,
-    string? PoliceReference = null, List<Guid>? MessageIds = null);
+    string? PoliceReference = null, List<Guid>? MessageIds = null, Guid? MeetingSafetySessionId = null);
 
 /// <summary>
 /// What the reporter sees (D131): submitted, underReview, reviewed or closed. Outcome (D190) appears once closed:

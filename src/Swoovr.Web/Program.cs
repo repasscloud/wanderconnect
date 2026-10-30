@@ -1,10 +1,14 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Swoovr.Web.Auth;
 using Swoovr.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+// Public capability paths must never appear in automatic request start/finish logs.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 
 // Add services to the container.
 // Static SSR for public and sign-in pages; signed-in features as Interactive WebAssembly only (D59).
+builder.Services.AddRateLimiter(options=>{options.RejectionStatusCode=429;options.OnRejected=async(context,token)=>{context.HttpContext.Response.ContentType="text/html; charset=utf-8";await context.HttpContext.Response.WriteAsync("<!doctype html><html lang=\"en\"><title>Meeting safety — Swoovr</title><h1>Too many requests</h1><p>Please wait before trying this private link again.</p></html>",token);};options.AddPolicy("meeting-safety-pages",http=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=30,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
 builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
 builder.Services.AddHttpClient<Swoovr.Client.PrototypeClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
@@ -39,6 +43,8 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+MeetingSafetyPages.UsePrivacy(app);
+app.UseRateLimiter();
 app.UseAntiforgery();
 // D160: restricted, suspended and terminated members see the restricted screen instead of member pages.
 app.UseRestrictionGate();
@@ -46,6 +52,7 @@ app.UseRestrictionGate();
 app.MapStaticAssets();
 MemberSignIn.MapMemberSignIn(app);
 Bff.MapBff(app);
+MeetingSafetyPages.Map(app);
 Bff.MapMedia(app);
 // The hub checks the signed-in member itself, as the BFF does (this host runs UseAuthentication without UseAuthorization).
 app.MapHub<Swoovr.Web.Auth.MessagesRelayHub>("/bff/hubs/messages");

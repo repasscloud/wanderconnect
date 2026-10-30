@@ -85,6 +85,10 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.ok(!routine.some(id => serious.includes(id)) && routine.includes('underage')); pass();
     assert.equal((await call(root, '/api/report-categories?kind=serious')).status, 403, 'staff aren\'t members'); pass();
 
+    // Fictional owner-provided standalone meeting context, never another member's plan.
+    const meetingContext=crypto.randomUUID(),foreignMeeting=crypto.randomUUID();
+    for(const [id,owner] of [[meetingContext,ids.rep],[foreignMeeting,ids.sub]])await sql(`INSERT INTO meeting_safety_sessions(id,member_id,preferred_first_name,starts_at,final_check_in_at,time_zone_id,venue_or_area,share_place,member_note,private_feedback,status,created_at,updated_at) VALUES('${id}','${owner}','Fictional',now()-interval '1 hour',now()+interval '1 hour','UTC','Fictional meeting venue',false,'FICTIONAL PRIVATE CONTEXT NOTE','FICTIONAL PRIVATE CONTEXT FEEDBACK','Active',now(),now())`);
+
     // Validation and strangers.
     const base = { subjectType: 'conversation', subjectId: withSub.conversation, category: 'stalking' };
     assert.deepEqual(code(await report('rep', { ...base, police: 'maybe' })), [400, 'invalid-report']); pass();
@@ -96,10 +100,12 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.deepEqual(code(await report('sub', { subjectType: 'message', subjectId: threat, category: 'stalking' })), [404, 'not-available'], 'not one\'s own message'); pass();
     const tampered = await fetch(api + '/api/reports', { method: 'POST', headers: { Authorization: 'Bearer ' + tokens.rep, 'Content-Type': 'application/json' }, body: '{"subjectType":"conversation","messageIds":"all"}' });
     assert.equal(tampered.status, 400); pass();
+    assert.deepEqual(code(await report('rep',{...base,meetingSafetySessionId:foreignMeeting})),[404,'not-available'],'another member meeting context refused');pass();
+    assert.deepEqual(code(await report('rep',{...base,meetingSafetySessionId:crypto.randomUUID()})),[404,'not-available'],'unknown meeting context refused');pass();
     assert.equal(await sql(`SELECT count(*) FROM reports WHERE reporter_account_id = '${ids.rep}'`), '0', 'refusals filed nothing'); pass();
 
     // A serious report with police details and chosen messages.
-    let r = await report('rep', { ...base, text: 'Fictional account of being followed', police: 'contacted', policeReference: 'FICT-POL-123', messageIds: [threat] });
+    let r = await report('rep', { ...base, text: 'Fictional account of being followed', police: 'contacted', policeReference: 'FICT-POL-123', messageIds: [threat], meetingSafetySessionId:meetingContext });
     assert.equal(r.status, 201); assert.equal(r.body.serious, true); assert.equal(r.body.status, 'submitted'); pass();
     const subCase = await sql(`SELECT id FROM moderation_cases WHERE subject_account_id = '${ids.sub}' AND status IN ('Open', 'UnderReview')`);
     assert.equal(await sql(`SELECT queue FROM moderation_cases WHERE id = '${subCase}'`), 'Admin'); pass();
@@ -107,10 +113,14 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.equal((await call(st.sup, `/api/admin/cases/${subCase}`)).status, 404, 'support never sees serious cases'); pass();
     const detail = (await call(st.adm, `/api/admin/cases/${subCase}`)).body;
     assert.equal(detail.reports[0].police, 'contacted'); pass();
-    const snapshot = JSON.parse(detail.evidence[0].snapshot);
+    const snapshot = JSON.parse(detail.evidence.find(e=>e.kind==='conversation').snapshot);
     assert.equal(snapshot.chosen, true); assert.deepEqual(snapshot.messages.map(m => m.id), [threat]); pass();
     assert.equal(await sql(`SELECT police_reference IS NOT NULL AND position(convert_to('FICT-POL', 'UTF8') in police_reference) = 0 FROM reports WHERE case_id = '${subCase}'`), 't', 'reference sealed'); pass();
     assert.ok(!JSON.stringify(detail).includes('FICT-POL'), 'admins don\'t see the reference'); pass();
+    assert.equal(await sql(`SELECT meeting_safety_session_id FROM reports WHERE case_id='${subCase}'`),meetingContext,'own meeting linked to actual serious report');pass();
+    const contextEvidence=detail.evidence.find(e=>e.kind==='meeting-safety');assert.ok(contextEvidence,'separate meeting-context evidence');pass();
+    const contextSnapshot=JSON.parse(contextEvidence.snapshot);assert.equal(contextSnapshot.meetingSafetySessionId,meetingContext);assert.equal(contextSnapshot.venueOrArea,'Fictional meeting venue');pass();
+    assert.ok(!contextEvidence.snapshot.includes('FICTIONAL PRIVATE CONTEXT NOTE')&&!contextEvidence.snapshot.includes('FICTIONAL PRIVATE CONTEXT FEEDBACK'),'private note/feedback excluded from incident snapshot');pass();
     // Escalated with no content.
     let mail = []; for (let i = 0; i < 20 && !mail.some(m => m.includes(subCase)); i++) { mail = await mailTo(ESCALATION); await sleep(250); }
     const escalation = mail.find(m => m.includes(subCase));

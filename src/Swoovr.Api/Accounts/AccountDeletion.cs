@@ -31,14 +31,20 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.Entry(account).ReloadAsync(cancellationToken);
         var error = AccountDeletionPolicy.CheckRequest(account, fresh);
         if (error != DeletionRequestError.None) return new(error, false, false);
+        await using var preservation=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+        await using var transaction=await db.Database.BeginTransactionAsync(cancellationToken);
         AccountDeletionPolicy.Request(account, now, immediately, deleteFounderToken && profile is { FoundingMember: true });
         // D170: pending requests by or to them are cancelled; accepted connections wait (they return if the member cancels).
         await db.ConnectionRequests.Where(r => (r.FromAccountId == account.Id || r.ToAccountId == account.Id) && r.Status == ConnectionRequestStatus.Pending)
             .ExecuteUpdateAsync(u => u.SetProperty(r => r.Status, ConnectionRequestStatus.Cancelled).SetProperty(r => r.AnsweredAt, now), cancellationToken);
         // Stop future device sends at deactivation; credentials are not tombstone/compliance records.
         await db.PushDevices.Where(d => d.AccountId == account.Id).ExecuteDeleteAsync(cancellationToken);
+        if(services.GetService<Swoovr.Api.Safety.MeetingSafetyStore>() is{}meetingSafety)await meetingSafety.RevokeAccountAsync(account.Id,now,cancellationToken);
         Audit.Record(db, now, account.Id, "account", "account.deletion-requested", "account", account.Id.ToString(), immediately ? "now" : "30-days");
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        await transaction.DisposeAsync();
+        await preservation.DisposeAsync();
         await lifecycle.DisposeAsync();
         await MemberMutationAuthority.ReleaseForEffectsAsync(services); // Deactivation is committed before remote mail/sign-out.
         // D65: founders get their recovery code before anything is deleted (unless they asked for the token to go too).

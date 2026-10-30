@@ -5,7 +5,7 @@ namespace Swoovr.Api.Retention;
 
 public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0, int IdentifierRestrictionsExpired = 0, int IdentifierHistoriesDisposed = 0, int IdentifierReceiptsExpired = 0, int OperationalHoldsExpired = 0);
 
-public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational, Swoovr.Infrastructure.Persistence.SwoovrDbContext db)
+public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational, Swoovr.Infrastructure.Persistence.SwoovrDbContext db, Swoovr.Api.Safety.MeetingSafetyRetention meetingSafety)
 {
     public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token,bool restoring=false)
     {
@@ -25,7 +25,8 @@ public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accoun
         var expiredBans = await expiry.RunAsync(now,token);
         var history=await disposal.RunAsync(now,token);
         await AuditRetention.RunAsync(db,now,token);
-        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, records.FailedClosed || associations.HoldStatusUnavailable || attempts is null || history.FailedClosed,
+        var meetingsPreserved=await meetingSafety.RunAsync(now,token);
+        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, !meetingsPreserved || records.FailedClosed || associations.HoldStatusUnavailable || attempts is null || history.FailedClosed,
             associations.Expired, expiredBans, history.HistoriesDisposed, history.ReceiptsExpired,records.HoldsDisposed);
     }
 }

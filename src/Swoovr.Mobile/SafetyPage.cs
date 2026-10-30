@@ -13,10 +13,12 @@ public sealed class SafetyPage : ContentPage
 {
 	private readonly VerticalStackLayout body = new() { Padding = new Thickness(24, 30), Spacing = 16 };
 	private string? subjectType, subjectId, state;
+    private readonly Guid? meetingContext;
 
-	public SafetyPage(string? subjectType = null, string? subjectId = null, string? state = null)
+	public SafetyPage(string? subjectType = null, string? subjectId = null, string? state = null, Guid? meetingContext = null)
 	{
 		(this.subjectType, this.subjectId, this.state) = (subjectType, subjectId, state);
+        this.meetingContext=meetingContext;
 		Title = "Safety";
 		Content = new ScrollView { Content = body };
 	}
@@ -99,8 +101,10 @@ public sealed class SafetyPage : ContentPage
 		foreach (var card in await SafetyCardsAsync()) body.Children.Add(card);
 		// Signed out (or no account yet), the contacts above still show; reporting needs a signed-in member.
 		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to report a serious safety incident.", id: "SafetySignedOut")); return; }
-		if (subjectType is not null && subjectId is not null) body.Children.Add(await FormAsync());
-		var people = (await Ui.Members!.SafetyPeopleAsync()).Value ?? [];
+		if(meetingContext is not null)body.Children.Add(Ui.Text("This report includes your meeting times, venue or area and check-in status for staff review. Private feedback and trusted-contact details are excluded.","FooterClaims"));
+        if (subjectType is not null && subjectId is not null) body.Children.Add(await FormAsync());
+		body.Children.Add(Ui.Button("I’m meeting someone","MeetingSafetyOpen",()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));
+        var people = (await Ui.Members!.SafetyPeopleAsync()).Value ?? [];
 		var rows = new List<View> { Ui.Text("People you've dealt with", "SectionHeading"),
 			Ui.Text("You can report someone even after blocking or disconnecting, or if their account was deleted.", "FooterClaims") };
 		if (people.Count == 0) rows.Add(Ui.Text("No one yet.", id: "SafetyPeopleNone"));
@@ -142,8 +146,8 @@ public sealed class SafetyPage : ContentPage
 		{
 			if (picker.SelectedIndex < 0) { message.Text = "Choose what happened."; return; }
 			var result = await Ui.Members.ReportAsync(new NewReport(subjectType!, subjectId!, categories[picker.SelectedIndex].Id, text.Text, block.IsToggled,
-				police.SelectedIndex < 0 ? null : answers[police.SelectedIndex], reference.Text, chosen.Count > 0 ? [.. chosen] : null));
-			if (!result.Ok) { message.Text = "That report couldn't be sent. If you're in danger, call 000."; return; }
+				police.SelectedIndex < 0 ? null : answers[police.SelectedIndex], reference.Text, chosen.Count > 0 ? [.. chosen] : null,meetingContext));
+			if (!result.Ok) { message.Text = "That report couldn't be sent. If you're in immediate danger, contact your local emergency services."; return; }
 			(subjectType, subjectId) = (null, null);
 			await LoadAsync();
 			body.Children.Insert(1, Ui.Card(Ui.Text("Your report was sent", "SectionHeading", "SeriousDone"), Ui.Text(MemberText.SeriousPromise)));

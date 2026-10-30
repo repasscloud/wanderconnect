@@ -15,7 +15,7 @@ public static class DataExportBuilder
     private const string DeletedMember = "Deleted member";
 
     public static async Task<object> BuildAsync(SwoovrDbContext db, Account account, DateTimeOffset now, CancellationToken cancellationToken,
-        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null)
+        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null, object? meetingSafety = null)
     {
         var id = account.Id;
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
@@ -85,7 +85,7 @@ public static class DataExportBuilder
                 gender = identity.GenderId, identity.GenderDescription, identity.Pronouns, orientation = identity.OrientationId,
                 identity.ShowGender, identity.ShowOrientation, identity.ShowAge, identity.DatingShowMe,
             },
-            modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals,
+            modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals, meetingSafety,
             idVerification = verification, entitlements,
             // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
             photos = photos ?? [],

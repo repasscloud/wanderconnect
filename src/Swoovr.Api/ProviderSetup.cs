@@ -40,6 +40,11 @@ public static class ProviderSetup
             services.AddScoped<StaffConflictHistory>();
             services.AddScoped<Retention.SafetyRetention>();
             services.AddScoped<Retention.OperationalRetention>();
+            services.AddScoped<Safety.MeetingSafetyStore>();
+            services.AddScoped<Safety.MeetingSafetyContactVerification>();
+            services.AddScoped<Safety.MeetingSafetySchedule>();
+            services.AddScoped<Safety.MeetingSafetyDelivery>();
+            services.AddScoped<Safety.MeetingSafetyRetention>();
             services.AddScoped<Recovery.BackupBundle>();
             services.AddScoped<Recovery.RestoreReconciliation>();
             services.AddScoped<Retention.MessageRetention>();

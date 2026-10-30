@@ -106,6 +106,7 @@ public static class PushRegistration
         if (path.StartsWith("/chats/", StringComparison.Ordinal) && Guid.TryParse(path[7..], out var chat)) await Ui.PushAsync(new ConversationPage(chat));
         else if (path == "/connections") await Shell.Current.GoToAsync("//ConnectionsPage");
         else if (path == "/travel") await Ui.PushAsync(new TravelPage());
+        else if (path == "/me/meeting-safety") await Ui.PushAsync(new MeetingSafetyPage());
         else if (path == "/me/notices") await Ui.PushAsync(new NoticesPage());
         else if (Uri.TryCreate("https://swoovr.invalid" + path, UriKind.Absolute, out var uri) && uri.AbsolutePath.StartsWith("/people/", StringComparison.Ordinal)
             && Guid.TryParse(uri.AbsolutePath[8..], out var person))

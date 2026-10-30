@@ -160,6 +160,12 @@ public static class ModerationEndpoints
         await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
         await using var barrier = await Retention.PreservationLease.ExclusiveAsync(db, cancellationToken);
         if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
+        MeetingSafetySession? meetingContext=null;
+        if(request.MeetingSafetySessionId is{}meetingId)
+        {
+            meetingContext=await db.MeetingSafetySessions.AsNoTracking().SingleOrDefaultAsync(s=>s.Id==meetingId&&s.MemberId==me,cancellationToken);
+            if(meetingContext is null)return Problem(404,ProblemCodes.NotAvailable,"That meeting context is unavailable.");
+        }
         // Re-read all source content and eligibility only after obtaining disposal authority.
         // Resolve the subject account (its profile is gone after final deletion) and a snapshot of what the reporter saw.
         Guid? subjectId = null;
@@ -229,7 +235,7 @@ public static class ModerationEndpoints
         {
             Id = Guid.NewGuid(), ReporterAccountId = me, SubjectAccountId = subjectAccount, SubjectType = subjectType, SubjectRef = request.SubjectId.Trim(),
             CategoryId = category.Id, Priority = category.Priority, Text = Clean(request.Text), CreatedAt = now, Police = category.Serious ? request.Police : null,
-            SupportReference = SupportReference.New(),
+            SupportReference = SupportReference.New(),MeetingSafetySessionId=meetingContext?.Id,
         };
         // D190: a police reference is kept only sealed with the evidence key, and only for serious incidents.
         if (category.Serious && Clean(request.PoliceReference) is { } reference && evidenceKeys.CurrentVersion is { } version)
@@ -237,6 +243,11 @@ public static class ModerationEndpoints
         var item = await AttachAsync(db, report, subjectAccount, subject?.Employee == true, category.Serious, now, cancellationToken);
         db.CaseEvidence.Add(new CaseEvidence { Id = Guid.NewGuid(), CaseId = item.Id, ReportId = report.Id, Kind = Wire(subjectType),
             Snapshot = JsonSerializer.Serialize(snapshot, SnapshotJson), MediaIds = retainedMedia.Distinct().ToArray(), CapturedAt = now });
+        if(meetingContext is{}meeting)
+        {
+            var checkIns=await db.MeetingSafetyCheckIns.AsNoTracking().Where(c=>c.SessionId==meeting.Id).OrderBy(c=>c.DueAt).Select(c=>new{c.DueAt,c.GraceEndsAt,c.RespondedAt,c.Response,c.EscalatedAt}).ToListAsync(cancellationToken);
+            db.CaseEvidence.Add(new CaseEvidence{Id=Guid.NewGuid(),CaseId=item.Id,ReportId=report.Id,Kind="meeting-safety",MediaIds=[],CapturedAt=now,Snapshot=JsonSerializer.Serialize(new{meetingSafetySessionId=meeting.Id,meeting.StartsAt,meeting.FinalCheckInAt,meeting.TimeZoneId,meeting.VenueOrArea,status=MeetingSafetyPolicy.State(meeting.Status),meeting.ClosedAt,checkIns},SnapshotJson)});
+        }
         Audit.Record(db, now, me, "account", category.Serious ? "report.serious" : "report.created", "moderation-case", item.Id.ToString(), $"{category.Id}:{category.Priority}");
         var closed = new List<Conversation>();
         if (request.Block) await Connections.RequestEndpoints.AddBlockAsync(db, me, subjectAccount, now, cancellationToken, closed);

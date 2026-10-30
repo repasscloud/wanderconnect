@@ -22,6 +22,7 @@ public static class NotificationLinks
             => $"/people/{person}?mode={n.ModeId}",
         NotificationKind.Connection => "/connections",
         NotificationKind.Travel => "/travel",
+        NotificationKind.MeetingSafety => "/me/meeting-safety",
         _ => "/me/notices",
     };
 
@@ -207,6 +208,7 @@ public static class NotificationEndpoints
             string? title = n.Kind switch
             {
                 NotificationKind.ConversationEnded => ConversationEnding.Notification,
+                NotificationKind.MeetingSafety => "You have a meeting safety update. Open it to check in.",
                 NotificationKind.Message => n.Count > 1 ? $"{n.Count} new messages from {name}" : $"New message from {name}",
                 NotificationKind.Request => mode is null ? $"{name} sent you a request" : $"{name} sent you a {mode} request",
                 NotificationKind.Connection => mode is null ? $"{name} accepted your request" : $"{name} accepted your {mode} request",

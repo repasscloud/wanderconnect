@@ -167,6 +167,16 @@ cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build src/
 
 (In the worktree sandbox, set `JAVA_HOME`/`ANDROID_HOME` inside a script file.) Emulator `swoovr-pixel`; signing in through Chrome's custom tab under uiautomator is unreliable: record it as not run rather than looping. The owner taps through iOS: `dotnet build src/Swoovr.Mobile -f net10.0-ios && dotnet build src/Swoovr.Mobile -f net10.0-ios -t:Run` (a plain build first; `-t:Run` stays attached).
 
+## Meeting safety (owned database and Web callback)
+
+After a successful Debug build and before any further rebuild, run:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright SWOOVR_SCREENSHOTS=docs/delivery/evidence/2026-10-30-meeting-safety SWOOVR_MEETING_REGRESSIONS=1 node tests/meeting/isolated.browser.cjs
+```
+
+The runner creates/migrates a uniquely owned PostgreSQL database, starts an isolated API/worker with local Mailpit and replaces only a positively identified Web host at its registered callback. It backs up shared logs and the fictional root fixture, never rolls back its OTP counter, and restores the original main Web host/drop-owned-database in finally. The main API remains running. For the optional regression selector, Admin is also positively identified, temporarily pointed at the owned API and restored in finally. The optional regression selector runs privacy, Safety & Support, serious incidents, deletion, notifications, native-client parity and the accessibility floor serially against that owned API/Web. Every local identity is fictional; code receipt through Mailpit is not real destination ownership or external delivery. Native emergency/SMS/geolocation OS interaction and physical-device accessibility remain distinct acceptance work. For a resumed batch, `SWOOVR_MEETING_ONLY_REGRESSIONS=1` skips the already completed core flow, and `SWOOVR_MEETING_REGRESSION_START` / `SWOOVR_MEETING_REGRESSION_END` accept only exact entries from the finite suite list in the runner. The owned API imports only `tests/fixtures/geonames` public reference data before profile/discovery fixtures. The local prototype artwork fixture is explicitly enabled in Development and is separate from authenticated product evidence. Never rebuild while this runner is active.
+
 ## After testing
 
 - Record evidence and gaps in [VALIDATION.md](VALIDATION.md) and [STATUS.md](STATUS.md) (counts, what wasn't run and why).

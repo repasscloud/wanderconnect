@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.6, 29 October 2026";
+    public const string Version = "Draft 0.7, 30 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -54,6 +54,14 @@ public static class PrivacyNotice
             "If the checks aren't sure, a trained member of our team may look at the photo, for a recorded reason that is logged. Photos are stored in our private cloud storage (Cloudflare R2) and shown to others only through short-lived links, only in the modes you choose.",
             "When you delete a photo, or your account, we delete it unless a safety-review retention period or legal hold requires us to keep it. If a photo matches known child abuse material, we keep it sealed as evidence, never show it to anyone, and follow the law on reporting it.",
             "ID verification selfies and documents never go through this process; they stay with Didit.",
+        ]),
+        new("meeting-safety", "Voluntary meeting safety and trusted contacts", [
+            "Meeting safety is optional and free. You can save up to three trusted contacts, including people without Swoovr accounts. We keep their contact details encrypted and use them for invitations and safety updates, never marketing. Invitations expire after seven days; contacts must agree before receiving meeting updates and can decline or withdraw.",
+            "Incoming contact messages contain your preferred first name, a general status and links, without the meeting time or place. Your selected contacts must verify a short-lived code sent to their confirmed contact details before viewing the read-only meeting summary. It shows your approved, member-provided date, time zone, public venue or general area and check-in status, never the other participant's identity, profile, photos, messages or live location.",
+            "We keep hashes of access links, codes and read grants, and minimal consent and notification-attempt records. A protected browser cookie keeps verified read access for at most four hours, within the link's lifetime. This does not sign the contact in as a Swoovr member. Only you can mark yourself OK, home safe, end or cancel the session.",
+            "Shared links normally expire at the final expected end plus 24 hours, with a maximum of 30 days from their creation; after home safe, end or cancel, final-status access lasts up to 24 hours unless the link expires or is revoked sooner. Expired links never resume. Ordinary meeting-safety records are scheduled for deletion 30 days after final closure, unless a linked incident, safety review or legal hold requires preservation. Withdrawn or expired contact records have a separate deletion schedule and may remain while required by those records.",
+            "Optional after-meeting feedback appears only in your own member features and does not automatically change another person's reputation. It may still be accessed or preserved through lawful restricted safety or legal processes. An incident report can include meeting context without automatically notifying the person reported.",
+            "Swoovr does not monitor emergencies or dispatch responders. Missed check-ins are unconfirmed, not proof of an emergency; alerts are not guaranteed to arrive. Calling emergency services opens your device's dialler, and alerting a contact by SMS opens its composer. Opening either does not prove a call or message was sent. An optional location link is explicitly chosen and generated on your device; Swoovr receives no exact coordinates.",
         ]),
         new("holds", "Evidence we must preserve", [
             "Sometimes we must preserve information, for example after a serious safety report or a verified request from police. A legal hold keeps the records it covers in a restricted, encrypted evidence store, even if you delete your account, while the hold applies and afterwards for any applicable safety-review or police-record retention period.",

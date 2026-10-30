@@ -35,6 +35,8 @@ public sealed class Report
 {
     public Guid Id { get; set; }
     public Guid ReporterAccountId { get; set; }
+    /// <summary>Reporter-owned optional meeting context, never shared with the reported person.</summary>
+    public Guid? MeetingSafetySessionId { get; set; }
     public Guid SubjectAccountId { get; set; }
     public ReportSubject SubjectType { get; set; }
     public string SubjectRef { get; set; } = "";

@@ -3249,6 +3249,455 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("media_review_views");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyCheckIn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<DateTimeOffset?>("EscalatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("escalated_at");
+
+                    b.Property<DateTimeOffset>("GraceEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("grace_ends_at");
+
+                    b.Property<DateTimeOffset?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<string>("Response")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("response");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_check_ins");
+
+                    b.HasIndex("GraceEndsAt", "EscalatedAt")
+                        .HasDatabaseName("ix_meeting_safety_check_ins_grace_ends_at_escalated_at");
+
+                    b.HasIndex("SessionId", "DueAt")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meeting_safety_check_ins_session_id_due_at");
+
+                    b.ToTable("meeting_safety_check_ins", t =>
+                        {
+                            t.HasCheckConstraint("ck_meeting_safety_grace", "grace_ends_at=due_at+interval '30 minutes' AND (escalated_at IS NULL OR escalated_at>=grace_ends_at)");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyContactChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<byte[]>("DestinationHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("destination_hash");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_attempts");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_id");
+
+                    b.Property<DateTimeOffset?>("SupersededAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("superseded_at");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_contact_challenge");
+
+                    b.HasIndex("DestinationHash", "CreatedAt")
+                        .HasDatabaseName("ix_meeting_safety_contact_challenge_destination_hash_created_at");
+
+                    b.HasIndex("RecipientId", "CreatedAt")
+                        .HasDatabaseName("ix_meeting_safety_contact_challenge_recipient_id_created_at");
+
+                    b.ToTable("meeting_safety_contact_challenge", t =>
+                        {
+                            t.HasCheckConstraint("ck_meeting_contact_challenge", "octet_length(destination_hash)=32 AND octet_length(code_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '5 minutes' AND failed_attempts BETWEEN 0 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyContactReadGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_id");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_contact_read_grant");
+
+                    b.HasIndex("RecipientId")
+                        .HasDatabaseName("ix_meeting_safety_contact_read_grant_recipient_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meeting_safety_contact_read_grant_token_hash");
+
+                    b.ToTable("meeting_safety_contact_read_grant", t =>
+                        {
+                            t.HasCheckConstraint("ck_meeting_contact_read_grant", "octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '4 hours'");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid?>("CheckInId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("check_in_id");
+
+                    b.Property<Guid?>("CommandId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_events");
+
+                    b.HasIndex("SessionId", "CommandId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meeting_safety_events_session_id_command_id")
+                        .HasFilter("command_id IS NOT NULL");
+
+                    b.HasIndex("SessionId", "Id")
+                        .HasDatabaseName("ix_meeting_safety_events_session_id_id");
+
+                    b.ToTable("meeting_safety_events");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_id");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_links");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_meeting_safety_links_expires_at");
+
+                    b.HasIndex("RecipientId")
+                        .HasDatabaseName("ix_meeting_safety_links_recipient_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meeting_safety_links_token_hash");
+
+                    b.ToTable("meeting_safety_links", t =>
+                        {
+                            t.HasCheckConstraint("ck_meeting_safety_token", "octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '720 hours'");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyOutbox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AttemptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("attempted_at");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid?>("CheckInId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("check_in_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid?>("ContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contact_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DedupeKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("dedupe_key");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_outbox");
+
+                    b.HasIndex("DedupeKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meeting_safety_outbox_dedupe_key");
+
+                    b.HasIndex("MemberId")
+                        .HasDatabaseName("ix_meeting_safety_outbox_member_id");
+
+                    b.HasIndex("Status", "NextAttemptAt")
+                        .HasDatabaseName("ix_meeting_safety_outbox_status_next_attempt_at");
+
+                    b.ToTable("meeting_safety_outbox");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("NotificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("notification_status");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("TrustedContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trusted_contact_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_recipients");
+
+                    b.HasIndex("TrustedContactId")
+                        .HasDatabaseName("ix_meeting_safety_recipients_trusted_contact_id");
+
+                    b.HasIndex("SessionId", "TrustedContactId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meeting_safety_recipients_session_id_trusted_contact_id");
+
+                    b.ToTable("meeting_safety_recipients");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetySession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AfterPromptDismissedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("after_prompt_dismissed_at");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("FinalCheckInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("final_check_in_at");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<string>("MemberNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("member_note");
+
+                    b.Property<string>("PreferredFirstName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("preferred_first_name");
+
+                    b.Property<string>("PrivateFeedback")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("private_feedback");
+
+                    b.Property<DateTimeOffset?>("PurgeAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purge_after");
+
+                    b.Property<bool>("SharePlace")
+                        .HasColumnType("boolean")
+                        .HasColumnName("share_place");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("time_zone_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VenueOrArea")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("venue_or_area");
+
+                    b.HasKey("Id")
+                        .HasName("pk_meeting_safety_sessions");
+
+                    b.HasIndex("PurgeAfter")
+                        .HasDatabaseName("ix_meeting_safety_sessions_purge_after");
+
+                    b.HasIndex("ClosedAt", "FinalCheckInAt")
+                        .HasDatabaseName("ix_meeting_safety_sessions_closed_at_final_check_in_at");
+
+                    b.HasIndex("MemberId", "CreatedAt")
+                        .HasDatabaseName("ix_meeting_safety_sessions_member_id_created_at");
+
+                    b.ToTable("meeting_safety_sessions", t =>
+                        {
+                            t.HasCheckConstraint("ck_meeting_safety_clocks", "final_check_in_at>starts_at AND ((closed_at IS NULL AND purge_after IS NULL) OR (closed_at IS NOT NULL AND purge_after=closed_at+interval '720 hours'))");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -4723,6 +5172,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid?>("MeetingSafetySessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("meeting_safety_session_id");
+
                     b.Property<string>("Police")
                         .HasColumnType("text")
                         .HasColumnName("police");
@@ -5908,6 +6361,116 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TrustedContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("channel");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<string>("Consent")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("consent");
+
+                    b.Property<DateTimeOffset?>("ConsentRespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consent_responded_at");
+
+                    b.Property<DateTimeOffset?>("ConsentTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consent_token_expires_at");
+
+                    b.Property<byte[]>("ConsentTokenHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("consent_token_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<byte[]>("DestinationEncrypted")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("destination_encrypted");
+
+                    b.Property<byte[]>("DestinationLookupHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("destination_lookup_hash");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("InvitationStatus")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("invitation_status");
+
+                    b.Property<byte[]>("ManagementTokenHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("management_token_hash");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<string>("PreferredFirstName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("preferred_first_name");
+
+                    b.Property<DateTimeOffset?>("PurgeAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purge_after");
+
+                    b.Property<DateTimeOffset?>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("withdrawn_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_trusted_contacts");
+
+                    b.HasIndex("ConsentTokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_trusted_contacts_consent_token_hash")
+                        .HasFilter("consent_token_hash IS NOT NULL");
+
+                    b.HasIndex("DestinationLookupHash")
+                        .HasDatabaseName("ix_trusted_contacts_destination_lookup_hash");
+
+                    b.HasIndex("ManagementTokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_trusted_contacts_management_token_hash")
+                        .HasFilter("management_token_hash IS NOT NULL");
+
+                    b.HasIndex("MemberId", "CreatedAt")
+                        .HasDatabaseName("ix_trusted_contacts_member_id_created_at");
+
+                    b.ToTable("trusted_contacts", t =>
+                        {
+                            t.HasCheckConstraint("ck_trusted_contact_channel", "channel IN ('email','sms')");
+
+                            t.HasCheckConstraint("ck_trusted_contact_hash", "octet_length(destination_lookup_hash)=32 AND octet_length(destination_encrypted)>=29 AND (consent_token_hash IS NULL OR octet_length(consent_token_hash)=32) AND (management_token_hash IS NULL OR octet_length(management_token_hash)=32)");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.VerifiedIdentity", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -6452,6 +7015,73 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_media_placements_media_items_media_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyCheckIn", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MeetingSafetySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_check_ins_meeting_safety_sessions_session_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyContactChallenge", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MeetingSafetyRecipient", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_contact_challenge_meeting_safety_recipients_re~");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyContactReadGrant", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MeetingSafetyRecipient", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_contact_read_grant_meeting_safety_recipients_r~");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyEvent", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MeetingSafetySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_events_meeting_safety_sessions_session_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyLink", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MeetingSafetyRecipient", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_links_meeting_safety_recipients_recipient_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MeetingSafetyRecipient", b =>
+                {
+                    b.HasOne("Swoovr.Domain.MeetingSafetySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_recipients_meeting_safety_sessions_session_id");
+
+                    b.HasOne("Swoovr.Domain.TrustedContact", null)
+                        .WithMany()
+                        .HasForeignKey("TrustedContactId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_meeting_safety_recipients_trusted_contacts_trusted_contact_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberIdentity", b =>

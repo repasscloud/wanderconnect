@@ -37,7 +37,10 @@ public sealed class NotificationsPage : ContentPage
 		var rows = new List<View> { Ui.Text("Recent", "SectionHeading"), Ui.Text(NotificationText.Unread(centre.Unread), "FooterClaims", "NotificationsUnread") };
 		if (centre.Items.Count == 0) rows.Add(Ui.Text(NotificationText.Empty, "FooterClaims", "NotificationsEmpty"));
 		foreach (var n in centre.Items)
+        {
 			rows.Add(Ui.Text($"{(n.Read ? "" : "• ")}{n.Title} · {n.At.ToLocalTime():d MMM, HH:mm}", n.Read ? null : "TileName", $"Notification_{n.Id}"));
+            if(n.Link=="/me/meeting-safety")rows.Add(Ui.Button("Open meeting safety","MeetingNotification_"+n.Id,()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));
+        }
 		if (centre.Unread > 0) rows.Add(Ui.Button("Mark all as read", "NotificationsReadAll", async () => { await Ui.Members.ReadAllNotificationsAsync(); await LoadAsync(); }, primary: false));
 		body.Children.Add(Ui.Card([.. rows]));
 

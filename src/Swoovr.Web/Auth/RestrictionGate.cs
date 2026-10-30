@@ -12,7 +12,7 @@ namespace Swoovr.Web.Auth;
 /// </summary>
 public static class RestrictionGate
 {
-    private static readonly string[] Open = ["/account", "/me/notices", "/me/notifications", "/me/standing", "/bff", "/signin-oidc", "/signout", "/not-found", "/error", "/_framework", "/_content", "/settings"];
+    private static readonly string[] Open = ["/safety", "/me/meeting-safety", "/account", "/me/notices", "/me/notifications", "/me/standing", "/bff", "/signin-oidc", "/signout", "/not-found", "/error", "/_framework", "/_content", "/settings"];
 
     public static void UseRestrictionGate(this WebApplication app) => app.Use(async (context, next) =>
     {

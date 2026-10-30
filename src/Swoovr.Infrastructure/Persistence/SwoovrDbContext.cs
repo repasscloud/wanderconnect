@@ -14,6 +14,13 @@ namespace Swoovr.Infrastructure.Persistence;
 /// </summary>
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
 {
+    public DbSet<TrustedContact> TrustedContacts => Set<TrustedContact>();
+    public DbSet<MeetingSafetySession> MeetingSafetySessions => Set<MeetingSafetySession>();
+    public DbSet<MeetingSafetyRecipient> MeetingSafetyRecipients => Set<MeetingSafetyRecipient>();
+    public DbSet<MeetingSafetyLink> MeetingSafetyLinks => Set<MeetingSafetyLink>();
+    public DbSet<MeetingSafetyCheckIn> MeetingSafetyCheckIns => Set<MeetingSafetyCheckIn>();
+    public DbSet<MeetingSafetyEvent> MeetingSafetyEvents => Set<MeetingSafetyEvent>();
+    public DbSet<MeetingSafetyOutbox> MeetingSafetyOutbox => Set<MeetingSafetyOutbox>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<EmailRetirementOperation> EmailRetirementOperations => Set<EmailRetirementOperation>();
     public DbSet<EmailRetirementReview> EmailRetirementReviews => Set<EmailRetirementReview>();
@@ -938,6 +945,62 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             // One live enrolment per address; a revoked one can be added again later.
             enrolment.HasIndex(e => e.Email).IsUnique().HasFilter("revoked_at IS NULL");
             enrolment.HasIndex(e => e.AccountId);
+        });
+        model.Entity<TrustedContact>(c=>
+        {
+            c.Property(x=>x.DisplayName).HasMaxLength(80);c.Property(x=>x.PreferredFirstName).HasMaxLength(50);c.Property(x=>x.Channel).HasMaxLength(8);c.Property(x=>x.InvitationStatus).HasMaxLength(24);
+            c.ToTable(t=>{t.HasCheckConstraint("ck_trusted_contact_hash","octet_length(destination_lookup_hash)=32 AND octet_length(destination_encrypted)>=29 AND (consent_token_hash IS NULL OR octet_length(consent_token_hash)=32) AND (management_token_hash IS NULL OR octet_length(management_token_hash)=32)");t.HasCheckConstraint("ck_trusted_contact_channel","channel IN ('email','sms')");});
+            c.HasIndex(x=>new{x.MemberId,x.CreatedAt});c.HasIndex(x=>x.DestinationLookupHash);
+            c.HasIndex(x=>x.ConsentTokenHash).IsUnique().HasFilter("consent_token_hash IS NOT NULL");
+            c.HasIndex(x=>x.ManagementTokenHash).IsUnique().HasFilter("management_token_hash IS NOT NULL");
+        });
+        model.Entity<MeetingSafetySession>(s=>
+        {
+            s.Property(x=>x.PreferredFirstName).HasMaxLength(50);s.Property(x=>x.TimeZoneId).HasMaxLength(100);
+            s.Property(x=>x.VenueOrArea).HasMaxLength(160);s.Property(x=>x.MemberNote).HasMaxLength(500);s.Property(x=>x.PrivateFeedback).HasMaxLength(1000);
+            s.ToTable(t=>t.HasCheckConstraint("ck_meeting_safety_clocks","final_check_in_at>starts_at AND ((closed_at IS NULL AND purge_after IS NULL) OR (closed_at IS NOT NULL AND purge_after=closed_at+interval '720 hours'))"));
+            s.HasIndex(x=>new{x.MemberId,x.CreatedAt});s.HasIndex(x=>new{x.ClosedAt,x.FinalCheckInAt});s.HasIndex(x=>x.PurgeAfter);
+        });
+        model.Entity<MeetingSafetyRecipient>(r=>
+        {
+            r.HasIndex(x=>new{x.SessionId,x.TrustedContactId}).IsUnique();r.Property(x=>x.NotificationStatus).HasMaxLength(24);
+            r.HasOne<MeetingSafetySession>().WithMany().HasForeignKey(x=>x.SessionId).OnDelete(DeleteBehavior.Cascade);
+            r.HasOne<TrustedContact>().WithMany().HasForeignKey(x=>x.TrustedContactId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<MeetingSafetyLink>(l=>
+        {
+            l.ToTable(t=>t.HasCheckConstraint("ck_meeting_safety_token","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '720 hours'"));
+            l.HasIndex(x=>x.TokenHash).IsUnique();l.HasIndex(x=>x.ExpiresAt);
+            l.HasOne<MeetingSafetyRecipient>().WithMany().HasForeignKey(x=>x.RecipientId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MeetingSafetyCheckIn>(c=>
+        {
+            c.ToTable(t=>t.HasCheckConstraint("ck_meeting_safety_grace","grace_ends_at=due_at+interval '30 minutes' AND (escalated_at IS NULL OR escalated_at>=grace_ends_at)"));
+            c.Property(x=>x.Response).HasMaxLength(24);c.HasIndex(x=>new{x.SessionId,x.DueAt}).IsUnique();c.HasIndex(x=>new{x.GraceEndsAt,x.EscalatedAt});
+            c.HasOne<MeetingSafetySession>().WithMany().HasForeignKey(x=>x.SessionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MeetingSafetyEvent>(e=>
+        {
+            e.Property(x=>x.Kind).HasMaxLength(32);e.HasIndex(x=>new{x.SessionId,x.Id});
+            e.HasIndex(x=>new{x.SessionId,x.CommandId}).IsUnique().HasFilter("command_id IS NOT NULL");
+            e.HasOne<MeetingSafetySession>().WithMany().HasForeignKey(x=>x.SessionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MeetingSafetyOutbox>(o=>
+        {
+            o.Property(x=>x.Kind).HasMaxLength(32);o.Property(x=>x.Status).HasMaxLength(24);o.Property(x=>x.DedupeKey).HasMaxLength(200);
+            o.HasIndex(x=>x.DedupeKey).IsUnique();o.HasIndex(x=>new{x.Status,x.NextAttemptAt});o.HasIndex(x=>x.MemberId);
+        });
+        model.Entity<MeetingSafetyContactChallenge>(c=>
+        {
+            c.HasOne<MeetingSafetyRecipient>().WithMany().HasForeignKey(x=>x.RecipientId).OnDelete(DeleteBehavior.Cascade);
+            c.HasIndex(x=>new{x.RecipientId,x.CreatedAt});c.HasIndex(x=>new{x.DestinationHash,x.CreatedAt});
+            c.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_challenge","octet_length(destination_hash)=32 AND octet_length(code_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '5 minutes' AND failed_attempts BETWEEN 0 AND 5"));
+        });
+        model.Entity<MeetingSafetyContactReadGrant>(g=>
+        {
+            g.HasOne<MeetingSafetyRecipient>().WithMany().HasForeignKey(x=>x.RecipientId).OnDelete(DeleteBehavior.Cascade);
+            g.HasIndex(x=>x.TokenHash).IsUnique();g.HasIndex(x=>x.RecipientId);
+            g.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_read_grant","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '4 hours'"));
         });
         model.Entity<AuditEntry>(audit =>
         {

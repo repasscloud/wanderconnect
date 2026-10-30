@@ -1,0 +1,56 @@
+// Owned API/database and registered web callback. Restores the positively identified original Web checkout.
+const {execFile,spawn}=require('node:child_process'),{once}=require('node:events');
+const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),net=require('node:net'),crypto=require('node:crypto');
+const {sql,localEnv}=require('../auth/local-tokens.cjs');
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const run=(command,args,options={})=>new Promise((resolve,reject)=>execFile(command,args,options,(error,out,err)=>error?reject(new Error(command+' failed: '+err.slice(-1000))):resolve(out.trim())));
+(async()=>{
+ const root=process.cwd(),database='swoovr_registry_ui_'+crypto.randomUUID().replaceAll('-','');
+ const folder=await fs.mkdtemp(path.join(os.tmpdir(),'swoovr-meeting-ui-'));await fs.chmod(folder,0o700);
+ const backup=path.join(root,'.local/log-backups','meeting-ui-'+new Date().toISOString().replaceAll(/[-:.]/g,''));await fs.mkdir(backup,{recursive:true,mode:0o700});
+ const preserve=async phase=>{for(const name of ['api','web','admin'])try{await fs.copyFile('.local/logs/'+name+'.log',path.join(backup,phase+'-'+name+'.log'));await fs.chmod(path.join(backup,phase+'-'+name+'.log'),0o600);}catch(error){if(error.code!=='ENOENT')throw error;}};
+ await preserve('before');await fs.copyFile('.local/swoovr-root-admin.json',path.join(backup,'swoovr-root-admin.json'));await fs.chmod(path.join(backup,'swoovr-root-admin.json'),0o600);
+ const probe=net.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const base='http://127.0.0.1:'+probe.address().port;await new Promise(resolve=>probe.close(resolve));
+ const webEnv={...process.env,DOTNET_ENVIRONMENT:'Development',ASPNETCORE_ENVIRONMENT:'Development',ASPNETCORE_URLS:'http://localhost:5081',Keycloak__Authority:'http://localhost:8180/realms/swoovr-members-dev',Keycloak__ClientSecret:await localEnv('SWOOVR_MEMBERS_WEB_SECRET'),Keycloak__RequireHttpsMetadata:'false',Api__BaseUrl:base+'/',Prototype__Enabled:'true',Prototype__ApiBaseUrl:base+'/'};
+ const env={...process.env,DOTNET_ENVIRONMENT:'Development',ASPNETCORE_ENVIRONMENT:'Development',ASPNETCORE_URLS:base,
+  ConnectionStrings__Swoovr:`Host=127.0.0.1;Port=5433;Database=${database};Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`,
+  Founders__Secrets__1:await localEnv('SWOOVR_FOUNDER_SECRET_V1'),MemberAdmin__ClientSecret:await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET'),Beta__Enabled:'true',Phone__Required:'false',Staff__LocalPasswords:'true',Accounts__ReauthSeconds:'45',Moderation__EscalationEmail:await localEnv('SWOOVR_ESCALATION_EMAIL'),Moderation__EscalationBackupEmail:await localEnv('SWOOVR_ESCALATION_BACKUP_EMAIL'),
+  MeetingSafety__Enabled:'true',MeetingSafety__Worker:'true',MeetingSafety__PublicBaseUrl:'http://localhost:5081/',Email__Smtp__Host:'127.0.0.1',Email__Smtp__Port:'1025',Media__Store:'local',Media__Local__Path:path.join(folder,'media'),Media__Screening__Worker:'false',Retention__Worker:'false'};
+ const apiDir=path.join(root,'src/Swoovr.Api'),webDir=path.join(root,'src/Swoovr.Web'),apiDll=path.join(apiDir,'bin/Debug/net10.0/Swoovr.Api.dll'),webDll=path.join(webDir,'bin/Debug/net10.0/Swoovr.Web.dll');
+ let apiHost,webHost,adminHost,created=false,replaced=false,adminReplaced=false,restoreRoot=root,restoreAdminRoot=root;
+ const start=async(command,cwd,settings,log)=>{const file=await fs.open(log,'w',0o600);const child=spawn('dotnet',Array.isArray(command)?command:[command],{cwd,env:settings,stdio:['ignore',file.fd,file.fd],detached:true});await file.close();return child;};
+ const stop=async child=>{if(!child||child.exitCode!==null||child.signalCode!==null)return;const exited=once(child,'exit');process.kill(-child.pid,'SIGTERM');await Promise.race([exited,sleep(5000)]);if(child.exitCode===null&&child.signalCode===null){process.kill(-child.pid,'SIGKILL');await exited;}};
+ const healthy=async(url,child)=>{for(let n=0;n<150;n++){if(child.exitCode!==null||child.signalCode!==null)throw new Error('Owned meeting host exited before readiness.');try{if((await fetch(url,{signal:AbortSignal.timeout(1000)})).ok)return;}catch{}await sleep(100);}throw new Error('Owned meeting readiness timeout.');};
+ try{
+  await sql('CREATE DATABASE '+database);created=true;await run('dotnet',[apiDll,'migrate'],{cwd:apiDir,env});await run('dotnet',[apiDll,'geonames','import',path.join(root,'tests/fixtures/geonames')],{cwd:apiDir,env});apiHost=await start(apiDll,apiDir,env,path.join(folder,'api.log'));await healthy(base+'/health/live',apiHost);
+  const mainRoot=path.dirname(await fs.realpath(path.join(root,'.local'))),allowed=new Set([webDir,path.join(mainRoot,'src/Swoovr.Web')]);
+  const listeners=[...new Set((await run('lsof',['-tiTCP:5081','-sTCP:LISTEN'])).split('\n'))],owners=new Set();
+  for(const id of listeners){const cwd=(await run('lsof',['-a','-p',id,'-d','cwd','-Fn'])).split('\n').find(line=>line.startsWith('n'))?.slice(1);if(!allowed.has(cwd))throw Error('Web listener ownership refused.');owners.add(path.dirname(path.dirname(cwd)));}
+  if(owners.size!==1)throw Error('Mixed Web listener checkouts refused.');restoreRoot=[...owners][0];replaced=true;for(const id of listeners)try{process.kill(Number(id),'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}
+  await sleep(1000);webHost=await start(webDll,webDir,webEnv,path.join(folder,'web.log'));await healthy('http://localhost:5081/safety',webHost);
+  if(process.env.SWOOVR_MEETING_ONLY_REGRESSIONS!=='1')console.log(await run('node',['tests/meeting/flow.browser.cjs'],{cwd:root,env:{...env,SWOOVR_TEST_API_BASE:base,SWOOVR_TEST_APP_DATABASE:database,SWOOVR_MEETING_OWNED_LOGS:folder},maxBuffer:1024*1024}));
+  if(process.env.SWOOVR_MEETING_REGRESSIONS==='1'){
+   const settings={...env,SWOOVR_TEST_API_BASE:base,SWOOVR_TEST_APP_DATABASE:database};
+   const bootstrap="(async()=>{const h=require('./tests/auth/local-tokens.cjs'),{chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH);const edge=await require('./tests/auth/managed-edge.cjs').managedEdge(chromium);try{const t=await h.rootAdminToken(edge.browser);await h.call(t,'/api/session');await h.cli('root-admin','grant',h.claims(t).sub);}finally{await edge.close();}})().catch(()=>process.exitCode=1)";
+   await run('node',['-e',bootstrap],{cwd:root,env:settings});
+   const mainRoot=path.dirname(await fs.realpath(path.join(root,'.local'))),adminDir=path.join(root,'src/Swoovr.Admin'),allowed=new Set([adminDir,path.join(mainRoot,'src/Swoovr.Admin')]);
+   const listeners=[...new Set((await run('lsof',['-tiTCP:5082','-sTCP:LISTEN'])).split('\n'))],owners=new Set();
+   for(const id of listeners){const cwd=(await run('lsof',['-a','-p',id,'-d','cwd','-Fn'])).split('\n').find(line=>line.startsWith('n'))?.slice(1);if(!allowed.has(cwd))throw Error('Admin listener ownership refused.');owners.add(path.dirname(path.dirname(cwd)));}
+   if(owners.size!==1)throw Error('Mixed Admin listener checkouts refused.');restoreAdminRoot=[...owners][0];adminReplaced=true;
+   for(const id of listeners)try{process.kill(Number(id),'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}
+   await sleep(1000);adminHost=await start(path.join(adminDir,'bin/Debug/net10.0/Swoovr.Admin.dll'),adminDir,{...webEnv,ASPNETCORE_URLS:'http://localhost:5082',Keycloak__Authority:'http://localhost:8180/realms/swoovr-staff-dev',Keycloak__ClientSecret:await localEnv('SWOOVR_STAFF_WEB_SECRET')},path.join(folder,'admin.log'));await healthy('http://localhost:5082/signed-out',adminHost);
+
+   const suites=['tests/privacy/notice.browser.cjs','tests/safety/resources.browser.cjs','tests/moderation/serious.browser.cjs','tests/accounts/deletion.browser.cjs','tests/notifications/notifications.browser.cjs','tests/mobile/app-parity.browser.cjs','tests/accessibility/pages.browser.cjs'];
+   const from=process.env.SWOOVR_MEETING_REGRESSION_START;const first=from?suites.findIndex(s=>s===from):0;if(first<0)throw Error('Unknown owned regression start selector.');
+   const through=process.env.SWOOVR_MEETING_REGRESSION_END;const last=through?suites.findIndex(s=>s===through):suites.length-1;if(last<first)throw Error('Unknown or reversed owned regression end selector.');
+   for(const suite of suites.slice(first,last+1))
+    console.log(await run('node',[suite],{cwd:root,env:settings,maxBuffer:1024*1024}));
+  }
+
+ }finally{
+  await stop(adminHost);await stop(webHost);await stop(apiHost);for(const name of ['api','web','admin'])try{await fs.copyFile(path.join(folder,name+'.log'),path.join(backup,'owned-'+name+'.log'));await fs.chmod(path.join(backup,'owned-'+name+'.log'),0o600);}catch(error){if(error.code!=='ENOENT')throw error;}
+  if(replaced){await preserve('before-main-restore');const restored=await start(['run','--project','src/Swoovr.Web','--no-build','--no-launch-profile'],restoreRoot,{...webEnv,Api__BaseUrl:'http://127.0.0.1:5080/',Prototype__Enabled:'true',Prototype__ApiBaseUrl:'http://127.0.0.1:5080/'},path.join(root,'.local/logs/web.log'));restored.unref();await healthy('http://localhost:5081/safety',restored);}
+  if(adminReplaced){const restored=await start(['run','--project','src/Swoovr.Admin','--no-build','--no-launch-profile'],restoreAdminRoot,{...webEnv,ASPNETCORE_URLS:'http://localhost:5082',Keycloak__Authority:'http://localhost:8180/realms/swoovr-staff-dev',Keycloak__ClientSecret:await localEnv('SWOOVR_STAFF_WEB_SECRET'),Api__BaseUrl:'http://127.0.0.1:5080/'},path.join(root,'.local/logs/admin.log'));restored.unref();await healthy('http://localhost:5082/signed-out',restored);}
+  if(created)await sql('DROP DATABASE '+database+' WITH (FORCE)');await fs.rm(folder,{recursive:true,force:true});console.log('CLEANUP: owned meeting database/API removed; original Web checkout restored. Private logs: '+backup);
+ }
+})().catch(error=>{console.error(error);process.exitCode=1});

@@ -5,7 +5,7 @@ python3 scripts/check_naming.py
 python3 -m unittest discover -s tests/backups -p 'test_*.py'
 python3 scripts/check_design.py --check
 python3 scripts/keycloak_realms.py
-node --test tests/auth-harness/*.test.mjs tests/appearance/*.test.cjs
+node --test tests/auth-harness/*.test.mjs tests/appearance/*.test.cjs tests/meeting/*.test.cjs
 dotnet restore Swoovr.Local.sln --ignore-failed-sources -p:NuGetAudit=false
 dotnet build Swoovr.Local.sln --no-restore --configuration Release
 # Persistence checks use the local PostgreSQL container when it is running (./scripts/docker-local.sh up);

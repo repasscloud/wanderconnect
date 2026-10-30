@@ -326,6 +326,14 @@ public sealed class MemberClient(HttpClient transport)
         using (var response = await http.SendAsync(request, cancellationToken)) return (int)response.StatusCode;
     }
 
+    public Task<ApiResult<MeetingSafetyDashboard>> MeetingSafetyAsync(CancellationToken token=default)=>SendAsync<MeetingSafetyDashboard>(new(HttpMethod.Get,"api/me/meeting-safety"),token);
+    public Task<ApiResult<TrustedContactView>> AddTrustedContactAsync(TrustedContactAdd request,CancellationToken token=default)=>SendAsync<TrustedContactView>(new(HttpMethod.Post,"api/me/meeting-safety/contacts"){Content=JsonContent.Create(request)},token);
+    public Task<ApiResult<Dictionary<string,bool>>> RemoveTrustedContactAsync(Guid id,CancellationToken token=default)=>SendAsync<Dictionary<string,bool>>(new(HttpMethod.Delete,$"api/me/meeting-safety/contacts/{id}"),token);
+    public Task<ApiResult<Dictionary<string,bool>>> ResendTrustedContactAsync(Guid id,CancellationToken token=default)=>SendAsync<Dictionary<string,bool>>(new(HttpMethod.Post,$"api/me/meeting-safety/contacts/{id}/resend"),token);
+    public Task<ApiResult<TrustedContactCompose>> TrustedContactComposeAsync(Guid id,CancellationToken token=default)=>SendAsync<TrustedContactCompose>(new(HttpMethod.Get,$"api/me/meeting-safety/contacts/{id}/compose"),token);
+    public Task<ApiResult<MeetingSafetySessionView>> StartMeetingSafetyAsync(MeetingSafetyCreate request,CancellationToken token=default)=>SendAsync<MeetingSafetySessionView>(new(HttpMethod.Post,"api/me/meeting-safety/sessions"){Content=JsonContent.Create(request)},token);
+    public Task<ApiResult<MeetingSafetySessionView>> MeetingSafetyActionAsync(Guid session,MeetingSafetyAction request,CancellationToken token=default)=>SendAsync<MeetingSafetySessionView>(new(HttpMethod.Post,$"api/me/meeting-safety/sessions/{session}/actions"){Content=JsonContent.Create(request)},token);
+
     private async Task<ApiResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         using (request)

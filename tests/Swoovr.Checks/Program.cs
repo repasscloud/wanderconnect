@@ -10,6 +10,8 @@ if(args is ["--contact-provider-probe"])
     return;
 }
 
+MeetingSafetyChecks.Run();
+MeetingSafetyContactAccessChecks.Run();
 BannedIdentifierChecks.Run();
 FallbackKeyChecks.Run();
 ApiContractChecks.Run();
