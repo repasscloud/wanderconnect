@@ -10,6 +10,7 @@ builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.W
 // Static SSR for public and sign-in pages; signed-in features as Interactive WebAssembly only (D59).
 builder.Services.AddRateLimiter(options=>{options.RejectionStatusCode=429;options.OnRejected=async(context,token)=>{context.HttpContext.Response.ContentType="text/html; charset=utf-8";await context.HttpContext.Response.WriteAsync("<!doctype html><html lang=\"en\"><title>Meeting safety — Swoovr</title><h1>Too many requests</h1><p>Please wait before trying this private link again.</p></html>",token);};options.AddPolicy("meeting-safety-pages",http=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=30,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
 builder.Services.AddRazorComponents().AddInteractiveWebAssemblyComponents();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient<Swoovr.Client.PrototypeClient>(http => {
     http.BaseAddress = new Uri(builder.Configuration["Prototype:ApiBaseUrl"] ?? "http://127.0.0.1:5080/");
     http.Timeout = TimeSpan.FromSeconds(5);
@@ -43,6 +44,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.Use(async(context,next)=>{if(context.User.Identity?.IsAuthenticated==true)context.Response.OnStarting(()=>{if(context.Response.ContentType?.StartsWith("text/html",StringComparison.OrdinalIgnoreCase)==true)context.Response.Headers.CacheControl="private, no-store";return Task.CompletedTask;});await next(context);});
 MeetingSafetyPages.UsePrivacy(app);
 app.UseRateLimiter();
 app.UseAntiforgery();

@@ -4,6 +4,8 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--appearance-client-checks"]){AppearanceSyncChecks.Run();AppearanceCacheChecks.Run();await AppearanceClientChecks.Run();await AppearanceCoordinatorChecks.Run();return;}
+
 if(args is ["--mailersend-checks"]){await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});return;}
 
 if(args is ["--contact-provider-probe"])
@@ -68,6 +70,7 @@ PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
 AppearanceCacheChecks.Run();
 await AppearanceClientChecks.Run();
+await AppearanceCoordinatorChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
 await NativeSignInChecks.Run();

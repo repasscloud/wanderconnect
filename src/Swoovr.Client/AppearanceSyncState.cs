@@ -14,7 +14,8 @@ public sealed record AppearanceSaveAttempt(Guid Activation, AppearanceUpdate Upd
 
 /// <summary>Owner-scoped storage is a UI responsibility. Persist as exact JSON text so64-bit revisions are not converted to JS numbers.</summary>
 public sealed record AppearanceAccountCache(AppearancePreference Current,AppearanceSnapshot? Baseline,AppearanceUpdate? Pending,
-    AppearanceSnapshot? Conflict=null,bool ExplicitSaveRequired=false,bool NormalizedConflict=false);
+    AppearanceSnapshot? Conflict=null,bool ExplicitSaveRequired=false,bool NormalizedConflict=false,Guid? CompletedChangeId=null)
+{public string BaselineRevision=>(Baseline?.Revision??0).ToString(System.Globalization.CultureInfo.InvariantCulture);}
 
 /// <summary>
 /// Pure state for one client UI thread. No HTTP, storage or authentication implementation.
@@ -30,6 +31,7 @@ public sealed class AppearanceSyncState
     private Guid activation;
     private bool normalizedConflict;
     private bool explicitSaveRequired;
+    private Guid? completedChangeId;
     public AppearancePreference Current { get; private set; }
     public bool IsLoading { get; private set; }
     public bool IsRevisionExhausted => server?.Revision == long.MaxValue;
@@ -48,7 +50,7 @@ public sealed class AppearanceSyncState
     {
         activation = Guid.NewGuid();
         server = null; inFlight = null; Conflict = null;
-        normalizedConflict = false; explicitSaveRequired = false;
+        normalizedConflict = false; explicitSaveRequired = false;completedChangeId=null;
         IsLoading = true;
         Current = AppearancePreferences.Default;
         if(ValidCache(cache))
@@ -57,7 +59,7 @@ public sealed class AppearanceSyncState
             Current=cache.Current;
             Conflict=cache.Conflict is{}conflict?Normalize(conflict):null;
             normalizedConflict=cache.NormalizedConflict;
-            explicitSaveRequired=cache.ExplicitSaveRequired;
+            explicitSaveRequired=cache.ExplicitSaveRequired;completedChangeId=cache.CompletedChangeId;
             inFlight=cache.Pending is{}pending?new(activation,pending):null;
             IsLoading=false;
         }
@@ -74,7 +76,7 @@ public sealed class AppearanceSyncState
         return true;
     }
 
-    public AppearanceAccountCache? ExportCache()=>activation==Guid.Empty||IsLoading?null:new(Current,server,inFlight?.Update,Conflict,explicitSaveRequired,normalizedConflict);
+    public AppearanceAccountCache? ExportCache()=>activation==Guid.Empty||IsLoading?null:new(Current,server,inFlight?.Update,Conflict,explicitSaveRequired,normalizedConflict,completedChangeId);
 
     /// <summary>Refreshing a clean cached baseline must never overwrite an edit made while HTTP was in flight.</summary>
     public bool RefreshAccount(Guid ticket,AppearanceSnapshot? snapshot)
@@ -114,6 +116,7 @@ public sealed class AppearanceSyncState
             || snapshot.Revision != attempt.Update.ExpectedRevision + 1
             || snapshot.Preference != attempt.Update.Preference) return false;
         server = snapshot;
+        completedChangeId=attempt.Update.ChangeId;
         inFlight = null;
         explicitSaveRequired = false;
         // Never assign Current here: an explicit newer selection must survive the response.
@@ -126,6 +129,7 @@ public sealed class AppearanceSyncState
             || snapshot.Revision <= attempt.Update.ExpectedRevision) return false;
         normalizedConflict = !AppearancePreferences.IsValid(snapshot.Preference);
         Conflict = Normalize(snapshot);
+        completedChangeId=attempt.Update.ChangeId;
         inFlight = null;
         return true;
     }
@@ -146,7 +150,7 @@ public sealed class AppearanceSyncState
     {
         activation = Guid.Empty;
         server = null; inFlight = null; Conflict = null;
-        normalizedConflict = false; explicitSaveRequired = false;
+        normalizedConflict = false; explicitSaveRequired = false;completedChangeId=null;
         IsLoading = false;
         Current = guest;
     }

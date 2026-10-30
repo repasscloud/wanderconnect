@@ -8,7 +8,7 @@ namespace Swoovr.Client;
 public static class PrivacyNotice
 {
     public const string DraftLabel = "DRAFT — not yet reviewed by our lawyers and not in force. It describes how the Swoovr prototype handles information today.";
-    public const string Version = "Draft 0.15, 31 October 2026";
+    public const string Version = "Draft 0.16, 31 October 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -72,6 +72,7 @@ public static class PrivacyNotice
             "Explicitly published safety updates can appear in your notification centre. The ordinary delivery queue and minimal per-member receipt expire after 60 days, unless preservation requires longer, including when the profile has already been deleted. We keep a version disposition without member or operator identifiers to prevent accidental reuse. These notices do not send email or push. Reading educational safety advice does not create a new acknowledgement or consent record.",
         ]),
         new("appearance", "Your appearance preferences", [
+            "The browser or app also keeps an account-scoped copy and unsynced choices on your device so appearance can work offline. Signing out clears that account copy and restores the separate guest choice. Conflicting account changes require a choice before replacing either version. Device storage can be unavailable; in that case a choice may last only for the current visit.",
             "We can keep your colour scheme and requested System, Light or Dark display mode with your account, together with a revision, last-change identifier and update time so changes do not silently overwrite one another. This changes only your own interface and is not shown on your profile or to other members.",
             "Appearance is free. We do not use a scheme to infer identity, gender, sexuality or intentions, or to change matching, visibility, permissions or benefits. Account preferences are included in your own data export and erased at final account deletion; required independent encrypted evidence can remain under the separate preservation rules.",
         ]),

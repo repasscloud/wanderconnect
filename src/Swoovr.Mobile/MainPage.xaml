@@ -7,6 +7,7 @@
         <VerticalStackLayout Padding="24,30" Spacing="16">
             <Label x:Name="Heading" Text="Swoovr" Style="{StaticResource PageTitle}" SemanticProperties.HeadingLevel="Level1" />
             <Label x:Name="Intro" Style="{StaticResource Subtitle}" />
+            <Button Text="Appearance" AutomationId="Appearance" Style="{StaticResource SecondaryButton}" Clicked="OnAppearance" />
             <Label x:Name="Status" AutomationId="Status" IsVisible="False" />
 
             <VerticalStackLayout x:Name="SignedOutPanel" Spacing="12" IsVisible="False">

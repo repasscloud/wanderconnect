@@ -1,6 +1,8 @@
 @inject NavigationManager Navigation
+@inject IHttpContextAccessor Http
+@inject IConfiguration Configuration
 <!DOCTYPE html>
-<html lang="en" data-scheme="standard" data-theme="light">
+<html lang="en" data-scheme="standard" data-theme="light" data-appearance-owner="@Swoovr.Web.Auth.AppearancePageIdentity.Scope(Http.HttpContext?.User,Configuration)">
 
 <head>
     <meta charset="utf-8" />
@@ -8,6 +10,8 @@
     <base href="/" />
     <script src="@Assets["appearance-palettes.js"]"></script>
     <script src="@Assets["appearance-core.js"]"></script>
+    <script src="@Assets["appearance-account-core.js"]"></script>
+    <script src="@Assets["appearance-account.js"]"></script>
     <script src="@Assets["appearance-bootstrap.js"]"></script>
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["themes.css"]" />

@@ -43,6 +43,7 @@ public partial class MainPage : ContentPage
 		catch (HttpRequestException) { }
 		catch (TaskCanceledException) { }
 		ShowAccount(session, me);
+        await NativeAppearance.EnsureAccountAsync(Auth);
 	}
 
 	private void ShowSignedOut(string? message)
@@ -156,6 +157,7 @@ public partial class MainPage : ContentPage
 	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());
 	private async void OnTerms(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("terms"));
 	private async void OnCommunity(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("community"));
+    private async void OnAppearance(object? sender,EventArgs e)=>await Ui.PushAsync(new AppearancePage());
 	private async void OnPrivacy(object? sender, EventArgs e) => await Ui.PushAsync(new PrivacyPage());
 	private async void OnPhone(object? sender, EventArgs e) => await Ui.PushAsync(new PhonePage());
 

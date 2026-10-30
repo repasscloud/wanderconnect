@@ -1,10 +1,18 @@
 @page "/settings/appearance"
+@inject IHttpContextAccessor Http
+@inject IConfiguration Configuration
 <PageTitle>Appearance — Swoovr</PageTitle>
 <div class="page-heading">
     <p class="breadcrumb"><a href="/">Me</a> / Settings</p>
     <h1>Make yourself at home.</h1>
     <p>Choose the colours you want to spend time with. This changes your view, wherever the conversation goes.</p>
 </div>
+@if(owner is not null)
+{
+    <AppearanceAccountPanel Owner="@owner" @rendermode="new InteractiveWebAssemblyRenderMode(prerender:false)" />
+}
+else
+{
 <form data-appearance-settings class="appearance-layout">
     <div class="settings-controls">
         <fieldset disabled>
@@ -57,7 +65,9 @@
         <p class="field-help">Your choice stays personal. Other people see their own colours.</p>
     </aside>
 </form>
+}
 @code {
+    private string? owner=>Swoovr.Web.Auth.AppearancePageIdentity.Scope(Http.HttpContext?.User,Configuration);
     private static readonly (string Id, string Name, string Group)[] Schemes = [
         ("standard", "Standard", "Core"), ("lounge", "Lounge", "Core"),
         ("pride", "Pride", "Community"), ("trans", "Trans", "Community"), ("union", "Union Jack", "Community"),

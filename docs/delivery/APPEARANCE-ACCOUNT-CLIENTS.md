@@ -1,0 +1,13 @@
+# Account appearance clients
+
+D278, CONFIRMED requirements from issue27 and D21; implementation defaults below. Public guest appearance remains available without sign-in. The eight schemes and System/Light/Dark modes originate in read-only design JSON. Generated native palettes and browser palettes use the same values; badge/status colours retain their independent meaning.
+
+Signed-in web settings use the existing WebAssembly client without prerendering account preferences. The HTML carries only an opaque owner namespace derived from the authenticated cookie, is private/no-store, and never embeds an access token. A separate account cache applies before styles; guest preferences remain separate. MAUI uses the same portable coordinator with device preferences and dynamic personal palette resources. Local JWT field parsing namespaces a cosmetic cache only; Keycloak/server authentication continues to authorise every request.
+
+DEFAULT: device caches keep exact serialized state, including revision, baseline, pending change ID and explicit conflict. A definite acknowledgement clears only its own retry. A newer local edit remains pending after an older acknowledgement. Uncertain transport failures keep the same change ID for retry. The UI applies local choices immediately; a known conflicting account change requires an explicit local/account choice. Expired authentication preserves unsynced state while requesting sign-in; confirmed logout or a different authenticated owner clears the old account cache and restores the guest choice. Blocked storage is an explicit current-visit fallback.
+
+The browser rejects stale automatic cache writes and clears account state on logout, owner change and cross-tab removal. It never writes an account choice into the guest key. Clean cross-tab updates avoid repeated equivalent storage writes. Native connectivity events retry only through the existing session check. Neither cache content nor the owner header grants permissions or affects matching.
+
+Native build and UI evidence, actual browser suite results and any gaps belong in VALIDATION.md. A compiled iOS simulator build is not an iOS UI/device verification. Hosted native endpoint configuration remains in the finite UAT preparation slice. CSP remains tracked by issue27 until that slice is complete.
+
+Runtime reference: [MAUI RadioButton appearance properties](https://learn.microsoft.com/dotnet/maui/user-interface/controls/radiobutton?view=net-maui-10.0). Android keeps native radio semantics while explicitly applying the personal surface/text colours and selection tint; actual dark UI inspection is required because compilation does not establish contrast.
