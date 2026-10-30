@@ -97,7 +97,14 @@ public static partial class RegistryAdminEndpoints
             return Results.Ok(new IdentifierWorkflowResult(changed));
         });
         api.MapPost("/{id:guid}/retire-mobile",RetireMobileAsync);
+        api.MapGet("/email-retirement-availability",async(ClaimsPrincipal user,AccountResolver accounts,IContactIdentityAdmin provider,TimeProvider clock,HttpContext http,CancellationToken token)=>
+        {
+            http.Response.Headers.CacheControl="no-store";
+            var(_,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,clock.GetUtcNow(),token);
+            return denied??Results.Ok(new EmailRetirementAvailability(provider.ContactRetirementConfigured));
+        });
         api.MapPost("/{id:guid}/retire-email",RetireEmailAsync);
+        api.MapPost("/{id:guid}/email-retirement/review",ReviewEmailAsync);
         api.MapGet("/{id:guid}/email-retirement",EmailRetirementAsync);
         app.MapGet("/api/admin/accounts/{id:guid}/reinstatement",PreviewAsync).RequireAuthorization();
         app.MapPost("/api/admin/accounts/{id:guid}/reinstate",ReinstateAsync).RequireAuthorization();

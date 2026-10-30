@@ -219,6 +219,15 @@ public static class Cli
             }
             // D170: account deletion, hourly from cron (for example `0 * * * *`): final deletion when due (or asked for now),
             // Didit deletions that failed before, and the end of the two-year retention of tombstones and terminated-email holds.
+            case ["contacts", "reconcile"]:
+            {
+                if(!scope.ServiceProvider.GetRequiredService<IContactIdentityAdmin>().ContactRetirementConfigured)
+                {Console.Error.WriteLine("Contact retirement provider is not configured; no operation was processed.");return 2;}
+                var inspected=await scope.ServiceProvider.GetRequiredService<EmailRetirementProcessor>().RunAsync(CancellationToken.None);
+                var states=await db.EmailRetirementOperations.GroupBy(o=>o.State).Select(g=>new{State=g.Key,Count=g.Count()}).ToListAsync();
+                Console.WriteLine($"Contact retirement: {inspected} due operations inspected; {states.Where(s=>s.State==EmailRetirementState.Completed).Sum(s=>s.Count)} confirmed, {states.Where(s=>s.State==EmailRetirementState.Pending).Sum(s=>s.Count)} pending, {states.Where(s=>s.State==EmailRetirementState.NeedsReview).Sum(s=>s.Count)} require review.");
+                return 0;
+            }
             case ["accounts", "purge", .. var accountArgs]:
             {
                 Guid? onlyAccount = accountArgs is [var accountId] && Guid.TryParse(accountId, out var parsedAccount) ? parsedAccount : null;
@@ -274,7 +283,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | root-admin grant <staff subject> | bans backfill | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: migrate | contacts reconcile | root-admin grant <staff subject> | bans backfill | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

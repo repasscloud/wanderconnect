@@ -7,6 +7,8 @@ const {localEnv,sql}=require('../auth/local-tokens.cjs');
 const run=(cmd,args,options={})=>{const {captureCombined=false,...settings}=options;return new Promise((resolve,reject)=>execFile(cmd,args,{maxBuffer:8*1024*1024,...settings},(error,out,err)=>error?reject(new Error(cmd+' exited '+error.code+': '+err.slice(-1600))):resolve((captureCombined?out+err:out).trim())));};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 (async()=>{
+ const workflow=process.env.SWOOVR_TEST_CONTACT_WORKFLOW;
+ if(workflow!==undefined&&workflow!=='1')throw new Error('Use only the explicit owned contact-workflow selector.');
  const javaHome=process.env.SWOOVR_KEYCLOAK_JAVA_HOME,libs=process.env.SWOOVR_KEYCLOAK_LIBS;
  if(!javaHome||!libs)throw new Error('Set explicit SWOOVR_KEYCLOAK_JAVA_HOME (21+) and SWOOVR_KEYCLOAK_LIBS (public26.8.1 libraries).');
  const id=crypto.randomUUID().replaceAll('-',''),database='swoovr_kc_retire_'+id,container='swoovr-kc-retire-'+id;
@@ -26,7 +28,8 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const env={...process.env,KC_DB:'postgres',KC_DB_URL:'jdbc:postgresql://swoovr-local-postgres-1:5432/'+database,KC_DB_USERNAME:'swoovr',KC_DB_PASSWORD:await localEnv('SWOOVR_DB_PASSWORD'),
    KC_BOOTSTRAP_ADMIN_USERNAME:'fictional-provider-root',KC_BOOTSTRAP_ADMIN_PASSWORD:bootstrap,KC_HOSTNAME_STRICT:'false'};
   const environment=['KC_DB','KC_DB_URL','KC_DB_USERNAME','KC_DB_PASSWORD','KC_BOOTSTRAP_ADMIN_USERNAME','KC_BOOTSTRAP_ADMIN_PASSWORD','KC_HOSTNAME_STRICT'];
-  await run('docker',['run','-d','--name',container,'--network',network[0],'--cpus','2','--memory','1536m','-p','127.0.0.1::8080','--mount','type=bind,src='+jar+',dst=/opt/keycloak/providers/swoovr-contact-policy.jar,readonly',...environment.flatMap(name=>['-e',name]),image,'start-dev'],{env});started=true;
+  const theme=workflow==='1'?['--mount','type=bind,src='+path.join(process.cwd(),'containers/keycloak/themes/swoovr')+',dst=/opt/keycloak/themes/swoovr,readonly']:[];
+  await run('docker',['run','-d','--name',container,'--network',network[0],'--cpus','2','--memory','1536m','-p','127.0.0.1::8080','--mount','type=bind,src='+jar+',dst=/opt/keycloak/providers/swoovr-contact-policy.jar,readonly',...theme,...environment.flatMap(name=>['-e',name]),image,'start-dev'],{env});started=true;
   const mapped=await run('docker',['port',container,'8080/tcp']);assert.match(mapped,/^127\.0\.0\.1:[0-9]+$/);const base='http://'+mapped;
   await fs.writeFile(state,JSON.stringify({container,database,base,jar}),{mode:0o600});
   console.log('OWNED FIXTURE: '+container+' / '+database+'; private logs '+folder);
@@ -224,7 +227,8 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
    await fs.writeFile(path.join(folder,'typed-adapter.log'),output,{mode:0o600});console.log(output);
    equal(await query(`SELECT operation_id FROM swoovr_email_retirement WHERE user_id='${typed.id}'`),operationId,'Real .NET adapter wrote exactly its bound provider operation');
   }
-  console.log('PASS: '+checks+' isolated Keycloak/PostgreSQL schema-guard checks. Actual custom endpoint/CAS and guard; browser registration, ownership and delivery not proved.');
+  if(workflow==='1')await require('./contact-workflow.browser.cjs').run({base,container,bootstrapUser:env.KC_BOOTSTRAP_ADMIN_USERNAME,bootstrapPassword:bootstrap,folder,providerQuery:query});
+  console.log('PASS: '+checks+' isolated Keycloak/PostgreSQL schema-guard checks. Component matrix alone does not prove browser registration, ownership or delivery; optional workflow reports separately.');
  }finally{
   let cleanupError;
   if(started){

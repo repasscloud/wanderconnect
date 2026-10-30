@@ -187,8 +187,12 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const daveUser = (await realmApi('/users?exact=true&email=' + encodeURIComponent(dave.email)))[0];
     const changedEmail = 'changed.' + dave.email;
     await realmApi('/users/' + daveUser.id, 'PUT', { ...daveUser, username: changedEmail, email: changedEmail, emailVerified: true });
+    // Provider iat has whole seconds; changing within the first acceptance second correctly requires fresh sign-in.
+    await sleep(1500);
     daveToken = await memberToken(browser, { email: changedEmail, password: dave.password });
-    assert.equal((await call(daveToken, '/api/me')).status, 200, 'beta access follows the account after an email change'); pass();
+    const changedMe = await call(daveToken, '/api/me');
+    assert.equal(changedMe.status, 200, 'beta access follows the account after an email change'); pass();
+    assert.equal(changedMe.body.emailChangeProblem, null, 'fresh changed-email claim is adopted'); pass();
     mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(changedEmail); if (!mail.length) await sleep(250); }
     const secondCode = mail[0]?.match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
     assert.ok(secondCode && secondCode !== firstCode, 'new code for the new address'); pass();

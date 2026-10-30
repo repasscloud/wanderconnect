@@ -75,6 +75,25 @@ static class EmailRetirementPersistenceChecks
         db.ChangeTracker.Clear();check("rolled back intent has no durable command",!await db.EmailRetirementOperations.AnyAsync(o=>o.Id==operation.Id));
         db.EmailRetirementOperations.Add(operation);await db.SaveChangesAsync();db.ChangeTracker.Clear();
         var processorClock=new Clock(now);
+        var activeActor=actor;var activeGrant=grant.Id;
+        async Task<(Guid Actor,Guid Grant)> Reviewer()
+        {
+            var person=Guid.NewGuid();var access=Guid.NewGuid();
+            db.Accounts.Add(new Account{Id=person,Issuer="https://issuer.example.test/realms/staff",Subject="fictional-resume-"+person,Realm=AccountRealm.Staff,
+                Status=AccountStatus.Active,CreatedAt=now,LastSeenAt=now});
+            db.RoleGrants.Add(new RoleGrant{Id=Guid.NewGuid(),AccountId=person,Role=AccountRole.Admin,GrantedAt=now});
+            db.AccessGrants.Add(new AccessGrant{Id=access,AccountId=person,Capability=StaffAccessPolicy.IdentifierRelease,Purpose="Fictional independent resume",GrantedAt=now,ExpiresAt=now.AddHours(1)});
+            await db.SaveChangesAsync();return(person,access);
+        }
+        async Task<EmailRetirementReview> Approve(Guid person,Guid access)
+        {
+            var current=await db.EmailRetirementOperations.SingleAsync(o=>o.Id==operation.Id);await db.Entry(current).ReloadAsync();
+            processorClock.Now=processorClock.Now.AddSeconds(1);
+            var approved=new EmailRetirementReview{Id=Guid.NewGuid(),OperationId=operation.Id,ActorId=person,AccessGrantId=access,ReviewedAt=processorClock.Now,Reason="Fictional fresh independent resume"};
+            await using var transaction=await db.Database.BeginTransactionAsync();db.EmailRetirementReviews.Add(approved);await db.SaveChangesAsync();
+            EmailRetirementPolicy.ApproveResume(current,approved,processorClock.Now);await db.SaveChangesAsync();await transaction.CommitAsync();
+            return approved;
+        }
         async Task Process(){await using var replica=new SwoovrDbContext(options);await new EmailRetirementProcessor(replica,fake,commands,processorClock,new BannedIdentifierRegistry(replica,bans,new EvidencePreservation(services,new EvidenceKeys(config,founders),keys))).ProcessAsync(operation.Id,CancellationToken.None);}
         async Task<CurrentAccount?> Resolve(DateTimeOffset? at=null)
         {
@@ -94,9 +113,11 @@ static class EmailRetirementPersistenceChecks
         await db.AccessGrants.Where(g=>g.Id==grant.Id).ExecuteUpdateAsync(u=>u.SetProperty(g=>g.RevokedAt,now));
         fake.Status=IdentityContactState.NotRecorded;await Process();
         check("revoked approval cannot authorize a new provider effect",fake.Posts==0&&(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).State==EmailRetirementState.NeedsReview);
-        // Restore only this synthetic approval and pending review in the throwaway fixture, not a product recovery endpoint.
-        await db.AccessGrants.Where(g=>g.Id==grant.Id).ExecuteUpdateAsync(u=>u.SetProperty(g=>g.RevokedAt,(DateTimeOffset?)null));
-        await db.EmailRetirementOperations.Where(o=>o.Id==operation.Id).ExecuteUpdateAsync(u=>u.SetProperty(o=>o.State,EmailRetirementState.Pending));
+        db.StaffExclusions.Add(new StaffExclusion{StaffAccountId=actor,SubjectAccountId=owner,CreatedBy=actor,CreatedAt=now,Reason="Fictional original reviewer conflict"});await db.SaveChangesAsync();
+        (activeActor,activeGrant)=await Reviewer();var firstReview=await Approve(activeActor,activeGrant);
+        var reviewed=await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id);
+        check("independent review preserves original requester and grant",reviewed.RequestedBy==actor&&reviewed.AccessGrantId==grant.Id&&reviewed.CurrentReviewId==firstReview.Id);
+        check("independent review preserves encrypted CAS and operation id",reviewed.Id==operation.Id&&reviewed.EncryptedCommand.SequenceEqual(operation.EncryptedCommand));
         fake.Configured=false;var beforeDisabled=(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).Attempts;await Process();
         check("disabled configuration retains intent without provider I/O or invented review outcome",fake.Posts==0&&(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).Attempts==beforeDisabled);
         fake.Configured=true;
@@ -106,13 +127,30 @@ static class EmailRetirementPersistenceChecks
         check("restriction added after preparation prevents the first provider write",fake.Posts==0&&(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).State==EmailRetirementState.NeedsReview);
         var additionalRelease=BannedIdentifierPolicy.Revoke(additional.Entry,actor,"Fictional separately reviewed later release.",now);
         db.BanTransitions.Add(additionalRelease.Transition);db.BanCaseNotes.Add(additionalRelease.Note);await db.SaveChangesAsync();
-        await db.EmailRetirementOperations.Where(o=>o.Id==operation.Id).ExecuteUpdateAsync(u=>u.SetProperty(o=>o.State,EmailRetirementState.Pending));
+        var secondReview=await Approve(activeActor,activeGrant);
+        var replacement=await Reviewer();Task waitingProcessor;var statusBefore=fake.StatusReads;
+        await using(var busy=await AccountLifecycleLease.AcquireAsync(db,owner,CancellationToken.None))
+        {
+            waitingProcessor=Process();var waiting=false;var key=(long)unchecked((uint)AccountLifecycleLease.Key(owner));
+            for(var attempt=0;attempt<100;attempt++)
+            {
+                waiting=await db.Database.SqlQuery<bool>($"""
+                    SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND database=(SELECT oid FROM pg_database WHERE datname=current_database())
+                      AND classid::bigint={AccountLifecycleLease.Namespace} AND objid::bigint={key} AND NOT granted) AS "Value"
+                    """).SingleAsync();
+                if(waiting||waitingProcessor.IsCompleted)break;await Task.Delay(20);
+            }
+            check("processor has selected prior approval before waiting on source",waiting);
+            await Approve(replacement.Actor,replacement.Grant);activeActor=replacement.Actor;activeGrant=replacement.Grant;
+        }
+        await waitingProcessor;
+        check("changed approval while waiting cannot dispatch under former owner authority",fake.StatusReads==statusBefore&&fake.Posts==0);
         fake.Pause=true;
         var processing=Process();await fake.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Task? unrelated=null;var progressed=false;
         try
         {
-            var sourceKey=(long)unchecked((uint)AccountLifecycleLease.Key(owner));var actorKey=(long)unchecked((uint)AccountLifecycleLease.Key(actor));
+            var sourceKey=(long)unchecked((uint)AccountLifecycleLease.Key(owner));var actorKey=(long)unchecked((uint)AccountLifecycleLease.Key(activeActor));
             check("paused processor retains both source and approving actor authority",await db.Database.SqlQuery<bool>($"""
                 SELECT EXISTS(SELECT 1 FROM pg_locks s JOIN pg_locks a ON a.pid=s.pid JOIN pg_locks p ON p.pid=s.pid
                 WHERE s.locktype='advisory' AND s.database=(SELECT oid FROM pg_database WHERE datname=current_database())
@@ -140,8 +178,8 @@ static class EmailRetirementPersistenceChecks
         fake.Status=IdentityContactState.NotRecorded;fake.CommitThenThrow=true;
         var interrupted=false;try{await Process();}catch(HttpRequestException){interrupted=true;}
         check("injected crash after fake provider commit leaves completion unclaimed",interrupted&&fake.Posts==committedPosts&&(await db.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id)).State==EmailRetirementState.Pending);
-        await db.AccessGrants.Where(g=>g.Id==grant.Id).ExecuteUpdateAsync(u=>u.SetProperty(g=>g.RevokedAt,now));
-        db.StaffExclusions.Add(new StaffExclusion{StaffAccountId=actor,SubjectAccountId=owner,CreatedBy=actor,CreatedAt=now,Reason="Fictional later conflict"});await db.SaveChangesAsync();
+        await db.AccessGrants.Where(g=>g.Id==activeGrant).ExecuteUpdateAsync(u=>u.SetProperty(g=>g.RevokedAt,now));
+        db.StaffExclusions.Add(new StaffExclusion{StaffAccountId=activeActor,SubjectAccountId=owner,CreatedBy=actor,CreatedAt=now,Reason="Fictional later conflict"});await db.SaveChangesAsync();
         processorClock.Now=now.AddMinutes(10);
         await db.Database.ExecuteSqlRawAsync("""
             CREATE FUNCTION fictional_email_completion_fault() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -169,7 +207,10 @@ static class EmailRetirementPersistenceChecks
         check("premature direct deletion is blocked",await SqlRefused($"DELETE FROM email_retirement_operations WHERE id={operation.Id}"));
         check("provenance cannot be rewritten",await SqlRefused($"UPDATE email_retirement_operations SET account_id={Guid.NewGuid()} WHERE id={operation.Id}"));
         check("completion cannot be reverted",await SqlRefused($"UPDATE email_retirement_operations SET state='Pending',completed_at=NULL WHERE id={operation.Id}"));
-        check("truncate cannot bypass pending or preservation retention",await SqlRefused($"TRUNCATE email_retirement_operations"));
+        check("truncate cannot bypass pending or preservation retention",await SqlRefused($"TRUNCATE email_retirement_reviews,email_retirement_operations"));
+        check("resume reviews cannot be rewritten",await SqlRefused($"UPDATE email_retirement_reviews SET reason='Fictional rewrite' WHERE id={firstReview.Id}"));
+        check("resume reviews cannot be removed before retention and preservation permit",await SqlRefused($"DELETE FROM email_retirement_reviews WHERE operation_id={operation.Id}"));
+        check("current approval cannot be cleared",await SqlRefused($"UPDATE email_retirement_operations SET current_review_id=NULL WHERE id={operation.Id}"));
         var rotatedConfig=new ConfigurationBuilder().AddConfiguration(config).AddInMemoryCollection(new Dictionary<string,string?>{
             ["ContactHistory:Keys:2"]=Convert.ToBase64String(Enumerable.Repeat((byte)26,32).ToArray())}).Build();
         var rotatedKeys=new ContactHistoryKeys(rotatedConfig,founders);
@@ -198,12 +239,22 @@ static class EmailRetirementPersistenceChecks
             var item=new EmailRetirementOperation{Id=index==200?last:Guid.Parse("00000000-0000-0000-0000-"+(index+1).ToString("x12")),AccountId=member,
                 RegistryId=prior.Entry.Id,CaseId=reviewId,RequestedBy=actor,AccessGrantId=grant.Id,RequestedAt=now.AddYears(-3),UpdatedAt=now.AddYears(-3),
                 NextAttemptAt=now.AddYears(-3),CompletedAt=now.AddYears(-3),State=EmailRetirementState.Completed,Outcome="Retired"};
+            if(index is 0 or 200){item.State=EmailRetirementState.Pending;item.CompletedAt=null;item.Outcome="prepared";}
             item.EncryptedCommand=commands.Seal(item,Provider.Issuer,new(providerSubject,"fictional.historical@example.test","fictional.historical",true,true))!;history.Add(item);
         }
         await db.SaveChangesAsync();db.EmailRetirementOperations.AddRange(history);
         var held=new LegalHold{Id=Guid.NewGuid(),Status=LegalHoldStatus.Active,Reason="Fictional held retirement prefix",Source="staff",PlacedBy=actor,
             PlacedByRole=AccountRole.Legal,PlacedAt=now,ReviewDue=now.AddMonths(1),RelatedAccountIds=prefix.ToArray(),RetentionCaseIds=[]};
-        db.LegalHolds.Add(held);await db.SaveChangesAsync();db.ChangeTracker.Clear();
+        db.LegalHolds.Add(held);await db.SaveChangesAsync();
+        foreach(var historical in new[]{history[0],history[^1]})
+        {
+            var past=now.AddYears(-3);var approved=new EmailRetirementReview{Id=Guid.NewGuid(),OperationId=historical.Id,ActorId=actor,AccessGrantId=grant.Id,
+                ReviewedAt=past,Reason="Fictional historical immutable review"};
+            db.EmailRetirementReviews.Add(approved);await db.SaveChangesAsync();EmailRetirementPolicy.ApproveResume(historical,approved,past);await db.SaveChangesAsync();
+            historical.State=EmailRetirementState.Completed;historical.CompletedAt=past;historical.Outcome="Retired";await db.SaveChangesAsync();
+        }
+        db.ChangeTracker.Clear();
+        check("a current hold protects aged immutable approval history",await SqlRefused($"DELETE FROM email_retirement_reviews WHERE operation_id={history[0].Id}"));
         async Task Sweep()
         {
             await using var replica=new SwoovrDbContext(options);
@@ -212,13 +263,30 @@ static class EmailRetirementPersistenceChecks
             var result=await new RegistryDisposal(replica,evidence).RunAsync(DateTimeOffset.UtcNow,CancellationToken.None);
             check("command retention sweep has known preservation authority",!result.FailedClosed);
         }
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE FUNCTION fictional_email_disposal_fault() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN IF OLD.id='ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid THEN RAISE EXCEPTION 'fictional command disposal fault';END IF;RETURN OLD;END $$;
+            CREATE TRIGGER fictional_email_disposal_fault BEFORE DELETE ON email_retirement_operations FOR EACH ROW EXECUTE FUNCTION fictional_email_disposal_fault();
+            """);
+        try
+        {
+            var faulted=false;try{await Sweep();}catch(Exception error)when(error is PostgresException or DbUpdateException){faulted=true;}
+            check("failed parent disposal restores already deleted immutable reviews",faulted&&await db.EmailRetirementOperations.AnyAsync(o=>o.Id==last)
+                &&await db.EmailRetirementReviews.AnyAsync(r=>r.OperationId==last));
+        }
+        finally{await db.Database.ExecuteSqlRawAsync("DROP TRIGGER fictional_email_disposal_fault ON email_retirement_operations;DROP FUNCTION fictional_email_disposal_fault();");}
         await Sweep();
+        check("eligible command and approval history expire atomically",!await db.EmailRetirementReviews.AnyAsync(r=>r.OperationId==last)
+            &&await db.EmailRetirementReviews.AnyAsync(r=>r.OperationId==history[0].Id));
         check("held prefix does not starve a later eligible encrypted command",!await db.EmailRetirementOperations.AnyAsync(o=>o.Id==last)
             &&await db.EmailRetirementOperations.CountAsync(o=>prefix.Contains(o.AccountId))==200);
         await db.LegalHolds.Where(h=>h.Id==held.Id).ExecuteUpdateAsync(u=>u.SetProperty(h=>h.Status,LegalHoldStatus.Released));
         await Sweep();
         check("release resumes bounded command disposal without losing active source refusal",!await db.EmailRetirementOperations.AnyAsync(o=>prefix.Contains(o.AccountId))
             &&await db.EmailRetirementOperations.AnyAsync(o=>o.Id==operation.Id)&&await db.Accounts.AnyAsync(a=>a.Id==owner&&a.EmailRetiredAt!=null));
+        var archivedIds=history.Select(o=>o.Id).ToArray();
+        check("hold release resumes lawful review disposal",!await db.EmailRetirementReviews.AnyAsync(r=>archivedIds.Contains(r.OperationId)));
+
         // Fixture deliberately remains in this throwaway database until its owner drops it; no guard bypass/real data touched.
     }
     sealed class Clock(DateTimeOffset now):TimeProvider{public DateTimeOffset Now=now;public override DateTimeOffset GetUtcNow()=>Now;}
@@ -232,10 +300,10 @@ static class EmailRetirementPersistenceChecks
     {
         public const string Issuer="https://issuer.example.test/realms/members";
         public bool Configured=true;public bool ContactRetirementConfigured=>Configured;public string ContactIssuer=>Issuer;
-        public IdentityContactState Status;public bool CommitThenThrow,Pause;public int Posts;
+        public IdentityContactState Status;public bool CommitThenThrow,Pause;public int Posts,StatusReads;
         public TaskCompletionSource<bool> Started=new(TaskCreationOptions.RunContinuationsAsynchronously),Release=new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task<IdentityEmailBindingResult> ReadEmailBindingAsync(Guid subject,CancellationToken token)=>throw new NotSupportedException();
-        public Task<IdentityContactState> EmailRetirementStatusAsync(Guid subject,Guid operation,CancellationToken token)=>Task.FromResult(Status);
+        public Task<IdentityContactState> EmailRetirementStatusAsync(Guid subject,Guid operation,CancellationToken token){StatusReads++;return Task.FromResult(Status);}
         public async Task<IdentityContactState> RetireEmailBindingAsync(IdentityEmailBinding binding,Guid operation,CancellationToken token)
         {
             Posts++;

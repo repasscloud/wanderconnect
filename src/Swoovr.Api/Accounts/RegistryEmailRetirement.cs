@@ -21,8 +21,8 @@ public static partial class RegistryAdminEndpoints
         var db=accounts.Db!;
         var source=await (from b in db.BannedIdentifiers join c in db.ModerationCases on b.CaseId equals c.Id where b.Id==id select(Guid?)c.SubjectAccountId).SingleOrDefaultAsync(token);
         if(source is null)return Results.NotFound();
-        await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,source.Value,token);
-        await using var authority=await PreservationLease.ExclusiveAsync(db,token);
+        await using var lifecycle=await AccountLifecycleLease.AcquireManyAsync(db,[source.Value,current!.Account!.Id],token);
+        await using var authority=await PreservationLease.SharedAsync(db,token);
         now=clock.GetUtcNow();(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);if(denied is not null)return denied;
         var row=await db.BannedIdentifiers.SingleOrDefaultAsync(b=>b.Id==id,token);if(row is null)return Results.NotFound();
         if(await ExcludedAsync(db,current!.Account!.Id,[row],token))return StaffAccessEndpoints.Conflict();
@@ -43,7 +43,8 @@ public static partial class RegistryAdminEndpoints
         if(await ExcludedAsync(db,current.Account.Id,matches,token))return StaffAccessEndpoints.Conflict();
         if(matches.Any(b=>BannedIdentifierPolicy.Blocks(b,now)))return Problem(409,ProblemCodes.InvalidRequest,"Other active restrictions require separate review.");
         var read=await provider.ReadEmailBindingAsync(subject,token);
-        if(read.State!=IdentityContactState.Available||read.Binding is not{}binding||!binding.EmailVerified||!binding.Enabled
+        if(read.State!=IdentityContactState.Available)return Problem(503,ProblemCodes.NotConfigured,"The provider binding cannot be confirmed. No binding was changed.");
+        if(read.Binding is not{}binding||!binding.EmailVerified||!binding.Enabled
             ||binding.Email is null||EmailAddress.Normalise(binding.Email)!=email||string.IsNullOrWhiteSpace(binding.Username))
             return Problem(409,ProblemCodes.InvalidRequest,"The current provider binding could not be positively matched. No binding was changed.");
         // Provider read may outlast the human grant. Recheck before committing new durable authority.

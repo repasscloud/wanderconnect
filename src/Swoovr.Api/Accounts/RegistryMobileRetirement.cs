@@ -11,7 +11,7 @@ namespace Swoovr.Api.Accounts;
 public static partial class RegistryAdminEndpoints
 {
     private static async Task<IResult> RetireMobileAsync(Guid id,MobileBindingRetirementRequest request,ClaimsPrincipal user,
-        AccountResolver accounts,IIdentityAdmin identity,ContactHistoryKeys history,TimeProvider clock,CancellationToken token)
+        AccountResolver accounts,IIdentityAdmin identity,IContactIdentityAdmin contacts,ContactHistoryKeys history,TimeProvider clock,CancellationToken token)
     {
         var now=clock.GetUtcNow();
         var(current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);
@@ -22,9 +22,9 @@ public static partial class RegistryAdminEndpoints
         var source=await (from b in db.BannedIdentifiers join c in db.ModerationCases on b.CaseId equals c.Id
             where b.Id==id select (Guid?)c.SubjectAccountId).SingleOrDefaultAsync(token);
         if(source is null)return Results.NotFound();
-        // Source lifecycle first; restoration, member writes and final deletion cannot race binding removal.
-        await using var state=await AccountLifecycleLease.AcquireAsync(db,source.Value,token);
-        await using var barrier=await PreservationLease.ExclusiveAsync(db,token);
+        // Canonical source/approver authority serializes restoration, member writes, deletion and approval withdrawal.
+        await using var state=await AccountLifecycleLease.AcquireManyAsync(db,[source.Value,current!.Account!.Id],token);
+        await using var barrier=await PreservationLease.SharedAsync(db,token);
         now=clock.GetUtcNow();
         (current,denied)=await AuthorizeAsync(user,accounts,StaffAccessPolicy.IdentifierRelease,now,token);
         if(denied is not null)return denied;
@@ -34,7 +34,7 @@ public static partial class RegistryAdminEndpoints
         if(row.IdentifierType!=BannedIdentifierType.Mobile||row.Status!=BanStatus.Revoked||row.RevokedAt is null||row.RevokedBy is null)
             return Problem(409,ProblemCodes.InvalidRequest,"Explicitly release the reviewed mobile restriction before retiring its binding.");
         var account=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==source.Value&&a.Realm==AccountRealm.Members,token);
-        if(account is null||account.Status!=AccountStatus.Active
+        if(account is null||account.Status!=AccountStatus.Active||account.Issuer!=contacts.ContactIssuer
             ||!await db.ModerationCases.AnyAsync(c=>c.Id==row.CaseId&&c.SubjectAccountId==account.Id,token)
             ||!await db.Sanctions.AnyAsync(s=>s.AccountId==account.Id&&s.CaseId==row.CaseId&&s.Kind==SanctionKind.Termination
                 &&s.LiftedAt==null&&s.StartsAt<=now&&(s.EndsAt==null||s.EndsAt>now),token))

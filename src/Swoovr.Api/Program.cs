@@ -21,7 +21,8 @@ builder.Services.AddSwoovrEmail(builder.Configuration["Email:Smtp:Host"], builde
     builder.Configuration["Email:From"] ?? "Swoovr <no-reply@swoovr.local>");
 // #49: travel reminders, written by the API's own worker (with a database).
 if (persistence) builder.Services.AddHostedService<Swoovr.Api.Notifications.NotificationWorker>();
-if (persistence && builder.Configuration.GetValue("MemberAdmin:ContactRetirementEnabled",false))
+if (persistence && builder.Configuration.GetValue("MemberAdmin:ContactRetirementEnabled",false)
+    && builder.Configuration.GetValue("MemberAdmin:ContactRetirementWorker",true))
     builder.Services.AddHostedService<EmailRetirementWorker>();
 // Synthetic backdated Development fixtures are opt-in; hosted runs sweep hourly with durable due queries.
 if (persistence && builder.Configuration.GetValue("Retention:Worker", !builder.Environment.IsDevelopment()))

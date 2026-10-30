@@ -14,6 +14,7 @@ public static class RegistryText
     public static string Blocked(string? code)=>code switch
     {
         "account-not-restorable"=>"Deleted, deleting, locked or incomplete accounts cannot be reinstated here.",
+        "contact-recovery-required"=>"A retired login requires independently approved original-account recovery before reinstatement.",
         "no-termination"=>"There is no account termination to reinstate.",
         "missing-enforcement-provenance"=>"Source enforcement records need restricted review and reconciliation before reinstatement.",
         "too-many-restrictions"=>"This restriction set needs a separate restricted review before reinstatement.",

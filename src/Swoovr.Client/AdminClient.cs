@@ -37,6 +37,27 @@ public sealed class AdminClient(HttpClient transport)
         SendAsync<IdentifierWorkflowResult>(HttpMethod.Post,"api/admin/banned-identifiers/release",request,cancellationToken);
     public Task<ApiResult<IdentifierWorkflowResult>> RetireMobileBindingAsync(Guid id,MobileBindingRetirementRequest request,CancellationToken cancellationToken = default) =>
         SendAsync<IdentifierWorkflowResult>(HttpMethod.Post,$"api/admin/banned-identifiers/{id}/retire-mobile",request,cancellationToken);
+    public Task<ApiResult<EmailRetirementAvailability>> EmailRetirementAvailabilityAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<EmailRetirementAvailability>(HttpMethod.Get,"api/admin/banned-identifiers/email-retirement-availability",null,cancellationToken);
+    public Task<ApiResult<EmailBindingRetirementView>> EmailRetirementAsync(Guid id,CancellationToken cancellationToken = default) =>
+        RetirementAsync(HttpMethod.Get,$"api/admin/banned-identifiers/{id}/email-retirement",null,cancellationToken);
+    public Task<ApiResult<EmailBindingRetirementView>> RetireEmailBindingAsync(Guid id,EmailBindingRetirementRequest request,CancellationToken cancellationToken = default) =>
+        RetirementAsync(HttpMethod.Post,$"api/admin/banned-identifiers/{id}/retire-email",request,cancellationToken);
+    public Task<ApiResult<EmailBindingRetirementView>> ReviewEmailRetirementAsync(Guid id,EmailBindingRetirementRequest request,CancellationToken cancellationToken = default) =>
+        RetirementAsync(HttpMethod.Post,$"api/admin/banned-identifiers/{id}/email-retirement/review",request,cancellationToken);
+    private async Task<ApiResult<EmailBindingRetirementView>> RetirementAsync(HttpMethod method,string path,object? body,CancellationToken token)
+    {
+        var result=await SendAsync<EmailBindingRetirementView>(method,path,body,token);
+        if(result.Ok)
+        {
+            var view=result.Value!;
+            if(view.OperationId==Guid.Empty||view.RequestedAt==default||view.UpdatedAt<view.RequestedAt
+                ||view.State is not("Pending" or "NeedsReview" or "Completed")||(view.State=="Completed")!=(view.CompletedAt is not null)
+                ||view.CompletedAt is{}completed&&completed<view.RequestedAt)
+                throw new InvalidOperationException("Invalid retirement metadata.");
+        }
+        return result;
+    }
     public Task<ApiResult<AccountReinstatementPreview>> ReinstatementAsync(Guid id,CancellationToken cancellationToken = default) =>
         SendAsync<AccountReinstatementPreview>(HttpMethod.Get,$"api/admin/accounts/{id}/reinstatement",null,cancellationToken);
     public Task<ApiResult<IdentifierWorkflowResult>> ReinstateAsync(Guid id,AccountReinstatementRequest request,CancellationToken cancellationToken = default) =>

@@ -28,7 +28,12 @@ public sealed class RegistryDisposal(SwoovrDbContext db,EvidencePreservation evi
                 await using var authority=await PreservationLease.ExclusiveAsync(db,token);
                 if(await evidence.TryHeldAccountsAsync(token) is null)return new(0,0,true);
                 if(await db.Database.SqlQuery<bool>($"SELECT email_retirement_delete_safe({operation}) AS \"Value\"").SingleAsync(token))
+                {
+                    await using var transaction=await db.Database.BeginTransactionAsync(token);
+                    await db.EmailRetirementReviews.Where(r=>r.OperationId==operation).ExecuteDeleteAsync(token);
                     await db.EmailRetirementOperations.Where(o=>o.Id==operation).ExecuteDeleteAsync(token);
+                    await transaction.CommitAsync(token);
+                }
             }
             commandAfter=finished[^1];
         }

@@ -11,15 +11,17 @@ public sealed class EmailRetirementProcessor(SwoovrDbContext db,IContactIdentity
     public async Task ProcessAsync(Guid id,CancellationToken token)
     {
         if(!provider.ContactRetirementConfigured)return;
-        var source=await db.EmailRetirementOperations.Where(o=>o.Id==id).Select(o=>new{o.AccountId,o.RequestedBy}).SingleOrDefaultAsync(token);
-        if(source is null)return;
+        var approval=await AuthorityAsync(id,token);
+        if(approval is null)return;
         // Approval writers lock this same staff owner. Canonical ordering avoids source/approver deadlocks;
         // shared preservation still excludes case/hold/registry mutations without stopping unrelated member writes.
-        await using var lifecycle=await AccountLifecycleLease.AcquireManyAsync(db,[source.AccountId,source.RequestedBy],token);
+        await using var lifecycle=await AccountLifecycleLease.AcquireManyAsync(db,[approval.AccountId,approval.ActorId],token);
         await using var authority=await PreservationLease.SharedAsync(db,token);
         var operation=await db.EmailRetirementOperations.SingleOrDefaultAsync(o=>o.Id==id,token);
         if(operation is null)return;await db.Entry(operation).ReloadAsync(token);
         if(operation.State==EmailRetirementState.Completed)return;
+        // A review can change while canonical leases are awaited. Never dispatch under the former owner's lock.
+        if(operation.CurrentReviewId!=approval.ReviewId)return;
         var account=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==operation.AccountId,token);
         if(account is not null)await db.Entry(account).ReloadAsync(token);
         if(account is null||account.EmailRetiredAt is null||account.Issuer!=provider.ContactIssuer||!Guid.TryParse(account.Subject,out var subject))
@@ -29,13 +31,14 @@ public sealed class EmailRetirementProcessor(SwoovrDbContext db,IContactIdentity
         if(state==IdentityContactState.Retired){await ObserveAsync(operation,state,token);return;}
         if(state!=IdentityContactState.NotRecorded||operation.State==EmailRetirementState.NeedsReview)
         {await ObserveAsync(operation,state,token);return;}
+        if(!approval.Valid){await ObserveAsync(operation,IdentityContactState.Conflict,token);return;}
         var now=clock.GetUtcNow();
-        var grant=await db.AccessGrants.SingleOrDefaultAsync(g=>g.Id==operation.AccessGrantId&&g.AccountId==operation.RequestedBy
+        var grant=await db.AccessGrants.SingleOrDefaultAsync(g=>g.Id==approval.GrantId&&g.AccountId==approval.ActorId
             &&g.Capability==StaffAccessPolicy.IdentifierRelease&&g.RevokedAt==null&&g.ExpiresAt>now,token);
-        var staff=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==operation.RequestedBy&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,token);
+        var staff=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==approval.ActorId&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,token);
         var admin=staff is not null&&(staff.IsRootAdmin||await db.RoleGrants.AnyAsync(r=>r.AccountId==staff.Id&&r.Role==AccountRole.Admin,token));
         var people=await SafetyRetention.CaseAccountsAsync(db,operation.CaseId,token);
-        if(grant is null||!admin||await StaffAccessEndpoints.ExcludedAsync(db,operation.RequestedBy,people,token)
+        if(grant is null||!admin||await StaffAccessEndpoints.ExcludedAsync(db,approval.ActorId,people,token)
             ||!await db.ModerationCases.AnyAsync(c=>c.Id==operation.CaseId&&c.SubjectAccountId==account.Id,token)
             ||!await db.Sanctions.AnyAsync(s=>s.AccountId==account.Id&&s.CaseId==operation.CaseId&&s.Kind==SanctionKind.Termination
                 &&s.LiftedAt==null&&s.StartsAt<=now&&(s.EndsAt==null||s.EndsAt>now),token)
@@ -53,10 +56,20 @@ public sealed class EmailRetirementProcessor(SwoovrDbContext db,IContactIdentity
         var related=new List<Guid>();
         foreach(var review in matches.Select(b=>b.CaseId).Distinct())related.AddRange(await SafetyRetention.CaseAccountsAsync(db,review,token));
         if(!matches.Any(b=>b.Id==operation.RegistryId)||matches.Any(b=>BannedIdentifierPolicy.Blocks(b,now))
-            ||await StaffAccessEndpoints.ExcludedAsync(db,operation.RequestedBy,related,token))
+            ||await StaffAccessEndpoints.ExcludedAsync(db,approval.ActorId,related,token))
         {await ObserveAsync(operation,IdentityContactState.Conflict,token);return;}
         state=await provider.RetireEmailBindingAsync(expected,id,token);
         await ObserveAsync(operation,state,token);
+    }
+    private sealed record Approval(Guid AccountId,Guid ActorId,Guid GrantId,Guid? ReviewId,bool Valid);
+    private async Task<Approval?> AuthorityAsync(Guid id,CancellationToken token)
+    {
+        var operation=await db.EmailRetirementOperations.Where(o=>o.Id==id)
+            .Select(o=>new{o.AccountId,o.RequestedBy,o.AccessGrantId,o.CurrentReviewId}).SingleOrDefaultAsync(token);
+        if(operation is null)return null;
+        if(operation.CurrentReviewId is not{}reviewId)return new(operation.AccountId,operation.RequestedBy,operation.AccessGrantId,null,true);
+        var review=await db.EmailRetirementReviews.AsNoTracking().SingleOrDefaultAsync(r=>r.Id==reviewId&&r.OperationId==id,token);
+        return new(operation.AccountId,review?.ActorId??operation.RequestedBy,review?.AccessGrantId??operation.AccessGrantId,reviewId,review is not null);
     }
     private async Task ObserveAsync(EmailRetirementOperation operation,IdentityContactState state,CancellationToken token)
     {

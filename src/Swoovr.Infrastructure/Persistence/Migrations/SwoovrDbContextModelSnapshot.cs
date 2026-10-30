@@ -1428,6 +1428,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
+                    b.Property<Guid?>("CurrentReviewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_review_id");
+
                     b.Property<byte[]>("EncryptedCommand")
                         .IsRequired()
                         .HasColumnType("bytea")
@@ -1482,6 +1486,44 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_email_retirement_operations_state_next_attempt_at");
 
                     b.ToTable("email_retirement_operations");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EmailRetirementReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccessGrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_grant_id");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_retirement_reviews");
+
+                    b.HasIndex("OperationId", "ReviewedAt")
+                        .HasDatabaseName("ix_email_retirement_reviews_operation_id_reviewed_at");
+
+                    b.ToTable("email_retirement_reviews");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>
@@ -6186,6 +6228,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_email_retirement_operations_banned_identifiers_registry_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.EmailRetirementReview", b =>
+                {
+                    b.HasOne("Swoovr.Domain.EmailRetirementOperation", null)
+                        .WithMany()
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_retirement_reviews_email_retirement_operations_operat~");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Entitlement", b =>

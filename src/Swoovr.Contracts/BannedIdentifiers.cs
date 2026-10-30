@@ -28,3 +28,6 @@ public sealed record MobileBindingRetirementRequest(bool CircumstancesReviewed, 
 public sealed record EmailBindingRetirementRequest(bool CircumstancesReviewed,string Reason);
 /// <summary>Restricted operation metadata only; never raw contact, CAS snapshot or provider diagnostic.</summary>
 public sealed record EmailBindingRetirementView(Guid OperationId,string State,DateTimeOffset RequestedAt,DateTimeOffset UpdatedAt,DateTimeOffset? CompletedAt);
+
+/// <summary>Request dispatch configuration only, not provider reachability, ownership or delivery proof.</summary>
+public sealed record EmailRetirementAvailability(bool Enabled);

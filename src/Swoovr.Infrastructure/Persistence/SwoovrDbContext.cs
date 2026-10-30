@@ -16,6 +16,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
 {
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<EmailRetirementOperation> EmailRetirementOperations => Set<EmailRetirementOperation>();
+    public DbSet<EmailRetirementReview> EmailRetirementReviews => Set<EmailRetirementReview>();
     public DbSet<BannedIdentifier> BannedIdentifiers => Set<BannedIdentifier>();
     public DbSet<BanDispositionReview> BanDispositionReviews => Set<BanDispositionReview>();
     public DbSet<BanDisposition> BanDispositions => Set<BanDisposition>();
@@ -129,6 +130,12 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             operation.HasOne<BannedIdentifier>().WithMany().HasForeignKey(o=>o.RegistryId).OnDelete(DeleteBehavior.Restrict);
             operation.HasOne<ModerationCase>().WithMany().HasForeignKey(o=>o.CaseId).OnDelete(DeleteBehavior.Restrict);
             operation.Property(o => o.Outcome).HasMaxLength(32);
+        });
+        model.Entity<EmailRetirementReview>(review =>
+        {
+            review.HasOne<EmailRetirementOperation>().WithMany().HasForeignKey(r=>r.OperationId).OnDelete(DeleteBehavior.Restrict);
+            review.HasIndex(r=>new{r.OperationId,r.ReviewedAt});
+            review.Property(r=>r.Reason).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
         });
         model.Entity<DataExport>(export =>
         {

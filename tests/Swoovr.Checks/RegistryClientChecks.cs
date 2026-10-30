@@ -27,6 +27,17 @@ static class RegistryClientChecks
         var retired=await client.RetireMobileBindingAsync(id,new MobileBindingRetirementRequest(true,"Fictional current ownership reviewed"));
         Check(retired.Ok&&retired.Value!.Changed==1,"mobile retirement result is explicit");
         Check(handler.Method==HttpMethod.Post&&handler.Path==$"/api/admin/banned-identifiers/{id}/retire-mobile"&&handler.Body.Contains("circumstancesReviewed"),"mobile binding retirement has a separate confirmed POST");
+        var available=await client.EmailRetirementAvailabilityAsync();
+        Check(available.Ok&&available.Value!.Enabled,"retirement dispatch configuration is explicit, not provider proof");
+        var email=await client.RetireEmailBindingAsync(id,new EmailBindingRetirementRequest(true,"Fictional current email ownership reviewed"));
+        Check(email.Ok&&email.Value!.State=="Pending"&&email.Value.OperationId==handler.OperationId,"retirement request remains pending confirmation");
+        Check(handler.Method==HttpMethod.Post&&handler.Path==$"/api/admin/banned-identifiers/{id}/retire-email"&&handler.Body.Contains("circumstancesReviewed"),"email retirement has a separate confirmed body");
+        var progress=await client.EmailRetirementAsync(id);Check(progress.Ok&&handler.Method==HttpMethod.Get&&handler.Path.EndsWith(id+"/email-retirement"),"restricted status uses stable metadata route");
+        var resumed=await client.ReviewEmailRetirementAsync(id,new(true,"Fictional independent resumed review"));
+        Check(resumed.Ok&&handler.Method==HttpMethod.Post&&handler.Path.EndsWith(id+"/email-retirement/review")&&handler.Body.Contains("independent"),"resume is a fresh explicit POST, not a repeated initial command");
+        handler.BadEmailMetadata=true;var badRetirement=false;try{await client.EmailRetirementAsync(id);}catch(InvalidOperationException){badRetirement=true;}
+        Check(badRetirement,"unknown status cannot be presented as confirmed completion");handler.BadEmailMetadata=false;
+        handler.MissingEmailOperation=true;var absent=await client.EmailRetirementAsync(id);Check(absent.Status==404&&absent.Value is null,"no operation is not a completed success");handler.MissingEmailOperation=false;
         var preview=await client.ReinstatementAsync(account);Check(preview.Ok&&preview.Value!.Identifiers.Single().Id==id,"server reinstatement preview preserves complete source");
         await client.ReinstateAsync(account,new AccountReinstatementRequest([id],"Fictional independent account review"));
         Check(handler.Path==$"/api/admin/accounts/{account}/reinstate"&&handler.Body.Contains("revokeIdentifierIds"),"account reinstatement separate from release");
@@ -39,13 +50,16 @@ static class RegistryClientChecks
     }
     private sealed class Handler(BannedIdentifierView entry,Guid account,Guid next):HttpMessageHandler
     {
-        public string Path="",Body="",Version="";public HttpMethod? Method;public bool Forbidden,BadCursor;
+        public string Path="",Body="",Version="";public HttpMethod? Method;public bool Forbidden,BadCursor,BadEmailMetadata,MissingEmailOperation;public Guid OperationId=Guid.NewGuid();
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
         {
             Path=request.RequestUri!.PathAndQuery;Method=request.Method;Body=request.Content is null?"":await request.Content.ReadAsStringAsync(token);
             Version=string.Join(",",request.Headers.GetValues(ApiContract.Header));
             if(Forbidden)return new(HttpStatusCode.Forbidden){Content=JsonContent.Create(new{code="elevated-access-required"})};
-            object body=Path.Contains("/lookup")?new[]{entry}:Path.Contains("/reinstatement")?new AccountReinstatementPreview(account,"active",true,null,[entry.CaseId],[entry],true,[entry.Id])
+            if(MissingEmailOperation&&Path.EndsWith("/email-retirement"))return new(HttpStatusCode.NotFound){Content=JsonContent.Create(new{code="not-found"})};
+            object body=Path.EndsWith("/email-retirement-availability")?new EmailRetirementAvailability(true)
+                :Path.Contains("/email-retirement")||Path.EndsWith("/retire-email")?new EmailBindingRetirementView(OperationId,BadEmailMetadata?"DeliveryVerified":"Pending",entry.BannedAt,entry.BannedAt,null)
+                :Path.Contains("/lookup")?new[]{entry}:Path.Contains("/reinstatement")?new AccountReinstatementPreview(account,"active",true,null,[entry.CaseId],[entry],true,[entry.Id])
                 :Path.Contains("/reinstate")||Path.EndsWith("/release")||Path.EndsWith("/retire-mobile")?new IdentifierWorkflowResult(1)
                 :Path.EndsWith("/review")?entry:Path.Contains(entry.Id.ToString())?new BannedIdentifierDetail(entry,[],[]):new[]{entry};
             var response=new HttpResponseMessage(HttpStatusCode.OK){Content=JsonContent.Create(body,body.GetType())};

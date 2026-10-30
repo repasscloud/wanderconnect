@@ -53,6 +53,47 @@ else
             </form>
         </section>
     }
+    @if(entry.IdentifierType=="email")
+    {
+        <section class="card" data-email-retirement data-email-retirement-state="@(emailOperation?.State??"none")">
+            <h2 id="email-retirement-heading">Retire the old email/login binding</h2>
+            <p>A restriction must be explicitly revoked first. After sufficiently reviewing a recycled email, separately retire only its reviewed binding from the original terminated account. Preserve unrelated credentials and restricted history. This does not restore or transfer the original account.</p>
+            <p class="help">The exact original binding must still match. A later changed binding needs separate restricted recovery review. Do not copy full contact values, identity documents or private messages into the explanation.</p>
+            @if(emailLoadError is not null) { <p class="notice" role="alert">@emailLoadError</p> }
+            @if(emailAvailabilityKnown&&!emailEnabled) { <p class="notice" data-email-retirement-disabled>Retirement requests are not enabled here. Any existing operation remains subject to its recorded controls.</p> }
+            @if(emailOperation is{}operation)
+            {
+                <p class="notice" data-email-operation-status>@EmailState(operation.State)</p>
+                <p class="help">Operation @operation.OperationId.ToString()[..8] · updated @operation.UpdatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm 'UTC'")</p>
+                @if(operation.CompletedAt is{}completed) { <p>Provider confirmation recorded @completed.ToUniversalTime().ToString("d MMM yyyy HH:mm 'UTC'"). Account reinstatement and original contact recovery require separate review.</p> }
+                else
+                {
+                    <p>Refresh the confirmation state before deciding whether another review is needed. A pending or uncertain operation keeps the original subject blocked. A fresh review can resume only the same operation and exact binding.</p>
+                    <form method="post" @formname="reviewEmail" @onsubmit="ReviewEmailAsync" class="stack" data-registry-review-email data-enhance="false">
+                        <AntiforgeryToken />
+                        <fieldset disabled="@(!access||!emailEnabled||emailLoadError is not null||entry.Status!="revoked")" aria-labelledby="email-retirement-heading">
+                            <label><input name="emailBindingReviewed" type="checkbox" value="yes" required /> I reviewed the case and sufficiently verified the current circumstances and ownership supporting this same retirement.</label>
+                            <label>Explanation<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
+                            <button type="submit" class="secondary">Record review and resume</button>
+                        </fieldset>
+                    </form>
+                }
+            }
+            else
+            {
+                @if(detail.History.Any(h=>h.Action=="email-retirement-requested")) { <p class="notice">Retirement history exists without a current operation. Review the case before any new action.</p> }
+                <form method="post" @formname="retireEmail" @onsubmit="RetireEmailAsync" class="stack" data-registry-retire-email data-enhance="false">
+                    <AntiforgeryToken />
+                    <fieldset disabled="@(!access||!emailEnabled||emailLoadError is not null||entry.Status!="revoked"||detail.History.Any(h=>h.Action=="email-retirement-requested"))" aria-labelledby="email-retirement-heading">
+                        <label><input name="emailBindingReviewed" type="checkbox" value="yes" required /> I reviewed the case and sufficiently verified the circumstances and current ownership supporting retirement.</label>
+                        <label>Explanation<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
+                        <button type="submit" class="secondary">Request old email retirement</button>
+                    </fieldset>
+                </form>
+            }
+            @if(access) { <p><a href="/registry/@Id" data-email-refresh>Refresh confirmation state</a></p> }
+        </section>
+    }
     <section class="card">
         <h2>Recorded history</h2>
         <ul class="list" data-registry-history="@detail.History.Count">
@@ -67,7 +108,9 @@ else
     [Parameter] public Guid Id { get; set; }
     [CascadingParameter] private HttpContext? Context { get; set; }
     private BannedIdentifierDetail? detail;
-    private bool access,live;
+    private bool access,live,emailEnabled,emailAvailabilityKnown;
+    private EmailBindingRetirementView? emailOperation;
+    private string? emailLoadError;
     private string? message,resultCode,loadError;
     protected override async Task OnInitializedAsync()=>await LoadAsync();
     private async Task LoadAsync()
@@ -76,6 +119,19 @@ else
         loadError=result.Ok?null:RegistryText.Refusal(result.Status,result.Code);
         access=(await Admin.GrantsAsync()).Value?.Any(g=>g.Active&&g.Capability=="identifier-release")==true;
         live=detail?.Entry is {Status:"active"} entry&&(entry.ExpiresAt is null||entry.ExpiresAt>DateTimeOffset.UtcNow);
+        emailOperation=null;emailEnabled=false;emailAvailabilityKnown=false;emailLoadError=null;
+        if(detail?.Entry.IdentifierType=="email"&&access)
+        {
+            var available=await Admin.EmailRetirementAvailabilityAsync();
+            if(available.Ok)
+            {
+                emailAvailabilityKnown=true;emailEnabled=available.Value!.Enabled;
+                var operation=await Admin.EmailRetirementAsync(Id);
+                if(operation.Ok)emailOperation=operation.Value;
+                else if(operation.Status!=404)emailLoadError=EmailRefusal(operation.Status,operation.Code);
+            }
+            else emailLoadError=EmailRefusal(available.Status,available.Code);
+        }
     }
     private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
     private async Task ReviewAsync()
@@ -89,6 +145,32 @@ else
         if(Field("caseReviewed")!="yes"||Field("circumstancesVerified")!="yes"){resultCode="400";message="Review the case and verify the circumstances before releasing the identifier.";return;}
         var result=await Admin.RegistryReleaseAsync(new IdentifierReleaseRequest([Id],Field("reason")));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
         message=result.Ok?(result.Value!.Changed>0?"Identifier restriction revoked. Original account access has not been restored.":"No active restriction changed. Account access is unchanged."):RegistryText.Refusal(result.Status,result.Code);await LoadAsync();
+    }
+    private static string EmailState(string state)=>state switch
+    {
+        "Pending"=>"Awaiting provider confirmation.",
+        "NeedsReview"=>"Restricted review or provider reconciliation is needed.",
+        "Completed"=>"The provider confirmed this operation completed.",
+        _=>"The confirmation state is unavailable.",
+    };
+    private static string EmailRefusal(int status,string? code)=>status switch
+    {
+        409=>"The source, binding or restrictions changed. Review the case; this action cannot replace a later binding.",
+        503=>"The provider or protected records cannot be confirmed right now. Check the existing state before trying again.",
+        _=>RegistryText.Refusal(status,code),
+    };
+    private async Task RetireEmailAsync()
+    {
+        if(Field("emailBindingReviewed")!="yes"){resultCode="400";message="Review the case and verify current circumstances and ownership first.";return;}
+        var result=await Admin.RetireEmailBindingAsync(Id,new(true,Field("reason")));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?"Retirement request recorded. Check the confirmation state below.":EmailRefusal(result.Status,result.Code);await LoadAsync();
+    }
+    private async Task ReviewEmailAsync()
+    {
+        if(Field("emailBindingReviewed")!="yes"){resultCode="400";message="Review the current circumstances and ownership before resuming this operation.";return;}
+        var result=await Admin.ReviewEmailRetirementAsync(Id,new(true,Field("reason")));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?(result.Value!.State=="Completed"?"Completion was already recorded.":result.Value.State=="NeedsReview"?"Provider reconciliation requested. Refresh the confirmation state shortly.":"Fresh review recorded for the same operation. Check the confirmation state below.")
+            :EmailRefusal(result.Status,result.Code);await LoadAsync();
     }
     private async Task RetireMobileAsync()
     {
