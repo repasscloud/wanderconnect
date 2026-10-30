@@ -217,6 +217,13 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 if(original is not null&&!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(EvidenceSeal.Hash(original),removal.SnapshotHash))throw new InvalidOperationException("Content-removal evidence integrity unavailable.");
                 Add("content-removal","content_removal",removal.Id.ToString(),removal.SubjectAccountId,new{removal.Id,removal.CaseId,removal.ReportId,removal.SubjectAccountId,removal.ActorAccountId,removal.Field,removal.ModeId,removal.MessageId,removal.RemovedAt,removal.EvidenceDisposedAt,original});
             }
+            foreach(var acceptance in await db.Set<PolicyAcceptance>().AsNoTracking().Where(p=>p.AccountId==id).ToListAsync(cancellationToken))
+                Add("policy-acceptance","policy_acceptances",id+"/"+acceptance.Version,id,acceptance);
+            foreach(var target in await db.Set<PolicyNoticeRecipient>().AsNoTracking().Where(r=>r.AccountId==id).ToListAsync(cancellationToken))
+            {
+                var publication=await db.Set<PolicyNoticePublication>().AsNoTracking().SingleOrDefaultAsync(p=>p.Id==target.PublicationId,cancellationToken);
+                Add("policy-notice","policy_notice_recipients",target.PublicationId+"/"+id,id,new{accountId=id,target.PublicationId,target.Status,target.CreatedAt,target.CompletedAt,publication});
+            }
             foreach(var fact in await db.Set<ModerationTransparencyFact>().AsNoTracking().Where(f=>f.SubjectAccountId==id||f.SourceCaseId!=null&&db.Reports.Any(r=>r.CaseId==f.SourceCaseId&&r.ReporterAccountId==id)).ToListAsync(cancellationToken))
             {
                 if(fact.SourceCaseId is{}reviewId)retentionCases?.Add(reviewId);relatedAccounts?.UnionWith([id,fact.SubjectAccountId]);
@@ -322,6 +329,27 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
         await CustodyAsync(hold.Id, actor, "released", $"schedule-resumed;overlaps:{overlaps}", now, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return 0; // Disposal is independently scheduled/retryable, never implied by release.
+    }
+
+    /// <summary>Before external identity removal, verify immutable acceptance copies for each directly named active hold.</summary>
+    public async Task<bool> PolicyAcceptanceCopiesReadyAsync(Guid account,CancellationToken token)
+    {
+        var records=await db.Set<PolicyAcceptance>().AsNoTracking().Where(p=>p.AccountId==account).ToListAsync(token);
+        if(records.Count==0)return true;
+        if(await db.LegalHolds.AnyAsync(h=>h.RelatedAccountIds==null||h.RetentionCaseIds==null,token))return false;
+        var ids=await (from hold in db.LegalHolds join scope in db.LegalHoldScopes on hold.Id equals scope.HoldId
+            where hold.Status!=LegalHoldStatus.Released&&scope.Kind==HoldScopeKind.Account&&scope.TargetId==account select hold.Id).Distinct().ToListAsync(token);
+        foreach(var hold in ids)foreach(var record in records)
+        {
+            var json=JsonSerializer.Serialize(record,Json);var hash=EvidenceSeal.Hash(json);var key=account+"/"+record.Version;
+            var copies=await db.EvidenceItems.AsNoTracking().Where(e=>e.HoldId==hold&&e.Kind=="policy-acceptance"&&e.Source=="policy_acceptances"&&e.RecordId==key&&e.AccountId==account).ToListAsync(token);
+            var valid=false;
+            foreach(var copy in copies)
+                try{if(CryptographicOperations.FixedTimeEquals(copy.Sha256,hash)&&Open(copy)==json){valid=true;break;}}
+                catch(Exception error)when(error is CryptographicException or KeyNotFoundException or ArgumentException){}
+            if(!valid)return false;
+        }
+        return true;
     }
 
     public string Open(EvidenceItem item) => EvidenceSeal.Open(keys.Encryption, item.Sealed);

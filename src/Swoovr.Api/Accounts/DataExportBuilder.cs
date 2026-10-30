@@ -86,6 +86,8 @@ public static class DataExportBuilder
                 identity.ShowGender, identity.ShowOrientation, identity.ShowAge, identity.DatingShowMe,
             },
             modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals, meetingSafety,
+            policyNoticeReceipts=await (from recipient in db.Set<PolicyNoticeRecipient>() join publication in db.Set<PolicyNoticePublication>() on recipient.PublicationId equals publication.Id where recipient.AccountId==id select new{publication.Version,recipient.Status,recipient.CreatedAt,recipient.CompletedAt,publication.PurgeAfter}).ToListAsync(cancellationToken),
+            policyAcceptances=await db.Set<PolicyAcceptance>().Where(p=>p.AccountId==id).Select(p=>new{p.Version,p.ContentSha256,p.AcceptedAt}).ToListAsync(cancellationToken),
             reportingCountryDeclarations = await db.Set<ModerationTransparencyFact>().Where(f=>f.SubjectAccountId==id&&f.Action=="termination")
                 .Select(f=>new{f.ActionAt,f.Action,f.HomeCountryAtAction,f.CountryProvenance}).ToListAsync(cancellationToken),
             idVerification = verification, entitlements,

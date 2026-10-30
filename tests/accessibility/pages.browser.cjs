@@ -62,7 +62,7 @@ const audit = () => {
       checked++;
     };
     const publicPage = await (await browser.newContext()).newPage();
-    for (const [path, ready] of [['/', 'main'], ['/safety', '[data-safety-page]'], ['/privacy', '[data-privacy-notice]'], ['/law-enforcement', '[data-law-enforcement-page]'], ['/settings/appearance', 'main']])
+    for (const [path, ready] of [['/', 'main'], ['/safety', '[data-safety-page]'], ['/privacy', '[data-privacy-notice]'], ['/terms','[data-public-policy]'], ['/community-guidelines','[data-public-policy]'], ['/safety/advice','main h1'], ['/policies/fictional-unpublished','[data-approved-policy-unavailable]'], ['/law-enforcement', '[data-law-enforcement-page]'], ['/settings/appearance', 'main']])
       await check(publicPage, path, ready);
     const member = await createMember('a11y');
     await cli('beta', 'add', member.email);
@@ -74,7 +74,7 @@ const audit = () => {
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', member.email); await page.fill('#password', member.password);
     await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
-    for (const [path, ready] of [['/account', 'main h1'], ['/me/profile', '[data-profile-editor="ready"]'], ['/me/photos', '[data-photos-panel="ready"]'],
+    for (const [path, ready] of [['/account', 'main h1'], ['/account/policies','[data-policy-none]'], ['/me/meeting-safety','[data-meeting-plan-form]'], ['/me/profile', '[data-profile-editor="ready"]'], ['/me/photos', '[data-photos-panel="ready"]'],
       ['/explore?mode=friends', '.people-grid, [data-explore-local]'], ['/connections', 'main h1'], ['/chats', 'main h1'], ['/me/safety', '[data-safety-services]'],
       ['/me/matching', 'main h1'], ['/travel', 'main h1'], ['/account/data', '[data-privacy-link]'], ['/me/notices', 'main h1'], ['/me/verification', 'main h1'],
       ['/me/notifications', '[data-notifications="ready"]'], ['/me/standing', '[data-standing="ready"]']])

@@ -88,6 +88,10 @@ const ADELAIDE = 2078025;
     assert.equal(tampered.status, 400); pass();
     assert.equal(await sql(`SELECT count(*) FROM legal_holds h JOIN legal_hold_scopes s ON s.hold_id = h.id WHERE s.target_id = '${ids.ana}'`), '0', 'refusals placed nothing'); pass();
 
+    // D269 acceptance source fixture: explicit synthetic approved receipt, not legal approval or a public catalogue entry.
+    if(process.env.SWOOVR_TEST_APP_DATABASE){
+      await sql(`INSERT INTO policy_acceptances(account_id,version,content_sha256,accepted_at) VALUES('${ids.ana}','fictional-held-approved',repeat('a',64),now())`);
+    }
     // Legal places a hold over Ana and her conversation with Bob: captured at once, sealed, chained.
     const REASON = 'Fictional police preservation request REF-HOLD-1';
     let r = await hold({ reason: REASON, accountIds: [ids.ana], conversationIds: [anaBob], releaseConditions: 'When the fictional investigation closes' });
@@ -133,6 +137,11 @@ const ADELAIDE = 2078025;
     assert.equal((await call(tokens.ana, '/api/me/deletion', { method: 'POST', body: { confirm: true, immediately: true, deleteFounderToken: false } })).status, 200);
     assert.match(await cli('accounts', 'purge'), /Accounts: [1-9]\d* deleted/);
     assert.equal(await sql(`SELECT status FROM accounts WHERE id = '${ids.ana}'`), 'Deleted'); pass();
+    if(process.env.SWOOVR_TEST_APP_DATABASE){
+      assert.equal(await sql(`SELECT count(*) FROM policy_acceptances WHERE account_id='${ids.ana}'`),'0','held final deletion erases ordinary acceptance after real provider deletion');pass();
+      assert.equal(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id='${holdId}' AND kind='policy-acceptance'`),'1','active hold retains independent encrypted acceptance proof');pass();
+    }
+
     assert.equal(await sql(`SELECT count(*) FROM messages WHERE sender_account_id = '${ids.ana}'`), '0', 'her live messages are gone'); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}'`)) > before, 'the pending-deletion state was captured too'); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM evidence_items WHERE hold_id = '${holdId}' AND kind = 'message'`)) >= 2, 'her messages stay preserved'); pass();

@@ -24,8 +24,15 @@ public static class NotificationLinks
         NotificationKind.Connection => "/connections",
         NotificationKind.Travel => "/travel",
         NotificationKind.MeetingSafety => "/me/meeting-safety",
+        NotificationKind.PolicyChange => await PolicyLinkAsync(db,n.SubjectId,cancellationToken),
         _ => "/me/notices",
     };
+
+    private static async Task<string> PolicyLinkAsync(SwoovrDbContext db,Guid? publication,CancellationToken token)
+    {
+        var path=await db.Set<PolicyNoticePublication>().Where(p=>p.Id==publication&&p.PublishedAt!=null).Select(p=>p.Link).SingleOrDefaultAsync(token);
+        return PolicyNoticePolicy.AllowedLink(path)?path!:"/safety";
+    }
 
     public static Task<string?> PlaceAsync(SwoovrDbContext db, Guid trip, CancellationToken cancellationToken) =>
         (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId where t.Id == trip select c.Name).SingleOrDefaultAsync(cancellationToken);
@@ -203,15 +210,22 @@ public static class NotificationEndpoints
         var tripIds = rows.Where(n => n.Kind == NotificationKind.Travel && n.SubjectId is not null).Select(n => n.SubjectId!.Value).ToList();
         var trips = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                            where tripIds.Contains(t.Id) && t.CancelledAt == null select new { t.Id, t.Arrival, c.Name, c.TimeZone }).ToDictionaryAsync(t => t.Id, cancellationToken);
+        var publicationIds=rows.Where(n=>n.Kind==NotificationKind.PolicyChange&&n.SubjectId!=null).Select(n=>n.SubjectId!.Value).ToList();
+        var publications=await db.Set<PolicyNoticePublication>().AsNoTracking().Where(p=>publicationIds.Contains(p.Id)).ToDictionaryAsync(p=>p.Id,cancellationToken);
+        var ownPublicationIds=await db.Set<PolicyNoticeRecipient>().Where(r=>r.AccountId==me&&r.Status=="centre-recorded"&&publicationIds.Contains(r.PublicationId)).Select(r=>r.PublicationId).ToListAsync(cancellationToken);
         var items = new List<NotificationView>();
         foreach (var n in rows)
         {
             if(n.Kind==NotificationKind.ReportOutcome&&(n.SubjectId is not{}source||!ownOutcomes.Contains(source)||n.ActorAccountId!=null||n.ModeId!=null))continue;
+            if(n.Kind==NotificationKind.PolicyChange&&(n.ActorAccountId!=null||n.ModeId!=null||n.SubjectId is not{}publicationId
+                ||!ownPublicationIds.Contains(publicationId)||!publications.TryGetValue(publicationId,out var publication)
+                ||!PolicyNoticePolicy.CanDisplay(publication,now)||n.DedupeKey!=PolicyNoticePolicy.Dedupe(publicationId)))continue;
             if (n.ActorAccountId is { } actor && !allowed[actor]) continue;
             var name = n.ActorAccountId is { } who && names.TryGetValue(who, out var known) ? known : "Someone";
             var mode = n.ModeId is { } id && labels.TryGetValue(id, out var label) ? label : null;
             string? title = n.Kind switch
             {
+                NotificationKind.PolicyChange => "Safety policy update: "+publications[n.SubjectId!.Value].Title,
                 NotificationKind.ReportOutcome => "There is an update to a report you submitted. Open Notices and reports to review it.",
                 NotificationKind.ConversationEnded => ConversationEnding.Notification,
                 NotificationKind.MeetingSafety => "You have a meeting safety update. Open it to check in.",

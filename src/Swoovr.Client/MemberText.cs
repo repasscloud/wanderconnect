@@ -18,6 +18,7 @@ public static class MemberText
         ProblemCodes.AgeVerificationRequired => "We need to confirm you're 18 or over before you can keep using Swoovr. Verify your ID under Me.",
         ProblemCodes.BetaNotEnrolled => "This opens once your email is on the private beta list.",
         ProblemCodes.AccountLocked => "This account is locked.",
+        ProblemCodes.PolicyAcceptanceRequired => "Review the current approved policies under Me before continuing.",
         ProblemCodes.PhoneVerificationRequired => "Verify your mobile number under Me to keep using Swoovr.",
         ProblemCodes.AccountDeletionPending => "Your account is being deleted. You can cancel under Me → Your data and account.",
         _ => null,

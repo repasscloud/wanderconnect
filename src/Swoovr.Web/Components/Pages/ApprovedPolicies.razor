@@ -1,0 +1,22 @@
+@page "/policies/{Version}"
+@using System.Net.Http.Json
+@inject IHttpClientFactory Clients
+<PageTitle>Approved policy version — Swoovr</PageTitle>
+<div class="column"><div class="page-heading"><h1>Approved policy version</h1></div>
+@if(document is null){<p data-approved-policy-unavailable>No effective approved policy version is published at this address. Public drafts are not in force.</p><a href="/terms">Terms of use (draft)</a>}
+else
+{
+    <p data-approved-policy-version>Version @document.Version · effective @document.EffectiveAt.ToString("yyyy-MM-dd")</p>
+    <section class="card account-section"><h2>Terms of use</h2>@foreach(var paragraph in document.Terms.Split("\n\n")){<p>@paragraph</p>}</section>
+    <section class="card account-section"><h2>Community guidelines</h2>@foreach(var paragraph in document.CommunityGuidelines.Split("\n\n")){<p>@paragraph</p>}</section>
+    <p class="field-help">Reading this document does not record acceptance. Signed-in members use the explicit review step under Me.</p>
+}
+<p><a href="/account/policies">Required policies</a> · <a href="/safety">Safety &amp; Support</a></p></div>
+@code{
+    [Parameter]public string Version{get;set;}="";private ApprovedPolicyDocumentView? document;
+    protected override async Task OnParametersSetAsync()
+    {
+        document=null;if(Version.Length is <1 or >40||Version.Any(c=>!char.IsAsciiLetterOrDigit(c)&&c is not('.' or '-')))return;
+        try{document=await ApiContractClient.Configure(Clients.CreateClient(Swoovr.Web.Auth.Bff.ApiClient)).GetFromJsonAsync<ApprovedPolicyDocumentView>("api/policies/"+Uri.EscapeDataString(Version));}catch(HttpRequestException){}catch(TaskCanceledException){}
+    }
+}

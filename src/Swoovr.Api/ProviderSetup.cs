@@ -15,6 +15,7 @@ public static class ProviderSetup
 {
     public static IServiceCollection AddSwoovrProviders(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton(new Policies.ApprovedPolicyCatalogue());
         var didit = new DiditOptions(configuration["Didit:ApiKey"], configuration["Didit:WorkflowId"],
             configuration["Didit:WebhookSecret"], new Uri(configuration["Didit:BaseUrl"] ?? "https://verification.didit.me/"));
         services.AddSingleton(didit);
@@ -42,6 +43,9 @@ public static class ProviderSetup
             services.AddScoped<Retention.OperationalRetention>();
             services.AddScoped<Safety.MeetingSafetyStore>();
             services.AddScoped<Moderation.ContentRemovalService>();
+            services.AddScoped<Notifications.PolicyNoticePublisher>();
+            services.AddScoped<Notifications.PolicyNoticeRetention>();
+            services.AddScoped<Policies.PolicyAcceptanceService>();
             services.AddScoped<Moderation.ModerationTransparencyRecorder>();
             services.AddScoped<Moderation.ModerationInspectionRecorder>();
             services.AddScoped<Moderation.ModerationTransparencyQuery>();

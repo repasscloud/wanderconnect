@@ -1004,6 +1004,11 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         });
         model.AddReportOutcomes();
         model.AddModerationTransparency();
+        model.AddPolicyNotices();
+        var acceptance=model.Entity<PolicyAcceptance>();acceptance.ToTable("policy_acceptances");acceptance.HasKey(a=>new{a.AccountId,a.Version});
+        acceptance.Property(a=>a.Version).HasMaxLength(40);acceptance.Property(a=>a.ContentSha256).HasMaxLength(64);
+        acceptance.HasOne<Account>().WithMany().HasForeignKey(a=>a.AccountId).OnDelete(DeleteBehavior.Cascade);
+        acceptance.ToTable(t=>t.HasCheckConstraint("ck_policy_acceptance","version ~ '^[A-Za-z0-9][A-Za-z0-9.-]{0,39}$' AND content_sha256 ~ '^[0-9a-f]{64}$'"));
         model.AddModerationInspectionTotals();
         model.Entity<TextHarmIntent>(i=>
         {

@@ -81,6 +81,22 @@ public static class Cli
         switch (args)
         {
             // D111: GeoNames place data (cities1000, admin1CodesASCII, countryInfo) from a folder; see scripts/geonames.sh.
+            case ["policies","notices","stage",var policyVersion,var policyTitle,var policyPath,"--operator",var stagingOperator] when Guid.TryParse(stagingOperator,out var stagingActor):
+            {
+                try
+                {
+                    var id=await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PolicyNoticePublisher>().StageAsync(policyVersion,policyTitle,policyPath,stagingActor,CancellationToken.None);
+                    Console.WriteLine($"Staged internal safety notice {id}: {policyVersion} · {policyTitle} · {policyPath}. Nothing delivered; separately confirm the published source.");return 0;
+                }
+                catch(InvalidOperationException){Console.Error.WriteLine("Policy source metadata, version or current root operator is unavailable.");return 2;}
+            }
+            case ["policies","notices","publish",var publication,"--operator",var publishingOperator,"--source-published","true"] when Guid.TryParse(publication,out var publicationId)&&Guid.TryParse(publishingOperator,out var publishingActor):
+            {
+                var accepted=await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PolicyNoticePublisher>().PublishAsync(publicationId,publishingActor,true,CancellationToken.None);
+                Console.WriteLine(accepted?"Current members snapshotted for centre-only delivery; no external send.":"Publication disabled or unavailable; no publication performed.");return accepted?0:2;
+            }
+            case ["policies","notices","process",var processingPublication] when Guid.TryParse(processingPublication,out var processingId):
+                Console.WriteLine($"Policy notice targets completed: {await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PolicyNoticePublisher>().RunBatchAsync(processingId,CancellationToken.None)} (bounded100; no external send).");return 0;
             case ["geonames", "import", var folder, ..]:
                 await db.Database.MigrateAsync();
                 var (cities, names) = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
@@ -321,7 +337,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: migrate | backups bundle | backups reconcile <owned-target-db> <authenticated-bundle-path> <authority-sha256> | contacts reconcile | root-admin grant <staff subject> | bans backfill | bans legacy-status | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: policies notices stage <version> <public-title> /safety|/safety/advice --operator <root-account-id> | policies notices publish <id> --operator <root-account-id> --source-published true | policies notices process <id> | migrate | backups bundle | backups reconcile <owned-target-db> <authenticated-bundle-path> <authority-sha256> | contacts reconcile | root-admin grant <staff subject> | bans backfill | bans legacy-status | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

@@ -5210,6 +5210,144 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("phone_codes");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.PolicyAcceptance", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("version");
+
+                    b.Property<DateTimeOffset>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<string>("ContentSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_sha256");
+
+                    b.HasKey("AccountId", "Version")
+                        .HasName("pk_policy_acceptances");
+
+                    b.ToTable("policy_acceptances", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_policy_acceptance", "version ~ '^[A-Za-z0-9][A-Za-z0-9.-]{0,39}$' AND content_sha256 ~ '^[0-9a-f]{64}$'");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PolicyNoticePublication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("DisposedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("disposed_at");
+
+                    b.Property<string>("Link")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("link");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<Guid?>("PublishedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("published_by");
+
+                    b.Property<DateTimeOffset?>("PurgeAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purge_after");
+
+                    b.Property<DateTimeOffset?>("SendUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("send_until");
+
+                    b.Property<DateTimeOffset>("StagedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("staged_at");
+
+                    b.Property<Guid?>("StagedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staged_by");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_policy_notice_publications");
+
+                    b.HasIndex("PurgeAfter")
+                        .HasDatabaseName("ix_policy_notice_publications_purge_after");
+
+                    b.HasIndex("Version")
+                        .IsUnique()
+                        .HasDatabaseName("ix_policy_notice_publications_version");
+
+                    b.ToTable("policy_notice_publications", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_policy_publication", "version ~ '^[A-Za-z0-9][A-Za-z0-9.-]{0,39}$' AND length(trim(title)) BETWEEN 1 AND 120 AND title !~ '[[:cntrl:]]' AND link IN ('/safety','/safety/advice') AND ((published_at IS NULL AND published_by IS NULL AND send_until IS NULL AND purge_after IS NULL AND ((disposed_at IS NULL AND staged_by IS NOT NULL) OR (disposed_at IS NOT NULL AND disposed_at>=staged_at+interval '1440 hours' AND staged_by IS NULL AND title='Expired safety update' AND link='/safety'))) OR (published_at IS NOT NULL AND send_until IS NOT NULL AND purge_after IS NOT NULL AND published_at>=staged_at AND send_until=published_at+interval '720 hours' AND purge_after=published_at+interval '1440 hours' AND ((disposed_at IS NULL AND staged_by IS NOT NULL AND published_by IS NOT NULL) OR (disposed_at IS NOT NULL AND disposed_at>=purge_after AND staged_by IS NULL AND published_by IS NULL AND title='Expired safety update' AND link='/safety'))))");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PolicyNoticeRecipient", b =>
+                {
+                    b.Property<Guid>("PublicationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publication_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("status");
+
+                    b.HasKey("PublicationId", "AccountId")
+                        .HasName("pk_policy_notice_recipients");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_policy_notice_recipients_account_id");
+
+                    b.HasIndex("PublicationId", "Status", "AccountId")
+                        .HasDatabaseName("ix_policy_notice_recipients_publication_id_status_account_id");
+
+                    b.ToTable("policy_notice_recipients", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_policy_recipient", "(status='queued' AND completed_at IS NULL) OR (status IN ('centre-recorded','suppressed') AND completed_at IS NOT NULL AND completed_at>=created_at)");
+                        });
+                });
+
             modelBuilder.Entity("Swoovr.Domain.ProfileOption", b =>
                 {
                     b.Property<string>("Kind")
@@ -7839,6 +7977,33 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_phone_codes_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PolicyAcceptance", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_policy_acceptances_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PolicyNoticeRecipient", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_policy_notice_recipients_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.PolicyNoticePublication", null)
+                        .WithMany()
+                        .HasForeignKey("PublicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_policy_notice_recipients_policy_notice_publications_publica~");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.PushDevice", b =>

@@ -27,7 +27,7 @@ public static class ModerationEndpoints
         // D190: `kind=serious` lists the Serious Safety Incident categories; otherwise the routine ones.
         api.MapGet("/report-categories", async (string? kind, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
-            var (_, denied) = await MemberAsync(user, accounts, cancellationToken);
+            var (_, denied) = await MemberAsync(user, accounts, cancellationToken,policyExempt:true);
             var serious = kind == "serious";
             return denied ?? Results.Ok(await accounts.Db!.ReportCategories.Where(c => c.Available && c.Serious == serious).OrderBy(c => c.SortOrder)
                 .Select(c => new ReportCategoryView(c.Id, c.Label)).ToListAsync(cancellationToken));
@@ -53,7 +53,7 @@ public static class ModerationEndpoints
         // the other account's deletion. One row per person: their conversation if there is one, else the latest request.
         api.MapGet("/me/safety/people", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken,policyExempt:true);
             if (denied is not null) return denied;
             var (db, me) = (accounts.Db!, current!.Account!.Id);
             var conversations = await db.Conversations.Where(c => c.PairLow == me || c.PairHigh == me).OrderByDescending(c => c.CreatedAt).Take(200).ToListAsync(cancellationToken);
@@ -142,7 +142,7 @@ public static class ModerationEndpoints
         IEmailSender email, Evidence.EvidencePreservation evidence, Evidence.EvidenceKeys evidenceKeys, IHubContext<Connections.MessagesHub> hub,
         TimeProvider clock, ILoggerFactory logs, CancellationToken cancellationToken)
     {
-        var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+        var (current, denied) = await MemberAsync(user, accounts, cancellationToken,policyExempt:true);
         if (denied is not null) return denied;
         var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
         if (!Enum.TryParse<ReportSubject>(request.SubjectType, ignoreCase: true, out var subjectType) || !Enum.IsDefined(subjectType) || int.TryParse(request.SubjectType, out _))

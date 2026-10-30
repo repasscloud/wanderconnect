@@ -1,0 +1,26 @@
+@inject MemberClient Members
+<div class="page-heading"><h1>Required policies</h1><p>Review the exact approved version before choosing whether to accept it.</p></div>
+@if(state is null){<p role="status">Policy information is loading or unavailable.</p>}
+else if(state.RequiredVersion is null){<p data-policy-none>No approved policy version is currently required. The public draft terms remain drafts; reading them does not record acceptance.</p><a href="/terms">Terms of use (draft)</a>}
+else if(state.Accepted){<p data-policy-accepted>You explicitly accepted version @state.RequiredVersion on @state.AcceptedAt?.ToString("yyyy-MM-dd").</p><a href="@state.ReadPath">Read this version</a>}
+else
+{
+    <section class="card account-section stack" data-policy-required>
+        <p>Version @state.RequiredVersion · effective @state.EffectiveAt?.ToString("yyyy-MM-dd").</p><p><a href="@state.ReadPath" target="_blank" rel="noopener">Read the required approved terms and community guidelines</a></p>
+        <label><input type="checkbox" @bind="confirmed" /> I have read and explicitly accept approved version @state.RequiredVersion.</label>
+        <button type="button" class="button" disabled="@(!confirmed||busy)" @onclick="Accept">Accept this version</button>
+        <p>You can still use account deletion/export, notices, appeals and support. Acceptance does not remove any account restriction.</p>
+    </section>
+}
+@if(message is not null){<p role="status" data-policy-result>@message</p>}
+<p><a href="/account">Me</a> · <a href="/account/data">Your data and account</a> · <a href="/safety">Safety &amp; Support</a></p>
+@code{
+    private MemberPolicyView? state;private bool confirmed,busy;private string? message;
+    protected override async Task OnInitializedAsync()=>state=(await Members.PoliciesAsync()).Value;
+    private async Task Accept()
+    {
+        if(!confirmed||busy||state?.RequiredVersion is not{}version)return;busy=true;
+        try{var result=await Members.AcceptPoliciesAsync(version,true);state=result.Value??(await Members.PoliciesAsync()).Value;confirmed=false;message=result.Ok?"Your explicit acceptance was recorded.":"Acceptance was not recorded. Review the current version and confirm again.";}
+        finally{busy=false;}
+    }
+}

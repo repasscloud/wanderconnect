@@ -34,6 +34,7 @@ if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)&&builde
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
+if(app.Services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>().Resolve(app.Configuration["Policies:RequiredVersion"],DateTimeOffset.UtcNow).State==Swoovr.Domain.PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("No matching effective approved policy exists; drafts cannot be activated.");
 // Fail at startup/command bootstrap if configured push is unsafe or incomplete.
 app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
 Swoovr.Api.Moderation.ModerationTransparencyRecorder.Dataset(app.Environment,app.Configuration);
@@ -93,7 +94,7 @@ Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
-if(persistence){Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
+if(persistence){Swoovr.Api.Policies.PolicyEndpoints.Map(app);Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);

@@ -17,6 +17,9 @@ public sealed record ApiResult<T>(int Status, T? Value, string? Code)
 public sealed class MemberClient(HttpClient transport)
 {
     private readonly HttpClient http = ApiContractClient.Configure(transport);
+    public Task<ApiResult<ApprovedPolicyDocumentView>> ApprovedPoliciesAsync(string version,CancellationToken token=default)=>SendAsync<ApprovedPolicyDocumentView>(new HttpRequestMessage(HttpMethod.Get,"api/policies/"+Uri.EscapeDataString(version)),token);
+    public Task<ApiResult<MemberPolicyView>> PoliciesAsync(CancellationToken token=default)=>SendAsync<MemberPolicyView>(new HttpRequestMessage(HttpMethod.Get,"api/me/policies"),token);
+    public Task<ApiResult<MemberPolicyView>> AcceptPoliciesAsync(string version,bool confirm,CancellationToken token=default)=>SendAsync<MemberPolicyView>(new HttpRequestMessage(HttpMethod.Post,"api/me/policies/accept"){Content=JsonContent.Create(new PolicyAcceptanceRequest(version,confirm))},token);
     public Task<ApiResult<SessionSummary>> SessionAsync(CancellationToken cancellationToken = default) =>
         SendAsync<SessionSummary>(new HttpRequestMessage(HttpMethod.Get, "api/session"), cancellationToken);
 

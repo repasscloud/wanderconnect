@@ -191,13 +191,14 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
                 log.LogWarning("Final deletion waits: hold status unavailable.");
                 return false;
             }
-            if ((await evidence.DeletionHoldsAsync(id, cancellationToken)).Count == 0) return true;
+            if ((await evidence.DeletionHoldsAsync(id, cancellationToken)).Count == 0) return await evidence.PolicyAcceptanceCopiesReadyAsync(id,cancellationToken);
             if (!evidence.Configured)
             {
                 log.LogWarning("Final deletion waits: a preservation obligation has no configured evidence key.");
                 return false;
             }
             await evidence.PreserveBeforeDeletionAsync(id, now, cancellationToken);
+            if(!await evidence.PolicyAcceptanceCopiesReadyAsync(id,cancellationToken)){log.LogWarning("Final deletion waits: policy acceptance preservation is unavailable.");return false;}
             return true;
         }
         if (!await PreserveAvailableAsync()) return false;
@@ -265,6 +266,7 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.DobReviews.Where(r => r.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Entitlements.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberNotices.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.Set<PolicyAcceptance>().Where(p=>p.AccountId==id).ExecuteDeleteAsync(cancellationToken);
         await db.PushDevices.Where(d => d.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Notifications.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.NotificationModeMutes.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);

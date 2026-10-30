@@ -10,6 +10,10 @@ if(args is ["--contact-provider-probe"])
     return;
 }
 
+if(args is ["--policy-checks"]){PublicPolicyDraftChecks.Run();PolicyNoticeChecks.Run();await PersistenceChecks.Run(policiesOnly:true);return;}
+
+PublicPolicyDraftChecks.Run();
+PolicyNoticeChecks.Run();
 MeetingSafetyChecks.Run();
 MeetingSafetyContactAccessChecks.Run();
 ContentRemovalChecks.Run();

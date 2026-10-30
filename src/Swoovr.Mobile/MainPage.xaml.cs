@@ -15,6 +15,7 @@ public partial class MainPage : ContentPage
 	public MainPage()
 	{
 		InitializeComponent();
+        AdviceHeading.Text=SafetyAdvice.Title; AdviceFirst.Text=SafetyAdvice.BeforeConnecting[0]; AdviceSecond.Text=SafetyAdvice.BeforeConnecting[1]; AdviceThird.Text=SafetyAdvice.BeforeConnecting[2];
 		DateOfBirth.MaximumDate = DateTime.Today;
 		DateOfBirth.MinimumDate = DateTime.Today.AddYears(-120);
 	}
@@ -84,6 +85,7 @@ public partial class MainPage : ContentPage
 	{
 		var locked = result?.Code == ProblemCodes.AccountLocked;
 		LockedCard.IsVisible = locked;
+        PolicyGateCard.IsVisible=false;
 		var account = locked ? null : result?.Value;
 		// D160: anything but active shows only the restricted card; notices and appeals stay open.
 		var restricted = account is not null && MemberText.RestrictedTitle(account.AccountState) is not null;
@@ -92,6 +94,7 @@ public partial class MainPage : ContentPage
 		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;
+		if(account.PolicyRequired){MemberSections.IsVisible=false;PolicyGateCard.IsVisible=true;return;}
 		AgeCheckCard.IsVisible = account.AgeStatus == "needsVerification";
 		// D148: with the gate on, the phone step opens before anything else.
 		if (account.PhoneRequired && Navigation.NavigationStack.LastOrDefault() is not PhonePage)
@@ -130,6 +133,7 @@ public partial class MainPage : ContentPage
 	private async void OnMatching(object? sender, EventArgs e) => await Ui.PushAsync(new MatchingPage());
 	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
+	private async void OnPolicies(object? sender,EventArgs e)=>await Ui.PushAsync(new PolicyAcceptancePage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 	private async void OnStanding(object? sender, EventArgs e) => await Ui.PushAsync(new StandingPage());
 	private async void OnEmailSupport(object? sender, EventArgs e) => await Launcher.Default.OpenAsync(StandingText.SupportUrl);
@@ -150,6 +154,8 @@ public partial class MainPage : ContentPage
 	private async void OnNotifications(object? sender, EventArgs e) => await Ui.PushAsync(new NotificationsPage());
 	private async void OnSafety(object? sender, EventArgs e) => await Ui.PushAsync(new SafetyPage());
 	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());
+	private async void OnTerms(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("terms"));
+	private async void OnCommunity(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("community"));
 	private async void OnPrivacy(object? sender, EventArgs e) => await Ui.PushAsync(new PrivacyPage());
 	private async void OnPhone(object? sender, EventArgs e) => await Ui.PushAsync(new PhonePage());
 
@@ -176,6 +182,8 @@ public partial class MainPage : ContentPage
 	}
 
 	private async void OnBetaLink(object? sender, TappedEventArgs e) => await Launcher.Default.OpenAsync(AccountText.BetaUrl);
+
+	private async void OnSafetyAdvice(object? sender,EventArgs e)=>await Ui.PushAsync(new SafetyAdvicePage());
 
 	private async void OnSaveAge(object? sender, EventArgs e)
 	{

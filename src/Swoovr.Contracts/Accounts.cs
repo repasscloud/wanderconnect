@@ -20,7 +20,7 @@ public sealed record MemberAccount(
     string DobCheck = "none",
     bool PhoneVerified = false,
     bool PhoneRequired = false,
-    string? EmailChangeProblem = null);
+    string? EmailChangeProblem = null,bool PolicyRequired=false);
 
 /// <summary>
 /// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion
@@ -57,6 +57,7 @@ public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
 /// <summary>Problem codes the API returns in a problem response's "code" extension.</summary>
 public static class ProblemCodes
 {
+    public const string PolicyAcceptanceRequired="policy-acceptance-required";
     public const string IdentifierRestricted = "identifier-restricted";
     public const string IdentifierCheckUnavailable = "identifier-check-unavailable";
     public const string PersistenceUnavailable = "persistence-unavailable";

@@ -15,6 +15,13 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout x:Name="AccountPanel" Spacing="16" IsVisible="False">
+                <Border Style="{StaticResource Card}" AutomationId="FirstUseSafetyAdvice">
+                    <VerticalStackLayout Spacing="12">
+                        <Label x:Name="AdviceHeading" Style="{StaticResource SectionHeading}" />
+                        <Label x:Name="AdviceFirst" /><Label x:Name="AdviceSecond" /><Label x:Name="AdviceThird" />
+                        <Button Text="Connection and meeting advice" AutomationId="FirstUseAdviceOpen" Style="{StaticResource SecondaryButton}" Clicked="OnSafetyAdvice" />
+                    </VerticalStackLayout>
+                </Border>
                 <Border x:Name="EmailChangeCard" Style="{StaticResource Card}" IsVisible="False" AutomationId="EmailChangeNotice">
                     <VerticalStackLayout Spacing="8">
                         <Label x:Name="EmailChangeHeading" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
@@ -69,6 +76,16 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <Border x:Name="PolicyGateCard" Style="{StaticResource Card}" IsVisible="False" AutomationId="PolicyGate">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Review the required policies" Style="{StaticResource SectionHeading}" />
+                        <Button Text="Review and choose whether to accept" AutomationId="PolicyReviewOpen" Style="{StaticResource PrimaryButton}" Clicked="OnPolicies" />
+                        <Button Text="Your data and account" AutomationId="PolicyData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
+                        <Button Text="Notices and appeals" AutomationId="PolicyNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
+                        <Button Text="Account standing" AutomationId="PolicyStanding" Style="{StaticResource SecondaryButton}" Clicked="OnStanding" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- #103: Safety &amp; Support contacts for anyone, signed in or not; reporting still needs a signed-in member. -->
                 <Button Text="Safety &amp; Support" AutomationId="SafetySupport" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                 <VerticalStackLayout x:Name="MemberSections" Spacing="16" IsVisible="False">
@@ -96,6 +113,8 @@
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
+                            <Button Text="Terms of use (draft)" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />
+                            <Button Text="Community guidelines (draft)" AutomationId="MeCommunity" Style="{StaticResource SecondaryButton}" Clicked="OnCommunity" />
                             <Button Text="Privacy notice (draft)" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
                         </VerticalStackLayout>
                     </Border>

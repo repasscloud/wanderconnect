@@ -10,7 +10,7 @@ using Swoovr.Infrastructure.Persistence;
 /// </summary>
 static class PersistenceChecks
 {
-    public static async Task Run()
+    public static async Task Run(bool policiesOnly=false)
     {
         var admin = Environment.GetEnvironmentVariable("SWOOVR_TEST_DATABASE");
         if (string.IsNullOrWhiteSpace(admin))
@@ -30,6 +30,12 @@ static class PersistenceChecks
         {
             var connection = new NpgsqlConnectionStringBuilder(admin) { Database = name, Pooling = false }.ConnectionString;
             DbContextOptions<SwoovrDbContext> options = new DbContextOptionsBuilder<SwoovrDbContext>().UseNpgsql(connection).Options;
+            if(policiesOnly)
+            {
+                await PolicyNoticePersistenceChecks.Run(options,Check);
+                await PolicyAcceptancePersistenceChecks.Run(options,Check);
+                Console.WriteLine($"PASS: {count} scoped policy PostgreSQL checks (owned disposable databases).");return;
+            }
             await using (var db = new SwoovrDbContext(options))
             {
                 await db.Database.MigrateAsync("20261029011346_BanCheckQuotas");
@@ -109,6 +115,8 @@ static class PersistenceChecks
             await ModerationTransparencyPersistenceChecks.Run(options, Check);
             await ModerationInspectionTotalChecks.Run(options, Check);
             await ModerationTransparencyRetentionChecks.Run(options, Check);
+            await PolicyNoticePersistenceChecks.Run(options, Check);
+            await PolicyAcceptancePersistenceChecks.Run(options, Check);
             await ContentRemovalGuardChecks.Run(options, Check);
             await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
         }

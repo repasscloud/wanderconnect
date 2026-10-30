@@ -17,6 +17,7 @@ public sealed class MeetingSafetyPage:ContentPage
     private async Task LoadAsync()
     {
         body.Children.Clear();body.Children.Add(Ui.Text("I'm meeting someone","PageTitle","MeetingSafetyTitle"));body.Children.Add(Ui.Text(MeetingSafetyText.Disclaimer,"FooterClaims"));body.Children.Add(status);
+        body.Children.Add(Ui.Text("Before meeting","SectionHeading"));foreach(var advice in SafetyAdvice.BeforeMeeting)body.Children.Add(Ui.Text(advice));
         if(!await Ui.SignedInAsync()){body.Children.Add(Ui.Text("Sign in to manage voluntary meeting safety.",id:"MeetingSafetySignedOut"));return;}
         var result=await Ui.Members!.MeetingSafetyAsync();data=result.Value;if(data is null){status.Text=MeetingSafetyText.Problem(result.Code);return;}
         selected.RemoveWhere(id=>!data.Contacts.Any(c=>c.Id==id&&c.Consent=="confirmed"));

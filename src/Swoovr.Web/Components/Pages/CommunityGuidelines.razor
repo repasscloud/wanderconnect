@@ -1,0 +1,20 @@
+@page "/community-guidelines"
+@using Swoovr.Client
+<PageTitle>Community guidelines (draft) — Swoovr</PageTitle>
+<div class="column" data-public-policy="community" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status">
+    <div class="page-heading">
+        <p class="notice" role="note" data-draft><strong>@PublicPolicyDrafts.DraftLabel</strong></p>
+        <h1>@Document.Title</h1>
+        <p class="field-help">@PublicPolicyDrafts.Version</p>
+    </div>
+    <section class="card account-section" aria-label="@Document.Title">
+        @if (Document.Rules.Count > 0) { <ul>@foreach (var rule in Document.Rules) { <li>@rule</li> }</ul> }
+        @foreach (var paragraph in Document.Paragraphs) { <p>@paragraph</p> }
+    </section>
+    <nav class="card account-section" aria-label="Related policies">
+        <a href="/terms">Terms of use (draft)</a> · <a href="/community-guidelines">Community guidelines (draft)</a> · <a href="/privacy">Privacy notice (draft)</a> · <a href="/safety">Safety &amp; Support</a>
+    </nav>
+    <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
+    <p class="notice" role="note"><strong>@PublicPolicyDrafts.DraftLabel</strong></p>
+</div>
+@code { private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Community; }

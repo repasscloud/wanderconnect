@@ -23,6 +23,7 @@
 @if (loaded)
 {
     <EmailChangeNotice Problem="@session?.EmailChangeProblem" />
+    @if(session is not null){<Swoovr.Web.Client.Moderation.SafetyAdviceCard />}
     <section class="card account-session" aria-label="Your session">
         @if (session is null)
         {
@@ -71,6 +72,10 @@
             <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
             <p><a class="button" href="/me/notices">Read the notice</a></p>
         </section>
+    }
+    else if(me is {PolicyRequired:true})
+    {
+        <section class="card account-section" data-policy-gate><h2>Review the required policies</h2><p><a class="button" href="/account/policies">Review and choose whether to accept</a></p><p>Account data, notices, appeals and support remain available.</p></section>
     }
     else if (me is not null)
     {

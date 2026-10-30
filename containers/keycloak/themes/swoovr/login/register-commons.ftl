@@ -19,6 +19,7 @@
                 ${kcSanitize(msg("termsText"))?no_esc}
                 <#-- #99: the privacy notice (a draft until legal review, #57). The address comes from theme.properties. -->
                 <p><a href="${properties.swoovrPrivacyUrl!'/privacy'}" target="_blank" rel="noopener" id="sw-privacy-link">${msg("privacyNoticeLink")}</a></p>
+                <p><a href="${properties.swoovrTermsUrl!'/terms'}" target="_blank" rel="noopener" id="sw-terms-link">${msg("termsDraftLink")}</a> · <a href="${properties.swoovrCommunityUrl!'/community-guidelines'}" target="_blank" rel="noopener" id="sw-community-link">${msg("communityDraftLink")}</a></p>
             </div>
         </div>
     </#if>

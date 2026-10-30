@@ -68,6 +68,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
     /// D148, D184 (owner, 27 October 2026): a verified mobile number is required to finish registration, so the gate is on
     /// unless `Phone:Required` is false (local test hosts only). Codes stay simulated until deployment (D183).
     /// </summary>
+    public bool PolicyVersionSelected=>!string.IsNullOrWhiteSpace(configuration["Policies:RequiredVersion"]);
     public bool PhoneRequired => configuration.GetValue("Phone:Required", true);
     private bool LocalPasswordStaff => environment.IsDevelopment() && configuration.GetValue("Staff:LocalPasswords", false);
     /// <summary>The private beta gate is on unless Beta:Enabled is false (D62; turned off at public launch).</summary>

@@ -6,7 +6,7 @@ Status vocabulary: **Fulfilled** requires dated evidence for the relevant enviro
 
 | Obligation / benchmark | Initial status and evidence | Accountable role / next action | Gate / issue |
 | --- | --- | --- | --- |
-| Code5.1 /7.3(2): terms and accessible current policies | Partially fulfilled: [draft text](TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md); no legal approval or published acceptance flow | Leader / legal review, pages, accessibility and version evidence |113/57/48 |
+| Code5.1 /7.3(2): terms and accessible current policies | Local preparation: D269 public DRAFT readers and explicit immutable acceptance, initially empty approved catalogue; legal57 outstanding | Leader / legal review, approved text/catalogue activation, native/UI accessibility and version evidence |113/57/48 |
 | Code5.4(1)(a) /7.2(4): moderator guidance/training | Partially fulfilled: [draft playbook](MODERATOR-GUIDANCE-DRAFT.md); no completed staff assessment | Leader / operational approval and named trainee evidence |116/119 |
 | Code7.1 /7.2: leadership, resources and oversight | Partially fulfilled: D220 and [draft charter](TRUST-SAFETY-LEADER-ROLE-DRAFT.md); no appointment/coverage evidence | Company leadership / designate leader/deputy and resource function |119 before operational readiness |
 | Code6.5: authority contact/cooperation | Partially fulfilled: existing police procedure/local tooling and [draft plan](LAW-ENFORCEMENT-COOPERATION-PLAN-DRAFT.md); real monitoring and agreements unverified | Leader / verified contacts, legal protocol assessment, approved outreach/rehearsal |119/57 |
@@ -17,7 +17,7 @@ Status vocabulary: **Fulfilled** requires dated evidence for the relevant enviro
 | Code5.2 /5.3: detection/content intervention | Partially fulfilled per dated gap analysis; no new software evidence here | Leader / verify current114/115 implementation and provider limits |114/115 |
 | Code6.1–6.3: reports, handling complaints and support | Partially fulfilled per dated gap analysis; no new acceptance here | Leader / assess117 outcome/support and independent complaints route |117 |
 | Code5.5 /6.2(2): retention and review records | Partially fulfilled: [schedule](RETENTION-SCHEDULE.md) and local implementation evidence; legal and hosted acceptance separate | Leader / inspect current118 evidence and resolve remaining gaps |118/57 |
-| Code7.3(1),(3): advice and change notices | Outstanding against this drafting scope | Leader / inspect onboarding and significant-change work |121 |
+| Code7.3(1),(3): advice and change notices | D269 local shared first-use/profile/meeting advice and default-off centre-only safety publications | Leader / review actual publication/source, legal approval and native UI evidence |121/57/48 |
 | Code7.1(3) /8.3 /8.4: metrics and annual reports | Outstanding against this drafting scope | Leader / define reviewed aggregates/reporting, verify applicable dates |120 |
 
 Each real register entry additionally needs control ID, source/version, assessed commit/environment, evidence date and restricted reference, named accountable owner, reviewer, residual risk, action/due date, verification outcome and next review. Role names above are responsibility proposals; they do not identify appointed people. New evidence must update status explicitly rather than silently treating an open issue as complete.

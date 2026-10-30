@@ -39,6 +39,8 @@ public sealed class NotificationsPage : ContentPage
 		foreach (var n in centre.Items)
         {
 			rows.Add(Ui.Text($"{(n.Read ? "" : "• ")}{n.Title} · {n.At.ToLocalTime():d MMM, HH:mm}", n.Read ? null : "TileName", $"Notification_{n.Id}"));
+            if(n.Kind=="policyChange"&&n.Link=="/safety/advice")rows.Add(Ui.Button("Read safety advice","PolicyAdvice_"+n.Id,()=>Ui.PushAsync(new SafetyAdvicePage()),primary:false));
+            if(n.Kind=="policyChange"&&n.Link=="/safety")rows.Add(Ui.Button("Safety & Support","PolicySupport_"+n.Id,()=>Ui.PushAsync(new SafetyPage()),primary:false));
             if(n.Kind=="reportOutcome")rows.Add(Ui.Button("Open Notices and reports","ReportOutcome_"+n.Id,()=>Ui.PushAsync(new NoticesPage()),primary:false));
             if(n.Link=="/me/meeting-safety")rows.Add(Ui.Button("Open meeting safety","MeetingNotification_"+n.Id,()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));
         }

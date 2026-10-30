@@ -1,0 +1,8 @@
+@using Swoovr.Client
+<section class="card account-section stack" aria-labelledby="first-use-safety-heading" data-safety-advice="@SafetyAdvice.Version">
+    <h2 id="first-use-safety-heading">@SafetyAdvice.Title</h2>
+    <p>@SafetyAdvice.Introduction</p>
+    <ul>@foreach(var advice in SafetyAdvice.BeforeConnecting){<li>@advice</li>}</ul>
+    <p><a class="link" href="@SafetyAdvice.Link">Read meeting and connection advice</a> · <a class="link" href="/safety">Safety &amp; Support</a></p>
+    <p class="field-help">@SafetyAdvice.Responsibility</p>
+</section>

@@ -3,6 +3,7 @@
 @inject IJSRuntime JS
 <div class="page-heading"><p class="breadcrumb"><a href="/me/safety">Safety</a> / Meeting safety</p><h1>I'm meeting someone</h1></div>
 <section class="card account-section notice"><p>@MeetingSafetyText.Disclaimer</p><p>No other participant's profile, photos or messages are shared. Your private note and feedback are shown only to you in member features. Never enter another person's identity or a private address in a shared venue/area.</p></section>
+<section class="card account-section stack" aria-labelledby="meeting-advice-heading"><h2 id="meeting-advice-heading">Before meeting</h2><ul>@foreach(var advice in SafetyAdvice.BeforeMeeting){<li>@advice</li>}</ul><p><a class="link" href="@SafetyAdvice.Link">More connection and meeting advice</a></p></section>
 @if(message is not null){<p role="status" data-meeting-message>@message</p>}
 @if(data is null){<p data-meeting-loading>Meeting safety is loading or unavailable. <a href="/safety">Safety &amp; Support</a> remains available.</p>}
 else

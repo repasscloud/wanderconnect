@@ -36,7 +36,7 @@ public static class AccountEndpoints
             var state = current!.Account!.Status == AccountStatus.PendingDeletion ? "pendingDeletion" : current.Enforcement.State;
             var phone = await accounts.Db!.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken);
             return Results.Ok(View(current.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), state) with
-                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, EmailChangeProblem = current.EmailChangeProblem });
+                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken) });
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -144,7 +144,7 @@ public static class AccountEndpoints
     /// <paramref name="barredExempt"/> is passed: its account summary, notices and appeals.
     /// </remarks>
     public static async Task<(CurrentAccount? Current, IResult? Denied)> MemberAsync(ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken,
-        bool ageGateExempt = false, bool barredExempt = false, bool pendingDeletionExempt = false, bool phoneExempt = false)
+        bool ageGateExempt = false, bool barredExempt = false, bool pendingDeletionExempt = false, bool phoneExempt = false,bool policyExempt=false)
     {
         var current = await accounts.ResolveAsync(user, cancellationToken);
         if (current is null) return (null, Results.Unauthorized());
@@ -178,6 +178,8 @@ public static class AccountEndpoints
         if (accounts.PhoneRequired && !phoneExempt && !barredExempt && current.Facts.Realm == AccountRealm.Members
             && !await accounts.Db.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.PhoneVerificationRequired, "Verify your mobile number to keep using Swoovr."));
+        if(!barredExempt&&!policyExempt&&accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken))
+            return(null,Problem(403,ProblemCodes.PolicyAcceptanceRequired,"Review and explicitly accept the currently required approved policies under Me."));
         return (current with { Enforcement = enforcement }, null);
     }
 
