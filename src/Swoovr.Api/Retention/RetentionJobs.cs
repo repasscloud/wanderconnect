@@ -3,13 +3,15 @@ using Swoovr.Api.Media;
 
 namespace Swoovr.Api.Retention;
 
-public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0, int IdentifierRestrictionsExpired = 0, int IdentifierHistoriesDisposed = 0, int IdentifierReceiptsExpired = 0);
+public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0, int IdentifierRestrictionsExpired = 0, int IdentifierHistoriesDisposed = 0, int IdentifierReceiptsExpired = 0, int OperationalHoldsExpired = 0);
 
-public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal)
+public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational)
 {
     public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token)
     {
         await conflicts.ReconcileAsync(now, token);
+        var records = await operational.RunAsync(now, token);
+        if(records.FailedClosed)return new(new SafetyRetentionRun(0,0,0,0,true),null,null,0,0,true);
         var reviews = await safety.PurgeAsync(now, token);
         if (reviews.HoldStatusUnavailable) return new(reviews, null, null, 0, 0, true);
         var deleted = await accounts.PurgeAsync(now, token);
@@ -22,8 +24,8 @@ public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accoun
         var attempts = await bans.SweepAttemptsAsync(now,token);
         var expiredBans = await expiry.RunAsync(now,token);
         var history=await disposal.RunAsync(now,token);
-        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, associations.HoldStatusUnavailable || attempts is null || history.FailedClosed,
-            associations.Expired, expiredBans, history.HistoriesDisposed, history.ReceiptsExpired);
+        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, records.FailedClosed || associations.HoldStatusUnavailable || attempts is null || history.FailedClosed,
+            associations.Expired, expiredBans, history.HistoriesDisposed, history.ReceiptsExpired,records.HoldsDisposed);
     }
 }
 
@@ -40,8 +42,8 @@ public sealed class RetentionWorker(IServiceScopeFactory scopes, TimeProvider cl
                 await using var scope = scopes.CreateAsyncScope();
                 var result = await scope.ServiceProvider.GetRequiredService<RetentionJobs>().RunAsync(clock.GetUtcNow(), stoppingToken);
                 if (result.FailedClosed) log.LogError("Retention run stopped because preservation status or membership was unavailable.");
-                else log.LogInformation("Retention: {Cases} case records, {Content} case content sets, {Copies} copies disposed; {Review} require restricted review; {Conflicts} minimal staff associations expired; {Bans} scheduled identifier restrictions expired; {History} inactive identifier histories disposed; {Receipts} minimal dispositions expired.",
-                    result.Safety.CasesDisposed, result.Safety.ContentDisposed, result.Safety.CopiesDisposed, result.Safety.ReviewRequired, result.ConflictRecordsExpired, result.IdentifierRestrictionsExpired, result.IdentifierHistoriesDisposed, result.IdentifierReceiptsExpired);
+                else log.LogInformation("Retention: {Cases} case records, {Content} case content sets, {Copies} copies disposed; {Review} require restricted review; {Conflicts} minimal staff associations expired; {Bans} scheduled identifier restrictions expired; {History} inactive identifier histories disposed; {Receipts} minimal dispositions expired; {Operational} released operational groups expired.",
+                    result.Safety.CasesDisposed, result.Safety.ContentDisposed, result.Safety.CopiesDisposed, result.Safety.ReviewRequired, result.ConflictRecordsExpired, result.IdentifierRestrictionsExpired, result.IdentifierHistoriesDisposed, result.IdentifierReceiptsExpired,result.OperationalHoldsExpired);
             }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
             { log.LogError("Retention run failed ({ErrorType}); remaining due records retry next run.", error.GetType().Name); }

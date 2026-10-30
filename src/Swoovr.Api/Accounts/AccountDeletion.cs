@@ -135,7 +135,10 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         heldCases.AddRange(await (from export in db.EvidenceExports join hold in db.LegalHolds on export.HoldId equals hold.Id
             where export.LeCaseId != null && (hold.Status != LegalHoldStatus.Released || db.EvidenceItems.Any(e => e.HoldId == hold.Id))
             select export.LeCaseId!.Value).ToListAsync(cancellationToken));
-        var cases = await db.LeCases.Where(c => c.Status == LeCaseStatus.Closed && c.RetainUntil <= now && !heldCases.Contains(c.Id)).ExecuteDeleteAsync(cancellationToken);
+        // Keep police provenance until released operational records (including old export links) expire as a group.
+        var cases = await db.LeCases.Where(c => c.Status == LeCaseStatus.Closed && c.RetainUntil <= now && !heldCases.Contains(c.Id)
+            && !db.LegalHolds.Any(h => h.LeCaseId == c.Id)
+            && !db.EvidenceExports.Any(e => e.LeCaseId == c.Id)).ExecuteDeleteAsync(cancellationToken);
         return new(deleted, waiting, retries, expired, holds, kept, cases, Minimized: minimized);
     }
 

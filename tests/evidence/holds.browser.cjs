@@ -194,6 +194,8 @@ const ADELAIDE = 2078025;
     await page.goto(admin + '/');
     await page.fill('#username', staff.leg.email); await page.fill('#password', staff.leg.password); await page.click('#kc-login');
     await page.waitForSelector('[data-legal-home]', { timeout: 20000 }); pass();
+    // Shared fictional runs exceed the200-row due-review window. Make only this fixture due first.
+    await sql(`UPDATE legal_holds SET review_due=now()-interval '1 day' WHERE id='${provisional}'`);
     await page.goto(admin + '/holds');
     await page.waitForSelector('[data-holds]');
     assert.ok(await page.locator(`[data-hold="${provisional}"]`).count() === 1); pass();

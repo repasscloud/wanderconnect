@@ -305,8 +305,8 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
             if (await UnresolvedCopyObligationAsync(id, accounts, token)) { reviews++; continue; }
             if (accounts.Any(held.Contains) || item.EvidencePurgedAt is null
                 || !SafetyRetentionPolicy.MayDispose((await CaseWindowAsync(item, token)).RecordsUntil, now, false)) continue;
-            if (await db.LegalHolds.AnyAsync(h => (h.CaseId == id || h.RetentionCaseIds != null && h.RetentionCaseIds.Contains(id))
-                && (h.Status != LegalHoldStatus.Released || db.EvidenceItems.Any(e => e.HoldId == h.Id)), token)) continue;
+            // Retain positive case provenance until the operational hold/export/custody group has expired too.
+            if (await db.LegalHolds.AnyAsync(h => h.CaseId == id || h.RetentionCaseIds != null && h.RetentionCaseIds.Contains(id), token)) continue;
             // D217: preserve the minimal case reference while registry/history rows still require it. Content above
             // follows its own clock; active anti-abuse necessity does not retain original evidence indefinitely.
             if (await db.BannedIdentifiers.AnyAsync(b => b.CaseId == id,token) || await db.BanDispositions.AnyAsync(d=>d.CaseId==id,token)
