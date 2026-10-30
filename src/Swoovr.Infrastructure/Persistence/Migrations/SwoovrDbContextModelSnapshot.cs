@@ -735,6 +735,28 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<DateTimeOffset?>("IosDistributionChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ios_distribution_changed_at");
+
+                    b.Property<Guid?>("IosDistributionChangedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ios_distribution_changed_by");
+
+                    b.Property<long>("IosDistributionRevision")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("ios_distribution_revision");
+
+                    b.Property<string>("IosDistributionState")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasDefaultValue("not-recorded")
+                        .HasColumnName("ios_distribution_state");
+
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at");
@@ -750,7 +772,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_beta_enrolments_email")
                         .HasFilter("revoked_at IS NULL");
 
-                    b.ToTable("beta_enrolments");
+                    b.ToTable("beta_enrolments", t =>
+                        {
+                            t.HasCheckConstraint("ck_beta_ios_record", "ios_distribution_state IN ('not-recorded','not-invited','invited','accepted','removed') AND ios_distribution_revision>=0 AND ((ios_distribution_revision=0 AND ios_distribution_changed_at IS NULL AND ios_distribution_changed_by IS NULL) OR (ios_distribution_revision>0 AND ios_distribution_changed_at IS NOT NULL AND ios_distribution_changed_by IS NOT NULL))");
+                        });
                 });
 
             modelBuilder.Entity("Swoovr.Domain.BetaJourneyDay", b =>

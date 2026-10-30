@@ -90,7 +90,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                 {
                     case "case": if (!Guid.TryParse(copy.RecordId, out var id) || !Member("subjectAccountId")) return; cases.Add(id); break;
                     case "report": if (!Case("caseId") || !Member("reporterAccountId") || !Member("subjectAccountId")) return; break;
-                    case "beta-journey":case "policy-acceptance":case "policy-notice":if(!Member("accountId"))return;break;
+                    case "beta-enrolment":case "beta-journey":case "policy-acceptance":case "policy-notice":if(!Member("accountId"))return;break;
                     case "moderation-transparency": if(!Member("subjectAccountId")||!Case("sourceCaseId"))return;break;
                     case "text-harm-review":
                         if(!Case("caseId")||!Member("subjectAccountId")||!root.TryGetProperty("relatedAccountIds",out var related)||related.ValueKind!=JsonValueKind.Array)return;

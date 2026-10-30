@@ -79,8 +79,9 @@ public static class AdminEndpoints
             };
         });
 
-        admin.MapGet("/beta", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        admin.MapGet("/beta", async (ClaimsPrincipal user, AccountResolver accounts, HttpContext context, CancellationToken cancellationToken) =>
         {
+            context.Response.Headers.CacheControl="no-store";
             var (_, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
             var list = await accounts.Db!.BetaEnrolments.OrderByDescending(e => e.CreatedAt).Take(1000).ToListAsync(cancellationToken);
@@ -95,6 +96,20 @@ public static class AdminEndpoints
             if (enrolment is null) return Results.NotFound();
             await BetaEnrolments.RevokeAsync(accounts.Db, enrolment, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
             return Results.NoContent();
+        });
+
+        admin.MapPut("/beta/{id:guid}/ios-distribution",async(Guid id,IosDistributionUpdate update,ClaimsPrincipal user,AccountResolver accounts,TimeProvider clock,CancellationToken token)=>
+        {
+            var(current,denied)=await StaffAsync(user,accounts,AccountRole.Admin,token);if(denied is not null)return denied;
+            if(!current!.RecentlyAuthenticated(clock.GetUtcNow()))return Problem(403,ProblemCodes.StaleSession,"Sign in again before recording distribution work.");
+            var(result,row)=await BetaEnrolments.RecordIosAsync(accounts.Db!,id,update,current.Account!.Id,clock.GetUtcNow(),token);
+            return result switch
+            {
+                BetaEnrolments.IosUpdateResult.Invalid=>Problem(400,ProblemCodes.InvalidRequest,"Confirm a supported staff-recorded state and current revision."),
+                BetaEnrolments.IosUpdateResult.NotFound=>Results.NotFound(),
+                BetaEnrolments.IosUpdateResult.Conflict=>Problem(409,ProblemCodes.RecordChanged,"This enrolment changed. Reload before recording another status."),
+                _=>Results.Ok(BetaEnrolments.View(row!)),
+            };
         });
 
         // Founding membership (D63/D65). Until verification exists (Q04), an admin grants it.

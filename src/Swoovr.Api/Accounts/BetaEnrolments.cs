@@ -42,6 +42,28 @@ public static class BetaEnrolments
         return true;
     }
 
+    public enum IosUpdateResult { Updated, Unchanged, Invalid, NotFound, Conflict }
+    public static async Task<(IosUpdateResult Result,BetaEnrolment? Row)> RecordIosAsync(SwoovrDbContext db,Guid id,IosDistributionUpdate update,Guid actor,DateTimeOffset now,CancellationToken token)
+    {
+        if(!update.Confirm||update.ExpectedRevision<0||update.ExpectedRevision==long.MaxValue
+            ||update.State is not("not-recorded" or "not-invited" or "invited" or "accepted" or "removed"))return(IosUpdateResult.Invalid,null);
+        await using var barrier=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,token);
+        await using var transaction=await db.Database.BeginTransactionAsync(token);
+        var current=await db.BetaEnrolments.AsNoTracking().SingleOrDefaultAsync(e=>e.Id==id,token);
+        if(current is null)return(IosUpdateResult.NotFound,null);
+        if(current.IosDistributionRevision!=update.ExpectedRevision)return(IosUpdateResult.Conflict,null);
+        if(current.IosDistributionState==update.State){await transaction.CommitAsync(token);return(IosUpdateResult.Unchanged,current);}
+        var changed=await db.BetaEnrolments.Where(e=>e.Id==id&&e.IosDistributionRevision==update.ExpectedRevision).ExecuteUpdateAsync(set=>set
+            .SetProperty(e=>e.IosDistributionState,update.State).SetProperty(e=>e.IosDistributionRevision,update.ExpectedRevision+1)
+            .SetProperty(e=>e.IosDistributionChangedAt,now).SetProperty(e=>e.IosDistributionChangedBy,actor),token);
+        if(changed!=1)return(IosUpdateResult.Conflict,null);
+        Audit.Record(db,now,actor,"account","beta.ios-recorded","beta-enrolment",id.ToString(),update.State);
+        await db.SaveChangesAsync(token);await transaction.CommitAsync(token);
+        current.IosDistributionState=update.State;current.IosDistributionRevision=update.ExpectedRevision+1;
+        current.IosDistributionChangedAt=now;current.IosDistributionChangedBy=actor;
+        return(IosUpdateResult.Updated,current);
+    }
+
     public static BetaEnrolmentView View(BetaEnrolment e) => new(e.Id, e.Email, e.CreatedAt,
-        e.RevokedAt is not null ? "revoked" : e.ActivatedAt is not null ? "activated" : "pending", e.ActivatedAt);
+        e.RevokedAt is not null ? "revoked" : e.ActivatedAt is not null ? "activated" : "pending", e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.IosDistributionRevision>0?"staff-recorded-not-provider-verified":"not-recorded");
 }

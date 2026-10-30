@@ -57,6 +57,7 @@ public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
 /// <summary>Problem codes the API returns in a problem response's "code" extension.</summary>
 public static class ProblemCodes
 {
+    public const string RecordChanged="record-changed";
     public const string PolicyAcceptanceRequired="policy-acceptance-required";
     public const string IdentifierRestricted = "identifier-restricted";
     public const string IdentifierCheckUnavailable = "identifier-check-unavailable";
@@ -244,7 +245,9 @@ public sealed record FounderTokenView(Guid Id, int Place, int SecretVersion, str
     DateTimeOffset? InvalidatedAt, string? InvalidatedReason);
 
 public sealed record BetaEnrolmentRequest(string Email);
-public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt);
+public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt,
+    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded");
+public sealed record IosDistributionUpdate(string State,long ExpectedRevision,bool Confirm);
 
 public sealed record InvitationRequest(string Email, string Role, Guid? VenueId);
 public sealed record InvitationView(Guid Id, string Email, string Realm, string Role, Guid? VenueId, DateTimeOffset CreatedAt,

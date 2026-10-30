@@ -332,6 +332,15 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<TextHarmCandidateEvidence>> TextHarmEvidenceAsync(Guid caseId,Guid reviewId,CancellationToken token=default)=>SendAsync<TextHarmCandidateEvidence>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",null,token);
     public Task<ApiResult<TextHarmCandidateReviewReceipt>> ReviewTextHarmAsync(Guid caseId,Guid reviewId,TextHarmCandidateReviewRequest request,CancellationToken token=default)=>SendAsync<TextHarmCandidateReviewReceipt>(HttpMethod.Post,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",request,token);
 
+    public Task<ApiResult<List<BetaEnrolmentView>>> BetaEnrolmentsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<BetaEnrolmentView>>(HttpMethod.Get, "api/admin/beta", null, cancellationToken);
+
+    public Task<ApiResult<BetaEnrolmentView>> AddBetaEnrolmentAsync(string email, CancellationToken cancellationToken = default) =>
+        SendAsync<BetaEnrolmentView>(HttpMethod.Post, "api/admin/beta", new BetaEnrolmentRequest(email), cancellationToken);
+
+    public Task<int> RevokeBetaEnrolmentAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Delete, $"api/admin/beta/{id}", null, cancellationToken);
+    public Task<ApiResult<BetaEnrolmentView>> RecordIosDistributionAsync(Guid id,IosDistributionUpdate update,CancellationToken token=default)=>SendAsync<BetaEnrolmentView>(HttpMethod.Put,$"api/admin/beta/{id}/ios-distribution",update,token);
     public Task<ApiResult<BetaScorecardResult>> BetaScorecardAsync(int weeksAgo=1,CancellationToken token=default)=>SendAsync<BetaScorecardResult>(HttpMethod.Get,$"api/admin/beta-scorecard?weeksAgo={weeksAgo}",null,token);
     public Task<ApiResult<ModerationTransparencyExport>> ModerationReportAsync(int year,CancellationToken token=default)=>SendAsync<ModerationTransparencyExport>(HttpMethod.Get,$"api/admin/moderation-transparency/{year}",null,token);
     public Task<ApiResult<int>> SaveModerationReportAsync(int year,CancellationToken token=default)=>SendAsync<int>(HttpMethod.Post,$"api/admin/moderation-transparency/{year}/revisions",null,token);

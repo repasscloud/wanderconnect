@@ -942,6 +942,9 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<BetaEnrolment>(enrolment =>
         {
             enrolment.Property(e => e.Email).HasMaxLength(254);
+            enrolment.Property(e=>e.IosDistributionState).HasMaxLength(24).HasDefaultValue("not-recorded");
+            enrolment.Property(e=>e.IosDistributionRevision).HasDefaultValue(0L);
+            enrolment.ToTable(t=>t.HasCheckConstraint("ck_beta_ios_record","ios_distribution_state IN ('not-recorded','not-invited','invited','accepted','removed') AND ios_distribution_revision>=0 AND ((ios_distribution_revision=0 AND ios_distribution_changed_at IS NULL AND ios_distribution_changed_by IS NULL) OR (ios_distribution_revision>0 AND ios_distribution_changed_at IS NOT NULL AND ios_distribution_changed_by IS NOT NULL))"));
             // One live enrolment per address; a revoked one can be added again later.
             enrolment.HasIndex(e => e.Email).IsUnique().HasFilter("revoked_at IS NULL");
             enrolment.HasIndex(e => e.AccountId);

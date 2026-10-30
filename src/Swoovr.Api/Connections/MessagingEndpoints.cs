@@ -144,8 +144,8 @@ public static class MessagingEndpoints
             await barrier.DisposeAsync();
             await lifecycle.DisposeAsync();
             await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
-            await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
-            await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
+            await BetaMessageAudience.SendAsync(accounts.Services,me,View(message,me,now),cancellationToken);
+            await BetaMessageAudience.SendAsync(accounts.Services,other,View(message,other,now),cancellationToken);
             await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, me, null, id, now, cancellationToken, message.Body);
             return Results.Created($"/api/messages/{message.Id}", View(message, me, now));
         });
@@ -258,7 +258,7 @@ public static class MessagingEndpoints
             await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
             pipeline.ScheduleScreening(item!.Id);
             var view = View(message, me, now, item);
-            await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", view, cancellationToken);
+            await BetaMessageAudience.SendAsync(accounts.Services,me,view,cancellationToken);
             return Results.Accepted($"/api/messages/{message.Id}", view);
         }).DisableAntiforgery();
 
@@ -299,8 +299,8 @@ public static class MessagingEndpoints
             await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
             foreach (var message in events)
             {
-                await hub.Clients.Group(MessagesHub.Group(me)).SendAsync("message", View(message, me, now), cancellationToken);
-                await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now), cancellationToken);
+                await BetaMessageAudience.SendAsync(accounts.Services,me,View(message,me,now),cancellationToken);
+                await BetaMessageAudience.SendAsync(accounts.Services,other,View(message,other,now),cancellationToken);
             }
             if (queuedNotification is { } notificationId) await notifier.DispatchClosureAsync(notificationId, now, cancellationToken);
             await PushClosedAsync(hub, [conversation], cancellationToken);
@@ -347,16 +347,15 @@ public static class MessagingEndpoints
         var db = services.GetRequiredService<SwoovrDbContext>();
         var message = await db.Messages.SingleOrDefaultAsync(m => m.MediaId == item.Id, cancellationToken);
         if (message is null) return;
-        var hub = services.GetRequiredService<IHubContext<MessagesHub>>();
         var links = services.GetRequiredService<Media.MediaLinks>();
-        await hub.Clients.Group(MessagesHub.Group(message.SenderAccountId)).SendAsync("message", View(message, message.SenderAccountId, now, item, links), cancellationToken);
+        await BetaMessageAudience.SendAsync(services,message.SenderAccountId,View(message,message.SenderAccountId,now,item,links),cancellationToken);
         if (item.Status != MediaStatus.Passed || message.DeletedAt is not null) return;
         var conversation = await OpenAsync(db, message.ConversationId, message.SenderAccountId, cancellationToken);
         if (conversation is null) return;
         var other = conversation.PairLow == message.SenderAccountId ? conversation.PairHigh : conversation.PairLow;
         conversation.LastMessageAt = now;
         await db.SaveChangesAsync(cancellationToken);
-        await hub.Clients.Group(MessagesHub.Group(other)).SendAsync("message", View(message, other, now, item, links), cancellationToken);
+        await BetaMessageAudience.SendAsync(services,other,View(message,other,now,item,links),cancellationToken);
         await services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Message, message.SenderAccountId, null, conversation.Id, now, cancellationToken);
     }
 

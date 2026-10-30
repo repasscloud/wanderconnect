@@ -145,6 +145,7 @@ public sealed class Notifier(IServiceProvider services, IPushSender push, IEmail
         CancellationToken cancellationToken, Notification? prepared = null)
     {
         var db = Db;
+        if(kind==NotificationKind.Message&&!await Swoovr.Api.Connections.BetaMessageAudience.AllowsAsync(services,recipient,cancellationToken))return;
         var settings = await SettingsAsync(db, recipient, cancellationToken);
         var muted = await db.NotificationModeMutes.Where(m => m.AccountId == recipient).Select(m => m.ModeId).ToListAsync(cancellationToken);
         var modeMuted = mode is not null && muted.Contains(mode);

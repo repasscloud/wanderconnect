@@ -2,40 +2,38 @@ const {expireFictionalReviews}=require('../retention/fixtures.cjs');
 // Local acceptance for slice AL (#41 in part; policy §5, §14; D203): photos in chat through the media quarantine, a
 // polite end without blocking, and conversation starters from shared intention chips. The recipient sees a photo only
 // once it passed real screening (the owner's image-moderation-api); the sender sees its state; uncertain photos go to
-// the admin review queue and blocked ones (the labelled Development-only override on an extra API at 5090) become a
+// the admin review queue and blocked ones (the labelled Development-only override on an owned extra API on a random loopback port) become a
 // Serious Safety Incident: sealed, held, escalated with ids only, never viewable. Delete for both, hide, report evidence
 // with an admin case view, holds, `messages purge` and `accounts purge` (fail closed), the export and account deletion.
-// Synthetic images only; every R2 object the suite makes is deleted at the end. Fictional adults only.
+// Synthetic images only; every object the suite makes in the selected test store is deleted at the end. Fictional adults only.
 const assert = require('node:assert/strict');
+const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),net=require('node:net'),{once}=require('node:events');
+if(!process.env.SWOOVR_TEST_APP_DATABASE||!process.env.ConnectionStrings__Swoovr)throw Error('Chat photos require the owned runner.');
 const { execFile, spawn } = require('node:child_process');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
 const { api, web, admin, sleep, localEnv, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady, mailTo, elevate } = require('../auth/local-tokens.cjs');
 const { synthetic, withExif, upload } = require('../media/synthetic-images.cjs');
 
-const ADELAIDE = 2078025, EXTRA = 'http://127.0.0.1:5090';
+const ADELAIDE = 2078025;let EXTRA,extraProcess,extraFolder;
 const output = process.env.SWOOVR_SCREENSHOTS;
 
 async function extraApi(env) {
   await stopExtra();
-  await new Promise((resolve, reject) => {
-    const child = spawn('bash', ['.local/run-hosts.sh'], { env: { Phone__Required: 'false', Accounts__ReauthSeconds: '45', ...process.env, SWOOVR_EXTRA_API_PORT: '5090', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = ''; child.stdout.on('data', d => out += d);
-    child.on('exit', code => code === 0 ? resolve() : reject(new Error('extra api: ' + out)));
-  });
+  const probe=net.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));EXTRA='http://127.0.0.1:'+probe.address().port;await new Promise(resolve=>probe.close(resolve));
+  extraFolder=await fs.mkdtemp(path.join(os.tmpdir(),'swoovr-chat-extra-'));await fs.chmod(extraFolder,0o700);const log=await fs.open(path.join(extraFolder,'api.log'),'w',0o600);
+  extraProcess=spawn('dotnet',['bin/Debug/net10.0/Swoovr.Api.dll'],{cwd:path.resolve('src/Swoovr.Api'),env:{...process.env,...env,ASPNETCORE_URLS:EXTRA},stdio:['ignore',log.fd,log.fd]});await log.close();
+  for(let n=0;n<150;n++){if(extraProcess.exitCode!==null||extraProcess.signalCode!==null)throw Error('Owned chat-photo API exited; inspect private log '+extraFolder);try{if((await fetch(EXTRA+'/health/live',{signal:AbortSignal.timeout(1000)})).ok)return;}catch{}await sleep(100);}
+  throw Error('Owned chat-photo API readiness timeout.');
 }
 async function stopExtra() {
-  await new Promise(resolve => execFile('bash', ['-c', 'lsof -ti tcp:5090 -sTCP:LISTEN | xargs kill 2>/dev/null; true'], () => resolve()));
-  for (let i = 0; i < 30; i++) { try { await fetch(EXTRA + '/health/live'); await sleep(500); } catch { return; } }
+  if(extraProcess&&extraProcess.exitCode===null&&extraProcess.signalCode===null){const child=extraProcess,exited=once(child,'exit');child.kill('SIGTERM');await Promise.race([exited,sleep(5000)]);if(child.exitCode===null&&child.signalCode===null){child.kill('SIGKILL');await exited;}}
+  extraProcess=null;if(extraFolder){await fs.rm(extraFolder,{recursive:true,force:true});extraFolder=null;}
 }
-/** `accounts purge` with its exit code and output. */
+/** Purge only the runner-owned database/store; never import real provider credentials. */
 async function purge(extra = {}) {
-  const env = { ...process.env, ConnectionStrings__Swoovr: `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`,
-    DOTNET_ENVIRONMENT: 'Development', Founders__Secrets__1: await localEnv('SWOOVR_FOUNDER_SECRET_V1'), MemberAdmin__ClientSecret: await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET') ?? '',
-    Didit__ApiKey: await localEnv('SWOOVR_DIDIT_API_KEY') ?? '',
-    Media__R2__Endpoint: await localEnv('SWOOVR_R2_ENDPOINT'), Media__R2__Bucket: await localEnv('SWOOVR_R2_BUCKET'),
-    Media__R2__AccessKeyId: await localEnv('SWOOVR_R2_ACCESS_KEY_ID'), Media__R2__SecretAccessKey: await localEnv('SWOOVR_R2_SECRET_ACCESS_KEY'), ...extra };
-  return new Promise(resolve => execFile('dotnet', ['src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll', 'accounts', 'purge'], { env },
-    (error, stdout, stderr) => resolve({ code: error ? error.code ?? 1 : 0, out: stdout + stderr })));
+  const env={...process.env,...extra};
+  return new Promise(resolve=>execFile('dotnet',['bin/Debug/net10.0/Swoovr.Api.dll','accounts','purge'],{cwd:path.resolve('src/Swoovr.Api'),env},
+    (error,stdout,stderr)=>resolve({code:error?error.code??1:0,out:stdout+stderr})));
 }
 const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500; i++) { if (await predicate()) return true; await sleep(500); } return predicate(); };
 
@@ -375,7 +373,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
       await sql(`UPDATE media_items SET status = 'Removed', removed_at = coalesce(removed_at, now()), next_screen_at = NULL WHERE account_id IN (${list}) AND status IN ('Pending', 'Passed', 'Uncertain')`).catch(() => {});
       const run = await purge().catch(() => ({ out: '' }));
       const left = await sql(`SELECT count(*) FROM media_items WHERE account_id IN (${list}) AND object_key IS NOT NULL`).catch(() => '?');
-      console.log(`Suite photo objects left in R2: ${left}${holdIds.length ? ' (fixture retention cleanup was interrupted)'  : ''}.`);
+      console.log(`Suite photo objects left in owned test store: ${left}${holdIds.length ? ' (fixture retention cleanup was interrupted)'  : ''}.`);
     }
     await browser.close();
   }

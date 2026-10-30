@@ -699,3 +699,9 @@ Owner decisions are recorded before implementation. [Full owner requirements and
 | Decision | Status / source | Decision | Boundary |
 |---|---|---|---|
 | D272 | DEFAULT implementation under the owner’s current Phase0 queue, issue51; supersedes the D179 deferral for this bounded scope | Default-off first-party daily authenticated-activity/Explore observations; Admin-only fixed completed-week scorecard with explicit retained-source denominators, observed API-return lower bounds, global small/complementary-cell suppression and not-recorded unmeasured outcomes. Retain90 UTC dates with own export/deletion and independent held evidence. | No traits, locations, mode filters, counterpart IDs, content, external analytics SDK, advertising, ranking or automated safety action. Background API activity is disclosed. Default-off collection and draft privacy text do not imply legal57 approval or complete history. |
+
+## Beta enrolment operations — 31 October 2026
+
+| Decision | Status / source | Decision | Boundary |
+|---|---|---|---|
+| D273 | DEFAULT implementation under CONFIRMED D62/D76/D91 and the owner’s issue25 queue | Add Admin enrolment add/list/revoke and audited versioned staff-reported iOS distribution status. Preserve not-recorded defaults, current gates and corporate intake separation. Recheck current beta authorization for every live message content event and message notification, including late photos. | No Apple invitation/API verification or email dispatch is claimed. Beta removal does not end relationships/consent; it removes content access while preserving essential account rights. Email/provider and inactive/unlinked-record expiry follow-ups remain25/118; no premature closure. |

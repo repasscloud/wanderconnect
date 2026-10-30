@@ -16,6 +16,11 @@ public sealed class BetaEnrolment
     public DateTimeOffset? RevokedAt { get; set; }
     public DateTimeOffset? ActivatedAt { get; set; }
     public Guid? AccountId { get; set; }
+    // Staff report of external private-distribution work; never Apple evidence or an access grant.
+    public string IosDistributionState { get; set; } = "not-recorded";
+    public long IosDistributionRevision { get; set; }
+    public DateTimeOffset? IosDistributionChangedAt { get; set; }
+    public Guid? IosDistributionChangedBy { get; set; }
 }
 
 public enum BetaAccess { NotRequired, Enrolled, NotEnrolled, Unavailable }

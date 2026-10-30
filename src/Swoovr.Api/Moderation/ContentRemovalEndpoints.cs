@@ -25,7 +25,7 @@ public static class ContentRemovalEndpoints
                     var conversation=await accounts.Db.Conversations.AsNoTracking().SingleAsync(c=>c.Id==message.ConversationId,token);
                     // Reuse the existing typed upsert event; never describe staff removal as a member unsend.
                     foreach(var member in new[]{conversation.PairLow,conversation.PairHigh})
-                        await hub.Clients.Group(MessagesHub.Group(member)).SendAsync("message",MessagingEndpoints.View(message,member,clock.GetUtcNow()),token);
+                        await BetaMessageAudience.SendAsync(accounts.Services,member,MessagingEndpoints.View(message,member,clock.GetUtcNow()),token);
                 }
                 return Results.Ok(result);
             })).RequireAuthorization();
