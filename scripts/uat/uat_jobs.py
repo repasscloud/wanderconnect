@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """One-shot UAT operator dispatcher. Private runtime inputs only; no serving or automatic fallback."""
-import os,subprocess,sys,base64,hashlib,hmac,secrets,re
+import os,subprocess,sys,base64,hashlib,hmac,secrets,re,tempfile,zipfile,urllib.request,urllib.parse,time
 from pathlib import Path
 BACKUPS=Path('/opt/backups')
 def required(name):
@@ -45,7 +45,78 @@ def database_bootstrap():
     print('Database roles/ownership/default privileges prepared. Run migration before serving; hosted permission acceptance remains separate.')
     return 0
 
+def restore_permission_sql(target,kind):
+    if not re.fullmatch(r'swoovr_restore_[0-9a-f]{32}',target) or kind not in ('api','keycloak'):raise ValueError('Owned restore target required.')
+    owner='swoovr_migrator' if kind=='api' else 'swoovr_keycloak'
+    schemas=['public','restricted'] if kind=='api' else ['public']
+    schema_list=','.join("'"+v+"'" for v in schemas)
+    commands=[f'ALTER DATABASE {target} OWNER TO {owner};',f'REVOKE ALL ON DATABASE {target} FROM PUBLIC;',f'GRANT CONNECT ON DATABASE {target} TO '+('swoovr_api,swoovr_operator,swoovr_backup' if kind=='api' else 'swoovr_keycloak,swoovr_backup')+';']
+    for schema in schemas:commands.append(f'ALTER SCHEMA {schema} OWNER TO {owner};')
+    commands.append(f"""DO $repair$ DECLARE item record; BEGIN
+      IF EXISTS(SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ({schema_list})) THEN RAISE EXCEPTION 'Custom routines require explicit ownership review'; END IF;
+      FOR item IN SELECT n.nspname,c.relname,c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ({schema_list}) AND c.relkind IN ('r','p','S','v','m') LOOP
+        EXECUTE format('ALTER %s %I.%I OWNER TO %I',CASE item.relkind WHEN 'S' THEN 'SEQUENCE' WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' ELSE 'TABLE' END,item.nspname,item.relname,'{owner}');
+      END LOOP;
+      FOR item IN SELECT n.nspname,t.typname,t.typtype FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname IN ({schema_list}) AND t.typtype IN ('e','d') LOOP
+        EXECUTE format('ALTER %s %I.%I OWNER TO %I',CASE item.typtype WHEN 'd' THEN 'DOMAIN' ELSE 'TYPE' END,item.nspname,item.typname,'{owner}');
+      END LOOP;
+    END $repair$;""")
+    for schema in schemas:
+        for actors,table,sequence in ([('swoovr_api,swoovr_operator','SELECT,INSERT,UPDATE,DELETE','USAGE,SELECT'),('swoovr_backup','SELECT','SELECT')] if kind=='api' else [('swoovr_backup','SELECT','SELECT')]):
+            commands += [f'GRANT USAGE ON SCHEMA {schema} TO {actors};',f'GRANT {table} ON ALL TABLES IN SCHEMA {schema} TO {actors};',f'GRANT {sequence} ON ALL SEQUENCES IN SCHEMA {schema} TO {actors};',f'ALTER DEFAULT PRIVILEGES FOR ROLE {owner} IN SCHEMA {schema} GRANT {table} ON TABLES TO {actors};',f'ALTER DEFAULT PRIVILEGES FOR ROLE {owner} IN SCHEMA {schema} GRANT {sequence} ON SEQUENCES TO {actors};']
+    if kind=='api':commands+=['GRANT USAGE ON SCHEMA swoovr_operations TO swoovr_api;','GRANT SELECT ON swoovr_operations.restore_guard TO swoovr_api;']
+    return 'BEGIN;\n'+'\n'.join(commands)+'\nCOMMIT;\n'
+
+def recovery_permissions(api,kc):
+    if api==kc:raise ValueError('Distinct paired restore targets required.')
+    for target,kind in [(api,'api'),(kc,'keycloak')]:restore_permission_sql(target,kind)
+    if os.environ.get('DOTNET_ENVIRONMENT')!='Development' and (required('PGSSLMODE')!='verify-full' or not Path(required('PGSSLROOTCERT')).is_file()):raise ValueError('Verified database TLS required.')
+    import json
+    receipts=[]
+    for target,kind in [(api,'api'),(kc,'keycloak')]:
+        result=subprocess.run(['psql','-X','-tA','--set','ON_ERROR_STOP=1','--dbname',target],input='SELECT row_to_json(g) FROM swoovr_operations.restore_guard g WHERE id=1;',capture_output=True,text=True,timeout=30)
+        if result.returncode:raise ValueError('Paired readiness unavailable.')
+        receipt=json.loads(result.stdout)
+        if receipt.get('ready') is not True or receipt.get('role')!=kind or not re.fullmatch('[0-9a-f]{32}',receipt.get('operation_id','')) or not re.fullmatch('[0-9a-f]{64}',receipt.get('authority_sha256','')):raise ValueError('Paired reconciled readiness required.')
+        receipts.append(receipt)
+    if receipts[0]['operation_id']!=receipts[1]['operation_id']:raise ValueError('Paired operation mismatch.')
+    for target,kind in [(api,'api'),(kc,'keycloak')]:
+        result=subprocess.run(['psql','-X','--set','ON_ERROR_STOP=1','--dbname',target],input=restore_permission_sql(target,kind),capture_output=True,text=True,timeout=120)
+        if result.returncode:raise ValueError('Restore permissions failed; keep ingress disabled and inspect privately.')
+    print('Paired target ownership/data permissions repaired; operator-owned fences preserved. Hosted readiness/smoke and promotion approval remain required.')
+    return 0
+
+class NoDownloadRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self,*args,**kwargs):return None
+
+def places_import():
+    # Public reference data only, fixed HTTPS source and bounded/private ephemeral files.
+    with tempfile.TemporaryDirectory(prefix='swoovr-geonames-') as temporary:
+        folder=Path(temporary);os.chmod(folder,0o700)
+        for name in ['cities1000.zip','admin1CodesASCII.txt','countryInfo.txt']:
+            target=folder/name;size=0;deadline=time.monotonic()+120
+            request=urllib.request.Request('https://download.geonames.org/export/dump/'+name)
+            with urllib.request.build_opener(urllib.request.ProxyHandler({}),NoDownloadRedirect()).open(request,timeout=30) as response,target.open('wb') as output:
+                if urllib.parse.urlsplit(response.url).hostname!='download.geonames.org':raise ValueError('Unexpected place-data source.')
+                os.chmod(target,0o600)
+                while chunk:=response.read(65536):
+                    size+=len(chunk)
+                    if size>64*1024*1024 or time.monotonic()>deadline:raise ValueError('Place download exceeded its bound.')
+                    output.write(chunk)
+            print('Public GeoNames input '+name+' sha256='+hashlib.sha256(target.read_bytes()).hexdigest(),flush=True)
+        with zipfile.ZipFile(folder/'cities1000.zip') as archive:
+            member=archive.getinfo('cities1000.txt')
+            if member.file_size>256*1024*1024:raise ValueError('Place archive exceeded its bound.')
+            target=folder/'cities1000.txt'
+            with archive.open(member) as source,target.open('wb') as output:
+                os.chmod(target,0o600)
+                import shutil
+                shutil.copyfileobj(source,output)
+        return run(['dotnet','/app/Swoovr.Api.dll','geonames','import',str(folder)])
+
 def main(args):
+    if len(args)==3 and args[0]=='recovery-permissions':return recovery_permissions(args[1],args[2])
+    if args==['places-import']:return places_import()
     if args==['database-bootstrap']:return database_bootstrap()
     if args==['keycloak-bootstrap']:
         from keycloak_bootstrap import main as bootstrap
@@ -65,4 +136,4 @@ def main(args):
     raise ValueError('Unsupported or incomplete operator command.')
 if __name__=='__main__':
     try:raise SystemExit(main(sys.argv[1:]))
-    except (ValueError,KeyError,OSError,subprocess.SubprocessError):raise SystemExit('Operator command failed; no success or fallback. Review private job diagnostics before retrying.')
+    except (ValueError,KeyError,OSError,zipfile.BadZipFile,subprocess.SubprocessError):raise SystemExit('Operator command failed; no success or fallback. Review private job diagnostics before retrying.')

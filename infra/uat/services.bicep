@@ -139,6 +139,7 @@ module identityApp 'modules/container-app.bicep' = if(deployIdentity) {
   dependsOn: [access]
 }
 var jobSpecs = [
+  { name: 'places-import', actor: 'migrate', image: images.operator, args: ['places-import'], command: [], cron: '' }
   { name: 'migrate', actor: 'migrate', image: images.api, args: ['migrate'], command: [], cron: '' }
   { name: 'root-admin', actor: 'operator', image: images.api, args: ['root-admin','grant'], command: [], cron: '' }
   { name: 'accounts-purge', actor: 'operator', image: images.api, args: ['accounts','purge'], command: [], cron: '' }

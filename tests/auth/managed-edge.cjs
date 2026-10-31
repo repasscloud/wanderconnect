@@ -5,12 +5,12 @@
 const {spawn}=require('node:child_process'),{once}=require('node:events');
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function managedEdge(chromium){
+async function managedEdge(chromium,{headless=true}={}){
  const executable=process.env.SWOOVR_EDGE_EXECUTABLE||'/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
  if(!path.isAbsolute(executable))throw new Error('The test Edge executable must be an absolute path.');
  await fs.access(executable);
  const profile=await fs.mkdtemp(path.join(os.tmpdir(),'swoovr-edge-'));await fs.chmod(profile,0o700);
- const child=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update',
+ const child=spawn(executable,[...(headless?['--headless=new']:[]),'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update',
   '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  let spawnError,browser,closing;child.once('error',error=>{spawnError=error;});
  const exited=()=>child.exitCode!==null||child.signalCode!==null;

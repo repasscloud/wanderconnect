@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Owned PostgreSQL fixture for role separation; fictional generated secrets, no MAIN or Azure."""
-import importlib.util,os,secrets,subprocess,tempfile,time,uuid,base64,io,tarfile,json,hashlib
+import argparse,importlib.util,os,secrets,subprocess,tempfile,time,uuid,base64,io,tarfile,json,hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('operator_job',ROOT/'scripts/uat/uat_jobs.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--places',action='store_true');args=parser.parse_args()
 name='swoovr-uat-db-'+uuid.uuid4().hex[:12];checks=0
 
 def docker(*args,input=None,check=True):return subprocess.run(['docker',*args],input=input,text=True,capture_output=True,check=check,timeout=120)
@@ -14,7 +15,7 @@ with tempfile.TemporaryDirectory(prefix='swoovr-db-bootstrap-') as private:
     values={k:secrets.token_urlsafe(40) for k in ['SWOOVR_API_DB_PASSWORD','SWOOVR_MIGRATOR_DB_PASSWORD','SWOOVR_OPERATOR_DB_PASSWORD','SWOOVR_BACKUP_DB_PASSWORD','KC_DB_PASSWORD']};values['SWOOVR_PG_ADMIN']='swoovrbootstrap'
     env=directory/'postgres.env';env.write_text('POSTGRES_PASSWORD='+secrets.token_urlsafe(40)+'\n'+'\n'.join(k+'='+v for k,v in values.items())+'\n');os.chmod(env,0o600)
     try:
-        docker('run','-d','--name',name,'--network','none','--env-file',str(env),'postgres:17.11-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb')
+        docker('run','-d','--name',name,'--network','bridge' if args.places else 'none','--env-file',str(env),'postgres:17.11-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb')
         for _ in range(60):
             if docker('exec',name,'pg_isready','-U','postgres',check=False).returncode==0:break
             time.sleep(1)
@@ -35,6 +36,11 @@ with tempfile.TemporaryDirectory(prefix='swoovr-db-bootstrap-') as private:
         migration=directory/'migration.env';migration.write_text('DOTNET_ENVIRONMENT=Uat\nASPNETCORE_ENVIRONMENT=Uat\nEmail__Provider=disabled\nPush__Provider=disabled\nMedia__Store=none\nConnectionStrings__Swoovr=Host=127.0.0.1;Database=swoovr;Username=swoovr_migrator;Password='+values['SWOOVR_MIGRATOR_DB_PASSWORD']+';SSL Mode=Disable\n');os.chmod(migration,0o600)
         migrated=docker('run','--rm','--platform','linux/amd64','--network','container:'+name,'--env-file',str(migration),'--entrypoint','dotnet','swoovr-uat-operator:phase-zero-check','/app/Swoovr.Api.dll','migrate',check=False)
         assert migrated.returncode==0,'Migration under the separate schema owner failed.';checks+=1
+        if args.places:
+            imported=subprocess.run(['docker','run','--rm','--platform','linux/amd64','--network','container:'+name,'--env-file',str(migration),'swoovr-uat-operator:phase-zero-check','places-import'],capture_output=True,text=True,timeout=900)
+            assert imported.returncode==0,'Real public GeoNames import into owned migrated database failed.';checks+=1
+            assert int(sql('swoovr','SELECT count(*) FROM geo_cities;','swoovr_api').stdout.strip().splitlines()[2].strip())>100000;checks+=1
+            print('PASS actual public GeoNames download/import on owned database (not provider/real-member evidence).')
         sql('swoovr','SELECT count(*) FROM public.accounts;','swoovr_api');checks+=1
         sql('swoovr','SELECT count(*) FROM public.accounts;','swoovr_backup');checks+=1
         sql('swoovr','CREATE TABLE public.fictional_profile(id int); CREATE TABLE restricted.fictional_evidence(id int);','swoovr_migrator');checks+=1
@@ -55,6 +61,21 @@ with tempfile.TemporaryDirectory(prefix='swoovr-db-bootstrap-') as private:
             assert set(archive.getnames())=={'database.dump','manifest.json'};checks+=1
             dump=archive.extractfile('database.dump').read();manifest=json.load(archive.extractfile('manifest.json'))
             assert dump.startswith(b'PGDMP') and manifest['databaseSha256']==hashlib.sha256(dump).hexdigest() and manifest['objects']==[];checks+=1
+        targets=['swoovr_restore_'+uuid.uuid4().hex for _ in range(2)];operation=uuid.uuid4().hex
+        for target,kind in zip(targets,['api','keycloak']):
+            sql('postgres','CREATE DATABASE '+target+';','swoovrbootstrap')
+            restore_sql="CREATE SCHEMA swoovr_operations; CREATE TABLE swoovr_operations.restore_guard(id int,ready bool,role text,operation_id text,authority_sha256 text); INSERT INTO swoovr_operations.restore_guard VALUES(1,false,'"+kind+"','"+operation+"','"+'a'*64+"'); CREATE TABLE public.fictional_restored(id int);"
+            if kind=='api':restore_sql+=' CREATE SCHEMA restricted; CREATE TABLE restricted.fictional_sealed(id int);'
+            sql(target,restore_sql,'swoovrbootstrap')
+        def repair():return docker('run','--rm','--platform','linux/amd64','--network','container:'+name,'--env-file',str(bootstrap),'swoovr-uat-operator:phase-zero-check','recovery-permissions',*targets,check=False)
+        assert repair().returncode!=0;checks+=1
+        for target in targets:sql(target,'UPDATE swoovr_operations.restore_guard SET ready=true;','swoovrbootstrap')
+        assert repair().returncode==0;checks+=1
+        sql(targets[0],'INSERT INTO public.fictional_restored VALUES(1); SELECT * FROM swoovr_operations.restore_guard;','swoovr_api');checks+=1
+        assert sql(targets[0],'UPDATE swoovr_operations.restore_guard SET ready=false;','swoovr_api',False).returncode!=0;checks+=1
+        sql(targets[0],'ALTER TABLE public.fictional_restored ADD COLUMN migrated int;','swoovr_migrator');checks+=1
+        sql(targets[1],'ALTER TABLE public.fictional_restored ADD COLUMN migrated int;','swoovr_keycloak');checks+=1
+        for target in targets:sql(target,'SELECT * FROM public.fictional_restored;','swoovr_backup');checks+=1
         sql('postgres','ALTER ROLE swoovr_backup SUPERUSER;')
         refused=sql('postgres','BEGIN;\n'+'\n'.join(m.database_statements(values)['postgres'])+'\nCOMMIT;','swoovrbootstrap',False)
         assert refused.returncode!=0 and 'Refusing privileged application role' in refused.stderr;checks+=1

@@ -2,6 +2,101 @@
 
 As of 31 October 2026 (Australia/Adelaide). This page is the current summary; dated slice documents and the progress ledger explain how we reached it. Swoovr is an integrated local prototype, not a member-ready pilot or production deployment.
 
+## Finite Phase 0 handoff — 31 October 2026
+
+The original software/preparation queue is complete in draft [PR125](https://github.com/repasscloud/wanderconnect/pull/125), including D286 deployment/smoke handoff. **Stopped at deployment review: nothing merged, deployed, published to a registry or enabled in Actions.** MAIN remains ae41722. Real-tester admission is still gated by owner inputs/approval and actual hosted acceptance; local success is not live verification or verified Code compliance. Later-roadmap features and D90 billing remain outside this finite run.
+
+| Original queue | Result in this PR |
+| --- | --- |
+| R0/contract | Owner decisions Q83–Q89/Q91 recorded; Q90 hosting open; stable API paths/date contract across clients/tests |
+| Endings/support/push | Neutral idempotent endings/support links; configured APNs/FCM with secure device lifecycle, provider acceptance distinct from delivery |
+| Retention/security | Hold-aware scheduled purge, encrypted paired backups/recovery, versioned ban registry/reinstatement/recycled-binding retirement, preserved staff conflicts and media crash recovery |
+| Meeting safety | Web/MAUI contacts/consent/check-ins/escalation/token page/emergency/composer/feedback, no device coordinate collection |
+| Code readiness | Draft legal readers, content/text-harm review, complaints/outcomes, annual data, moderator/governance guidance, onboarding advice and safety notices; no signatory/compliance claim |
+| Remaining gaps | Live closed-on-block, sparse pools, accessibility release checks, privacy-conscious beta scorecard and25–27 beta/founder/WASM/account-appearance follow-ups |
+| UAT artifacts | Guarded native config, six local amd64 images, Keycloak email/disabled realms/restricted client bootstrap, private Azure/Key Vault/certificate stages, separate DB roles, operator/GeoNames/backup/repair jobs, deploy/rollback/restore runbook and guided BFF smoke |
+
+Actual final evidence is in [VALIDATION](VALIDATION.md). D286 local BFF core7 plus meeting129 PASS; actual public GeoNames import39, paired database permission45, screening artifact5, operator9, metadata6, guided origin4, infrastructure71/preflight18 PASS. The guided hosted registration/provider smoke is prepared, not run. Latest required check.sh33 backup/85 Node/30 startup/596 PostgreSQL and0 .NET warnings/errors are recorded there. Earlier slice browser/native/provider-fake evidence and failures remain explicitly separated. UI screenshots use fictional data in the dated evidence directories. Android local sign-in/account persistence/logout was observed; iOS UI, distribution signing and real APNs/FCM delivery were not verified.
+
+Owner next steps and open gates:
+
+- Answer [Q90/#124](https://github.com/repasscloud/wanderconnect/issues/124): topology/region/subscription/billing; create/select subscription, grant operator rights/quotas and approve actual plan/cost. Cloudflare nested edge coverage and an origin certificate require the documented approved inputs; no paid feature was purchased.
+- Supply/inject approved runtime credentials and key versions: Entra/MailerSend/Twilio/R2/Shield/Didit/crypto/recovery/certificate. D201 Shield agreement/credentials are already approved, not a reopened question. No values are committed. [#127](https://github.com/repasscloud/wanderconnect/issues/127) retains real APNs/FCM credentials/device delivery; push stays explicitly disabled until accepted.
+- Complete [legal57](https://github.com/repasscloud/wanderconnect/issues/57), human accessibility checks, actual provider/privacy/device/paired restore/monitoring acceptance and [governance119](https://github.com/repasscloud/wanderconnect/issues/119) appointments/staffing/LE/compliance operations. Templates do not appoint people or verify compliance. No support SLA is invented.
+- Explicitly approve deployment, then execute [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) in order. It contains exact provisioning/build/push/private-input/DB/migration/places/Keycloak/DNS/Entra/root/job/schedule/restore/rollback commands and the base-URL smoke. Do not admit testers on liveness alone or run old sources after a restore.
+
+Approval-time command entry points (complete parameters/prerequisites and dependent terminal-success checks are mandatory in the runbook):
+
+```sh
+az deployment group what-if --resource-group "$UAT_RG" --template-file infra/uat/foundation.bicep
+az deployment group create --name swoovr-uat-foundation --resource-group "$UAT_RG" --template-file infra/uat/foundation.bicep
+python3 scripts/uat/preflight.py "$UAT_WORK/services.parameters.json"
+az deployment group create --name swoovr-uat-services --resource-group "$UAT_RG" --template-file infra/uat/services.bicep --parameters "@$UAT_WORK/services.parameters.json"
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node scripts/uat/smoke.cjs --base-url https://uat.swoovr.app
+```
+
+Issues completed by this PR close **on merge**, which is not authorised here:49,108–112,122,123,126,128–131,40,113–118,120,121,43,82,48,51,25–27. Owner issues57,119,124,127 remain open. Q91 is answered/implemented, not a new pending policy question. No further autonomous product slices are queued. MAIN hosts restored/verified from MAIN or exact MAIN project paths on5080/5081/5082, all200; owned test DBs/containers/private browser fixtures removed and unrelated changes preserved.
+
+Commit per published slice (D286 is this final handoff commit; its exact ID is in the final PR report):
+
+| Commit | Slice/result |
+| --- | --- |
+| b6c48d4 | docs: record Phase 0 owner decisions and UAT hosting question |
+| 35794ef | feat: migrate Swoovr API to stable paths and date contracts |
+| 41c8fd4 | Implement neutral conversation endings and official support links |
+| d47b55c | Add configured APNs and FCM push with secure device lifecycle |
+| 7c6a2b1 | Recover interrupted blocked-photo preservation and escalation |
+| 35b5e66 | fix: serialize media verdicts and source disposal |
+| fb41eff | feature: retain safety review evidence through deletion |
+| afde32a | fix: preserve legacy keys across founder secret rotation |
+| 35f048d | fix: preserve staff conflict exclusions through deletion and relinking |
+| 6859d0c | feature: add banned identifier registry and immutable transition foundations |
+| b0bc464 | feature: enforce registry checks on member admission and contact changes |
+| 7270ff1 | Add restricted identifier release and account reinstatement workflows |
+| 7c325f1 | Keep refused email changes recoverable for existing members |
+| 4387ef1 | Protect case evidence reads from retained staff conflicts |
+| 0270279 | feature: add restricted registry staff review screens |
+| 3ed3de3 | feature: reconcile scheduled identifier expiry atomically |
+| 16c7f5b | feature: dispose inactive registry history with enforcement continuity |
+| bd303ac | feature: retire reviewed mobile bindings without restoring accounts |
+| 95c72c9 | feature: add Keycloak email binding retirement provider |
+| 617d1e7 | fix: correct provider suite publishing whitespace |
+| 5eb5fec | feature: validate contact retirement transport against Keycloak |
+| 9faae12 | feature: persist reviewed email retirement before provider effects |
+| 125d7f7 | fix: preserve member writes during contact provider delays |
+| 5de5072 | feat: review and resume retired email bindings safely |
+| 1f0367e | feat: expire released safety operations with preservation guards |
+| 50475c9 | feat: prepare encrypted backups and fenced paired recovery |
+| 92bd355 | feat: bound audit and operational history retention |
+| 6e89856 | feat: add consent-based meeting safety and contact check-ins |
+| c3d6472 | docs: draft Code policies and trust safety governance |
+| 248a181 | feat: remove individual profile text and reported messages |
+| ce5779b | feat: add text harm candidates and human review |
+| 9ef70de | feat: notify reporters and provide complaint guidance |
+| d8b8da2 | feat: prepare annual moderation report data |
+| 3797d40 | feat: add draft policy readers and safety updates |
+| 90788cd | fix: keep discovery results in their selected mode |
+| a95fcbe | fix: enforce accessible keyboard bypass and release checks |
+| f68c84a | feature: add a privacy-conscious internal beta scorecard |
+| d7b8423 | Add audited beta enrolment operations and revoke live message access |
+| 5e21b50 | Prepare explicit MailerSend HTTP application email provider |
+| 372290f | Queue beta invitations durably and expire inactive access records |
+| 232ac5a | Verify founder capacity through concurrent API grants and document key custody |
+| 41c34fd | Add owner-bound appearance revisions and portable pending-state persistence |
+| fe593e8 | Complete account appearance sync in web and mobile clients |
+| bb2e4ba | Enforce hosted configuration and add readiness and CSP |
+| ad2fa5e | Prepare native UAT targets and validate SMS acknowledgements |
+| bf5e0ec | Package Keycloak HTTP email and disabled UAT realms |
+| b9e2342 | Validate Azure-platform UAT host images and Linux media |
+| 9285e1b | Prepare staged private Azure UAT infrastructure and secret bindings |
+| 266ff06 | Prepare UAT operator backup tools and separate PostgreSQL roles |
+| 8e9f63b | Prepare disabled UAT identity bootstrap and private origin certificates |
+| This commit (D286) | Finite deployment/core-smoke/GeoNames/recovery-permission/screening handoff and completion audit |
+
+## Historical dated takeover snapshots — 29–31 October 2026
+
+The following entries preserve slice-time findings and next steps. The finite handoff above supersedes their old remaining-work statements.
+
 ## Phase 0 takeover progress — 29–30 October 2026
 
 D285 builds disabled-only Keycloak/operator bootstrap with a restricted member service client and prepares versioned Key Vault origin-certificate binding. The edge plan documents nested Cloudflare certificate coverage, strict TLS, DNS verification and default-off staged hostname binding. [Keycloak](KEYCLOAK-UAT.md), [edge](EDGE-UAT.md), actual validation below. Final deployment/restore commands, base-URL journey smoke and completion audit remain original software work. No hosted activation or purchase.

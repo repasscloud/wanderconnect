@@ -456,3 +456,11 @@ Build the operator target from containers/uat/Dockerfile for linux/amd64, then r
 ### UAT Keycloak bootstrap/certificate contracts (D285)
 
 Run `python3 tests/uat/keycloak_bootstrap_guards.py`, infrastructure/preflight tests above and the Keycloak image fixture with `--bootstrap-image swoovr-uat-operator:phase-zero-check`. The owned internal-network fixture runs the actual disabled import/service-client bootstrap, refuses overwrite, and tests narrow client-credentials authority with a temporary local-only realm activation restored to disabled. No cloud, real mail/Entra or rendered browser claim. EDGE-UAT.md covers separate deployed certificate/forwarding acceptance.
+
+### Final UAT handoff/smoke (D286)
+
+Run python3 tests/uat/operator_metadata.py for nonsecret job override checks. After building the current operator target, python3 tests/uat/database_bootstrap.py verifies non-superuser bootstrap/migration/snapshot and paired permission repair; optional --places additionally downloads real public GeoNames into an owned DB. python3 tests/uat/screening_image.py uses the local amd64 screening artifact, network-none fake credentials and no image scan/provider request.
+
+The owned runner permits SWOOVR_MEETING_REGRESSION_SUITES=tests/uat/core.browser.cjs with SWOOVR_MEETING_REGRESSIONS=1: actual local BFF core flow, fictional admin-created adult fixtures, phone gate off. Existing meeting129 runs first; MAIN restored. This does not prove registration/live providers. Never rebuild during suites.
+
+After explicit deployment approval, node scripts/uat/smoke.cjs --base-url https://uat.swoovr.app is a30-minute interactive operator journey, visible owned Edge contexts, normal registration/provider checkpoints and automatic BFF mutation assertions. It requires RUN acknowledgement and saves no credentials/tokens/response bodies/screenshots/traces/storage state. DEPLOYMENT-UAT.md has exact prerequisites, commands, restore and admission gates; do not run hosted smoke during preparation.

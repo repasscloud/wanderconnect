@@ -52,3 +52,5 @@ Release gates remain owner subscription/billing/hosting answer, provider/domain/
 - [Microsoft cross-platform TARGETARCH publishing](https://learn.microsoft.com/dotnet/core/whats-new/dotnet-8/containers#container-images).
 - [Non-root .NET container users and ports](https://learn.microsoft.com/dotnet/core/docker/introduction#building-container-images).
 - [Keycloak optimized images/provider timestamps](https://www.keycloak.org/server/containers).
+
+D286 also builds the separately owned image-moderation source for linux/amd64 as local swoovr-uat-screening:phase-zero-check. Its fixed existing Dockerfile copies application/models only; no source edit or real provider credential. Owned no-network runtime checks prove non-root packaging, missing-credential refusal and local model health under2CPU/4Gi. Arachnid ready means configured adapter, not authenticated Shield acceptance or a scan verdict. Source revision/build metadata and exact evidence are in VALIDATION.md; owner still reviews the separate source and real service acceptance before registry publication/admission.
