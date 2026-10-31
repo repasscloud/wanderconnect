@@ -6,6 +6,8 @@ This repository contains the product definition and an integrated local prototyp
 
 ## Start here
 
+- [Run the platform locally with Docker infrastructure](docs/delivery/LOCAL-PLATFORM-WALKTHROUGH.md): complete setup, member/admin walkthrough, provider gaps and shutdown.
+
 - [Documentation index](docs/README.md): what each document owns and how to keep it current.
 - [Current status](docs/delivery/STATUS.md): implemented work, evidence, gaps and next steps.
 - [Naming conventions](docs/architecture/NAMING.md) and [rename/migration record](docs/delivery/SWOOVR-RENAME-2026-10-22.md).
