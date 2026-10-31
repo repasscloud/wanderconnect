@@ -2,9 +2,13 @@
 
 As of 31 October 2026 (Australia/Adelaide). This page is the current summary; dated slice documents and the progress ledger explain how we reached it. Swoovr is an integrated local prototype, not a member-ready pilot or production deployment.
 
+## PR125 review follow-up — 31 October 2026
+
+D287 validates and fixes the single unresolved Codex CSP finding: the inline Blazor import map had no allowed source. Web now shares an exact framework-metadata SHA256 between the HTTP policy and rendered map integrity, preserving enhanced navigation and blocking unrelated inline execution. Browser import-map/auth17, appearance68 and BFF core7 PASS; required repository gate evidence is in VALIDATION.md. No theme/layout/authentication/API contract change. PR is now ready for review as set by the owner; this follow-up preserves its state, with no merge/deploy/Actions. Rebuild deployment artifacts from the final reviewed commit; old local Web images predate this fix.
+
 ## Finite Phase 0 handoff — 31 October 2026
 
-The original software/preparation queue is complete in draft [PR125](https://github.com/repasscloud/wanderconnect/pull/125), including D286 deployment/smoke handoff. **Stopped at deployment review: nothing merged, deployed, published to a registry or enabled in Actions.** MAIN remains ae41722. Real-tester admission is still gated by owner inputs/approval and actual hosted acceptance; local success is not live verification or verified Code compliance. Later-roadmap features and D90 billing remain outside this finite run.
+The original software/preparation queue is complete in [PR125](https://github.com/repasscloud/wanderconnect/pull/125), including D286 deployment/smoke handoff. **Stopped at deployment review: nothing merged, deployed, published to a registry or enabled in Actions.** MAIN remains ae41722. Real-tester admission is still gated by owner inputs/approval and actual hosted acceptance; local success is not live verification or verified Code compliance. Later-roadmap features and D90 billing remain outside this finite run.
 
 | Original queue | Result in this PR |
 | --- | --- |

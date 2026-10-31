@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Components;
+using System.Security.Cryptography;
+using System.Text;
 namespace Swoovr.Hosting;
 
 /// <summary>Server-only common composition; no UI-to-API/Infrastructure project reference.</summary>
 public static class HostRuntime
 {
+    public const string ImportMapIntegrityKey = "swoovr.import-map-integrity";
     public static void Configure(WebApplicationBuilder builder,HostKind host,bool serving=true)
     {
         var values=builder.Configuration.AsEnumerable().ToDictionary(p=>p.Key,p=>p.Value,StringComparer.OrdinalIgnoreCase);
@@ -33,7 +37,16 @@ public static class HostRuntime
         app.Use(async(context,next)=>
         {
             if(!app.Environment.IsDevelopment())context.Items["swoovr.forwarded-address-processed"]=true;
-            context.Response.Headers.ContentSecurityPolicy=csp;
+            var responsePolicy=csp;
+            if(host==HostKind.Web&&context.GetEndpoint()?.Metadata.GetMetadata<ImportMapDefinition>() is { } importMap)
+            {
+                // ImportMap renders this exact metadata JSON. Keep the hash tied to the asset collection,
+                // including across enhanced navigations; do not authorize unrelated inline scripts.
+                var integrity="sha256-"+Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(importMap.ToString().ReplaceLineEndings("\n"))));
+                context.Items[ImportMapIntegrityKey]=integrity;
+                responsePolicy=csp.Replace("script-src 'self'","script-src 'self' '"+integrity+"'",StringComparison.Ordinal);
+            }
+            context.Response.Headers.ContentSecurityPolicy=responsePolicy;
             context.Response.Headers.XContentTypeOptions="nosniff";
             context.Response.Headers["Referrer-Policy"]="strict-origin-when-cross-origin";
             await next(context);

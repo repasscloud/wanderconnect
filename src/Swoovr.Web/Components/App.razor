@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="@Assets["themes.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["Swoovr.Web.styles.css"]" />
-    <ImportMap />
+    <ImportMap integrity="@(Http.HttpContext?.Items[Swoovr.Hosting.HostRuntime.ImportMapIntegrityKey])" />
     <HeadOutlet />
 </head>
 
