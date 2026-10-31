@@ -36,6 +36,7 @@ with tempfile.TemporaryDirectory(prefix="swoovr-contact-policy-check-") as priva
 
     subprocess.run([compiler,"--release","21","-classpath",os.pathsep.join([str(main),classpath]),"-d",str(tests),*sorted(str(p) for p in (base/"test/java").rglob("*.java"))],check=True,cwd=root)
     subprocess.run([runtime,"-classpath",os.pathsep.join([str(tests),str(main),classpath]),"app.swoovr.identity.RetirementPolicyChecks"],check=True,cwd=root)
+    subprocess.run([runtime,"-classpath",os.pathsep.join([str(tests),str(main),classpath]),"app.swoovr.identity.MailerSendChecks"],check=True,cwd=root)
     if args.output_jar:
         subprocess.run([jar,"--create","--file",str(args.output_jar.resolve()),"-C",str(main),"."],check=True,cwd=root)
         print("Public-code provider artifact:",args.output_jar)

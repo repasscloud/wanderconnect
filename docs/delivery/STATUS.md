@@ -4,6 +4,9 @@ As of 31 October 2026 (Australia/Adelaide). This page is the current summary; da
 
 ## Phase 0 takeover progress — 29–30 October 2026
 
+D281 Keycloak HTTP authentication-email SPI and disabled UAT realms are built locally. Exact Java21/Keycloak26.8.1 image repeats162 loopback adapter assertions;41 isolated runtime checks prove UAT theme link/channel configuration, import, exact callbacks/RP, staff Entra metadata and actual template-to-selected-sender wiring with external egress blocked. Missing config/start-dev fail. Nine pure generator checks and final check.sh33 backup/85 Node/30 startup/596 PostgreSQL pass; .NET0 warnings/errors, known existing Java JPA removal warning retained. No real mailbox/Entra/browser/passkey/UAT acceptance. [Email boundary](../architecture/KEYCLOAK-EMAIL.md), [realm preparation](KEYCLOAK-UAT.md). Explicit linux/amd64 application images, service-client/operator bootstrap, parent Azure IaC/backup jobs and deployment/smoke handoff remain required software.
+
+
 D280 native UAT targeting and Twilio acknowledgement are implemented locally. Release selects HTTPS UAT/non-development realm, UAT forbids local transport/simulated push and unsafe build combinations; Android UAT Release and unsigned iOS UAT Release compile. Actual Android local Keycloak sign-in, account appearance persistence, registered-device logout and guest restoration passed; the test exposed/fixed empty204 device-removal JSON parsing. Final required gate PASS33 backup/85 Node/30 startup/596 PostgreSQL,0 build warnings/errors; provider fakes26/device client3, phone42 (gate off), notifications109/parity104 pass. Distribution signing, hosted login, iOS UI and real SMS/push delivery remain unverified. See [native configuration](NATIVE-UAT.md) and [validation](VALIDATION.md). Container/Keycloak email, parent Azure IaC, operator/deployment and base-URL smoke remain the finite original software queue.
 
 
