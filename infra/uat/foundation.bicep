@@ -104,9 +104,11 @@ resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   location: location
   properties: { sku: { name: 'PerGB2018' }, retentionInDays: 30 }
 }
+resource edgeIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = { name: '${prefix}-edge-certificate', location: location }
 resource environment 'Microsoft.App/managedEnvironments@2025-07-01' = {
   name: names.environment
   location: location
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${edgeIdentity.id}': {} } }
   properties: {
     vnetConfiguration: { infrastructureSubnetId: '${network.id}/subnets/apps', internal: false }
     workloadProfiles: [{ name: 'Consumption', workloadProfileType: 'Consumption' }]
@@ -144,3 +146,5 @@ output postgresPrivateDnsZoneId string = postgresDns.id
 output backupAccountUrl string = backups.outputs.accountUrl
 output backupContainerId string = backups.outputs.containerResourceId
 output identities array = [for (actor,index) in actors: { actor: actor, id: identities[index].id, clientId: identities[index].properties.clientId, principalId: identities[index].properties.principalId }]
+
+output edgeCertificateIdentityId string = edgeIdentity.id

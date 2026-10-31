@@ -3,7 +3,7 @@
 import argparse, importlib.util, json, os, secrets, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--image',required=True);parser.add_argument('--platform',default='linux/amd64',choices=['linux/amd64','linux/arm64']);args=parser.parse_args()
+parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--image',required=True);parser.add_argument('--bootstrap-image');parser.add_argument('--platform',default='linux/amd64',choices=['linux/amd64','linux/arm64']);args=parser.parse_args()
 def docker(*values,check=True,timeout=30):
     return subprocess.run(['docker',*values],check=check,capture_output=True,text=True,timeout=timeout)
 def request(base,path,method='GET',data=None,token=None,form=False):
@@ -46,7 +46,12 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         rendered=uat.render('https://admin.uat.swoovr.app','https://venues.uat.swoovr.app','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222')
         for name,value in rendered.items():
             if name!='manifest.json':p=imports/name;p.write_text(value);os.chmod(p,0o644) # Fictional public review config only, no expanded secrets.
-        created.append(kc);docker('run','--platform',args.platform,'-d','--name',kc,'--network',network,'--env-file',str(env),'-v',str(imports)+':/opt/keycloak/data/import:ro',args.image,'start','--optimized','--import-realm')
+        created.append(kc)
+        startup=['run','--platform',args.platform,'-d','--name',kc,'--network',network,'--env-file',str(env)]
+        if not args.bootstrap_image:startup+=['-v',str(imports)+':/opt/keycloak/data/import:ro']
+        startup += [args.image,'start','--optimized']
+        if not args.bootstrap_image:startup+=['--import-realm']
+        docker(*startup)
         # Docker does not publish a port for an internal-only bridge. Keep egress closed and put the probe inside it.
         created.append(probe);docker('run','-d','--name',probe,'--network',network,'-v',str(ROOT/'tests/uat')+':/probe:ro','eclipse-temurin:21-jdk-noble@sha256:bd6ac06e2a2df928af21c75c4a8a0f2829a93377a65761d6a577bb32281e2ac3','sleep','600')
         base='http://'+kc+':8080'
@@ -57,6 +62,17 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
             if docker('inspect','--format','{{.State.Running}}',kc).stdout.strip()!='true':raise AssertionError('Owned Keycloak stopped before readiness.')
             time.sleep(1)
         else:raise AssertionError('Owned Keycloak readiness timed out.')
+        if args.bootstrap_image:
+            bootstrap_env=folder/'bootstrap.env';bootstrap_values={**values,'DOTNET_ENVIRONMENT':'Development','SWOOVR_KEYCLOAK_BASE':base,'SWOOVR_UAT_MEMBER_ADMIN_SECRET':secrets.token_urlsafe(40)}
+            for kind in ['members','venues','staff']:bootstrap_values['SWOOVR_UAT_REALM_'+kind.upper()]=json.dumps(json.loads(rendered['swoovr-'+kind+'.json']),separators=(',',':'))
+            bootstrap_env.write_text(''.join(k+'='+v+'\n' for k,v in bootstrap_values.items()));os.chmod(bootstrap_env,0o600)
+            job=network+'-bootstrap';created.append(job)
+            result=docker('run','--platform',args.platform,'--name',job,'--network',network,'--env-file',str(bootstrap_env),args.bootstrap_image,'keycloak-bootstrap',check=False,timeout=240)
+            assert result.returncode==0 and 'No realm enabled' in result.stdout,'Published initial Keycloak bootstrap failed.';checks+=1
+            docker('rm','-f','-v',job);created.remove(job)
+            created.append(job);result=docker('run','--platform',args.platform,'--name',job,'--network',network,'--env-file',str(bootstrap_env),args.bootstrap_image,'keycloak-bootstrap',check=False,timeout=60)
+            assert result.returncode!=0 and 'no success or fallback' in result.stderr,'Existing realms must never be overwritten.';checks+=1
+            docker('rm','-f','-v',job);created.remove(job)
         print('PASS owned Keycloak image booted/imported on internal network; MAIN untouched.',flush=True)
         code,body=request(base,'/realms/master/protocol/openid-connect/token','POST',{'client_id':'admin-cli','grant_type':'password','username':'swoovr-image-admin','password':admin_password},form=True);assert code==200,'Owned bootstrap sign-in refused.';token=body['access_token'];checks+=1
         for kind in ['members','venues','staff']:
@@ -73,12 +89,29 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         code,staff=request(base,'/admin/realms/swoovr-staff/authentication/flows',token=token);assert code==200 and any(f['alias']=='swoovr-uat-staff-entra-only' for f in staff);checks+=1
         code,executions=request(base,'/admin/realms/swoovr-staff/authentication/flows/swoovr-uat-staff-entra-only/executions',token=token);assert code==200 and len(executions)==1 and executions[0]['providerId']=='identity-provider-redirector' and executions[0]['requirement']=='REQUIRED';checks+=1
         code,providers=request(base,'/admin/realms/swoovr-staff/identity-provider/instances',token=token);assert code==200 and len(providers)==1 and providers[0]['alias']=='entra' and providers[0]['trustEmail'] is False;checks+=1
+        if args.bootstrap_image:
+            code,clients=request(base,'/admin/realms/swoovr-members/clients?clientId=swoovr-api-accounts',token=token);assert code==200 and len(clients)==1;service=clients[0];checks+=1
+            assert service['fullScopeAllowed'] is False and service['serviceAccountsEnabled'] is True and service['standardFlowEnabled'] is False and service['directAccessGrantsEnabled'] is False;checks+=1
+            code,management=request(base,'/admin/realms/swoovr-members/clients?clientId=realm-management',token=token);assert code==200 and len(management)==1
+            code,user=request(base,'/admin/realms/swoovr-members/clients/'+service['id']+'/service-account-user',token=token);assert code==200
+            code,roles=request(base,'/admin/realms/swoovr-members/users/'+user['id']+'/role-mappings/clients/'+management[0]['id'],token=token);assert code==200 and {r['name'] for r in roles}=={'view-users','manage-users'};checks+=1
+            code,scopes=request(base,'/admin/realms/swoovr-members/clients/'+service['id']+'/scope-mappings/clients/'+management[0]['id'],token=token);assert code==200 and {r['name'] for r in scopes}=={'view-users','manage-users'};checks+=1
+            # Owned HTTP-only fixture acceptance, restored immediately. No hosted activation or member credential.
+            assert request(base,'/admin/realms/swoovr-members','PUT',{'enabled':True,'sslRequired':'none'},token)[0]==204
+            code,grant=request(base,'/realms/swoovr-members/protocol/openid-connect/token','POST',{'client_id':'swoovr-api-accounts','client_secret':bootstrap_values['SWOOVR_UAT_MEMBER_ADMIN_SECRET'],'grant_type':'client_credentials'},form=True);assert code==200;service_token=grant['access_token'];checks+=1
+            assert request(base,'/admin/realms/swoovr-members/users',token=service_token)[0]==200;checks+=1
+            assert request(base,'/admin/realms/swoovr-members/clients',token=service_token)[0]==403;checks+=1
+            assert request(base,'/admin/realms/swoovr-members','PUT',{'enabled':False,'sslRequired':'all'},token)[0]==204
         code,users=request(base,'/admin/realms/master/users?username=swoovr-image-admin&exact=true',token=token);assert code==200 and len(users)==1;user=users[0];user['email']='fictional.adult@example.test';assert request(base,'/admin/realms/master/users/'+user['id'],'PUT',user,token)[0]==204;checks+=1
         # Real Keycloak template/SPI invocation; network has no external egress and fake credential cannot deliver.
         code,_=request(base,'/admin/realms/swoovr-members/testSMTPConnection','POST',{'host':'smtp.invalid','from':'ignored@example.test'},token);assert code==500,'Blocked provider acknowledgement must not be success.';checks+=1
         logs=docker('logs',kc).stdout+docker('logs',kc).stderr
         assert 'Email provider acknowledgement unavailable.' in logs and 'MailerSendEmailSender.send' in logs;checks+=1
         for secret in [values['KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__API_TOKEN'],admin_password,password]:assert secret not in logs;checks+=1
+        if args.bootstrap_image:
+            for key,value in bootstrap_values.items():
+                if any(word in key for word in ['PASSWORD','SECRET','TOKEN']):assert value not in logs
+            checks+=1
         print('PASS Keycloak image: '+str(checks)+' runtime/import/guard/private-log assertions; actual template reached selected HTTP SPI and failed closed without external egress. No real provider or Entra/UAT/browser acceptance.',flush=True)
     except Exception:
         if kc in created:

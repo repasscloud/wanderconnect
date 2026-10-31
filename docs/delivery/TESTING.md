@@ -452,3 +452,7 @@ Use Java21+ and the exact26.8.1 public runtime libraries with `scripts/check_key
 ### UAT operator tools (D284)
 
 Build the operator target from containers/uat/Dockerfile for linux/amd64, then run `python3 tests/uat/operator_image.py` and `python3 tests/uat/database_bootstrap.py`. These use owned containers/private fictional fixtures, no published host ports and no Azure/provider access. The latter verifies actual PG17 non-superuser bootstrap, separate migration owner and read-only capture. See OPERATOR-JOBS-UAT.md and actual evidence in VALIDATION.md.
+
+### UAT Keycloak bootstrap/certificate contracts (D285)
+
+Run `python3 tests/uat/keycloak_bootstrap_guards.py`, infrastructure/preflight tests above and the Keycloak image fixture with `--bootstrap-image swoovr-uat-operator:phase-zero-check`. The owned internal-network fixture runs the actual disabled import/service-client bootstrap, refuses overwrite, and tests narrow client-credentials authority with a temporary local-only realm activation restored to disabled. No cloud, real mail/Entra or rendered browser claim. EDGE-UAT.md covers separate deployed certificate/forwarding acceptance.

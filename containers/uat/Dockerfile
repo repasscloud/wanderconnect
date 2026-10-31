@@ -63,7 +63,7 @@ COPY scripts/backups/requirements.txt /opt/backups/requirements.txt
 RUN /opt/operator-venv/bin/pip install --no-cache-dir -r /opt/backups/requirements.txt
 COPY --from=api-publish /publish/ /app/
 COPY scripts/backups/*.py /opt/backups/
-COPY scripts/uat/uat_jobs.py /opt/uat/uat_jobs.py
+COPY scripts/uat/uat_jobs.py scripts/uat/keycloak_bootstrap.py /opt/uat/
 COPY scripts/uat/bundle-producer.sh /opt/uat/bundle-producer
 RUN chmod 0555 /opt/uat/bundle-producer
 ENV PATH="/opt/operator-venv/bin:/usr/lib/postgresql/17/bin:${PATH}" PYTHONDONTWRITEBYTECODE=1

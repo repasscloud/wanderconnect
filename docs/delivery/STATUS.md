@@ -4,6 +4,8 @@ As of 31 October 2026 (Australia/Adelaide). This page is the current summary; da
 
 ## Phase 0 takeover progress — 29–30 October 2026
 
+D285 builds disabled-only Keycloak/operator bootstrap with a restricted member service client and prepares versioned Key Vault origin-certificate binding. The edge plan documents nested Cloudflare certificate coverage, strict TLS, DNS verification and default-off staged hostname binding. [Keycloak](KEYCLOAK-UAT.md), [edge](EDGE-UAT.md), actual validation below. Final deployment/restore commands, base-URL journey smoke and completion audit remain original software work. No hosted activation or purchase.
+
 D284 prepares the non-root amd64 operator/backup tool image and explicit database bootstrap. Actual non-superuser local PostgreSQL role separation/migration, tool availability and age encryption checks are recorded separately from hosted permissions/restore acceptance. [Operator boundary](OPERATOR-JOBS-UAT.md). Keycloak bootstrap, complete deployment/restore instructions and base-URL core-journey smoke remain original software work.
 
 D283 staged Azure infrastructure now compiles locally: private PostgreSQL/Key Vault/backup storage, actor-specific secret grants and app/job modules with disabled activation defaults. Local contracts/preflight and published minimal migration evidence are recorded in VALIDATION. [Infrastructure boundaries](INFRASTRUCTURE-UAT.md). Operator/bootstrap/backup image and final deployment/core-journey smoke remain original software work; no cloud deployment is claimed.

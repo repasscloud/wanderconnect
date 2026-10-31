@@ -23,6 +23,7 @@ param deployIdentity bool = false
 param deployServing bool = false
 param enableSchedules bool = false
 param enableInvitations bool = false
+param bindPublicHostnames bool = false
 param certificates object = {}
 var actors = ['api','web','admin','keycloak','screening','migrate','operator','bootstrap','backup-publisher','backup-expiry','recovery']
 var records = loadJsonContent('secret-bindings.json')
@@ -103,7 +104,7 @@ var specs = [
 ]
 module apps 'modules/container-app.bicep' = [for spec in specs: if(deployServing) {
   name: '${prefix}-${spec.actor}-app'
-  params: { location: location, name: '${prefix}-${spec.actor}', environmentId: environment.id, identityId: identities[indexOf(actors,spec.actor)].id, registryServer: registry.properties.loginServer, image: images[spec.actor], hostname: spec.host, internalIngress: spec.internal, certificateId: certificates[?spec.actor] ?? '', cpu: spec.cpu, memory: spec.memory, environmentVariables: spec.env, secretBindings: filter(bindings,b=>contains(b.actors,spec.actor)), livenessPath: spec.live, readinessPath: spec.ready, probePort: spec.probe, command: spec.actor == 'screening' ? ['/bin/sh','-ec'] : [], args: spec.actor == 'screening' ? [screeningStartup] : [] }
+  params: { location: location, name: '${prefix}-${spec.actor}', environmentId: environment.id, identityId: identities[indexOf(actors,spec.actor)].id, registryServer: registry.properties.loginServer, image: images[spec.actor], hostname: spec.host, internalIngress: spec.internal, certificateId: bindPublicHostnames ? (certificates[?spec.actor] ?? '') : '', cpu: spec.cpu, memory: spec.memory, environmentVariables: spec.env, secretBindings: filter(bindings,b=>contains(b.actors,spec.actor)), livenessPath: spec.live, readinessPath: spec.ready, probePort: spec.probe, command: spec.actor == 'screening' ? ['/bin/sh','-ec'] : [], args: spec.actor == 'screening' ? [screeningStartup] : [] }
   dependsOn: [access]
 }]
 module identityApp 'modules/container-app.bicep' = if(deployIdentity) {
@@ -116,7 +117,7 @@ module identityApp 'modules/container-app.bicep' = if(deployIdentity) {
     registryServer: registry.properties.loginServer
     image: images.keycloak
     hostname: 'auth.uat.swoovr.app'
-    certificateId: certificates.?keycloak ?? ''
+    certificateId: bindPublicHostnames ? (certificates.?keycloak ?? '') : ''
     cpu: '1'
     memory: '2Gi'
     probePort: 9000

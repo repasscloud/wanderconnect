@@ -18,6 +18,12 @@ with tempfile.TemporaryDirectory(prefix='swoovr-infra-') as private:
         templates[source.stem]=json.loads(target.read_text())
     foundation=templates['foundation'];services=templates['services'];app=templates['container-app'];job=templates['job']
     resource=lambda doc,kind: next(r for r in doc['resources'] if r['type']==kind)
+    environment=resource(foundation,'Microsoft.App/managedEnvironments')
+    require(environment['identity']['type']=='UserAssigned')
+    certificate=resource(templates['edge'],'Microsoft.App/managedEnvironments/certificates')['properties']
+    require(set(certificate)=={'certificateKeyVaultProperties'})
+    require(set(certificate['certificateKeyVaultProperties'])=={'identity','keyVaultUrl'})
+    require('certificateSecretVersion' in certificate['certificateKeyVaultProperties']['keyVaultUrl'])
     vault=resource(foundation,'Microsoft.KeyVault/vaults')['properties']
     for name in ['enableRbacAuthorization','enableSoftDelete','enablePurgeProtection','enabledForTemplateDeployment']:require(vault[name] is True)
     require(vault['networkAcls']['defaultAction']=='Deny' and vault['softDeleteRetentionInDays']==90)
@@ -39,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='swoovr-infra-') as private:
     j=resource(job,'Microsoft.App/jobs')['properties']['configuration']
     require(j['replicaRetryLimit']==0)
     require('replicaCompletionCount' in j['manualTriggerConfig'] and 'parallelism' in j['scheduleTriggerConfig'])
-    for flag in ['grantSecretAccess','createJobs','deployIdentity','deployServing','enableSchedules','enableInvitations']:require(services['parameters'][flag]['defaultValue'] is False)
+    for flag in ['grantSecretAccess','createJobs','deployIdentity','deployServing','enableSchedules','enableInvitations','bindPublicHostnames']:require(services['parameters'][flag]['defaultValue'] is False)
     records=json.loads((ROOT/'infra/uat/secret-bindings.json').read_text())
     for actor in foundation['variables']['actors']:
         chosen=[r for r in records if actor in r['actors']]

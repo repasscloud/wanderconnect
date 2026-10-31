@@ -26,8 +26,13 @@ def validate(values):
     if not re.fullmatch(r'[a-z0-9-]+\.[a-z0-9-]+\.azurecontainerapps\.io',required('environmentDefaultDomain')):raise ValueError('Use the foundation output default domain.')
     if not re.fullmatch(r'age1[0-9a-z]{58}',required('backupRecipient')):raise ValueError('An age public recipient is required; never supply the recovery identity.')
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]',required('r2Bucket')):raise ValueError('Invalid private R2 bucket name.')
+    active=(['api','web','admin'] if values.get('deployServing') else [])+(['keycloak'] if values.get('deployIdentity') else [])
+    certificates=values.get('certificates',{})
+    for actor in active if values.get('bindPublicHostnames') else []:
+        resource=certificates.get(actor,'')
+        if not isinstance(resource,str) or not re.fullmatch(r'/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[a-zA-Z0-9._()-]+/providers/Microsoft.App/managedEnvironments/[a-z0-9-]+/certificates/[a-z0-9-]+',resource):raise ValueError('Active public hosts require explicit reviewed origin certificate bindings.')
     if values.get('enableSchedules') and not values.get('createJobs'):raise ValueError('Schedules require jobs.')
-    if values.get('enableInvitations') and not values.get('deployServing'):raise ValueError('Invitations require reviewed serving deployment.')
+    if values.get('enableInvitations') and (not values.get('deployServing') or not values.get('bindPublicHostnames')):raise ValueError('Invitations require reviewed serving deployment.')
     return values
 
 def main():

@@ -47,6 +47,9 @@ def database_bootstrap():
 
 def main(args):
     if args==['database-bootstrap']:return database_bootstrap()
+    if args==['keycloak-bootstrap']:
+        from keycloak_bootstrap import main as bootstrap
+        return bootstrap()
     if args==['tools-check']:
         for values in [['pg_dump','--version'],['pg_restore','--version'],['psql','--version'],['age','--version'],['dotnet','--list-runtimes']]:run(values)
         import azure.identity,azure.storage.blob

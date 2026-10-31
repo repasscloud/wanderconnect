@@ -11,4 +11,10 @@ for field,value in [('images',{}),('images',{'api':'latest'}),('cryptoVersions',
     try:m.validate(changed)
     except (ValueError,TypeError):checks+=1
     else:raise AssertionError('Unsafe metadata accepted: '+field)
+valid=copy.deepcopy(values);valid['deployServing']=True;assert m.validate(valid)==valid;checks+=1
+valid['bindPublicHostnames']=True
+try:m.validate(valid)
+except ValueError:checks+=1
+else:raise AssertionError('Public hostname binding without certificate accepted.')
+valid['certificates']={k:'/subscriptions/11111111-1111-4111-8111-111111111111/resourceGroups/rg-fictional/providers/Microsoft.App/managedEnvironments/fictional/certificates/fictional' for k in ['api','web','admin']};assert m.validate(valid)==valid;checks+=1
 print(f'PASS {checks} local parameter acceptance/refusal checks; no Azure action.')

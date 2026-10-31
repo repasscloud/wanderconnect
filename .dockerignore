@@ -65,3 +65,5 @@
 !scripts/uat/
 !scripts/uat/uat_jobs.py
 !scripts/uat/bundle-producer.sh
+
+!scripts/uat/keycloak_bootstrap.py
