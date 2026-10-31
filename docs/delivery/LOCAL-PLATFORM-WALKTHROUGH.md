@@ -1,5 +1,7 @@
 # Run Swoovr locally with Docker infrastructure
 
+For the automated, entirely containerised server setup, use the newer [managed Docker launcher](LOCAL-DOCKER-LAUNCHER.md). This document retains the manual mixed Docker/.NET workflow. Its Compose limitation refers to the original `compose.yaml`, not the new `compose.local.yaml`.
+
 Written 31 October 2026. Run these commands from the `main` checkout at
 `/Users/danijeljw/Developer/wanderconnect-brief`.
 

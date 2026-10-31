@@ -1,5 +1,7 @@
 # Local development
 
+Use the [managed Docker launcher](LOCAL-DOCKER-LAUNCHER.md) for the integrated container installation, including API, web and admin. The older mixed host/container instructions remain below for development and historical investigation.
+
 For the current integrated member/API/admin setup, start with the [local platform walkthrough](LOCAL-PLATFORM-WALKTHROUGH.md). The older Docker sandbox sections below describe foundation containers; they do not configure the complete interactive platform.
 
 Install .NET SDK matching global.json and Python 3. Run all commands from repository root.

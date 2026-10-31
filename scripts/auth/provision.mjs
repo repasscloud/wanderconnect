@@ -13,7 +13,7 @@ export function validateFixture(fixture, users) {
 }
 export async function localRealmApi({ provider = request, read = privateRead, clock = () => Date.now(), realm = 'swoovr-dev' } = {}) {
   const env = await read('.local/docker.env');
-  const password = env.split('\n').find(line => line.startsWith('KC_BOOTSTRAP_ADMIN_PASSWORD='))?.split('=')[1];
+  const password = env.split('\n').find(line => line.startsWith('KC_BOOTSTRAP_ADMIN_PASSWORD='))?.slice('KC_BOOTSTRAP_ADMIN_PASSWORD='.length);
   if (!password) throw new Error('Initialize the local sandbox first');
   let accessToken, expiresAt = 0;
   async function authenticate() {

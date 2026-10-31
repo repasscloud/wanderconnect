@@ -6,6 +6,8 @@ This repository contains the product definition and an integrated local prototyp
 
 ## Start here
 
+- [Managed Docker localhost launcher](docs/delivery/LOCAL-DOCKER-LAUNCHER.md): `./scripts/local-platform.sh up --take-ports` starts the integrated local containers; stop/reuse/reset and admin credentials are included.
+
 - [Run the platform locally with Docker infrastructure](docs/delivery/LOCAL-PLATFORM-WALKTHROUGH.md): complete setup, member/admin walkthrough, provider gaps and shutdown.
 
 - [Documentation index](docs/README.md): what each document owns and how to keep it current.

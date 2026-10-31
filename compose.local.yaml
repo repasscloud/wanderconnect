@@ -1,0 +1,179 @@
+# Managed localhost installation ONLY. All services share Mailpit's network namespace:
+# localhost has the same meaning in the browser, OIDC metadata and every container.
+# No host networking, proxy issuer rewrites or weakened token validation is needed.
+name: swoovr-platform
+x-volume: &volume
+  labels:
+    com.swoovr.local-root: ${SWOOVR_LOCAL_ROOT:?Use scripts/local-platform.sh}
+x-app: &app
+  labels:
+    com.swoovr.local-root: ${SWOOVR_LOCAL_ROOT:?Use scripts/local-platform.sh}
+  network_mode: service:mailpit
+  init: true
+  restart: unless-stopped
+  environment: &common
+    ASPNETCORE_ENVIRONMENT: Development
+    DOTNET_ENVIRONMENT: Development
+    Keycloak__RequireHttpsMetadata: "false"
+  depends_on:
+    mailpit:
+      condition: service_started
+services:
+  mailpit:
+    labels:
+      com.swoovr.local-root: ${SWOOVR_LOCAL_ROOT:?Use scripts/local-platform.sh}
+    image: axllent/mailpit:v1.31.0@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mail-data:/data
+    # The anchor alone publishes ports. All published ports are loopback only.
+    ports:
+      - "127.0.0.1:5080:5080"
+      - "127.0.0.1:5081:5081"
+      - "127.0.0.1:5082:5082"
+      - "127.0.0.1:8180:8180"
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:5433:5433"
+      - "127.0.0.1:8080:8080"
+  postgres:
+    <<: *app
+    image: postgres:17.11-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
+    command: ["postgres", "-p", "5433"]
+    environment:
+      POSTGRES_DB: swoovr
+      POSTGRES_USER: swoovr
+      POSTGRES_PASSWORD: ${SWOOVR_DB_PASSWORD:?Use scripts/local-platform.sh}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5433", "-U", "swoovr", "-d", "swoovr"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  keycloak:
+    <<: *app
+    image: quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
+    command: ["start-dev", "--http-port=8180", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: local-bootstrap
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Use scripts/local-platform.sh}
+      KC_HOSTNAME: http://localhost:8180
+      KC_HEALTH_ENABLED: "true"
+      SWOOVR_MEMBERS_WEB_SECRET: ${SWOOVR_MEMBERS_WEB_SECRET}
+      SWOOVR_VENUES_WEB_SECRET: ${SWOOVR_VENUES_WEB_SECRET}
+      SWOOVR_STAFF_WEB_SECRET: ${SWOOVR_STAFF_WEB_SECRET}
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./containers/keycloak/swoovr-dev-realm.json:/opt/keycloak/data/import/swoovr-dev-realm.json:ro
+      - ./containers/keycloak/realms/swoovr-members-dev.json:/opt/keycloak/data/import/swoovr-members-dev.json:ro
+      - ./containers/keycloak/realms/swoovr-venues-dev.json:/opt/keycloak/data/import/swoovr-venues-dev.json:ro
+      - ./containers/keycloak/realms/swoovr-staff-dev.json:/opt/keycloak/data/import/swoovr-staff-dev.json:ro
+      - ./containers/keycloak/themes/swoovr:/opt/keycloak/themes/swoovr:ro
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3; head -n 1 <&3 | grep -q ' 200 '"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+  api:
+    <<: *app
+    build:
+      context: .
+      dockerfile: containers/uat/Dockerfile
+      target: api
+    environment:
+      <<: *common
+      ASPNETCORE_URLS: http://0.0.0.0:5080
+      ConnectionStrings__Swoovr: Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${SWOOVR_DB_PASSWORD}
+      Keycloak__BaseUrl: http://localhost:8180
+      Founders__Secrets__1: ${SWOOVR_FOUNDER_SECRET_V1}
+      MemberAdmin__ClientSecret: ${SWOOVR_MEMBERS_API_ADMIN_SECRET}
+      Staff__LocalPasswords: "true"
+      Email__Provider: smtp
+      Email__Smtp__Host: 127.0.0.1
+      Email__Smtp__Port: "1025"
+      Moderation__EscalationEmail: local-escalation@example.test
+      Moderation__EscalationBackupEmail: local-backup@example.test
+      Didit__ApiKey: ${SWOOVR_DIDIT_API_KEY:-}
+      Didit__WorkflowId: ${SWOOVR_DIDIT_WORKFLOW_ID:-}
+      Didit__WebhookSecret: ${SWOOVR_DIDIT_WEBHOOK_SECRET:-}
+      Media__Local__Path: /app/.local/media
+      Media__Screening__BaseUrl: http://127.0.0.1:8080
+      Media__Screening__RequireKnownContentCheck: "false"
+      # Real account gates stay enabled; SMS/push remain explicitly simulated locally.
+      MeetingSafety__Enabled: "true"
+      MeetingSafety__PublicBaseUrl: http://localhost:5081/
+      TextHarm__Enabled: "true"
+      Retention__Worker: "true"
+    volumes:
+      - api-data:/app/.local
+      - ./tests/fixtures/geonames:/fixtures/geonames:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+  web:
+    <<: *app
+    build:
+      context: .
+      dockerfile: containers/uat/Dockerfile
+      target: web
+    environment:
+      <<: *common
+      ASPNETCORE_URLS: http://0.0.0.0:5081
+      Keycloak__Authority: http://localhost:8180/realms/swoovr-members-dev
+      Keycloak__ClientSecret: ${SWOOVR_MEMBERS_WEB_SECRET}
+      Api__BaseUrl: http://127.0.0.1:5080/
+    volumes:
+      - web-keys:/home/app/.aspnet/DataProtection-Keys
+  admin:
+    <<: *app
+    build:
+      context: .
+      dockerfile: containers/uat/Dockerfile
+      target: admin
+    environment:
+      <<: *common
+      ASPNETCORE_URLS: http://0.0.0.0:5082
+      Keycloak__Authority: http://localhost:8180/realms/swoovr-staff-dev
+      Keycloak__ClientSecret: ${SWOOVR_STAFF_WEB_SECRET}
+      Api__BaseUrl: http://127.0.0.1:5080/
+    volumes:
+      - admin-keys:/home/app/.aspnet/DataProtection-Keys
+  screening:
+    <<: *app
+    # Built by the launcher from the sibling image-moderation-api if missing.
+    # No provider credentials are copied from that repository.
+    image: ${SWOOVR_SCREENING_IMAGE:-image-moderation-api-moderation-api:latest}
+    profiles: [screening]
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+      ENABLE_NUDENET: "true"
+      ENABLE_NSFW: "true"
+    volumes:
+      - model-cache:/app/model-cache
+    mem_limit: 4g
+    cpus: 2
+  tools:
+    <<: *app
+    user: "${SWOOVR_LOCAL_UID:-1000}:${SWOOVR_LOCAL_GID:-1000}"
+    image: node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+    profiles: [tools]
+    restart: "no"
+    working_dir: /work
+    volumes:
+      - .:/work:ro
+      - ./.local/platform:/work/.local
+volumes:
+  postgres-data: *volume
+  keycloak-data: *volume
+  mail-data: *volume
+  api-data: *volume
+  web-keys: *volume
+  admin-keys: *volume
+  model-cache: *volume
