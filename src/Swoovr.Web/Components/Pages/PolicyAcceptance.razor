@@ -1,0 +1,7 @@
+@page "/account/policies"
+<PageTitle>Required policies — Swoovr</PageTitle>
+<div class="column">
+@if(HttpContext.User.Identity?.IsAuthenticated==true){<Swoovr.Web.Client.Account.PolicyAcceptancePanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender:false)"/>}
+else{<h1>Required policies</h1><a href="/account/sign-in" data-enhance-nav="false">Sign in</a><a href="/terms">Terms of use (draft)</a>}
+</div>
+@code{[CascadingParameter]private HttpContext HttpContext{get;set;}=default!;}

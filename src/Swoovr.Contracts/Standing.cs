@@ -6,7 +6,8 @@ namespace Swoovr.Contracts;
 /// fraud signals or legal holds.
 /// </summary>
 public sealed record AccountStandingView(string State, StandingVerification Verification, IReadOnlyList<StandingAction> Actions,
-    IReadOnlyList<StandingSanction> InForce, IReadOnlyList<StandingDecision> Decisions, IReadOnlyList<StandingReport> Reports);
+    IReadOnlyList<StandingSanction> InForce, IReadOnlyList<StandingDecision> Decisions, IReadOnlyList<StandingReport> Reports,
+    string? EmailChangeProblem = null);
 
 /// <param name="DobCheck">none, correctionNeeded or manualReview (D166).</param>
 /// <param name="IdStatus">notStarted, pending, verified, needsAction, rejected or expired (D126).</param>

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "australiaeast"
+    },
+    "prefix": {
+      "value": "swoovr-uat"
+    },
+    "environmentDefaultDomain": {
+      "value": "REPLACE_FROM_FOUNDATION_OUTPUT"
+    },
+    "images": {
+      "value": {
+        "api": "REPLACE_WITH_ACR_IMMUTABLE_DIGEST",
+        "web": "REPLACE_WITH_ACR_IMMUTABLE_DIGEST",
+        "admin": "REPLACE_WITH_ACR_IMMUTABLE_DIGEST",
+        "keycloak": "REPLACE_WITH_ACR_IMMUTABLE_DIGEST",
+        "screening": "REPLACE_WITH_ACR_IMMUTABLE_DIGEST",
+        "operator": "REPLACE_WITH_ACR_IMMUTABLE_DIGEST"
+      }
+    },
+    "cryptoVersions": {
+      "value": {
+        "founder": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "phone": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "ban": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "contact": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "contactLookup": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "evidence": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "identity": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "identityHmac": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "push": "REPLACE_WITH_PHYSICAL_VAULT_VERSION",
+        "pushLookup": "REPLACE_WITH_PHYSICAL_VAULT_VERSION"
+      }
+    },
+    "trustedProxyNetworks": {
+      "value": "REPLACE_WITH_EXACT_COMMA_SEPARATED_TRUSTED_CIDRS"
+    },
+    "r2Endpoint": {
+      "value": "REPLACE_WITH_PRIVATE_R2_ACCOUNT_HTTPS_ORIGIN"
+    },
+    "r2Bucket": {
+      "value": "REPLACE_WITH_PRIVATE_BUCKET"
+    },
+    "backupAccountUrl": {
+      "value": "REPLACE_FROM_FOUNDATION_OUTPUT"
+    },
+    "backupRecipient": {
+      "value": "REPLACE_WITH_AGE_PUBLIC_RECIPIENT"
+    },
+    "grantSecretAccess": {
+      "value": false
+    },
+    "createJobs": {
+      "value": false
+    },
+    "deployIdentity": {
+      "value": false
+    },
+    "deployServing": {
+      "value": false
+    },
+    "bindPublicHostnames": {
+      "value": false
+    },
+    "enableSchedules": {
+      "value": false
+    },
+    "enableInvitations": {
+      "value": false
+    },
+    "certificates": {
+      "value": {}
+    }
+  }
+}

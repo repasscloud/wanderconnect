@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- Base styles: docs/design/reference/UI-STYLE.md. Colours come only from Colors.xaml (generated from
-     docs/design/themes.json, Standard scheme); light/dark follows the device. One font family everywhere:
+     docs/design/themes.json, Standard startup scheme); personal resources update at runtime. One font family everywhere:
      Helvetica Neue where the platform has it, then Arial, then the platform sans-serif (Android has neither). -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -16,20 +16,20 @@
 
     <Style TargetType="Page" ApplyToDerivedTypes="True">
         <Setter Property="Padding" Value="0" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource BgLight}, Dark={StaticResource BgDark}}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeBackground}" />
     </Style>
 
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
-        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-        <Setter Property="Shell.DisabledColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
-        <Setter Property="Shell.UnselectedColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="Shell.BackgroundColor" Value="{DynamicResource ThemeSurface}" />
+        <Setter Property="Shell.ForegroundColor" Value="{DynamicResource ThemeText}" />
+        <Setter Property="Shell.TitleColor" Value="{DynamicResource ThemeText}" />
+        <Setter Property="Shell.DisabledColor" Value="{DynamicResource ThemeMuted}" />
+        <Setter Property="Shell.UnselectedColor" Value="{DynamicResource ThemeMuted}" />
         <Setter Property="Shell.NavBarHasShadow" Value="False" />
-        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
-        <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-        <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-        <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{DynamicResource ThemeSurface}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{DynamicResource ThemeText}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{DynamicResource ThemeText}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{DynamicResource ThemeMuted}" />
     </Style>
 
     <!-- Body: 15 / 400, line-height 1.4. Named styles are BasedOn this, because an explicit style
@@ -38,7 +38,7 @@
         <Setter Property="FontFamily" Value="{StaticResource SwoovrFont}" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="LineHeight" Value="1.4" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeText}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
     </Style>
     <Style TargetType="Label" BasedOn="{StaticResource BaseLabel}" />
@@ -65,28 +65,28 @@
     </Style>
 
     <Style TargetType="Label" x:Key="Subtitle" BasedOn="{StaticResource BaseLabel}">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeMuted}" />
     </Style>
 
     <Style TargetType="Label" x:Key="FieldLabel" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="TextTransform" Value="Uppercase" />
         <Setter Property="CharacterSpacing" Value="0.3" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeMuted}" />
     </Style>
 
     <Style TargetType="Label" x:Key="FooterClaims" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="LineHeight" Value="1.6" />
         <Setter Property="HorizontalTextAlignment" Value="Center" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeMuted}" />
     </Style>
 
     <Style TargetType="Entry">
         <Setter Property="FontFamily" Value="{StaticResource SwoovrFont}" />
         <Setter Property="FontSize" Value="16" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource AccentLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeText}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource ThemeMuted}" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="MinimumHeightRequest" Value="44" />
     </Style>
@@ -99,8 +99,8 @@
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="HeightRequest" Value="54" />
         <Setter Property="BorderWidth" Value="0" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OnPrimaryLight}, Dark={StaticResource OnPrimaryDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeOnPrimary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemePrimary}" />
     </Style>
 
     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}" />
@@ -108,9 +108,9 @@
     <!-- Secondary button: same size, surface fill, hairline border, text colour -->
     <Style TargetType="Button" x:Key="SecondaryButton" BasedOn="{StaticResource PrimaryButton}">
         <Setter Property="BorderWidth" Value="1" />
-        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="BorderColor" Value="{DynamicResource ThemeBorder}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeText}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
     </Style>
 
     <!-- Link: text colour, 13 (the underline is a separate hairline in the layout) -->
@@ -119,14 +119,14 @@
     </Style>
 
     <Style TargetType="ActivityIndicator">
-        <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="Color" Value="{DynamicResource ThemeText}" />
     </Style>
 
     <!-- Card: surface, hairline, radius 16, no shadow (implicit for every Border). -->
     <Style TargetType="Border" x:Key="Card">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="16" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemeBorder}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="18,16" />
     </Style>
@@ -135,8 +135,8 @@
     <!-- Input: 56 tall, radius 14, label inside (FieldLabel) above an Entry -->
     <Style TargetType="Border" x:Key="InputBorder" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="14" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemeBorder}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
         <Setter Property="MinimumHeightRequest" Value="56" />
         <Setter Property="Padding" Value="16,6" />
     </Style>
@@ -144,28 +144,28 @@
     <!-- Chips: radius 20, padding 9×4, 12 / bold. Selected: primary fill. Ruled out: muted, struck through. -->
     <Style TargetType="Border" x:Key="Chip" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="20" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemeBorder}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
         <Setter Property="Padding" Value="9,4" />
     </Style>
     <Style TargetType="Border" x:Key="ChipOn" BasedOn="{StaticResource Chip}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="20" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemePrimary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemePrimary}" />
     </Style>
     <Style TargetType="Label" x:Key="ChipLabel" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeText}" />
         <Setter Property="FontAttributes" Value="Bold" />
     </Style>
     <Style TargetType="Label" x:Key="ChipOnLabel" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OnPrimaryLight}, Dark={StaticResource OnPrimaryDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeOnPrimary}" />
         <Setter Property="FontAttributes" Value="Bold" />
     </Style>
     <Style TargetType="Label" x:Key="ChipOffLabel" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeMuted}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextDecorations" Value="Strikethrough" />
     </Style>
@@ -174,21 +174,21 @@
          primary fill, quote in SwoovrQuoteFont, name and intentions at the bottom. -->
     <Style TargetType="Border" x:Key="ProfileTile" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="16" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemeBorder}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
         <Setter Property="WidthRequest" Value="170" />
         <Setter Property="HeightRequest" Value="270" />
         <Setter Property="Padding" Value="0" />
     </Style>
     <Style TargetType="Border" x:Key="ProfileTileQuote" BasedOn="{StaticResource ProfileTile}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="16" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemePrimary}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemePrimary}" />
         <Setter Property="Padding" Value="14" />
     </Style>
     <Style TargetType="Label" x:Key="TileName" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="15" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeText}" />
         <Setter Property="FontAttributes" Value="Bold" />
     </Style>
     <Style TargetType="Label" x:Key="TileQuote" BasedOn="{StaticResource BaseLabel}">
@@ -197,11 +197,11 @@
         <Setter Property="LineHeight" Value="1.22" />
         <Setter Property="MaxLines" Value="5" />
         <Setter Property="LineBreakMode" Value="TailTruncation" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OnPrimaryLight}, Dark={StaticResource OnPrimaryDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeOnPrimary}" />
     </Style>
     <Style TargetType="Label" x:Key="TileArea" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeMuted}" />
     </Style>
 
     <!-- Chat (owner, 23 October 2026: reference screen 13): their bubble is a soft pill with no border; my reply is
@@ -209,26 +209,26 @@
     <Style TargetType="Border" x:Key="BubbleTheirs" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="22" /></Setter.Value></Setter>
         <Setter Property="StrokeThickness" Value="0" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SoftLight}, Dark={StaticResource SoftDark}}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSoft}" />
         <Setter Property="Padding" Value="16,11" />
         <Setter Property="HorizontalOptions" Value="Start" />
     </Style>
     <Style TargetType="Border" x:Key="BubbleMine" BasedOn="{StaticResource BubbleTheirs}">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PrimaryLight}, Dark={StaticResource PrimaryDark}}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemePrimary}" />
         <Setter Property="HorizontalOptions" Value="End" />
     </Style>
     <Style TargetType="Label" x:Key="BubbleText" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="16" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SoftTextLight}, Dark={StaticResource SoftTextDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeSoftText}" />
     </Style>
     <Style TargetType="Label" x:Key="BubbleMineText" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="16" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OnPrimaryLight}, Dark={StaticResource OnPrimaryDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeOnPrimary}" />
     </Style>
     <Style TargetType="Border" x:Key="ComposerInput" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="20" /></Setter.Value></Setter>
         <Setter Property="StrokeThickness" Value="0" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SoftLight}, Dark={StaticResource SoftDark}}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSoft}" />
         <Setter Property="Padding" Value="16,4" />
     </Style>
     <Style TargetType="Button" x:Key="AttachButton" BasedOn="{StaticResource SecondaryButton}">
@@ -242,28 +242,29 @@
         <Setter Property="HeightRequest" Value="44" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeText}" />
     </Style>
 
     <!-- Segmented control: soft track; the selected segment is a surface Border (SegmentOn). -->
     <Style TargetType="Border" x:Key="SegmentTrack" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="12" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource SoftLight}, Dark={StaticResource SoftDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SoftLight}, Dark={StaticResource SoftDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemeSoft}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSoft}" />
         <Setter Property="StrokeThickness" Value="0" />
         <Setter Property="Padding" Value="3" />
     </Style>
     <Style TargetType="Border" x:Key="SegmentOn" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="10" /></Setter.Value></Setter>
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{DynamicResource ThemeBorder}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" />
         <Setter Property="Padding" Value="10,8" />
     </Style>
     <Style TargetType="Label" x:Key="SegmentLabel" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SoftTextLight}, Dark={StaticResource SoftTextDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ThemeSoftText}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="HorizontalTextAlignment" Value="Center" />
     </Style>
 
+    <Style TargetType="RadioButton"><Setter Property="BackgroundColor" Value="{DynamicResource ThemeSurface}" /><Setter Property="FontFamily" Value="{StaticResource SwoovrFont}" /><Setter Property="FontSize" Value="16" /><Setter Property="TextColor" Value="{DynamicResource ThemeText}" /></Style>
 </ResourceDictionary>

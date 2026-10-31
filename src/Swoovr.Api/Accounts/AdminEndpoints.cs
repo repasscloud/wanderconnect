@@ -14,7 +14,7 @@ public static class AdminEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
         admin.MapPost("/invitations", async (InvitationRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -36,7 +36,7 @@ public static class AdminEndpoints
             db.Invitations.Add(invitation);
             Audit.Record(db, now, current.Account.Id, "account", "invitation.created", "invitation", invitation.Id.ToString(), role.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/invitations/{invitation.Id}", View(invitation, now));
+            return Results.Created($"/api/admin/invitations/{invitation.Id}", View(invitation, now));
         });
 
         admin.MapGet("/invitations", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -70,17 +70,18 @@ public static class AdminEndpoints
         {
             var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
-            var (result, enrolment) = await BetaEnrolments.AddAsync(accounts.Db!, request.Email, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
+            var (result, enrolment) = await BetaEnrolments.AddAsync(accounts.Db!, request.Email, current!.Account!.Id, clock.GetUtcNow(), cancellationToken,queueInvitation:accounts.Services.GetRequiredService<IConfiguration>().GetValue("Beta:Invitations:Enabled",false));
             return result switch
             {
                 BetaEnrolments.AddResult.InvalidEmail => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Enrolment needs a full email address."),
                 BetaEnrolments.AddResult.AlreadyEnrolled => Results.Ok(BetaEnrolments.View(enrolment!)),
-                _ => Results.Created($"/api/v1/admin/beta/{enrolment!.Id}", BetaEnrolments.View(enrolment)),
+                _ => Results.Created($"/api/admin/beta/{enrolment!.Id}", BetaEnrolments.View(enrolment)),
             };
         });
 
-        admin.MapGet("/beta", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        admin.MapGet("/beta", async (ClaimsPrincipal user, AccountResolver accounts, HttpContext context, CancellationToken cancellationToken) =>
         {
+            context.Response.Headers.CacheControl="no-store";
             var (_, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
             var list = await accounts.Db!.BetaEnrolments.OrderByDescending(e => e.CreatedAt).Take(1000).ToListAsync(cancellationToken);
@@ -95,6 +96,20 @@ public static class AdminEndpoints
             if (enrolment is null) return Results.NotFound();
             await BetaEnrolments.RevokeAsync(accounts.Db, enrolment, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
             return Results.NoContent();
+        });
+
+        admin.MapPut("/beta/{id:guid}/ios-distribution",async(Guid id,IosDistributionUpdate update,ClaimsPrincipal user,AccountResolver accounts,TimeProvider clock,CancellationToken token)=>
+        {
+            var(current,denied)=await StaffAsync(user,accounts,AccountRole.Admin,token);if(denied is not null)return denied;
+            if(!current!.RecentlyAuthenticated(clock.GetUtcNow()))return Problem(403,ProblemCodes.StaleSession,"Sign in again before recording distribution work.");
+            var(result,row)=await BetaEnrolments.RecordIosAsync(accounts.Db!,id,update,current.Account!.Id,clock.GetUtcNow(),token);
+            return result switch
+            {
+                BetaEnrolments.IosUpdateResult.Invalid=>Problem(400,ProblemCodes.InvalidRequest,"Confirm a supported staff-recorded state and current revision."),
+                BetaEnrolments.IosUpdateResult.NotFound=>Results.NotFound(),
+                BetaEnrolments.IosUpdateResult.Conflict=>Problem(409,ProblemCodes.RecordChanged,"This enrolment changed. Reload before recording another status."),
+                _=>Results.Ok(BetaEnrolments.View(row!)),
+            };
         });
 
         // Founding membership (D63/D65). Until verification exists (Q04), an admin grants it.
@@ -112,7 +127,7 @@ public static class AdminEndpoints
             var grant = await founders.GrantAsync(account, profile, current!.Account!.Id, clock.GetUtcNow(), cancellationToken);
             return grant.Outcome switch
             {
-                FounderGrantOutcome.Granted => Results.Created($"/api/v1/admin/founder-tokens?place={grant.Place}", new FounderGrantView(grant.Place!.Value, grant.EmailSent)),
+                FounderGrantOutcome.Granted => Results.Created($"/api/admin/founder-tokens?place={grant.Place}", new FounderGrantView(grant.Place!.Value, grant.EmailSent)),
                 FounderGrantOutcome.AlreadyFounder => Problem(StatusCodes.Status409Conflict, ProblemCodes.AlreadyFounder, "This account is already a founding member."),
                 FounderGrantOutcome.PlacesFull => Problem(StatusCodes.Status409Conflict, ProblemCodes.FounderPlacesFull, "All founding places are taken."),
                 FounderGrantOutcome.NoVerifiedEmail => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.NoVerifiedEmail, "The account has no verified email."),

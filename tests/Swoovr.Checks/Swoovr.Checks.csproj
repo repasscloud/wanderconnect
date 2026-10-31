@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Actual provider configuration regression checks; tests may reference the layer under test. -->
+    <ProjectReference Include="..\..\src\Swoovr.Api\Swoovr.Api.csproj" />
     <ProjectReference Include="..\..\src\Swoovr.Contracts\Swoovr.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Swoovr.Domain\Swoovr.Domain.csproj" />
     <ProjectReference Include="..\..\src\Swoovr.Client\Swoovr.Client.csproj" />

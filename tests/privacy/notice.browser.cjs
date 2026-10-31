@@ -9,7 +9,7 @@ const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright')
 const { web, createMember, cli, memberToken, call, sql, claims } = require('../auth/local-tokens.cjs');
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
@@ -25,6 +25,8 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
       assert.ok(html.includes(phrase), phrase);
     pass();
     assert.ok(!html.includes('24/7') && !html.includes('privacy@swoovr.app')); pass();
+    for(const phrase of ['Active restrictions can have no automatic expiry','prevents that identifier','independently of the original account ban','24 months'])assert.ok(html.includes(phrase),phrase);pass();
+    assert.ok(!html.includes('never blocks anyone automatically'),'contact restrictions are distinct from identity-review flags');pass();
     // The sign-up page's link (theme file in this branch).
     const theme = await fs.readFile('containers/keycloak/themes/swoovr/login/register-commons.ftl', 'utf8');
     assert.ok(theme.includes('properties.swoovrPrivacyUrl') && theme.includes('privacyNoticeLink')); pass();
@@ -34,7 +36,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     const member = await createMember('privacy');
     await cli('beta', 'add', member.email);
     const token = await memberToken(browser, member);
-    await call(token, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Privacy', homeCityId: 2078025 } });
+    await call(token, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Privacy', homeCityId: 2078025 } });
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
@@ -48,11 +50,19 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     await page.locator('[data-privacy-link]').first().evaluate(a => a.click());
     await page.waitForSelector('[data-privacy-notice]');
     assert.ok((await page.locator('[data-draft]').innerText()).startsWith('DRAFT')); pass();
-    if (output) await page.screenshot({ path: output + '/web-privacy.png', fullPage: true });
+    if (output) {
+      await page.screenshot({ path: output + '/web-privacy.png', fullPage: true });
+      await page.locator('[data-privacy-section="bans"]').screenshot({path:output+'/web-privacy-bans.png'});
+      // Focus actual viewports; a tall element capture stitches the fixed mobile nav across its text.
+      await page.locator('[data-privacy-section="retention"] p').filter({hasText:'After identifier fingerprints and their history are lawfully disposed'}).evaluate(p=>p.scrollIntoView({block:'center'}));
+      await page.screenshot({path:output+'/web-privacy-retention.png'});
+      await page.locator('[data-privacy-section="staff"] p').filter({hasText:'Staff with a known personal conflict'}).evaluate(p=>p.scrollIntoView({block:'center'}));
+      await page.screenshot({path:output+'/web-privacy-staff-mobile.png'});
+    }
     await context.close();
 
     console.log(`PASS: privacy notice draft (${passed} checks).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exit(1); });

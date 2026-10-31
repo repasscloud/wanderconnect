@@ -1,0 +1,8 @@
+# Beta scorecard implementation plan
+
+D272 DEFAULT under the owner's finite Phase0 queue supersedes the earlier D179 deferral of51 for this bounded scope. Use existing projects and stable header-versioned API conventions. This is internal beta operations, never advertising, member ranking or a claim of statistically reliable outcomes.
+
+1. Add default-off daily account activity/Explore-success/eligible-peer observations. One row per member/account/UTCday/dataset, no IP, device, location, mode, preference, counterpart or body. Exclude bots/staff/barred members. Successful Explore supplies the profile-ready-plus-discovery activation marker; background authenticated API activity is explicitly included in return observations.
+2. Provide an Admin-only completed-UTC-week scorecard and typed Admin UI. Fixed recent weeks only; no traits, cities or mode filters. Include exact denominator/definition/retained-source coverage, lower-bound observed D7/D30 returns and not-recorded real-world/commercial/quality judgments. Suppress all numeric cells when any positive numerator/denominator is below5. No raw observation export or member list.
+3. Retain observations90days DEFAULT; include own export, account evidence/holds and deletion, coordinated fail-closed expiry. Aggregate source metrics describe retained records, never reconstructed complete historical populations. No external analytics SDK/beacon or action based on these metrics.
+4. Verify actual source calculations, observation dedupe/concurrency, disabled collection, authorization, privacy/suppression, own export/deletion/holds/expiry, real Edge Admin rendering and accessibility. Run affected suites and repository gate; record actual gaps and commit once. No deployment or policy activation.

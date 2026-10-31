@@ -20,7 +20,7 @@ public static class LawEnforcementEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var le = app.MapGroup("/api/v1/admin/law-enforcement").RequireAuthorization();
+        var le = app.MapGroup("/api/admin/law-enforcement").RequireAuthorization().AddEndpointFilter<Retention.LawEnforcementLifecycleFilter>();
 
         le.MapGet("/overview", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -83,7 +83,7 @@ public static class LawEnforcementEndpoints
             db.LeCasePeople.AddRange(subjects.Select(s => new LeCasePerson { CaseId = id, AccountId = s, Kind = "subject", AddedBy = me, AddedAt = now }));
             Audit.Record(db, now, me, "account", "le.case-opened", "le-case", id.ToString(), $"{Wire(urgency)}:{request.Channel}");
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/law-enforcement/cases/{id}", await DetailAsync(db, item, now, cancellationToken));
+            return Results.Created($"/api/admin/law-enforcement/cases/{id}", await DetailAsync(db, item, now, cancellationToken));
         });
 
         le.MapGet("/cases/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>

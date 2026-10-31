@@ -35,7 +35,7 @@ const signInForm = member => async page => {
 };
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   try {
     const alice = await createMember('mobile');
@@ -87,14 +87,14 @@ const signInForm = member => async page => {
     assert.ok(access.swoovr_adult_attested_at); assert.deepEqual(access.amr, ['pwd']); pass();
 
     // The API treats the app's token like the web's: member area yes, staff areas no.
-    let session = await call(tokens.access_token, '/api/v1/session');
+    let session = await call(tokens.access_token, '/api/session');
     assert.equal(session.status, 200); assert.equal(session.body.memberArea, true); assert.equal(session.body.beta, 'enrolled'); pass();
     assert.equal(session.body.adminArea, false); assert.equal(session.body.supportArea, false); pass();
-    assert.equal((await call(tokens.access_token, '/api/v1/me')).status, 200); pass();
-    assert.equal((await call(tokens.access_token, '/api/v1/admin/beta')).status, 403); pass();
-    assert.equal((await call(tokens.id_token, '/api/v1/session')).status, 401); pass(); // ID token: wrong audience
+    assert.equal((await call(tokens.access_token, '/api/me')).status, 200); pass();
+    assert.equal((await call(tokens.access_token, '/api/admin/beta')).status, 403); pass();
+    assert.equal((await call(tokens.id_token, '/api/session')).status, 401); pass(); // ID token: wrong audience
     const tampered = tokens.access_token.slice(0, -4) + (tokens.access_token.endsWith('AAAA') ? 'BBBB' : 'AAAA');
-    assert.equal((await call(tampered, '/api/v1/session')).status, 401); pass();
+    assert.equal((await call(tampered, '/api/session')).status, 401); pass();
 
     // The replayed code above made Keycloak drop the app from that session, so its refresh token is dead too.
     response = await token({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token });
@@ -128,14 +128,14 @@ const signInForm = member => async page => {
     back = await appRedirect(await outsiderContext.newPage(), authorizeUrl({ code_challenge: third.challenge, code_challenge_method: 'S256' }), signInForm(outsider));
     response = await token({ grant_type: 'authorization_code', code: back.searchParams.get('code'), redirect_uri: redirect, code_verifier: third.verifier });
     const outsiderToken = (await response.json()).access_token;
-    session = await call(outsiderToken, '/api/v1/session');
+    session = await call(outsiderToken, '/api/session');
     assert.equal(session.body.beta, 'notEnrolled'); assert.equal(session.body.memberArea, false); pass();
-    const me = await call(outsiderToken, '/api/v1/me');
+    const me = await call(outsiderToken, '/api/me');
     assert.equal(me.status, 403); assert.equal(me.body.code, 'beta-not-enrolled'); pass();
     await outsiderContext.close();
     await context.close();
     console.log(`PASS: mobile client acceptance, ${passed} checks (public PKCE client, redirect allow-list, no implicit/password grant, verifier and replay, API audience and areas, rotation, end session, beta gate).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

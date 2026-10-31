@@ -10,7 +10,7 @@ using Swoovr.Infrastructure.Persistence;
 /// </summary>
 static class PersistenceChecks
 {
-    public static async Task Run()
+    public static async Task Run(bool policiesOnly=false)
     {
         var admin = Environment.GetEnvironmentVariable("SWOOVR_TEST_DATABASE");
         if (string.IsNullOrWhiteSpace(admin))
@@ -30,9 +30,30 @@ static class PersistenceChecks
         {
             var connection = new NpgsqlConnectionStringBuilder(admin) { Database = name, Pooling = false }.ConnectionString;
             DbContextOptions<SwoovrDbContext> options = new DbContextOptionsBuilder<SwoovrDbContext>().UseNpgsql(connection).Options;
+            if(policiesOnly)
+            {
+                await PolicyNoticePersistenceChecks.Run(options,Check);
+                await PolicyAcceptancePersistenceChecks.Run(options,Check);
+                Console.WriteLine($"PASS: {count} scoped policy PostgreSQL checks (owned disposable databases).");return;
+            }
             await using (var db = new SwoovrDbContext(options))
             {
+                await db.Database.MigrateAsync("20261029011346_BanCheckQuotas");
+                var legacyEmail = Guid.NewGuid();var legacyEmpty = Guid.NewGuid();
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO accounts(id,issuer,subject,realm,email,status,is_root_admin,created_at,last_seen_at)
+                    VALUES({legacyEmail},'https://issuer.example.test','fictional-clock-email','Members','fictional.clock@example.test','Active',false,now()-interval '1 day',now()),
+                          ({legacyEmpty},'https://issuer.example.test','fictional-clock-empty','Members',NULL,'Active',false,now()-interval '1 day',now())
+                    """);
+                var beforeUpgrade = DateTimeOffset.UtcNow;
                 await db.Database.MigrateAsync();
+                var acceptedAt = await db.Accounts.Where(a=>a.Id==legacyEmail).Select(a=>a.EmailAcceptedAt).SingleAsync();
+                Check("legacy accepted email gets conservative migration watermark",acceptedAt>=beforeUpgrade && acceptedAt<=DateTimeOffset.UtcNow.AddSeconds(5));
+                Check("legacy null email gets no invented acceptance clock",await db.Accounts.Where(a=>a.Id==legacyEmpty).Select(a=>a.EmailAcceptedAt).SingleAsync() is null);
+                await db.Database.MigrateAsync();
+                Check("repeat migration cannot advance accepted email clock",await db.Accounts.Where(a=>a.Id==legacyEmail).Select(a=>a.EmailAcceptedAt).SingleAsync()==acceptedAt);
+                await db.Accounts.Where(a=>a.Id==legacyEmail||a.Id==legacyEmpty).ExecuteDeleteAsync();
+                await RegistryDispositionPersistenceChecks.Run(options, Check);
                 Check("no pending migrations", !(await db.Database.GetPendingMigrationsAsync()).Any());
             }
 
@@ -81,6 +102,27 @@ static class PersistenceChecks
             await Modes(options, Check);
             await Travel(options, Check);
             await Messaging(options, Check);
+            await FallbackKeyPersistenceChecks.Run(options, Check);
+            await StaffConflictPersistenceChecks.Run(options, Check);
+            await BannedIdentifierPersistenceChecks.Run(options, Check);
+            await EmailRetirementPersistenceChecks.Run(options, Check);
+            await OperationalRetentionChecks.Run(options, Check);
+            await MeetingSafetyPersistenceChecks.Run(options, Check);
+            await ContentRemovalPersistenceChecks.Run(options, Check);
+            await TextHarmPersistenceChecks.Run(options, Check);
+            await TextHarmRuntimeChecks.Run(options, Check);
+            await ReportOutcomePersistenceChecks.Run(options, Check);
+            await ModerationTransparencyPersistenceChecks.Run(options, Check);
+            await ModerationInspectionTotalChecks.Run(options, Check);
+            await ModerationTransparencyRetentionChecks.Run(options, Check);
+            await PolicyNoticePersistenceChecks.Run(options, Check);
+            await PolicyAcceptancePersistenceChecks.Run(options, Check);
+            await BetaAnalyticsPersistenceChecks.Run(options, Check);
+            await BetaEnrolmentOperationsChecks.Run(options, Check);
+            await BetaInvitationChecks.Run(options, Check);
+            await AppearancePersistenceChecks.Run(options, Check);
+            await ContentRemovalGuardChecks.Run(options, Check);
+            await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
         }
         finally
         {
@@ -251,7 +293,7 @@ static class PersistenceChecks
         {
             var first = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
             var again = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
-            check("sample imported, and importing again changes nothing", first == again && await db.GeoCities.CountAsync() == first.Cities && first.Cities == 21
+            check("sample imported, and importing again changes nothing", first == again && await db.GeoCities.CountAsync() == first.Cities && first.Cities == 24
                 && await db.GeoCityNames.CountAsync() == first.Names);
             var adelaide = await db.GeoCities.SingleAsync(c => c.GeoNameId == 2078025);
             check("city with region, country and time zone", adelaide is { Name: "Adelaide", Admin1Name: "South Australia", CountryName: "Australia", TimeZone: "Australia/Adelaide" });

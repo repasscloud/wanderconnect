@@ -1,0 +1,17 @@
+@page "/safety/advice"
+@using Swoovr.Client
+<PageTitle>Connection and meeting advice — Swoovr</PageTitle>
+<div class="column">
+    <div class="page-heading"><p>Swoovr safety advice</p><h1>@SafetyAdvice.Title</h1><p>@SafetyAdvice.Introduction</p></div>
+    <section class="card account-section stack" aria-labelledby="connect-safety-heading">
+        <h2 id="connect-safety-heading">Before connecting</h2>
+        <ul>@foreach(var advice in SafetyAdvice.BeforeConnecting){<li>@advice</li>}</ul>
+    </section>
+    <section class="card account-section stack" aria-labelledby="meet-safety-heading">
+        <h2 id="meet-safety-heading">Before meeting</h2>
+        <ul>@foreach(var advice in SafetyAdvice.BeforeMeeting){<li>@advice</li>}</ul>
+        <p>@SafetyAdvice.Responsibility</p>
+        <p><a class="link" href="/safety">Country-specific Safety &amp; Support</a> · <a class="link" href="/me/meeting-safety">Optional meeting safety</a></p>
+    </section>
+    <p class="field-help">Advice version @SafetyAdvice.Version. This educational advice is separate from terms and privacy policies. Draft legal documents remain drafts and are not in force.</p>
+</div>

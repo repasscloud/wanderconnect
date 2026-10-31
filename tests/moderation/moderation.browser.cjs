@@ -14,7 +14,7 @@ const { web, admin, sleep, localEnv, createMember, createStaff, memberToken, sta
 const ADELAIDE = 2078025, MELBOURNE = 2158177;
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('../auth/managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
@@ -27,29 +27,29 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     const tokens = {}, ids = {}, pid = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      const saved = await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), about: 'About ' + n, homeCityId: n === 'far' ? MELBOURNE : ADELAIDE } });
+      const saved = await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), about: 'About ' + n, homeCityId: n === 'far' ? MELBOURNE : ADELAIDE } });
       assert.equal(saved.status, 200, n);
       await matchReady(tokens[n]);
-      await call(tokens[n], '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
+      await call(tokens[n], '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
     // Staff: two support people and a second admin, all fictional local password users invited by the root admin.
     const staff = { sup: await createStaff('sup'), sup2: await createStaff('sup2'), adm: await createStaff('adm') };
     for (const [n, role] of [['sup', 'support'], ['sup2', 'support'], ['adm', 'admin']])
-      assert.equal((await call(root, '/api/v1/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
+      assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {};
     for (const n of Object.keys(staff)) st[n] = await staffToken(browser, staff[n]);
-    assert.deepEqual([(await call(st.sup, '/api/v1/session')).body.supportArea, (await call(st.adm, '/api/v1/session')).body.adminArea], [true, true]); pass();
+    assert.deepEqual([(await call(st.sup, '/api/session')).body.supportArea, (await call(st.adm, '/api/session')).body.adminArea], [true, true]); pass();
     const staffIds = Object.fromEntries(await Promise.all(Object.keys(st).map(async n => [n, await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`)])));
     const code = r => [r.status, r.body?.code];
     const report = (who, subjectType, subjectId, category = 'harassment', extra = {}) =>
-      call(tokens[who], '/api/v1/reports', { method: 'POST', body: { subjectType, subjectId, category, text: null, block: false, ...extra } });
-    const explore = async who => (await call(tokens[who], '/api/v1/explore?mode=dating')).body.people?.map(p => p.id) ?? [];
+      call(tokens[who], '/api/reports', { method: 'POST', body: { subjectType, subjectId, category, text: null, block: false, ...extra } });
+    const explore = async who => (await call(tokens[who], '/api/explore?mode=dating')).body.people?.map(p => p.id) ?? [];
     const caseOf = n => sql(`SELECT id FROM moderation_cases WHERE subject_account_id = '${ids[n]}' AND status IN ('Open', 'UnderReview')`);
 
     // Categories are data; members never see priorities.
-    let r = await call(tokens.rep, '/api/v1/report-categories');
+    let r = await call(tokens.rep, '/api/report-categories');
     // D190: threats moved to the Serious Safety Incident list; routine reports keep suspected underage as urgent.
     assert.equal(r.status, 200); assert.ok(r.body.length >= 9 && !r.body.some(c => c.id === 'threats') && r.body.some(c => c.id === 'underage')); pass();
     assert.ok(!JSON.stringify(r.body).includes('rgent')); pass();
@@ -75,7 +75,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     assert.deepEqual(code(await report('rep', 'message', crypto.randomUUID())), [404, 'not-available']); pass(); // messages since slice U
     assert.deepEqual(code(await report('rep', '999', pid.sub)), [400, 'invalid-report']); pass();
     assert.deepEqual(code(await report('rep', 'profile', pid.sub, 'harassment', { text: 'x'.repeat(2001) })), [400, 'invalid-report']); pass();
-    const req = await call(tokens.rep, '/api/v1/requests', { method: 'POST', body: { to: pid.oth, mode: 'dating' } });
+    const req = await call(tokens.rep, '/api/requests', { method: 'POST', body: { to: pid.oth, mode: 'dating' } });
     assert.equal(req.status, 201);
     assert.deepEqual(code(await report('sub', 'request', req.body.id)), [404, 'not-available']); pass(); // not their request
     assert.equal((await report('oth', 'request', req.body.id, 'spam')).status, 201); pass();
@@ -95,45 +95,45 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     let mail = []; for (let i = 0; i < 20 && !mail.some(m => m.includes(urgCase)); i++) { mail = await mailTo(ESCALATION); await sleep(250); }
     assert.ok(mail.some(m => m.includes(urgCase) && m.includes('underage'))); pass();
     assert.ok(!mail.some(m => m.includes('Fictional Urg'))); pass();
-    assert.equal((await call(st.sup, '/api/v1/admin/cases')).body.find(c => c.id === urgCase).awaitingAcknowledgement, true); pass();
-    assert.deepEqual(code(await call(st.sup, `/api/v1/admin/cases/${urgCase}/close`, { method: 'POST' })), [409, 'invalid-request']); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/cases/${urgCase}/acknowledge`, { method: 'POST' })).status, 200); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/cases/${urgCase}/close`, { method: 'POST' })).status, 200); pass();
+    assert.equal((await call(st.sup, '/api/admin/cases')).body.find(c => c.id === urgCase).awaitingAcknowledgement, true); pass();
+    assert.deepEqual(code(await call(st.sup, `/api/admin/cases/${urgCase}/close`, { method: 'POST' })), [409, 'invalid-request']); pass();
+    assert.equal((await call(st.sup, `/api/admin/cases/${urgCase}/acknowledge`, { method: 'POST' })).status, 200); pass();
+    assert.equal((await call(st.sup, `/api/admin/cases/${urgCase}/close`, { method: 'POST' })).status, 200); pass();
 
     // Staff-affiliated subjects go to the admin queue (D134): support can't see or act on them.
-    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.stf}/staff-affiliation`, { method: 'PUT', body: { active: true } })).status, 204);
+    assert.equal((await call(root, `/api/admin/accounts/${ids.stf}/staff-affiliation`, { method: 'PUT', body: { active: true } })).status, 204);
     assert.equal((await report('rep', 'profile', pid.stf, 'harassment')).status, 201);
     const stfCase = await caseOf('stf');
     assert.equal(await sql(`SELECT queue FROM moderation_cases WHERE id = '${stfCase}'`), 'Admin'); pass();
-    assert.ok(!(await call(st.sup, '/api/v1/admin/cases')).body.some(c => c.id === stfCase)); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/cases/${stfCase}`)).status, 404); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/cases/${stfCase}/actions`, { method: 'POST', body: { action: 'warn', reason: 'x' } })).status, 404); pass();
-    assert.ok((await call(st.adm, '/api/v1/admin/cases?queue=admin')).body.some(c => c.id === stfCase)); pass();
-    assert.deepEqual(code(await call(st.sup, `/api/v1/admin/accounts/${ids.stf}/sanctions`, { method: 'POST', body: { action: 'warn', reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
+    assert.ok(!(await call(st.sup, '/api/admin/cases')).body.some(c => c.id === stfCase)); pass();
+    assert.equal((await call(st.sup, `/api/admin/cases/${stfCase}`)).status, 404); pass();
+    assert.equal((await call(st.sup, `/api/admin/cases/${stfCase}/actions`, { method: 'POST', body: { action: 'warn', reason: 'x' } })).status, 404); pass();
+    assert.ok((await call(st.adm, '/api/admin/cases?queue=admin')).body.some(c => c.id === stfCase)); pass();
+    assert.deepEqual(code(await call(st.sup, `/api/admin/accounts/${ids.stf}/sanctions`, { method: 'POST', body: { action: 'warn', reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
 
     // Members and other members get nothing from staff routes.
-    assert.equal((await call(tokens.rep, '/api/v1/admin/cases')).status, 403); pass();
-    assert.equal((await call(tokens.rep, `/api/v1/admin/cases/${subCase}/actions`, { method: 'POST', body: { action: 'dismiss' } })).status, 403); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/cases/${crypto.randomUUID()}`)).status, 404); pass();
+    assert.equal((await call(tokens.rep, '/api/admin/cases')).status, 403); pass();
+    assert.equal((await call(tokens.rep, `/api/admin/cases/${subCase}/actions`, { method: 'POST', body: { action: 'dismiss' } })).status, 403); pass();
+    assert.equal((await call(st.sup, `/api/admin/cases/${crypto.randomUUID()}`)).status, 404); pass();
 
     // Support restricts (targeted: out of discovery and no new requests), within its limits.
-    const act = (who, id, body) => call(st[who] ?? who, `/api/v1/admin/cases/${id}/actions`, { method: 'POST', body: { hideFromDiscovery: false, noNewRequests: false, noMessages: false, ...body } });
-    assert.equal((await call(st.sup, `/api/v1/admin/cases/${subCase}/review`, { method: 'POST' })).body.case.status, 'underReview'); pass();
+    const act = (who, id, body) => call(st[who] ?? who, `/api/admin/cases/${id}/actions`, { method: 'POST', body: { hideFromDiscovery: false, noNewRequests: false, noMessages: false, ...body } });
+    assert.equal((await call(st.sup, `/api/admin/cases/${subCase}/review`, { method: 'POST' })).body.case.status, 'underReview'); pass();
     assert.deepEqual(code(await act('sup', subCase, { action: 'suspend', reason: 'x', days: 3 })), [403, 'moderation-not-permitted']); pass();
     assert.deepEqual(code(await act('sup', subCase, { action: 'restrict', reason: 'x', days: 31, noNewRequests: true })), [400, 'invalid-request']); pass();
     assert.deepEqual(code(await act('sup', subCase, { action: 'restrict', reason: ' ', days: 7, noNewRequests: true })), [400, 'invalid-request']); pass();
     assert.deepEqual(code(await act('sup', subCase, { action: 'ban', reason: 'x' })), [400, 'invalid-request']); pass();
-    const subReq = await call(tokens.rep, '/api/v1/requests', { method: 'POST', body: { to: pid.sub, mode: 'dating' } }); // before the restriction
+    const subReq = await call(tokens.rep, '/api/requests', { method: 'POST', body: { to: pid.sub, mode: 'dating' } }); // before the restriction
     assert.equal(subReq.status, 201);
     r = await act('sup', subCase, { action: 'restrict', reason: 'Fictional reason: repeated rude behaviour reported.', days: 7, hideFromDiscovery: true, noNewRequests: true });
     assert.equal(r.status, 200); assert.equal(r.body.case.status, 'reviewed'); pass();
     assert.ok(!(await explore('rep')).includes(pid.sub)); pass(); // out of discovery at once
     // Q55 (D160): a restricted member can't do anything in the app until it's lifted.
-    assert.deepEqual(code(await call(tokens.sub, '/api/v1/requests', { method: 'POST', body: { to: pid.urg, mode: 'dating' } })), [403, 'account-restricted']); pass();
-    assert.deepEqual(code(await call(tokens.sub, `/api/v1/requests/${subReq.body.id}/accept`, { method: 'POST' })), [403, 'account-restricted']); pass();
-    for (const path of ['/api/v1/explore?mode=dating', '/api/v1/me/profile', '/api/v1/connections', '/api/v1/me/trips', '/api/v1/me/verification'])
+    assert.deepEqual(code(await call(tokens.sub, '/api/requests', { method: 'POST', body: { to: pid.urg, mode: 'dating' } })), [403, 'account-restricted']); pass();
+    assert.deepEqual(code(await call(tokens.sub, `/api/requests/${subReq.body.id}/accept`, { method: 'POST' })), [403, 'account-restricted']); pass();
+    for (const path of ['/api/explore?mode=dating', '/api/me/profile', '/api/connections', '/api/me/trips', '/api/me/verification'])
     { assert.deepEqual(code(await call(tokens.sub, path)), [403, 'account-restricted'], path); pass(); }
-    assert.equal((await call(tokens.sub, '/api/v1/me')).body.accountState, 'restricted'); pass();
+    assert.equal((await call(tokens.sub, '/api/me')).body.accountState, 'restricted'); pass();
     // The web shows the restricted screen instead of member pages; the account page and notices stay open.
     {
       const restrictedContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -152,98 +152,116 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
       await restrictedPage.waitForSelector('[data-notice-kind=restriction]', { timeout: 20000 }); pass();
       await restrictedContext.close();
     }
-    r = await call(tokens.sub, '/api/v1/me/notices');
+    r = await call(tokens.sub, '/api/me/notices');
     assert.equal(r.body[0].kind, 'restriction'); assert.equal(r.body[0].sanction.noNewRequests, true); assert.equal(r.body[0].sanction.canAppeal, true); pass();
     assert.ok((await mailTo(members.sub.email)).some(m => m.includes('new notice') && !m.includes('rude'))); pass(); // the email only says there's a notice
     // The reporter sees "reviewed", never the outcome.
-    r = await call(tokens.rep, '/api/v1/me/reports');
+    r = await call(tokens.rep, '/api/me/reports');
     const mine = r.body.find(x => x.status === 'reviewed');
     assert.ok(mine); assert.ok(!/restrict|sanction|warn|suspend/i.test(JSON.stringify(r.body))); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'moderation.%' AND detail LIKE '%rude%'`), '0'); pass();
 
-    // An admin suspends: no normal member functions, but the account, notices and appeals stay open.
+    // An admin suspends: no normal member functions, but the account, notices, own reports and appeals stay open.
     r = await act('adm', subCase, { action: 'suspend', reason: 'Fictional reason: suspension for review.', days: 14 });
     assert.equal(r.status, 200); pass();
-    for (const path of ['/api/v1/explore?mode=dating', '/api/v1/me/profile', '/api/v1/connections', '/api/v1/me/reports'])
+    for (const path of ['/api/explore?mode=dating', '/api/me/profile', '/api/connections'])
     { assert.deepEqual(code(await call(tokens.sub, path)), [403, 'account-suspended'], path); pass(); }
-    assert.equal((await call(tokens.sub, '/api/v1/me')).status, 200); pass();
-    assert.equal((await call(tokens.rep, `/api/v1/profiles/${pid.sub}`)).status, 404); pass(); // even for a connected member
-    const suspension = (await call(tokens.sub, '/api/v1/me/notices')).body.find(n => n.kind === 'suspension').sanction;
+    const barredReports=await call(tokens.sub,'/api/me/reports');assert.equal(barredReports.status,200);pass();
+    assert.ok(!barredReports.body.some(report=>report.id===mine.id),'barred read remains reporter-owned');pass();
+    assert.equal((await call(tokens.sub, '/api/me')).status, 200); pass();
+    assert.equal((await call(tokens.rep, `/api/profiles/${pid.sub}`)).status, 404); pass(); // even for a connected member
+    const suspension = (await call(tokens.sub, '/api/me/notices')).body.find(n => n.kind === 'suspension').sanction;
     assert.equal(suspension.live, true); pass();
 
     // Appeals (D135): once, by the member, decided by someone other than the original decider.
-    assert.equal((await call(tokens.rep, '/api/v1/me/appeals', { method: 'POST', body: { sanctionId: suspension.id } })).status, 404); pass(); // another member's
-    r = await call(tokens.sub, '/api/v1/me/appeals', { method: 'POST', body: { sanctionId: suspension.id, text: 'Fictional appeal text.' } });
+    assert.equal((await call(tokens.rep, '/api/me/appeals', { method: 'POST', body: { sanctionId: suspension.id } })).status, 404); pass(); // another member's
+    r = await call(tokens.sub, '/api/me/appeals', { method: 'POST', body: { sanctionId: suspension.id, text: 'Fictional appeal text.' } });
     assert.equal(r.status, 201); pass();
     const appealId = r.body.id;
-    assert.deepEqual(code(await call(tokens.sub, '/api/v1/me/appeals', { method: 'POST', body: { sanctionId: suspension.id } })), [409, 'appeal-not-allowed']); pass();
-    assert.ok(!(await call(st.sup, '/api/v1/admin/appeals')).body.some(a => a.id === appealId)); pass(); // an admin's action: not in support's list
-    assert.deepEqual(code(await call(st.sup, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })), [403, 'moderation-not-permitted']); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })), [403, 'moderation-not-permitted']); pass(); // the original decider
-    assert.equal((await call(root, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'maybe' } })).status, 400); pass();
-    assert.equal((await call(root, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })).status, 200); pass();
-    assert.deepEqual(code(await call(tokens.sub, '/api/v1/me/profile')), [403, 'account-restricted']); pass(); // the suspension is lifted at once; the earlier restriction still stands (Q55)
-    assert.ok((await call(tokens.sub, '/api/v1/me/notices')).body.some(n => n.kind === 'appealOverturned')); pass();
-    assert.equal((await call(root, `/api/v1/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'uphold' } })).status, 409); pass();
+    assert.deepEqual(code(await call(tokens.sub, '/api/me/appeals', { method: 'POST', body: { sanctionId: suspension.id } })), [409, 'appeal-not-allowed']); pass();
+    assert.ok(!(await call(st.sup, '/api/admin/appeals')).body.some(a => a.id === appealId)); pass(); // an admin's action: not in support's list
+    assert.deepEqual(code(await call(st.sup, `/api/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })), [403, 'moderation-not-permitted']); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })), [403, 'moderation-not-permitted']); pass(); // the original decider
+    assert.equal((await call(root, `/api/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'maybe' } })).status, 400); pass();
+    assert.equal((await call(root, `/api/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'overturn' } })).status, 200); pass();
+    assert.deepEqual(code(await call(tokens.sub, '/api/me/profile')), [403, 'account-restricted']); pass(); // the suspension is lifted at once; the earlier restriction still stands (Q55)
+    assert.ok((await call(tokens.sub, '/api/me/notices')).body.some(n => n.kind === 'appealOverturned')); pass();
+    assert.equal((await call(root, `/api/admin/appeals/${appealId}/decide`, { method: 'POST', body: { outcome: 'uphold' } })).status, 409); pass();
 
     // Lifting: support can't lift an admin's action; support lifts its own restriction, with a reason.
-    const restriction = (await call(st.sup, `/api/v1/admin/accounts/${ids.sub}/summary`)).body.sanctions.find(s => s.kind === 'restriction' && s.live);
+    const restriction = (await call(st.sup, `/api/admin/accounts/${ids.sub}/summary`)).body.sanctions.find(s => s.kind === 'restriction' && s.live);
     assert.ok(restriction); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/sanctions/${restriction.id}/lift`, { method: 'POST', body: { reason: '' } })).status, 400); pass();
-    assert.equal((await call(st.sup2, `/api/v1/admin/sanctions/${restriction.id}/lift`, { method: 'POST', body: { reason: 'Fictional: resolved.' } })).status, 200); pass();
+    assert.equal((await call(st.sup, `/api/admin/sanctions/${restriction.id}/lift`, { method: 'POST', body: { reason: '' } })).status, 400); pass();
+    assert.equal((await call(st.sup2, `/api/admin/sanctions/${restriction.id}/lift`, { method: 'POST', body: { reason: 'Fictional: resolved.' } })).status, 200); pass();
     assert.ok((await explore('rep')).includes(pid.sub)); pass();
-    assert.equal((await call(tokens.sub, '/api/v1/me/profile')).status, 200); pass(); // nothing left in force: back to normal
-    const adminWarn = await call(st.adm, `/api/v1/admin/accounts/${ids.sub}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional admin restriction.', days: 2, noMessages: true } });
+    assert.equal((await call(tokens.sub, '/api/me/profile')).status, 200); pass(); // nothing left in force: back to normal
+    const adminWarn = await call(st.adm, `/api/admin/accounts/${ids.sub}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional admin restriction.', days: 2, noMessages: true } });
     assert.equal(adminWarn.status, 200);
     const adminRestriction = adminWarn.body.sanctions.find(s => s.live && s.createdByRole === 'admin');
-    assert.deepEqual(code(await call(st.sup, `/api/v1/admin/sanctions/${adminRestriction.id}/lift`, { method: 'POST', body: { reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
+    assert.deepEqual(code(await call(st.sup, `/api/admin/sanctions/${adminRestriction.id}/lift`, { method: 'POST', body: { reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
     // Expired sanctions lift by themselves.
     await sql(`UPDATE sanctions SET starts_at = now() - interval '3 days', ends_at = now() - interval '1 day' WHERE id = '${adminRestriction.id}'`);
-    assert.equal((await call(st.sup, `/api/v1/admin/accounts/${ids.sub}/summary`)).body.sanctions.find(s => s.id === adminRestriction.id).live, false); pass();
+    assert.equal((await call(st.sup, `/api/admin/accounts/${ids.sub}/summary`)).body.sanctions.find(s => s.id === adminRestriction.id).live, false); pass();
 
     // No one decides about their own member account (D134): the second admin's personal account is "own".
-    assert.equal((await call(root, `/api/v1/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.own } })).status, 204); pass();
-    assert.equal((await call(st.sup, `/api/v1/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.own } })).status, 403); pass();
-    assert.equal((await call(root, `/api/v1/admin/staff-links/${staffIds.sup}`, { method: 'PUT', body: { memberAccountId: ids.own } })).status, 409); pass(); // one staff account per member
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.own } })).status, 204); pass();
+    assert.equal((await call(st.sup, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.own } })).status, 403); pass();
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.sup}`, { method: 'PUT', body: { memberAccountId: ids.own } })).status, 409); pass(); // one staff account per member
     assert.equal((await report('rep', 'profile', pid.own, 'spam')).status, 201);
     const ownCase = await caseOf('own');
     assert.deepEqual(code(await act('adm', ownCase, { action: 'warn', reason: 'x' })), [403, 'moderation-not-permitted']); pass();
-    assert.deepEqual(code(await call(st.adm, `/api/v1/admin/cases/${ownCase}/close`, { method: 'POST' })), [403, 'moderation-not-permitted']); pass();
+    assert.deepEqual(code(await call(st.adm, `/api/admin/cases/${ownCase}/close`, { method: 'POST' })), [403, 'moderation-not-permitted']); pass();
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.plus } })).status, 204); pass();
+    for (const path of [`/api/admin/cases/${ownCase}/close`, `/api/admin/Cases/${ownCase}/close`, `/API/ADMIN/CASES/${ownCase}/close`, `/api/admin/%63ases/${ownCase}/close`]) {
+      assert.deepEqual(code(await call(st.adm, path, { method: 'POST' })), [403, 'conflict-of-interest'], 'historical association guards every route casing'); pass();
+    }
+    for(const path of [`/api/admin/cases/${ownCase}`,`/api/admin/%63ases/${ownCase}`]){assert.deepEqual(code(await call(st.adm,path)),[403,'conflict-of-interest']);pass();}
     assert.equal((await act('sup', ownCase, { action: 'dismiss' })).status, 200); pass();
+    // A retained reporter association also excludes case actions, appeal decisions and sanction lifts.
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.rep } })).status, 204); pass();
+    assert.equal((await call(root, `/api/admin/staff-links/${staffIds.adm}`, { method: 'PUT', body: { memberAccountId: ids.plus } })).status, 204); pass();
+    for (const path of [`/api/admin/cases/${subCase}/review`, `/api/admin/Cases/${subCase}/actions`, `/api/admin/Appeals/${appealId}/decide`, `/api/admin/Sanctions/${restriction.id}/lift`]) {
+      assert.deepEqual(code(await call(st.adm, path, { method: 'POST', body: { action: 'warn', reason: 'Fictional conflict check', outcome: 'uphold' } })), [403, 'conflict-of-interest'], 'historical reporter conflict applies before mutation'); pass();
+    }
+
+
+    assert.deepEqual(code(await call(st.adm,`/api/admin/Cases/${subCase}`)),[403,'conflict-of-interest'],'retained reporter association also guards evidence reads');pass();
+    assert.equal((await call(st.adm,'/api/admin/cases?status=all')).body.some(c=>c.id===subCase),false,'reporter-conflicted case absent from queue');pass();
+    assert.equal((await call(st.adm,'/api/admin/appeals?status=overturned')).body.some(a=>a.id===appealId),false,'reporter-conflicted appeal text absent from list');pass();
 
     // Termination is permanent and admin-only.
     root = await rootAdminToken(browser); // a fresh sign-in for the sensitive action
-    assert.deepEqual(code(await call(st.sup, `/api/v1/admin/accounts/${ids.far}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
+    assert.deepEqual(code(await call(st.sup, `/api/admin/accounts/${ids.far}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'x' } })), [403, 'moderation-not-permitted']); pass();
     await elevate(root, 'termination', 'Fictional termination for the moderation suite'); // #88
-    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.far}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional: termination test.' } })).status, 200); pass();
-    r = await call(tokens.far, '/api/v1/me/profile');
+    assert.equal((await call(root, `/api/admin/accounts/${ids.far}/sanctions`, { method: 'POST', body: { action: 'terminate', reason: 'Fictional: termination test.' } })).status, 200); pass();
+    r = await call(tokens.far, '/api/me/profile');
     assert.deepEqual(code(r), [403, 'account-suspended']); assert.match(r.body.title, /closed/); pass();
-    assert.equal((await call(tokens.far, '/api/v1/me/notices')).body[0].kind, 'termination'); pass();
+    assert.equal((await call(tokens.far, '/api/me/notices')).body[0].kind, 'termination'); pass();
 
     // D150: an admin lifts the 30-day home-city wait, audited without the city.
     await sql(`UPDATE member_profiles SET home_market_moved_to = 'adelaide', home_market_moved_at = now() WHERE account_id = '${ids.plus}'`);
-    assert.equal((await call(st.sup, `/api/v1/admin/accounts/${ids.plus}/home-move-override`, { method: 'POST', body: { reason: 'Moved' } })).status, 403); pass();
-    assert.equal((await call(root, `/api/v1/admin/accounts/${ids.plus}/home-move-override`, { method: 'POST', body: { reason: '' } })).status, 400); pass();
-    r = await call(root, `/api/v1/admin/accounts/${ids.plus}/home-move-override`, { method: 'POST', body: { reason: 'Fictional: genuine move.' } });
+    assert.equal((await call(st.sup, `/api/admin/accounts/${ids.plus}/home-move-override`, { method: 'POST', body: { reason: 'Moved' } })).status, 403); pass();
+    assert.equal((await call(root, `/api/admin/accounts/${ids.plus}/home-move-override`, { method: 'POST', body: { reason: '' } })).status, 400); pass();
+    r = await call(root, `/api/admin/accounts/${ids.plus}/home-move-override`, { method: 'POST', body: { reason: 'Fictional: genuine move.' } });
     assert.equal(r.status, 200); assert.equal(r.body.homeMarketMovedAt, null); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'home-market.override' AND target_id = '${ids.plus}' AND detail IS NULL`), '1'); pass();
 
     // D151: complimentary Plus through the entitlement service; admins only; lapses and revocations fall back to Free.
-    assert.deepEqual((await call(tokens.plus, '/api/v1/me/plan')).body, { tier: 'free', source: null, endsAt: null, complimentary: false }); pass();
+    assert.deepEqual((await call(tokens.plus, '/api/me/plan')).body, { tier: 'free', source: null, endsAt: null, complimentary: false }); pass();
     const in30 = new Date(Date.now() + 30 * 86400000).toISOString();
     for (const body of [{ tier: 'free', endsAt: in30, reason: 'x' }, { tier: 'plus', endsAt: new Date(Date.now() + 400 * 86400000).toISOString(), reason: 'x' },
       { tier: 'plus', endsAt: in30, reason: ' ' }, { tier: '1', endsAt: in30, reason: 'x' }])
-    { assert.deepEqual(code(await call(root, `/api/v1/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body })), [400, 'invalid-entitlement'], JSON.stringify(body)); pass(); }
-    assert.equal((await call(st.sup, `/api/v1/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: in30, reason: 'Beta tester' } })).status, 403); pass();
-    r = await call(root, `/api/v1/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: in30, reason: 'Beta tester' } });
+    { assert.deepEqual(code(await call(root, `/api/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body })), [400, 'invalid-entitlement'], JSON.stringify(body)); pass(); }
+    assert.equal((await call(st.sup, `/api/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: in30, reason: 'Beta tester' } })).status, 403); pass();
+    r = await call(root, `/api/admin/accounts/${ids.plus}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: in30, reason: 'Beta tester' } });
     assert.equal(r.status, 201); const grant = r.body.id; pass();
-    r = await call(tokens.plus, '/api/v1/me/plan');
+    r = await call(tokens.plus, '/api/me/plan');
     assert.deepEqual([r.body.tier, r.body.source, r.body.complimentary], ['plus', 'adminGrant', true]); pass();
-    assert.equal((await call(tokens.rep, '/api/v1/me/plan')).body.tier, 'free'); pass(); // nobody else
-    assert.equal((await call(root, `/api/v1/admin/entitlements/${grant}`, { method: 'PUT', body: { endsAt: new Date(Date.now() + 60 * 86400000).toISOString() } })).status, 200); pass();
-    assert.equal((await call(root, `/api/v1/admin/entitlements/${grant}/revoke`, { method: 'POST' })).status, 200); pass();
-    assert.equal((await call(tokens.plus, '/api/v1/me/plan')).body.tier, 'free'); pass();
-    assert.equal((await call(root, `/api/v1/admin/entitlements/${grant}/revoke`, { method: 'POST' })).status, 404); pass();
+    assert.equal((await call(tokens.rep, '/api/me/plan')).body.tier, 'free'); pass(); // nobody else
+    assert.equal((await call(root, `/api/admin/entitlements/${grant}`, { method: 'PUT', body: { endsAt: new Date(Date.now() + 60 * 86400000).toISOString() } })).status, 200); pass();
+    assert.equal((await call(root, `/api/admin/entitlements/${grant}/revoke`, { method: 'POST' })).status, 200); pass();
+    assert.equal((await call(tokens.plus, '/api/me/plan')).body.tier, 'free'); pass();
+    assert.equal((await call(root, `/api/admin/entitlements/${grant}/revoke`, { method: 'POST' })).status, 404); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'entitlement.%' AND target_id = '${ids.plus}'`), '3'); pass();
 
     // BFF: member moderation routes allowed, admin routes never.
@@ -256,10 +274,10 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     };
     await signIn(page, members.urg);
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });
-    assert.equal((await bff('api/v1/report-categories')).status(), 200); pass();
-    assert.equal((await bff('api/v1/me/notices')).status(), 200); pass();
-    assert.equal((await bff('api/v1/admin/cases')).status(), 404); pass();
-    assert.equal((await bff(`api/v1/admin/accounts/${ids.urg}/entitlements`, { method: 'POST', data: {} })).status(), 404); pass();
+    assert.equal((await bff('api/report-categories')).status(), 200); pass();
+    assert.equal((await bff('api/me/notices')).status(), 200); pass();
+    assert.equal((await bff('api/admin/cases')).status(), 404); pass();
+    assert.equal((await bff(`api/admin/accounts/${ids.urg}/entitlements`, { method: 'POST', data: {} })).status(), 404); pass();
     // Web: report from a person page.
     await page.goto(web + `/people/${pid.rep}`);
     await page.waitForSelector('[data-person=ready]', { timeout: 20000 });
@@ -303,7 +321,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     await adminPage.click('[data-act]');
     await adminPage.waitForSelector('[data-result=ok]'); pass();
     assert.equal(await adminPage.locator('[data-case-status]').getAttribute('data-case-status'), 'reviewed'); pass();
-    assert.ok((await call(tokens.urg, '/api/v1/me/notices')).body.some(n => n.kind === 'warning')); pass();
+    assert.ok((await call(tokens.urg, '/api/me/notices')).body.some(n => n.kind === 'warning')); pass();
     if (output) await adminPage.screenshot({ path: output + '/admin-case.png', fullPage: true });
     await adminPage.goto(admin + `/accounts/${ids.plus}`);
     await adminPage.waitForSelector(`[data-account="${ids.plus}"]`);
@@ -321,11 +339,11 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     await rootPage.click('[data-op=grant]');
     await rootPage.waitForSelector('[data-result=ok]'); pass();
     assert.equal(await rootPage.locator('[data-plan]').getAttribute('data-plan'), 'plus'); pass();
-    assert.equal((await call(tokens.plus, '/api/v1/me/plan')).body.tier, 'plus'); pass();
+    assert.equal((await call(tokens.plus, '/api/me/plan')).body.tier, 'plus'); pass();
     if (output) await rootPage.screenshot({ path: output + '/admin-account.png', fullPage: true });
     await rootContext.close(); await subContext.close(); await context.close();
     console.log(`PASS: reports and moderation acceptance, ${passed} checks (categories as data, reports consolidated into one case with evidence and no text in the audit, self/unknown/other-market/another pair's request/bot mismatch/unsupported/tampered refused, report and block in one step, abuse limit that never stops urgent reports, urgent escalation email with ids only and acknowledgement before closing, staff-affiliated cases admin-only, support limits (no suspend, 30 days, reason, scope), restriction out of discovery and no new requests at once, existing contact kept, notices and a notice-only email, reporter sees reviewed but not the outcome, suspension bars everything but account/notices/appeals, appeals once and by someone else, overturn lifts at once, support can't lift an admin's action, automatic expiry, own-account conflict via the staff link, admin-only termination, home-city override, complimentary Plus granted/extended/revoked with limits, BFF allow-list, web report and notices, admin app sign-in without tokens in the browser, queue, warn from a case, Plus grant refused for support and done by an admin).`);
   } finally {
-    await browser.close();
+    await edge.close();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });

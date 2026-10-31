@@ -1,0 +1,9 @@
+# MailerSend application sender
+
+D274 DEFAULT prepares actual HTTP sending behind explicit configuration. Nothing is provisioned, enabled externally or sent to MailerSend during this slice. D275 adds [enrolment invitation queue/expiry](BETA-INVITATIONS-AND-EXPIRY.md); founder hosting/last-place acceptance and full UAT configuration remain in the original queue.
+
+Set runtime nonsecret configuration `Email__Provider=mailersend`, `Email__From` to the owner's verified mailbox (optional display name) and `Email__MailerSend__TimeoutSeconds=15`. Resolve `Email__MailerSend__ApiToken` from the future Key Vault reference. DEFAULT vault secret name: `swoovr-uat-mailersend-api-token`; managed identity must have approved secret read permission. This document creates/uploads/binds no secret. Keep tokens out of argv, images and configuration files. Rotate the vault value and restart/revise the containers so newly resolved options take effect.
+
+The owner must create/authorize MailerSend, verify the sender/domain and required DNS/SPF/DKIM, choose the sender address, scope the token, check quota and provide the vault secret. Real acceptance and recipient delivery must be tested separately after deployment approval. Apple relay registration and Keycloak's separate email sender/configuration remain deployment gates. No production SMTP or silent simulation fallback is provided here.
+
+Focused command: `dotnet run --project tests/Swoovr.Checks -- --mailersend-checks`. Its69 checks use fake HTTP/configuration, including JSON/auth, acknowledgement/suppression, uncertainty, bounded streams/deadline/cancellation, redaction and actual service registration. Existing local SMTP and actual meeting/deletion browser checks exercise application consumers without contacting the provider. Run the full `./scripts/check.sh` before commit; exact evidence/gaps are in VALIDATION.md. No UI/theme/native changes occur in this adapter slice.

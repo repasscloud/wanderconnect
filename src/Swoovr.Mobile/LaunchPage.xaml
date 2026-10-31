@@ -15,13 +15,13 @@
             <Setter Property="TextColor" Value="{StaticResource SurfaceLight}" />
         </Style>
     </ContentPage.Resources>
-    <Grid x:Name="Root" IgnoreSafeArea="True">
+    <Grid x:Name="Root" SafeAreaEdges="None">
         <Border x:Name="Sheet" VerticalOptions="Start" StrokeThickness="0" Padding="0"
                 BackgroundColor="{StaticResource PrimaryLight}" SemanticProperties.Description="Swoovr">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="0,0,48,48" />
             </Border.StrokeShape>
-            <Grid x:Name="Stage" VerticalOptions="Start" IgnoreSafeArea="True">
+            <Grid x:Name="Stage" VerticalOptions="Start" SafeAreaEdges="None">
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
                     <Grid WidthRequest="132" HeightRequest="112" HorizontalOptions="Center">
                         <Path x:Name="Bird" WidthRequest="129" HeightRequest="109" Aspect="Uniform"

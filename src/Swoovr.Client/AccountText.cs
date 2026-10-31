@@ -8,6 +8,15 @@ namespace Swoovr.Client;
 public static class AccountText
 {
     public const string BetaUrl = "https://swoovr.com/beta/";
+    public const string EmailChangeHeading = "Your email change needs attention";
+    public const string EmailChangeHelp = "Your previously accepted email remains on this account. Your account standing and existing access stay the same. Contact Support for help, or sign in again after correcting the email on your sign-in account.";
+    public static string EmailChangeMessage(string code) => code switch
+    {
+        ProblemCodes.IdentifierRestricted => "This email address cannot currently be used with Swoovr. If you believe this is incorrect, please contact Swoovr Support for assistance.",
+        ProblemCodes.TooManyRequests => "We haven't changed your Swoovr email. Too many identifier checks were made; try again in an hour.",
+        "email-session-refresh-required" => "Sign in again before changing your Swoovr email.",
+        _ => "We can't check your new email right now. Your Swoovr email hasn't changed. Please try again later.",
+    };
 
     /// <summary>D77: the same words whatever the reason, so the screen never says whether an address was ever enrolled.</summary>
     public static bool BetaBlocked(SessionSummary? session) => session?.Beta is "notEnrolled" or "unavailable";

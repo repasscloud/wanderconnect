@@ -1,0 +1,24 @@
+# Recover blocked media preservation
+
+Issue126, owner Phase0 retention/jobs queue; existing CONFIRMED D203 and legal-approved internal policy D185. No new application project/provider. Use existing MediaPipeline, legal holds, evidence capture and urgent moderation queue.
+
+- [x] Red integration reproduction: durable blocked record interrupted before hold/capture; retries reuse sealed object/case/hold and never rescan ciphertext. Cover interruption after hold creation, concurrent recovery, explicit capture/mail failures and eventual completion.
+- [x] Persist blocked state/recovery scheduling before external object work; serialize preservation per account to consolidate cases/holds. Seal idempotently, verify sealed object/hash before removing quarantine, never serve/decrypt known-content bytes to staff or screen sealed data.
+- [x] Reuse existing source/case/account hold, link it before capture and retry capture idempotently. Respect an already released hold; never silently recreate it during old-item recovery.
+- [x] Durable per-recipient ids-only escalation intent/outcome. Retry explicit known failure; uncertain acceptance requires review rather than blind duplicate send. Retain the existing urgent case/independent staff queue. Structured email outcome keeps old IEmailSender callers compatible and prepares MailerSend later.
+- [x] API worker + `media preserve` operator sweep, bounded backoff and restricted status/error fields; readiness evidence for unfinished/uncertain work. Development-only interruption hooks fail startup elsewhere.
+- [x] Full check.sh, photos/attachments/holds/serious/deletion browser regressions; test fixtures/synthetic objects cleaned, source review, actual gaps recorded. Restore main hosts, one commit, explicit refspec push, PR Closes126 and Q/D/commit issue comment, consume owner labels.
+
+## Concrete design DEFAULT (to record as D229)
+
+Blocked state and nullable preservation scheduling fields commit before object effects. A session advisory lock per account serializes preservation/case consolidation without keeping a DB transaction around remote I/O. Keep an original source key until deletion succeeds. Probe the deterministic evidence key first, authenticate/decrypt only inside the restricted worker and verify the original SHA-256; reuse valid ciphertext and never feed it to the screener. Commit the new object key before deleting quarantine. Fail closed on missing/corrupt evidence or keys.
+
+Reuse an active media-screening hold for the same case/account; link before idempotent capture. A deferred-capture option on existing PlaceAsync allows hold/scopes/custody to commit first. Recovery detects a hold created before its media link was saved. An already released linked hold is an operator-review state, never automatically recreated. Capture failures leave work pending and the case visible.
+
+A new media escalation delivery table keys each media/primary-or-backup slot; configuration addresses/bodies are not stored. Equal configured addresses produce one slot. Intent precedes external email; accepted/retryable/unknown outcomes commit separately. Existing IEmailSender bool callers remain compatible; add a structured outcome default (false=unknown), SMTP explicit rejection/connect refusal can retry, and unconfigured sender is a known retryable configuration failure. Unknown acceptance is never blindly repeated; record review-required. Preserve visibility in the urgent staff queue even when capture/email is unavailable. SMTP cannot establish exactly-once end-to-end delivery; readiness must expose uncertainty. Later MailerSend will implement the same outcome contract.
+
+Case/hold/capture/object stages recover idempotently and may retry while an uncertain alert requires review; completion requires captured evidence and accepted alerts. Bounded backoff, worker sweep and media preserve operator command. Legacy repair only targets blocked items with existing objects and missing case/hold/capture/escalation; never resurrect deliberately cleaned fixture objects or reset a completed/manual-release workflow. Development interruption hooks after blocked-save/hold-create/capture must fail startup outside Development. Test synthetic fixtures only; no real known-content material.
+
+Final account purge waits while blocked material has no linked/live account hold; once a hold exists, the existing before-deletion capture preserves ordinary records. This prevents deletion racing the durable blocked-save/hold-create gap.
+
+Final provenance refinement: each new automatic hold stores unique SourceMediaId in its first save. A different new upload can establish a new hold in the same case; recovery only reuses its exact original, including Released. Legacy timestamp correlation is conservative and ambiguity requires review. Final staged recovery92 and focused photos119/attachments100/holds83/cleanup PASS; structured SMTP outcomes tested on loopback.

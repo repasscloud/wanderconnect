@@ -164,9 +164,10 @@ public sealed class PersonPage : ContentPage
 					return;
 				}
 				reporting = false;
-				if (block.IsToggled) { await BlockedAsync(); return; }
+				if (block.IsToggled) { await BlockedAsync(); await Ui.PushAsync(new ReportFollowUpPage()); return; }
 				await LoadAsync();
-				status.Text = "Thanks. Your report was submitted. You can follow its status under Me → Notices and reports.";
+				status.Text = ReportFollowUpText.Confirmation;
+                await Ui.PushAsync(new ReportFollowUpPage());
 			}),
 			message);
 	}

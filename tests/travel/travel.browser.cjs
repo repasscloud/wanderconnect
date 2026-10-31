@@ -27,39 +27,39 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     const tokens = {}, pid = {}, ids = {};
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
-      const saved = await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: homes[n] } });
+      const saved = await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: homes[n] } });
       await matchReady(tokens[n]);
       assert.equal(saved.status, 200, n);
-      for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
+      for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       pid[n] = saved.body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
     const code = r => [r.status, r.body?.code];
 
     // GeoNames search (D111): ranked by population, "City, Region, Country", no coordinates, accents folded.
-    let places = await call(tokens.loc, '/api/v1/places?q=adel');
+    let places = await call(tokens.loc, '/api/places?q=adel');
     assert.equal(places.status, 200); assert.deepEqual(places.body[0], { id: ADELAIDE, name: 'Adelaide', region: 'South Australia', country: 'Australia', label: 'Adelaide, South Australia, Australia' }); pass();
     assert.ok(places.body.length <= 10 && places.body.every(p => Object.keys(p).sort().join() === 'country,id,label,name,region')); pass();
-    places = await call(tokens.loc, '/api/v1/places?q=norwood');
+    places = await call(tokens.loc, '/api/places?q=norwood');
     assert.ok(places.body.some(p => p.label === 'Norwood, South Australia, Australia') && places.body.some(p => p.label === 'Norwood, Massachusetts, United States')); pass();
     assert.equal(new Set(places.body.map(p => p.label)).size, places.body.length); pass(); // look-alike names are told apart
-    assert.ok((await call(tokens.loc, '/api/v1/places?q=Z%C3%BCrich')).body.some(p => p.name === 'Zürich')); pass();
-    assert.ok((await call(tokens.loc, '/api/v1/places?q=zurich')).body.some(p => p.name === 'Zürich')); pass();
-    assert.ok((await call(tokens.loc, '/api/v1/places?q=parigi')).body.some(p => p.label.startsWith('Paris, Île-de-France'))); pass(); // alternate name
-    for (const q of ['a', '', 'x'.repeat(61)]) { assert.equal((await call(tokens.loc, '/api/v1/places?q=' + q)).status, 400, q); pass(); }
-    assert.deepEqual((await call(tokens.loc, '/api/v1/places?q=%25%25')).body, []); pass(); // LIKE wildcards are literal
-    assert.equal((await call(null, '/api/v1/places?q=adel')).status, 401); pass();
+    assert.ok((await call(tokens.loc, '/api/places?q=Z%C3%BCrich')).body.some(p => p.name === 'Zürich')); pass();
+    assert.ok((await call(tokens.loc, '/api/places?q=zurich')).body.some(p => p.name === 'Zürich')); pass();
+    assert.ok((await call(tokens.loc, '/api/places?q=parigi')).body.some(p => p.label.startsWith('Paris, Île-de-France'))); pass(); // alternate name
+    for (const q of ['a', '', 'x'.repeat(61)]) { assert.equal((await call(tokens.loc, '/api/places?q=' + q)).status, 400, q); pass(); }
+    assert.deepEqual((await call(tokens.loc, '/api/places?q=%25%25')).body, []); pass(); // LIKE wildcards are literal
+    assert.equal((await call(null, '/api/places?q=adel')).status, 401); pass();
 
     // Home city (D110): from GeoNames, private to the member.
-    let mine = (await call(tokens.loc, '/api/v1/me/profile')).body;
+    let mine = (await call(tokens.loc, '/api/me/profile')).body;
     assert.deepEqual(mine.homeCity, { id: ADELAIDE, name: 'Adelaide', region: 'South Australia', country: 'Australia', label: 'Adelaide, South Australia, Australia' }); pass();
-    assert.deepEqual(code(await call(tokens.nob, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Nob', homeCityId: 1 } })), [400, 'unknown-place']); pass();
-    const locSeen = await call(tokens.trav, `/api/v1/profiles/${pid.loc}`);
+    assert.deepEqual(code(await call(tokens.nob, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Nob', homeCityId: 1 } })), [400, 'unknown-place']); pass();
+    const locSeen = await call(tokens.trav, `/api/profiles/${pid.loc}`);
     assert.ok(!JSON.stringify(locSeen.body).includes('homeCity') && !JSON.stringify(locSeen.body).includes('Adelaide, South')); pass();
 
     // Trips: destination-local dates, mandatory and ordered; window and lifecycle from the API.
-    const trip = (who, body) => call(tokens[who], '/api/v1/me/trips', { method: 'POST', body: { visible: true, itineraryId: null, ...body } });
-    const put = (who, id, body) => call(tokens[who], `/api/v1/me/trips/${id}`, { method: 'PUT', body });
+    const trip = (who, body) => call(tokens[who], '/api/me/trips', { method: 'POST', body: { visible: true, itineraryId: null, ...body } });
+    const put = (who, id, body) => call(tokens[who], `/api/me/trips/${id}`, { method: 'PUT', body });
     let r = await trip('trav', { cityId: ADELAIDE, arrival: plus(10), departure: plus(13) });
     assert.equal(r.status, 201); pass();
     const travSoon = r.body;
@@ -78,9 +78,9 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     assert.equal((await trip('trav', { cityId: ADELAIDE, arrival: plus(-3), departure: plus(1) })).body.state, 'visible'); pass(); // already travelling
     assert.deepEqual(code(await trip('trav', { cityId: 1, arrival: plus(1), departure: plus(2) })), [400, 'unknown-place']); pass();
     assert.equal((await trip('trav', { cityId: ADELAIDE, arrival: 'soon', departure: plus(2) })).status, 400); pass();
-    assert.equal((await call(tokens.trav, '/api/v1/me/trips', { method: 'POST', body: { cityId: ADELAIDE } })).status, 400); pass(); // dates are mandatory
+    assert.equal((await call(tokens.trav, '/api/me/trips', { method: 'POST', body: { cityId: ADELAIDE } })).status, 400); pass(); // dates are mandatory
     // Destination-local "today": a trip ending today in Honolulu is still current even when it's already tomorrow in Adelaide.
-    const honolulu = (await call(tokens.trav, '/api/v1/places?q=honolulu')).body[0];
+    const honolulu = (await call(tokens.trav, '/api/places?q=honolulu')).body[0];
     if (honolulu && todayIn('Pacific/Honolulu') < todayIn('Australia/Adelaide')) {
       assert.equal((await trip('tia', { cityId: honolulu.id, arrival: todayIn('Pacific/Honolulu'), departure: todayIn('Pacific/Honolulu'), visible: false })).status, 201); pass();
     }
@@ -94,7 +94,7 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     assert.equal((await trip('trav', { cityId: SYDNEY, arrival: plus(22), departure: plus(24) })).status, 201); pass(); // arrives the day the later Adelaide trip departs
 
     // Another member's trips and itineraries are not there.
-    for (const [method, path] of [['PUT', `/api/v1/me/trips/${travSoon.id}`], ['POST', `/api/v1/me/trips/${travSoon.id}/cancel`], ['DELETE', `/api/v1/me/trips/${travSoon.id}`]]) {
+    for (const [method, path] of [['PUT', `/api/me/trips/${travSoon.id}`], ['POST', `/api/me/trips/${travSoon.id}/cancel`], ['DELETE', `/api/me/trips/${travSoon.id}`]]) {
       const res = await call(tokens.loc, path, { method, body: method === 'PUT' ? { cityId: ADELAIDE, arrival: plus(10), departure: plus(13), visible: false, itineraryId: null } : undefined });
       assert.equal(res.status, 404, method + ' ' + path); pass();
     }
@@ -106,7 +106,7 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     const rexTrip = r.body;
 
     // Itineraries (D109): back-to-back stops; every stop opens once the first is within 14 days.
-    const itinerary = (await call(tokens.tia, '/api/v1/me/itineraries', { method: 'POST' })).body.id;
+    const itinerary = (await call(tokens.tia, '/api/me/itineraries', { method: 'POST' })).body.id;
     assert.equal((await trip('tia', { cityId: SYDNEY, arrival: plus(10), departure: plus(20), itineraryId: itinerary })).status, 201); pass();
     r = await trip('tia', { cityId: ADELAIDE, arrival: plus(25), departure: plus(28), itineraryId: itinerary });
     assert.deepEqual([r.status, r.body.state, r.body.opensOn], [201, 'visible', plus(-4)]); pass(); // 25 days away, open with the first stop
@@ -114,20 +114,20 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     assert.deepEqual(code(await trip('tia', { cityId: MELBOURNE, arrival: plus(43), departure: plus(45), itineraryId: itinerary })), [400, 'itinerary-not-back-to-back']); pass(); // gap of 15
     assert.deepEqual(code(await trip('tia', { cityId: MELBOURNE, arrival: plus(27), departure: plus(30), itineraryId: itinerary })), [400, 'itinerary-not-back-to-back']); pass(); // arrives before the last leaves
     assert.equal((await trip('tia', { cityId: MELBOURNE, arrival: plus(42), departure: plus(45), itineraryId: itinerary, visible: false })).status, 201); pass(); // gap of exactly 14
-    const travItinerary = (await call(tokens.trav, '/api/v1/me/itineraries', { method: 'POST' })).body.id;
+    const travItinerary = (await call(tokens.trav, '/api/me/itineraries', { method: 'POST' })).body.id;
     assert.deepEqual(code(await trip('tia', { cityId: MELBOURNE, arrival: plus(50), departure: plus(52), itineraryId: travItinerary })), [404, 'not-available']); pass();
-    const later = (await call(tokens.rex, '/api/v1/me/itineraries', { method: 'POST' })).body.id;
+    const later = (await call(tokens.rex, '/api/me/itineraries', { method: 'POST' })).body.id;
     r = await trip('rex', { cityId: MELBOURNE, arrival: plus(18), departure: plus(20), itineraryId: later, visible: false });
     r = await trip('rex', { cityId: ADELAIDE, arrival: plus(20), departure: plus(30), itineraryId: later });
     assert.deepEqual([r.body.state, r.body.opensOn], ['planned', plus(4)]); pass(); // first stop 18 days away: the whole itinerary waits
-    await call(tokens.rex, `/api/v1/me/trips/${r.body.id}`, { method: 'DELETE' });
+    await call(tokens.rex, `/api/me/trips/${r.body.id}`, { method: 'DELETE' });
 
     // The destination feed (Q17 rules 22–28): locals see visiting travellers, city, country and exact dates only.
-    const visitors = async (who, mode = 'dating') => call(tokens[who], `/api/v1/travel/visitors?mode=${mode}`);
+    const visitors = async (who, mode = 'dating') => call(tokens[who], `/api/travel/visitors?mode=${mode}`);
     let feed = await visitors('loc');
     assert.equal(feed.status, 200); assert.equal(feed.body.market, 'Adelaide'); pass();
     const card = (f, who) => f.body.people.find(p => p.id === pid[who]);
-    assert.deepEqual(card(feed, 'trav').visiting, { tripId: (await call(tokens.trav, '/api/v1/me/trips')).body.items.find(t => t.arrival === plus(-3)).id,
+    assert.deepEqual(card(feed, 'trav').visiting, { tripId: (await call(tokens.trav, '/api/me/trips')).body.items.find(t => t.arrival === plus(-3)).id,
       city: 'Adelaide', country: 'Australia', arrival: plus(-3), departure: plus(1) }); pass(); // earliest visible trip, one card per traveller
     assert.equal(feed.body.people.filter(p => p.id === pid.trav).length, 1); pass();
     assert.deepEqual(Object.keys(card(feed, 'trav')).sort(), ['badges', 'displayName', 'id', 'intentions', 'visiting']); pass(); // no area, home city or coordinates
@@ -141,60 +141,60 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     assert.deepEqual(code(await visitors('loc', 'business')), [403, 'mode-not-enabled']); pass();
     assert.deepEqual(code(await visitors('loc', 'travel')), [404, 'unknown-mode']); pass();
     // Modes both people have on: Rex turns Friends off, so he's gone from Friends but not Dating.
-    await call(tokens.rex, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
+    await call(tokens.rex, '/api/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
     assert.ok(!card(await visitors('loc', 'friends'), 'rex') && card(await visitors('loc'), 'rex')); pass();
     // A hidden trip disappears at once and its details never show (rule 28); turning it back on restores it.
     await put('rex', rexTrip.id, { cityId: ADELAIDE, arrival: plus(3), departure: plus(5), visible: false, itineraryId: null });
     assert.ok(!card(await visitors('loc'), 'rex')); pass();
-    assert.equal((await call(tokens.rex, '/api/v1/me/trips')).body.items.find(t => t.id === rexTrip.id).state, 'planned'); pass(); // kept, with its dates
+    assert.equal((await call(tokens.rex, '/api/me/trips')).body.items.find(t => t.id === rexTrip.id).state, 'planned'); pass(); // kept, with its dates
     await put('rex', rexTrip.id, { cityId: ADELAIDE, arrival: plus(3), departure: plus(5), visible: true, itineraryId: null });
     assert.ok(card(await visitors('loc'), 'rex')); pass();
     // A trip outside any active market is saved but never shown; suspending Adelaide closes the feed (D110, D125).
-    const melbourneTrip = (await call(tokens.tia, '/api/v1/me/trips')).body.items.find(t => t.city.id === SYDNEY);
+    const melbourneTrip = (await call(tokens.tia, '/api/me/trips')).body.items.find(t => t.city.id === SYDNEY);
     assert.equal(melbourneTrip.activeMarket, false); pass();
     try {
       await sql(`UPDATE markets SET status = 'Suspended' WHERE id = 'adelaide'`);
       assert.deepEqual(code(await visitors('loc')), [403, 'not-local']); pass();
-      assert.equal((await call(tokens.rex, '/api/v1/me/trips')).body.items.find(t => t.id === rexTrip.id).activeMarket, false); pass();
+      assert.equal((await call(tokens.rex, '/api/me/trips')).body.items.find(t => t.id === rexTrip.id).activeMarket, false); pass();
       assert.equal((await trip('blk', { cityId: ADELAIDE, arrival: plus(2), departure: plus(4) })).status, 201); pass(); // still saved
     } finally {
       await sql(`UPDATE markets SET status = 'Beta' WHERE id = 'adelaide'`);
     }
     assert.ok(card(await visitors('loc'), 'blk')); pass();
     // Blocks hide travellers too, both ways.
-    await call(tokens.loc, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.blk } });
+    await call(tokens.loc, '/api/blocks', { method: 'POST', body: { profileId: pid.blk } });
     assert.ok(!card(await visitors('loc'), 'blk')); pass();
-    const blkTrip = (await call(tokens.blk, '/api/v1/me/trips')).body.items[0].id;
-    assert.deepEqual(code(await call(tokens.loc, '/api/v1/requests', { method: 'POST', body: { to: pid.blk, mode: 'dating', trip: blkTrip } })), [404, 'not-available']); pass();
+    const blkTrip = (await call(tokens.blk, '/api/me/trips')).body.items[0].id;
+    assert.deepEqual(code(await call(tokens.loc, '/api/requests', { method: 'POST', body: { to: pid.blk, mode: 'dating', trip: blkTrip } })), [404, 'not-available']); pass();
     // Expiry after departure, local time; cancellation keeps the history.
     await sql(`UPDATE trips SET arrival = DATE '${plus(-6)}', departure = DATE '${plus(-1)}' WHERE id = '${rexTrip.id}'`);
-    assert.equal((await call(tokens.rex, '/api/v1/me/trips')).body.items.find(t => t.id === rexTrip.id).state, 'expired'); pass();
+    assert.equal((await call(tokens.rex, '/api/me/trips')).body.items.find(t => t.id === rexTrip.id).state, 'expired'); pass();
     assert.ok(!card(await visitors('loc'), 'rex')); pass();
-    assert.equal((await call(tokens.trav, `/api/v1/me/trips/${travLater.id}/cancel`, { method: 'POST' })).status, 204); pass();
-    assert.equal((await call(tokens.trav, '/api/v1/me/trips')).body.items.find(t => t.id === travLater.id).state, 'cancelled'); pass();
+    assert.equal((await call(tokens.trav, `/api/me/trips/${travLater.id}/cancel`, { method: 'POST' })).status, 204); pass();
+    assert.equal((await call(tokens.trav, '/api/me/trips')).body.items.find(t => t.id === travLater.id).state, 'cancelled'); pass();
     assert.deepEqual(code(await put('trav', travLater.id, { cityId: ADELAIDE, arrival: plus(20), departure: plus(22), visible: true, itineraryId: null })), [409, 'trip-cancelled']); pass();
-    assert.equal((await call(tokens.trav, `/api/v1/me/trips/${travLater.id}`, { method: 'DELETE' })).status, 204); pass();
-    assert.ok(!(await call(tokens.trav, '/api/v1/me/trips')).body.items.some(t => t.id === travLater.id)); pass();
+    assert.equal((await call(tokens.trav, `/api/me/trips/${travLater.id}`, { method: 'DELETE' })).status, 204); pass();
+    assert.ok(!(await call(tokens.trav, '/api/me/trips')).body.items.some(t => t.id === travLater.id)); pass();
 
     // Requests from the feed (rules 29–31): the local asks, the traveller answers; nothing connects on its own.
     const travTrip = card(await visitors('loc'), 'trav').visiting.tripId;
-    r = await call(tokens.loc, '/api/v1/requests', { method: 'POST', body: { to: pid.trav, mode: 'dating', trip: travTrip } });
+    r = await call(tokens.loc, '/api/requests', { method: 'POST', body: { to: pid.trav, mode: 'dating', trip: travTrip } });
     assert.equal(r.status, 201); assert.deepEqual([r.body.visiting.city, r.body.visiting.arrival], ['Adelaide', plus(-3)]); pass();
-    const received = (await call(tokens.trav, '/api/v1/requests?box=received')).body.items.find(x => x.id === r.body.id);
+    const received = (await call(tokens.trav, '/api/requests?box=received')).body.items.find(x => x.id === r.body.id);
     assert.deepEqual([received.direction, received.status, received.visiting.tripId], ['received', 'pending', travTrip]); pass();
-    assert.equal((await call(tokens.trav, `/api/v1/requests/${r.body.id}/accept`, { method: 'POST' })).body.status, 'accepted'); pass();
+    assert.equal((await call(tokens.trav, `/api/requests/${r.body.id}/accept`, { method: 'POST' })).body.status, 'accepted'); pass();
     // The trip must be the recipient's, visible to this local now; outsiders can't use it.
-    assert.deepEqual(code(await call(tokens.loc, '/api/v1/requests', { method: 'POST', body: { to: pid.tia, mode: 'dating', trip: travTrip } })), [404, 'not-available']); pass();
-    assert.deepEqual(code(await call(tokens.far, '/api/v1/requests', { method: 'POST', body: { to: pid.tia, mode: 'dating', trip: tiaAdelaide.id } })), [404, 'not-available']); pass();
-    assert.deepEqual(code(await call(tokens.loc, '/api/v1/requests', { method: 'POST', body: { to: pid.trav, mode: 'friends', trip: fifteen.body.id } })), [404, 'not-available']); pass(); // a hidden trip
-    assert.equal((await call(tokens.pal, '/api/v1/requests', { method: 'POST', body: { to: pid.tia, mode: 'friends', trip: tiaAdelaide.id } })).status, 201); pass();
+    assert.deepEqual(code(await call(tokens.loc, '/api/requests', { method: 'POST', body: { to: pid.tia, mode: 'dating', trip: travTrip } })), [404, 'not-available']); pass();
+    assert.deepEqual(code(await call(tokens.far, '/api/requests', { method: 'POST', body: { to: pid.tia, mode: 'dating', trip: tiaAdelaide.id } })), [404, 'not-available']); pass();
+    assert.deepEqual(code(await call(tokens.loc, '/api/requests', { method: 'POST', body: { to: pid.trav, mode: 'friends', trip: fifteen.body.id } })), [404, 'not-available']); pass(); // a hidden trip
+    assert.equal((await call(tokens.pal, '/api/requests', { method: 'POST', body: { to: pid.tia, mode: 'friends', trip: tiaAdelaide.id } })).status, 201); pass();
 
     // Unlimited trips, paged (50 a page); writes are rate limited and audited without places or dates.
     await sql(`INSERT INTO trips (id, account_id, geo_name_id, arrival, departure, visible, created_at, updated_at)
       SELECT gen_random_uuid(), '${ids.nob}', ${MELBOURNE}, DATE '${plus(30)}' + g, DATE '${plus(30)}' + g, false, now(), now() FROM generate_series(1, 55) g`);
-    const page1 = (await call(tokens.nob, '/api/v1/me/trips')).body, page2 = (await call(tokens.nob, '/api/v1/me/trips?page=2')).body;
+    const page1 = (await call(tokens.nob, '/api/me/trips')).body, page2 = (await call(tokens.nob, '/api/me/trips?page=2')).body;
     assert.deepEqual([page1.items.length, page1.more, page2.items.length, page2.more], [50, true, 5, false]); pass();
-    assert.equal((await call(tokens.nob, '/api/v1/me/trips?page=0')).status, 400); pass();
+    assert.equal((await call(tokens.nob, '/api/me/trips?page=0')).status, 400); pass();
     let status;
     for (let i = 0; i < 40 && status !== 429; i++) status = (await trip('nob', { cityId: MELBOURNE, arrival: plus(100 + i), departure: plus(100 + i), visible: false })).status;
     assert.equal(status, 429); pass();
@@ -235,7 +235,7 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     await page.click(`[data-city="${ADELAIDE}"]`);
     await page.click('[data-core-form] button[type=submit]');
     await page.waitForSelector('[data-core-status=saved]');
-    assert.equal((await call(tokens.pal, '/api/v1/me/profile')).body.homeCity.id, ADELAIDE); pass();
+    assert.equal((await call(tokens.pal, '/api/me/profile')).body.homeCity.id, ADELAIDE); pass();
     assert.ok((await page.locator('[data-city-search=home-city] .geonames-credit').innerText()).includes('GeoNames')); pass();
     // A traveller adds a trip through the form and sees no local feed.
     const travPage = await signIn(members.trav);
@@ -247,13 +247,13 @@ const plus = (days, zone = 'Australia/Adelaide') => {
     await travPage.fill('#arrival', plus(40)); await travPage.fill('#departure', plus(42));
     await travPage.click('[data-trip-form] button[type=submit]');
     await travPage.waitForSelector('[data-trip-status=saved]'); pass();
-    const added = (await call(tokens.trav, '/api/v1/me/trips')).body.items.find(t => t.city.id === GLENELG);
+    const added = (await call(tokens.trav, '/api/me/trips')).body.items.find(t => t.city.id === GLENELG);
     assert.deepEqual([added.arrival, added.departure, added.state], [plus(40), plus(42), 'planned']); pass();
     await travPage.locator(`[data-trip="${added.id}"]`).getByLabel('Visible to locals').uncheck();
     await travPage.getByText('Hidden. The trip is kept.').waitFor();
-    assert.equal((await call(tokens.trav, '/api/v1/me/trips')).body.items.find(t => t.id === added.id).visible, false); pass();
+    assert.equal((await call(tokens.trav, '/api/me/trips')).body.items.find(t => t.id === added.id).visible, false); pass();
     if (output) await travPage.screenshot({ path: output + '/travel-traveller-390.png', fullPage: true });
-    for (const path of ['api/v1/places?q=adel', 'api/v1/me/trips', 'api/v1/travel/visitors?mode=dating'])
+    for (const path of ['api/places?q=adel', 'api/me/trips', 'api/travel/visitors?mode=dating'])
       assert.equal((await travPage.request.get(web + '/bff/' + path, { headers: { 'X-Swoovr-Bff': '1' } })).status(), path.includes('visitors') ? 403 : 200, path);
     pass();
     for (const context of contexts) await context.close();

@@ -75,7 +75,7 @@ public static class SecurityEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var security = app.MapGroup("/api/v1/admin/security").RequireAuthorization();
+        var security = app.MapGroup("/api/admin/security").RequireAuthorization();
 
         security.MapGet("/incidents", async (string? status, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -99,7 +99,7 @@ public static class SecurityEndpoints
             db.SecurityIncidents.Add(incident);
             Audit.Record(db, now, current.Account.Id, "account", "security.opened", "security-incident", incident.Id.ToString(), Wire(severity));
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/admin/security/incidents/{incident.Id}", View(incident, now));
+            return Results.Created($"/api/admin/security/incidents/{incident.Id}", View(incident, now));
         });
 
         security.MapPost("/incidents/{id:guid}/assess", async (Guid id, IncidentAssessment request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
@@ -196,8 +196,13 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
         {
             case "contact-history":
                 foreach (var row in await db.ContactHistories.ToListAsync(cancellationToken)) Apply(row.EncryptedValue, v => row.EncryptedValue = v);
+                foreach (var row in await db.EmailRetirementOperations.ToListAsync(cancellationToken)) Apply(row.EncryptedCommand, v => row.EncryptedCommand = v);
+                foreach (var row in await db.TrustedContacts.ToListAsync(cancellationToken)) Apply(row.DestinationEncrypted, v => row.DestinationEncrypted = v);
                 break;
             case "evidence":
+                foreach(var row in await db.Set<TextHarmIntent>().Where(r=>r.SealedText!=null).ToListAsync(cancellationToken))Apply(row.SealedText!,value=>row.SealedText=value);
+                foreach(var row in await db.Set<TextHarmReview>().Where(r=>r.SealedEvidence!=null).ToListAsync(cancellationToken))Apply(row.SealedEvidence!,value=>row.SealedEvidence=value);
+                foreach(var row in await db.Set<ContentRemoval>().Where(r=>r.SealedSnapshot!=null).ToListAsync(cancellationToken))Apply(row.SealedSnapshot!,value=>row.SealedSnapshot=value);
                 // Evidence items are immutable in content: the SHA-256 is of the plain JSON, so re-sealing never changes it.
                 var ids = await db.EvidenceItems.Select(i => i.Id).ToListAsync(cancellationToken);
                 foreach (var page in ids.Chunk(200))
@@ -224,8 +229,8 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
     {
         var firsts = set switch
         {
-            "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).ToListAsync(cancellationToken),
-            "evidence" => await db.EvidenceItems.Select(i => i.Sealed).ToListAsync(cancellationToken),
+            "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).Concat(db.EmailRetirementOperations.Select(o=>o.EncryptedCommand)).Concat(db.TrustedContacts.Select(c=>c.DestinationEncrypted)).ToListAsync(cancellationToken),
+            "evidence" => await db.EvidenceItems.Select(i => i.Sealed).Concat(db.Set<TextHarmIntent>().Where(r=>r.SealedText!=null).Select(r=>r.SealedText!)).Concat(db.Set<TextHarmReview>().Where(r=>r.SealedEvidence!=null).Select(r=>r.SealedEvidence!)).Concat(db.Set<ContentRemoval>().Where(r=>r.SealedSnapshot!=null).Select(r=>r.SealedSnapshot!)).ToListAsync(cancellationToken),
             "police" => (await db.Reports.Where(r => r.PoliceReference != null).Select(r => r.PoliceReference).ToListAsync(cancellationToken)).Select(v => v!).ToList(),
             _ => await db.VerifiedIdentities.Select(i => i.Sealed).ToListAsync(cancellationToken),
         };

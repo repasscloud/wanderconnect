@@ -38,11 +38,22 @@ static class ChatAttachmentChecks
         Expect(MediaPolicy.ReadLink(key, link.Replace(".member.", ".case."), now) is null, "a member link can't be turned into a case link");
 
         // Ending politely.
+        Expect(ConversationEnding.Closings["thanks"] == "Thanks for chatting. I don't think we're the right match, but I wish you all the best.", "Q85 first exact farewell");
+        Expect(ConversationEnding.Closings["not-a-match"] == "I've enjoyed our conversation, but I've decided not to continue. Take care.", "Q85 second exact farewell");
+        Expect(ConversationEnding.Closings["take-care"] == "I'm moving in a different direction, but thank you for your time. Wishing you well.", "Q85 third exact farewell");
         Expect(ConversationEnding.Valid(null) && ConversationEnding.Valid("thanks") && ConversationEnding.Valid("not-a-match") && ConversationEnding.Valid("take-care"), "the three closings or none");
         Expect(!ConversationEnding.Valid("") && !ConversationEnding.Valid("THANKS") && !ConversationEnding.Valid("you are awful"), "no free text");
         Expect(ConversationEnding.Closings.Values.All(t => t.Length <= MessagingPolicy.TextMax && MessagingPolicy.CleanText(t) == t), "closings are valid messages");
         Expect(PhotoText.Closings.Select(c => c.Id).SequenceEqual(ConversationEnding.Closings.Keys) && PhotoText.Closings.All(c => c.Label.Contains(ConversationEnding.Closings[c.Id])),
             "the clients offer exactly the API's closings, word for word");
+
+        Expect(ConversationEnding.SystemText(true) == ConversationEnding.ByMe && ConversationEnding.SystemText(false) == ConversationEnding.ByOther, "participant-specific neutral system text");
+        Expect(!MessagingPolicy.MayDeleteForBoth(new Message { Kind = MessageKind.System, SenderAccountId = sender, SentAt = now }, sender, now)
+            && !MessagingPolicy.MayDeleteForBoth(new Message { Kind = MessageKind.Farewell, SenderAccountId = sender, SentAt = now }, sender, now), "system and farewell events are preserved");
+        foreach (var previews in new[] { true, false })
+            Expect(NotificationPolicy.Push(NotificationKind.ConversationEnded, previews, "private name", "Dating", "private farewell", null) == ("Swoovr", ConversationEnding.Notification), "closure pushes never contain private previews");
+        Expect(StandingText.SupportUrl == "https://swoovr.com/support" && StandingText.SupportEmail == "support@swoovr.com", "confirmed support channels");
+        Expect(StandingText.SupportLink("SW-ABC234") == "https://swoovr.com/support?reference=SW-ABC234", "reference passed to support without report content");
 
         // Starters.
         Expect(ConversationStarters.For([]).Count == 0, "no shared chips, no starters");

@@ -5,7 +5,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose photos for your Swoovr profile. Every photo is checked before anyone can see it, and location details are removed.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Swoovr checks your location once when you confirm you've arrived on a trip or check your home city. It keeps only whether you were there, never where you are.</string>
+	<string>Swoovr checks location once for trip arrival or home checks. For meeting safety, only if you choose, it creates a location link on this device for your SMS composer; meeting coordinates are not sent to Swoovr.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>

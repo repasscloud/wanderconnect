@@ -6,13 +6,13 @@ namespace Swoovr.Web.Auth;
 /// <summary>
 /// Owner answer to Q55 (D160): a restricted (or suspended or terminated) member can't use the app and sees the restricted
 /// screen until the action is lifted. Before rendering a signed-in page this asks the API for the member's account state
-/// (`/api/v1/me`, which stays open to barred members) and redirects to /account/restricted. The API refuses every other
+/// (`/api/me`, which stays open to barred members) and redirects to /account/restricted. The API refuses every other
 /// member route on its own; this only decides what the browser shows. The account page, notices (to read and appeal), notifications, account standing (#49, #50),
 /// sign-in and sign-out, and static files stay reachable. An account pending deletion (D170) goes to /account/deletion instead.
 /// </summary>
 public static class RestrictionGate
 {
-    private static readonly string[] Open = ["/account", "/me/notices", "/me/notifications", "/me/standing", "/bff", "/signin-oidc", "/signout", "/not-found", "/error", "/_framework", "/_content", "/settings"];
+    private static readonly string[] Open = ["/safety", "/me/meeting-safety", "/account", "/me/notices", "/me/notifications", "/me/standing", "/bff", "/signin-oidc", "/signout", "/not-found", "/error", "/_framework", "/_content", "/settings"];
 
     public static void UseRestrictionGate(this WebApplication app) => app.Use(async (context, next) =>
     {
@@ -37,7 +37,7 @@ public static class RestrictionGate
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/me");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "api/me");
             request.Headers.Authorization = new("Bearer", token);
             using var response = await context.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient(Bff.ApiClient).SendAsync(request, context.RequestAborted);
             if (!response.IsSuccessStatusCode) return (null, false);

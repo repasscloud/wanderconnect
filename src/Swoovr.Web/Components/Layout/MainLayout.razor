@@ -12,8 +12,8 @@
         @Tab("Me", "user", "/account", Path.StartsWith("/account") || Path.StartsWith("/settings") || Path.StartsWith("/me/"))
     </nav>
 </header>
-<main id="main-content">@Body</main>
-<footer class="app-footer"><p>A connection platform in progress. Local development sign-in only; member experiences are not connected to accounts.</p></footer>
+<main id="main-content" tabindex="-1">@Body</main>
+<footer class="app-footer"><p>A connection platform in progress.</p></footer>
 @code {
     private bool Prototype => Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled");
     private string Path => "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0];

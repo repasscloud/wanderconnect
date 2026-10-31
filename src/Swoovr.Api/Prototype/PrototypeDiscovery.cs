@@ -75,7 +75,7 @@ internal static class PrototypeDiscovery
     public static void Map(WebApplication app)
     {
         if (!app.Environment.IsDevelopment() || !app.Configuration.GetValue<bool>("Prototype:Enabled")) return;
-        var group = app.MapGroup("/api/v1/prototype");
+        var group = app.MapGroup("/api/prototype");
         group.AddEndpointFilter(async (context, next) => {
             context.HttpContext.Response.Headers.CacheControl = "no-store";
             context.HttpContext.Response.Headers.XContentTypeOptions = "nosniff";

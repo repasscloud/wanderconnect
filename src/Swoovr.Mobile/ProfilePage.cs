@@ -34,6 +34,7 @@ public sealed class ProfilePage : ContentPage
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Your profile", "PageTitle"));
 		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to edit your profile.", id: "ProfileSignedOut")); return; }
+		body.Children.Add(Ui.Card(Ui.Text(SafetyAdvice.Title,"SectionHeading"),Ui.Text(SafetyAdvice.Introduction),Ui.Button("Connection and meeting advice","ProfileSafetyAdvice",()=>Ui.PushAsync(new SafetyAdvicePage()),primary:false)));
 		var (catalogue, own) = (await Ui.Members!.ModesAsync(), await Ui.Members.ProfileAsync());
 		if (catalogue.Value is null || own.Value is null)
 		{

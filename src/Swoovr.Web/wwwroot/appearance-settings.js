@@ -11,6 +11,7 @@
     form.querySelector('[role=status]').textContent = message || (state.available ? 'Saved on this browser.' : 'Applied for this visit. Browser storage is unavailable.');
   }
   function connect() {
+    if(window.SwoovrAccountAppearance)window.SwoovrAccountAppearance.start(document.documentElement.dataset.appearanceOwner);
     form = document.querySelector('[data-appearance-settings]');
     // Enhanced navigation can restore SSR root attributes while preserving the form.
     state.apply();
@@ -36,6 +37,8 @@
   window.addEventListener('storage', event => {
     if (event.key !== api.key && event.key !== null) return;
     const latest = api.load(state.storage);
+    state.guestPreference=latest.preference;
+    if(state.activeAccount)return;
     state.preference = latest.preference; state.available = latest.available;
     update('Appearance updated from another tab.');
   });

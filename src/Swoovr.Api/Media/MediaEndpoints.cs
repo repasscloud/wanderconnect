@@ -18,7 +18,7 @@ public static class MediaEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
         api.MapPost("/me/photos", async (HttpRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -48,10 +48,12 @@ public static class MediaEndpoints
             }
             using var buffer = new MemoryStream();
             await file.CopyToAsync(buffer, cancellationToken);
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
             var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), replaces, now, cancellationToken);
             return error switch
             {
-                MediaUploadError.None => Results.Accepted($"/api/v1/me/photos/{item!.Id}", View(item, [], null)),
+                MediaUploadError.None => Results.Accepted($"/api/me/photos/{item!.Id}", View(item, [], null)),
                 MediaUploadError.TooBig => Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB."),
                 MediaUploadError.UnsupportedType => Problem(StatusCodes.Status415UnsupportedMediaType, ProblemCodes.PhotoUnsupported, "Use a JPEG, PNG or WebP photo."),
                 MediaUploadError.Animated => Problem(StatusCodes.Status415UnsupportedMediaType, ProblemCodes.PhotoUnsupported, "Animated images can't be used."),
@@ -87,6 +89,7 @@ public static class MediaEndpoints
             var max = update.Scope == MediaPolicy.Main ? 1 : MediaPolicy.MaxPerMode;
             if (update.Scope is null || !MediaPolicy.ValidScope(update.Scope, modes) || ids.Count > max || ids.Distinct().Count() != ids.Count)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, update.Scope == MediaPolicy.Main ? "Pick one main photo." : $"Pick up to {MediaPolicy.MaxPerMode} photos for a mode.");
+            await using var mediaLease = await AccountLifecycleLease.AcquireMediaAsync(db, me, cancellationToken);
             var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null).Select(i => i.Id).ToListAsync(cancellationToken);
             if (approved.Count != ids.Count)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoNotApproved, "Only your approved photos can be shown.");
@@ -100,7 +103,7 @@ public static class MediaEndpoints
 
         // The signed link itself is the permission (made only after the viewer's access was checked); no session needed,
         // so an <img> in the browser or the app can load it. Blocked items are never served, whatever the link says.
-        app.MapGet("/api/v1/media/{token}", async (string token, HttpContext context, IServiceProvider services, TimeProvider clock, CancellationToken cancellationToken) =>
+        app.MapGet("/api/media/{token}", async (string token, HttpContext context, IServiceProvider services, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             if (services.GetService<SwoovrDbContext>() is not { } db) return Results.NotFound();
             var links = services.GetRequiredService<MediaLinks>();
@@ -112,7 +115,7 @@ public static class MediaEndpoints
             return Results.File(bytes, "image/jpeg");
         });
 
-        var admin = app.MapGroup("/api/v1/admin/media").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin/media").RequireAuthorization();
         admin.MapGet("/review", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
@@ -151,11 +154,12 @@ public static class MediaEndpoints
             var (db, now, actor) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
             if (request.Purpose?.Trim() is not { Length: > 0 and <= MediaPolicy.PurposeMax } purpose || request.CaseId is not { } caseId)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Say which case and why you need to look at this photo.");
+            await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
             var named = (await db.CaseEvidence.Where(e => e.CaseId == caseId).Select(e => e.Snapshot).ToListAsync(cancellationToken)).Any(s => s.Contains(id.ToString()));
             var item = named ? await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.Purpose == AttachmentPolicy.Purpose
-                && (i.Status == MediaStatus.Passed || i.Status == MediaStatus.Uncertain) && i.ObjectKey != null, cancellationToken) : null;
-            if (item is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't part of this case's evidence.");
-            if (await StaffAccessEndpoints.ExcludedAsync(db, actor, [item.AccountId], cancellationToken)) return StaffAccessEndpoints.Conflict();
+                && i.ObjectKey != null, cancellationToken) : null;
+            if (item is null || !MediaPolicy.CaseReviewable(item)) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't part of this case's evidence.");
+            if (await StaffAccessEndpoints.ExcludedAsync(db, actor, await Retention.SafetyRetention.CaseAccountsAsync(db, caseId, cancellationToken), cancellationToken)) return StaffAccessEndpoints.Conflict();
             if (accounts.Services.GetRequiredService<MediaLinks>().For(item.Id, "case", now) is not { } link)
                 return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photo links aren't configured.");
             db.MediaReviewViews.Add(new MediaReviewView { MediaId = item.Id, ActorAccountId = actor, Purpose = purpose, At = now });
@@ -177,12 +181,13 @@ public static class MediaEndpoints
             if (await StaffAccessEndpoints.ExcludedAsync(db, actor, [item.AccountId], cancellationToken)) return StaffAccessEndpoints.Conflict();
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
-            switch (request.Decision)
+            var applied = request.Decision switch
             {
-                case "approve": await pipeline.PassAsync(item, actor, now, cancellationToken); break;
-                case "reject": await pipeline.RejectAsync(item, actor, request.Reason?.Trim(), now, cancellationToken); break;
-                default: await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken); break;
-            }
+                "approve" => await pipeline.PassAsync(item, actor, now, cancellationToken),
+                "reject" => await pipeline.RejectAsync(item, actor, request.Reason?.Trim(), now, cancellationToken),
+                _ => await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken),
+            };
+            if (!applied) return Problem(StatusCodes.Status409Conflict, ProblemCodes.UnknownPhoto, "That photo isn't waiting for a decision.");
             return Results.Ok(new { item.Id, state = request.Decision switch { "approve" => "approved", "reject" => "rejected", _ => "escalated" } });
         });
     }

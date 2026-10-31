@@ -40,7 +40,8 @@ public sealed class LocalMediaStore(string root) : IMediaStore
 
     public Task<bool> DeleteAsync(string key, CancellationToken cancellationToken)
     {
-        File.Delete(PathFor(key));
+        try { File.Delete(PathFor(key)); }
+        catch (DirectoryNotFoundException) { /* An absent key/parent is already deleted, as with S3 DELETE. */ }
         return Task.FromResult(true);
     }
 }

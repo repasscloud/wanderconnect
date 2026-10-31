@@ -1,0 +1,40 @@
+@page "/code-reports"
+@inject AdminClient Admin
+<PageTitle>Annual report data — Swoovr admin</PageTitle>
+<h1>Annual report data</h1>
+<p>DRAFT benchmark data for the year to 30 June, with a 31 August publication benchmark. This is an internal aggregate export, not publication, a signatory claim or verified Code compliance.</p>
+<form method="get" class="row"><label>Completed ending year<input type="number" name="year" value="@EndingYear" min="2" max="9998" required /></label><button type="submit">Load aggregates</button></form>
+@if(message is not null){<p class="notice" role="status" data-code-report-result>@message</p>}
+@if(report is null){<p>Aggregates are unavailable for this year or role.</p>}
+else
+{
+    <p data-code-report-scope>@report.Header.Scope</p><p>Period: @report.Header.FromInclusive.ToString("yyyy-MM-dd") to @report.Header.UntilExclusive.ToString("yyyy-MM-dd") exclusive, @report.Header.TimeZone.</p>
+    <p>Coverage: @report.DataQuality.CoverageStatus. Unknown and not-recorded values are not zero. A saved revision is preserved after its source window expires.</p>
+    <ul>@foreach(var limit in report.DataQuality.Limitations){<li>@limit</li>}</ul>
+    <p><a href="/code-reports/@EndingYear/export" data-code-report-export>Download aggregate JSON</a></p>
+    <form method="post" @formname="save-code-report" @onsubmit="SaveAsync" class="stack" data-code-report-save data-enhance="false"><AntiforgeryToken />
+        <input type="hidden" name="SaveForm.Year" value="@EndingYear" />
+        <label><input type="checkbox" name="SaveForm.Confirmed" value="true" required /> Save this internal aggregate revision with its coverage gaps. This does not publish it.</label>
+        <button type="submit">Save internal revision</button>
+    </form>
+    <h2>Recorded subsets</h2>
+    <ul class="list" data-code-report-cells>@foreach(var cell in report.Counts){<li><strong>@cell.Metric · @cell.Category</strong>: @(cell.Count?.ToString()??cell.Status)</li>}</ul>
+    <h2>Automation and operations</h2>
+    <p>Training: @report.TrainingStatus. Own initiative: @report.OwnInitiativeCoverage</p>
+    @foreach(var automation in report.Automation){<p><strong>@automation.Definition</strong>: @automation.Purpose. Human review: @automation.HumanReview. Accuracy: @automation.AccuracyStatus. Errors: @automation.ErrorStatus.</p>}
+}
+@code {
+    [SupplyParameterFromQuery(Name="year")]public int? Year{get;set;}
+    [SupplyParameterFromForm(FormName="save-code-report")]public SaveModel? SaveForm{get;set;}
+    public sealed class SaveModel{public int Year{get;set;}public bool Confirmed{get;set;}}
+    private int EndingYear=>Year??(DateTime.UtcNow.Month>=7?DateTime.UtcNow.Year:DateTime.UtcNow.Year-1);
+    private ModerationTransparencyExport? report;private string? message;
+    protected override async Task OnInitializedAsync(){await LoadAsync();}
+    private async Task LoadAsync(){report=(await Admin.ModerationReportAsync(EndingYear)).Value;}
+    private async Task SaveAsync()
+    {
+        if(SaveForm is not{Confirmed:true}form){message="Review the coverage gaps and confirm before saving.";return;}
+        Year=form.Year;var result=await Admin.SaveModerationReportAsync(form.Year);
+        message=result.Ok?$"Internal revision {result.Value} saved; nothing was published.":"Revision unavailable. Check year, retained source window, role and fresh sign-in.";await LoadAsync();
+    }
+}

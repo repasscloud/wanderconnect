@@ -28,6 +28,8 @@ Connections track interest sent/received, mutual interest and optional saved pro
 
 Changing filters controls future viewing/contact. DEFAULT: preserve an existing accepted conversation after ordinary intention changes, but explain changed compatibility and offer close/block. Explicit blocking, suspension and privacy revocation override access immediately. Retain only necessary historical conversation evidence; distinguish it from live profile/media access.
 
+CONFIRMED D213 (Q85): End conversation disconnects every currently connected mode under D176, preserves read-only history and records a neutral system event. Offer only the three exact predefined farewells or no farewell, with confirmation; never free text in this workflow. The recipient's event and notification remain neutral and expose no initiating-party metadata. Repeated/concurrent ends do not create repeated events or logical notifications. Report/block stay available, and ordinary later reconnection opens new history rather than reopening the closed conversation. [Full owner requirements](../delivery/OWNER-DECISIONS-2026-10-29.md).
+
 ## 3. Incognito
 
 CONFIRMED: no member-visible visit trace; recipient may refuse incognito visits. Internal abuse/audit records remain available under access controls and retention rules. Do not promise invisibility to platform staff or technical impossibility of stalking.
@@ -65,3 +67,17 @@ Questions: did you meet; did the profile represent them; were intentions aligned
 Never public star scores or hot-or-not voting. Never disclose the counterpart's answers. Personal attraction informs the rater's preferences, not global human worth. Lack of attraction and rejection do not establish misconduct. Repeated independent intention-misrepresentation or boundary reports trigger a review queue. Use evidence, recency, confidence and appeal, not automatic sanctions from raw negative votes. No emotional sentiment model as proof of wrongdoing. Treat coordinated retaliation and reporting abuse as risks.
 
 Prototype recommendation logic: deterministic preference/eligibility filters and explainable ordering. Later ranking experiments require sufficient data, controlled evaluation and checks that protected or marginalised groups are not systematically buried. Keep safety adjudication separate from recommendation ranking.
+
+### Voluntary standalone meeting safety (D218/D219)
+
+CONFIRMED: every member, including Free, may create an independent safety session without mutual QR or an in-app meeting plan. Up to three opted-in external contacts; optional scheduled check-ins and30-minute grace; missed/unconfirmed or help alerts go only to selected confirmed contacts, never automatically police or the other participant. Only the authenticated member can mark OK, extend, home safe, end or cancel. End/cancel suppress further monitoring prompts; absence of alerts is never proof of safety.
+
+DEFAULT D263: invitations expire after seven days. External meeting details require a short-lived destination code and read-only grant; generic incoming messages omit meeting time/place. Post-meeting feedback/report/dismiss is optional and distinct from attendance, mutual confirmation or reputation. Private safety feedback appears only in its author's member features, subject to lawful restricted access. [Implementation and independent lifecycle clocks](../delivery/MEETING-SAFETY-IMPLEMENTATION.md) define link expiry, final closure, ordinary 30-day disposal and hold/report exceptions. Device dialler/SMS actions never automatically call or prove delivery; optional coordinates stay on the device. Swoovr does not monitor emergencies or dispatch responders.
+
+### Small result sets (D270 DEFAULT)
+
+Successful empty/short discovery lists explain the actual market, mode and reciprocal-filter scope without estimating population or activity. Offer explicit review of filters, enabled modes and Travel; never change those choices automatically. Errors are unavailable, not empty supply. Only the latest selected mode response may populate its cards.
+
+### Internal beta analytics (D272 DEFAULT)
+
+Default-off first-party daily activity/discovery observations support a protected aggregate scorecard. Store no traits, filters, mode, location, counterpart, body, IP or device data. Disclose background API activity, retained-source denominators and incomplete observed returns; suppress small/complementary cells. Do not infer chemistry, attendance, availability, confirmed offending or member quality. No advertising, ranking or automated moderation use. Own export/deletion and independent held-evidence retention apply. See delivery/BETA-SCORECARD.md.

@@ -55,3 +55,13 @@ Optional verified-ownership or self-declared badges must differ. Provide an expl
 ## 6. Required design deliverables for implementation
 
 Mobile and desktop layouts for all core screens; loading/empty/error/denied states; light/dark tokens; typography; icons with accessible labels; keyboard focus and screen-reader reading order; reduced motion; large text; image descriptions; privacy-safe notifications. The [SVG board](../design/screen-board.svg) is a concept layout, not final pixel-perfect production UI. The two PNGs preserve the prior conversation's visual concepts.
+
+### Accessibility release gate (D271 DEFAULT)
+
+Core journeys must remain keyboard-accessible with visible focus and a working skip-to-main control on member and staff layouts. Test narrow reflow, enlarged text, personal themes, forced colors and reduced motion. External UAT approval requires the finite automated and human/native checklist in delivery/ACCESSIBILITY-RELEASE-GATE.md; a successful build or DOM audit is not assistive-technology sign-off. Optional access information/visibility and matching rules remain unchanged.
+
+D277 DEFAULT prepares member account appearance persistence/transport under the confirmed personal-theme rules. Revisions and repeat-safe change IDs prevent silent overwrites; a captured account-scope precondition prevents a pending edit following a switched session into another account. Source export/deletion/preservation are private. D278 supplies the actual WebAssembly/native settings/cache integration; this backend preparation does not change public guest settings or imply colours are identity/visibility/entitlement data.
+
+## Account appearance implementation (D278)
+
+CONFIRMED: the same eight personal schemes and System/Light/Dark modes are available to signed-in web and MAUI members. A choice changes only their own interface. DEFAULT: separate guest/account device caches support immediate offline edits, exact retry identities and an explicit choice for conflicts. Confirmed logout/account switch restores the guest choice. Device storage failure is visible. See [client scope](../delivery/APPEARANCE-ACCOUNT-CLIENTS.md); design sources remain read-only.

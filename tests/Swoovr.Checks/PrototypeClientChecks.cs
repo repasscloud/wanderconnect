@@ -20,7 +20,7 @@ static class PrototypeClientChecks
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellationToken)
         {
-            if (request.RequestUri?.PathAndQuery != "/api/v1/prototype/people?travel=upcoming&incognito=true&hideSparse=true&requireFriendship=true&match=all&requireActivity=false" || request.Method != HttpMethod.Get)
+            if (request.RequestUri?.PathAndQuery != "/api/prototype/people?travel=upcoming&incognito=true&hideSparse=true&requireFriendship=true&match=all&requireActivity=false" || request.Method != HttpMethod.Get)
                 throw new Exception("Prototype typed route mismatch");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(unsafePayload
                 ? "{\"isSimulation\":false,\"viewerDescription\":\"not a demo\",\"people\":[]}"

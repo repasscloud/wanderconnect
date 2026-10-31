@@ -15,7 +15,7 @@ public static class DataExportBuilder
     private const string DeletedMember = "Deleted member";
 
     public static async Task<object> BuildAsync(SwoovrDbContext db, Account account, DateTimeOffset now, CancellationToken cancellationToken,
-        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null)
+        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null, object? meetingSafety = null)
     {
         var id = account.Id;
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
@@ -40,7 +40,7 @@ public static class DataExportBuilder
 
         var conversations = await db.Conversations.Where(c => c.PairLow == id || c.PairHigh == id).OrderBy(c => c.CreatedAt).ToListAsync(cancellationToken);
         var conversationIds = conversations.Select(c => c.Id).ToList();
-        var messages = (await db.Messages.Where(m => conversationIds.Contains(m.ConversationId)).OrderBy(m => m.SentAt).ToListAsync(cancellationToken))
+        var messages = (await db.Messages.Where(m => conversationIds.Contains(m.ConversationId)).OrderBy(m => m.SentAt).ThenBy(m => m.Kind == MessageKind.System).ToListAsync(cancellationToken))
             .ToLookup(m => m.ConversationId);
         // #41: photo messages appear as they do in the chat: the member's own with their state, the other person's once passed.
         var mediaIds = messages.SelectMany(g => g).Where(m => m.MediaId is not null).Select(m => m.MediaId!.Value).ToList();
@@ -52,8 +52,8 @@ public static class DataExportBuilder
                     m.MediaId is { } y && media.TryGetValue(y, out var j) && j.RemovedAt is not null))
                 .Select(m => new
                 {
-                    from = m.SenderAccountId == id ? "you" : "them", kind = m.Kind.ToString().ToLowerInvariant(), text = MessagingPolicy.VisibleText(m), m.SentAt,
-                    deleted = m.DeletedAt is not null, photo = m.DeletedAt is null ? m.MediaId : null,
+                    from = m.Kind == MessageKind.System ? "system" : m.SenderAccountId == id ? "you" : "them", kind = m.ModerationRemovedAt!=null?"removed-by-moderation":m.Kind.ToString().ToLowerInvariant(), text = m.Kind == MessageKind.System ? ConversationEnding.SystemText(m.SenderAccountId == id) : MessagingPolicy.VisibleText(m), m.SentAt,
+                    removedByModeration = m.ModerationRemovedAt is not null, deleted = m.DeletedAt is not null, photo = m.DeletedAt is null ? m.MediaId : null,
                     photoState = m.SenderAccountId == id && m.DeletedAt is null && m.MediaId is { } p && media.TryGetValue(p, out var item) ? MediaPolicy.MemberState(item.Status) : null,
                 }),
         });
@@ -85,7 +85,14 @@ public static class DataExportBuilder
                 gender = identity.GenderId, identity.GenderDescription, identity.Pronouns, orientation = identity.OrientationId,
                 identity.ShowGender, identity.ShowOrientation, identity.ShowAge, identity.DatingShowMe,
             },
-            modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals,
+            modes, filters, trips, requests, blocks, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals, meetingSafety,
+            policyNoticeReceipts=await (from recipient in db.Set<PolicyNoticeRecipient>() join publication in db.Set<PolicyNoticePublication>() on recipient.PublicationId equals publication.Id where recipient.AccountId==id select new{publication.Version,recipient.Status,recipient.CreatedAt,recipient.CompletedAt,publication.PurgeAfter}).ToListAsync(cancellationToken),
+            appearance=await db.Set<MemberAppearance>().Where(a=>a.AccountId==id).Select(a=>new{a.Scheme,a.Mode,a.Revision,a.LastChangeId,a.UpdatedAt}).SingleOrDefaultAsync(cancellationToken),
+            betaEnrolments=await db.BetaEnrolments.Where(e=>e.AccountId==id).Select(e=>new{e.Id,e.Email,e.CreatedAt,e.RevokedAt,e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.InvitationState,e.InvitationAttempts,e.InvitationQueuedAt,e.InvitationAttemptedAt,e.InvitationCompletedAt,e.InvitationNextAttemptAt,e.InvitationOutcomeCode}).ToListAsync(cancellationToken),
+            betaJourneyObservations=await db.Set<BetaJourneyDay>().Where(r=>r.AccountId==id).Select(r=>new{r.Day,r.Dataset,r.ExploreSucceeded,r.ExploreHasPeer}).ToListAsync(cancellationToken),
+            policyAcceptances=await db.Set<PolicyAcceptance>().Where(p=>p.AccountId==id).Select(p=>new{p.Version,p.ContentSha256,p.AcceptedAt}).ToListAsync(cancellationToken),
+            reportingCountryDeclarations = await db.Set<ModerationTransparencyFact>().Where(f=>f.SubjectAccountId==id&&f.Action=="termination")
+                .Select(f=>new{f.ActionAt,f.Action,f.HomeCountryAtAction,f.CountryProvenance}).ToListAsync(cancellationToken),
             idVerification = verification, entitlements,
             // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
             photos = photos ?? [],

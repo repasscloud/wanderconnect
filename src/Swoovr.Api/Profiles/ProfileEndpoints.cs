@@ -11,7 +11,7 @@ namespace Swoovr.Api.Profiles;
 /// <summary>
 /// Connection modes (D92), the member's own core profile and mode settings, Explore for one mode, and another
 /// member's profile. Every rule is checked here (Q12: application services, not the client). Callers must pass the
-/// same member gate as /api/v1/me (active, adult-locked accounts refused, beta enrolled). Explore and profiles are local
+/// same member gate as /api/me (active, adult-locked accounts refused, beta enrolled). Explore and profiles are local
 /// to the viewer's home market (D125); MarketEndpoints holds the market lookups.
 /// </summary>
 public static class ProfileEndpoints
@@ -21,7 +21,7 @@ public static class ProfileEndpoints
 
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
         api.MapGet("/modes", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -57,6 +57,7 @@ public static class ProfileEndpoints
             if (market != profile.HomeMarketId)
                 Audit.Record(db, now, profile.AccountId, "account", "home-market.changed", "account", profile.AccountId.ToString(), $"{profile.HomeMarketId ?? "none"}>{market ?? "none"}");
             if (market is not null && market != profile.HomeMarketMovedTo) (profile.HomeMarketMovedTo, profile.HomeMarketMovedAt) = (market, now);
+            if(profile.About!=about)profile.TextRevision=accounts.Services.GetRequiredService<Swoovr.Api.Moderation.TextHarmQueue>().Enqueue(profile.AccountId,TextHarmSource.ProfileAbout,profile.AccountId,null,about,now);
             (profile.DisplayName, profile.Area, profile.About, profile.HomeGeoNameId, profile.HomeMarketId) = (name, area, about, update.HomeCityId, market);
             // Interest in a launch follows the home city; it lapses with no home city or once the home market is open.
             if (await db.MarketInterests.FindAsync([profile.AccountId], cancellationToken) is { } interest)
@@ -105,6 +106,7 @@ public static class ProfileEndpoints
             var about = ProfileTextPolicy.Clean(update.About);
             if (ProfileTextPolicy.Check(null, null, about) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode's about to {ProfileTextPolicy.AboutMax} characters of plain text.");
+            if(setting.About!=about)setting.TextRevision=accounts.Services.GetRequiredService<Swoovr.Api.Moderation.TextHarmQueue>().Enqueue(profile.AccountId,TextHarmSource.ModeAbout,profile.AccountId,modeId,about,now);
             (setting.Enabled, setting.Visible, setting.About, setting.UpdatedAt) = (update.Enabled, update.Visible, about, now);
             // #91: consent for the core about to show in this mode is asked, never assumed; null keeps the answer.
             if (update.ShareCoreAbout is { } share) setting.ShareCoreAbout = share;
@@ -134,8 +136,10 @@ public static class ProfileEndpoints
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Searches.LimitedAsync(db, current.Profile!.AccountId, "search", clock.GetUtcNow(), cancellationToken) is { } limited) return limited;
-            return Results.Ok(new ExploreResult(selected.Id, await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken,
-                accounts.Services.GetRequiredService<Media.MediaLinks>()), market.Name));
+            var people=await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken,
+                accounts.Services.GetRequiredService<Media.MediaLinks>());
+            await accounts.Services.GetRequiredService<Swoovr.Api.Analytics.BetaJourneyRecorder>().RecordAsync(current.Account!.Id,true,people.Count>0,cancellationToken);
+            return Results.Ok(new ExploreResult(selected.Id,people,market.Name));
         });
         // D175: ?mode= is the mode the profile was opened from; the view shows that mode and the modes the pair is connected in.
         api.MapGet("/profiles/{id:guid}", async (Guid id, string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,

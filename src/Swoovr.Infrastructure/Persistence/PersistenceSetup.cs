@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Swoovr.Infrastructure.Persistence;
@@ -13,8 +14,8 @@ public static class PersistenceSetup
     public static bool AddSwoovrPersistence(this IServiceCollection services, string? connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString)) return false;
-        services.AddDbContext<SwoovrDbContext>(options => options.UseNpgsql(connectionString,
-            npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history")));
+        services.AddDbContext<SwoovrDbContext>((provider, options) => options.UseNpgsql(connectionString,
+            npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history")).AddInterceptors(provider.GetServices<ISaveChangesInterceptor>()));
         return true;
     }
 }

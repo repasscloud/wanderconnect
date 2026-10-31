@@ -19,17 +19,17 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     for (const n of names) {
       tokens[n] = await memberToken(browser, members[n]);
       // Everyone lives in Adelaide: Explore, profiles and requests are local to one market (D125).
-      await call(tokens[n], '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: 2078025 } });
+      await call(tokens[n], '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional ' + n[0].toUpperCase() + n.slice(1), homeCityId: 2078025 } });
       await matchReady(tokens[n]);
-      for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/v1/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
-      pid[n] = (await call(tokens[n], '/api/v1/me/profile')).body.publicId;
+      for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
+      pid[n] = (await call(tokens[n], '/api/me/profile')).body.publicId;
       ids[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[n]).sub}'`);
     }
-    const send = (from, to, mode, extra = {}) => call(tokens[from], '/api/v1/requests', { method: 'POST', body: { to: pid[to], mode, ...extra } });
-    const answer = (who, id, what) => call(tokens[who], `/api/v1/requests/${id}/${what}`, { method: 'POST' });
-    const box = async (who, which) => (await call(tokens[who], `/api/v1/requests?box=${which}`)).body.items;
-    const connections = async who => (await call(tokens[who], '/api/v1/connections')).body.items;
-    const explore = async (who, mode = 'dating') => (await call(tokens[who], '/api/v1/explore?mode=' + mode)).body.people.map(p => p.id);
+    const send = (from, to, mode, extra = {}) => call(tokens[from], '/api/requests', { method: 'POST', body: { to: pid[to], mode, ...extra } });
+    const answer = (who, id, what) => call(tokens[who], `/api/requests/${id}/${what}`, { method: 'POST' });
+    const box = async (who, which) => (await call(tokens[who], `/api/requests?box=${which}`)).body.items;
+    const connections = async who => (await call(tokens[who], '/api/connections')).body.items;
+    const explore = async (who, mode = 'dating') => (await call(tokens[who], '/api/explore?mode=' + mode)).body.people.map(p => p.id);
     const code = r => [r.status, r.body?.code];
 
     // Send: pending, in both boxes, nothing connected yet (Q17 rule 31).
@@ -41,12 +41,12 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.ok((await box('ann', 'sent')).some(x => x.id === annBob)); pass();
     assert.deepEqual(await connections('ann'), []); pass();
     assert.equal(await sql(`SELECT detail FROM audit_entries WHERE action = 'request.sent' AND target_id = '${annBob}'`), 'dating'); pass();
-    let person = (await call(tokens.ann, `/api/v1/profiles/${pid.bob}`)).body;
+    let person = (await call(tokens.ann, `/api/profiles/${pid.bob}`)).body;
     // D175, D182: the pending request's mode shows; another shared mode only when the profile is opened from it.
     assert.deepEqual(person.modes.map(m => [m.id, m.connection, m.requestId]), [['dating', 'sent', annBob]]); pass();
-    person = (await call(tokens.ann, `/api/v1/profiles/${pid.bob}?mode=friends`)).body;
+    person = (await call(tokens.ann, `/api/profiles/${pid.bob}?mode=friends`)).body;
     assert.deepEqual(person.modes.map(m => [m.id, m.connection, m.requestId]), [['dating', 'sent', annBob], ['friends', 'none', null]]); pass();
-    assert.deepEqual((await call(tokens.bob, `/api/v1/profiles/${pid.ann}`)).body.modes.find(m => m.id === 'dating').connection, 'received'); pass();
+    assert.deepEqual((await call(tokens.bob, `/api/profiles/${pid.ann}`)).body.modes.find(m => m.id === 'dating').connection, 'received'); pass();
 
     // One pending per pair and mode, whichever way; another mode is separate.
     assert.deepEqual(code(await send('ann', 'bob', 'dating')), [409, 'request-pending']); pass();
@@ -65,7 +65,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
       assert.deepEqual(code(await answer(who, annBob, what)), [404, 'not-available'], `${who} ${what}`); pass();
     }
     assert.equal((await answer('ann', '00000000-0000-0000-0000-000000000000', 'withdraw')).status, 404); pass();
-    assert.equal((await call(tokens.ann, `/api/v1/requests/${annBob}/delete`, { method: 'POST' })).status, 404); pass(); // no such answer
+    assert.equal((await call(tokens.ann, `/api/requests/${annBob}/delete`, { method: 'POST' })).status, 404); pass(); // no such answer
 
     // Accept connects; asking again is refused; a settled request can't be answered again.
     r = await answer('bob', annBob, 'accept');
@@ -74,7 +74,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.deepEqual(code(await send('ann', 'bob', 'dating')), [409, 'already-connected']); pass();
     assert.deepEqual(code(await send('bob', 'ann', 'dating')), [409, 'already-connected']); pass();
     assert.deepEqual(code(await answer('bob', annBob, 'decline')), [409, 'request-settled']); pass();
-    assert.equal((await call(tokens.ann, `/api/v1/profiles/${pid.bob}`)).body.modes.find(m => m.id === 'dating').connection, 'connected'); pass();
+    assert.equal((await call(tokens.ann, `/api/profiles/${pid.bob}`)).body.modes.find(m => m.id === 'dating').connection, 'connected'); pass();
     // Decline: no connection, and the sender waits before asking again in that mode (D117).
     r = await answer('bob', annBobFriends, 'decline'); assert.equal(r.body.status, 'declined'); pass();
     assert.deepEqual(code(await send('ann', 'bob', 'friends')), [409, 'recently-declined']); pass();
@@ -85,28 +85,28 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.ok(!(await box('cat', 'received')).some(x => x.id === annCat)); pass();
 
     // Modes: both must have it on and the person must show themselves in it; unknown modes and ids are refused.
-    await call(tokens.ann, '/api/v1/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(tokens.ann, '/api/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
     assert.deepEqual(code(await send('ann', 'cat', 'business')), [404, 'not-available']); pass(); // cat has business off
     assert.deepEqual(code(await send('cat', 'ann', 'business')), [404, 'not-available']); pass(); // the sender has it off
-    await call(tokens.cat, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
+    await call(tokens.cat, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
     assert.deepEqual(code(await send('ann', 'cat', 'friends')), [404, 'not-available']); pass(); // hidden
-    await call(tokens.cat, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(tokens.cat, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: true } });
     assert.deepEqual(code(await send('ann', 'cat', 'travel')), [404, 'unknown-mode']); pass();
-    assert.deepEqual(code(await call(tokens.ann, '/api/v1/requests', { method: 'POST', body: { to: pid.ann, mode: 'dating' } })), [404, 'not-available']); pass(); // self
-    assert.deepEqual(code(await call(tokens.ann, '/api/v1/requests', { method: 'POST', body: { to: '00000000-0000-0000-0000-000000000000', mode: 'dating' } })), [404, 'not-available']); pass();
-    assert.equal((await call(tokens.ann, '/api/v1/requests', { method: 'POST', body: { to: 'not-a-uuid', mode: 'dating' } })).status, 400); pass();
+    assert.deepEqual(code(await call(tokens.ann, '/api/requests', { method: 'POST', body: { to: pid.ann, mode: 'dating' } })), [404, 'not-available']); pass(); // self
+    assert.deepEqual(code(await call(tokens.ann, '/api/requests', { method: 'POST', body: { to: '00000000-0000-0000-0000-000000000000', mode: 'dating' } })), [404, 'not-available']); pass();
+    assert.equal((await call(tokens.ann, '/api/requests', { method: 'POST', body: { to: 'not-a-uuid', mode: 'dating' } })).status, 400); pass();
     // A tampered body can't choose the sender, the status or the account behind the public id.
     r = await send('ann', 'cat', 'friends', { from: pid.bob, fromAccountId: ids.bob, status: 'accepted', toAccountId: ids.dan });
     assert.deepEqual([r.status, r.body.status, r.body.direction, r.body.person.id], [201, 'pending', 'sent', pid.cat]); pass();
     assert.equal(await sql(`SELECT from_account_id || ':' || to_account_id || ':' || status FROM connection_requests WHERE id = '${r.body.id}'`), `${ids.ann}:${ids.cat}:Pending`); pass();
-    assert.equal((await call(tokens.ann, '/api/v1/requests?box=everything')).status, 400); pass();
-    assert.equal((await call(tokens.ann, '/api/v1/requests?box=sent&page=0')).status, 400); pass();
+    assert.equal((await call(tokens.ann, '/api/requests?box=everything')).status, 400); pass();
+    assert.equal((await call(tokens.ann, '/api/requests?box=sent&page=0')).status, 400); pass();
 
     // Bots never initiate (Q11 rules 50–52) but may answer a member's request (rule 51).
     const root = await rootAdminToken(browser);
-    await call(root, `/api/v1/admin/accounts/${ids.dan}/bot`, { method: 'PUT', body: { bot: true } });
-    await call(root, `/api/v1/admin/accounts/${ids.dan}/bot-modes`, { method: 'PUT', body: { modes: ['dating'] } });
-    await call(root, `/api/v1/admin/accounts/${ids.dan}/bot-markets`, { method: 'PUT', body: { markets: ['adelaide'] } }); // D125 rule 38
+    await call(root, `/api/admin/accounts/${ids.dan}/bot`, { method: 'PUT', body: { bot: true } });
+    await call(root, `/api/admin/accounts/${ids.dan}/bot-modes`, { method: 'PUT', body: { modes: ['dating'] } });
+    await call(root, `/api/admin/accounts/${ids.dan}/bot-markets`, { method: 'PUT', body: { markets: ['adelaide'] } }); // D125 rule 38
     assert.deepEqual(code(await send('dan', 'ann', 'dating')), [403, 'bot-cannot-initiate']); pass();
     assert.deepEqual(code(await send('dan', 'ann', 'friends')), [403, 'bot-cannot-initiate']); pass();
     r = await send('ann', 'dan', 'dating'); assert.equal(r.status, 201); pass();
@@ -117,13 +117,13 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const finEve = (await send('fin', 'eve', 'dating')).body.id;
     const eveFin = (await send('eve', 'fin', 'friends')).body.id;
     assert.ok((await explore('fin')).includes(pid.eve) && (await explore('eve')).includes(pid.fin)); pass();
-    assert.equal((await call(tokens.eve, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 204); pass();
-    assert.equal((await call(tokens.eve, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 204); pass(); // idempotent
+    assert.equal((await call(tokens.eve, '/api/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 204); pass();
+    assert.equal((await call(tokens.eve, '/api/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 204); pass(); // idempotent
     assert.equal(await sql(`SELECT string_agg(status, ',' ORDER BY status) FROM connection_requests WHERE id IN ('${finEve}', '${eveFin}')`), 'Cancelled,Cancelled'); pass();
     assert.ok(!(await explore('fin')).includes(pid.eve) && !(await explore('eve')).includes(pid.fin)); pass();
     assert.ok(!(await explore('fin', 'friends')).includes(pid.eve)); pass();
     for (const [who, other] of [['fin', 'eve'], ['eve', 'fin']]) {
-      const profile = await call(tokens[who], `/api/v1/profiles/${pid[other]}`);
+      const profile = await call(tokens[who], `/api/profiles/${pid[other]}`);
       assert.equal(profile.status, 404); assert.ok(!JSON.stringify(profile.body).toLowerCase().includes('block')); pass();
       const request = await send(who, other, 'activities');
       assert.deepEqual(code(request), [404, 'not-available']); assert.ok(!JSON.stringify(request.body).toLowerCase().includes('block')); pass();
@@ -134,25 +134,25 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     }
     for (const who of ['eve', 'fin']) for (const b of ['received', 'sent'])
       assert.ok(!(await box(who, b)).some(x => [finEve, eveFin].includes(x.id))); pass();
-    assert.deepEqual((await call(tokens.eve, '/api/v1/blocks')).body.map(b => b.id), [pid.fin]); pass();
-    assert.deepEqual((await call(tokens.fin, '/api/v1/blocks')).body, []); pass(); // fin is never told
+    assert.deepEqual((await call(tokens.eve, '/api/blocks')).body.map(b => b.id), [pid.fin]); pass();
+    assert.deepEqual((await call(tokens.fin, '/api/blocks')).body, []); pass(); // fin is never told
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'block.added' AND actor_account_id = '${ids.eve}' AND target_id = '${ids.fin}' AND detail IS NULL`), '1'); pass();
     // Blocking back is allowed; one side unblocking keeps them apart while the other block stands.
-    assert.equal((await call(tokens.fin, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.eve } })).status, 204); pass();
-    assert.equal((await call(tokens.eve, `/api/v1/blocks/${pid.fin}`, { method: 'DELETE' })).status, 204); pass();
+    assert.equal((await call(tokens.fin, '/api/blocks', { method: 'POST', body: { profileId: pid.eve } })).status, 204); pass();
+    assert.equal((await call(tokens.eve, `/api/blocks/${pid.fin}`, { method: 'DELETE' })).status, 204); pass();
     assert.ok(!(await explore('eve')).includes(pid.fin)); pass();
-    assert.equal((await call(tokens.fin, `/api/v1/blocks/${pid.eve}`, { method: 'DELETE' })).status, 204); pass();
+    assert.equal((await call(tokens.fin, `/api/blocks/${pid.eve}`, { method: 'DELETE' })).status, 204); pass();
     assert.ok((await explore('eve')).includes(pid.fin) && (await explore('fin')).includes(pid.eve)); pass();
-    assert.equal((await call(tokens.fin, `/api/v1/blocks/${pid.eve}`, { method: 'DELETE' })).status, 404); pass(); // nothing to remove
-    assert.equal((await call(tokens.fin, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 404); pass(); // self
+    assert.equal((await call(tokens.fin, `/api/blocks/${pid.eve}`, { method: 'DELETE' })).status, 404); pass(); // nothing to remove
+    assert.equal((await call(tokens.fin, '/api/blocks', { method: 'POST', body: { profileId: pid.fin } })).status, 404); pass(); // self
     // A block ends an existing connection for both (Q42 rule 14, D143, since slice U); unblocking doesn't bring it back,
     // but the pair may connect again with a new request.
-    await call(tokens.ann, '/api/v1/blocks', { method: 'POST', body: { profileId: pid.bob } });
+    await call(tokens.ann, '/api/blocks', { method: 'POST', body: { profileId: pid.bob } });
     assert.ok(!(await connections('ann')).some(x => x.id === annBob) && !(await connections('bob')).some(x => x.id === annBob)); pass();
-    await call(tokens.ann, `/api/v1/blocks/${pid.bob}`, { method: 'DELETE' });
+    await call(tokens.ann, `/api/blocks/${pid.bob}`, { method: 'DELETE' });
     assert.ok(!(await connections('bob')).some(x => x.id === annBob) && !(await connections('ann')).some(x => x.id === annBob)); pass();
     assert.equal(await sql(`SELECT status FROM connection_requests WHERE id = '${annBob}'`), 'Ended'); pass();
-    r = await call(tokens.ann, '/api/v1/requests', { method: 'POST', body: { to: pid.bob, mode: 'dating' } });
+    r = await call(tokens.ann, '/api/requests', { method: 'POST', body: { to: pid.bob, mode: 'dating' } });
     assert.equal(r.status, 201); pass();
     assert.equal((await answer('bob', r.body.id, 'accept')).status, 200); pass();
 
@@ -177,12 +177,12 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     };
     await signIn(page, members.ann);
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });
-    assert.equal((await bff('api/v1/requests?box=received')).status(), 200); pass();
-    assert.equal((await bff('api/v1/connections')).status(), 200); pass();
-    assert.equal((await bff('api/v1/blocks')).status(), 200); pass();
-    assert.equal((await bff(`api/v1/requests/${annBob}`)).status(), 404); pass();
-    assert.equal((await bff(`api/v1/requests/${annBob}/delete`, { method: 'POST' })).status(), 404); pass();
-    assert.equal((await bff('api/v1/requests', { method: 'POST', data: { to: pid.hal, mode: 'dating', pad: 'x'.repeat(17 * 1024) } })).status(), 413); pass();
+    assert.equal((await bff('api/requests?box=received')).status(), 200); pass();
+    assert.equal((await bff('api/connections')).status(), 200); pass();
+    assert.equal((await bff('api/blocks')).status(), 200); pass();
+    assert.equal((await bff(`api/requests/${annBob}`)).status(), 404); pass();
+    assert.equal((await bff(`api/requests/${annBob}/delete`, { method: 'POST' })).status(), 404); pass();
+    assert.equal((await bff('api/requests', { method: 'POST', data: { to: pid.hal, mode: 'dating', pad: 'x'.repeat(17 * 1024) } })).status(), 413); pass();
 
     // Web: send from a profile, answer on the other member's Connections page, then block from a profile.
     await page.goto(web + `/people/${pid.hal}`);

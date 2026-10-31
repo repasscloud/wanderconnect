@@ -19,7 +19,7 @@ public static class ArrivalEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
 
         // D149: the explicit confirm-arrival operation. A client "arrived" flag is never read; only the reading is.
         api.MapPost("/me/trips/{id:guid}/arrival", async (Guid id, LocationCheck? reading, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
@@ -120,7 +120,7 @@ public static class ArrivalEndpoints
             return Results.Ok(new HomeCheckView(Wire(outcome)));
         });
 
-        var admin = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
         // D149 rule 7: support confirms an arrival the device couldn't, after a review, with a reason.
         admin.MapGet("/accounts/{id:guid}/trips", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>

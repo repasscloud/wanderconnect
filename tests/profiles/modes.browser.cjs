@@ -17,49 +17,49 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     for (const [key, member] of Object.entries({ ana, ben, cai, dee, eli })) tokens[key] = await memberToken(browser, member);
 
     // Catalogue: four stable ids in order, labels from data, ten intention chips each (Q16), no Travel.
-    let modes = await call(tokens.ana, '/api/v1/modes');
+    let modes = await call(tokens.ana, '/api/modes');
     assert.equal(modes.status, 200);
     assert.deepEqual(modes.body.map(m => [m.id, m.label]), [['dating', 'Dating'], ['friends', 'Friends'], ['activities', 'Activities'], ['business', 'Business']]); pass();
     assert.ok(modes.body.every(m => m.intentions.length === 10 && m.maxIntentions === 5)); pass();
     assert.deepEqual([modes.body[0].intentions[0], modes.body[3].intentions[9]], [
       { id: '00000016-0001-4000-8000-000000000001', label: 'Long-term relationship' }, { id: '00000016-0004-4000-8000-000000000010', label: 'Knowledge sharing' }]); pass();
     const chip = (mode, n) => modes.body.find(m => m.id === mode).intentions[n - 1].id;
-    assert.equal((await call(null, '/api/v1/modes')).status, 401); pass();
-    assert.equal((await call(tokens.dee, '/api/v1/modes')).body.code, 'beta-not-enrolled'); pass();
+    assert.equal((await call(null, '/api/modes')).status, 401); pass();
+    assert.equal((await call(tokens.dee, '/api/modes')).body.code, 'beta-not-enrolled'); pass();
 
     // Own profile starts empty with every mode off.
-    let mine = await call(tokens.ana, '/api/v1/me/profile');
+    let mine = await call(tokens.ana, '/api/me/profile');
     assert.equal(mine.status, 200); assert.equal(mine.body.displayName, null);
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', false, false], ['friends', false, false], ['activities', false, false], ['business', false, false]]); pass();
 
     // Core profile: trimmed, limits and control characters refused, nothing stored in the audit log.
-    mine = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', area: 'Adelaide CBD', about: 'Fictional adult.\nLikes walks.', homeCityId: 2078025 } });
+    mine = await call(tokens.ana, '/api/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', area: 'Adelaide CBD', about: 'Fictional adult.\nLikes walks.', homeCityId: 2078025 } });
     await matchReady(tokens.ana);
     assert.equal(mine.status, 200); assert.equal(mine.body.displayName, 'Fictional Ana'); pass();
     for (const body of [{ displayName: 'x'.repeat(41) }, { area: 'y'.repeat(61) }, { about: 'z'.repeat(501) }, { displayName: 'Ana\u0007' }, { area: 'Adel\naide' }]) {
-      const bad = await call(tokens.ana, '/api/v1/me/profile', { method: 'PUT', body });
+      const bad = await call(tokens.ana, '/api/me/profile', { method: 'PUT', body });
       assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-profile']); pass();
     }
-    assert.equal((await call(tokens.ana, '/api/v1/me/profile')).body.displayName, 'Fictional Ana'); pass(); // refusals changed nothing
+    assert.equal((await call(tokens.ana, '/api/me/profile')).body.displayName, 'Fictional Ana'); pass(); // refusals changed nothing
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'profile.updated' AND detail IS NOT NULL`), '0'); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE detail LIKE '%Fictional Ana%' OR detail LIKE '%Adelaide CBD%'`), '0'); pass();
 
     // Modes: several at once, each independent; unknown modes, Travel and made-up intentions refused.
-    mine = await call(tokens.ana, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true, intentions: [] } });
-    mine = await call(tokens.ana, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
+    mine = await call(tokens.ana, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true, intentions: [] } });
+    mine = await call(tokens.ana, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', true, true], ['friends', true, false], ['activities', false, false], ['business', false, false]]); pass();
-    mine = await call(tokens.ana, '/api/v1/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
+    mine = await call(tokens.ana, '/api/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
     assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [], about: null, shareCoreAbout: false }); pass(); // turning one off leaves the other
     for (const id of ['travel', 'connect', 'DATING']) {
-      const bad = await call(tokens.ana, `/api/v1/me/modes/${id}`, { method: 'PUT', body: { enabled: true, visible: true } });
+      const bad = await call(tokens.ana, `/api/me/modes/${id}`, { method: 'PUT', body: { enabled: true, visible: true } });
       assert.deepEqual([bad.status, bad.body?.code], [404, 'unknown-mode'], id); pass();
     }
-    let bad = await call(tokens.ana, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true, intentions: ['00000000-0000-0000-0000-000000000001'] } });
+    let bad = await call(tokens.ana, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true, intentions: ['00000000-0000-0000-0000-000000000001'] } });
     assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-mode']); pass();
-    assert.equal((await call(tokens.dee, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } })).status, 403); pass();
+    assert.equal((await call(tokens.dee, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } })).status, 403); pass();
 
     // Intentions (Q16): up to five per mode, only the mode's own chips, independent per mode, kept while a mode is off.
-    const save = (who, mode, body) => call(tokens[who], `/api/v1/me/modes/${mode}`, { method: 'PUT', body });
+    const save = (who, mode, body) => call(tokens[who], `/api/me/modes/${mode}`, { method: 'PUT', body });
     const datingFive = [1, 2, 3, 7, 10].map(n => chip('dating', n));
     mine = await save('ana', 'dating', { enabled: true, visible: true, intentions: datingFive });
     assert.deepEqual(mine.body.modes.find(m => m.id === 'dating').intentions, datingFive); pass();
@@ -71,28 +71,28 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-mode']); pass(); // another mode's chip
     mine = await save('ana', 'dating', { enabled: true, visible: true, intentions: [...datingFive, datingFive[0], datingFive[1]] });
     assert.equal(mine.status, 200); assert.equal(mine.body.modes.find(m => m.id === 'dating').intentions.length, 5); pass(); // duplicates count once
-    assert.deepEqual((await call(tokens.ana, '/api/v1/me/profile')).body.modes.find(m => m.id === 'dating').intentions, datingFive); pass(); // refusals changed nothing
+    assert.deepEqual((await call(tokens.ana, '/api/me/profile')).body.modes.find(m => m.id === 'dating').intentions, datingFive); pass(); // refusals changed nothing
     mine = await save('ana', 'friends', { enabled: false, visible: false, intentions: [chip('friends', 1), chip('friends', 9)] });
     assert.deepEqual(mine.body.modes.find(m => m.id === 'friends').intentions, [chip('friends', 1), chip('friends', 9)]); pass(); // chosen while off
     assert.deepEqual(mine.body.modes.find(m => m.id === 'dating').intentions, datingFive); pass(); // other mode untouched
     assert.match(await sql(`SELECT detail FROM audit_entries WHERE action = 'mode.updated' AND target_id = 'friends' ORDER BY id DESC LIMIT 1`), /^off:hidden:intentions:2$/); pass();
 
     // Ben: dating on and visible. Cai: dating on but hidden. Eli: dating visible but no display name.
-    await call(tokens.ben, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg', homeCityId: 2078025 } });
+    await call(tokens.ben, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg', homeCityId: 2078025 } });
     await matchReady(tokens.ben);
-    await call(tokens.ben, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
-    await call(tokens.ben, '/api/v1/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
-    await call(tokens.cai, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Cai', homeCityId: 2078025 } });
+    await call(tokens.ben, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(tokens.ben, '/api/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(tokens.cai, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Cai', homeCityId: 2078025 } });
     await matchReady(tokens.cai);
-    await call(tokens.cai, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: false } });
-    await call(tokens.eli, '/api/v1/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
+    await call(tokens.cai, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: false } });
+    await call(tokens.eli, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
 
     // Explore needs the mode on for the viewer; shows only visible, named, eligible people; never the viewer.
     // Matched by public id: earlier runs leave their own fictional members with the same names.
     const pid = {};
-    for (const key of Object.keys(tokens)) if (key !== 'dee') pid[key] = (await call(tokens[key], '/api/v1/me/profile')).body.publicId;
+    for (const key of Object.keys(tokens)) if (key !== 'dee') pid[key] = (await call(tokens[key], '/api/me/profile')).body.publicId;
     const ids = r => r.body.people.map(p => p.id);
-    let explore = await call(tokens.ana, '/api/v1/explore?mode=dating');
+    let explore = await call(tokens.ana, '/api/explore?mode=dating');
     assert.equal(explore.status, 200); assert.ok(ids(explore).includes(pid.ben)); pass();
     assert.ok(!ids(explore).includes(pid.cai)); pass(); // hidden
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
@@ -103,16 +103,16 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.
     await save('ben', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 4), chip('dating', 2)] });
-    let benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
+    let benTile = (await call(tokens.ana, '/api/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
     assert.deepEqual(benTile.intentions, ['Short-term dating', 'Something casual / no strings']); pass();
     // D113: a chip retired after Ben picked it stays stored but hidden, doesn't block a save and can't be added afresh.
     const retired = chip('dating', 4); // Ana doesn't hold this one
     try {
       await sql(`UPDATE mode_intentions SET available = false WHERE id = '${retired}'`);
-      benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
+      benTile = (await call(tokens.ana, '/api/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
       assert.deepEqual(benTile.intentions, ['Short-term dating']); pass();
-      assert.deepEqual((await call(tokens.ben, '/api/v1/me/profile')).body.modes.find(m => m.id === 'dating').intentions, [chip('dating', 2)]); pass();
-      assert.ok(!(await call(tokens.ben, '/api/v1/modes')).body[0].intentions.some(i => i.id === retired)); pass();
+      assert.deepEqual((await call(tokens.ben, '/api/me/profile')).body.modes.find(m => m.id === 'dating').intentions, [chip('dating', 2)]); pass();
+      assert.ok(!(await call(tokens.ben, '/api/modes')).body[0].intentions.some(i => i.id === retired)); pass();
       const benFive = [1, 2, 3, 5, 6].map(n => chip('dating', n));
       assert.equal((await save('ben', 'dating', { enabled: true, visible: true, intentions: benFive })).status, 200); pass(); // five plus the hidden one
       assert.equal(await sql(`SELECT count(*) FROM member_mode_intentions i JOIN accounts a ON a.id = i.account_id WHERE a.subject = '${claims(tokens.ben).sub}' AND i.intention_id = '${retired}'`), '1'); pass();
@@ -122,40 +122,40 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     } finally {
       await sql(`UPDATE mode_intentions SET available = true WHERE id = '${retired}'`);
     }
-    benTile = (await call(tokens.ana, '/api/v1/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
+    benTile = (await call(tokens.ana, '/api/explore?mode=dating')).body.people.find(p => p.id === pid.ben);
     assert.deepEqual(benTile.intentions, ['Short-term dating', 'Something casual / no strings']); pass(); // reactivated, the kept choice shows again
     const benAccount = await sql(`SELECT a.id FROM accounts a WHERE a.subject = '${claims(tokens.ben).sub}'`);
     assert.notEqual(benCard.id, benAccount); pass(); // the public id is not the account id
-    bad = await call(tokens.ana, '/api/v1/explore?mode=business');
+    bad = await call(tokens.ana, '/api/explore?mode=business');
     assert.deepEqual([bad.status, bad.body.code], [403, 'mode-not-enabled']); pass();
-    for (const q of ['?mode=travel', '?mode=', '']) { bad = await call(tokens.ana, '/api/v1/explore' + q); assert.equal(bad.status, 404, q); pass(); }
-    assert.ok(!ids(await call(tokens.ben, '/api/v1/explore?mode=dating')).includes(pid.cai)); pass();
+    for (const q of ['?mode=travel', '?mode=', '']) { bad = await call(tokens.ana, '/api/explore' + q); assert.equal(bad.status, 404, q); pass(); }
+    assert.ok(!ids(await call(tokens.ben, '/api/explore?mode=dating')).includes(pid.cai)); pass();
 
     // Person profile: only in modes both have on; otherwise not found, the same for unknown ids.
-    let person = await call(tokens.ana, `/api/v1/profiles/${benCard.id}`);
+    let person = await call(tokens.ana, `/api/profiles/${benCard.id}`);
     assert.equal(person.status, 200); assert.deepEqual(person.body.modes.map(m => m.id), ['dating']); pass(); // ana has business off
     const caiId = await sql(`SELECT p.public_id FROM member_profiles p JOIN accounts a ON a.id = p.account_id WHERE a.subject = '${claims(tokens.cai).sub}'`);
-    assert.equal((await call(tokens.ana, `/api/v1/profiles/${caiId}`)).status, 404); pass();
-    assert.equal((await call(tokens.ana, '/api/v1/profiles/00000000-0000-0000-0000-000000000000')).status, 404); pass();
-    const anaId = (await call(tokens.ana, '/api/v1/me/profile')).body.publicId;
-    assert.equal((await call(tokens.ana, `/api/v1/profiles/${anaId}`)).status, 404); pass(); // own profile is not "someone else"
+    assert.equal((await call(tokens.ana, `/api/profiles/${caiId}`)).status, 404); pass();
+    assert.equal((await call(tokens.ana, '/api/profiles/00000000-0000-0000-0000-000000000000')).status, 404); pass();
+    const anaId = (await call(tokens.ana, '/api/me/profile')).body.publicId;
+    assert.equal((await call(tokens.ana, `/api/profiles/${anaId}`)).status, 404); pass(); // own profile is not "someone else"
 
     // Account state still wins: a revoked beta place, a bot flag or a lock hides Ben everywhere.
     await cli('beta', 'revoke', ben.email);
-    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
-    assert.equal((await call(tokens.ana, `/api/v1/profiles/${benCard.id}`)).status, 404); pass();
+    assert.ok(!ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass();
+    assert.equal((await call(tokens.ana, `/api/profiles/${benCard.id}`)).status, 404); pass();
     await cli('beta', 'add', ben.email);
-    await call(tokens.ben, '/api/v1/session'); // binds the new enrolment
-    assert.ok(ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
+    await call(tokens.ben, '/api/session'); // binds the new enrolment
+    assert.ok(ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass();
     await sql(`UPDATE member_profiles SET bot = true WHERE public_id = '${benCard.id}'`);
-    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
+    assert.ok(!ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
     await sql(`UPDATE member_profiles SET bot = false WHERE public_id = '${benCard.id}'`);
-    await call(tokens.ben, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10) } }); // fictional under-18 date locks the account (D40)
-    assert.ok(!ids(await call(tokens.ana, '/api/v1/explore?mode=dating')).includes(pid.ben)); pass();
-    assert.equal((await call(tokens.ben, '/api/v1/explore?mode=dating')).body.code, 'account-locked'); pass();
+    await call(tokens.ben, '/api/me/age', { method: 'PUT', body: { dateOfBirth: new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10) } }); // fictional under-18 date locks the account (D40)
+    assert.ok(!ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass();
+    assert.equal((await call(tokens.ben, '/api/explore?mode=dating')).body.code, 'account-locked'); pass();
 
     // A second visible person for the pages (Ben is now locked).
-    await call(tokens.eli, '/api/v1/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.', homeCityId: 2078025 } });
+    await call(tokens.eli, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.', homeCityId: 2078025 } });
     await matchReady(tokens.eli);
     await save('eli', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 6), chip('dating', 1)] });
 
@@ -180,11 +180,11 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     await page.waitForSelector('[data-chip-picker=dating] [data-chip-count="4"]'); pass();
     await page.click(`[data-chip-picker=dating] [data-chip="${chip('dating', 9)}"]`);
     await page.waitForSelector('[data-chip-picker=dating] [data-chip-count="5"]');
-    assert.deepEqual((await call(tokens.ana, '/api/v1/me/profile')).body.modes.find(m => m.id === 'dating').intentions, [1, 2, 3, 7, 9].map(n => chip('dating', n))); pass();
+    assert.deepEqual((await call(tokens.ana, '/api/me/profile')).body.modes.find(m => m.id === 'dating').intentions, [1, 2, 3, 7, 9].map(n => chip('dating', n))); pass();
     assert.equal(await page.locator('[data-chip-picker=business] [data-chip-count]').innerText(), '0 of 5'); pass();
     await page.getByLabel('Use Activities').check();
     await page.waitForSelector('[data-mode-card=activities][data-mode-enabled=true][data-mode-visible=true]');
-    assert.equal((await call(tokens.ana, '/api/v1/me/profile')).body.modes.find(m => m.id === 'activities').enabled, true); pass();
+    assert.equal((await call(tokens.ana, '/api/me/profile')).body.modes.find(m => m.id === 'activities').enabled, true); pass();
     await page.getByLabel('Show my profile in Activities').uncheck();
     await page.waitForSelector('[data-mode-card=activities][data-mode-visible=false]'); pass();
     await page.fill('#area', 'Adelaide'); await page.click('[data-core-form] button[type=submit]');
@@ -219,10 +219,10 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     await page.goto(web + `/people/${caiId}`);
     await page.waitForSelector('[data-person=unavailable]', { timeout: 20000 }); pass();
     assert.deepEqual(apiCalls, []); pass(); // the browser never calls the API directly
-    assert.equal((await page.request.get(web + '/bff/api/v1/explore?mode=dating', { headers: { 'X-Swoovr-Bff': '1' } })).status(), 200); pass();
-    assert.equal((await page.request.get(web + '/bff/api/v1/admin/beta', { headers: { 'X-Swoovr-Bff': '1' } })).status(), 404); pass();
-    assert.equal((await page.request.get(web + '/bff/api/v1/me/modes/../../admin/beta', { headers: { 'X-Swoovr-Bff': '1' } })).status(), 404); pass();
-    assert.equal((await page.request.get(web + '/bff/api/v1/explore?mode=dating')).status(), 400); pass(); // header required
+    assert.equal((await page.request.get(web + '/bff/api/explore?mode=dating', { headers: { 'X-Swoovr-Bff': '1' } })).status(), 200); pass();
+    assert.equal((await page.request.get(web + '/bff/api/admin/beta', { headers: { 'X-Swoovr-Bff': '1' } })).status(), 404); pass();
+    assert.equal((await page.request.get(web + '/bff/api/me/modes/../../admin/beta', { headers: { 'X-Swoovr-Bff': '1' } })).status(), 404); pass();
+    assert.equal((await page.request.get(web + '/bff/api/explore?mode=dating')).status(), 400); pass(); // header required
 
     // Signed out, the pages say so and load nothing.
     const guest = await (await browser.newContext()).newPage();

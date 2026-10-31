@@ -1,0 +1,84 @@
+@page "/beta"
+@inject AdminClient Admin
+<PageTitle>Beta enrolments — Swoovr admin</PageTitle>
+<h1>Beta enrolments</h1>
+<p class="help">Admins can pre-authorise a verified email for the private beta. Intake and its review queue belong to the separate swoovr.com project. Joining that queue does not grant access.</p>
+<p class="help">When invitation email is enabled, adding a new enrolment queues one email; otherwise no invitation email is sent. Check its separate status below. This does not grant an Apple private-distribution invitation. Arrange the approved distribution channel separately. Pending means this enrolment has not activated through a matching verified email; activated is not proof of Apple eligibility or current access through every other account gate.</p>
+@if (message is not null) { <p class="notice" role="status" data-beta-result="@resultCode">@message</p> }
+@if (loaded && authorised)
+{
+    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="stack" data-enhance="false" data-beta-add>
+        <AntiforgeryToken />
+        <label>Email to pre-authorise <input name="email" type="email" required maxlength="254" autocomplete="off" /></label>
+        <button type="submit">Add enrolment</button>
+    </form>
+    <p class="help">Latest @rows.Count enrolments, up to 1,000. Revoked records remain in the list.</p>
+    @if (rows.Count == 0) { <p data-beta-empty>No enrolments returned.</p> }
+    <ul class="list" data-beta-list="@rows.Count">
+        @foreach (var row in rows)
+        {
+            <li data-beta-row="@row.Id" data-beta-state="@row.State">
+                <strong data-beta-email>@row.Email</strong> · @State(row.State) · created @row.CreatedAt.ToString("d MMM yyyy HH:mm")
+                @if (row.ActivatedAt is { } activated) { <span> · activated @activated.ToString("d MMM yyyy HH:mm")</span> }
+                <p data-beta-invitation="@row.InvitationState">Email invitation: @InvitationLabel(row.InvitationState). Attempts @row.InvitationAttempts. Acceptance is not delivery.</p>
+                <p data-ios-record="@row.IosDistributionState">iOS distribution: @IosLabel(row.IosDistributionState). Source: @row.IosDistributionSource. Revision @row.IosDistributionRevision.</p>
+                @if(row.IosDistributionChangedAt is{}changed){<p class="help">Staff record updated @changed.ToString("u"). This is not an Apple verification.</p>}
+                <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="false" class="stack" data-beta-ios="@row.Id">
+                    <AntiforgeryToken /><input type="hidden" name="iosRevision" value="@row.IosDistributionRevision" />
+                    <label>External iOS distribution state<select name="iosState">@foreach(var state in IosStates){<option value="@state" selected="@(state==row.IosDistributionState)">@IosLabel(state)</option>}</select></label>
+                    <label><input type="checkbox" name="confirmIos" value="yes" required /> Record only work checked in the external distribution service. Swoovr does not send or verify an Apple invitation.</label>
+                    <button type="submit" class="secondary">Record staff-reported state</button>
+                </form>
+                @if (row.State != "revoked")
+                {
+                    <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="() => RevokeAsync(row.Id)" data-enhance="false">
+                        <AntiforgeryToken />
+                        <label><input type="checkbox" name="confirmRevoke" value="yes" required /> Revoke this beta enrolment</label>
+                        <button type="submit" class="secondary" data-beta-revoke="@row.Id">Confirm revocation</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private List<BetaEnrolmentView> rows = [];
+    private bool loaded, authorised;
+    private string? message, resultCode;
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private static string State(string state) => state switch { "pending" => "Pending activation", "activated" => "Activated", "revoked" => "Revoked", _ => "Unknown state" };
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+    private async Task LoadAsync()
+    {
+        var result = await Admin.BetaEnrolmentsAsync();
+        (loaded, authorised, rows) = (true, result.Ok, result.Value ?? []);
+        if (!result.Ok) { resultCode = result.Code ?? result.Status.ToString(); message = AdminText.Refusal(result.Status, result.Code); }
+    }
+    private async Task AddAsync()
+    {
+        // Refusal remains server-authoritative even if someone handcrafts this form submission.
+        var result = await Admin.AddBetaEnrolmentAsync(Field("email"));
+        resultCode = result.Ok ? "added" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? (result.Status == 201 ? result.Value?.InvitationState=="pending"?"Enrolment added. Invitation email queued; not sent or delivered yet.":"Enrolment added. No invitation email was sent." : "This address already has a live enrolment.") : AdminText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+    private static string InvitationLabel(string state)=>state switch{"not-queued"=>"Not queued","pending"=>"Queued","dispatching"=>"Dispatch in progress","accepted"=>"Provider accepted","rejected"=>"Not accepted","unknown"=>"Outcome unknown; review required","cancelled"=>"Cancelled before dispatch","expired"=>"Queue expired",_=>"Unknown"};
+    private static readonly string[] IosStates=["not-recorded","not-invited","invited","accepted","removed"];
+    private static string IosLabel(string state)=>state switch{"not-recorded"=>"Not recorded","not-invited"=>"Not invited (staff report)","invited"=>"Invitation issued (staff report)","accepted"=>"Accepted (staff report)","removed"=>"Removed (staff report)",_=>"Unknown"};
+    private async Task RecordIosAsync(Guid id)
+    {
+        if(Field("confirmIos")!="yes"||!long.TryParse(Field("iosRevision"),out var revision)){resultCode="confirmation-required";message="Confirm the external status before recording it.";return;}
+        var result=await Admin.RecordIosDistributionAsync(id,new(Field("iosState"),revision,true));
+        resultCode=result.Ok?"ios-recorded":result.Code??result.Status.ToString();
+        message=result.Ok?"Staff-reported iOS status recorded. No Apple invitation was sent or verified.":AdminText.Refusal(result.Status,result.Code);await LoadAsync();
+    }
+    private async Task RevokeAsync(Guid id)
+    {
+        if (Field("confirmRevoke") != "yes") { resultCode = "confirmation-required"; message = "Confirm revocation first."; return; }
+        var status = await Admin.RevokeBetaEnrolmentAsync(id);
+        resultCode = status == 204 ? "revoked" : status.ToString();
+        message = status == 204 ? "Beta enrolment revoked. Remove any external iOS distribution invitation separately, then record its status." : AdminText.Refusal(status, null);
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,119 @@
+@using System.Text.Json
+@using Swoovr.Client
+@using Swoovr.Contracts
+@implements IAsyncDisposable
+@inject MemberClient Members
+@inject IJSRuntime JS
+<div data-account-appearance="@(sync is null || sync.State.IsLoading ? "loading" : "ready")">
+@if(sync is null || sync.State.IsLoading)
+{
+    <p role="status" data-account-appearance-status>@(sync?.Message ?? "Loading account appearance…")</p>
+    @if(sync?.NeedsSignIn==true){<a class="button" href="/account/sign-in" data-enhance-nav="false">Sign in to sync</a>}
+    @if(sync is not null){<button class="quiet-button" @onclick="RetryAsync" disabled="@sync.Busy">Retry sync</button>}
+}
+else
+{
+<form data-account-appearance-form class="appearance-layout" @onsubmit="PreventSubmit" @onsubmit:preventDefault>
+    <div class="settings-controls">
+        <fieldset disabled="@(sync!.Blocked || sync.State.IsRevisionExhausted)">
+            <legend>Colour scheme</legend>
+            <p class="field-help">Standard black and white, or one of seven colour schemes. All free, all yours.</p>
+            @foreach (var group in AppearancePreferences.Schemes.GroupBy(s => s.Group))
+            {
+                <p class="scheme-group">@group.Key</p>
+                <div class="scheme-grid">
+                    @foreach (var scheme in group)
+                    {
+                        <label class="scheme-choice">
+                            <span class="choice-heading"><input type="radio" name="scheme" value="@scheme.Id" checked="@(Current.Scheme == scheme.Id)" @onchange="() => ChooseAsync(scheme.Id,null)" /> <span>@scheme.Name</span><span class="selected-label" aria-hidden="true">Selected</span></span>
+                            <span class="scheme-previews" aria-hidden="true">
+                                <span><span class="palette-swatch swatch-@(scheme.Id)-light"><i></i><b></b></span><span class="preview-label">Light</span></span>
+                                <span><span class="palette-swatch swatch-@(scheme.Id)-dark"><i></i><b></b></span><span class="preview-label">Dark</span></span>
+                            </span>
+                        </label>
+                    }
+                </div>
+            }
+        </fieldset>
+        <fieldset disabled="@(sync!.Blocked || sync.State.IsRevisionExhausted)">
+            <legend>Display mode</legend>
+            <p class="field-help">System follows your device. Your colour scheme stays the same.</p>
+            <div class="mode-choices segmented">
+                <label class="segment"><input type="radio" name="mode" value="system" checked="@(Current.Mode == "system")" @onchange='() => ChooseAsync(null,"system")' /> System</label>
+                <label class="segment"><input type="radio" name="mode" value="light" checked="@(Current.Mode == "light")" @onchange='() => ChooseAsync(null,"light")' /> Light</label>
+                <label class="segment"><input type="radio" name="mode" value="dark" checked="@(Current.Mode == "dark")" @onchange='() => ChooseAsync(null,"dark")' /> Dark</label>
+            </div>
+        </fieldset>
+        <div class="save-area">
+            <p role="status" aria-live="polite" data-account-appearance-status>@sync!.Message</p>
+            <p class="field-help">Your colours are private. Changes apply now and sync to your account. @(!sync!.Blocked && !sync.CacheAvailable ? "Applied for this visit; device storage is unavailable." : "")</p>
+            @if(sync.State.Conflict is not null || sync.MissingConflict){<div class="account-actions" data-appearance-conflict><button type="button" @onclick="()=>ResolveAsync(true)">Keep this device’s choice</button><button type="button" @onclick="()=>ResolveAsync(false)">Use the account choice</button></div>}
+            @if(sync.NeedsSignIn){<a class="button" href="/account/sign-in" data-enhance-nav="false">Sign in to sync</a>}
+            @if(sync.Blocked){<a class="button" href="/settings/appearance" data-enhance="false">Reload appearance</a>}else{<button type="button" class="quiet-button" @onclick="RetryAsync" disabled="@sync.Busy">Retry sync</button>}
+            <button type="button" class="quiet-button" data-reset @onclick="ResetAsync" disabled="@(sync!.Blocked || sync.State.IsRevisionExhausted)">Reset appearance</button>
+        </div>
+    </div>
+    <aside class="card appearance-preview" aria-label="Live appearance preview">
+        <p class="preview-title">Your view</p>
+        <p data-current-choice class="field-help">@ChoiceLabel</p>
+        <article class="sample-profile">
+            <span class="avatar sample-avatar" aria-hidden="true">A</span>
+            <p class="sample-name">Alex, 32</p>
+            <p>Good coffee, coastal walks and someone with a different reading list.</p>
+            <div class="intention-chips"><span class="chip is-on">Friendship</span><span class="chip">Conversation</span></div>
+            <button type="button" class="primary-button" disabled>Say hello</button>
+            <p class="field-help">Fictional profile preview. No message is sent.</p>
+        </article>
+        <div class="sample-chat chat-thread"><p class="bubble">There’s a little bookshop I think you’d like.</p><p class="bubble mine">Sounds like my kind of afternoon.</p></div>
+        <p class="field-help">Your choice stays personal. Other people see their own colours.</p>
+    </aside>
+</form>
+
+}
+</div>
+@code {
+    [Parameter,EditorRequired] public string Owner { get; set; } = "";
+    private AppearanceAccountCoordinator? sync;
+    private DotNetObjectReference<AppearanceAccountPanel>? reference;
+    private readonly string subscription=Guid.NewGuid().ToString("N");
+    private bool disposed;
+    private static readonly JsonSerializerOptions JsonOptions=new(JsonSerializerDefaults.Web);
+    private AppearancePreference Current=>sync?.State.Current??AppearancePreferences.Default;
+    private string ChoiceLabel=>(AppearancePreferences.Schemes.FirstOrDefault(s=>s.Id==Current.Scheme)?.Name??"Standard")+" · "+(Current.Mode switch{"light"=>"Light","dark"=>"Dark",_=>"System"});
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if(!first)return;
+        reference=DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("SwoovrAccountAppearance.connect",Owner,reference,subscription);
+        var guest=await JS.InvokeAsync<AppearancePreference>("SwoovrAccountAppearance.guestPreference");
+        var text=await JS.InvokeAsync<string?>("SwoovrAccountAppearance.load",Owner);
+        AppearanceAccountCache? cache=null;try{if(text is not null)cache=JsonSerializer.Deserialize<AppearanceAccountCache>(text,JsonOptions);}catch(JsonException){}
+        if(disposed)return;
+        sync=new(Members,Owner,guest,cache,
+            async preference=>{if(!disposed)await JS.InvokeVoidAsync("SwoovrAccountAppearance.display",Owner,preference);},
+            async (value,userEdit)=>{if(disposed)return new AppearanceCacheWrite(false);var result=await JS.InvokeAsync<string>("SwoovrAccountAppearance.save",Owner,JsonSerializer.Serialize(value,JsonOptions),userEdit);return new(result!="unavailable",result=="superseded");},
+            async()=>{if(!disposed)await JS.InvokeVoidAsync("SwoovrAccountAppearance.clear",Owner);},
+            ()=>disposed?Task.CompletedTask:InvokeAsync(StateHasChanged));
+        await sync.SyncAsync(refresh:true);
+    }
+    private Task PreventSubmit()=>Task.CompletedTask;
+    private Task ChooseAsync(string? scheme,string? mode)=>sync?.ChangeAsync(new(scheme??Current.Scheme,mode??Current.Mode))??Task.CompletedTask;
+    private Task ResetAsync()=>sync?.ChangeAsync(AppearancePreferences.Default)??Task.CompletedTask;
+    private Task ResolveAsync(bool local)=>sync?.ResolveAsync(local)??Task.CompletedTask;
+    private Task RetryAsync()=>sync?.SyncAsync(refresh:true)??Task.CompletedTask;
+    [JSInvokable] public Task AppearanceBrowserChanged(string reason)=>InvokeAsync(async()=>
+    {
+        if(disposed||sync is null)return;
+        if(reason=="owner-changed")
+        {
+            await sync.AccountChangedAsync();StateHasChanged();return;
+        }
+        await sync.SyncAsync(refresh:true);
+    });
+    public async ValueTask DisposeAsync()
+    {
+        if(disposed)return;disposed=true;sync?.Dispose();
+        try{await JS.InvokeVoidAsync("SwoovrAccountAppearance.disconnect",subscription);}catch(Exception error)when(error is JSException or TaskCanceledException){}
+        reference?.Dispose();
+    }
+}

@@ -14,15 +14,15 @@ static class PrototypeConversationClientChecks
             calls++;
             if(calls==1)
             {
-                if(request.Method!=HttpMethod.Post || request.RequestUri!.AbsolutePath!="/api/v1/prototype/conversations" || (await request.Content!.ReadFromJsonAsync<PrototypeConversationCreate>())?.Travel!="local")throw new Exception("Create transport mismatch");
+                if(request.Method!=HttpMethod.Post || request.RequestUri!.AbsolutePath!="/api/prototype/conversations" || (await request.Content!.ReadFromJsonAsync<PrototypeConversationCreate>())?.Travel!="local")throw new Exception("Create transport mismatch");
                 return snapshot;
             }
             if(calls==2)
             {
-                if(request.Method!=HttpMethod.Get || request.RequestUri!.PathAndQuery!=$"/api/v1/prototype/conversations/{id}?actor=jamie")throw new Exception("Get transport mismatch");
+                if(request.Method!=HttpMethod.Get || request.RequestUri!.PathAndQuery!=$"/api/prototype/conversations/{id}?actor=jamie")throw new Exception("Get transport mismatch");
                 return snapshot with {Actor="jamie"};
             }
-            if(request.Method!=HttpMethod.Post || request.RequestUri!.AbsolutePath!=$"/api/v1/prototype/conversations/{id}/actions" || (await request.Content!.ReadFromJsonAsync<PrototypeConversationAction>()) is not {Actor:"alex",Action:"request",Revision:0})throw new Exception("Action transport mismatch");
+            if(request.Method!=HttpMethod.Post || request.RequestUri!.AbsolutePath!=$"/api/prototype/conversations/{id}/actions" || (await request.Content!.ReadFromJsonAsync<PrototypeConversationAction>()) is not {Actor:"alex",Action:"request",Revision:0})throw new Exception("Action transport mismatch");
             return snapshot with {Revision=1,State="Pending",CanRead=true,CanReport=true,Messages=[new("Alex","Fictional message: would you like to meet for coffee?")]};
         })){BaseAddress=new Uri("https://example.invalid/")};
         var client=new PrototypeConversationClient(http);

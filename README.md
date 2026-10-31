@@ -2,7 +2,7 @@
 
 Adult human connection platform. **Swoovr** is the confirmed product name (owner, 22 October 2026). Engineering namespaces and projects use `Swoovr`; lowercase technical identifiers use `swoovr`.
 
-This repository contains the product definition and a local .NET prototype: Keycloak member sign-in on web and in the MAUI app, PostgreSQL persistence, and signed-in profiles, connection modes, Explore, connection requests, blocks and Travel. Since 25 October 2026 it also has optional ID verification through Didit in test mode, reports and moderation with a separate admin app (`Swoovr.Admin`), and per-mode filters with reciprocal matching. Since 26 October 2026 it also has app parity with the web, Traveller Search with confirmed arrival, and text messaging. It does **not** yet implement payments, photos, account deletion or any hosted deployment. Fictional previews are explicitly simulated.
+This repository contains the product definition and an integrated local prototype: Keycloak sign-in on web and MAUI, PostgreSQL profiles and discovery, connection requests and SignalR messaging, Didit verification in test mode, moderation and the separate Swoovr.Admin app, screened photos, deletion/export and labelled simulated SMS/push. It has no hosted deployment or validated real-device push delivery. The [current status](docs/delivery/STATUS.md) and [testing runbook](docs/delivery/TESTING.md) distinguish implemented slices from release readiness; older slice descriptions below preserve their original scope.
 
 ## Start here
 
@@ -41,7 +41,7 @@ scripts/                       Local checks and design synchronization
 
 Start API: `dotnet run --project src/Swoovr.Api --no-launch-profile --urls http://localhost:5080`.
 Start web separately: `ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Swoovr.Web --no-launch-profile --urls http://localhost:5081`.
-API: `/health/live` and `/api/v1/status`; web: `/`. Signed-in pages need the local stack and Keycloak; see [local development](docs/delivery/LOCAL-DEVELOPMENT.md).
+API: `/health/live` and `/api/status`; web: `/`. Swoovr REST contracts use `Swoovr-Version: 2026-10-28` on stable paths (D211/D222); see [API versioning](docs/architecture/API-VERSIONING.md). Signed-in pages need the local stack and Keycloak; see [local development](docs/delivery/LOCAL-DEVELOPMENT.md).
 
 The GitHub Actions template in `.github/workflow-templates/` is fully commented out by owner request and kept outside the active workflow directory. Keep checks local until explicitly re-enabled. Open feature PRs to `main`; review before merging.
 

@@ -6,8 +6,8 @@ namespace Swoovr.Mobile;
 
 /// <summary>
 /// Me → Notifications (#49), as on the web: the centre (worded by the API, so blocks and restrictions remove items at
-/// once) and the settings. Opening the page registers this device for push; until APNs and FCM exist (Q83) the API's
-/// labelled simulated sender serves it, so nothing reaches the lock screen yet.
+/// once) and the settings. Saved platform tokens register on load; the member explicitly enables OS notifications.
+/// Default Debug simulation is labelled and never claims lock-screen delivery.
 /// </summary>
 public sealed class NotificationsPage : ContentPage
 {
@@ -27,13 +27,7 @@ public sealed class NotificationsPage : ContentPage
 		await LoadAsync();
 	}
 
-	/// <summary>The app's install id stands in for a push token (simulated until Q83 is answered).</summary>
-	private static async Task RegisterAsync()
-	{
-		var id = Preferences.Default.Get(NotificationText.InstallIdKey, "");
-		if (id.Length == 0) Preferences.Default.Set(NotificationText.InstallIdKey, id = "simulated-" + Guid.NewGuid().ToString("N"));
-		await Ui.Members!.RegisterDeviceAsync(DeviceInfo.Platform == DevicePlatform.iOS ? "ios" : "android", id);
-	}
+	private static Task RegisterAsync() => PushRegistration.RegisterAsync();
 
 	private async Task LoadAsync()
 	{
@@ -43,7 +37,13 @@ public sealed class NotificationsPage : ContentPage
 		var rows = new List<View> { Ui.Text("Recent", "SectionHeading"), Ui.Text(NotificationText.Unread(centre.Unread), "FooterClaims", "NotificationsUnread") };
 		if (centre.Items.Count == 0) rows.Add(Ui.Text(NotificationText.Empty, "FooterClaims", "NotificationsEmpty"));
 		foreach (var n in centre.Items)
+        {
 			rows.Add(Ui.Text($"{(n.Read ? "" : "• ")}{n.Title} · {n.At.ToLocalTime():d MMM, HH:mm}", n.Read ? null : "TileName", $"Notification_{n.Id}"));
+            if(n.Kind=="policyChange"&&n.Link=="/safety/advice")rows.Add(Ui.Button("Read safety advice","PolicyAdvice_"+n.Id,()=>Ui.PushAsync(new SafetyAdvicePage()),primary:false));
+            if(n.Kind=="policyChange"&&n.Link=="/safety")rows.Add(Ui.Button("Safety & Support","PolicySupport_"+n.Id,()=>Ui.PushAsync(new SafetyPage()),primary:false));
+            if(n.Kind=="reportOutcome")rows.Add(Ui.Button("Open Notices and reports","ReportOutcome_"+n.Id,()=>Ui.PushAsync(new NoticesPage()),primary:false));
+            if(n.Link=="/me/meeting-safety")rows.Add(Ui.Button("Open meeting safety","MeetingNotification_"+n.Id,()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));
+        }
 		if (centre.Unread > 0) rows.Add(Ui.Button("Mark all as read", "NotificationsReadAll", async () => { await Ui.Members.ReadAllNotificationsAsync(); await LoadAsync(); }, primary: false));
 		body.Children.Add(Ui.Card([.. rows]));
 
@@ -66,7 +66,7 @@ public sealed class NotificationsPage : ContentPage
 		{
 			Ui.Text("Settings", "SectionHeading"), Ui.Text(NotificationText.PrivacyNote, "FooterClaims", "NotificationPrivacy"),
 			Ui.Text("Tell me about", "TileName"), Row(messages, "Messages"), Row(requests, "Connection requests"), Row(connections, "New connections"), Row(travel, "Travel reminders"),
-			Ui.Text("How", "TileName"), Row(push, "Push notifications"), Ui.Text(NotificationText.PushSimulated, "FooterClaims"), Row(email, "Email"),
+			Ui.Text("How", "TileName"), Row(push, "Push notifications"), Ui.Text(PushRegistration.Status, "FooterClaims"), Ui.Button("Enable notifications on this device", "PushEnable", async () => { await PushRegistration.EnableAsync(); await LoadAsync(); }, primary: false), Row(email, "Email"),
 			Ui.Text(NotificationText.EmailHelp, "FooterClaims"), Row(previews, "Private previews"), Ui.Text(NotificationText.PreviewsHelp, "FooterClaims"),
 			Ui.Text("Quiet hours", "TileName"), Ui.Text(NotificationText.QuietHelp, "FooterClaims"), Row(quiet, "Use quiet hours"), Ui.Labelled("From", from), Ui.Labelled("Until", until),
 			Ui.Labelled("Time zone", zone), Ui.Text("Muted modes", "TileName"), Ui.Text(NotificationText.MutedHelp, "FooterClaims"),

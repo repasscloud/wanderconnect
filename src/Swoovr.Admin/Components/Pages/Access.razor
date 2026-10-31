@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Elevated access — Swoovr admin</PageTitle>
 <h1>Elevated access</h1>
-<p class="help">Policy §11, §15. Opening a verified identity and exporting evidence (security and legal officer) and terminating an account (admins) need time-limited access with a recorded purpose. Access lasts 60 minutes and can be renewed; it ends on its own. Every view, search, export and refused attempt on restricted pages is in the append-only access log.</p>
+<p class="help">Policy §11, §15. Opening a verified identity and exporting evidence (security and legal officer) and terminating an account, reviewing/releasing identifiers and reinstating an account (admins) need time-limited access with a recorded purpose. Access lasts 60 minutes and can be renewed; it ends on its own. Every view, search, export and refused attempt on restricted pages is in the append-only access log.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 <h2>Your access</h2>
 @if (grants is null) { <p data-grants="refused">@loadError</p> }
@@ -28,7 +28,7 @@ else
 }
 <form method="post" @formname="request" @onsubmit="RequestAsync" class="stack" data-request-access data-enhance="false">
     <AntiforgeryToken />
-    <label>Capability<select name="capability"><option value="identity-open">Open a verified identity (legal)</option><option value="evidence-export">Export evidence (legal)</option><option value="termination">Terminate an account (admin)</option></select></label>
+    <label>Capability<select name="capability"><option value="identity-open">Open a verified identity (legal)</option><option value="evidence-export">Export evidence (legal)</option><option value="termination">Terminate an account (admin)</option><option value="identifier-release">Review or release an identifier (admin)</option><option value="account-reinstatement">Reinstate an account (admin)</option></select></label>
     <label>Purpose (recorded; up to 500 characters)<textarea name="purpose" maxlength="500" rows="2" required></textarea></label>
     <button type="submit" data-request>Ask for 60 minutes</button>
 </form>

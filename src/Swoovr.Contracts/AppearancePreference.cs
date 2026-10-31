@@ -4,3 +4,5 @@ namespace Swoovr.Contracts;
 public sealed record AppearancePreference(string Scheme, string Mode);
 public sealed record AppearanceSnapshot(AppearancePreference Preference, long Revision);
 public sealed record AppearanceUpdate(AppearancePreference Preference, long ExpectedRevision, Guid ChangeId);
+
+public sealed record AppearanceConflict(string Code,AppearanceSnapshot? Current);

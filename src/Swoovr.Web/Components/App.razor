@@ -1,5 +1,8 @@
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor Http
+@inject IConfiguration Configuration
 <!DOCTYPE html>
-<html lang="en" data-scheme="standard" data-theme="light">
+<html lang="en" data-scheme="standard" data-theme="light" data-appearance-owner="@Swoovr.Web.Auth.AppearancePageIdentity.Scope(Http.HttpContext?.User,Configuration)">
 
 <head>
     <meta charset="utf-8" />
@@ -7,22 +10,26 @@
     <base href="/" />
     <script src="@Assets["appearance-palettes.js"]"></script>
     <script src="@Assets["appearance-core.js"]"></script>
+    <script src="@Assets["appearance-account-core.js"]"></script>
+    <script src="@Assets["appearance-account.js"]"></script>
     <script src="@Assets["appearance-bootstrap.js"]"></script>
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["themes.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["Swoovr.Web.styles.css"]" />
-    <ImportMap />
+    <ImportMap integrity="@(Http.HttpContext?.Items[Swoovr.Hosting.HostRuntime.ImportMapIntegrityKey])" />
     <HeadOutlet />
 </head>
 
 <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" data-skip-main href="@(Navigation.Uri.Split('#')[0] + "#main-content")" data-enhance="false">Skip to content</a>
     <Routes />
+    <script src="@Assets["skip-main.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["appearance-settings.js"]"></script>
     <script src="@Assets["location.js"]"></script>
     <script src="@Assets["download.js"]"></script>
+    <script src="@Assets["meeting-safety.js"]"></script>
 </body>
 
 </html>

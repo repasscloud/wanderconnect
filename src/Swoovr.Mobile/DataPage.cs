@@ -49,9 +49,14 @@ public sealed class DataPage : ContentPage
 		{
 			var rows = new List<View> { Ui.Text(DeletionText.PendingBody(view), id: "DeletionPending") };
 			if (view.FounderCodeEmailed) rows.Add(Ui.Text("We've emailed your founder recovery code.", "FooterClaims"));
-			rows.Add(Ui.Button("Cancel deletion", "DeletionCancel", () => ChangeAsync(Ui.Members!.CancelDeletionAsync)));
-			if (view.DueAt is not { } due || due > DateTimeOffset.UtcNow)
+			if (view.FinalizingAt is null) rows.Add(Ui.Button("Cancel deletion", "DeletionCancel", () => ChangeAsync(Ui.Members!.CancelDeletionAsync)));
+			if (view.FinalizingAt is null && (view.DueAt is not { } due || due > DateTimeOffset.UtcNow))
 				rows.Add(Ui.Button("Delete now", "DeletionNow", () => ChangeAsync(Ui.Members!.DeleteNowAsync), primary: false));
+			if (view.FinalizingAt is not null)
+			{
+				rows.Add(Ui.Button("Contact Support", "DeletionSupportWeb", () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)), primary: false));
+				rows.Add(Ui.Button("Email Support", "DeletionSupportEmail", () => Launcher.Default.OpenAsync(new Uri("mailto:" + StandingText.SupportEmail)), primary: false));
+			}
 			body.Children.Add(Ui.Card([.. rows]));
 		}
 		// #99: what's kept after deletion and why (draft until legal review, #57).

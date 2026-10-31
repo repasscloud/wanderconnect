@@ -19,7 +19,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const env = await fs.readFile('.local/docker.env', 'utf8');
   const secret = env.split('\n').find(line => line.startsWith('SWOOVR_STAFF_WEB_SECRET='))?.split('=')[1];
   await fs.mkdir(output, { recursive: true, mode: 0o700 });
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   // Keycloak refuses a code reused within its window, so wait for a fresh 30-second step.
   // The last used step is kept in the fixture so back-to-back runs do not reuse a code.
@@ -70,14 +70,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     }
     const first = await exchange(session);
     await session.context.close();
-    const call = token => fetch(api + '/api/v1/session', { headers: { Authorization: 'Bearer ' + token } });
+    const call = token => fetch(api + '/api/session', { headers: { Authorization: 'Bearer ' + token } });
     let response = await call(first);
     assert.equal(response.status, 200); pass();
     // The enrolment session proves only the password: the code was set up, not used to sign in,
     // so it cannot satisfy the root admin's password + OTP rule until the next sign-in.
     // adminArea depends on the application's root-admin record (tests/auth/accounts.browser.cjs grants it), never on the token.
     const summary = await response.json();
-    assert.deepEqual(summary, { realm: 'staff', method: 'emailPassword', multiFactor: !enrolling, emailVerified: true, adultAttested: false, memberArea: false, adminArea: summary.adminArea && !enrolling, supportArea: false, beta: 'notRequired' }); pass();
+    assert.deepEqual(summary, { realm: 'staff', method: 'emailPassword', multiFactor: !enrolling, emailVerified: true, adultAttested: false, memberArea: false, adminArea: summary.adminArea && !enrolling, supportArea: false, beta: 'notRequired', emailChangeProblem: null }); pass();
 
     // Every later sign-in asks for the code; a wrong code does not create a session.
     session = await signIn();
@@ -94,5 +94,5 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.deepEqual([...claims.amr].sort(), ['otp', 'pwd']); pass();
     assert.equal((await call(second)).status, 200); pass();
     console.log(`PASS: ${passed} staff-realm checks in actual Edge against local Keycloak 26.8.1: no registration or social sign-in, root admin password + mandatory TOTP (enrolment before first session, code on every sign-in, wrong code rejected), API reports pwd+otp evidence for the staff realm.`);
-  } finally { await browser.close(); }
+  } finally { await edge.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

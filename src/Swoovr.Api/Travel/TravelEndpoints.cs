@@ -25,7 +25,7 @@ public static class TravelEndpoints
 
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
 
         // Autocomplete: prefix match on any spelling, largest places first, "City, Region, Country" (D111).
         api.MapGet("/places", async (string? q, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
@@ -67,7 +67,7 @@ public static class TravelEndpoints
             db.Itineraries.Add(itinerary);
             Audit.Record(db, now, me, "account", "itinerary.created", "itinerary", itinerary.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/me/itineraries/{itinerary.Id}", new ItineraryView(itinerary.Id));
+            return Results.Created($"/api/me/itineraries/{itinerary.Id}", new ItineraryView(itinerary.Id));
         });
 
         api.MapPost("/me/trips", (TripUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -230,7 +230,7 @@ public static class TravelEndpoints
         Audit.Record(db, now, me, "account", id is null ? "trip.created" : "trip.updated", "trip", trip.Id.ToString(), trip.Visible ? "visible" : "hidden");
         await db.SaveChangesAsync(cancellationToken);
         var view = await ViewAsync(db, trip, city, current.Profile!, now, cancellationToken);
-        return id is null ? Results.Created($"/api/v1/me/trips/{trip.Id}", view) : Results.Ok(view);
+        return id is null ? Results.Created($"/api/me/trips/{trip.Id}", view) : Results.Ok(view);
     }
 
     private static TripFacts Facts(Trip trip, GeoCity city) => new(trip, city.TimeZone);

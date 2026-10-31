@@ -7,7 +7,7 @@ const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright')
 const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, membersRealm, mailTo, sleep } = require('./local-tokens.cjs');
 
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   let passed = 0; const pass = () => passed++;
   const extras = [];
   try {
@@ -17,7 +17,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     let aliceToken = await memberToken(browser, alice);
 
     // Session: account created from (issuer, subject); member area only.
-    let session = await call(aliceToken, '/api/v1/session');
+    let session = await call(aliceToken, '/api/session');
     assert.equal(session.status, 200); pass();
     assert.equal(session.body.memberArea, true); pass();
     assert.equal(session.body.adminArea, false); pass();
@@ -26,39 +26,39 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal(await sql(`SELECT count(*) FROM accounts WHERE subject = '${sub}' AND realm = 'Members'`), '1'); pass();
 
     // Own account and age entry: a date of birth is required (D139, superseding the 23 October age-alone option).
-    let me = await call(aliceToken, '/api/v1/me');
+    let me = await call(aliceToken, '/api/me');
     assert.equal(me.status, 200); pass();
-    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], dateOfBirthVerified: false, accountState: 'active', dobCheck: 'none', phoneVerified: false, phoneRequired: false, beta: undefined }); pass();
-    me = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1990-05-01', age: 20 } });
+    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], dateOfBirthVerified: false, accountState: 'active', dobCheck: 'none', phoneVerified: false, phoneRequired: false, emailChangeProblem: null, beta: undefined }); pass();
+    me = await call(aliceToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1990-05-01', age: 20 } });
     assert.equal(me.status, 200); assert.equal(me.body.ageStatus, 'selfDeclaredAdult'); assert.equal(me.body.dateOfBirth, '1990-05-01'); assert.equal(me.body.declaredAge, null); pass();
     assert.equal(me.body.age, new Date().getUTCFullYear() - 1990 - (new Date().toISOString().slice(5, 10) < '05-01' ? 1 : 0)); pass();
     for (const body of [{ age: 30 }, {}, { age: -1 }, { age: 121 }]) {
-      const bad = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body });
+      const bad = await call(aliceToken, '/api/me/age', { method: 'PUT', body });
       assert.equal(bad.status, 400, JSON.stringify(body)); assert.equal(bad.body.code, 'date-of-birth-required'); pass();
     }
     for (const body of [{ dateOfBirth: '2999-01-01' }, { dateOfBirth: '1890-01-01' }]) {
-      const bad = await call(aliceToken, '/api/v1/me/age', { method: 'PUT', body });
+      const bad = await call(aliceToken, '/api/me/age', { method: 'PUT', body });
       assert.equal(bad.status, 400, JSON.stringify(body)); assert.equal(bad.body.code, 'invalid-age'); pass();
     }
-    assert.equal((await call(aliceToken, '/api/v1/me')).body.dateOfBirth, '1990-05-01'); pass(); // refusals change nothing
+    assert.equal((await call(aliceToken, '/api/me')).body.dateOfBirth, '1990-05-01'); pass(); // refusals change nothing
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'age.updated' AND target_id = (SELECT id::text FROM accounts WHERE subject = '${sub}')`), '1'); pass();
 
     // A member cannot reach any admin route, whatever their email.
-    for (const [method, path, body] of [['GET', '/api/v1/admin/invitations'], ['POST', '/api/v1/admin/invitations', { email: alice.email, role: 'admin' }],
-      ['GET', '/api/v1/admin/accounts?email=' + encodeURIComponent(alice.email)], ['POST', '/api/v1/admin/accounts/00000000-0000-0000-0000-000000000001/adult-override']])
+    for (const [method, path, body] of [['GET', '/api/admin/invitations'], ['POST', '/api/admin/invitations', { email: alice.email, role: 'admin' }],
+      ['GET', '/api/admin/accounts?email=' + encodeURIComponent(alice.email)], ['POST', '/api/admin/accounts/00000000-0000-0000-0000-000000000001/adult-override']])
     { assert.equal((await call(aliceToken, path, { method, body })).status, 403, method + ' ' + path); pass(); }
-    assert.equal((await call(null, '/api/v1/admin/invitations')).status, 401); pass();
-    assert.equal((await call(null, '/api/v1/me')).status, 401); pass();
+    assert.equal((await call(null, '/api/admin/invitations')).status, 401); pass();
+    assert.equal((await call(null, '/api/me')).status, 401); pass();
 
     // Root admin: the staff session alone is not enough; the application record grants it.
     let rootToken = await rootAdminToken(browser);
-    session = await call(rootToken, '/api/v1/session');
+    session = await call(rootToken, '/api/session');
     assert.equal(session.status, 200); assert.equal(session.body.realm, 'staff'); pass();
     const rootSub = claims(rootToken).sub;
     if (!session.body.adminArea) {
-      assert.equal((await call(rootToken, '/api/v1/admin/invitations')).status, 403); pass();
+      assert.equal((await call(rootToken, '/api/admin/invitations')).status, 403); pass();
       await cli('root-admin', 'grant', rootSub);
-      session = await call(rootToken, '/api/v1/session');
+      session = await call(rootToken, '/api/session');
     }
     assert.equal(session.body.adminArea, true); pass();
     assert.equal(session.body.memberArea, false); pass();
@@ -66,41 +66,41 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await assert.rejects(cli('root-admin', 'grant', sub), /staff-realm/); pass();
 
     // Invitations: a staff invitation for a member's email never reaches the member account (no merge by email).
-    let created = await call(rootToken, '/api/v1/admin/invitations', { method: 'POST', body: { email: alice.email.toUpperCase(), role: 'support' } });
+    let created = await call(rootToken, '/api/admin/invitations', { method: 'POST', body: { email: alice.email.toUpperCase(), role: 'support' } });
     assert.equal(created.status, 201); assert.equal(created.body.realm, 'staff'); assert.equal(created.body.state, 'pending'); assert.equal(created.body.email, alice.email); pass();
     aliceToken = await memberToken(browser, alice);
-    session = await call(aliceToken, '/api/v1/session');
+    session = await call(aliceToken, '/api/session');
     assert.deepEqual([session.body.adminArea, session.body.supportArea, session.body.memberArea], [false, false, true]); pass();
-    let list = await call(rootToken, '/api/v1/admin/invitations');
+    let list = await call(rootToken, '/api/admin/invitations');
     assert.equal(list.body.find(i => i.id === created.body.id).state, 'pending'); pass();
     for (const body of [{ email: alice.email, role: 'member' }, { email: alice.email, role: 'venuePartner' }, { email: 'nope', role: 'admin' },
       { email: alice.email, role: 'admin', venueId: '33333333-3333-3333-3333-333333333333' }, { email: alice.email, role: '999' }])
-    { assert.equal((await call(rootToken, '/api/v1/admin/invitations', { method: 'POST', body })).status, 400, JSON.stringify(body)); pass(); }
-    const venue = await call(rootToken, '/api/v1/admin/invitations', { method: 'POST', body: { email: 'venue.' + alice.email, role: 'venuePartner', venueId: '33333333-3333-3333-3333-333333333333' } });
+    { assert.equal((await call(rootToken, '/api/admin/invitations', { method: 'POST', body })).status, 400, JSON.stringify(body)); pass(); }
+    const venue = await call(rootToken, '/api/admin/invitations', { method: 'POST', body: { email: 'venue.' + alice.email, role: 'venuePartner', venueId: '33333333-3333-3333-3333-333333333333' } });
     assert.equal(venue.body.realm, 'venues'); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/invitations/' + created.body.id, { method: 'DELETE' })).status, 204); pass();
-    list = await call(rootToken, '/api/v1/admin/invitations');
+    assert.equal((await call(rootToken, '/api/admin/invitations/' + created.body.id, { method: 'DELETE' })).status, 204); pass();
+    list = await call(rootToken, '/api/admin/invitations');
     assert.equal(list.body.find(i => i.id === created.body.id).state, 'revoked'); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/invitations/00000000-0000-0000-0000-000000000001', { method: 'DELETE' })).status, 404); pass();
+    assert.equal((await call(rootToken, '/api/admin/invitations/00000000-0000-0000-0000-000000000001', { method: 'DELETE' })).status, 404); pass();
 
     // Under-18 entry locks the account (D40); support/admin override lifts it.
     const bobToken = await memberToken(browser, bob);
-    assert.equal((await call(bobToken, '/api/v1/me')).status, 200); pass();
+    assert.equal((await call(bobToken, '/api/me')).status, 200); pass();
     const seventeen = new Date(Date.now() - 17.5 * 365.25 * 86400000).toISOString().slice(0, 10);
-    let locked = await call(bobToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: seventeen } });
+    let locked = await call(bobToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: seventeen } });
     assert.equal(locked.status, 403); assert.equal(locked.body.code, 'account-locked'); pass();
-    locked = await call(bobToken, '/api/v1/me');
+    locked = await call(bobToken, '/api/me');
     assert.equal(locked.status, 403); assert.equal(locked.body.code, 'account-locked'); pass();
-    assert.equal((await call(bobToken, '/api/v1/session')).body.memberArea, false); pass();
-    assert.equal((await call(bobToken, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth: '1985-01-01' } })).status, 403, 'a locked account cannot re-enter an age'); pass();
-    const found = await call(rootToken, '/api/v1/admin/accounts?email=' + encodeURIComponent(bob.email.toUpperCase()));
+    assert.equal((await call(bobToken, '/api/session')).body.memberArea, false); pass();
+    assert.equal((await call(bobToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1985-01-01' } })).status, 403, 'a locked account cannot re-enter an age'); pass();
+    const found = await call(rootToken, '/api/admin/accounts?email=' + encodeURIComponent(bob.email.toUpperCase()));
     assert.equal(found.status, 200); assert.equal(found.body.length, 1);
     assert.deepEqual([found.body[0].status, found.body[0].statusReason, found.body[0].ageStatus], ['locked', 'underage', 'underage']); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/accounts?email=not-an-email')).status, 400); pass();
-    assert.equal((await call(rootToken, `/api/v1/admin/accounts/${found.body[0].id}/adult-override`, { method: 'POST' })).status, 204); pass();
-    me = await call(bobToken, '/api/v1/me');
+    assert.equal((await call(rootToken, '/api/admin/accounts?email=not-an-email')).status, 400); pass();
+    assert.equal((await call(rootToken, `/api/admin/accounts/${found.body[0].id}/adult-override`, { method: 'POST' })).status, 204); pass();
+    me = await call(bobToken, '/api/me');
     assert.equal(me.status, 200); assert.equal(me.body.ageStatus, 'adultOverride'); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/accounts/00000000-0000-0000-0000-000000000001/adult-override', { method: 'POST' })).status, 404); pass();
+    assert.equal((await call(rootToken, '/api/admin/accounts/00000000-0000-0000-0000-000000000001/adult-override', { method: 'POST' })).status, 404); pass();
 
     // The audit log never holds an email address.
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE detail LIKE '%@%' OR target_id LIKE '%@%'`), '0'); pass();
@@ -108,11 +108,11 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // Private beta (D62): a verified member who is not enrolled signs in but cannot use the member area.
     const carol = await createMember('carol');
     let carolToken = await memberToken(browser, carol);
-    session = await call(carolToken, '/api/v1/session');
+    session = await call(carolToken, '/api/session');
     assert.deepEqual([session.status, session.body.memberArea, session.body.beta], [200, false, 'notEnrolled']); pass();
-    me = await call(carolToken, '/api/v1/me');
+    me = await call(carolToken, '/api/me');
     assert.deepEqual([me.status, me.body.code], [403, 'beta-not-enrolled']); pass();
-    assert.equal((await call(carolToken, '/api/v1/me/age', { method: 'PUT', body: { age: 30 } })).status, 403); pass();
+    assert.equal((await call(carolToken, '/api/me/age', { method: 'PUT', body: { age: 30 } })).status, 403); pass();
     // The web account page shows the neutral private-beta notice and the swoovr.com/beta link.
     const webContext = await browser.newContext(); const webPage = await webContext.newPage();
     await webPage.goto(web + '/account/sign-in?intro=done');
@@ -125,28 +125,28 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal(await webPage.locator('[data-member-area=false]').count(), 1); pass();
     await webPage.screenshot({ path: '.local/auth-browser/beta-not-enrolled.png', fullPage: true });
     // Members cannot manage enrolments; admins can.
-    for (const [method, path, body] of [['GET', '/api/v1/admin/beta'], ['POST', '/api/v1/admin/beta', { email: carol.email }], ['DELETE', '/api/v1/admin/beta/00000000-0000-0000-0000-000000000001']])
+    for (const [method, path, body] of [['GET', '/api/admin/beta'], ['POST', '/api/admin/beta', { email: carol.email }], ['DELETE', '/api/admin/beta/00000000-0000-0000-0000-000000000001']])
     { assert.equal((await call(aliceToken, path, { method, body })).status, 403, method + ' ' + path); pass(); }
-    assert.equal((await call(rootToken, '/api/v1/admin/beta', { method: 'POST', body: { email: 'not-an-email' } })).status, 400); pass();
-    const added = await call(rootToken, '/api/v1/admin/beta', { method: 'POST', body: { email: '  ' + carol.email.toUpperCase() } });
+    assert.equal((await call(rootToken, '/api/admin/beta', { method: 'POST', body: { email: 'not-an-email' } })).status, 400); pass();
+    const added = await call(rootToken, '/api/admin/beta', { method: 'POST', body: { email: '  ' + carol.email.toUpperCase() } });
     assert.deepEqual([added.status, added.body.state, added.body.email], [201, 'pending', carol.email]); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/beta', { method: 'POST', body: { email: carol.email } })).status, 200, 'adding twice keeps one'); pass();
-    session = await call(carolToken, '/api/v1/session');
+    assert.equal((await call(rootToken, '/api/admin/beta', { method: 'POST', body: { email: carol.email } })).status, 200, 'adding twice keeps one'); pass();
+    session = await call(carolToken, '/api/session');
     assert.deepEqual([session.body.memberArea, session.body.beta], [true, 'enrolled']); pass();
-    assert.equal((await call(carolToken, '/api/v1/me')).status, 200); pass();
+    assert.equal((await call(carolToken, '/api/me')).status, 200); pass();
     await webPage.reload(); await webPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
     assert.equal(await webPage.locator('[data-beta]').count(), 0); pass();
     assert.equal(await webPage.locator('[data-member-area=true]').count(), 1); pass();
     await webContext.close();
-    const enrolments = await call(rootToken, '/api/v1/admin/beta');
+    const enrolments = await call(rootToken, '/api/admin/beta');
     assert.equal(enrolments.body.find(e => e.id === added.body.id).state, 'activated'); pass();
     assert.equal(await sql(`SELECT count(*) FROM beta_enrolments WHERE id = '${added.body.id}' AND account_id = (SELECT id FROM accounts WHERE subject = '${claims(carolToken).sub}')`), '1', 'bound to the account'); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/beta/' + added.body.id, { method: 'DELETE' })).status, 204); pass();
-    session = await call(carolToken, '/api/v1/session');
+    assert.equal((await call(rootToken, '/api/admin/beta/' + added.body.id, { method: 'DELETE' })).status, 204); pass();
+    session = await call(carolToken, '/api/session');
     assert.deepEqual([session.body.memberArea, session.body.beta], [false, 'notEnrolled'], 'revoking ends access'); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/beta/00000000-0000-0000-0000-000000000001', { method: 'DELETE' })).status, 404); pass();
+    assert.equal((await call(rootToken, '/api/admin/beta/00000000-0000-0000-0000-000000000001', { method: 'DELETE' })).status, 404); pass();
     // Staff are not gated by the beta.
-    assert.equal((await call(rootToken, '/api/v1/session')).body.beta, 'notRequired'); pass();
+    assert.equal((await call(rootToken, '/api/session')).body.beta, 'notRequired'); pass();
     // The operator command loads a file of fictional addresses and reports counts only.
     const output = await cli('beta', 'add', '--file', 'containers/postgres/beta-enrolment.fictional.txt');
     assert.match(output, /Beta enrolments: \d+ added, \d+ already enrolled, 0 invalid\./); assert.doesNotMatch(output, /@/); pass();
@@ -157,42 +157,46 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const dave = await createMember('dave'); const erin = await createMember('erin');
     await cli('beta', 'add', dave.email, erin.email);
     let daveToken = await memberToken(browser, dave); const erinToken = await memberToken(browser, erin);
-    assert.equal((await call(daveToken, '/api/v1/me')).status, 200); assert.equal((await call(erinToken, '/api/v1/me')).status, 200);
-    const daveId = (await call(rootToken, '/api/v1/admin/accounts?email=' + encodeURIComponent(dave.email))).body[0].id;
-    assert.equal((await call(aliceToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).status, 403, 'members cannot grant'); pass();
+    assert.equal((await call(daveToken, '/api/me')).status, 200); assert.equal((await call(erinToken, '/api/me')).status, 200);
+    const daveId = (await call(rootToken, '/api/admin/accounts?email=' + encodeURIComponent(dave.email))).body[0].id;
+    assert.equal((await call(aliceToken, `/api/admin/accounts/${daveId}/founder`, { method: 'POST' })).status, 403, 'members cannot grant'); pass();
     // D130: an admin exception still needs ID or Photo verification. Dave's ID status is set directly (simulated for
     // this local test only; tests/verification/didit.browser.cjs covers the real path).
-    assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'founder-not-eligible'); pass();
+    assert.equal((await call(rootToken, `/api/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'founder-not-eligible'); pass();
     await sql(`UPDATE member_profiles SET id_status = 'Verified', id_checked_at = now() WHERE account_id = '${daveId}'`);
     const placesBefore = Number(await sql('SELECT count(*) FROM founder_places'));
-    const grant =await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' });
+    const grant =await call(rootToken, `/api/admin/accounts/${daveId}/founder`, { method: 'POST' });
     assert.equal(grant.status, 201); assert.equal(grant.body.emailSent, true); assert.equal(grant.body.place, placesBefore + 1); pass();
-    assert.equal((await call(rootToken, `/api/v1/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'already-founder'); pass();
+    assert.equal((await call(rootToken, `/api/admin/accounts/${daveId}/founder`, { method: 'POST' })).body.code, 'already-founder'); pass();
     let mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(dave.email); if (!mail.length) await sleep(250); }
     const firstCode = mail[0].match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
     assert.ok(firstCode, 'founder code emailed through the local mail sink'); pass();
-    me = await call(daveToken, '/api/v1/me');
+    me = await call(daveToken, '/api/me');
     assert.deepEqual(me.body.badges.map(b => b.badge), ['founder', 'idVerified']); pass(); // the simulated ID status above
-    assert.equal((await call(daveToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode.toLowerCase() } })).status, 200, 'own code is a no-op'); pass();
+    assert.equal((await call(daveToken, '/api/me/coupons', { method: 'POST', body: { code: firstCode.toLowerCase() } })).status, 200, 'own code is a no-op'); pass();
     // A shared or sold code fails for anyone else, and every refusal reads the same.
-    let refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
+    let refused = await call(erinToken, '/api/me/coupons', { method: 'POST', body: { code: firstCode } });
     assert.deepEqual([refused.status, refused.body.code], [400, 'coupon-invalid']); pass();
     for (const code of ['WELCOME10', 'FOUNDER-V1-' + '0'.repeat(64), 'FOUNDER-V9-' + firstCode.slice(11), 'FOUNDER-nonsense'])
-    { refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code } }); assert.deepEqual([refused.status, refused.body.code], [400, 'coupon-invalid'], code); pass(); }
-    refused = await call(erinToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
+    { refused = await call(erinToken, '/api/me/coupons', { method: 'POST', body: { code } }); assert.deepEqual([refused.status, refused.body.code], [400, 'coupon-invalid'], code); pass(); }
+    refused = await call(erinToken, '/api/me/coupons', { method: 'POST', body: { code: firstCode } });
     assert.deepEqual([refused.status, refused.body.code], [429, 'too-many-attempts'], 'five failures an hour, then refused'); pass();
-    assert.equal((await call(erinToken, '/api/v1/me')).body.badges.length, 0); pass();
+    assert.equal((await call(erinToken, '/api/me')).body.badges.length, 0); pass();
     // Email change (owner answer): a new code for the new address; the old one stops working.
     const realmApi = await membersRealm();
     const daveUser = (await realmApi('/users?exact=true&email=' + encodeURIComponent(dave.email)))[0];
     const changedEmail = 'changed.' + dave.email;
     await realmApi('/users/' + daveUser.id, 'PUT', { ...daveUser, username: changedEmail, email: changedEmail, emailVerified: true });
+    // Provider iat has whole seconds; changing within the first acceptance second correctly requires fresh sign-in.
+    await sleep(1500);
     daveToken = await memberToken(browser, { email: changedEmail, password: dave.password });
-    assert.equal((await call(daveToken, '/api/v1/me')).status, 200, 'beta access follows the account after an email change'); pass();
+    const changedMe = await call(daveToken, '/api/me');
+    assert.equal(changedMe.status, 200, 'beta access follows the account after an email change'); pass();
+    assert.equal(changedMe.body.emailChangeProblem, null, 'fresh changed-email claim is adopted'); pass();
     mail = []; for (let i = 0; i < 20 && !mail.length; i++) { mail = await mailTo(changedEmail); if (!mail.length) await sleep(250); }
     const secondCode = mail[0]?.match(/FOUNDER-V1-[0-9A-F]{64}/)?.[0];
     assert.ok(secondCode && secondCode !== firstCode, 'new code for the new address'); pass();
-    let tokens = (await call(rootToken, '/api/v1/admin/founder-tokens?place=' + grant.body.place)).body;
+    let tokens = (await call(rootToken, '/api/admin/founder-tokens?place=' + grant.body.place)).body;
     assert.deepEqual(tokens.map(t => [t.status, t.invalidatedReason, t.secretVersion]), [['invalidated', 'email-changed', 1], ['valid', null, 1]]); pass();
     assert.equal(JSON.stringify(tokens).includes('FOUNDER-'), false, 'admins never see the code'); pass();
     // Deletion and return: the account row goes, the token row stays; a new account restores the same place.
@@ -203,21 +207,21 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
       credentials: [{ type: 'password', value: returning.password, temporary: false }] });
     await cli('beta', 'add', changedEmail);
     const returnToken = await memberToken(browser, returning);
-    assert.notEqual(claims(returnToken).sub, daveUser.id); assert.deepEqual((await call(returnToken, '/api/v1/me')).body.badges, []); pass();
-    refused = await call(returnToken, '/api/v1/me/coupons', { method: 'POST', body: { code: firstCode } });
+    assert.notEqual(claims(returnToken).sub, daveUser.id); assert.deepEqual((await call(returnToken, '/api/me')).body.badges, []); pass();
+    refused = await call(returnToken, '/api/me/coupons', { method: 'POST', body: { code: firstCode } });
     assert.equal(refused.status, 400, 'the invalidated code no longer restores'); pass();
-    const restored = await call(returnToken, '/api/v1/me/coupons', { method: 'POST', body: { code: secondCode } });
+    const restored = await call(returnToken, '/api/me/coupons', { method: 'POST', body: { code: secondCode } });
     assert.equal(restored.status, 200); assert.deepEqual(restored.body.badges.map(b => b.badge), ['founder']); pass();
     assert.equal(Number(await sql('SELECT count(*) FROM founder_places')), placesBefore + 1, 'restoring never takes a new place'); pass();
     assert.equal(await sql(`SELECT founder_place FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`), String(grant.body.place)); pass();
     // Admins can invalidate and delete tokens; the live account keeps its status.
     const live = tokens.find(t => t.status === 'valid');
-    assert.equal((await call(rootToken, `/api/v1/admin/founder-tokens/${live.id}/invalidate`, { method: 'POST' })).status, 204); pass();
-    assert.equal((await call(rootToken, '/api/v1/admin/founder-tokens/' + tokens[0].id, { method: 'DELETE' })).status, 204); pass();
-    tokens = (await call(rootToken, '/api/v1/admin/founder-tokens?place=' + grant.body.place)).body;
+    assert.equal((await call(rootToken, `/api/admin/founder-tokens/${live.id}/invalidate`, { method: 'POST' })).status, 204); pass();
+    assert.equal((await call(rootToken, '/api/admin/founder-tokens/' + tokens[0].id, { method: 'DELETE' })).status, 204); pass();
+    tokens = (await call(rootToken, '/api/admin/founder-tokens?place=' + grant.body.place)).body;
     assert.deepEqual(tokens.map(t => [t.status, t.invalidatedReason]), [['invalidated', 'admin']]); pass();
-    assert.deepEqual((await call(returnToken, '/api/v1/me')).body.badges.map(b => b.badge), ['founder']); pass();
-    for (const [method, path] of [['GET', '/api/v1/admin/founder-tokens?place=1'], ['POST', `/api/v1/admin/founder-tokens/${live.id}/invalidate`], ['DELETE', `/api/v1/admin/founder-tokens/${live.id}`]])
+    assert.deepEqual((await call(returnToken, '/api/me')).body.badges.map(b => b.badge), ['founder']); pass();
+    for (const [method, path] of [['GET', '/api/admin/founder-tokens?place=1'], ['POST', `/api/admin/founder-tokens/${live.id}/invalidate`], ['DELETE', `/api/admin/founder-tokens/${live.id}`]])
     { assert.equal((await call(erinToken, path, { method })).status, 403, method + ' ' + path); pass(); }
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE detail LIKE '%FOUNDER%' OR target_id LIKE '%FOUNDER%' OR detail LIKE '%@%'`), '0', 'no code or address in the audit log'); pass();
 
@@ -244,13 +248,13 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // BFF boundary: header required, only the member's own routes, no token in the browser.
     const probe = await page.evaluate(async () => {
       const get = async (path, headers = {}) => (await fetch(path, { headers })).status;
-      return [await get('/bff/api/v1/session'), await get('/bff/api/v1/session', { 'X-Swoovr-Bff': '1' }), await get('/bff/api/v1/admin/beta', { 'X-Swoovr-Bff': '1' }),
-        await get('/bff/api/v1/prototype/people', { 'X-Swoovr-Bff': '1' }), await get('/bff/health/live', { 'X-Swoovr-Bff': '1' })];
+      return [await get('/bff/api/session'), await get('/bff/api/session', { 'X-Swoovr-Bff': '1' }), await get('/bff/api/admin/beta', { 'X-Swoovr-Bff': '1' }),
+        await get('/bff/api/prototype/people', { 'X-Swoovr-Bff': '1' }), await get('/bff/health/live', { 'X-Swoovr-Bff': '1' })];
     });
     assert.deepEqual(probe, [400, 200, 404, 404, 404]); pass();
     const visible = await page.evaluate(() => document.documentElement.outerHTML + JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.cookie);
     assert.doesNotMatch(visible, /eyJ[A-Za-z0-9_-]{10,}\./, 'no token in the page, storage or readable cookies'); pass();
-    assert.equal((await fetch(web + '/bff/api/v1/session', { headers: { 'X-Swoovr-Bff': '1' } })).status, 401, 'no session cookie, no access'); pass();
+    assert.equal((await fetch(web + '/bff/api/session', { headers: { 'X-Swoovr-Bff': '1' } })).status, 401, 'no session cookie, no access'); pass();
     // Under-18 entry in the WebAssembly page locks the account and shows the locked notice.
     const young = await createMember('young'); await cli('beta', 'add', young.email);
     const youngPage = await (await browser.newContext()).newPage();
@@ -270,5 +274,5 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
 
     for (const extra of extras) await extra();
     console.log(`PASS: ${passed} account checks against the API and PostgreSQL with real local Keycloak tokens: (issuer, subject) accounts, member area only for members, age entry (DOB, age, blank, invalid) and under-18 lock, admin routes refused to members and unauthenticated callers, root admin only from the application record, staff/venue invitations (validation, revoke) never granting a member account by matching email, adult override, no email in the audit log; private beta gate (not-enrolled API refusal and web notice with the swoovr.com/beta link, admin add/list/revoke, activation bound to the account, revocation ends access, staff not gated, file import by operator command); founding membership (admin grant, code emailed to the mail sink, founder badge, shared/sold/unknown codes refused alike, 5 failures an hour then 429, email change reissues and invalidates, delete-and-return restores the same place, admin invalidate/delete, codes never shown to admins or written to the audit log); the Interactive WebAssembly account page through the backend-for-frontend (founder badge, age entry and validation, coupon refusal, under-18 lock, header and route allow-list, no token in the browser).`);
-  } finally { await browser.close(); }
+  } finally { await edge.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

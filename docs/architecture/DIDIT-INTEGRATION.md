@@ -19,7 +19,7 @@ Add a Didit webhook endpoint to my application to receive real-time identity ver
 
 ### What to build
 
-A POST endpoint (Swoovr: `POST /api/v1/webhooks/didit` on the API, not the BFF) that:
+A POST endpoint (Swoovr: `POST /api/webhooks/didit` on the API, not the BFF) that:
 
 1. Reads the raw request body (do NOT parse JSON before signature verification)
 2. Verifies the HMAC-SHA256 signature (X-Signature-V2 recommended)
@@ -153,7 +153,7 @@ Slice P read <https://docs.didit.me/llms.txt>, the [webhooks guide](https://docs
 
 ## As built — slice P, 25 October 2026
 
-- Routes: `GET/POST /api/v1/me/verification` (members, BFF allow-listed), `POST /api/v1/webhooks/didit` (anonymous, signature-checked, not on the BFF), and admin `GET /api/v1/admin/accounts/{id}/verification`, `POST …/verification/allow-again`, `POST …/verification/revoke`, `PUT …/age-assurance`.
+- Routes: `GET/POST /api/me/verification` (members, BFF allow-listed), `POST /api/webhooks/didit` (anonymous, signature-checked, not on the BFF), and admin `GET /api/admin/accounts/{id}/verification`, `POST …/verification/allow-again`, `POST …/verification/revoke`, `PUT …/age-assurance`.
 - Code: `Swoovr.Domain/Verification/IdVerification.cs` (rules), `Swoovr.Infrastructure/Verification/DiditClient.cs` and `DiditSignature.cs` (adapter and webhook check), `Swoovr.Api/Verification/VerificationEndpoints.cs`, web page `/me/verification` (and `/me/verification/return`).
 - Local settings: the API reads `Didit:ApiKey`, `Didit:WorkflowId` and `Didit:WebhookSecret` (from `SWOOVR_DIDIT_*` in `.local/docker.env`; `compose.yaml` passes them to the api container). Without them ID verification answers 503 and every webhook is refused.
 - Live evidence (25 October 2026, test mode): the suite created real Didit sessions; within seconds Didit's own `status.updated` delivery arrived through the quick tunnel and passed the V2 signature and timestamp checks (recorded as applied). No verification was completed at Didit: that needs a person with an ID (see the walkthrough in [LOCAL-DEVELOPMENT.md](../delivery/LOCAL-DEVELOPMENT.md#didit-test-verification-walkthrough)).
@@ -161,4 +161,8 @@ Slice P read <https://docs.didit.me/llms.txt>, the [webhooks guide](https://docs
 ## Account deletion and the named tunnel — 27 October 2026
 
 - Final deletion asks Didit to delete each of the member's sessions: `DELETE https://verification.didit.me/v3/session/{session_id}/delete/` with `x-api-key` (the key needs `delete:sessions`), answering 200 (older versions 204); 404 counts as already gone ([docs](https://docs.didit.me/sessions-api/delete-session), read 27 October 2026). A failure keeps the attempt row (session id and outcome only) and `accounts purge` retries it (D173, D180).
-- A named Cloudflare tunnel service now runs on the owner's Mac instead of the quick tunnel. Its public host isn't readable locally (the service runs from a token), so the Didit console's webhook destination is unchanged (D177, Q69 / issue #75); verification keeps working through the re-read when the member returns (D152). Once the owner names the host, the destination is `https://<host>/api/v1/webhooks/didit`, routed to 127.0.0.1:5080.
+- A named Cloudflare tunnel service now runs on the owner's Mac instead of the quick tunnel. Its public host isn't readable locally (the service runs from a token), so the Didit console's webhook destination is unchanged (D177, Q69 / issue #75); verification keeps working through the re-read when the member returns (D152). Once the owner names the host, the destination is `https://<host>/api/webhooks/didit`, routed to 127.0.0.1:5080.
+
+## Stable API path migration — 29 October 2026
+
+CONFIRMED D211: the receiver is now `POST /api/webhooks/didit`, with the pinned missing-header policy in [API versioning](API-VERSIONING.md). This repository change does not update the Didit console or the owner's tunnel. Before switching hosted/local traffic permanently, the operator must configure the destination for the stable path and verify a real signed delivery. No console change or live webhook acceptance is claimed by this migration; the return re-read remains available. Historical owner decisions and validation records retain their original URLs.

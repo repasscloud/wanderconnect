@@ -24,7 +24,7 @@ public static class VerificationEndpoints
 
     public static void Map(WebApplication app)
     {
-        var me = app.MapGroup("/api/v1/me/verification").RequireAuthorization();
+        var me = app.MapGroup("/api/me/verification").RequireAuthorization();
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, IIdVerificationProvider provider, IConfiguration configuration,
             VerifiedIdentityStore identities, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -124,7 +124,7 @@ public static class VerificationEndpoints
 
         // D152: Didit calls the API directly (never through the BFF). Signature first, then the signed timestamp, then
         // a durable dedupe on event_id in the same transaction as the change.
-        app.MapPost("/api/v1/webhooks/didit", async (HttpRequest http, SwoovrDbContext db, DiditOptions options, TimeProvider clock,
+        app.MapPost("/api/webhooks/didit", async (HttpRequest http, SwoovrDbContext db, DiditOptions options, TimeProvider clock,
             VerifiedIdentityStore identities, ILoggerFactory logs, CancellationToken cancellationToken) =>
         {
             var log = logs.CreateLogger("Swoovr.Api.Verification.DiditWebhook");
@@ -176,7 +176,7 @@ public static class VerificationEndpoints
         }).AllowAnonymous();
 
         // D166: the manual date-of-birth review queue. Admins read the document's date in Didit's console and decide.
-        var reviews = app.MapGroup("/api/v1/admin/dob-reviews").RequireAuthorization();
+        var reviews = app.MapGroup("/api/admin/dob-reviews").RequireAuthorization();
         reviews.MapGet("", async (bool? open, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (_, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
@@ -207,7 +207,7 @@ public static class VerificationEndpoints
             return Results.Ok(ReviewView(review, profile.DisplayName));
         });
 
-        var admin = app.MapGroup("/api/v1/admin/accounts/{id:guid}").RequireAuthorization();
+        var admin = app.MapGroup("/api/admin/accounts/{id:guid}").RequireAuthorization();
         admin.MapGet("/verification", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
             var (_, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);

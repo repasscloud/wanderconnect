@@ -22,7 +22,7 @@ public static class RequestEndpoints
 
     public static void Map(WebApplication app)
     {
-        var api = app.MapGroup("/api/v1").RequireAuthorization();
+        var api = app.MapGroup("/api").RequireAuthorization();
 
         api.MapPost("/requests", async (NewConnectionRequest request, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration,
             TimeProvider clock, CancellationToken cancellationToken) =>
@@ -114,7 +114,7 @@ public static class RequestEndpoints
             }
             // #49: the recipient hears about it unless they muted the mode, turned requests off, or either of them is barred or blocked.
             await accounts.Services.GetRequiredService<Notifications.Notifier>().NotifyAsync(other, NotificationKind.Request, me.AccountId, mode.Id, created.Id, now, cancellationToken);
-            return Results.Created($"/api/v1/requests/{created.Id}", await ViewAsync(db, created, me.AccountId, cancellationToken));
+            return Results.Created($"/api/requests/{created.Id}", await ViewAsync(db, created, me.AccountId, cancellationToken));
         });
 
         foreach (var (route, answer) in new[] { ("accept", ConnectionRequestPolicy.Answer.Accept), ("decline", ConnectionRequestPolicy.Answer.Decline),

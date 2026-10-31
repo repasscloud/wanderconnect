@@ -1,0 +1,7 @@
+@page "/me/meeting-safety"
+<PageTitle>Meeting safety — Swoovr</PageTitle>
+<div class="column">
+@if(HttpContext.User.Identity?.IsAuthenticated==true){<Swoovr.Web.Client.Moderation.MeetingSafetyPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender:false)"/>}
+else{<div class="page-heading"><h1>Meeting safety</h1><p>@MeetingSafetyText.Disclaimer</p></div><a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a><a class="link" href="/safety">Safety &amp; Support</a>}
+</div>
+@code{[CascadingParameter]private HttpContext HttpContext{get;set;}=default!;}

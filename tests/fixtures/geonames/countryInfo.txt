@@ -6,3 +6,4 @@ GB	GBR	826	UK	United Kingdom	London	244820	69487000	EU	.uk	GBP	Pound	44	@# #@@|@
 JP	JPN	392	JA	Japan	Tokyo	377835	123366734	AS	.jp	JPY	Yen	81	###-####	^\d{3}-\d{4}$	ja	1861060		
 NZ	NZL	554	NZ	New Zealand	Wellington	268680	5324700	OC	.nz	NZD	Dollar	64	####	^(\d{4})$	en-NZ,mi	2186224		
 US	USA	840	US	United States	Washington	9629091	341784857	NA	.us	USD	Dollar	1	#####-####	^\d{5}(-\d{4})?$	en-US,es-US,haw,fr	6252001	CA,MX,CU	
+CH	CHE	756	SZ	Switzerland	Bern	41290	9092436	EU	.ch	CHF	Franc	41	####	^(\d{4})$	de-CH,fr-CH,it-CH,rm	2658434	DE,IT,LI,FR,AT

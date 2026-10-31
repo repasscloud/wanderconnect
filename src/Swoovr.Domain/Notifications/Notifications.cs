@@ -4,7 +4,7 @@ namespace Swoovr.Domain;
 /// What a notification is about (#49). Account notices (D135) can't be turned off; the rest follow the member's settings.
 /// Message requests in Swoovr are connection requests: people can only message once connected (D143).
 /// </summary>
-public enum NotificationKind { Message, Request, Connection, Travel, Account }
+public enum NotificationKind { Message, Request, Connection, Travel, Account, ConversationEnded, MeetingSafety, ReportOutcome, PolicyChange }
 
 /// <summary>
 /// One item in the member's notification centre. It holds ids only (who, which mode, which conversation, request, trip or
@@ -40,6 +40,9 @@ public sealed class NotificationDelivery
     public string Status { get; set; } = "";
     public Guid? DeviceId { get; set; }
     public DateTimeOffset At { get; set; }
+    public int? Attempts { get; set; }
+    public DateTimeOffset? NextAttemptAt { get; set; }
+    public Guid? AttemptId { get; set; }
 }
 
 /// <summary>
@@ -73,8 +76,8 @@ public sealed class NotificationModeMute
 }
 
 /// <summary>
-/// A device that may receive push notifications. Until APNs and FCM are set up (Q83) every device is served by the
-/// labelled simulated sender.
+/// An owned push registration. Token is an HMAC lookup, TokenCipher holds versioned authenticated encryption;
+/// plaintext legacy Development rows are upgraded before the new host starts serving.
 /// </summary>
 public sealed class PushDevice
 {
@@ -84,6 +87,10 @@ public sealed class PushDevice
     public string Token { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset LastSeenAt { get; set; }
+    public Guid? InstallationId { get; set; }
+    public byte[]? TokenCipher { get; set; }
+    public int? TokenKeyVersion { get; set; }
+    public DateTimeOffset? InvalidatedAt { get; set; }
 }
 
 /// <summary>What the API knows when something might notify a member.</summary>
@@ -120,8 +127,9 @@ public static class NotificationPolicy
     public static NotificationDecision Decide(NotificationFacts f)
     {
         if (!f.RecipientActive) return NotificationDecision.None;
-        if (f.RecipientBarred && f.Kind != NotificationKind.Account) return NotificationDecision.None;
+        if (f.RecipientBarred && f.Kind is not(NotificationKind.Account or NotificationKind.ReportOutcome)) return NotificationDecision.None;
         if (f.HasActor && !f.ActorAllowed) return NotificationDecision.None;
+        if(f.Kind is NotificationKind.ReportOutcome or NotificationKind.PolicyChange)return new(true,NotForKind,NotForKind);
         var wanted = f.Kind == NotificationKind.Account || f.KindOn && !f.ModeMuted;
         string Channel(bool on, bool forKind) => !forKind ? NotForKind : !wanted || !on ? Off : f.QuietNow ? Quiet : Send;
         // Account notices are emailed by D135's own notice email; messages are never emailed.
@@ -130,7 +138,7 @@ public static class NotificationPolicy
 
     public static bool KindOn(NotificationSettings s, NotificationKind kind) => kind switch
     {
-        NotificationKind.Message => s.Messages,
+        NotificationKind.Message or NotificationKind.ConversationEnded => s.Messages,
         NotificationKind.Request => s.Requests,
         NotificationKind.Connection => s.Connections,
         NotificationKind.Travel => s.Travel,
@@ -166,6 +174,9 @@ public static class NotificationPolicy
     /// </summary>
     public static (string Title, string Body) Push(NotificationKind kind, bool privatePreviews, string? name, string? modeLabel, string? text, string? place)
     {
+        if (kind == NotificationKind.PolicyChange) return ("Swoovr", "Safety guidance has changed. Open Swoovr to read the notice.");
+        if (kind == NotificationKind.MeetingSafety) return ("Swoovr", "You have a meeting safety update. Open Swoovr to check in.");
+        if (kind == NotificationKind.ConversationEnded) return ("Swoovr", ConversationEnding.Notification);
         if (privatePreviews || kind == NotificationKind.Account)
             return ("Swoovr", kind switch
             {

@@ -1,0 +1,96 @@
+using Microsoft.EntityFrameworkCore;
+using Swoovr.Api.Retention;
+using Swoovr.Domain;
+using Swoovr.Infrastructure.Persistence;
+
+namespace Swoovr.Api.Accounts;
+
+/// <summary>Durable provider reconciliation. A receipt can finish without authorizing new effects after access is revoked.</summary>
+public sealed class EmailRetirementProcessor(SwoovrDbContext db,IContactIdentityAdmin provider,EmailRetirementCommands commands,TimeProvider clock,BannedIdentifierRegistry registry)
+{
+    public async Task ProcessAsync(Guid id,CancellationToken token)
+    {
+        if(!provider.ContactRetirementConfigured)return;
+        var approval=await AuthorityAsync(id,token);
+        if(approval is null)return;
+        // Approval writers lock this same staff owner. Canonical ordering avoids source/approver deadlocks;
+        // shared preservation still excludes case/hold/registry mutations without stopping unrelated member writes.
+        await using var lifecycle=await AccountLifecycleLease.AcquireManyAsync(db,[approval.AccountId,approval.ActorId],token);
+        await using var authority=await PreservationLease.SharedAsync(db,token);
+        var operation=await db.EmailRetirementOperations.SingleOrDefaultAsync(o=>o.Id==id,token);
+        if(operation is null)return;await db.Entry(operation).ReloadAsync(token);
+        if(operation.State==EmailRetirementState.Completed)return;
+        // A review can change while canonical leases are awaited. Never dispatch under the former owner's lock.
+        if(operation.CurrentReviewId!=approval.ReviewId)return;
+        var account=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==operation.AccountId,token);
+        if(account is not null)await db.Entry(account).ReloadAsync(token);
+        if(account is null||account.EmailRetiredAt is null||account.Issuer!=provider.ContactIssuer||!Guid.TryParse(account.Subject,out var subject))
+        { await ObserveAsync(operation,IdentityContactState.Conflict,token);return; }
+        // This read has no new destructive effect. Even revoked/expired approval may reconcile an already committed command.
+        var state=await provider.EmailRetirementStatusAsync(subject,id,token);
+        if(state==IdentityContactState.Retired){await ObserveAsync(operation,state,token);return;}
+        if(state!=IdentityContactState.NotRecorded||operation.State==EmailRetirementState.NeedsReview)
+        {await ObserveAsync(operation,state,token);return;}
+        if(!approval.Valid){await ObserveAsync(operation,IdentityContactState.Conflict,token);return;}
+        var now=clock.GetUtcNow();
+        var grant=await db.AccessGrants.SingleOrDefaultAsync(g=>g.Id==approval.GrantId&&g.AccountId==approval.ActorId
+            &&g.Capability==StaffAccessPolicy.IdentifierRelease&&g.RevokedAt==null&&g.ExpiresAt>now,token);
+        var staff=await db.Accounts.SingleOrDefaultAsync(a=>a.Id==approval.ActorId&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,token);
+        var admin=staff is not null&&(staff.IsRootAdmin||await db.RoleGrants.AnyAsync(r=>r.AccountId==staff.Id&&r.Role==AccountRole.Admin,token));
+        var people=await SafetyRetention.CaseAccountsAsync(db,operation.CaseId,token);
+        if(grant is null||!admin||await StaffAccessEndpoints.ExcludedAsync(db,approval.ActorId,people,token)
+            ||!await db.ModerationCases.AnyAsync(c=>c.Id==operation.CaseId&&c.SubjectAccountId==account.Id,token)
+            ||!await db.Sanctions.AnyAsync(s=>s.AccountId==account.Id&&s.CaseId==operation.CaseId&&s.Kind==SanctionKind.Termination
+                &&s.LiftedAt==null&&s.StartsAt<=now&&(s.EndsAt==null||s.EndsAt>now),token)
+            ||!await db.BannedIdentifiers.AnyAsync(b=>b.Id==operation.RegistryId&&b.CaseId==operation.CaseId&&b.IdentifierType==BannedIdentifierType.Email
+                &&b.Status==BanStatus.Revoked&&b.RevokedAt!=null&&b.RevokedBy!=null,token))
+        {await ObserveAsync(operation,IdentityContactState.Conflict,token);return;}
+        IdentityEmailBinding expected;
+        try{expected=commands.Open(operation,provider.ContactIssuer);}
+        catch(Exception error)when(error is System.Security.Cryptography.CryptographicException or KeyNotFoundException or ArgumentException or InvalidOperationException or System.Text.Json.JsonException)
+        {await ObserveAsync(operation,IdentityContactState.Unavailable,token);return;}
+        if(expected.Subject!=subject){await ObserveAsync(operation,IdentityContactState.Conflict,token);return;}
+        List<BannedIdentifier> matches;
+        try{matches=await registry.FindAsync(BannedIdentifierType.Email,expected.Email!,now,token);}
+        catch(IdentifierCheckException){await ObserveAsync(operation,IdentityContactState.Unavailable,token);return;}
+        var related=new List<Guid>();
+        foreach(var review in matches.Select(b=>b.CaseId).Distinct())related.AddRange(await SafetyRetention.CaseAccountsAsync(db,review,token));
+        if(!matches.Any(b=>b.Id==operation.RegistryId)||matches.Any(b=>BannedIdentifierPolicy.Blocks(b,now))
+            ||await StaffAccessEndpoints.ExcludedAsync(db,approval.ActorId,related,token))
+        {await ObserveAsync(operation,IdentityContactState.Conflict,token);return;}
+        state=await provider.RetireEmailBindingAsync(expected,id,token);
+        await ObserveAsync(operation,state,token);
+    }
+    private sealed record Approval(Guid AccountId,Guid ActorId,Guid GrantId,Guid? ReviewId,bool Valid);
+    private async Task<Approval?> AuthorityAsync(Guid id,CancellationToken token)
+    {
+        var operation=await db.EmailRetirementOperations.Where(o=>o.Id==id)
+            .Select(o=>new{o.AccountId,o.RequestedBy,o.AccessGrantId,o.CurrentReviewId}).SingleOrDefaultAsync(token);
+        if(operation is null)return null;
+        if(operation.CurrentReviewId is not{}reviewId)return new(operation.AccountId,operation.RequestedBy,operation.AccessGrantId,null,true);
+        var review=await db.EmailRetirementReviews.AsNoTracking().SingleOrDefaultAsync(r=>r.Id==reviewId&&r.OperationId==id,token);
+        return new(operation.AccountId,review?.ActorId??operation.RequestedBy,review?.AccessGrantId??operation.AccessGrantId,reviewId,review is not null);
+    }
+    private async Task ObserveAsync(EmailRetirementOperation operation,IdentityContactState state,CancellationToken token)
+    {
+        var now=clock.GetUtcNow();
+        if(state==IdentityContactState.Retired)
+        {
+            // Pending can outlast an access-token lifetime. Refuse tokens minted anywhere in that uncertainty window.
+            var source=await db.Accounts.SingleAsync(a=>a.Id==operation.AccountId,token);
+            var cutoff=SessionRevocationPolicy.Cutoff(now);
+            if(source.SessionsRevokedAt is null||source.SessionsRevokedAt<cutoff)source.SessionsRevokedAt=cutoff;
+        }
+        var previous=operation.State;EmailRetirementPolicy.Observe(operation,state,now);
+        if(previous!=operation.State)Audit.Record(db,clock.GetUtcNow(),null,"account","registry.email-retirement-state","retirement",operation.Id.ToString(),operation.State.ToString());
+        await db.SaveChangesAsync(token);
+    }
+    public async Task<int> RunAsync(CancellationToken token)
+    {
+        var now=clock.GetUtcNow();
+        var ids=await db.EmailRetirementOperations.Where(o=>o.State!=EmailRetirementState.Completed&&o.NextAttemptAt<=now)
+            .OrderBy(o=>o.NextAttemptAt).ThenBy(o=>o.Id).Select(o=>o.Id).Take(100).ToListAsync(token);
+        foreach(var id in ids){await ProcessAsync(id,token);db.ChangeTracker.Clear();}
+        return ids.Count;
+    }
+}

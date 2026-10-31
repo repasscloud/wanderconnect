@@ -1,0 +1,7 @@
+# Appearance account backend
+
+D277 DEFAULT adds authenticated private preference storage, stable API/BFF transport, optimistic revisions and portable persisted retry/conflict state. The actual settings UI remains the existing guest-only view until D278; no account-sync UI/native-device claim is made by this backend slice.
+
+The [contract](../architecture/APPEARANCE-ACCOUNT-CONTRACT.md) describes absence, validation, exact repeat acknowledgements, stale conflicts, revision exhaustion, unknown-value fallback, the account-scope precondition and privacy/lifecycle integration. Shared privacy Draft0.15 explains the new source. Canonical design source was not edited; check_design.py now also generates supported contract values and its write/check steps preserve design bytes.
+
+Tests first failed on missing store/entity types, then on missing cache methods. Actual old-binary API testing reproduced a switched-auth write succeeding without the owner precondition; the guarded rerun must refuse it. Tests also cover actual PostgreSQL revision concurrency, unknown data, contested deletion, own export, independent evidence and source erasure; fake transport and portable state are separate evidence. Browser acceptance uses actual local Keycloak/API/Web BFF and fictional adults, plus affected deletion/held deletion and privacy suites. Exact results and gaps are in VALIDATION.md. Client/cache/native UI work and hosted CSP remain in the original queue. No deployment, merge, Actions or new project.

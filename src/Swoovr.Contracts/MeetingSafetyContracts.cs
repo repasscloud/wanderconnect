@@ -1,0 +1,14 @@
+namespace Swoovr.Contracts;
+public sealed record TrustedContactAdd(string DisplayName,string Channel,string Destination,string PreferredFirstName);
+public sealed record TrustedContactView(Guid Id,string DisplayName,string Channel,string DestinationHint,string Consent,string InvitationStatus,DateTimeOffset CreatedAt);
+public sealed record TrustedContactCompose(string Destination,string Channel);
+public sealed record MeetingSafetyCreate(string PreferredFirstName,DateTimeOffset StartsAt,DateTimeOffset FinalCheckInAt,string TimeZoneId,string? VenueOrArea,bool SharePlace,string? MemberNote,IReadOnlyList<Guid> Contacts,IReadOnlyList<DateTimeOffset>? AdditionalCheckIns=null);
+public sealed record MeetingSafetyAction(Guid CommandId,string Action,Guid? CheckInId=null,string? Feedback=null);
+public sealed record MeetingSafetyCheckInView(Guid Id,DateTimeOffset DueAt,DateTimeOffset GraceEndsAt,DateTimeOffset? RespondedAt,string? Response,DateTimeOffset? EscalatedAt);
+public sealed record MeetingSafetyRecipientView(Guid ContactId,string DisplayName,string Consent,string NotificationStatus,bool Revoked);
+public sealed record MeetingSafetySessionView(Guid Id,string PreferredFirstName,DateTimeOffset StartsAt,DateTimeOffset FinalCheckInAt,string TimeZoneId,string? VenueOrArea,bool SharePlace,string? MemberNote,string Status,DateTimeOffset? ClosedAt,DateTimeOffset? PurgeAfter,DateTimeOffset UpdatedAt,bool ShowAfterPrompt,string? PrivateFeedback,IReadOnlyList<MeetingSafetyCheckInView> CheckIns,IReadOnlyList<MeetingSafetyRecipientView> Recipients);
+public sealed record MeetingSafetyDashboard(IReadOnlyList<TrustedContactView> Contacts,IReadOnlyList<MeetingSafetySessionView> Sessions,string DeliveryMode);
+public sealed record MeetingSafetyTokenRequest(string Token,string? Grant=null);
+public sealed record MeetingSafetyConsentRequest(string Token,string Action);
+public sealed record MeetingSafetyConsentView(bool Available,string Status);
+public sealed record SharedMeetingSafetyView(string PreferredFirstName,DateTimeOffset StartsAt,DateTimeOffset FinalCheckInAt,DateTimeOffset? NextCheckInAt,string TimeZoneId,string? VenueOrArea,string Status,DateTimeOffset UpdatedAt,DateTimeOffset LinkExpiresAt,string StartDisplay,string DeadlineDisplay);

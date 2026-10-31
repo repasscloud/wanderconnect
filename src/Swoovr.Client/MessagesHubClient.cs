@@ -18,11 +18,13 @@ public sealed class MessagesHubClient : IAsyncDisposable
             .WithUrl(hub, options => { if (accessToken is not null) options.AccessTokenProvider = accessToken; })
             .WithAutomaticReconnect()
             .Build();
+        connection.Reconnected += _ => { Reconnected?.Invoke(); return Task.CompletedTask; };
         connection.On<MessageView>("message", m => Message?.Invoke(m));
         connection.On<MessageDeleted>("deleted", d => Deleted?.Invoke(d));
         connection.On<ConversationClosed>("closed", c => Closed?.Invoke(c));
     }
 
+    public event Action? Reconnected;
     public event Action<MessageView>? Message;
     public event Action<MessageDeleted>? Deleted;
     public event Action<ConversationClosed>? Closed;

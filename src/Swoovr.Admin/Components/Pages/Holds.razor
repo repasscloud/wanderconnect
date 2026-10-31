@@ -2,9 +2,9 @@
 @inject AdminClient Admin
 <PageTitle>Legal holds — Swoovr admin</PageTitle>
 <h1>Legal holds</h1>
-<p class="help">For the security and legal officer (policy §3, §11). A hold preserves the named accounts' records (optionally only some conversations) for a period, whatever the member does: deletion still completes for everything anyone sees, but held records stay in the restricted evidence store until the hold is released. Holds never expire on their own; overdue reviews are listed first. The member is never told.</p>
+<p class="help">For the security and legal officer (policy §3, §11). A hold preserves the named accounts' records (optionally only some conversations) for a period, whatever the member does: deletion still completes for everything anyone sees, but held records stay in the restricted evidence store. Release resumes the applicable review or police retention schedule; it does not automatically erase required evidence. Only records still available can be captured; a hold does not restore already-erased material. Holds never expire on their own; overdue reviews are listed first. The member is never told.</p>
 <p class="row"><a href="/holds" data-filter="live">Live</a> · <a href="/holds?status=released" data-filter="released">Released</a> · <a href="/disclosures">Disclosure register</a></p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/holds">Sign in again</a> }</p> }
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/holds" data-enhance-nav="false">Sign in again</a> }</p> }
 @if (holds is null) { <p data-holds="refused">@loadError</p> }
 else if (holds.Count == 0) { <p data-holds="none">No holds.</p> }
 else

@@ -118,6 +118,8 @@ Design: a small Keycloak authenticator extension (Java, Keycloak SPI) added to t
 
 Cost and trade-off: this is a Java (Maven) component outside the .NET application projects, placed at `keycloak/extensions/swoovr-email-link/` and copied into the Keycloak image. The extension must be rebuilt and retested on every Keycloak upgrade. The same extension also holds the MailerSend API email sender and, if needed, the lockout-clearing listener; it is the only custom Keycloak code in this design. If it proves impractical, it is removed and the reason recorded here; the API-minted alternative stays rejected regardless.
 
+D281 implementation note: the MailerSend email-sender SPI is packaged in the existing `containers/keycloak/contact-policy` identity-extension JAR alongside D255. No new Maven/.NET project is introduced. The future D34 authenticator remains separate work; this sender does not claim sign-in-link capability. [Configuration and evidence boundaries](KEYCLOAK-EMAIL.md).
+
 ## Account protection
 
 - **Lockout:** CONFIRMED (D37, revised by owner 22 October 2026) three failed password attempts lock the account for 15 minutes; completing a password reset by email clears the lock immediately. Implemented with Keycloak brute-force detection in temporary-lockout mode (3 failures, 15-minute wait, no permanent lockout) on the members and venues realms and for the root admin, plus per-IP rate limiting at the reverse proxy (DEFAULT). The temporary lock limits deliberate lockout of someone else's account to 15 minutes at a time. VERIFIED on 26.8.1 (22 October 2026, [members slice](../delivery/PHASE-1-KEYCLOAK-MEMBERS.md)): 3 failures set a 900-second lock, the correct password is refused while locked, and a completed reset-credentials flow clears the brute-force record immediately, so no lockout-clearing listener is needed. Entra handles lockout for employees.
@@ -199,3 +201,7 @@ Exact client IDs, mapper names, token and session lifetimes beyond those stated,
 ## Needed from outside the repository
 
 Apple Developer account (Services ID, key, Private Email Relay domain), Google OAuth client, Entra app registration in the RePass Cloud tenant, MailerSend account and DNS records for `swoovr.app`, and hosting for Keycloak and its database. None are configured or claimed by this document.
+
+## Reviewed contact retirement boundary (D249, D255–D256)
+
+CONFIRMED D249 permits a separate audited retirement of a reviewed recycled contact without restoring or transferring its original account. The pinned provider in `containers/keycloak/contact-policy/` owns raw-binding CAS, current-state confirmation, login guards and provider sessions. The Domain contact interface and Infrastructure adapter receive canonical API version and trusted member issuer from API composition; Infrastructure gains no Contracts/API dependency. Capabilities must match that issuer and realm. The adapter is explicitly disabled by default, never falls back to an ordinary Admin profile PUT and treats missing/ambiguous responses as unconfirmed. Durable application intent, staff workflow and separately reviewed original-account recovery remain unfinished; transport validation does not satisfy those authorization/recovery requirements.

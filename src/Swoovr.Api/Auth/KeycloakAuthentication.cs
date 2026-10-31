@@ -83,7 +83,7 @@ public static class KeycloakAuthentication
                     ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
                     RequireSignedTokens = true,
                     RequireExpirationTime = true,
-                    ClockSkew = TimeSpan.FromSeconds(30),
+                    ClockSkew = SessionRevocationPolicy.IssuerClockSkew,
                     NameClaimType = "sub",
                 };
                 // D143: WebSocket clients can't always set headers, so the messaging hub (only) also takes the token from the query.

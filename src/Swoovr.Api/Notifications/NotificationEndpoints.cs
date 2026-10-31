@@ -1,4 +1,5 @@
 using System.Globalization;
+using Swoovr.Infrastructure.Messaging;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Swoovr.Api.Accounts;
@@ -14,15 +15,24 @@ public static class NotificationLinks
 {
     public static async Task<string> ForAsync(SwoovrDbContext db, Notification n, CancellationToken cancellationToken) => n.Kind switch
     {
-        NotificationKind.Message => $"/chats/{n.SubjectId}",
+        NotificationKind.Message or NotificationKind.ConversationEnded => $"/chats/{n.SubjectId}",
+        NotificationKind.ReportOutcome => "/me/notices",
         NotificationKind.Request => "/connections",
         NotificationKind.Connection when n.ActorAccountId is { } actor
             && await db.MemberProfiles.Where(p => p.AccountId == actor).Select(p => (Guid?)p.PublicId).SingleOrDefaultAsync(cancellationToken) is { } person
             => $"/people/{person}?mode={n.ModeId}",
         NotificationKind.Connection => "/connections",
         NotificationKind.Travel => "/travel",
+        NotificationKind.MeetingSafety => "/me/meeting-safety",
+        NotificationKind.PolicyChange => await PolicyLinkAsync(db,n.SubjectId,cancellationToken),
         _ => "/me/notices",
     };
+
+    private static async Task<string> PolicyLinkAsync(SwoovrDbContext db,Guid? publication,CancellationToken token)
+    {
+        var path=await db.Set<PolicyNoticePublication>().Where(p=>p.Id==publication&&p.PublishedAt!=null).Select(p=>p.Link).SingleOrDefaultAsync(token);
+        return PolicyNoticePolicy.AllowedLink(path)?path!:"/safety";
+    }
 
     public static Task<string?> PlaceAsync(SwoovrDbContext db, Guid trip, CancellationToken cancellationToken) =>
         (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId where t.Id == trip select c.Name).SingleOrDefaultAsync(cancellationToken);
@@ -31,14 +41,14 @@ public static class NotificationLinks
 /// <summary>
 /// The member's notification centre and settings (#49; policy §10). The centre is worded when read: an item from someone
 /// now blocked (either way), restricted, suspended, terminated or deleted disappears, and a barred member sees account
-/// notices only. Settings: kinds, push, email, private previews, quiet hours, muted modes and photos in chat. Push devices
-/// are served by the labelled simulated sender until APNs and FCM exist (Q83).
+/// notices and own-report updates only. Settings: kinds, push, email, private previews, quiet hours, muted modes and photos in chat. Push devices
+/// use configured APNs/FCM or explicitly labelled Development simulation (D210).
 /// </summary>
 public static class NotificationEndpoints
 {
     public static void Map(WebApplication app)
     {
-        var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+        var me = app.MapGroup("/api/me").RequireAuthorization();
 
         me.MapGet("/notifications", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -103,36 +113,59 @@ public static class NotificationEndpoints
             return Results.Ok(await SettingsViewAsync(db, account, cancellationToken));
         });
 
-        me.MapGet("/devices", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        me.MapGet("/devices", async (ClaimsPrincipal user, AccountResolver accounts, IPushSender push, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
-            return Results.Ok(await accounts.Db!.PushDevices.Where(d => d.AccountId == current!.Account!.Id).OrderBy(d => d.CreatedAt)
-                .Select(d => new PushDeviceView(d.Id, d.Platform, d.CreatedAt, true)).ToListAsync(cancellationToken));
+            return Results.Ok(await accounts.Db!.PushDevices.Where(d => d.AccountId == current!.Account!.Id && d.InvalidatedAt == null).OrderBy(d => d.CreatedAt)
+                .Select(d => new PushDeviceView(d.Id, d.Platform, d.CreatedAt, push.Kind == "simulated")).ToListAsync(cancellationToken));
         });
         me.MapPost("/devices", async (PushDeviceRegistration registration, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
-            CancellationToken cancellationToken) =>
+            PushKeys keys, IPushSender push, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, account, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
-            if (!NotificationPolicy.ValidPlatform(registration.Platform) || !NotificationPolicy.ValidToken(registration.Token))
+            if (!NotificationPolicy.ValidPlatform(registration.Platform) || !NotificationPolicy.ValidToken(registration.Token) || registration.InstallationId == Guid.Empty)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidDevice, "That device can't be registered.");
-            // A device signed in to by someone else stops receiving the previous person's notifications.
-            await db.PushDevices.Where(d => d.Token == registration.Token && d.AccountId != account).ExecuteDeleteAsync(cancellationToken);
-            var device = await db.PushDevices.SingleOrDefaultAsync(d => d.AccountId == account && d.Token == registration.Token, cancellationToken);
-            if (device is not null)
+            if (keys.Protector is not { } protector) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.NotConfigured, "Push token storage isn't configured.");
+            if (push.Kind == "providers" && registration.Token!.StartsWith("simulated-", StringComparison.Ordinal))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidDevice, "A real provider token is required.");
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, account, cancellationToken);
+            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == account && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
+            var hash = protector.Hash(registration.Platform!, registration.Token!);
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            // Serialize capacity/rotation per account as well as token ownership and installation identity.
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({0x50555348}, hashtext({account.ToString()}))", cancellationToken);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({hash}))", cancellationToken);
+            if (registration.InstallationId is { } installation)
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({installation.ToString()}))", cancellationToken);
+            var device = registration.InstallationId is { } install
+                ? await db.PushDevices.SingleOrDefaultAsync(d => d.InstallationId == install, cancellationToken) : null;
+            if (device is not null && device.AccountId != account && device.Token != hash)
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.NotAvailable, "That installation isn't available.");
+            // Possession of the same provider token transfers it off the previous account. Never return their id.
+            await db.PushDevices.Where(d => d.Token == hash && d.AccountId != account).ExecuteDeleteAsync(cancellationToken);
+            if (device?.AccountId != account) device = null;
+            device ??= await db.PushDevices.SingleOrDefaultAsync(d => d.AccountId == account && d.Token == hash, cancellationToken);
+            var created = device is null;
+            if (created || device!.InvalidatedAt is not null)
             {
-                (device.Platform, device.LastSeenAt) = (registration.Platform!, now);
-                await db.SaveChangesAsync(cancellationToken);
-                return Results.Ok(new PushDeviceView(device.Id, device.Platform, device.CreatedAt, true));
+                if (await db.PushDevices.CountAsync(d => d.AccountId == account && d.InvalidatedAt == null, cancellationToken) >= NotificationPolicy.DevicesMax)
+                    return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeviceLimit, $"You can receive notifications on up to {NotificationPolicy.DevicesMax} devices.");
             }
-            if (await db.PushDevices.CountAsync(d => d.AccountId == account, cancellationToken) >= NotificationPolicy.DevicesMax)
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeviceLimit, $"You can receive notifications on up to {NotificationPolicy.DevicesMax} devices.");
-            db.PushDevices.Add(device = new PushDevice { Id = Guid.NewGuid(), AccountId = account, Platform = registration.Platform!, Token = registration.Token!, CreatedAt = now, LastSeenAt = now });
-            Audit.Record(db, now, account, "account", "device.registered", "push-device", device.Id.ToString(), device.Platform);
+            if (created) db.PushDevices.Add(device = new PushDevice { Id = Guid.NewGuid(), AccountId = account, CreatedAt = now });
+            if (device is not null)
+                await db.PushDevices.Where(d => d.AccountId == account && d.Token == hash && d.Id != device.Id).ExecuteDeleteAsync(cancellationToken);
+            // Rotation keeps the owned device id, preferences and delivery provenance, replacing the encrypted token.
+            device!.Platform = registration.Platform!; device.Token = hash; device.InstallationId = registration.InstallationId ?? device.InstallationId;
+            device.TokenCipher = protector.Protect(device.Id, account, device.Platform, registration.Token!);
+            device.TokenKeyVersion = protector.CurrentVersion; device.LastSeenAt = now; device.InvalidatedAt = null;
+            Audit.Record(db, now, account, "account", created ? "device.registered" : "device.rotated", "push-device", device.Id.ToString(), device.Platform);
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Created($"/api/v1/me/devices/{device.Id}", new PushDeviceView(device.Id, device.Platform, device.CreatedAt, true));
+            await transaction.CommitAsync(cancellationToken);
+            var view = new PushDeviceView(device.Id, device.Platform, device.CreatedAt, push.Kind == "simulated");
+            return created ? Results.Created($"/api/me/devices/{device.Id}", view) : Results.Ok(view);
         });
         me.MapDelete("/devices/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -156,7 +189,7 @@ public static class NotificationEndpoints
     {
         var s = await Notifier.SettingsAsync(db, account, cancellationToken);
         var muted = await db.NotificationModeMutes.Where(m => m.AccountId == account).OrderBy(m => m.ModeId).Select(m => m.ModeId).ToListAsync(cancellationToken);
-        var devices = await db.PushDevices.CountAsync(d => d.AccountId == account, cancellationToken);
+        var devices = await db.PushDevices.CountAsync(d => d.AccountId == account && d.InvalidatedAt == null, cancellationToken);
         return new(s.Messages, s.Requests, s.Connections, s.Travel, s.Push, s.Email, s.PrivatePreviews, s.QuietFrom?.ToString("HH:mm", CultureInfo.InvariantCulture),
             s.QuietUntil?.ToString("HH:mm", CultureInfo.InvariantCulture), s.TimeZone, muted, s.ChatPhotos, devices);
     }
@@ -164,8 +197,11 @@ public static class NotificationEndpoints
     /// <summary>The centre as the member may see it now: worded here, from ids, with the rules applied again.</summary>
     public static async Task<NotificationCentre> CentreAsync(SwoovrDbContext db, Guid me, bool barred, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account))
+        if(!await db.Accounts.AnyAsync(a=>a.Id==me&&a.Status==AccountStatus.Active,cancellationToken))return new([],0);
+        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account || n.Kind==NotificationKind.ReportOutcome))
             .OrderByDescending(n => n.UpdatedAt).Take(NotificationPolicy.PageSize * 2).ToListAsync(cancellationToken);
+        var outcomeIds=rows.Where(n=>n.Kind==NotificationKind.ReportOutcome&&n.SubjectId!=null).Select(n=>n.SubjectId!.Value).ToList();
+        var ownOutcomes=await db.Reports.Where(r=>r.ReporterAccountId==me&&outcomeIds.Contains(r.Id)).Select(r=>r.Id).ToListAsync(cancellationToken);
         var actors = rows.Where(n => n.ActorAccountId is not null).Select(n => n.ActorAccountId!.Value).Distinct().ToList();
         var allowed = new Dictionary<Guid, bool>();
         foreach (var actor in actors) allowed[actor] = await Notifier.AllowedAsync(db, me, actor, now, cancellationToken);
@@ -174,14 +210,25 @@ public static class NotificationEndpoints
         var tripIds = rows.Where(n => n.Kind == NotificationKind.Travel && n.SubjectId is not null).Select(n => n.SubjectId!.Value).ToList();
         var trips = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                            where tripIds.Contains(t.Id) && t.CancelledAt == null select new { t.Id, t.Arrival, c.Name, c.TimeZone }).ToDictionaryAsync(t => t.Id, cancellationToken);
+        var publicationIds=rows.Where(n=>n.Kind==NotificationKind.PolicyChange&&n.SubjectId!=null).Select(n=>n.SubjectId!.Value).ToList();
+        var publications=await db.Set<PolicyNoticePublication>().AsNoTracking().Where(p=>publicationIds.Contains(p.Id)).ToDictionaryAsync(p=>p.Id,cancellationToken);
+        var ownPublicationIds=await db.Set<PolicyNoticeRecipient>().Where(r=>r.AccountId==me&&r.Status=="centre-recorded"&&publicationIds.Contains(r.PublicationId)).Select(r=>r.PublicationId).ToListAsync(cancellationToken);
         var items = new List<NotificationView>();
         foreach (var n in rows)
         {
+            if(n.Kind==NotificationKind.ReportOutcome&&(n.SubjectId is not{}source||!ownOutcomes.Contains(source)||n.ActorAccountId!=null||n.ModeId!=null))continue;
+            if(n.Kind==NotificationKind.PolicyChange&&(n.ActorAccountId!=null||n.ModeId!=null||n.SubjectId is not{}publicationId
+                ||!ownPublicationIds.Contains(publicationId)||!publications.TryGetValue(publicationId,out var publication)
+                ||!PolicyNoticePolicy.CanDisplay(publication,now)||n.DedupeKey!=PolicyNoticePolicy.Dedupe(publicationId)))continue;
             if (n.ActorAccountId is { } actor && !allowed[actor]) continue;
             var name = n.ActorAccountId is { } who && names.TryGetValue(who, out var known) ? known : "Someone";
             var mode = n.ModeId is { } id && labels.TryGetValue(id, out var label) ? label : null;
             string? title = n.Kind switch
             {
+                NotificationKind.PolicyChange => "Safety policy update: "+publications[n.SubjectId!.Value].Title,
+                NotificationKind.ReportOutcome => "There is an update to a report you submitted. Open Notices and reports to review it.",
+                NotificationKind.ConversationEnded => ConversationEnding.Notification,
+                NotificationKind.MeetingSafety => "You have a meeting safety update. Open it to check in.",
                 NotificationKind.Message => n.Count > 1 ? $"{n.Count} new messages from {name}" : $"New message from {name}",
                 NotificationKind.Request => mode is null ? $"{name} sent you a request" : $"{name} sent you a {mode} request",
                 NotificationKind.Connection => mode is null ? $"{name} accepted your request" : $"{name} accepted your {mode} request",

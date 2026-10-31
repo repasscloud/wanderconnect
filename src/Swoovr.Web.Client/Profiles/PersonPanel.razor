@@ -129,7 +129,7 @@
         }
     </section>
     <ReportForm SubjectType="@(person.Badges.Any(b => b.Badge == "bot") ? "bot" : "profile")" SubjectId="@Id.ToString()" Name="@person.DisplayName"
-                Blocked="() => { person = null; blockedNow = true; }" />
+                Submitted="() => reportSent=true" Blocked="() => { person = null; blockedNow = true; }" />
     @* D190: the separate Serious Safety Incident pathway. *@
     <p class="account-actions"><a class="button button-secondary" href="@($"/me/safety?type=profile&id={Id}")" data-serious-link>Report a serious safety incident</a></p>
 }
@@ -139,11 +139,12 @@
         <p>Blocked. You won't see each other. You can unblock from <a class="link" href="/connections">Connections</a>.</p>
     </div>
 }
+@if(reportSent && person is null){<p role="status">@ReportFollowUpText.Confirmation</p><ReportSupport />}
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
     [Parameter] public string? Mode { get; set; }
     private string? confirmDisconnect;
-    private bool loaded, busy, confirmBlock, blockedNow;
+    private bool loaded, busy, confirmBlock, blockedNow, reportSent;
     private string? connectStatus, connectMessage;
     private PersonProfile? person;
 

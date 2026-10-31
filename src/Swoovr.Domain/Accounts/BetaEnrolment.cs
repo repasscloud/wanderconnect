@@ -16,6 +16,18 @@ public sealed class BetaEnrolment
     public DateTimeOffset? RevokedAt { get; set; }
     public DateTimeOffset? ActivatedAt { get; set; }
     public Guid? AccountId { get; set; }
+    public string InvitationState { get; set; } = "not-queued";
+    public DateTimeOffset? InvitationQueuedAt { get; set; }
+    public DateTimeOffset? InvitationAttemptedAt { get; set; }
+    public DateTimeOffset? InvitationCompletedAt { get; set; }
+    public DateTimeOffset? InvitationNextAttemptAt { get; set; }
+    public int InvitationAttempts { get; set; }
+    public string? InvitationOutcomeCode { get; set; }
+    // Staff report of external private-distribution work; never Apple evidence or an access grant.
+    public string IosDistributionState { get; set; } = "not-recorded";
+    public long IosDistributionRevision { get; set; }
+    public DateTimeOffset? IosDistributionChangedAt { get; set; }
+    public Guid? IosDistributionChangedBy { get; set; }
 }
 
 public enum BetaAccess { NotRequired, Enrolled, NotEnrolled, Unavailable }

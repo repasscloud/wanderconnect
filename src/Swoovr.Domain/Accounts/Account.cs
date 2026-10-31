@@ -6,7 +6,7 @@ public enum AccountStatus { Active, Locked, Suspended, PendingDeletion, Deleted 
 /// <summary>
 /// An application account keyed by the validated token's (issuer, subject) (D55). Keycloak
 /// answers who someone is; this record and those linked to it answer what they may do.
-/// Email is a cached copy of the latest verified address from a validated token, kept for
+/// Email is the last accepted verified address from validated token evidence, kept for
 /// beta enrolment, invitations and founder tokens; it is never used to merge accounts (D38).
 /// </summary>
 public sealed class Account
@@ -17,6 +17,10 @@ public sealed class Account
     public AccountRealm Realm { get; set; }
     /// <summary>Normalised, verified only; null until a token carries a verified address.</summary>
     public string? Email { get; set; }
+    /// <summary>Current verified email's acceptance watermark (including tolerated issuer skew/legacy uncertainty); older claims cannot reverse it.</summary>
+    public DateTimeOffset? EmailAcceptedAt { get; set; }
+    /// <summary>D249: reviewed binding retired; suppress claim adoption until independent original-account recovery.</summary>
+    public DateTimeOffset? EmailRetiredAt { get; set; }
     public AccountStatus Status { get; set; }
     /// <summary>A short machine reason such as "underage-dob"; never free text from a client.</summary>
     public string? StatusReason { get; set; }
@@ -27,6 +31,8 @@ public sealed class Account
     /// <summary>Deletion (D170): when it was asked for, when final deletion runs, and the status a cancel restores.</summary>
     public DateTimeOffset? DeletionRequestedAt { get; set; }
     public DateTimeOffset? DeletionDueAt { get; set; }
+    /// <summary>Final purge has crossed its irreversible boundary; provider uncertainty retries and cannot resurrect the account.</summary>
+    public DateTimeOffset? DeletionFinalizingAt { get; set; }
     public AccountStatus? DeletionRestoreStatus { get; set; }
     /// <summary>The member also asked for their founder recovery token to go at final deletion (D173, #22).</summary>
     public bool DeleteFounderToken { get; set; }

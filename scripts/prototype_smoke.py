@@ -17,12 +17,17 @@ def probe(base,path,expected=200):
     assert code == expected, (path,code,expected)
     return body,headers
 
-def host(mode, enabled, port, run, kind="Api"):
+def host(mode, enabled, port, run, kind="Api", expect_startup_refused=False):
     log=tempfile.TemporaryFile()
-    env=dict(os.environ,ASPNETCORE_ENVIRONMENT=mode,ASPNETCORE_URLS=f'http://127.0.0.1:{port}',Prototype__Enabled=str(enabled).lower())
+    env=dict(os.environ,ASPNETCORE_ENVIRONMENT=mode,DOTNET_ENVIRONMENT=mode,ASPNETCORE_URLS=f'http://127.0.0.1:{port}',Prototype__Enabled=str(enabled).lower())
     process=subprocess.Popen(['dotnet',str(root/f'src/Swoovr.{kind}/bin/Release/net10.0/Swoovr.{kind}.dll')],cwd=root/f'src/Swoovr.{kind}',env=env,stdout=log,stderr=log)
     base=f'http://127.0.0.1:{port}'
     try:
+        if expect_startup_refused:
+            assert process.wait(timeout=15) != 0
+            log.seek(0); output=log.read().decode()
+            assert "development-only:Prototype:Enabled" in output and "Now listening on" not in output
+            return
         for _ in range(100):
             try: probe(base,'/health/live' if kind == 'Api' else '/');break
             except OSError: time.sleep(.1)
@@ -34,7 +39,7 @@ def host(mode, enabled, port, run, kind="Api"):
         except subprocess.TimeoutExpired:process.kill();process.wait()
         log.close()
 
-prefix='/api/v1/prototype/people'
+prefix='/api/prototype/people'
 def disabled(base):probe(base,prefix,404)
 def enabled(base):
     body,headers=probe(base,prefix)
@@ -81,9 +86,9 @@ def web_invalid(base):
         assert b'Profile unavailable' in body
 
 host('Development',False,5194,web_disabled,'Web')
-host('Production',True,5195,web_disabled,'Web')
+host('Production',True,5195,web_disabled,'Web',expect_startup_refused=True)
 host('Development',True,5196,web_invalid,'Web')
 host('Development',False,5191,disabled)
-host('Production',True,5192,disabled)
+host('Production',True,5192,disabled,expect_startup_refused=True)
 host('Development',True,5193,enabled)
 print('PASS: opt-in/default/production prototype gates, fictional filtered list/profile/media/contact, no hidden FWB leak, sparse/incognito/travel and malformed-input HTTP checks.')

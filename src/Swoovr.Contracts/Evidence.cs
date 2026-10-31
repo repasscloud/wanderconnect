@@ -30,7 +30,8 @@ public sealed record LegalHoldDetail(Guid Id, string Status, string Source, stri
     DateTimeOffset? From, DateTimeOffset? Until, List<Guid> AccountIds, List<Guid> ConversationIds, List<EvidenceItemView> Items,
     List<CustodyEventView> Custody, bool ChainIntact, List<DisclosureView> Disclosures, DateTimeOffset? ReleasedAt, string? ReleaseReason,
     Guid? LeCaseId = null, string? Kind = null, string? LawfulBasis = null, string? RequestingBody = null, int Overlaps = 0, Guid? ReleasedBy = null,
-    List<EvidenceExportView>? Exports = null);
+    List<EvidenceExportView>? Exports = null, DateTimeOffset? RetainUntil = null, string? RetentionReason = null,
+    DateTimeOffset? NoReviewRetentionConfirmedAt = null, bool MayConfirmNoReview = false);
 
 /// <summary>An export made from a hold (D195): who, when, whether downloaded, its package hash, and what it corrects.</summary>
 public sealed record EvidenceExportView(Guid Id, Guid CreatedBy, DateTimeOffset CreatedAt, DateTimeOffset? DownloadedAt, string? PackageSha256,
@@ -55,5 +56,8 @@ public sealed record EvidenceExportRequest(string? Purpose, DisclosureRequest? D
 
 public sealed record RedactionRequest(Guid ItemId, List<string>? Fields, string? Reason);
 
-/// <summary>A one-time link: GET /api/v1/admin/evidence-exports/{Token} within 15 minutes, by the same officer.</summary>
+/// <summary>A one-time link: GET /api/admin/evidence-exports/{Token} within 15 minutes, by the same officer.</summary>
 public sealed record EvidenceExportLink(string Token, DateTimeOffset ExpiresAt);
+
+/// <summary>Explicit independent legal disposition, never inferred merely from missing case links.</summary>
+public sealed record HoldRetentionDispositionRequest(string? Reason, bool Confirmed);

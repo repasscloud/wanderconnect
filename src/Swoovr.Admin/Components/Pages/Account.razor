@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Account — Swoovr admin</PageTitle>
 <p class="breadcrumb"><a href="/accounts">Accounts</a> / Account</p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id">Sign in again</a> }</p> }
+@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id" data-enhance-nav="false">Sign in again</a> }</p> }
 @if (account is null)
 {
     <p data-account="missing">@(loadError ?? "Not found.")</p>
@@ -10,6 +10,7 @@
 else
 {
     <h1 data-account="@account.Id">@(account.DisplayName ?? "(no name)")</h1>
+    <p><a href="/accounts/@Id/reinstate" data-account-reinstatement>Review account reinstatement</a> · <a href="/registry">Identifier review (separate action)</a></p>
     <dl class="facts">
         <div><dt>Account</dt><dd>@account.Realm · @account.Status</dd></div>
         <div><dt>Age</dt><dd data-age-status="@account.AgeStatus">@account.AgeStatus@(account.DateOfBirthVerified ? " · date of birth verified" : "")</dd></div>

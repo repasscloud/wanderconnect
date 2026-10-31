@@ -1,0 +1,11 @@
+@if (Problem is not null)
+{
+    <section class="card account-section" role="status" data-email-change-problem="@Problem">
+        <h2>@AccountText.EmailChangeHeading</h2>
+        <p>@AccountText.EmailChangeMessage(Problem)</p>
+        <p>@AccountText.EmailChangeHelp</p>
+        <p><a href="@StandingText.SupportUrl" data-email-support>Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
+        <p><a class="button button-secondary" href="/account/reauthenticate?returnUrl=%2Faccount" data-enhance-nav="false">Sign in again</a></p>
+    </section>
+}
+@code { [Parameter] public string? Problem { get; set; } }

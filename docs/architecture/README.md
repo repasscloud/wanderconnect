@@ -25,3 +25,42 @@ Keycloak handles authentication; API policies own application roles, venue scope
 Dependency versions: SDK pinned in global.json; net10.0 server/shared, net10.0-android and net10.0-ios mobile. Mobile uses the installed workload's MauiVersion and template package references; workload/Xcode/Android SDK compatibility must be pinned and verified before phase 1 device acceptance. Full solution build is deliberately distinct from the portable local solution.
 
 Official reference used for template/render-mode selection: [Microsoft Blazor render modes](https://learn.microsoft.com/aspnet/core/blazor/components/render-modes?view=aspnetcore-10.0), [MAUI overview](https://learn.microsoft.com/dotnet/maui/what-is-maui?view=net-maui-10.0). Recheck workload support when installing mobile tooling.
+
+API paths and client contract dates follow [API versioning](API-VERSIONING.md), D211/D222.
+
+D223/D224: conversation closure and its recipient centre/outbox item commit together. Existing API notification services own deduplicated dispatch/recovery; per-device attempts record acceptance or uncertainty rather than claiming device delivery. No separate worker project is introduced.
+
+Push provider boundaries, secure device registration and required operator/native acceptance steps are in [PUSH-NOTIFICATIONS.md](PUSH-NOTIFICATIONS.md) (D226–D228).
+
+### Retention authority (D231–D233)
+
+The API retention services use existing Domain policy and Infrastructure persistence; no project is added. See [retention schedule](../delivery/RETENTION-SCHEDULE.md). Account-state, media, global preservation and per-case/per-hold advisory leases order source mutation and disposal across replicas. Coverage changes take exclusive global authority; ordinary saves and destructive work take shared authority. Explicit outer leases cover bulk SQL/object deletion and commits. Conversation row locks follow the global barrier. Evidence numbering and custody chain writes commit while the hold mutex is owned. Unknown provenance or hold status postpones disposal.
+
+Data-key configuration and the stable legacy fallback boundary are documented in [DATA-KEYS.md](DATA-KEYS.md), D234. The existing Checks project references the API to test actual key consumers; this is a test-layer reference permitted above, not a new application project or a UI bypass.
+
+
+D255 DEFAULT adds a provider artifact inside the existing Keycloak authentication boundary, not another .NET application project. `containers/keycloak/contact-policy` compares/retire bindings inside the provider transaction and enforces its minimal policy in the provider database. The API must never directly write that database. The Java/internal-JPA interfaces are pinned to26.8.1, compile toJava21 and fail on an untested provider version; upgrades require actual isolated compatibility tests. Main realm/image is unchanged; application orchestration and staff authorization/durable recovery remain to be connected.
+
+D261 recovery stays inside the existing API/infrastructure boundaries: API-owned snapshot/private-media bundling and hold-aware reconciliation, operator-only Python encryption/storage transport and an excluded operations readiness schema. It adds no application project or public authentication endpoint. [Backup/restore boundary and operator procedure](../delivery/BACKUP-RESTORE.md).
+
+D262 bounded audit expiry uses the existing API/persistence projects: a database-owned checkpoint and validated prefix-expiry function preserve surviving hashes. Append/read/expiry share chain authority; operational minimisation joins preservation authority. Hosted runtime roles receive only required function execution, not checkpoint writes; migration/database owners remain privileged. No additional project. See the delivery retention schedule for conservative source guards.
+
+### Meeting safety resource boundary (DEFAULT D263)
+
+Meeting safety remains within existing projects: Domain policies/entities, Infrastructure mappings/migrations, Contracts/Client transport, API orchestration/schedule/outbox/retention and Web/MAUI presentation. Authenticated member operations use Keycloak and existing API account gates. Web's anonymous Static SSR contact pages call narrowly scoped public API resources server-side; destination-code verification issues only a read-only resource grant, never a member session. The protected HttpOnly SSR cookie is link-bound; every API read revalidates consent, account/recipient/link availability and expiries.
+
+The API owns server clocks, idempotent scheduling, quotas, outcome records and hold/report-aware disposal. Device dialler/SMS composition and optional coordinates remain client-side; no location feed or emergency dispatch subsystem is introduced. [Meeting safety boundaries](../delivery/MEETING-SAFETY-IMPLEMENTATION.md) distinguish resource expiry from session closure and ordinary/preserved records. Final hosted logging, provider/device and integration acceptance remain separate from these architectural choices.
+
+Individual content moderation (D265) remains in existing feature layers: case-scoped exact-source previews/mutations and authorisation in API; domain decision/source policies; independent EvidenceSeal original/reason plus immutable integrity hash in Infrastructure; shared neutral standing/message projections in Client; existing Admin SSR, member WASM and native chat views. No new project or authentication mechanism. The existing typed message upsert carries removal markers; initial/reconnected histories reconcile and observed markers cannot be downgraded by older responses. New encrypted sources participate in preservation, evidence key rotation and independent case-content/record expiry. See [boundary and clocks](../delivery/INDIVIDUAL-CONTENT-REMOVAL.md).
+
+
+D266 keeps text-harm boundaries inside the existing projects: Domain owns the replaceable bounded detector and candidate/intent state; Api commits encrypted inspection work with source writes, resolves actual server history and staff authority, and processes own-initiative cases; Infrastructure maps their durable lifecycle; Contracts/Client carry restricted staff projections and shared draft privacy copy. No external text provider, fabricated member reporter, automatic sanction or new project is introduced. Retained message participants remain conflict provenance after source loss.
+
+
+D267 adds source-bound report outcome checkpoints in existing Domain/Infrastructure and transactional producers in Api. Composite report/case/reporter provenance, monotonic metadata revisions, current centre ownership/recipient checks and source-clock cleanup prevent orphan or private-content notifications. Shared Client support copy feeds existing Web/native surfaces; no new service/project or reporter push/email dispatcher is introduced. Existing sanction/member notices remain independent post-commit effects.
+
+Application email remains an Infrastructure adapter composed by API/operator commands, with authentication email owned separately by Keycloak. See [APPLICATION-EMAIL.md](APPLICATION-EMAIL.md) (D274) for explicit MailerSend selection, local SMTP boundaries and acceptance/uncertainty semantics. No project is added.
+
+Private member appearance uses existing Domain/Infrastructure persistence and API-owned authorization/revision/lifecycle checks. The typed client/portable cache remain client-safe. See [APPEARANCE-ACCOUNT-CONTRACT.md](APPEARANCE-ACCOUNT-CONTRACT.md), D277; actual UI/storage wiring is the next appearance slice.
+
+D279 compiles the same server-only `src/Hosting` source into Api, Web and Admin. It owns hosted configuration/proxy/security-header composition, with no extra project or UI dependency on API/Infrastructure/Domain. The API separately owns database/schema/restore readiness; portals make a bounded health request to the API. See [hosted configuration](../delivery/HOSTED-CONFIGURATION-AND-HEALTH.md). Existing typed clients and authentication ownership are unchanged.

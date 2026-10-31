@@ -15,7 +15,7 @@ public static class IdentityEndpoints
 {
     public static void Map(WebApplication app)
     {
-        app.MapPost("/api/v1/admin/accounts/{id:guid}/identity", async (Guid id, IdentityAccessRequest request, ClaimsPrincipal user, AccountResolver accounts,
+        app.MapPost("/api/admin/accounts/{id:guid}/identity", async (Guid id, IdentityAccessRequest request, ClaimsPrincipal user, AccountResolver accounts,
             VerifiedIdentityStore identities, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var current = await accounts.ResolveAsync(user, cancellationToken);

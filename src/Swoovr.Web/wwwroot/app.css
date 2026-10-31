@@ -433,3 +433,7 @@ legend { padding: 0; margin-bottom: 4px; font: var(--type-section); font-size: 1
 .composer-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 8px 0; }
 .starters { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 12px 0; }
 .starters .chip { white-space: normal; text-align: left; max-width: 100%; padding: 8px 12px; }
+
+/* D213: system events are neutral notices, visually separate from either member's message bubbles. */
+.chat-thread .chat-system { align-self: center; max-width: 100%; padding: 16px 0; color: var(--muted); text-align: center; border-block: 1px solid var(--border); font: var(--type-small); }
+.chat-thread .chat-system p { margin: 0; }

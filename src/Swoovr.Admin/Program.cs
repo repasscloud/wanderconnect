@@ -1,3 +1,4 @@
+using Swoovr.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -9,6 +10,7 @@ using Swoovr.Admin.Components;
 // staff realm. It calls the protected admin API server-side with the staff member's token, which never reaches the
 // browser (the cookie holds only a session key). Every rule is enforced by the API; this app only presents it.
 var builder = WebApplication.CreateBuilder(args);
+HostRuntime.Configure(builder,HostKind.Admin);
 builder.Services.AddRazorComponents();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
@@ -64,7 +66,14 @@ auth.AddOpenIdConnect(options =>
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+HostRuntime.Use(app,HostKind.Admin);
+HostRuntime.MapPortalHealth(app);
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", createScopeForErrors: true); app.UseHsts(); }
+app.Use(async(context,next)=>
+{
+    if(context.Request.Path.StartsWithSegments("/code-reports")||context.Request.Path.StartsWithSegments("/beta-scorecard")||context.Request.Path.StartsWithSegments("/beta"))context.Response.Headers.CacheControl="no-store";
+    await next(context);
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
@@ -99,7 +108,12 @@ app.MapGet("/law-enforcement/audit-export", async (string? quarter, Swoovr.Clien
 app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
 {
     if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.(review|case)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
-    return await admin.MediaAsync("api/v1/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
+    return await admin.MediaAsync("api/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
+}).RequireAuthorization();
+app.MapGet("/code-reports/{year:int}/export",async(int year,Swoovr.Client.AdminClient admin,CancellationToken token)=>
+{
+    var(status,body)=await admin.ModerationReportExportAsync(year,token);
+    return body is null?Results.StatusCode(status):Results.File(body,"application/json",$"swoovr-code-report-{year}.json");
 }).RequireAuthorization();
 app.MapRazorComponents<App>().RequireAuthorization();
 app.Run();

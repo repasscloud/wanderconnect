@@ -25,6 +25,12 @@ else
     <h2>Reason</h2><blockquote>@h.Reason</blockquote>
     @if (h.ReleaseConditions is not null) { <h2>Release conditions</h2><blockquote>@h.ReleaseConditions</blockquote> }
     @if (h.ReleaseReason is not null) { <h2>Released</h2><blockquote data-release-reason>@h.ReleaseReason</blockquote> }
+    <section class="card" data-retention-state="@h.RetentionReason">
+        <h2>Evidence retention</h2>
+        <p>@RetentionLabel(h.RetentionReason)</p>
+        @if (h.RetainUntil is { } until) { <p>Schedule date: @until.ToString("d MMM yyyy HH:mm 'UTC'"). Active preservation obligations take precedence.</p> }
+        <p class="help">Releasing a hold ends its preservation authority. Required review or police evidence stays in restricted storage until its applicable disposition. Unresolved provenance is kept for legal review.</p>
+    </section>
     <h2>Scope</h2>
     <ul class="list" data-scope-accounts="@h.AccountIds.Count">@foreach (var a in h.AccountIds) { <li>Account <code>@a</code></li> }</ul>
     @if (h.ConversationIds.Count > 0) { <ul class="list" data-scope-conversations="@h.ConversationIds.Count">@foreach (var c in h.ConversationIds) { <li>Conversation <code>@c</code></li> }</ul> }
@@ -42,6 +48,9 @@ else
             <label>Next review<input name="due" type="date" required /></label>
             <button type="submit" class="secondary" data-review>Record review</button>
         </form>
+    }
+    @if (h.Status != "released" || h.Items.Count > 0)
+    {
         <h2>Export evidence</h2>
         <form method="post" @formname="export" @onsubmit="ExportAsync" class="stack" data-export-form data-enhance="false">
             <AntiforgeryToken />
@@ -71,20 +80,52 @@ else
             </fieldset>
             <button type="submit" data-export>Create one-time export link</button>
         </form>
+    }
+    @if (h.Status != "released")
+    {
         <h2>Release</h2>
         <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="row" data-enhance="false">
             <AntiforgeryToken />
             <input name="reason" placeholder="Why the preservation need has ended" maxlength="1000" required />
             @if (h.Overlaps > 0) { <label><input type="checkbox" name="overlaps" value="true" /> I checked the @h.Overlaps other live hold(s) on these accounts</label> }
-            <button type="submit" class="secondary" data-release>Release and erase preserved items</button>
+            <button type="submit" class="secondary" data-release>Release preservation hold</button>
             <span class="help">Only an officer who neither placed nor confirmed this hold can release it.</span>
         </form>
+    }
+    @if (h.MayConfirmNoReview)
+    {
+        <h2>Independent retention disposition</h2>
+        <p class="help">Only for copies with positively established provenance and no qualifying review, police or overlapping preservation obligation. An officer who placed or confirmed the hold cannot make this disposition. Record the basis without copying private content.</p>
+        <form method="post" @formname="retention-disposition" @onsubmit="DispositionAsync" class="stack" data-retention-disposition data-enhance="false">
+            <AntiforgeryToken />
+            <label>Disposition basis<textarea name="retentionReason" minlength="20" maxlength="1000" rows="3" required></textarea></label>
+            <label><input type="checkbox" name="retentionConfirmed" value="true" required /> I reviewed the provenance and confirmed there is no qualifying review, police or other retention obligation.</label>
+            <button type="submit" class="secondary">Record disposition</button>
+        </form>
+    }
+    @if (preservedPhoto is not null)
+    {
+        <div class="media-review" data-preserved-photo>
+            <input type="checkbox" id="reveal-preserved-photo" class="media-reveal" />
+            <label for="reveal-preserved-photo" class="secondary">Reveal preserved photo</label>
+            <img src="/media/@preservedPhoto" alt="Preserved photo for authorised review" width="320" />
+        </div>
     }
     <h2>Preserved items (@h.Items.Count)</h2>
     <p class="help">Content leaves only in an export. Each item's SHA-256 is of its content as preserved.</p>
     <table data-items="@h.Items.Count"><thead><tr><th>Capture</th><th>Kind</th><th>Source</th><th>Captured</th><th>SHA-256</th></tr></thead><tbody>
         @foreach (var i in h.Items) { <tr><td>@i.Capture</td><td>@i.Kind</td><td>@i.Source/@i.RecordId</td><td>@i.CapturedAt.ToString("d MMM HH:mm")</td><td><code>@i.Sha256[..16]…</code></td></tr> }
     </tbody></table>
+    @foreach (var item in h.Items.Where(i => i.Kind == "media-item" && Guid.TryParse(i.RecordId, out _)).GroupBy(i => i.RecordId).Select(g => g.First()))
+    {
+        <form method="post" @formname="@($"preserved-photo-{item.Id}")" @onsubmit="() => PreservedPhotoAsync(Guid.Parse(item.RecordId))" class="row" data-preserved-photo-form data-enhance="false">
+            <AntiforgeryToken />
+            <label>Purpose for photo @item.RecordId<input name="photoPurpose" maxlength="500" required /></label>
+            <button type="submit" class="secondary">Request photo link</button>
+            <span class="help">Requires elevated evidence access. Blocked or unchecked material is never viewable.</span>
+        </form>
+    }
+
     @if (h.Exports is { Count: > 0 } exports)
     {
         <h2>Exports (@exports.Count)</h2>
@@ -125,7 +166,29 @@ else
 
     private async Task ReviewAsync() => await Show(await Admin.ReviewHoldAsync(Id, Holds.Date(Field("due"))), "Review recorded.");
 
-    private async Task ReleaseAsync() => await Show(await Admin.ReleaseHoldAsync(Id, Field("reason"), Field("overlaps") == "true"), "Hold released; its preserved items were erased.");
+    private async Task ReleaseAsync() => await Show(await Admin.ReleaseHoldAsync(Id, Field("reason"), Field("overlaps") == "true"), "Hold released. Evidence disposal follows its applicable retention schedule.");
+
+    private string? preservedPhoto;
+    private async Task DispositionAsync() => await Show(await Admin.RetentionDispositionAsync(Id, Field("retentionReason"), Field("retentionConfirmed") == "true"), "Independent disposition recorded; any remaining preservation obligations still apply.");
+    private async Task PreservedPhotoAsync(Guid media)
+    {
+        var result = await Admin.PreservedPhotoAsync(Id, media, Field("photoPurpose"));
+        preservedPhoto = result.Value?.Link.Split('/').Last();
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        message = result.Ok ? "Photo link recorded for authorised review. Reveal only when ready." : HoldText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+    private static string RetentionLabel(string? reason) => reason switch
+    {
+        "disposed" => "Retained evidence copies have been disposed; the restricted operational record remains.",
+        "live-hold" => "Preservation is active.",
+        "review-open" => "The qualifying review remains open.",
+        "review-schedule" => "The qualifying review schedule applies.",
+        "police-schedule" => "The police-case schedule applies.",
+        "legal-no-review-disposition" => "An independent no-review disposition is recorded.",
+        "retention-review-required" => "An independent legal retention disposition is required.",
+        _ => "The retention basis needs restricted legal or operator review.",
+    };
 
     private async Task ExportAsync()
     {

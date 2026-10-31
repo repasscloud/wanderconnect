@@ -1,0 +1,10 @@
+<section class="card account-section stack" aria-label="Support after a report" data-report-support>
+    <h2>Support and complaints</h2>
+    <p>@ReportFollowUpText.SafetyHelp <a class="link" href="@ReportFollowUpText.SafetyPath">Safety &amp; Support</a></p>
+    <p>@ReportFollowUpText.ComplaintHelp</p>
+    <p><a class="link" href="/me/notices">Notices and reports</a> · <a class="link" href="/me/standing">Account standing and support references</a></p>
+    @if(!HideChannels){<p><a class="link" href="@StandingText.SupportUrl">Contact Support</a> · <a class="link" href="@("mailto:"+StandingText.SupportEmail)">Email Support</a></p>}
+    <p class="field-help">@ReportFollowUpText.Availability</p>
+</section>
+
+@code{[Parameter]public bool HideChannels{get;set;}}

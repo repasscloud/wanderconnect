@@ -5,7 +5,7 @@ namespace Swoovr.Mobile;
 
 /// <summary>
 /// Me → Notices and reports (D131, D135), as on the web: notices about actions on the account with an appeal (once per
-/// action, within 30 days) and the status of the member's own reports (never the outcome). Open even while restricted
+/// action, within 30 days) and the status and broad general outcome of the member's own reports (never action details). Open even while restricted
 /// or suspended (D160), so a member can read why and appeal.
 /// </summary>
 public sealed class NoticesPage : ContentPage
@@ -33,8 +33,9 @@ public sealed class NoticesPage : ContentPage
 	{
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Notices and reports", "PageTitle"));
+        body.Children.Add(ReportFollowUpPage.SupportCard());
 		shown = (await Ui.Members!.NoticesAsync()).Value ?? [];
-		// A barred member can't list their reports, so this may be empty.
+		// Barred active members retain read-only access to their own general report outcomes.
 		var reports = (await Ui.Members.MyReportsAsync()).Value ?? [];
 		var rows = new List<View> { Ui.Text("About your account", "SectionHeading") };
 		if (shown.Count == 0) rows.Add(Ui.Text("No notices.", "FooterClaims", "NoticesEmpty"));

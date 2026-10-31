@@ -24,7 +24,7 @@ public static class DeletionEndpoints
 
     public static void Map(WebApplication app)
     {
-        var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+        var me = app.MapGroup("/api/me").RequireAuthorization();
 
         me.MapGet("/deletion", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -56,7 +56,10 @@ public static class DeletionEndpoints
             var (current, denied) = await OwnerAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, account.Id, cancellationToken);
+            await db.Entry(account).ReloadAsync(cancellationToken);
             if (account.Status != AccountStatus.PendingDeletion) return NotPending();
+            if (account.DeletionFinalizingAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeletionNotAllowed, "Final deletion has begun and can no longer be cancelled. Contact Swoovr support if you need help.");
             if (!Fresh(current, configuration, now)) return Stale();
             AccountDeletionPolicy.DeleteNow(account, now);
             Audit.Record(db, now, account.Id, "account", "account.deletion-now", "account", account.Id.ToString());
@@ -69,7 +72,10 @@ public static class DeletionEndpoints
             var (current, denied) = await OwnerAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, account.Id, cancellationToken);
+            await db.Entry(account).ReloadAsync(cancellationToken);
             if (account.Status != AccountStatus.PendingDeletion) return NotPending();
+            if (account.DeletionFinalizingAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.DeletionNotAllowed, "Final deletion has begun and can no longer be cancelled. Contact Swoovr support if you need help.");
             if (!Fresh(current, configuration, now)) return Stale();
             AccountDeletionPolicy.Cancel(account);
             Audit.Record(db, now, account.Id, "account", "account.deletion-cancelled", "account", account.Id.ToString());
@@ -91,7 +97,7 @@ public static class DeletionEndpoints
             db.DataExports.Add(export);
             Audit.Record(db, now, account.Id, "account", "export.requested", "data-export", export.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(new ExportTicket("api/v1/me/export/" + Base64Url(secret), export.ExpiresAt));
+            return Results.Ok(new ExportTicket("api/me/export/" + Base64Url(secret), export.ExpiresAt));
         });
 
         me.MapGet("/export/{token}", async (string token, ClaimsPrincipal user, AccountResolver accounts, Verification.VerifiedIdentityStore identities, TimeProvider clock,
@@ -129,7 +135,7 @@ public static class DeletionEndpoints
                     contentType = bytes is null ? null : item.ContentType, sha256 = bytes is null ? null : Convert.ToHexStringLower(item.Sha256),
                     dataBase64 = bytes is null ? null : Convert.ToBase64String(bytes) });
             }
-            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos, chatPhotos);
+            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos, chatPhotos, await accounts.Services.GetRequiredService<Safety.MeetingSafetyStore>().ExportAsync(account.Id,cancellationToken));
             return Results.File(JsonSerializer.SerializeToUtf8Bytes(document, ExportJson), "application/json",
                 $"swoovr-data-{now:yyyy-MM-dd}.json");
         });
@@ -155,7 +161,7 @@ public static class DeletionEndpoints
 
     public static DeletionView View(Account account, MemberProfile? profile) => new(
         account.Status == AccountStatus.PendingDeletion ? "pending" : "none", account.DeletionRequestedAt, account.DeletionDueAt,
-        profile?.FoundingMember == true, account.DeleteFounderToken);
+        profile?.FoundingMember == true, account.DeleteFounderToken, FinalizingAt: account.DeletionFinalizingAt);
 
     private static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 

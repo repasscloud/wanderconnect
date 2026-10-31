@@ -1,10 +1,11 @@
+using Swoovr.Contracts;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 
 namespace Swoovr.Web.Auth;
 
 /// <summary>
-/// Backend-for-frontend (D59): the WebAssembly client calls /bff/api/v1/... with the session
+/// Backend-for-frontend (D59): the WebAssembly client calls /bff/api/... with the session
 /// cookie; this host adds the member's access token from its server-side ticket and forwards to
 /// the API. Tokens never reach the browser. Only the members' own routes are forwarded, and
 /// only with the X-Swoovr-Bff header, which a cross-site page cannot send without a CORS
@@ -18,14 +19,16 @@ public static partial class Bff
     // Member routes only, never admin ones. Mode ids and profile ids are checked again by the API.
     private const string Uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
-    [GeneratedRegex(@"^api/v1/(session|me|me/age|me/coupons|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
+    private const string MeetingSafetyPaths="me/meeting-safety(?:/contacts(?:/"+Uuid+"(?:/(?:resend|compose))?)?|/sessions(?:/"+Uuid+"/actions)?)?";
+    [GeneratedRegex(@"^api/(session|me|me/policies|me/policies/accept|me/age|me/coupons|me/appearance|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
         + "|requests|requests/" + Uuid + "/(accept|decline|withdraw|disconnect)|connections|blocks|blocks/" + Uuid
-        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/notifications|me/notifications/read|me/notifications/" + Uuid + "/read|me/notification-settings|me/standing|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide|photos|end|starters)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
+        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/notifications|me/notifications/read|me/notifications/" + Uuid + "/read|me/notification-settings|me/standing|" + MeetingSafetyPaths + "|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide|photos|end|starters)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
         services.AddHttpClient(ApiClient, http =>
         {
+            Swoovr.Client.ApiContractClient.Configure(http);
             http.BaseAddress = new Uri(configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
             // D203: a photo upload may take longer than an ordinary call.
             http.Timeout = TimeSpan.FromSeconds(60);
@@ -42,14 +45,14 @@ public static partial class Bff
         {
             if (context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodePagesFeature>() is { } pages) pages.Enabled = false;
             if (!MediaToken().IsMatch(token)) return Results.NotFound();
-            using var response = await clients.CreateClient(ApiClient).GetAsync("api/v1/media/" + token, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+            using var response = await clients.CreateClient(ApiClient).GetAsync("api/media/" + token, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
             if (!response.IsSuccessStatusCode) return Results.NotFound();
             context.Response.Headers.CacheControl = "private, max-age=300";
             context.Response.Headers.XContentTypeOptions = "nosniff";
             return Results.File(await response.Content.ReadAsByteArrayAsync(context.RequestAborted), "image/jpeg");
         });
 
-    [GeneratedRegex("^api/v1/conversations/" + Uuid + "/photos$")]
+    [GeneratedRegex("^api/conversations/" + Uuid + "/photos$")]
     private static partial Regex ChatPhoto();
 
     [GeneratedRegex(@"^[0-9a-f]{32}\.member\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")]
@@ -69,18 +72,26 @@ public static partial class Bff
                 return Results.Unauthorized();
             using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), path + context.Request.QueryString);
             request.Headers.Authorization = new("Bearer", token);
+            // Forward explicit dates unchanged, including invalid/duplicate values: the API owns rejection.
+            if (context.Request.Headers.TryGetValue(ApiContract.Header, out var versions))
+                request.Headers.TryAddWithoutValidation(ApiContract.Header, versions.ToArray());
+            if(path=="api/me/appearance"&&context.Request.Headers.TryGetValue(AppearanceOwner.Header,out var owner))request.Headers.TryAddWithoutValidation(AppearanceOwner.Header,owner.ToArray());
             // D181: the browser's address for the API's per-address limits (believed only from a trusted proxy).
             if (context.Connection.RemoteIpAddress is { } address) request.Headers.TryAddWithoutValidation("X-Forwarded-For", address.ToString());
             if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Count > 0)
             {
                 // D203, #41: only photo uploads (profile and chat) may carry a large body (10 MB plus the multipart overhead).
-                var limit = context.Request.Method == "POST" && (path == "api/v1/me/photos" || ChatPhoto().IsMatch(path)) ? PhotoUploadLimit : 16 * 1024;
+                var limit = context.Request.Method == "POST" && (path == "api/me/photos" || ChatPhoto().IsMatch(path)) ? PhotoUploadLimit : 16 * 1024;
                 if (context.Request.ContentLength > limit) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 request.Content = new StreamContent(context.Request.Body);
                 if (context.Request.ContentType is { } type) request.Content.Headers.TryAddWithoutValidation("Content-Type", type);
             }
             using var response = await clients.CreateClient(ApiClient).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
             context.Response.StatusCode = (int)response.StatusCode;
+            context.Response.Headers.Append("Vary", ApiContract.Header);
+            if (response.Headers.TryGetValues(ApiContract.Header, out var selectedVersions))
+                context.Response.Headers[ApiContract.Header] = selectedVersions.ToArray();
+            if(path=="api/me/appearance"&&response.Headers.TryGetValues(AppearanceOwner.Header,out var owners)&&owners.Take(2).ToArray() is{Length:1} selected&&AppearanceOwner.Valid(selected[0]))context.Response.Headers[AppearanceOwner.Header]=selected[0];
             // Body and content type only: no API cookies or authentication challenges reach the browser.
             if (response.Content.Headers.ContentType is { } contentType) context.Response.ContentType = contentType.ToString();
             await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);

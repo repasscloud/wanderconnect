@@ -16,7 +16,7 @@ static class DeletionChecks
         Account Member(AccountStatus status = AccountStatus.Active) => new()
         {
             Id = Guid.NewGuid(), Issuer = "http://localhost:8180/realms/swoovr-members-dev", Subject = Guid.NewGuid().ToString(), Realm = AccountRealm.Members,
-            Email = "fictional.someone@example.test", Status = status, CreatedAt = now.AddDays(-100), LastSeenAt = now,
+            Email = "fictional.someone@example.test", EmailAcceptedAt = now.AddDays(-100), Status = status, CreatedAt = now.AddDays(-100), LastSeenAt = now,
         };
 
         // Who may ask, and the fresh sign-in.
@@ -56,7 +56,7 @@ static class DeletionChecks
         // The tombstone and retention.
         AccountDeletionPolicy.Tombstone(b, now);
         var subject = b.Subject;
-        Expect(b.Status == AccountStatus.Deleted && b.Email is null && b.DeletedAt == now, "the tombstone keeps no email");
+        Expect(b.Status == AccountStatus.Deleted && b.Email is null && b.EmailAcceptedAt is null && b.DeletedAt == now, "the tombstone keeps no email");
         Expect(b.Subject == subject, "it keeps the (deleted) Keycloak user id, so a token issued before deletion is refused, not given a new account");
         Expect(!AccountDeletionPolicy.Due(b, now.AddDays(1)), "a tombstone is never deleted twice");
         Expect(!AccountDeletionPolicy.RetentionOver(b, now.AddDays(729)) && AccountDeletionPolicy.RetentionOver(b, now.AddDays(730)), "records go after two years (D170)");
@@ -84,6 +84,9 @@ static class DeletionChecks
         Expect(DeletionText.PendingTitle(new DeletionView("pending", now, now, false, false)) == "Your account is being deleted", "delete now reads as in progress");
         Expect(DeletionText.PendingTitle(new DeletionView("pending", now, now.AddDays(30), false, false)) == "Your account will be deleted", "the recovery period reads as scheduled");
 
+        var finalizing = new Account { Status = AccountStatus.PendingDeletion, DeletionDueAt = now, DeletionFinalizingAt = now };
+        Expect(!AccountDeletionPolicy.Cancel(finalizing) && finalizing.Status == AccountStatus.PendingDeletion, "irreversible purge cannot be cancelled after an uncertain provider outcome");
+        Expect(AccountDeletionPolicy.Due(finalizing, now), "uncertain provider outcome remains due for idempotent retry");
         Console.WriteLine($"PASS: account deletion and export ({checks}).");
     }
 }

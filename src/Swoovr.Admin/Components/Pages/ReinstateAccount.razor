@@ -1,0 +1,66 @@
+@page "/accounts/{Id:guid}/reinstate"
+@inject AdminClient Admin
+<PageTitle>Account reinstatement — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/accounts/@Id">Account</a> / Reinstatement</p>
+<h1>Reinstate Account</h1>
+<p>Reinstatement lifts account termination only. Other restrictions and preservation obligations remain. It never resurrects a deleted account. Releasing an identifier independently belongs in <a href="/registry">Identifier review</a>.</p>
+<p><a href="/access">Request account-reinstatement access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/accounts/@Id/reinstate" data-enhance-nav="false">Sign in again</a></p>
+@if(message is not null){<p class="notice" role="status" data-result="@resultCode">@message</p>}
+@if(preview is null){<p data-reinstatement="unavailable">@loadError</p>}
+else
+{
+    <section class="card" data-reinstatement="@(preview.Eligible?"eligible":"blocked")">
+        <h2>Current review</h2>
+        @if(!preview.Eligible){<p class="notice" data-reinstatement-blocked="@preview.BlockedCode">@RegistryText.Blocked(preview.BlockedCode)</p>}
+        @if(preview.OtherSanctions){<p data-other-sanctions>Other restrictions are in force and will remain after reinstatement.</p>}
+        <p class="help">This is a review snapshot. Submission rechecks current status, access and the complete restriction set.</p>
+        <h3>Associated cases</h3>
+        <ul class="list">@foreach(var review in preview.CaseIds){<li><a href="/cases/@review" data-reinstatement-case>Case @review.ToString()[..8]</a></li>}</ul>
+        <RegistryEntries Rows="@preview.Identifiers" />
+        @if(preview.Dispositions is{Count:>0})
+        {
+            <section data-disposed-identifiers><h3>Disposed identifier history</h3>
+                <p class="help">Only minimal source dispositions remain. These receipts contain no contact fingerprint and are not used to check an email or mobile number. The original fingerprint and history were lawfully disposed.</p>
+                @foreach(var receipt in preview.Dispositions)
+                {
+                    <div class="card" data-disposition="@receipt.Id"><p>@RegistryText.Type(receipt.IdentifierType) restriction @receipt.Status; ended @receipt.EffectiveEnd.ToString("d MMM yyyy"). <a href="/cases/@receipt.CaseId">Source case @receipt.CaseId.ToString()[..8]</a>.</p>
+                    @foreach(var review in receipt.Reviews){<blockquote data-disposition-review="@review.Id">@review.Reason <span class="help">Recorded @review.At.ToString("d MMM yyyy HH:mm 'UTC'") · staff @review.ActorId.ToString()[..8]</span></blockquote>}
+                    </div>
+                }
+            </section>
+        }
+
+    </section>
+    <form method="post" @formname="reinstate" @onsubmit="ReinstateAsync" class="stack card" data-reinstatement-form data-enhance="false">
+        <AntiforgeryToken />
+        <fieldset disabled="@(!preview.Eligible)">
+            <legend>Explicit reconciliation</legend>
+            @foreach(var restriction in preview.Identifiers.Where(b=>preview.RequiredIdentifierIds.Contains(b.Id)))
+            {
+                <label><input type="checkbox" name="identifiers" value="@restriction.Id" required /> Revoke @RegistryText.Type(restriction.IdentifierType).ToLowerInvariant() restriction @restriction.Id.ToString()[..8] from case @restriction.CaseId.ToString()[..8].</label>
+            }
+            @if(preview.RequiredIdentifierIds.Count==0){<p>No active source identifier restrictions require revocation.</p>}
+            <label><input type="checkbox" name="reviewed" value="yes" required /> I reviewed the listed cases and sufficiently verified the circumstances justifying account reinstatement and the selected identifier releases.</label>
+            <label>Explanation<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
+            <p class="help">Use necessary case references. Do not copy identity documents, private messages or full contact values into the explanation.</p>
+            <button type="submit" data-reinstate-account>Reinstate account and reconcile selected identifiers</button>
+        </fieldset>
+    </form>
+}
+@code{
+    [Parameter]public Guid Id{get;set;}
+    [CascadingParameter]private HttpContext? Context{get;set;}
+    private AccountReinstatementPreview? preview;
+    private string? message,resultCode,loadError;
+    protected override async Task OnInitializedAsync()=>await LoadAsync();
+    private async Task LoadAsync(){var result=await Admin.ReinstatementAsync(Id);preview=result.Value;loadError=result.Ok?null:RegistryText.Refusal(result.Status,result.Code);}
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    private async Task ReinstateAsync()
+    {
+        if(Field("reviewed")!="yes"){resultCode="400";message="Review the cases and confirm the circumstances first.";return;}
+        var raw=Context!.Request.Form["identifiers"].ToArray();var ids=new List<Guid>();
+        foreach(var value in raw){if(!Guid.TryParse(value,out var id)){resultCode="400";message="Select valid restriction records.";return;}ids.Add(id);}
+        var result=await Admin.ReinstateAsync(Id,new AccountReinstatementRequest(ids,Field("reason")));resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?"Account termination lifted and selected identifiers reconciled. Other restrictions and preservation obligations remain.":RegistryText.Refusal(result.Status,result.Code);await LoadAsync();
+    }
+}

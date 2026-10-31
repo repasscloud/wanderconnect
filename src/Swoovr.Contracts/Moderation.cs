@@ -11,7 +11,7 @@ public sealed record ReportCategoryView(string Id, string Label);
 /// Serious incidents (D190) add Police ("contacted", "will-contact" or "not-now"), an optional PoliceReference (up to 100
 /// characters, kept encrypted) and MessageIds: up to 20 messages from the reported conversation chosen as evidence.
 public sealed record NewReport(string SubjectType, string SubjectId, string Category, string? Text, bool Block, string? Police = null,
-    string? PoliceReference = null, List<Guid>? MessageIds = null);
+    string? PoliceReference = null, List<Guid>? MessageIds = null, Guid? MeetingSafetySessionId = null);
 
 /// <summary>
 /// What the reporter sees (D131): submitted, underReview, reviewed or closed. Outcome (D190) appears once closed:
@@ -56,13 +56,13 @@ public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapsho
 public sealed record SanctionView(Guid Id, Guid AccountId, Guid? CaseId, string Kind, string Reason, DateTimeOffset StartsAt, DateTimeOffset? EndsAt,
     bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, Guid CreatedBy, string CreatedByRole, DateTimeOffset? LiftedAt, bool Live);
 public sealed record CaseDetailView(CaseSummaryView Case, bool StaffAffiliatedSubject, IReadOnlyList<CaseReportView> Reports,
-    IReadOnlyList<CaseEvidenceView> Evidence, IReadOnlyList<SanctionView> Sanctions);
+    IReadOnlyList<CaseEvidenceView> Evidence, IReadOnlyList<SanctionView> Sanctions, DateTimeOffset? EvidencePurgedAt = null);
 
 /// <summary>
 /// A staff action (D133): "dismiss", "warn", "restrict", "suspend" or "terminate", with a reason (required except to
 /// dismiss), days for a restriction (up to 30) or suspension (up to 90), and what a restriction covers.
 /// </summary>
-public sealed record ModerationActionRequest(string Action, string? Reason, int? Days, bool HideFromDiscovery, bool NoNewRequests, bool NoMessages);
+public sealed record ModerationActionRequest(string Action, string? Reason, int? Days, bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, ModerationReportingChoice? Reporting=null);
 public sealed record LiftRequest(string? Reason);
 /// <summary>"uphold" or "overturn" (D135).</summary>
 public sealed record AppealDecision(string Outcome);

@@ -74,7 +74,9 @@ public static class StaffAccessPolicy
     public const string IdentityOpen = "identity-open";
     public const string EvidenceExport = "evidence-export";
     public const string Termination = "termination";
-    public static readonly IReadOnlyList<string> Capabilities = [IdentityOpen, EvidenceExport, Termination];
+    public const string IdentifierRelease = "identifier-release";
+    public const string AccountReinstatement = "account-reinstatement";
+    public static readonly IReadOnlyList<string> Capabilities = [IdentityOpen, EvidenceExport, Termination, IdentifierRelease, AccountReinstatement];
     /// <summary>DEFAULT (owner, 27 October 2026): 60 minutes, renewable.</summary>
     public static readonly TimeSpan Duration = TimeSpan.FromMinutes(60);
     /// <summary>At most eight renewals: a working day, then ask again.</summary>
@@ -89,7 +91,7 @@ public static class StaffAccessPolicy
     public static AccountRole RoleFor(string capability) => capability switch
     {
         IdentityOpen or EvidenceExport => AccountRole.Legal,
-        Termination => AccountRole.Admin,
+        Termination or IdentifierRelease or AccountReinstatement => AccountRole.Admin,
         _ => AccountRole.Unknown,
     };
 
@@ -155,24 +157,30 @@ public static class StaffAccessPolicy
     /// </summary>
     public static (string Resource, string? Id, string Action)? Classify(string method, string path, int status)
     {
+        path = path.ToLowerInvariant();
         var parts = path.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 4 || parts[0] != "api" || parts[1] != "v1" || parts[2] != "admin") return null;
+        if (parts.Length < 3 || parts[0] != "api" || parts[1] != "admin") return null;
         string? Id(int i) => parts.Length > i && Guid.TryParse(parts[i], out var g) ? g.ToString() : null;
-        (string, string?, bool)? kind = parts[3] switch
+        (string, string?, bool)? kind = parts[2] switch
         {
-            "holds" => ("holds", Id(4), parts.Length > 5 && parts[5] == "exports"),
+            "holds" => ("holds", Id(3), parts.Length > 4 && parts[4] == "exports"),
             "evidence-exports" => ("evidence-export", null, true),
             "disclosures" => ("disclosures", null, false),
-            "law-enforcement" => ("le-case", Id(5), parts.Length > 4 && parts[4] == "audit-export"),
+            "law-enforcement" => ("le-case", Id(4), parts.Length > 3 && parts[3] == "audit-export"),
+            "banned-identifiers" => ("banned-identifiers", Id(3), false),
+            "cases" => ("moderation-case", Id(3), false),
+            "appeals" => ("moderation-appeal", Id(3), false),
+            "accounts" when parts.Length > 4 && parts[4] is "reinstate" or "reinstatement" => ("account-reinstatement", Id(3), false),
             "contact-history" => ("contact-history", null, false),
-            "access" => ("access", Id(5), false),
-            "staff" => ("staff", Id(4), false),
-            "accounts" when parts.Length > 5 && parts[5] == "identity" => ("identity", Id(4), false),
-            "media" => ("media", Id(4), false),
+            "access" => ("access", Id(4), false),
+            "staff" => ("staff", Id(3), false),
+            "accounts" when parts.Length > 4 && parts[4] == "identity" => ("identity", Id(3), false),
+            "media" => ("media", Id(3), false),
             _ => null,
         };
         if (kind is not var (resource, id, export)) return null;
         var action = status is 401 or 403 ? "refused"
+            : resource == "banned-identifiers" && parts.Length > 3 && parts[3] == "lookup" ? "query"
             : export ? "export"
             : resource == "identity" || resource == "media" && path.EndsWith("/view") ? "view"
             : method is "GET" or "HEAD" ? (id is null ? "query" : "view")

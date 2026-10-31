@@ -35,6 +35,8 @@ public sealed class Report
 {
     public Guid Id { get; set; }
     public Guid ReporterAccountId { get; set; }
+    /// <summary>Reporter-owned optional meeting context, never shared with the reported person.</summary>
+    public Guid? MeetingSafetySessionId { get; set; }
     public Guid SubjectAccountId { get; set; }
     public ReportSubject SubjectType { get; set; }
     public string SubjectRef { get; set; } = "";
@@ -73,6 +75,8 @@ public sealed class ModerationCase
     public Guid? AcknowledgedBy { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
     public Guid? ClosedBy { get; set; }
+    /// <summary>D216: qualifying review content was disposed after its schedule; minimal compliance records remain separately.</summary>
+    public DateTimeOffset? EvidencePurgedAt { get; set; }
     /// <summary>A case Swoovr opened itself, without a report: "returning-terminated" (D171). Null for reported cases.</summary>
     public string? SystemFlag { get; set; }
 }
@@ -88,6 +92,8 @@ public sealed class CaseEvidence
     public Guid ReportId { get; set; }
     public string Kind { get; set; } = "";
     public string Snapshot { get; set; } = "";
+    /// <summary>Objects referenced by this independent review snapshot. Null denotes legacy provenance; disposal checks its snapshot conservatively.</summary>
+    public Guid[]? MediaIds { get; set; }
     public DateTimeOffset CapturedAt { get; set; }
 }
 
@@ -133,7 +139,7 @@ public sealed class Appeal
     public DateTimeOffset? DecidedAt { get; set; }
 }
 
-public enum NoticeKind { Warning, Restriction, Suspension, Termination, AppealUpheld, AppealOverturned, SanctionLifted }
+public enum NoticeKind { Warning, Restriction, Suspension, Termination, AppealUpheld, AppealOverturned, SanctionLifted, ContentRemoved }
 
 /// <summary>An in-app notice to a member about an action on their account (D135); optionally also emailed.</summary>
 public sealed class MemberNotice

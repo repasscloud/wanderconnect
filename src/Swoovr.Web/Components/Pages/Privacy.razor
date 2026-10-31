@@ -16,6 +16,7 @@
         <section class="card account-section" id="@s.Id" data-privacy-section="@s.Id">
             <h2>@s.Title</h2>
             @foreach (var p in s.Paragraphs) { <p>@p</p> }
+            @if (s.Id == "contact") { <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p> }
             @if (s.Id == "law-enforcement") { <p><a href="/law-enforcement">Information for law enforcement</a></p> }
             @if (s.Id == "choices") { <p><a href="/account/data">Your data and account</a></p> }
         </section>

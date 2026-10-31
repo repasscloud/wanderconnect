@@ -1,4 +1,6 @@
+@inject NavigationManager Navigation
 @inherits LayoutComponentBase
+<a class="skip-link" data-skip-main href="@(Navigation.Uri.Split('#')[0] + "#main-content")" data-enhance="false">Skip to content</a>
 <header class="admin-header">
     <a class="admin-brand" href="/">Swoovr admin</a>
     <nav aria-label="Admin">
@@ -7,14 +9,18 @@
         <a href="/media">Photos</a>
         <a href="/dob-reviews">Date of birth</a>
         <a href="/accounts">Accounts</a>
+        <a href="/beta">Beta enrolments</a>
         <a href="/support">Support lookup</a>
         <a href="/contact-history">Contact history</a>
+        <a href="/registry">Identifier review</a>
         <a href="/holds">Legal holds</a>
         <a href="/law-enforcement">Law enforcement</a>
         <a href="/access">Elevated access</a>
         <a href="/security">Security</a>
         <a href="/safety">Safety resources</a>
+        <a href="/beta-scorecard">Beta scorecard</a>
+        <a href="/code-reports">Annual report data</a>
     </nav>
     <form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form>
 </header>
-<main class="admin-main">@Body</main>
+<main id="main-content" tabindex="-1" class="admin-main">@Body</main>

@@ -4,6 +4,40 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--media-checks"]){MediaChecks.Run();return;}
+if(args is ["--device-client-checks"]){await DeviceClientChecks.Run();return;}
+if(args is ["--sms-checks"]){await SmsTransportChecks.Run();return;}
+
+if(args is ["--hosting-checks"]){HostingPolicyChecks.Run();await HostingProxyChecks.Run();await SmsSelectionChecks.Run();return;}
+
+if(args is ["--appearance-client-checks"]){AppearanceSyncChecks.Run();AppearanceCacheChecks.Run();await AppearanceClientChecks.Run();await AppearanceCoordinatorChecks.Run();return;}
+
+if(args is ["--mailersend-checks"]){await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});return;}
+
+if(args is ["--contact-provider-probe"])
+{
+    await ContactIdentityProviderProbe.Run();
+    return;
+}
+
+if(args is ["--policy-checks"]){PublicPolicyDraftChecks.Run();PolicyNoticeChecks.Run();await PersistenceChecks.Run(policiesOnly:true);return;}
+
+HostingPolicyChecks.Run();
+await HostingProxyChecks.Run();
+await SmsSelectionChecks.Run();
+await SmsTransportChecks.Run();
+await DeviceClientChecks.Run();
+PublicPolicyDraftChecks.Run();
+PolicyNoticeChecks.Run();
+MeetingSafetyChecks.Run();
+MeetingSafetyContactAccessChecks.Run();
+ContentRemovalChecks.Run();
+TextHarmChecks.Run();
+Swoovr.Checks.ModerationTransparencyChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
+ReportOutcomeChecks.Run((name,ok)=>{if(!ok)throw new Exception("Report outcome: "+name);});
+BannedIdentifierChecks.Run();
+FallbackKeyChecks.Run();
+ApiContractChecks.Run();
 AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();
 DiscoveryPolicyChecks.Run();
@@ -20,6 +54,7 @@ MessagingChecks.Run();
 DobCorrectionChecks.Run();
 DeletionChecks.Run();
 LegalHoldChecks.Run();
+SafetyRetentionChecks.Run();
 LawEnforcementChecks.Run();
 StaffAccessChecks.Run();
 SecurityOperationsChecks.Run();
@@ -29,18 +64,28 @@ SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();
 MediaChecks.Run();
+MediaRecoveryChecks.Run();
 SafetyResourceChecks.Run();
 NotificationChecks.Run();
 StandingChecks.Run();
 ChatAttachmentChecks.Run();
+await EmailOutcomeChecks.Run();
+await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
+await PushProviderChecks.Run();
+await ContactIdentityChecks.Run();
+EmailRetirementChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();
 MeetingPlanChecks.Run();
 PrivateFeedbackChecks.Run();
 AppearanceSyncChecks.Run();
+AppearanceCacheChecks.Run();
+await AppearanceClientChecks.Run();
+await AppearanceCoordinatorChecks.Run();
 await PrototypeClientChecks.Run();
 await PrototypeConversationClientChecks.Run();
 await NativeSignInChecks.Run();
+await RegistryClientChecks.Run();
 await PersistenceChecks.Run();
 
 var expected = new FoundationStatus("Swoovr.Api", "foundation");
@@ -56,7 +101,8 @@ sealed class StatusHandler(bool empty = false) : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request.Method != HttpMethod.Get || request.RequestUri?.AbsolutePath != "/api/v1/status")
+        if (!request.Headers.TryGetValues(ApiContract.Header, out var versions) || versions.Single() != ApiContract.Current) throw new Exception("Typed client did not pin API contract.");
+        if (request.Method != HttpMethod.Get || request.RequestUri?.AbsolutePath != "/api/status")
             throw new Exception("Unexpected API request.");
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
             Content = new StringContent(empty ? "null" : JsonSerializer.Serialize(new FoundationStatus("Swoovr.Api", "foundation")), Encoding.UTF8, "application/json")

@@ -5,4 +5,17 @@ namespace Swoovr.Client;
 public static partial class AppearancePreferences
 {
     private static bool IsSupportedScheme(string? value) => value is "standard" or "lounge" or "pride" or "trans" or "union" or "violet" or "coral" or "eucalyptus";
+    public static System.Collections.Generic.IReadOnlyList<AppearanceScheme> Schemes { get; } = [
+        new("standard","Standard","Core",new("#FAFAFA","#FFFFFF","#0A0A0A","#6B6B6B","#0A0A0A","#FAFAFA","#8A8A8A","#F4F4F4","#0A0A0A","#E5E5E5"),new("#0A0A0A","#161616","#F5F5F5","#A3A3A3","#F5F5F5","#0A0A0A","#8A8A8A","#1F1F1F","#F5F5F5","#2A2A2A")),
+        new("lounge","Lounge","Core",new("#F7F5F0","#FFFFFF","#172C45","#5A6474","#1E3857","#F0ECE4","#B39760","#EFE7D6","#5E4A1E","#DCD5C6"),new("#172C45","#1E3857","#F0ECE4","#C1C1C1","#D0B786","#172C45","#C1C1C1","#2A4566","#E6D5AE","#3A5577")),
+        new("pride","Pride","Community",new("#FBFAFC","#FFFFFF","#1A1220","#645C6B","#732982","#FFFFFF","#FF8C00","#F1E6F4","#5A1F66","#E6DEE9"),new("#121014","#1C1820","#F7F3FA","#BDB3C4","#D7A8E6","#2A0E33","#FFB347","#2E2234","#E9CCF2","#3A3040")),
+        new("trans","Trans","Community",new("#FAFCFE","#FFFFFF","#0E1A22","#56636C","#5BCEFA","#0A1A24","#F5A9B8","#FDECEF","#8A2E45","#DCE6EC"),new("#0D1216","#162027","#F3F8FB","#B4C2CB","#5BCEFA","#0A1A24","#F5A9B8","#3A2430","#F9C9D3","#2B3A44")),
+        new("union","Union Jack","Community",new("#FAFAFC","#FFFFFF","#0B1430","#555D72","#012169","#FFFFFF","#C8102E","#E6EAF5","#012169","#D9DDE8"),new("#0A0F1F","#131A31","#F3F5FA","#B3BACB","#FF6B7F","#2B0710","#8EA2E8","#1E2A52","#C9D3FF","#2C3655")),
+        new("violet","Violet","Colour",new("#FAF8FE","#FFFFFF","#23162F","#6E607D","#7228E8","#FFFFFF","#FF8C42","#EEE8FA","#5420C5","#E2D8ED"),new("#140D1C","#23162F","#F7F2FD","#B9A8CC","#BD87F2","#23162F","#FFAF72","#34224A","#DCC6F7","#4D3266")),
+        new("coral","Coral","Colour",new("#FFF8F4","#FFFFFF","#35201C","#795C52","#BE402C","#FFFFFF","#168CBA","#FFE2D6","#8E2C1D","#EED9CE"),new("#211410","#32201B","#FFF1E8","#DABCAE","#FF9C80","#45190F","#77D4F5","#512C23","#FFC7B4","#6C493D")),
+        new("eucalyptus","Eucalyptus","Colour",new("#F6F8F5","#FFFFFF","#15221B","#56655C","#2F6B4F","#FFFFFF","#C9A15B","#E3EEE7","#1F4E38","#D5DED7"),new("#0E1511","#17221C","#EEF5F0","#AEBFB4","#8CCBA8","#0E2A1C","#E6C27A","#203329","#BFE3CC","#2E4237")),
+    ];
 }
+
+public sealed record AppearancePalette(string Bg,string Surface,string Text,string Muted,string Primary,string OnPrimary,string Accent,string Soft,string SoftText,string Border);
+public sealed record AppearanceScheme(string Id,string Name,string Group,AppearancePalette Light,AppearancePalette Dark);

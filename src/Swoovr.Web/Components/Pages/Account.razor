@@ -19,7 +19,7 @@
         {
             <p role="status" class="notice" data-signin-retry>We couldn't finish signing you in. If you just created your account, it's ready: sign in again.</p>
         }
-        <p class="account-actions"><a class="primary-link" href="/account/sign-in">Sign in</a> <a class="button button-secondary" href="/account/create">Create an account</a></p>
+        <p class="account-actions"><a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a> <a class="button button-secondary" href="/account/create" data-enhance-nav="false">Create an account</a></p>
     }
 }
 else
@@ -32,7 +32,7 @@ else
         <button type="submit" class="quiet-button">Sign out</button>
     </form>
 }
-<nav class="card settings-list" aria-label="Settings">@if (signedIn) { <a href="/me/profile">Profile and modes <Icon Name="back" Size="18" /></a><a href="/me/photos" data-photos-link>Photos <Icon Name="back" Size="18" /></a><a href="/me/matching">Who I'd like to meet <Icon Name="back" Size="18" /></a><a href="/travel">Travel <Icon Name="back" Size="18" /></a><a href="/me/verification">ID verification <Icon Name="back" Size="18" /></a><a href="/me/standing" data-standing-link>Account standing <Icon Name="back" Size="18" /></a><a href="/me/notifications" data-notifications-link>Notifications <Icon Name="back" Size="18" /></a><a href="/me/notices">Notices and reports <Icon Name="back" Size="18" /></a><a href="/me/safety">Safety <Icon Name="back" Size="18" /></a><a href="/account/data">Your data and account <Icon Name="back" Size="18" /></a> }<a href="/settings/appearance">Appearance <Icon Name="back" Size="18" /></a><a href="/privacy" data-privacy-link>Privacy notice (draft) <Icon Name="back" Size="18" /></a></nav>
+<nav class="card settings-list" aria-label="Settings">@if (signedIn) { <a href="/me/profile">Profile and modes <Icon Name="back" Size="18" /></a><a href="/me/photos" data-photos-link>Photos <Icon Name="back" Size="18" /></a><a href="/me/matching">Who I'd like to meet <Icon Name="back" Size="18" /></a><a href="/travel">Travel <Icon Name="back" Size="18" /></a><a href="/me/verification">ID verification <Icon Name="back" Size="18" /></a><a href="/me/standing" data-standing-link>Account standing <Icon Name="back" Size="18" /></a><a href="/me/notifications" data-notifications-link>Notifications <Icon Name="back" Size="18" /></a><a href="/me/notices">Notices and reports <Icon Name="back" Size="18" /></a><a href="/me/safety">Safety <Icon Name="back" Size="18" /></a><a href="/account/data">Your data and account <Icon Name="back" Size="18" /></a> }<a href="/settings/appearance">Appearance <Icon Name="back" Size="18" /></a><a href="/terms">Terms of use (draft)</a><a href="/community-guidelines">Community guidelines (draft)</a><a href="/safety/advice">Connection and meeting advice</a><a href="/privacy" data-privacy-link>Privacy notice (draft) <Icon Name="back" Size="18" /></a></nav>
 </div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;

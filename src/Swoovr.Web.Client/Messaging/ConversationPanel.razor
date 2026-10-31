@@ -18,12 +18,21 @@
 </div>
 @if (conversation is not null)
 {
+    @if (conversation.Closed)
+    {
+        <section class="card stack" role="status" data-closed-conversation>
+            <h1>@PhotoText.ClosedTitle</h1>
+            <p>@PhotoText.ClosedBody</p>
+            <p class="field-help">@PhotoText.ClosedSafety</p>
+        </section>
+    }
     @if (more) { <button type="button" class="link-button" @onclick="OlderAsync" data-older>Earlier messages</button> }
     <ul class="chat-thread" aria-live="polite" data-messages="@messages.Count">
         @foreach (var m in messages)
         {
-            <li class="bubble @(m.Mine ? "mine" : "") @(m.Deleted ? "deleted" : "")" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
-                <span class="visually-hidden">@(m.Mine ? "You" : conversation.Person.DisplayName): </span>
+            <li class="@(m.Kind == "system" ? "chat-system" : "bubble" + (m.Mine ? " mine" : "") + (m.Deleted ? " deleted" : ""))" data-message-kind="@m.Kind" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")">
+                <span class="visually-hidden">@(m.Kind == "system" ? "Swoovr" : m.Mine ? "You" : conversation.Person.DisplayName): </span>
+                @if (m.Kind == "farewell") { <p class="field-help">Predefined farewell</p> }
                 @if (m.Deleted) { <p>This message was deleted</p> }
                 else if (m.Kind == "photo")
                 {
@@ -31,17 +40,20 @@
                     @if (m.Mine && m.PhotoState is { } state && state != "approved") { <p class="field-help" data-photo-state="@state">@PhotoText.ChatState(state)</p> }
                 }
                 else { <p>@m.Text</p> }
+                @if (m.Kind != "system")
+                {
                 <span class="request-actions">
-                    @if (m.Mine && !m.Deleted && m.SentAt > DateTimeOffset.UtcNow.AddMinutes(-5)) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
+                    @if (m.CanDelete) { <button type="button" class="link-button" @onclick="() => DeleteAsync(m)" data-delete="@m.Id">Delete for both</button> }
                     <button type="button" class="link-button" @onclick="() => HideAsync(m)" data-hide="@m.Id">Hide</button>
                     @if (!m.Mine && !m.Deleted) { <button type="button" class="link-button" @onclick="() => reporting = m.Id" data-report-message="@m.Id">Report</button> }
                 </span>
+                }
             </li>
         }
     </ul>
     @if (reporting is { } reported)
     {
-        <ReportForm SubjectType="message" SubjectId="@reported.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
+        <ReportForm SubjectType="message" SubjectId="@reported.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Submitted="() => reportSent=true" Blocked="Closed" />
     }
     @if (conversation.CanSend && messages.Count == 0 && starters.Count > 0)
     {
@@ -63,7 +75,7 @@
             <button class="button" type="submit" disabled="@(busy || string.IsNullOrWhiteSpace(draft))" data-send>Send</button>
         </form>
     }
-    else { <p class="field-help" data-cannot-send>You can't send messages here right now.</p> }
+    else if (!conversation.Closed) { <p class="field-help" data-cannot-send>You can't send messages here right now.</p> }
     @* Policy §7: Report and Block straight from the conversation, and the Serious Safety Incident pathway (D190). *@
     <p class="account-actions">
         <button type="button" class="button button-secondary" @onclick="HideConversationAsync" data-hide-conversation>Hide this chat</button>
@@ -87,7 +99,7 @@
                 {
                     <label class="check"><input type="radio" name="closing" checked="@(closing == closingId)" @onchange="() => closing = closingId" data-closing="@closingId" /> @label</label>
                 }
-                <label class="check"><input type="radio" name="closing" checked="@(closing is null)" @onchange="() => closing = null" data-closing="none" /> No message</label>
+                <label class="check"><input type="radio" name="closing" checked="@(closing is null)" @onchange="() => closing = null" data-closing="none" /> No farewell message</label>
             </fieldset>
             <p class="account-actions">
                 <button type="submit" class="button" disabled="@busy" data-end-confirm>End conversation</button>
@@ -97,21 +109,27 @@
     }
     @if (reportingConversation)
     {
-        <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Blocked="Closed" />
+        <ReportForm SubjectType="conversation" SubjectId="@Id.ToString()" Name="@(conversation.Person.DisplayName ?? "this person")" Submitted="() => reportSent=true" Blocked="Closed" />
     }
 }
 @* Outside the conversation block, so "This chat is closed." still shows once a block or disconnect closes it (#82). *@
 <p role="status" aria-live="polite" class="field-help" data-chat-status="@status">@message</p>
+@if(reportSent && conversation is null){<p role="status">@ReportFollowUpText.Confirmation</p><ReportSupport />}
 @code {
     [Parameter, EditorRequired] public Guid Id { get; set; }
-    private bool loaded, busy, more, live, reportingConversation, confirmBlock, ending;
+    private bool loaded, busy, more, live, reportingConversation, confirmBlock, ending, reportSent;
     private string? draft, status, message, closing;
     private List<ConversationStarter> starters = [];
     private Guid? reporting;
     private DateTimeOffset? before;
     private ConversationView? conversation;
     private List<MessageView> messages = [];
+    private readonly HashSet<Guid> removedMessages=[];
+    private MessageView Project(MessageView value)=>MessageText.ApplyKnownRemoval(value,removedMessages);
     private MessagesHubClient? hub;
+    private bool reconciling,disposed;
+    private readonly List<MessageView> refreshArrivals=[];
+    private readonly SemaphoreSlim refreshGate=new(1,1);
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,17 +137,18 @@
         if (conversation is not null)
         {
             var page = (await Members.MessagesAsync(Id)).Value;
-            (messages, more, before) = (page?.Items.Reverse().ToList() ?? [], page?.More ?? false, page?.Before);
+            (messages, more, before) = (page?.Items.Reverse().Select(Project).ToList() ?? [], page?.More ?? false, page?.Before);
             hub = new MessagesHubClient(new Uri(Navigation.BaseUri + "bff/hubs/messages"));
             // A photo's state changes arrive as the same message again (#41): replace it in place.
             hub.Message += m => { if (m.ConversationId == Id) { Upsert(m); _ = InvokeAsync(StateHasChanged); } };
             hub.Deleted += d => { if (d.ConversationId == Id) { MarkDeleted(d.MessageId); _ = InvokeAsync(StateHasChanged); } };
+            hub.Reconnected += () => _ = InvokeAsync(Closed);
             hub.Closed += c => { if (c.ConversationId == Id) _ = InvokeAsync(Closed); };
             try { await hub.StartAsync(); live = true; }
             catch (Exception error) when (error is HttpRequestException or InvalidOperationException) { live = false; }
             // Anything sent while the live connection was opening: read the latest page again and merge.
             foreach (var m in (await Members.MessagesAsync(Id)).Value?.Items.Reverse() ?? [])
-                if (messages.All(x => x.Id != m.Id)) messages.Add(m);
+                Upsert(m);
             if (messages.Count == 0 && conversation.CanSend) starters = (await Members.StartersAsync(Id)).Value ?? [];
         }
         loaded = true;
@@ -139,7 +158,7 @@
     {
         var page = (await Members.MessagesAsync(Id, before)).Value;
         if (page is null) return;
-        messages.InsertRange(0, page.Items.Reverse());
+        messages.InsertRange(0, page.Items.Reverse().Select(Project));
         (more, before) = (page.More, page.Before);
     }
 
@@ -166,6 +185,8 @@
 
     private void Upsert(MessageView m)
     {
+        if(reconciling)refreshArrivals.Add(m);
+        m=Project(m);
         var index = messages.FindIndex(x => x.Id == m.Id);
         if (index >= 0) messages[index] = m; else messages.Add(m);
     }
@@ -180,7 +201,8 @@
             using var buffer = new MemoryStream();
             await stream.CopyToAsync(buffer);
             var result = await Members.SendChatPhotoAsync(Id, buffer.ToArray(), e.File.Name, e.File.ContentType);
-            if (result.Value is { } sent) { Upsert(sent); (status, message) = ("photo-sent", null); }
+            // A live screening/deletion event may precede the older upload response. Preserve that event.
+        if (result.Value is { } sent) { if (messages.All(m => m.Id != sent.Id)) messages.Add(sent); (status, message) = ("photo-sent", null); }
             else (status, message) = (result.Code ?? "failed", PhotoText.Refusal(result.Code));
         }
         finally { busy = false; }
@@ -230,16 +252,33 @@
         if (await Members.HideConversationAsync(Id) == 204) Navigation.NavigateTo("/chats");
     }
 
-    private Task Closed()
+    private async Task Closed()
     {
-        conversation = null;
-        (status, message) = ("closed", "This chat is closed.");
-        StateHasChanged();
-        return Task.CompletedTask;
+        await refreshGate.WaitAsync();
+        try
+        {
+            if(disposed)return;
+            reconciling=true;refreshArrivals.Clear();messages.Clear();live=false;StateHasChanged();
+            conversation=(await Members.ConversationAsync(Id)).Value;
+            if(conversation is not null)
+            {
+                var page=(await Members.MessagesAsync(Id)).Value;
+                var arrivals=refreshArrivals.ToArray();reconciling=false;
+                (messages,more,before)=(page?.Items.Reverse().Select(Project).ToList()??[],page?.More??false,page?.Before);
+                foreach(var item in arrivals)Upsert(item);
+                live=hub?.Connected==true;
+            }
+            else messages.Clear();
+            (status,message)=conversation is null||conversation.Closed?("closed",conversation is null?"This chat is closed.":PhotoText.ClosedBody):(null,null);
+        }
+        catch(Exception error)when(error is HttpRequestException or TaskCanceledException)
+        {messages.Clear();(status,message)=("refresh-unconfirmed","Chat history could not refresh. Reopen this chat to try again.");}
+        finally{reconciling=false;refreshGate.Release();if(!disposed)StateHasChanged();}
     }
 
     public async ValueTask DisposeAsync()
     {
+        disposed=true;
         if (hub is not null) await hub.DisposeAsync();
     }
 }

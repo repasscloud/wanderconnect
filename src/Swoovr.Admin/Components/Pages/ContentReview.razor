@@ -1,0 +1,158 @@
+@page "/cases/{Id:guid}/content"
+@inject AdminClient Admin
+<PageTitle>Content review — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/cases/@Id">Case</a> / Content review</p>
+<h1>Individual content removal</h1>
+<p>Remove one profile field or one reported message. This does not restrict the whole account. The original text is retained as evidence and the member receives an Account standing notice.</p>
+@if (message is not null)
+{
+    <p class="notice" role="status" data-content-result="@resultCode">@message
+        @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/cases/@Id/content" data-enhance-nav="false">Sign in again</a> }
+    </p>
+}
+@if (detail is null)
+{
+    <p>@(loadError ?? "Not found, or not available to your role.")</p>
+}
+else
+{
+    @if (detail.Case.Status == "closed" || detail.EvidencePurgedAt is not null)
+    {
+        <p class="notice">This case is closed or its investigation content has been disposed. No new content removal is available.</p>
+    }
+    else
+    {
+        <h2>Current sources</h2>
+        @if (sources.Count == 0) { <p>No eligible current text is available for this case.</p> }
+        <ul class="list" data-content-sources>
+            @foreach (var source in sources)
+            {
+                <li><a href="@SourceUrl(source)">@Label(source.Field, source.ModeId, source.MessageId)</a> · report @source.ReportId</li>
+            }
+        </ul>
+        @if (selected is not null)
+        {
+            <h2>@Label(selected.Field, selected.ModeId, selected.MessageId)</h2>
+            <p>Review the exact current text before confirming. If it changes, reload and review it again.</p>
+            <pre data-content-source>@selected.Text</pre>
+            <form method="post" @formname="remove-content" @onsubmit="RemoveAsync" class="stack" data-content-removal-form data-enhance="false">
+                <AntiforgeryToken />
+                <input type="hidden" name="RemovalForm.CommandId" value="@RemovalForm!.CommandId" />
+                <input type="hidden" name="RemovalForm.ReportId" value="@RemovalForm.ReportId" />
+                <input type="hidden" name="RemovalForm.Field" value="@RemovalForm.Field" />
+                <input type="hidden" name="RemovalForm.ModeId" value="@RemovalForm.ModeId" />
+                <input type="hidden" name="RemovalForm.MessageId" value="@RemovalForm.MessageId" />
+                <input type="hidden" name="RemovalForm.Sha256" value="@RemovalForm.Sha256" />
+                <label>Staff reason (retained with restricted evidence)
+                    <textarea name="RemovalForm.Reason" rows="4" maxlength="1000" required></textarea>
+                </label>
+                <label>Explicitly reviewed policy basis<select name="RemovalForm.PolicyBasis">@foreach(var basis in ModerationReportingText.Bases){<option value="@basis">@ModerationReportingText.Basis(basis)</option>}</select></label>
+                <p>Unknown is valid when a policy basis has not been separately assessed. The captured member report is the detection source for this removal.</p>
+                <label><input type="checkbox" name="RemovalForm.Confirmed" value="true" required /> I reviewed this exact text and confirm removal of this single field or message.</label>
+                <button type="submit" data-remove-content>Remove this content</button>
+            </form>
+        }
+    }
+    <h2>Retained removal evidence</h2>
+    <p>Open a known removal reference from this case. Access is checked and recorded by the API.</p>
+    <form method="get" class="stack" data-content-evidence-lookup>
+        <label>Removal reference<input name="removal" type="text" pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" maxlength="36" required /></label>
+        <button type="submit" class="secondary">Open retained evidence</button>
+    </form>
+    @if (receipt is not null) { <p><a href="/cases/@Id/content?removal=@receipt.Id">Open retained removal evidence</a></p> }
+    @if (evidence is not null)
+    {
+        <h3>@Label(evidence.Field, evidence.ModeId, evidence.MessageId)</h3>
+        <p>Removed @evidence.RemovedAt.ToString("d MMM yyyy HH:mm") · reference @evidence.Id</p>
+        <pre data-content-evidence>@evidence.Text</pre>
+        <h3>Recorded staff reason</h3>
+        <pre data-content-reason>@evidence.Reason</pre>
+    }
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery(Name = "report")] public Guid? Report { get; set; }
+    [SupplyParameterFromQuery(Name = "field")] public string? Field { get; set; }
+    [SupplyParameterFromQuery(Name = "mode")] public string? Mode { get; set; }
+    [SupplyParameterFromQuery(Name = "message")] public Guid? MessageId { get; set; }
+    [SupplyParameterFromQuery(Name = "removal")] public Guid? Removal { get; set; }
+    [SupplyParameterFromForm(FormName = "remove-content")] public RemovalModel? RemovalForm { get; set; }
+    public sealed class RemovalModel
+    {
+        public Guid CommandId { get; set; }
+        public Guid ReportId { get; set; }
+        public string? Field { get; set; }
+        public string? ModeId { get; set; }
+        public Guid? MessageId { get; set; }
+        public string? Sha256 { get; set; }
+        public string? Reason { get; set; }
+        public string? PolicyBasis { get; set; }
+        public bool Confirmed { get; set; }
+    }
+    private CaseDetailView? detail;
+    private List<ContentRemovalSource> sources = [];
+    private ContentRemovalSource? selected;
+    private ContentRemovalEvidence? evidence;
+    private ContentRemovalReceipt? receipt;
+    private string? message, loadError, resultCode;
+    private bool reauth;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        if (detail is null) return;
+        selected = sources.FirstOrDefault(s => s.ReportId == Report && s.Field == Field && s.ModeId == Mode && s.MessageId == MessageId);
+        if (selected is not null && RemovalForm is null)
+            RemovalForm = new() { CommandId = Guid.NewGuid(), ReportId = selected.ReportId, Field = selected.Field,
+                ModeId = selected.ModeId, MessageId = selected.MessageId, Sha256 = selected.Sha256 };
+        if (Removal is { } removal)
+        {
+            var result = await Admin.ContentEvidenceAsync(Id, removal);
+            evidence = result.Value;
+            if (!result.Ok) Show(result.Status, result.Code, "");
+        }
+    }
+    private async Task LoadAsync()
+    {
+        var result = await Admin.CaseAsync(Id);
+        detail = result.Value;
+        sources = [];
+        if (!result.Ok) { loadError = AdminText.Refusal(result.Status, result.Code); return; }
+        if (detail!.Case.Status == "closed" || detail.EvidencePurgedAt is not null) return;
+        var current = await Admin.ContentSourcesAsync(Id);
+        if (current.Ok) sources = current.Value!;
+        else Show(current.Status, current.Code, "");
+    }
+    private async Task RemoveAsync()
+    {
+        // Posted metadata is untrusted: reload both case authority and current source before sending a command.
+        await LoadAsync();
+        var f = RemovalForm;
+        if(f is not null&&string.IsNullOrWhiteSpace(f.ModeId))f.ModeId=null;
+        if (detail is null) { Show(403, null, ""); return; }
+        if (detail.Case.Status == "closed" || detail.EvidencePurgedAt is not null) { Show(409, null, ""); return; }
+        if (f is null || !f.Confirmed || f.CommandId == Guid.Empty || string.IsNullOrWhiteSpace(f.Reason))
+        { message = "Enter a staff reason and confirm the individual removal."; resultCode = "confirmation-required"; return; }
+        var current = sources.FirstOrDefault(s => s.ReportId == f.ReportId && s.Field == f.Field && s.ModeId == f.ModeId && s.MessageId == f.MessageId);
+        if (current is null || current.Sha256 != f.Sha256)
+        { message = "The source is no longer available or has changed. Reload and review the current text before removing it."; resultCode = "source-changed"; selected = null; return; }
+        var result = await Admin.RemoveContentAsync(Id, new(f.CommandId, f.ReportId, f.Field!, f.ModeId, f.MessageId, f.Sha256!, f.Reason,new(f.PolicyBasis,"member-report",f.ReportId)));
+        receipt = result.Value;
+        Show(result.Status, result.Code, "Content removal recorded. The member has a standing notice and the original is retained as evidence.");
+        selected = null;
+        if (result.Ok) RemovalForm = null;
+        await LoadAsync();
+    }
+    private string SourceUrl(ContentRemovalSource s) => $"/cases/{Id}/content?report={s.ReportId}&field={Uri.EscapeDataString(s.Field)}"
+        + (s.ModeId is null ? "" : "&mode=" + Uri.EscapeDataString(s.ModeId)) + (s.MessageId is null ? "" : "&message=" + s.MessageId);
+    private static string Label(string field, string? mode, Guid? messageId) => field switch
+    {
+        "about" => "Core profile about", "mode-about" => $"Profile about for {mode}", "message" => $"Reported message {messageId}", _ => "Content"
+    };
+    private void Show(int status, string? code, string success)
+    {
+        var ok = status is >= 200 and < 300;
+        resultCode = ok ? "ok" : code ?? status.ToString();
+        reauth = status == 401 || code == "stale-session";
+        message = ok ? success : AdminText.Refusal(status, code);
+    }
+}

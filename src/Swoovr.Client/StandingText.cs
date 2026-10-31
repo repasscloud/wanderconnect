@@ -7,7 +7,11 @@ public static class StandingText
 {
     public const string Title = "Account standing";
     public const string Intro = "Your verification, anything you need to do, actions on your account and the reports you've made.";
-    /// <summary>Q86: no support channel is named yet.</summary>
+    public const string SupportUrl = "https://swoovr.com/support";
+    public const string SupportEmail = "support@swoovr.com";
+    public const string SupportHelp = "Support requests are prioritised by urgency. No fixed response or resolution time is promised.";
+    public static string SupportLink(string reference) => SupportUrl + "?reference=" + Uri.EscapeDataString(reference);
+    /// <summary>CONFIRMED Q86/D214: the official web and email channels.</summary>
     public const string ReferenceHelp = "Quote the reference if you contact Swoovr support about a report.";
     public const string NothingInForce = "Nothing is limiting your account.";
     public const string NoDecisions = "No decisions about your account.";
@@ -63,6 +67,8 @@ public static class StandingText
         "termination" => "Account closed",
         "dob-verified" => "Date of birth confirmed",
         "dob-not-verified" => "Date of birth couldn't be confirmed",
+        "profile-text-removed" => "Profile text removed by Swoovr",
+        "message-removed" => "A message removed by Swoovr",
         "photo-not-approved" => "A photo wasn't approved",
         _ => "Decision",
     };

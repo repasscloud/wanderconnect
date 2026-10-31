@@ -14,7 +14,22 @@ namespace Swoovr.Infrastructure.Persistence;
 /// </summary>
 public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) : DbContext(options)
 {
+    public DbSet<TrustedContact> TrustedContacts => Set<TrustedContact>();
+    public DbSet<MeetingSafetySession> MeetingSafetySessions => Set<MeetingSafetySession>();
+    public DbSet<MeetingSafetyRecipient> MeetingSafetyRecipients => Set<MeetingSafetyRecipient>();
+    public DbSet<MeetingSafetyLink> MeetingSafetyLinks => Set<MeetingSafetyLink>();
+    public DbSet<MeetingSafetyCheckIn> MeetingSafetyCheckIns => Set<MeetingSafetyCheckIn>();
+    public DbSet<MeetingSafetyEvent> MeetingSafetyEvents => Set<MeetingSafetyEvent>();
+    public DbSet<MeetingSafetyOutbox> MeetingSafetyOutbox => Set<MeetingSafetyOutbox>();
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<EmailRetirementOperation> EmailRetirementOperations => Set<EmailRetirementOperation>();
+    public DbSet<EmailRetirementReview> EmailRetirementReviews => Set<EmailRetirementReview>();
+    public DbSet<BannedIdentifier> BannedIdentifiers => Set<BannedIdentifier>();
+    public DbSet<BanDispositionReview> BanDispositionReviews => Set<BanDispositionReview>();
+    public DbSet<BanDisposition> BanDispositions => Set<BanDisposition>();
+    public DbSet<BanTransition> BanTransitions => Set<BanTransition>();
+    public DbSet<BanCaseNote> BanCaseNotes => Set<BanCaseNote>();
+    public DbSet<BanCheckAttempt> BanCheckAttempts => Set<BanCheckAttempt>();
     public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
@@ -86,6 +101,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
     public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
     public DbSet<ProfileVersion> ProfileVersions => Set<ProfileVersion>();
+    public DbSet<MediaEscalationDelivery> MediaEscalationDeliveries => Set<MediaEscalationDelivery>();
     public DbSet<MediaItem> MediaItems => Set<MediaItem>();
     public DbSet<MediaPlacement> MediaPlacements => Set<MediaPlacement>();
     public DbSet<MediaReviewView> MediaReviewViews => Set<MediaReviewView>();
@@ -112,6 +128,22 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             // The purge job finds due deletions and expired tombstones (D170).
             account.HasIndex(a => new { a.Status, a.DeletionDueAt });
         });
+        model.Entity<EmailRetirementOperation>(operation =>
+        {
+            // Restricted intent survives source deletion; no cascading destruction of uncertain provider work.
+            operation.HasIndex(o => o.AccountId).IsUnique();
+            operation.HasIndex(o => new { o.State, o.NextAttemptAt });
+            operation.HasIndex(o => o.CaseId);
+            operation.HasOne<BannedIdentifier>().WithMany().HasForeignKey(o=>o.RegistryId).OnDelete(DeleteBehavior.Restrict);
+            operation.HasOne<ModerationCase>().WithMany().HasForeignKey(o=>o.CaseId).OnDelete(DeleteBehavior.Restrict);
+            operation.Property(o => o.Outcome).HasMaxLength(32);
+        });
+        model.Entity<EmailRetirementReview>(review =>
+        {
+            review.HasOne<EmailRetirementOperation>().WithMany().HasForeignKey(r=>r.OperationId).OnDelete(DeleteBehavior.Restrict);
+            review.HasIndex(r=>new{r.OperationId,r.ReviewedAt});
+            review.Property(r=>r.Reason).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+        });
         model.Entity<DataExport>(export =>
         {
             export.HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -135,15 +167,19 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             history.Property(h => h.ChangeReason).HasMaxLength(32);
         });
         // D189 (policy §3): legal holds and the restricted evidence store. No foreign keys to accounts or conversations,
-        // so preserved evidence outlives the records it was captured from; evidence goes when the hold is released.
+        // so preserved evidence outlives its source; release resumes the independent review/police retention schedule.
         model.Entity<LegalHold>(hold =>
         {
+            hold.HasIndex(h => h.SourceMediaId).IsUnique().HasFilter("source_media_id IS NOT NULL");
             hold.Property(h => h.Reason).HasMaxLength(LegalHoldPolicy.TextMax);
             hold.Property(h => h.ReleaseConditions).HasMaxLength(LegalHoldPolicy.TextMax);
             hold.Property(h => h.ReleaseReason).HasMaxLength(LegalHoldPolicy.TextMax);
+            // Restricted append-only JSON-line disposition notes; each entry is validated to the text limit.
             hold.Property(h => h.Source).HasMaxLength(32);
             hold.HasIndex(h => new { h.Status, h.ReviewDue });
             hold.HasIndex(h => h.CaseId);
+            hold.HasIndex(h => h.RetentionCaseIds).HasMethod("gin");
+            hold.HasIndex(h => h.RelatedAccountIds).HasMethod("gin");
         });
         model.Entity<LegalHoldScope>(scope =>
         {
@@ -267,6 +303,66 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             entry.HasIndex(e => new { e.ActorAccountId, e.At });
             entry.HasIndex(e => new { e.Resource, e.ResourceId });
         });
+        model.Entity<BanCheckAttempt>(attempt =>
+        {
+            attempt.HasIndex(a => new { a.CallerHash, a.KeyVersion, a.IdentifierType, a.At });
+            attempt.HasIndex(a => new { a.AddressHash, a.KeyVersion, a.At });
+            attempt.HasIndex(a => a.At);
+            attempt.HasIndex(a => a.MatchedBanIds).HasMethod("gin");
+            attempt.ToTable(t => t.HasCheckConstraint("ck_ban_attempt_hash", "octet_length(caller_hash) = 32 AND (address_hash IS NULL OR octet_length(address_hash) = 32) AND key_version > 0"));
+        });
+        model.Entity<BannedIdentifier>(ban =>
+        {
+            ban.Property(b => b.BanReasonCode).HasMaxLength(64);
+            ban.HasIndex(b => new { b.IdentifierType, b.KeyVersion, b.IdentifierHash });
+            ban.HasIndex(b => new { b.Status, b.BanExpiresAt });
+            ban.HasIndex(b => b.CaseId);
+            // Opaque case provenance survives ordinary member deletion; no cascading account relationship.
+            ban.HasOne<ModerationCase>().WithMany().HasForeignKey(b => b.CaseId).OnDelete(DeleteBehavior.Restrict);
+            ban.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_ban_hash", "octet_length(identifier_hash) = 32 AND key_version > 0");
+                t.HasCheckConstraint("ck_ban_kind", "identifier_type IN ('Email', 'Mobile') AND status IN ('Active', 'Revoked', 'Expired')");
+                t.HasCheckConstraint("ck_ban_reason", "ban_reason_code ~ '^[a-z][a-z0-9-]{1,63}$'");
+                t.HasCheckConstraint("ck_ban_count", "match_count >= 0");
+                t.HasCheckConstraint("ck_ban_revoked", "status <> 'Revoked' OR (revoked_at IS NOT NULL AND revoked_by IS NOT NULL AND ban_expires_at IS NOT NULL)");
+                t.HasCheckConstraint("ck_ban_expired", "status <> 'Expired' OR ban_expires_at IS NOT NULL");
+            });
+        });
+        model.Entity<BanDispositionReview>(review=>
+        {
+            review.HasOne<BanDisposition>().WithMany().HasForeignKey(r=>r.DispositionId).OnDelete(DeleteBehavior.Restrict);
+            review.Property(r=>r.Reason).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+            review.HasIndex(r=>new{r.CaseId,r.At});
+            review.ToTable(t=>t.HasCheckConstraint("ck_ban_disposition_review_reason","length(btrim(reason)) BETWEEN 1 AND 1000"));
+        });
+        model.Entity<BanDisposition>(receipt =>
+        {
+            receipt.HasOne<ModerationCase>().WithMany().HasForeignKey(r=>r.CaseId).OnDelete(DeleteBehavior.Restrict);
+            receipt.HasIndex(r=>new{r.CaseId,r.IdentifierType});
+            receipt.ToTable(t=>
+            {
+                t.HasCheckConstraint("ck_ban_disposition_kind","identifier_type IN ('Email','Mobile') AND status IN ('Revoked','Expired')");
+                t.HasCheckConstraint("ck_ban_disposition_clock","history_until >= ((effective_end AT TIME ZONE 'UTC') + interval '24 months') AT TIME ZONE 'UTC' AND disposed_at >= history_until");
+            });
+        });
+        model.Entity<BanTransition>(entry =>
+        {
+            entry.Property(e => e.Action).HasMaxLength(32);
+            entry.Property(e => e.Reason).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+            entry.Property(e => e.OldValues).HasColumnType("jsonb");
+            entry.Property(e => e.NewValues).HasColumnType("jsonb");
+            entry.HasOne<BannedIdentifier>().WithMany().HasForeignKey(e => e.BannedIdentifierId).OnDelete(DeleteBehavior.Restrict);
+            entry.HasIndex(e => new { e.CaseId, e.At });
+            entry.ToTable(t => t.HasCheckConstraint("ck_ban_transition_reason", "length(btrim(reason)) BETWEEN 1 AND 1000"));
+        });
+        model.Entity<BanCaseNote>(note =>
+        {
+            note.Property(n => n.Text).HasMaxLength(BannedIdentifierPolicy.ReasonMax);
+            note.HasOne<BanTransition>().WithMany().HasForeignKey(n => n.TransitionId).OnDelete(DeleteBehavior.Restrict);
+            note.HasIndex(n => n.TransitionId).IsUnique();
+            note.HasIndex(n => new { n.CaseId, n.At });
+        });
         model.Entity<StaffExclusion>(exclusion =>
         {
             exclusion.HasKey(e => new { e.StaffAccountId, e.SubjectAccountId });
@@ -296,6 +392,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<MediaItem>(item =>
         {
             item.Property(i => i.ObjectKey).HasMaxLength(64);
+            item.Property(i => i.PreservationSourceKey).HasMaxLength(64);
+            item.Property(i => i.PreservationError).HasMaxLength(32);
             item.Property(i => i.ContentType).HasMaxLength(32);
             item.Property(i => i.LastScreenError).HasMaxLength(32);
             item.Property(i => i.Screener).HasMaxLength(32);
@@ -307,6 +405,15 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             item.HasIndex(i => i.Sha256);
             item.Property(i => i.Purpose).HasMaxLength(16);
             item.HasIndex(i => i.ConversationId);
+        });
+        model.Entity<MediaEscalationDelivery>(delivery =>
+        {
+            delivery.HasKey(d => new { d.MediaId, d.Slot });
+            delivery.Property(d => d.Slot).HasMaxLength(16);
+            delivery.Property(d => d.Status).HasMaxLength(24);
+            delivery.Property(d => d.ResolutionActor).HasMaxLength(32);
+            delivery.Property(d => d.ResolutionNote).HasMaxLength(2000);
+            delivery.HasOne<MediaItem>().WithMany().HasForeignKey(d => d.MediaId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<MediaPlacement>(placement =>
         {
@@ -355,6 +462,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             device.Property(d => d.Token).HasMaxLength(NotificationPolicy.TokenMax);
             device.HasOne<Account>().WithMany().HasForeignKey(d => d.AccountId).OnDelete(DeleteBehavior.Cascade);
             device.HasIndex(d => new { d.AccountId, d.Token }).IsUnique();
+            device.HasIndex(d => d.InstallationId).IsUnique().HasFilter("installation_id IS NOT NULL");
         });
         // #103: country-aware Safety & Support resources as data, with an immutable revision trail.
         model.Entity<SafetyCountry>(country =>
@@ -738,6 +846,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             evidence.HasOne<Report>().WithMany().HasForeignKey(e => e.ReportId).OnDelete(DeleteBehavior.Cascade);
             evidence.Property(e => e.Kind).HasMaxLength(32);
             evidence.Property(e => e.Snapshot).HasMaxLength(8192);
+            evidence.HasIndex(e => e.MediaIds).HasMethod("gin");
         });
         model.Entity<Sanction>(sanction =>
         {
@@ -830,12 +939,120 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             token.Property(t => t.InvalidatedReason).HasMaxLength(32);
             token.HasOne<FounderPlace>().WithMany().HasForeignKey(t => t.Place).OnDelete(DeleteBehavior.Restrict);
         });
+        model.Entity<MemberAppearance>(appearance=>
+        {
+            appearance.ToTable("member_appearances",t=>t.HasCheckConstraint("ck_member_appearance_revision","revision>0 AND last_change_id<>'00000000-0000-0000-0000-000000000000'::uuid"));
+            appearance.HasKey(a=>a.AccountId);
+            appearance.Property(a=>a.Scheme).HasMaxLength(32);appearance.Property(a=>a.Mode).HasMaxLength(16);
+            appearance.HasOne<Account>().WithOne().HasForeignKey<MemberAppearance>(a=>a.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
         model.Entity<BetaEnrolment>(enrolment =>
         {
             enrolment.Property(e => e.Email).HasMaxLength(254);
+            enrolment.Property(e=>e.InvitationState).HasMaxLength(24).HasDefaultValue("not-queued");
+            enrolment.Property(e=>e.InvitationAttempts).HasDefaultValue(0);
+            enrolment.Property(e=>e.InvitationOutcomeCode).HasMaxLength(48);
+            enrolment.HasIndex(e=>new{e.InvitationState,e.InvitationNextAttemptAt});
+            enrolment.ToTable(t=>t.HasCheckConstraint("ck_beta_invitation","invitation_state IN ('not-queued','pending','dispatching','accepted','rejected','unknown','cancelled','expired') AND invitation_attempts BETWEEN 0 AND 3 AND ((invitation_state='not-queued' AND invitation_queued_at IS NULL AND invitation_attempts=0) OR (invitation_state<>'not-queued' AND invitation_queued_at IS NOT NULL))"));
+            enrolment.Property(e=>e.IosDistributionState).HasMaxLength(24).HasDefaultValue("not-recorded");
+            enrolment.Property(e=>e.IosDistributionRevision).HasDefaultValue(0L);
+            enrolment.ToTable(t=>t.HasCheckConstraint("ck_beta_ios_record","ios_distribution_state IN ('not-recorded','not-invited','invited','accepted','removed') AND ios_distribution_revision>=0 AND ((ios_distribution_revision=0 AND ios_distribution_changed_at IS NULL AND ios_distribution_changed_by IS NULL) OR (ios_distribution_revision>0 AND ios_distribution_changed_at IS NOT NULL AND ios_distribution_changed_by IS NOT NULL))"));
             // One live enrolment per address; a revoked one can be added again later.
             enrolment.HasIndex(e => e.Email).IsUnique().HasFilter("revoked_at IS NULL");
             enrolment.HasIndex(e => e.AccountId);
+        });
+        model.Entity<TrustedContact>(c=>
+        {
+            c.Property(x=>x.DisplayName).HasMaxLength(80);c.Property(x=>x.PreferredFirstName).HasMaxLength(50);c.Property(x=>x.Channel).HasMaxLength(8);c.Property(x=>x.InvitationStatus).HasMaxLength(24);
+            c.ToTable(t=>{t.HasCheckConstraint("ck_trusted_contact_hash","octet_length(destination_lookup_hash)=32 AND octet_length(destination_encrypted)>=29 AND (consent_token_hash IS NULL OR octet_length(consent_token_hash)=32) AND (management_token_hash IS NULL OR octet_length(management_token_hash)=32)");t.HasCheckConstraint("ck_trusted_contact_channel","channel IN ('email','sms')");});
+            c.HasIndex(x=>new{x.MemberId,x.CreatedAt});c.HasIndex(x=>x.DestinationLookupHash);
+            c.HasIndex(x=>x.ConsentTokenHash).IsUnique().HasFilter("consent_token_hash IS NOT NULL");
+            c.HasIndex(x=>x.ManagementTokenHash).IsUnique().HasFilter("management_token_hash IS NOT NULL");
+        });
+        model.Entity<MeetingSafetySession>(s=>
+        {
+            s.Property(x=>x.PreferredFirstName).HasMaxLength(50);s.Property(x=>x.TimeZoneId).HasMaxLength(100);
+            s.Property(x=>x.VenueOrArea).HasMaxLength(160);s.Property(x=>x.MemberNote).HasMaxLength(500);s.Property(x=>x.PrivateFeedback).HasMaxLength(1000);
+            s.ToTable(t=>t.HasCheckConstraint("ck_meeting_safety_clocks","final_check_in_at>starts_at AND ((closed_at IS NULL AND purge_after IS NULL) OR (closed_at IS NOT NULL AND purge_after=closed_at+interval '720 hours'))"));
+            s.HasIndex(x=>new{x.MemberId,x.CreatedAt});s.HasIndex(x=>new{x.ClosedAt,x.FinalCheckInAt});s.HasIndex(x=>x.PurgeAfter);
+        });
+        model.Entity<MeetingSafetyRecipient>(r=>
+        {
+            r.HasIndex(x=>new{x.SessionId,x.TrustedContactId}).IsUnique();r.Property(x=>x.NotificationStatus).HasMaxLength(24);
+            r.HasOne<MeetingSafetySession>().WithMany().HasForeignKey(x=>x.SessionId).OnDelete(DeleteBehavior.Cascade);
+            r.HasOne<TrustedContact>().WithMany().HasForeignKey(x=>x.TrustedContactId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<MeetingSafetyLink>(l=>
+        {
+            l.ToTable(t=>t.HasCheckConstraint("ck_meeting_safety_token","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '720 hours'"));
+            l.HasIndex(x=>x.TokenHash).IsUnique();l.HasIndex(x=>x.ExpiresAt);
+            l.HasOne<MeetingSafetyRecipient>().WithMany().HasForeignKey(x=>x.RecipientId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MeetingSafetyCheckIn>(c=>
+        {
+            c.ToTable(t=>t.HasCheckConstraint("ck_meeting_safety_grace","grace_ends_at=due_at+interval '30 minutes' AND (escalated_at IS NULL OR escalated_at>=grace_ends_at)"));
+            c.Property(x=>x.Response).HasMaxLength(24);c.HasIndex(x=>new{x.SessionId,x.DueAt}).IsUnique();c.HasIndex(x=>new{x.GraceEndsAt,x.EscalatedAt});
+            c.HasOne<MeetingSafetySession>().WithMany().HasForeignKey(x=>x.SessionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MeetingSafetyEvent>(e=>
+        {
+            e.Property(x=>x.Kind).HasMaxLength(32);e.HasIndex(x=>new{x.SessionId,x.Id});
+            e.HasIndex(x=>new{x.SessionId,x.CommandId}).IsUnique().HasFilter("command_id IS NOT NULL");
+            e.HasOne<MeetingSafetySession>().WithMany().HasForeignKey(x=>x.SessionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<MeetingSafetyOutbox>(o=>
+        {
+            o.Property(x=>x.Kind).HasMaxLength(32);o.Property(x=>x.Status).HasMaxLength(24);o.Property(x=>x.DedupeKey).HasMaxLength(200);
+            o.HasIndex(x=>x.DedupeKey).IsUnique();o.HasIndex(x=>new{x.Status,x.NextAttemptAt});o.HasIndex(x=>x.MemberId);
+        });
+        model.Entity<MeetingSafetyContactChallenge>(c=>
+        {
+            c.HasOne<MeetingSafetyRecipient>().WithMany().HasForeignKey(x=>x.RecipientId).OnDelete(DeleteBehavior.Cascade);
+            c.HasIndex(x=>new{x.RecipientId,x.CreatedAt});c.HasIndex(x=>new{x.DestinationHash,x.CreatedAt});
+            c.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_challenge","octet_length(destination_hash)=32 AND octet_length(code_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '5 minutes' AND failed_attempts BETWEEN 0 AND 5"));
+        });
+        model.Entity<MeetingSafetyContactReadGrant>(g=>
+        {
+            g.HasOne<MeetingSafetyRecipient>().WithMany().HasForeignKey(x=>x.RecipientId).OnDelete(DeleteBehavior.Cascade);
+            g.HasIndex(x=>x.TokenHash).IsUnique();g.HasIndex(x=>x.RecipientId);
+            g.ToTable(t=>t.HasCheckConstraint("ck_meeting_contact_read_grant","octet_length(token_hash)=32 AND expires_at>created_at AND expires_at<=created_at+interval '4 hours'"));
+        });
+        model.AddReportOutcomes();
+        model.AddModerationTransparency();
+        model.AddPolicyNotices();
+        model.Entity<BetaJourneyDay>(b=>
+        {
+            b.ToTable("beta_journey_days");b.HasKey(x=>new{x.AccountId,x.Day,x.Dataset});b.Property(x=>x.Dataset).HasMaxLength(24);
+            b.HasOne<Account>().WithMany().HasForeignKey(x=>x.AccountId).OnDelete(DeleteBehavior.Cascade);b.HasIndex(x=>x.Day);
+            b.ToTable(t=>t.HasCheckConstraint("ck_beta_journey_day","dataset IN ('unknown','local-synthetic','production') AND (NOT explore_has_peer OR explore_succeeded)"));
+        });
+        var acceptance=model.Entity<PolicyAcceptance>();acceptance.ToTable("policy_acceptances");acceptance.HasKey(a=>new{a.AccountId,a.Version});
+        acceptance.Property(a=>a.Version).HasMaxLength(40);acceptance.Property(a=>a.ContentSha256).HasMaxLength(64);
+        acceptance.HasOne<Account>().WithMany().HasForeignKey(a=>a.AccountId).OnDelete(DeleteBehavior.Cascade);
+        acceptance.ToTable(t=>t.HasCheckConstraint("ck_policy_acceptance","version ~ '^[A-Za-z0-9][A-Za-z0-9.-]{0,39}$' AND content_sha256 ~ '^[0-9a-f]{64}$'"));
+        model.AddModerationInspectionTotals();
+        model.Entity<TextHarmIntent>(i=>
+        {
+            i.Property(x=>x.ModeId).HasMaxLength(32);i.Property(x=>x.Result).HasMaxLength(32);
+            i.HasIndex(x=>new{x.ProcessedAt,x.CreatedAt});i.HasIndex(x=>x.AccountId);
+            i.HasIndex(x=>new{x.AccountId,x.Source,x.SourceId,x.Revision}).IsUnique();
+            i.ToTable(t=>t.HasCheckConstraint("ck_text_harm_intent","(processed_at IS NULL AND sealed_text IS NOT NULL AND octet_length(sealed_text)>=29 AND result IS NULL) OR (processed_at IS NOT NULL AND sealed_text IS NULL AND result IS NOT NULL)"));
+        });
+        model.Entity<TextHarmReview>(r=>
+        {
+            r.Property(x=>x.ModeId).HasMaxLength(32);r.Property(x=>x.SourceRevision).HasMaxLength(36);
+            r.Property(x=>x.DetectorVersion).HasMaxLength(80);r.Property(x=>x.Outcome).HasMaxLength(32);
+            r.HasIndex(x=>x.IntentId).IsUnique();r.HasIndex(x=>x.CaseId);r.HasIndex(x=>x.SubjectAccountId);
+            r.HasOne<ModerationCase>().WithMany().HasForeignKey(x=>x.CaseId).OnDelete(DeleteBehavior.Restrict);
+            r.ToTable(t=>t.HasCheckConstraint("ck_text_harm_review","(sealed_evidence IS NOT NULL AND octet_length(sealed_evidence)>=29 AND evidence_disposed_at IS NULL) OR (sealed_evidence IS NULL AND evidence_disposed_at IS NOT NULL)"));
+        });
+        model.Entity<ContentRemoval>(r=>
+        {
+            r.Property(x=>x.Field).HasMaxLength(24);r.Property(x=>x.ModeId).HasMaxLength(32);
+            r.HasIndex(x=>x.CaseId);r.HasIndex(x=>x.SubjectAccountId);r.HasIndex(x=>x.MessageId);
+            r.HasOne<ModerationCase>().WithMany().HasForeignKey(x=>x.CaseId).OnDelete(DeleteBehavior.Restrict);
+            r.HasOne<Report>().WithMany().HasForeignKey(x=>x.ReportId).OnDelete(DeleteBehavior.Restrict);
+            r.ToTable(t=>t.HasCheckConstraint("ck_content_removal_evidence","(sealed_snapshot IS NOT NULL AND octet_length(snapshot_hash)=32 AND octet_length(sealed_snapshot)>=29 AND evidence_disposed_at IS NULL) OR (sealed_snapshot IS NULL AND octet_length(snapshot_hash)=0 AND evidence_disposed_at IS NOT NULL AND evidence_disposed_at>=removed_at)"));
         });
         model.Entity<AuditEntry>(audit =>
         {

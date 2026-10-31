@@ -26,6 +26,7 @@
     <section class="card account-section" data-serious-done>
         <h2>Your report was sent</h2>
         <p role="status">@MemberText.SeriousPromise</p>
+        <ReportSupport />
         <p>You can follow it under <a class="link" href="/me/notices">Me → Notices and reports</a>.</p>
     </section>
 }
@@ -35,6 +36,7 @@ else if (subjectType is not null)
         <h2 id="serious-heading">Report a serious safety incident</h2>
         <p class="field-help">@MemberText.SeriousPromise</p>
         <form class="stack" @onsubmit="SendAsync" data-serious-form>
+            @if(meetingContext is not null){<label class="check"><input type="checkbox" @bind="includeMeeting" />Include my meeting times, venue or area and check-in status for staff review. Private feedback and trusted-contact details are excluded.</label>}
             <div class="field"><label for="serious-category">What happened</label>
                 <select id="serious-category" @bind="category" required data-serious-category>
                     <option value="">Choose one</option>
@@ -81,7 +83,7 @@ else if (subjectType is not null)
             @foreach (var p in people)
             {
                 <li data-safety-person="@p.SubjectId" data-safety-state="@p.State">@p.Name · @MemberText.SafetyState(p.State)
-                    <a class="link" href="@($"/me/safety?type={p.SubjectType}&id={p.SubjectId}&state={p.State}")" data-safety-report="@p.SubjectId">Report</a></li>
+                    <a class="link" href="@($"/me/safety?type={p.SubjectType}&id={p.SubjectId}&state={p.State}{(meetingContext is{}meeting?$"&meeting={meeting}":"")}")" data-safety-report="@p.SubjectId">Report</a></li>
             }
         </ul>
     }
@@ -89,6 +91,8 @@ else if (subjectType is not null)
 @code {
     private string? subjectType, subjectId, personState, category, text, police, policeReference, status, message;
     private bool busy, done, block;
+    private Guid? meetingContext;
+    private bool includeMeeting=true;
     private List<ReportCategoryView> categories = [];
     private List<SafetyPerson> people = [];
     private List<MessageView> messages = [];
@@ -124,6 +128,7 @@ else if (subjectType is not null)
             .Select(pair => pair.Split('=', 2)).Where(pair => pair.Length == 2).GroupBy(pair => pair[0]).ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1]));
         if (query.GetValueOrDefault("type") is "profile" or "conversation" or "request" or "message" && query.GetValueOrDefault("id") is { } id)
             (subjectType, subjectId, personState) = (query["type"], id, query.GetValueOrDefault("state"));
+        if(Guid.TryParse(query.GetValueOrDefault("meeting"),out var meeting))meetingContext=meeting;
         categories = (await Members.ReportCategoriesAsync(serious: true)).Value ?? [];
         people = (await Members.SafetyPeopleAsync()).Value ?? [];
         // A conversation the member can still read offers its messages as evidence; a blocked one can't be read, and its
@@ -141,11 +146,11 @@ else if (subjectType is not null)
     {
         busy = true;
         var result = await Members.ReportAsync(new NewReport(subjectType!, subjectId!, category ?? "", text, block, police, policeReference,
-            chosen.Count > 0 ? chosen.ToList() : null));
+            chosen.Count > 0 ? chosen.ToList() : null,includeMeeting?meetingContext:null));
         busy = false;
         if (result.Ok) { done = true; return; }
         (status, message) = (result.Code ?? "failed", result.Code == ProblemCodes.NotAvailable
             ? "We couldn't find that conversation or person. Choose them from the list below."
-            : "That report couldn't be sent. If you're in danger, call 000.");
+            : "That report couldn't be sent. If you're in immediate danger, contact your local emergency services.");
     }
 }

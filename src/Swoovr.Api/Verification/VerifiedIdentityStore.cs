@@ -9,7 +9,7 @@ namespace Swoovr.Api.Verification;
 
 /// <summary>
 /// The identity store keys (D191): `IdentityStore:Keys:{n}` (base64, 32 bytes, versioned) and `IdentityStore:HmacKey`,
-/// or else keys derived from the current founder secret with their own labels, so none is shared with contact history,
+/// or else keys derived from founder secret1 with their own labels, so none is shared with contact history,
 /// evidence or the email holds. Azure Key Vault when hosted (not built).
 /// </summary>
 public sealed class IdentityKeys(IConfiguration configuration, Founders founders)
@@ -17,7 +17,7 @@ public sealed class IdentityKeys(IConfiguration configuration, Founders founders
     public IReadOnlyDictionary<byte, byte[]> Encryption { get; } = Read(configuration, founders);
     public byte? CurrentVersion => Encryption.Count == 0 ? null : Encryption.Keys.Max();
     public byte[]? Hmac => configuration["IdentityStore:HmacKey"] is { Length: > 0 } configured ? Convert.FromBase64String(configured)
-        : founders.CurrentVersion is { } v ? HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:identity-store:match:v1")) : null;
+        : founders.DeriveLegacyKey("swoovr:identity-store:match:v1");
     public bool Configured => CurrentVersion is not null && Hmac is not null;
 
     private static Dictionary<byte, byte[]> Read(IConfiguration configuration, Founders founders)
@@ -27,8 +27,8 @@ public sealed class IdentityKeys(IConfiguration configuration, Founders founders
             if (byte.TryParse(entry.Key, out var version) && entry.Value is { Length: > 0 } value && Convert.FromBase64String(value) is { Length: 32 } key)
                 keys[version] = key;
         // #89: the derived key stays version 1 (still readable) after newer versions are configured, until `keys rotate`.
-        if (!keys.ContainsKey(1) && founders.CurrentVersion is { } v)
-            keys[1] = HMACSHA256.HashData(founders.Secrets[v], Encoding.UTF8.GetBytes("swoovr:identity-store:encryption:v1"));
+        if (!keys.ContainsKey(1) && founders.DeriveLegacyKey("swoovr:identity-store:encryption:v1") is { } legacy)
+            keys[1] = legacy;
         return keys;
     }
 }

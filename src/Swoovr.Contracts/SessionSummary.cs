@@ -14,4 +14,5 @@ public sealed record SessionSummary(
     bool MemberArea,
     bool AdminArea,
     bool SupportArea,
-    string Beta);
+    string Beta,
+    string? EmailChangeProblem = null);

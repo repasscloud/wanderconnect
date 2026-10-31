@@ -15,6 +15,7 @@ public partial class MainPage : ContentPage
 	public MainPage()
 	{
 		InitializeComponent();
+        AdviceHeading.Text=SafetyAdvice.Title; AdviceFirst.Text=SafetyAdvice.BeforeConnecting[0]; AdviceSecond.Text=SafetyAdvice.BeforeConnecting[1]; AdviceThird.Text=SafetyAdvice.BeforeConnecting[2];
 		DateOfBirth.MaximumDate = DateTime.Today;
 		DateOfBirth.MinimumDate = DateTime.Today.AddYears(-120);
 	}
@@ -42,6 +43,7 @@ public partial class MainPage : ContentPage
 		catch (HttpRequestException) { }
 		catch (TaskCanceledException) { }
 		ShowAccount(session, me);
+        await NativeAppearance.EnsureAccountAsync(Auth);
 	}
 
 	private void ShowSignedOut(string? message)
@@ -56,6 +58,10 @@ public partial class MainPage : ContentPage
 	private void ShowAccount(SessionSummary? session, ApiResult<MemberAccount>? me)
 	{
 		ShowStatus(null);
+		EmailChangeCard.IsVisible = session?.EmailChangeProblem is not null;
+		EmailChangeHeading.Text = AccountText.EmailChangeHeading;
+		EmailChangeHelp.Text = AccountText.EmailChangeHelp;
+		EmailChangeMessage.Text = session?.EmailChangeProblem is {} issue ? AccountText.EmailChangeMessage(issue) : null;
 		(SignedOutPanel.IsVisible, AccountPanel.IsVisible) = (false, true);
 		if (session is null)
 		{
@@ -67,7 +73,7 @@ public partial class MainPage : ContentPage
 		var blocked = AccountText.BetaBlocked(session);
 		(Heading.Text, Intro.Text) = blocked
 			? ("Almost there.", "You're signed in. The Swoovr app opens once your email is on the private beta list.")
-			: ("You're in.", "You're signed in to the Swoovr development preview. Profiles, matching and messages aren't connected to accounts yet.");
+			: ("You're in.", "Manage your Swoovr account, profile and connections.");
 		BetaNotice.IsVisible = blocked;
 		Method.Text = AccountText.MethodLabel(session.Method) + (session.MultiFactor ? " + one-time code" : "");
 		EmailVerified.Text = session.EmailVerified ? "Verified" : "Not verified yet";
@@ -80,6 +86,7 @@ public partial class MainPage : ContentPage
 	{
 		var locked = result?.Code == ProblemCodes.AccountLocked;
 		LockedCard.IsVisible = locked;
+        PolicyGateCard.IsVisible=false;
 		var account = locked ? null : result?.Value;
 		// D160: anything but active shows only the restricted card; notices and appeals stay open.
 		var restricted = account is not null && MemberText.RestrictedTitle(account.AccountState) is not null;
@@ -88,6 +95,7 @@ public partial class MainPage : ContentPage
 		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;
+		if(account.PolicyRequired){MemberSections.IsVisible=false;PolicyGateCard.IsVisible=true;return;}
 		AgeCheckCard.IsVisible = account.AgeStatus == "needsVerification";
 		// D148: with the gate on, the phone step opens before anything else.
 		if (account.PhoneRequired && Navigation.NavigationStack.LastOrDefault() is not PhonePage)
@@ -126,11 +134,30 @@ public partial class MainPage : ContentPage
 	private async void OnMatching(object? sender, EventArgs e) => await Ui.PushAsync(new MatchingPage());
 	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
+	private async void OnPolicies(object? sender,EventArgs e)=>await Ui.PushAsync(new PolicyAcceptancePage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 	private async void OnStanding(object? sender, EventArgs e) => await Ui.PushAsync(new StandingPage());
+	private async void OnEmailSupport(object? sender, EventArgs e) => await Launcher.Default.OpenAsync(StandingText.SupportUrl);
+	internal static async Task<bool> RefreshSignInAsync()
+	{
+		try { return await Auth.SignInAsync(reauthenticate: true); }
+		catch (Exception error) when (error is NativeSignInException or HttpRequestException or TaskCanceledException) { return false; }
+	}
+	private async void OnEmailRefresh(object? sender, EventArgs e)
+	{
+		if (busy) return;
+		busy = true;
+		bool refreshed;
+		try { refreshed = await RefreshSignInAsync(); await RefreshAsync(); }
+		finally { busy = false; }
+		if (!refreshed) ShowStatus("Sign-in was cancelled or unavailable. Try again or contact Support.");
+	}
 	private async void OnNotifications(object? sender, EventArgs e) => await Ui.PushAsync(new NotificationsPage());
 	private async void OnSafety(object? sender, EventArgs e) => await Ui.PushAsync(new SafetyPage());
 	private async void OnData(object? sender, EventArgs e) => await Ui.PushAsync(new DataPage());
+	private async void OnTerms(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("terms"));
+	private async void OnCommunity(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("community"));
+    private async void OnAppearance(object? sender,EventArgs e)=>await Ui.PushAsync(new AppearancePage());
 	private async void OnPrivacy(object? sender, EventArgs e) => await Ui.PushAsync(new PrivacyPage());
 	private async void OnPhone(object? sender, EventArgs e) => await Ui.PushAsync(new PhonePage());
 
@@ -157,6 +184,8 @@ public partial class MainPage : ContentPage
 	}
 
 	private async void OnBetaLink(object? sender, TappedEventArgs e) => await Launcher.Default.OpenAsync(AccountText.BetaUrl);
+
+	private async void OnSafetyAdvice(object? sender,EventArgs e)=>await Ui.PushAsync(new SafetyAdvicePage());
 
 	private async void OnSaveAge(object? sender, EventArgs e)
 	{

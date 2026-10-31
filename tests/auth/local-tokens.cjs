@@ -5,7 +5,13 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { execFile } = require('node:child_process');
 
-const keycloak = 'http://localhost:8180', api = 'http://127.0.0.1:5080', web = 'http://localhost:5081', admin = 'http://localhost:5082';
+// An isolated SSR runner may pair its owned loopback API with an owned throwaway database.
+// Require both overrides together; other suites retain the normal local stack unchanged.
+const isolatedApi=process.env.SWOOVR_TEST_API_BASE,isolatedDatabase=process.env.SWOOVR_TEST_APP_DATABASE;
+if(Boolean(isolatedApi)!==Boolean(isolatedDatabase)||isolatedDatabase&&!/^swoovr_registry_ui_[0-9a-f]{32}$/.test(isolatedDatabase)
+ ||isolatedApi&&!/^http:\/\/127\.0\.0\.1:[0-9]{1,5}$/.test(isolatedApi))throw new Error('Use paired owned loopback API and registry UI database test overrides.');
+const database=isolatedDatabase||'swoovr';
+const keycloak = 'http://localhost:8180', api = isolatedApi||'http://127.0.0.1:5080', web = 'http://localhost:5081', admin = 'http://localhost:5082';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
 
@@ -145,8 +151,8 @@ async function fillRootAdmin(page, fixture, fixturePath, totp) {
  * matching. Pass options to vary them.
  */
 async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman', showMe = ['man', 'woman', 'non-binary', 'another'] } = {}) {
-  const age = await call(token, '/api/v1/me/age', { method: 'PUT', body: { dateOfBirth } });
-  const identity = await call(token, '/api/v1/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
+  const age = await call(token, '/api/me/age', { method: 'PUT', body: { dateOfBirth } });
+  const identity = await call(token, '/api/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
   return [age.status, identity.status];
 }
 
@@ -155,14 +161,14 @@ async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman',
  * recorded purpose. Grants belong to the account, so the admin app's session gets it too.
  */
 async function elevate(token, capability, purpose = 'Fictional acceptance test') {
-  const r = await call(token, '/api/v1/admin/access/grants', { method: 'POST', body: { capability, purpose } });
+  const r = await call(token, '/api/admin/access/grants', { method: 'POST', body: { capability, purpose } });
   if (r.status !== 201) throw new Error(`elevate ${capability}: ${r.status} ${r.body?.code ?? ''}`);
   return r.body;
 }
 
 /** Runs an API operator command with the local database connection. */
 async function cli(...args) {
-  const connection = `Host=127.0.0.1;Port=5433;Database=swoovr;Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
+  const connection = `Host=127.0.0.1;Port=5433;Database=${database};Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
   const dll = 'src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll';
   // `accounts purge` deletes Keycloak users through the API's deletion client (D169) and Didit sessions (D173), and keys
   // terminated-email holds from the founder secret as the hosts do (D171).
@@ -171,7 +177,8 @@ async function cli(...args) {
     MemberAdmin__ClientSecret: await localEnv('SWOOVR_MEMBERS_API_ADMIN_SECRET') ?? '',
     Didit__ApiKey: await localEnv('SWOOVR_DIDIT_API_KEY') ?? '', Didit__WorkflowId: await localEnv('SWOOVR_DIDIT_WORKFLOW_ID') ?? '',
     // #49: `notifications sweep` emails travel reminders through the local mail sink, as the hosts do.
-    Email__Smtp__Host: '127.0.0.1', Email__Smtp__Port: '1025',
+    Email__Smtp__Host: process.env.Email__Smtp__Host ?? '127.0.0.1', Email__Smtp__Port: process.env.Email__Smtp__Port ?? '1025',
+    Moderation__EscalationEmail: await localEnv('SWOOVR_ESCALATION_EMAIL') ?? '', Moderation__EscalationBackupEmail: await localEnv('SWOOVR_ESCALATION_BACKUP_EMAIL') ?? '',
     // D203: `accounts purge` deletes photo objects from the same R2 bucket the hosts use.
     Media__R2__Endpoint: await localEnv('SWOOVR_R2_ENDPOINT') ?? '', Media__R2__Bucket: await localEnv('SWOOVR_R2_BUCKET') ?? '',
     Media__R2__AccessKeyId: await localEnv('SWOOVR_R2_ACCESS_KEY_ID') ?? '', Media__R2__SecretAccessKey: await localEnv('SWOOVR_R2_SECRET_ACCESS_KEY') ?? '' };
@@ -181,13 +188,14 @@ async function cli(...args) {
 
 /** Runs SQL in the local database container and returns trimmed rows. */
 function sql(query) {
-  return new Promise((resolve, reject) => execFile('docker', ['exec', 'swoovr-local-postgres-1', 'psql', '-U', 'swoovr', '-d', 'swoovr', '-tAc', query],
+  return new Promise((resolve, reject) => execFile('docker', ['exec', 'swoovr-local-postgres-1', 'psql', '-U', 'swoovr', '-d', database, '-tAc', query],
     (error, stdout, stderr) => error ? reject(new Error(stderr)) : resolve(stdout.trim())));
 }
 
 /** Calls the API with a bearer token. */
-async function call(token, path, { method = 'GET', body } = {}) {
+async function call(token, path, { method = 'GET', body, headers = {} } = {}) {
   const response = await fetch(api + path, { method, headers: {
+    'Swoovr-Version': '2026-10-28', ...headers,
     ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const text = await response.text();

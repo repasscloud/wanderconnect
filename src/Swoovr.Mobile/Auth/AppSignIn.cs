@@ -47,6 +47,9 @@ public sealed class AppSignIn
 		}
 		catch (TaskCanceledException) { return false; }
 		await session.SaveAsync(await signIn.CompleteAsync(request, result.Properties));
+		PushRegistration.Resume();
+		await PushRegistration.RegisterAsync();
+		await PushRegistration.OpenPendingAsync();
 		return true;
 	}
 
@@ -54,11 +57,13 @@ public sealed class AppSignIn
 	/// D170: after a deletion request Keycloak has already ended every session; this forgets the tokens on this phone
 	/// without opening the browser again.
 	/// </summary>
-	public void ForgetLocally() => session?.Forget();
+	public void ForgetLocally() { NativeAppearance.ForgetAccount();session?.Forget(); }
 
 	/// <summary>Forgets the tokens on this phone first, then ends the Keycloak session in the browser.</summary>
 	public async Task SignOutAsync()
 	{
+        NativeAppearance.ForgetAccount();
+		await PushRegistration.RemoveAsync();
 		if (signIn is null || session?.Forget() is not { } tokens) return;
 		try
 		{

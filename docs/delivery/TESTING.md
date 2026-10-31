@@ -53,6 +53,8 @@ Builds Release, runs the policy/Node checks (`tests/Swoovr.Checks`, persistence 
 
 Build Debug **in the worktree**, then start its hosts (this stops whatever hosts are running, including the owner's, and signs everyone out):
 
+Before every host restart (including restoring main), preserve the actual `.local/logs/api.log`, `.local/logs/web.log` and `.local/logs/admin.log` in a timestamped `.local/log-backups/` directory with private0600 files. The launcher overwrites those files; `.local/api.log` and the other legacy root paths are not the current log locations. Back up any shared configuration file before editing it too.
+
 ```sh
 cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build Swoovr.Local.sln -c Debug && Phone__Required=false Accounts__ReauthSeconds=45 bash .local/run-hosts.sh > /tmp/hosts.log 2>&1; tail -1 /tmp/hosts.log
 ```
@@ -72,6 +74,9 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 
 | Suite | File | Last result (29 Oct 2026, AJ–AL run; all passed) |
 | --- | --- | --- |
+| Hosted retention worker/restart | `tests/retention/worker.browser.cjs` | New slice; see VALIDATION.md |
+| Safety retention clocks/authority | `tests/retention/schedule.browser.cjs` | New slice; see VALIDATION.md |
+| API contract dates | `tests/api/versioning.browser.cjs` | New slice; see VALIDATION.md |
 | root admin | `tests/auth/root-admin.browser.cjs` | 9 |
 | accounts | `tests/auth/accounts.browser.cjs` | 121 |
 | members | `tests/auth/members.browser.cjs` | 50 |
@@ -100,9 +105,10 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | privacy notice | `tests/privacy/notice.browser.cjs` | 10 |
 | photos | `tests/media/photos.browser.cjs` | 119 |
 | Safety & Support | `tests/safety/resources.browser.cjs` | 58 |
-| accessibility floor | `tests/accessibility/pages.browser.cjs` | 19 pages |
+| accessibility floor | `tests/accessibility/pages.browser.cjs` | 25 public/member pages at390/320 |
 | notifications (AJ) | `tests/notifications/notifications.browser.cjs` | 98 |
 | account standing (AK) | `tests/moderation/standing.browser.cjs` | 71 |
+| neutral conversation endings/support | `tests/messaging/endings.browser.cjs` | See current VALIDATION.md |
 | chat photos, endings, starters (AL) | `tests/messaging/attachments.browser.cjs` | 98 |
 | phone (**default hosts**) | `tests/accounts/phone.browser.cjs` | 52 |
 
@@ -123,8 +129,8 @@ Run them one at a time (they share rate limits and the database). Never rebuild 
 
 ## Writing a suite
 
-- Use `tests/auth/local-tokens.cjs`: `createMember`, `memberToken`, `createStaff` + a root-admin invitation + `staffToken` and a first call to `/api/v1/session` (staff accounts exist only after it), `matchReady`, `elevate` (identity opening, evidence export and termination need elevated access), `cli`, `sql`, `call`, `mailTo`.
-- Call `/api/v1/me` (or any member route) before selecting member ids in SQL.
+- Use `tests/auth/local-tokens.cjs`: `createMember`, `memberToken`, `createStaff` + a root-admin invitation + `staffToken` and a first call to `/api/session` (staff accounts exist only after it), `matchReady`, `elevate` (identity opening, evidence export and termination need elevated access), `cli`, `sql`, `call`, `mailTo`.
+- Call `/api/me` (or any member route) before selecting member ids in SQL.
 - Cover negative cases: other members' ids, blocked pairs, bots, staff without the role, retired or unknown ids, restricted and suspended members, tampered bodies.
 - Sensitive actions on test hosts need a sign-in within 45 seconds: get a fresh `memberToken` just before (export, deletion, number change). Keycloak `auth_time` has whole seconds: wait 1.5 s after a revocation before signing in again.
 - Releasing a hold needs a `legal` officer who neither placed nor confirmed it, and `overlapsChecked: true` when holds overlap.
@@ -132,7 +138,7 @@ Run them one at a time (they share rate limits and the database). Never rebuild 
 - Blazor drops `false` boolean attributes: render "yes"/"no" for data attributes tests read. On phone-width pages the sticky header intercepts clicks: use `el.click()`.
 - Admin SSR pages must load their data on POST too. Person links carry `?mode=`.
 - Raw SignalR test clients must send pings (type 6).
-- Photos: synthetic images only (`tests/media/synthetic-images.cjs`); drive uncertain and blocked outcomes with `Media__Screening__Simulate` on an extra API (Development only), never with real imagery. Chat photos (`tests/messaging/attachments`) upload to `/api/v1/conversations/{id}/photos` the same way.
+- Photos: synthetic images only (`tests/media/synthetic-images.cjs`); drive uncertain and blocked outcomes with `Media__Screening__Simulate` on an extra API (Development only), never with real imagery. Chat photos (`tests/messaging/attachments`) upload to `/api/conversations/{id}/photos` the same way.
 - Messages come back **newest first** (`items[0]` is the latest).
 - Things that happen right after screening (the recipient's notification, the chat moving up) land a moment after the sender sees "approved": wait for them rather than asserting at once.
 - Once `accounts purge` deletes a removed media item's object it deletes the row too: assert "no object left" (`object_key IS NOT NULL` count 0), not a status.
@@ -161,6 +167,16 @@ cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build src/
 
 (In the worktree sandbox, set `JAVA_HOME`/`ANDROID_HOME` inside a script file.) Emulator `swoovr-pixel`; signing in through Chrome's custom tab under uiautomator is unreliable: record it as not run rather than looping. The owner taps through iOS: `dotnet build src/Swoovr.Mobile -f net10.0-ios && dotnet build src/Swoovr.Mobile -f net10.0-ios -t:Run` (a plain build first; `-t:Run` stays attached).
 
+## Meeting safety (owned database and Web callback)
+
+After a successful Debug build and before any further rebuild, run:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright SWOOVR_SCREENSHOTS=docs/delivery/evidence/2026-10-30-meeting-safety SWOOVR_MEETING_REGRESSIONS=1 node tests/meeting/isolated.browser.cjs
+```
+
+The runner creates/migrates a uniquely owned PostgreSQL database, starts an isolated API/worker with local Mailpit and replaces only a positively identified Web host at its registered callback. It backs up shared logs and the fictional root fixture, never rolls back its OTP counter, and restores the original main Web host/drop-owned-database in finally. The main API remains running. For the optional regression selector, Admin is also positively identified, temporarily pointed at the owned API and restored in finally. The optional regression selector runs privacy, Safety & Support, serious incidents, deletion, notifications, native-client parity and the accessibility floor serially against that owned API/Web. Every local identity is fictional; code receipt through Mailpit is not real destination ownership or external delivery. Native emergency/SMS/geolocation OS interaction and physical-device accessibility remain distinct acceptance work. For a resumed batch, `SWOOVR_MEETING_ONLY_REGRESSIONS=1` skips the already completed core flow, and `SWOOVR_MEETING_REGRESSION_START` / `SWOOVR_MEETING_REGRESSION_END` accept only exact entries from the finite suite list in the runner. The owned API imports only `tests/fixtures/geonames` public reference data before profile/discovery fixtures. The local prototype artwork fixture is explicitly enabled in Development and is separate from authenticated product evidence. Never rebuild while this runner is active.
+
 ## After testing
 
 - Record evidence and gaps in [VALIDATION.md](VALIDATION.md) and [STATUS.md](STATUS.md) (counts, what wasn't run and why).
@@ -171,3 +187,284 @@ cd ~/Developer/wanderconnect-brief/.claude/worktrees/<name> && dotnet build src/
   ```
 
   Check the API's working directory is the main checkout (`lsof -p <pid> | grep cwd`).
+
+### Closure outbox recovery
+
+D224: `notifications sweep` also resumes committed closure notifications with no dispatch completion marker. Per-device attempting/unknown outcomes are not blindly resent; inspect `notification_deliveries` by notification/device id (no tokens or message bodies in operator output). A provider acknowledgement is distinct from device delivery. The ending suite seeds interrupted progress using fictional rows, including an ambiguous first device and a second device not yet attempted, and checks repeated sweeps do not multiply sends or centre entries.
+
+
+### Configured push tests (D226–D228)
+
+After a Debug API build: `node --test tests/notifications/startup.test.cjs` verifies seven unsafe/incomplete Production configurations (including public-only keys) fail before serving. `./scripts/check.sh` includes generated-key/fake-HTTP APNs/FCM and encryption checks; no live provider request is made. `tests/notifications/notifications.browser.cjs` covers encrypted registration/rotation/ownership/limits and muted retries against the local API; `tests/messaging/endings.browser.cjs` covers interrupted per-device dispatch.
+
+Opt-in native compilation: Android with `-p:EnableFcmPush=true`; iOS with `-p:EnableApnsPush=true -p:EnableCodeSigning=false` verifies simulator code only. Signed APNs requires the owner's provisioning profile; FCM Release requires external `-p:SwoovrGoogleServicesJson=/absolute/private/path/google-services.json`. Use [provider setup and acceptance gates](../architecture/PUSH-NOTIFICATIONS.md). Run native builds sequentially because restores share mobile assets. No native compilation or Mailpit result proves delivery.
+
+
+### Blocked-photo recovery (D229 / issue126)
+
+After Debug API build: `node --test tests/media/recovery-startup.test.cjs` (five Production hook rejections). `tests/media/recovery.browser.cjs` runs staged synthetic LocalMediaStore recovery against the local database/Mailpit; start the main worktree host with `Media__Screening__Worker=false` for this isolated suite so its temporary local object keys are not processed by the R2 worker. The suite starts its own extra API and cleans only its own synthetic local files/rows after legal hold release. Restart normal worktree hosts before photos/attachments/holds/serious/deletion regressions. Do not rebuild during either browser run. Full check.sh includes recovery scheduling and fictional loopback SMTP accepted/retry/rejected/unknown checks.
+
+Operator/reconciliation details: [BLOCKED-MEDIA-RECOVERY.md](BLOCKED-MEDIA-RECOVERY.md). Pending/unknown preservation work is not a passing readiness condition. The member's refusal, a hold link or an email appearing in Mailpit are earlier events than the durable preservation-completed marker; photo/attachment suites wait for that marker before stopping the extra API.
+
+
+### Concurrent media transitions (D230)
+
+With worktree Debug hosts running and `Media__Screening__Worker=false`, run `SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node tests/media/transitions.browser.cjs`. It starts two extra APIs with isolated synthetic local files, tests both reviewer orderings, responsive removal during processing, competing automatic workers against a delayed fake screening service, and orphan clear-copy cleanup. It releases only its fixture holds and cleans its own temporary files/rows. Never run it concurrently with another media suite or rebuild during execution. Restart ordinary R2-configured worktree hosts before integrated photo/attachment regressions. `node --test tests/media/recovery-startup.test.cjs` also rejects both publication barrier stages outside Development.
+
+### Safety retention fixtures
+
+`tests/retention/schedule.browser.cjs` uses fictional accounts, unique case/hold UUIDs and backdated SQL clocks to exercise actual PostgreSQL/operator retention. It also races an exclusive preservation writer against the targeted purge and checks the member finalization screen at 390px. It changes no real person's clocks. It restores its synthetic finalization marker and removes its own case/hold fixtures in `finally`. `tests/evidence/holds.browser.cjs` checks that release preserves copies, retained export works, independent no-review disposition is constrained, and linked review evidence cannot bypass its schedule.
+
+Do not backdate arbitrary cases or release real holds to clean tests. A released hold can still require evidence and photo bytes. Use only positively identified fictional test-owned cases and targeted `retention purge --case <id>` after the fixture's applicable schedule has been advanced. Operator `accounts purge <id>` restricts finalization/media sweeping; a global purge must use the actual configured object store, never a substitute local store for R2 metadata.
+
+`tests/retention/worker.browser.cjs` creates and drops its own `swoovr_retention_<uuid>` database, starts only an isolated API on an allocated loopback port with its content root in `src/Swoovr.Api`, and uses local synthetic files. It enables the actual retention worker only after seeding its fixtures, checks fail-closed unavailable hold status, resumes expiry, then restarts to check idempotence. It does not point the local-file store at the owner's database or contact a delivery/screening provider. The two fictional Keycloak sign-ins are local authentication evidence only. Allow roughly two minutes; there is no solution rebuild during the test.
+
+### Actual key-configuration regression checks
+
+`FallbackKeyChecks` in the existing Checks project references API key classes directly (permitted test-layer dependency). It uses fictional founder1/founder2 and explicit feature keys, never `.local` secret values. `FallbackKeyPersistenceChecks` uses the throwaway PostgreSQL database to check the real legacy email/mobile lookup consumers. `check.sh` includes both. The security browser suite temporarily uses its private `.local/test-rotation-keys.json` to reseal every set2 and back1 in `finally`; back up that file before changes and verify `keys status` after testing. The phone browser suite must use default reauthentication, because its flow waits61 seconds; restart with defaults for it, then the documented overrides for the other suites.
+
+
+### Staff conflict continuity (D235)
+
+`./scripts/check.sh` includes actual API-service checks in the disposable PostgreSQL database: unconfirmed then confirmed fake provider deletion; finalizing cancellation refusal; held-copy continuity; historical-link backfill; minimum-period/manual-reason preservation; police/unknown membership; expiry without resurrection; and a deterministic SQL-snapshot read/archive race. No external provider uncertainty is simulated as live evidence.
+
+`tests/staff/access.browser.cjs` also deletes a fictional personal account through local Keycloak and checks independent access versus linked refusal before/after deletion, replacement and hold release. `tests/moderation/moderation.browser.cjs` tests historical exclusions on lower/mixed/upper-case route literals. Run the existing hold, law-enforcement, identity, deletion and isolated-worker suites after changes to shared conflict authority.
+
+### Banned-identifier foundation (D236)
+
+`./scripts/check.sh` includes typed HMAC/status/calendar and actual server key-ring checks plus disposable PostgreSQL registry constraints, immutable UPDATE/DELETE/TRUNCATE refusals and all-or-nothing revocation/event/case-note behavior. Test data is fictional; no shared database migration or host change is required. These checks do not prove registration/email/mobile enforcement or authorized admin workflows: run the integrated suites once those paths are wired, before calling118 complete.
+
+### Registry enforcement (D237–D239)
+
+`SWOOVR_PLAYWRIGHT_PATH=... node tests/enforcement/registry.browser.cjs` creates/drops an isolated `swoovr_bans_<uuid>` PostgreSQL database, starts API replicas on allocated loopback ports and uses real local Keycloak authentication for fictional adults. It does not replace the owner's hosts or mutate the owner application database. It seeds restrictions and synthetic code/hold/clock/fault fixtures directly, so it does not establish staff ban/revocation workflows or real contact ownership/delivery. Build Debug first; never rebuild during the run.
+
+Coverage includes blocked first application registration with no mapping/profile, approved neutral/no-store messages, refusal before mobile challenge creation, late restriction at confirmation, legitimate old contacts/session retained, verified Keycloak email change refused by the application, historical-key enforcement/missing-key failure, caller quota across two replicas, address quota and key rotation, actual registration wait during a database transition, concurrent registration uniqueness, profile/case failure rollback and retry, quota hold/unknown/release expiry, and referenced case metadata with separate content expiry. Run the default-host phone suite and the normal accounts/identity/deletion/retention suites for shared resolver/job changes.
+
+
+`SWOOVR_PLAYWRIGHT_PATH=... node tests/enforcement/workflows.browser.cjs` builds on the same isolated API/throwaway PostgreSQL pattern. It drives authenticated termination, reviewed release, necessity review and explicit account reinstatement; tests source/note rollback, independent restrictions, deleted-account non-resurrection, deletion/backfill non-reactivation, personal conflicts and sensitive-access audit including anonymous/exception paths. It uses the existing fictional MFA root helper and local Keycloak member administration (actual local fictional deletion), not hosted Entra or real delivery. Build Debug before starting; do not rebuild during the suite. The suite drops its DB and temporary media directory. No shared application database migration/host replacement is needed for this suite.
+
+
+### Refused email-change recovery (D243–D245)
+
+`tests/enforcement/registry.browser.cjs` additionally tests real local Keycloak email changes with only the newly issued token: adoption warning while existing account/profile/standing stay usable, strict first/profileless/identifierless admission, correction to the accepted email, quota/key failure and resumed matching, newest-first pre-registration token order, null→email acceptance, frozen legacy clocks and older-token non-rollback. Clock/key/quota/source gaps are explicit SQL fixtures; tolerated issuer-skew ordering is deterministic domain policy evidence, not a live shifted provider clock.
+
+`SWOOVR_PLAYWRIGHT_PATH=... SWOOVR_SCREENSHOTS=<existing-directory> node tests/enforcement/recovery.browser.cjs` needs the normal phone-off/45-second hosts and Debug operator DLL. It creates a real authenticated fictional termination, deletes that fictional provider user with the targeted account command, then changes a different fictional member's verified provider email to the restricted value. It tests actual API/BFF/account/standing warnings and approved support links at desktop/390px, followed by corrected provider email and the normal web reauthentication flow. No token/session is minted by the API. Contact ownership is admin-provisioned; email delivery, native UI and hosted authentication are not established. Use `X-Swoovr-Bff: 1` for direct cookie-authenticated BFF probes, as the actual client does.
+
+For session/contact changes run root-admin and members auth, accounts, identity, deletion, mobile parity and the default-host phone suite, plus the isolated registry/workflow suites. Keep root-MFA suites serial. Back up the private root fixture if a suite may enroll/write it, and use a fresh private temporary `SWOOVR_BROWSER_OUTPUT` instead of overwriting `.local/auth-browser` files. Build Android and unsigned iOS simulator separately before browser suites. The acceptance-clock migration test starts its throwaway DB at the previous schema, inserts fictional legacy email/null rows, upgrades and checks the clock/null/idempotent results; it never rolls back the owner database.
+
+
+`tests/enforcement/workflows.browser.cjs` also covers D246: linked staff cannot open associated case detail/queue, a201-case conflicted prefix does not hide a later allowed case, the detail request actually waits for exclusive membership authority, content-free refusal auditing, continued refusal after source deletion/relinking, and reporter conflicts cannot leak a source sanction through a different case for the same subject. The synthetic bulk cases/report and advisory reader are fixture SQL in the throwaway DB, not live report/evidence verification. `tests/moderation/moderation.browser.cjs` adds retained reporter/subject read checks, mixed/encoded routes and filtered appeal text. Re-run moderation and staff access after changes; do not rebuild while either runs.
+
+
+### Registry staff UI (D247–D248)
+
+`SWOOVR_PLAYWRIGHT_PATH=... SWOOVR_SCREENSHOTS=<existing-directory> node tests/enforcement/admin-isolated.browser.cjs` needs normal phone-off/45-second Debug hosts and the local fictional MFA-root fixture. It drives actual SSR forms in Edge: grant separation, POST-only non-echoing lookup, case links, necessity review, required release confirmations, deleted-source reuse without original reinstatement, independent restrictions after explicit reinstatement, personal conflicts and Support denial. It uses fictional provider administration to establish verified contacts and targeted original-account deletion; the due clock is SQL-backdated. It proves no real contact ownership, email delivery, active-provider binding reassignment or hosted Entra. Screenshots include desktop release plus separate390px preview/form viewports (full-page screenshot after viewport resize produced a repeated-paint artifact in Edge). Run isolated workflows and staff-access regressions serially with the MFA helper; build before browser tests and never during them. Typed HTTP checks in `RegistryClientChecks` verify contracts and strict cursor parsing, not live access control.
+
+
+### Scheduled registry expiry (D250)
+
+`./scripts/check.sh` includes exact/future/indefinite/inactive expiry policy, actual PostgreSQL case-note failure rollback, two-worker convergence, system attribution, original clock retention and more than200 due rows. `tests/retention/worker.browser.cjs` also seeds a separate fictional due registry/source case: unavailable hold status leaves Active; resumed hourly coordination appends Expired event/note once across restart. These are throwaway DB/synthetic clock fixtures; no real ownership/provider delivery or production scheduler evidence. Build Debug first and do not rebuild while the browser suite runs.
+
+
+### Bounded registry disposal (D251–D253)
+
+`./scripts/check.sh` now includes actual PostgreSQL bounded-delete guards, hold/unknown membership refusal, required terminal provenance, rollback, immutable post-disposal review, separate record clocks, stale isolation refusal and a two-connection hold/delete wait. The writer locks source tuples NOWAIT while deletion waits, proving statement authority precedes tuple work; after commit the waiting delete sees the newly placed hold. Full generated migration SQL is also executable; the earlier email-clock migration gained its missing exported-SQL semicolon (no replay/change to already-applied data).
+
+`tests/enforcement/workflows.browser.cjs` includes a consistent historical SQL fixture (fictional current authenticated account, synthetic old enforcement/events, not a claim of historical provider activity). Actual coordinated CLI runs refuse unavailable preservation, dispose once across replicas, preserve minimal source, resist backfill reconstruction, authorize explicit reinstatement from a receipt and retain its new immutable review without rewriting original closure. `historical-fixture.cjs` centralizes only temporal fixture setup.
+
+`tests/enforcement/admin-isolated.browser.cjs` runs the full `admin.browser.cjs` journey against a disposable API/database behind the registered localhost:5082 Admin callback, including a minimized receipt and its new review at 390px. Its targeted SQL fixture uses actual bounded authority for its own IDs; the isolated workflow independently drives the full coordinator. The shared developer database may contain unresolved preservation fixtures, which must remain untouched. The isolated workflow provides that coordinator evidence. Apply migrations locally only after a private backup and Debug build; never rebuild or restart shared hosts during browser suites. New native/member UI is not part of this slice.
+
+
+The registry/worker and affected shared regression suites use `tests/auth/managed-edge.cjs`: an owned macOS Edge process with ignored stdio, unique private temporary profile and ephemeral loopback DevTools port, attached with Playwright's documented [connectOverCDP](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp). CDP has lower protocol fidelity than Playwright's own transport; these suites establish only their exercised DOM/auth/API assertions. Contexts disconnect, then only the owned engine is terminated and its profile removed; personal profiles and the shared updater are untouched. This avoids a measured Edge updater/crash-helper inherited-pipe hang after assertions. Other browser suites keep their existing launcher. Require actual process exit and fixture cleanup; printed PASS before a hung finally block is not a clean suite run.
+
+The inner `admin.browser.cjs` refuses an unpaired/shared direct invocation before opening a browser or touching data (exit2). Use the isolated entry point; it retains the registered callback and restores the normal worktree Admin launcher.
+
+
+### Reviewed mobile binding retirement (D254)
+
+Build Debug before browser execution. `tests/enforcement/workflows.browser.cjs` exercises a live fictional source binding, independent restriction release, explicit review, mismatched current binding, declared staff conflict, invalid service-credential/provider refusal, required-note transactional rollback after logout, retry and actual Keycloak session revocation. It verifies original email/termination and encrypted contact archive, idempotency, refusal to remove a later binding, and normal verification by another fictional member. The final confirmation code is a SQL-seeded hash fixture: no delivered SMS/current-ownership claim. API restarts affect only its disposable database/loopback host.
+
+`tests/enforcement/admin-isolated.browser.cjs` covers the separate SSR action, disabled active-restriction control, server-enforced confirmation, successful retirement and disabled completed action at narrow width. Use the isolated entry and normal worktree Admin as above. Full gate includes domain event invariants and separate typed-client POST transport; provider/session/contact regressions follow the session/contact matrix. Do not rebuild during browser suites; preserve private runtime fixtures/logs and restore main hosts afterward.
+
+D254 also records a monotonic `SessionsRevokedAt` watermark atomically with retirement: old self-contained JWTs remain refused after any later independent reinstatement. Mark only that source contact's pending phone challenges used, preserving their retained history and unrelated challenges. New authentication must be later than the cutoff; Keycloak auth_time has whole-second resolution. The integrated regression checks note-failure rollback of this watermark, old-token refusal before/after separately reviewed recovery and a fresh sign-in using preserved credentials.
+
+Revocation clock DEFAULT: the retiring original subject's cutoff includes the shared30-second admitted issuer skew, so a recently issued token from an issuer ahead of the API cannot survive retirement. Revoked-account acceptance requires both authenticated-at and issued-at later than the cutoff; missing/invalid/excessively future issuance fails closed. Original-account recovery sign-in may need to wait through that brief cutoff. This does not delay the legitimate new owner's registration/verification. Exact skew and malformed-clock cases are deterministic policy evidence; no real Keycloak clock shift is claimed.
+
+
+### Keycloak contact policy component (D255; not main-realm installation)
+
+Use an explicit Java21+ JDK and public runtime libraries from pinned26.8.1. Do not export realm/database data. `python3 scripts/check_keycloak_contact_policy.py --java-home /path/to/jdk --keycloak-libs /private/public-libs` compiles toJava21 in private temporary space and runs15 fictional unit checks. `--output-jar /new/path/provider.jar` exports public code only and refuses overwrites. The internal JPA getEntities interface is marked for removal; its compiler warning is explicit and is a compatibility limitation, not a clean-warning claim.
+
+`SWOOVR_KEYCLOAK_JAVA_HOME=/path/to/jdk SWOOVR_KEYCLOAK_LIBS=/private/public-libs node tests/enforcement/keycloak-contact.integration.cjs` builds first, then creates a separate Keycloak container/loopback port and disposable `swoovr_kc_retire_<uuid>` PostgreSQL DB. It never restarts/imports the main provider. Only local Postgres credential is read, never printed or changed; bootstrap/client passwords are random process-memory fixtures. Private logs/state are retained outside the repo; owned container/DB cleanup must succeed and actual process exit is required. The underlying locally available26.8.1 image is reused; a different explicit image must pass the version guard.
+
+The suite tests real provider service authorization/date protocol/CAS/cache/session effects, idempotent and competing requests, independent stale SQL refusal, unavailable guard and inconsistent receipt refusal, unrelated login/password/linked-record preservation and freed-mailbox new-subject creation. A public password-grant client and disabled fictional OIDC metadata exist only inside this disposable protocol fixture; product clients remain PKCE. It does not prove real Apple/Google/Entra login, browser registration/mailbox ownership/delivery, application pending-state integration, production clustering or deployment. No application/UI browser suite is needed for this component-only artifact; run relevant staff/member suites when wiring the API/UI. Never overlap provider compilation with running browser suites.
+
+D256 typed transport probe: build `dotnet build tests/Swoovr.Checks --no-restore` first, then add `SWOOVR_TEST_CONTACT_ADAPTER=1` to the isolated component command above. The runner supplies only its owned loopback realm and ephemeral service secret to a7-check .NET probe, then verifies the committed marker in its owned database. It refuses hosted/nonloopback realms. Current combined result:93 provider/PostgreSQL checks plus7 typed-adapter and15 Java checks.16 additional fake-HTTP checks run through check.sh. No product browser/ownership/delivery/native proof is implied. Do not enable the feature on main merely to run these checks.
+
+### Durable email backend (D257, disabled pending staff integration)
+
+`check.sh` includes9 state checks and actual owned PostgreSQL orchestration with fake provider outcomes. The dedicated email DB creates/drops its own name; fixtures test post-provider/pre-API failure, deferred completion rollback, revocation and late restrictions, token-fact refusal, bound ciphertext/key rotation and201-command held-prefix expiry. These are not genuine JWT/ownership/provider-browser proofs. The real typed transport probe remains D256's separate provider suite.
+
+For the changed staff writers, run `tests/staff/access.browser.cjs` on built worktree hosts:86 checks include an owned PostgreSQL preservation transaction and a verified target lifecycle waiter; roles/grants must remain until authority releases. The probe uses fictional staff and always closes its own transaction. Use the complete session/contact suite set above, with `tests/accounts/deletion.browser.cjs` (not a deletion/ directory), isolated registry/workflow/Admin, moderation and default-gate phone; build before, never during browser runs. Native builds establish compilation only. Restore main afterwards and confirm the shared retirement table is empty before returning an older main binary.
+
+`MemberAdmin:ContactRetirementEnabled` stays false by default. No current runbook command enables it for testers: finish SSR/reviewed resume, application/provider journey, narrower remote-call locking and compatible-release/rollback checks first. Do not manually mark an uncertain operation Completed or reattach a recycled contact with database/ordinary provider edits. Pending work is durable and restricted; known provider confirmation is the processor's authority.
+
+### Isolated staff approval/availability regressions (D258)
+
+Build Debug first, then run `SWOOVR_TEST_STAFF_ACCESS=1 SWOOVR_PLAYWRIGHT_PATH=... node tests/enforcement/admin-isolated.browser.cjs` for the91-check staff suite. The existing paired loopback/owned-database validation still applies; bootstrap the fictional root's application flag only inside the owned DB. This mode covers actual root revocation of another staff owner's grant waiting on that owner's lifecycle authority, plus the existing preservation-before-bulk probe and staff SSR. No hosted Entra/ownership/delivery claim. Omit the selector for the standard53-check registry UI suite; other selector values are refused.
+
+The runner validates all Admin listener cwd paths before any signal and accepts only this worktree or main positively derived from the shared .local symlink. It restores that same checkout, preserving actual logs first; API/Web hosts stay running. Mixed/unrelated listeners are refused. This removes the need to replace all main hosts for these staff regressions. Root MFA remains serial; never restore its counter backwards. Run isolated workflows and registry as well. check.sh now includes the paused-provider actual-PostgreSQL availability/authority checks; no schema or native/client behavior changed in D258.
+
+### Owned staff email-retirement journey (D259)
+
+Build Debug and native targets before browser execution. Add `SWOOVR_TEST_CONTACT_WORKFLOW=1 SWOOVR_TEST_CONTACT_ADAPTER=1` to the isolated Keycloak component command above; optionally set `SWOOVR_SCREENSHOTS` to an evidence directory. The workflow refuses direct/shared-provider invocation, imports actual member/staff configurations with ephemeral credentials into its owned provider, uses actual theme and authorization-code/PKCE exchanges, and starts an owned API/database. It replaces only a positively identified main/worktree Admin at5082 and restores that original checkout/logs. API/Web stay running. Mailpit catches fictional example.test verification links; this is sandbox link consumption, not real delivery/ownership, hosted Entra or native UI.
+
+The47-check journey exercises member/Support denial, separate elevated approval/revocation, pending refusal, withdrawn grant preventing dispatch, immutable fresh review resuming the same command, real provider completion, preserved original credentials/profile/termination, independent recovery refusal, and distinct new registration/profile after released-email verification. Provider93 and typed-adapter7 checks report separately. For scheduling use `MemberAdmin:ContactRetirementWorker=false` and `contacts reconcile`; never infer approval from operator execution. Main feature stays off. Run the registry/workflow/staff/Admin regressions serially, and the session/contact matrix above for shared contact changes.
+
+### Operational group expiry / legacy import gate (D260)
+
+Full check.sh includes an owned `swoovr_operational_<uuid>` PostgreSQL database: missing/overlapping/unknown hold status, late export clocks, transaction rollback after child deletion, complete-group disposal/idempotence, seven-year police metadata extension and subsequent actual police-source expiry, and read-only legacy counts/unchanged bytes/no invented restrictions. It creates/drops only its own DB. No provider delivery or ownership evidence. `bans legacy-status` is operator-only, counts-only, and exits1 while unresolved historic markers remain.
+
+After Debug build, run isolated `tests/retention/worker.browser.cjs`; on normal phone-off/45-second worktree hosts run schedule, holds, law-enforcement and deletion suites above, serially. The law-enforcement fixture now expects a recent export/receipt/custody group to retain source provenance despite a backdated case clock; owned PostgreSQL separately proves eventual expiry after the full operational window. No new UI/native behavior or screenshot requirement. Restore main after shared-host testing.
+
+### Encrypted backup and restore preparation (D261)
+
+`python3 -m unittest discover -s tests/backups -p 'test_*.py'` is included in check.sh: calendar/catalogue/bundle policy, Azure protocol fakes and UTC cadence. Actual tools: set `SWOOVR_AGE` to verified age1.3.2, then run `python3 tests/backups/roundtrip.integration.py`. Application/paired provider drills are selected by the backup hook in `tests/enforcement/keycloak-contact.integration.cjs`; inspect that suite's environment selector before invocation. They create only owned databases/containers/private temporary synthetic media and clean them on exit. Build Debug API before these tests; never rebuild during browser execution. `node --test tests/media/recovery-startup.test.cjs` and the isolated retention worker browser are regressions. Compile the prepared backup-storage Bicep module with a verified Bicep executable; no provision/deploy command is part of checks. See BACKUP-RESTORE.md for authority/fence prerequisites and hosted gaps.
+
+D262 audit-prefix/operational retention: actual PostgreSQL checks create only owned `swoovr_audit_<uuid>` databases and drop them; they never disable triggers or truncate/rewrite fixtures. Cover active/unresolved released holds, metadata preservation, verified prefix/suffix hashes, empty-log continuation, null/future authority refusal, ordinary DML refusal, aged grants/incidents/audits and completion. Build Debug API before serial `SWOOVR_TEST_STAFF_ACCESS=1 SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright node tests/enforcement/admin-isolated.browser.cjs`, then the isolated retention-worker browser. The wrapper preserves main API/Web and restores the positively identified original Admin; back up/retain the actual root fixture counter, never roll it backward.
+
+
+### Individual content removal (D265)
+
+After the coordinated Debug build, run `tests/moderation/content.browser.cjs` through the owned runner:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/content.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/content.browser.cjs SWOOVR_SCREENSHOTS=docs/delivery/evidence node tests/meeting/isolated.browser.cjs
+```
+
+This proves actual API/Admin/Web and automatic Web reconnect behaviour with fictional people in an owned database. It restores main Web/Admin in its finally block. Run the affected privacy, safety, serious-report, deletion, notifications, app-parity, accessibility, retention schedule and owned retention-worker suites as well; no rebuild may overlap browser execution. The schedule concurrency writer must use the same validated database override as its fixture/purge operations. Native compilation does not prove OS UI or physical delivery.
+
+
+### Text-harm candidates (D266)
+
+Use the owned runner with the explicit feature flag after the coordinated Debug build:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright TextHarm__Enabled=true SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/text-harm.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/text-harm.browser.cjs SWOOVR_SCREENSHOTS=docs/delivery/evidence node tests/meeting/isolated.browser.cjs
+```
+
+The feature remains off in the default product configuration. The finite runner includes this suite only when explicitly enabled, and restores main hosts/removes its owned API/database in finally. This journey uses actual profile/mode/message writes, background processing, restricted evidence and confirmed Admin human review. It does not establish detection accuracy, real email receipt or native OS UI. Run the affected moderation, privacy, deletion, notification, app-parity, accessibility and retention suites with detection off to protect existing default behaviour. No build may overlap browser execution.
+
+
+### Report outcomes and complaint guidance (D267)
+
+After the coordinated Debug build, run the exact owned selector:
+
+```sh
+SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/outcomes.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/outcomes.browser.cjs SWOOVR_SCREENSHOTS=docs/delivery/evidence node tests/meeting/isolated.browser.cjs
+```
+
+It uses real routine Web reporting, generic reporter centre updates, actual human action/lift/closure, current ownership/barred checks, support links and report-plus-block follow-up. A temporary constraint in the owned DB injects a checkpoint failure to prove report/optional-block rollback. It never touches main's schema; the runner restores main hosts and drops its owned DB/API. Also run moderation, serious, content/text review, reinstatement workflows, deletion, notifications, native-client parity, accessibility and retention suites for the touched producers/centre/lifecycle. Native compilation does not establish OS UI or external receipt. Never rebuild while browser suites are active.
+
+### Annual moderation data (D268)
+
+`SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_START=tests/moderation/transparency.browser.cjs SWOOVR_MEETING_REGRESSION_END=tests/moderation/transparency.browser.cjs node tests/meeting/isolated.browser.cjs` runs the protected API/Admin export/internal-save journey against an owned database, with fictional identities. Set SWOOVR_PLAYWRIGHT_PATH as above. The runner restores the original Web/Admin hosts; do not rebuild during browser execution. Pure and actual PostgreSQL source/receipt/counter/revision checks run in `./scripts/check.sh`.
+
+For the changed media receipt/counter paths, select `tests/media/reporting.browser.cjs` in the same owned runner with `Media__Screening__Worker=true Media__Screening__Simulate=uncertain`, then repeat with `blocked`. Screening is explicitly simulated and all uploaded pixels are synthetic/local. The default regression list excludes this suite unless either simulation is selected. `SWOOVR_MEETING_REGRESSION_SUITES` can select a comma-separated subset of the fixed allowlist; unknown/duplicate names are refused.
+
+### Public policy/advice delivery (D269)
+
+Run `PolicyNotices__Enabled=true SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/policies/policies.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path above. It owns the database/API and restores MAIN Web/Admin; publications target fictional members only, with no external channel. The fixed allowlist excludes this suite unless explicitly enabled. No build during browsers. `dotnet run --project tests/Swoovr.Checks --no-build -- --policy-checks` with `SWOOVR_TEST_DATABASE` runs only the owned policy PostgreSQL/pure checks for diagnosis; it does not replace `./scripts/check.sh`. The full gate includes three actual Release API startup refusals for unapproved selections. Public reader/advice/member-review routes join the accessibility floor. The owned holds suite also seeds an explicitly synthetic acceptance proof and checks real provider deletion completes while the active hold retains its encrypted copy. Actual new registration-theme UI requires packaged/isolated Keycloak acceptance; the shared sandbox mounts MAIN's theme.
+
+## Discovery guidance and mode-response ordering (D270)
+
+After the Debug build has completed, select `tests/discovery/mode-race.browser.cjs,tests/discovery/guidance.browser.cjs,tests/discovery/matching.browser.cjs,tests/discovery/market.browser.cjs,tests/travel/travel.browser.cjs,tests/travel/traveller-search.browser.cjs` with `SWOOVR_MEETING_REGRESSION_SUITES` in the owned runner described above. Set both `SWOOVR_MEETING_REGRESSIONS=1` and `SWOOVR_MEETING_ONLY_REGRESSIONS=1`. The race suite delays an actual eligible response; guidance uses explicitly synthetic empty/short/error projections over actual eligible responses. Both require the owned database. The public GeoNames fixture includes Darwin/Palmerston for actual market-boundary tests. Do not rebuild while these suites run.
+
+## Accessibility release gate (D271)
+
+Run `tests/accessibility/pages.browser.cjs,tests/accessibility/interactions.browser.cjs` as an explicit subset of the owned runner after the Debug build completes. The expanded suite tests actual keyboard skip focus, the rendered16 personal scheme/mode combinations,200% CSS text resize, forced-color/reduced-motion media emulation and8 authenticated staff pages. It shares `tests/accessibility/audit.cjs` with the existing floor. No browser builds may overlap. [Release checklist](ACCESSIBILITY-RELEASE-GATE.md) requires actual human screen-reader/device/zoom evidence separately; automation cannot sign those off.
+
+## Beta scorecard (D272)
+
+After the Debug build, run `BetaAnalytics__Enabled=true SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/analytics/scorecard.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path. The fixed allowlist requires the explicit feature flag. Actual current-day API observations and Admin rendering are separate from explicitly synthetic historical SQL rows for suppression. The full repository gate runs owned PostgreSQL calculations/dedupe/disabled/export/preservation/expiry cases. Run affected privacy, deletion, held deletion, retention, app parity and both accessibility suites; the expanded floor now includes the scorecard as a ninth staff page. Never rebuild during browsers.
+
+## Beta enrolment operations and messaging regression isolation (D273)
+
+After Debug build, select `tests/accounts/beta-admin.browser.cjs` in the owned runner. It tests real Admin/API/Web and an already-open SignalR socket; status records are staff assertions, not Apple evidence. The full gate includes old-schema upgrade/CAS/export/evidence cases. Run messaging, endings, notification, content, privacy, deletion/holds and both accessibility suites for the audience change. The expanded floor includes beta enrolments as its tenth staff page.
+
+`tests/messaging/attachments.browser.cjs` now requires the owned database/configuration. Run it alone through the same runner with `Media__Screening__Worker=true`; the configured local image-moderation-api must be ready. Its extra Development simulation APIs inherit the owned database/local store, run from the Api directory on random loopback ports and stop only their positively tracked child processes. Purge inherits the owned configuration and never reads real Didit/R2 credentials from .local. No launcher/port-wide kill or main-database purge is used. No build during any browser suite. Record local screening versus simulated uncertain/blocked outcomes separately from production evidence.
+
+
+### D273 beta enrolment operations
+
+Build Debug before browsers. With the Playwright path above, set `SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/beta-admin.browser.cjs,tests/accessibility/pages.browser.cjs,tests/accessibility/interactions.browser.cjs` and run `node tests/meeting/isolated.browser.cjs`. The primary suite owns fictional data and an actual before/after SignalR listener; it checks notification suppression, not provider delivery. The expanded accessibility floor now has10 staff pages. Actual PostgreSQL upgrade/CAS/export/hold/audience checks run in `./scripts/check.sh`.
+
+The same fixed allowlist now accepts messaging, endings and attachments. Run attachments alone with `Media__Screening__Worker=true Media__Screening__BaseUrl=http://127.0.0.1:8080/ Media__Screening__RequireKnownContentCheck=false` (the last switch is Development-only and does not establish known-content screening); the local image-moderation service must be healthy. It refuses an unowned database and starts positively tracked temporary APIs on random loopback ports for labelled Development-only uncertain/blocked overrides. It uses only inherited local storage/test configuration, never the shared launcher or real provider credentials. No build while browsers are running.
+
+### D274 application email
+
+`dotnet run --project tests/Swoovr.Checks -- --mailersend-checks` runs fake HTTP/configuration checks without any external request. The full gate includes the same tests. After Debug build, the owned meeting runner with `SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=0 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/deletion.browser.cjs` exercises actual local meeting/contact emails and founder/deletion email consumers through Mailpit. No build during browsers. Mailpit acceptance does not establish MailerSend or recipient delivery.
+
+### D275 beta invitations and expiry
+
+After Debug build, run the fixed owned runner with `Beta__Invitations__Enabled=true Beta__Invitations__PublicBaseUrl=http://localhost:5081/ SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/beta-invitations.browser.cjs` and the Playwright/screenshots variables above. Its explicit feature selector is required. This runs actual Admin/API/worker/local Mailpit acceptance with fictional addresses, never external sending. Run other regressions with invitations off to avoid backfilling any queue. PostgreSQL tests cover delivery/recovery/concurrency, positively observed revoke contention and source clocks/held expiry. No builds while browser suites run. Native compilation is required when the shared draft privacy notice changes; it does not establish native UI/device delivery.
+
+### D276 founder capacity
+
+After Debug build, use `Founders__Places=1 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/founder-capacity.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path above. The fixed allowlist requires the explicit one-place configuration. It owns the API/database and uses synthetic SQL verification state, actual concurrent HTTP grants and local Mailpit; no Didit/payment/real delivery claim. No UI source changed, so no screenshot/native rerun is required. Do not build during this suite.
+
+### D277 appearance account backend
+
+After Debug build, select `tests/appearance/account-api.browser.cjs` in the fixed owned runner with regressions/only-regressions enabled and the Playwright path above. Use a fictional evidence directory for the new shared privacy paragraph capture. It exercises actual API/Keycloak/BFF, no-store/absence, revision/idempotence/concurrency, malformed input, unknown-value fallback and captured-owner refusal after session identity changes. It does not establish a settings UI/storage/native integration. Existing guest browser24 remains the UI baseline for D278.
+
+Run affected `tests/accounts/deletion.browser.cjs` and `tests/evidence/holds.browser.cjs`: they now seed appearance through the actual guarded API and prove own export/ordinary erasure/independent held copies. Also run privacy notice acceptance after the shared draft changes. Full repository gate includes actual PostgreSQL contested deletion and revision tests, original83 portable state, new persisted state and typed fake HTTP checks. Do not rebuild while browsers run. Keep cache JSON as exact text across JS to retain64-bit revision values.
+
+### Account appearance (D278)
+
+Run `node --test tests/appearance/account-cache.test.cjs` and `dotnet run --project tests/Swoovr.Checks -- --appearance-client-checks` for pure/cache/fake-transport checks. Actual local account controls use the owned runner selector `tests/appearance/account-sync.browser.cjs`; retain `tests/appearance/web.browser.cjs` for all guest choices/storage denial/navigation, and `tests/appearance/account-api.browser.cjs` for authenticated API/BFF authorization. Build all touched hosts before starting any browser suite. Native build evidence is distinct from native UI/device evidence.
+
+### Hosted policy, health and CSP (D279)
+
+`dotnet run --project tests/Swoovr.Checks -- --hosting-checks` exercises pure configuration, actual forwarded-header middleware with fictional request contexts and SMS DI selection without outbound requests. The required gate runs `tests/hosting/startup.test.cjs` against all three compiled Release hosts (unsafe/missing hosted configuration must exit before listening). The owned browser selector `tests/hosting/ready.browser.cjs` checks real local database/schema/fence and portal readiness plus security headers. Retain account appearance/logout, guest, messaging, meeting-safety and staff regressions under CSP. Real Azure/Cloudflare ingress and provider health remain separate deployment acceptance.
+
+### Native UAT endpoint and SMS transport checks (D280)
+
+See [NATIVE-UAT.md](NATIVE-UAT.md) for explicit build environments and the bounded agent-driven owned Android fixture. `node --test tests/mobile/build-config.test.cjs` evaluates real MSBuild guards (installed MAUI workloads required, separate from the portable gate). `dotnet run --project tests/Swoovr.Checks -- --sms-checks` exercises Twilio through fake HTTP only: exact201 acknowledgement, bounded/invalid bodies, unsuccessful statuses, no automatic replay and private logging. The full repository gate also calls these transport checks. Provider acceptance is not delivery. Never run actual Twilio against the local fixture. Build native and local hosts before starting browser/Android integration runners; never rebuild while they are active.
+
+Owned-runner phone selection requires explicit `Accounts__ReauthSeconds=300` (the default host window); the runner otherwise retains45 seconds for existing stale-session suites and omits phone from its default cohort. Example: `Accounts__ReauthSeconds=300 SWOOVR_MEETING_REGRESSIONS=1 SWOOVR_MEETING_ONLY_REGRESSIONS=1 SWOOVR_MEETING_REGRESSION_SUITES=tests/accounts/phone.browser.cjs node tests/meeting/isolated.browser.cjs` with the Playwright path above. The owned phone run has PhoneRequired=false; report the gate-on gap separately.
+
+### Keycloak UAT email/image preparation (D281)
+
+Use Java21+ and the exact26.8.1 public runtime libraries with `scripts/check_keycloak_contact_policy.py`; Android’s JDK17 cannot compile --release21. This checks existing contact policy plus MailerSend loopback HTTP tests; the latter include a real15-second incomplete-body deadline, no external send. `docker build -f containers/uat/Keycloak.Dockerfile --target keycloak -t swoovr-uat-keycloak:phase-zero-check .` repeats checks on pinned Java21 and augments the selected HTTP SPI. The local architecture follows Docker’s default; Azure preparation must explicitly build linux/amd64.
+
+`python3 tests/uat/keycloak_image.py --image swoovr-uat-keycloak:phase-zero-check` creates uniquely named private disposable PostgreSQL/Keycloak/probe containers and an internal-only network, with fictional temporary secrets. Docker does not publish a port for that network, so the probe stays inside it and supplies private request data over stdin; no host ports, MAIN stack changes or external provider calls. It verifies disabled import/callback/RP/Entra metadata and an actual template/SPI failure closed without egress, then cleans up. This does not verify actual Entra authentication, passkey/browser ceremonies or real MailerSend acceptance/delivery. Run pure generator tests separately with `python3 -m unittest discover -s tests/uat -p 'test_*.py' -v`. Never start/rebuild a serving web binary during browser suites.
+
+### Published Azure-platform images (D282)
+
+[CONTAINERS-UAT.md](CONTAINERS-UAT.md) lists explicit linux/amd64 builds for Api/Web/Admin/Keycloak and the optional validation target. `python3 tests/uat/app_images.py` runs complete published hosts against disposable internal-network PostgreSQL with generated fake runtime config: operator commands, startup safety, readiness, SSR/static WASM/CSS and restricted logs. It adds no host ports and touches no MAIN data/hosts. `python3 tests/uat/keycloak_image.py --image swoovr-uat-keycloak:phase-zero-check` now defaults to and asserts linux/amd64 (explicit --platform linux/arm64 is available for a separate local-only check). Both fixtures clean only uniquely owned containers/anonymous volumes/network/temp fixtures. No real TLS/provider or authenticated UAT claim.
+
+`docker run --rm --platform linux/amd64 --network none swoovr-uat-validation:phase-zero-check` compares serving Skia/processor binaries and runs existing MediaChecks only (synthetic images, no provider). The optional `--media-checks` mode is in the existing Checks executable. It is separate from portable check.sh and no validation artifacts are included in serving image targets. Build before browser suites; never replace a serving WASM publish while suites run.
+
+### UAT infrastructure contracts (D283)
+
+`python3 tests/uat/infrastructure.py --bicep /path/to/bicep` compiles all UAT modules without warnings and checks security contracts. `python3 tests/uat/preflight.py` checks synthetic nonsecret deployment metadata acceptance/refusal. `python3 tests/uat/app_images.py` additionally verifies the published migration command with only its database/runtime configuration. No Azure credentials or deployment; see INFRASTRUCTURE-UAT.md.
+
+### UAT operator tools (D284)
+
+Build the operator target from containers/uat/Dockerfile for linux/amd64, then run `python3 tests/uat/operator_image.py` and `python3 tests/uat/database_bootstrap.py`. These use owned containers/private fictional fixtures, no published host ports and no Azure/provider access. The latter verifies actual PG17 non-superuser bootstrap, separate migration owner and read-only capture. See OPERATOR-JOBS-UAT.md and actual evidence in VALIDATION.md.
+
+### UAT Keycloak bootstrap/certificate contracts (D285)
+
+Run `python3 tests/uat/keycloak_bootstrap_guards.py`, infrastructure/preflight tests above and the Keycloak image fixture with `--bootstrap-image swoovr-uat-operator:phase-zero-check`. The owned internal-network fixture runs the actual disabled import/service-client bootstrap, refuses overwrite, and tests narrow client-credentials authority with a temporary local-only realm activation restored to disabled. No cloud, real mail/Entra or rendered browser claim. EDGE-UAT.md covers separate deployed certificate/forwarding acceptance.
+
+### Final UAT handoff/smoke (D286)
+
+Run python3 tests/uat/operator_metadata.py for nonsecret job override checks. After building the current operator target, python3 tests/uat/database_bootstrap.py verifies non-superuser bootstrap/migration/snapshot and paired permission repair; optional --places additionally downloads real public GeoNames into an owned DB. python3 tests/uat/screening_image.py uses the local amd64 screening artifact, network-none fake credentials and no image scan/provider request.
+
+The owned runner permits SWOOVR_MEETING_REGRESSION_SUITES=tests/uat/core.browser.cjs with SWOOVR_MEETING_REGRESSIONS=1: actual local BFF core flow, fictional admin-created adult fixtures, phone gate off. Existing meeting129 runs first; MAIN restored. This does not prove registration/live providers. Never rebuild during suites.
+
+After explicit deployment approval, node scripts/uat/smoke.cjs --base-url https://uat.swoovr.app is a30-minute interactive operator journey, visible owned Edge contexts, normal registration/provider checkpoints and automatic BFF mutation assertions. It requires RUN acknowledgement and saves no credentials/tokens/response bodies/screenshots/traces/storage state. DEPLOYMENT-UAT.md has exact prerequisites, commands, restore and admission gates; do not run hosted smoke during preparation.
+
+### PR125 import-map CSP regression (D287)
+
+The required check.sh includes tests/hosting/import-map.test.cjs: actual compiled Release SSR/CSP/integrity checks in Development and Uat with fake nonsecret host configuration and no Keycloak/provider request. The owned auth-navigation browser suite now checks exact rendered hash/integrity, fingerprinted module import, normal enhanced navigation, deliberate unrelated inline-script rejection and actual signed-in WASM/OIDC (17 checks). Use the existing owned runner with SWOOVR_MEETING_ONLY_REGRESSIONS=1, SWOOVR_MEETING_REGRESSIONS=1 and SWOOVR_MEETING_REGRESSION_SUITES=tests/hosting/auth-navigation.browser.cjs,tests/appearance/account-sync.browser.cjs,tests/uat/core.browser.cjs. No rebuild during suites; runner preserves logs and restores MAIN. No visual layout/theme change or new screenshot requirement.
