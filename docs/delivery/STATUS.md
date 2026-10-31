@@ -4,6 +4,8 @@ As of 31 October 2026 (Australia/Adelaide). This page is the current summary; da
 
 ## Phase 0 takeover progress — 29–30 October 2026
 
+D283 staged Azure infrastructure now compiles locally: private PostgreSQL/Key Vault/backup storage, actor-specific secret grants and app/job modules with disabled activation defaults. Local contracts/preflight and published minimal migration evidence are recorded in VALIDATION. [Infrastructure boundaries](INFRASTRUCTURE-UAT.md). Operator/bootstrap/backup image and final deployment/core-journey smoke remain original software work; no cloud deployment is claimed.
+
 D282 explicit linux/amd64 Api/Web/Admin/Keycloak images are built locally with full published WebAssembly/static assets and non-root runtime. Isolated application runtime/command/asset checks38 pass; the same native library/processor assembly passes51 synthetic Linux photo checks; target-platform Keycloak42 runtime checks and final check.sh33 backup/85 Node/30 startup/596 PostgreSQL pass (0 .NET warnings/errors). No registry push or deployment. [Container artifacts and current limits](CONTAINERS-UAT.md). Parent Azure IaC, dedicated bootstrap/operator/backup jobs and deployment/base-URL smoke remain required original software; owner credentials/hosting/legal gates are distinct.
 
 

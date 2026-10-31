@@ -141,5 +141,5 @@ resource recoveryGrant 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
   }
 }
-output accountUrl string = storage.properties.primaryEndpoints.blob
+output accountUrl string = 'https://${storage.name}.blob.${az.environment().suffixes.storage}'
 output containerResourceId string = container.id
