@@ -448,3 +448,7 @@ Use Java21+ and the exact26.8.1 public runtime libraries with `scripts/check_key
 ### UAT infrastructure contracts (D283)
 
 `python3 tests/uat/infrastructure.py --bicep /path/to/bicep` compiles all UAT modules without warnings and checks security contracts. `python3 tests/uat/preflight.py` checks synthetic nonsecret deployment metadata acceptance/refusal. `python3 tests/uat/app_images.py` additionally verifies the published migration command with only its database/runtime configuration. No Azure credentials or deployment; see INFRASTRUCTURE-UAT.md.
+
+### UAT operator tools (D284)
+
+Build the operator target from containers/uat/Dockerfile for linux/amd64, then run `python3 tests/uat/operator_image.py` and `python3 tests/uat/database_bootstrap.py`. These use owned containers/private fictional fixtures, no published host ports and no Azure/provider access. The latter verifies actual PG17 non-superuser bootstrap, separate migration owner and read-only capture. See OPERATOR-JOBS-UAT.md and actual evidence in VALIDATION.md.

@@ -57,3 +57,11 @@
 **/*.tar.gz
 **/*.zip
 **/*.age
+# Explicit operator source allowlist; never transfer private output/parameter files.
+!scripts/
+!scripts/backups/
+!scripts/backups/requirements.txt
+!scripts/backups/*.py
+!scripts/uat/
+!scripts/uat/uat_jobs.py
+!scripts/uat/bundle-producer.sh

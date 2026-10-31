@@ -48,3 +48,24 @@ ENTRYPOINT ["dotnet", "Swoovr.Web.dll"]
 FROM runtime AS admin
 COPY --from=admin-publish /publish/ ./
 ENTRYPOINT ["dotnet", "Swoovr.Admin.dll"]
+
+# One-shot operator/backup jobs only; no serving endpoint or embedded credentials.
+FROM runtime AS operator
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl python3 python3-venv age \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo '0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8e76  /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' | sha256sum -c - \
+    && echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17=17.11-1.pgdg24.04+2 \
+    && rm -rf /var/lib/apt/lists/* && python3 -m venv /opt/operator-venv
+COPY scripts/backups/requirements.txt /opt/backups/requirements.txt
+RUN /opt/operator-venv/bin/pip install --no-cache-dir -r /opt/backups/requirements.txt
+COPY --from=api-publish /publish/ /app/
+COPY scripts/backups/*.py /opt/backups/
+COPY scripts/uat/uat_jobs.py /opt/uat/uat_jobs.py
+COPY scripts/uat/bundle-producer.sh /opt/uat/bundle-producer
+RUN chmod 0555 /opt/uat/bundle-producer
+ENV PATH="/opt/operator-venv/bin:/usr/lib/postgresql/17/bin:${PATH}" PYTHONDONTWRITEBYTECODE=1
+USER $APP_UID
+ENTRYPOINT ["/opt/operator-venv/bin/python", "/opt/uat/uat_jobs.py"]
