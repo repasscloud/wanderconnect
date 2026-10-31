@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Swoovr.Domain;
 using Swoovr.Infrastructure.Email;
@@ -16,7 +17,7 @@ public sealed record TwilioOptions(string? AccountSid, string? AuthToken, string
 /// <summary>
 /// Twilio Programmable Messaging (not Twilio Verify: Swoovr makes and checks its own codes, D153): POST
 /// /2010-04-01/Accounts/{AccountSid}/Messages.json with To, From and Body, basic authentication with the account SID and
-/// auth token; 201 means queued. Only the status is logged, never the number or the code. Used only when `Sms:Provider`
+/// auth token; a valid201 message acknowledgement means provider acceptance, never recipient delivery. Only fixed status/kind is logged, never the number or the code. Used only when `Sms:Provider`
 /// is "twilio" (D174: nothing is sent until the owner says so).
 /// </summary>
 public sealed class TwilioMessageSender(HttpClient http, TwilioOptions options, ILogger<TwilioMessageSender> log) : IVerificationMessageSender
@@ -38,17 +39,25 @@ public sealed class TwilioMessageSender(HttpClient http, TwilioOptions options, 
             }),
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.AccountSid}:{options.AuthToken}")));
+        using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);deadline.CancelAfter(TimeSpan.FromSeconds(15));
         try
         {
-            using var response = await http.SendAsync(request, cancellationToken);
-            if (response.IsSuccessStatusCode) return true;
-            log.LogWarning("Twilio message returned {Status}.", (int)response.StatusCode);
-            return false;
+            using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,deadline.Token);
+            if(response.StatusCode!=System.Net.HttpStatusCode.Created){log.LogWarning("Twilio message returned {Status}.",(int)response.StatusCode);return false;}
+            if(response.Content.Headers.ContentLength is >8192)return false;
+            using var stream=await response.Content.ReadAsStreamAsync(deadline.Token);var bytes=new byte[8193];var length=0;
+            while(length<bytes.Length){var read=await stream.ReadAsync(bytes.AsMemory(length),deadline.Token);if(read==0)break;length+=read;}
+            if(length==0||length>8192)return false;
+            using var json=JsonDocument.Parse(bytes.AsMemory(0,length));var root=json.RootElement;
+            if(root.ValueKind!=JsonValueKind.Object||!root.TryGetProperty("sid",out var id)||id.ValueKind!=JsonValueKind.String||!root.TryGetProperty("status",out var state)||state.ValueKind!=JsonValueKind.String)return false;
+            var sid=id.GetString();
+            return sid is{Length:34}&&(sid.StartsWith("SM",StringComparison.Ordinal)||sid.StartsWith("MM",StringComparison.Ordinal))&&sid.AsSpan(2).ToArray().All(Uri.IsHexDigit)
+                &&state.GetString() is "accepted" or "queued" or "sending" or "sent" or "delivered";
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        catch(Exception exception)when(exception is HttpRequestException or OperationCanceledException or JsonException or IOException)
         {
-            log.LogWarning("Twilio message failed: {Kind}.", exception.GetType().Name);
-            return false;
+            // Unknown acknowledgement is not proof that no message was created. No automatic replay here.
+            log.LogWarning("Twilio message acknowledgement unavailable: {Kind}.",exception.GetType().Name);return false;
         }
     }
 

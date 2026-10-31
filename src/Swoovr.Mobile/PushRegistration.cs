@@ -10,6 +10,12 @@ public static class PushRegistration
     private const string TokenKey = "swoovr.push.token", DeviceKey = "swoovr.push.device", InstallKey = "swoovr.push.installation";
     private static readonly SemaphoreSlim registration = new(1, 1);
     private static bool signingOut;
+    private static bool ProviderEnabled =>
+#if SWOOVR_FCM || SWOOVR_APNS
+        true;
+#else
+        false;
+#endif
     public static void Resume() => signingOut = false;
     public static string Status { get; private set; } = "Device push has not been enabled. Delivery is not guaranteed; check Swoovr for updates.";
     public static async Task SaveTokenAsync(string token)
@@ -26,8 +32,14 @@ public static class PushRegistration
         try
         {
             if (signingOut || !await Ui.SignedInAsync()) return;
+#if SWOOVR_UAT
+            if(!ProviderEnabled){Status="Device push is not enabled for this UAT build. Check Swoovr for updates.";return;}
+#endif
             var token = await SecureStorage.Default.GetAsync(TokenKey);
-#if DEBUG && !SWOOVR_FCM && !SWOOVR_APNS
+#if SWOOVR_UAT
+            if(token?.StartsWith("simulated-",StringComparison.Ordinal)==true){SecureStorage.Default.Remove(TokenKey);Status="A platform push token is required. Check Swoovr for updates.";return;}
+#endif
+#if DEBUG && !SWOOVR_UAT && !SWOOVR_FCM && !SWOOVR_APNS
             token ??= "simulated-" + Installation();
 #endif
             if (string.IsNullOrWhiteSpace(token)) return;

@@ -91,8 +91,9 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<PushDeviceView>> RegisterDeviceAsync(string platform, string token, CancellationToken cancellationToken = default, Guid? installationId = null) =>
         SendAsync<PushDeviceView>(new HttpRequestMessage(HttpMethod.Post, "api/me/devices") { Content = JsonContent.Create(new PushDeviceRegistration(platform, token, installationId)) }, cancellationToken);
 
-    public Task<ApiResult<object>> RemoveDeviceAsync(Guid id, CancellationToken cancellationToken = default) =>
-        SendAsync<object>(new HttpRequestMessage(HttpMethod.Delete, $"api/me/devices/{id}"), cancellationToken);
+    /// <summary>Deletion returns204 with no JSON body; retain refusal status for the caller.</summary>
+    public Task<int> RemoveDeviceAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/me/devices/{id}"), cancellationToken);
 
     /// <summary>Appeals one action, once, within 30 days (D135).</summary>
     public Task<ApiResult<AppealView>> AppealAsync(Guid sanctionId, string? text, CancellationToken cancellationToken = default) =>

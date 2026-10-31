@@ -11,7 +11,7 @@ public static class MauiProgram
 			// No bundled fonts: Swoovr uses the platform's Helvetica Neue / Arial (see Resources/Styles/Styles.xaml).
 			.UseMauiApp<App>();
 
-#if DEBUG
+#if DEBUG && !SWOOVR_UAT
 		builder.Logging.AddDebug();
 #endif
 

@@ -18,7 +18,7 @@ public static class SmsProviderSetup
             {
                 if(!provider.GetRequiredService<IHostEnvironment>().IsDevelopment()&&!TwilioOptions.HostedEndpoint(twilio.BaseUrl))throw new InvalidOperationException("Hosted Twilio requires its HTTPS API origin.");
                 http.Timeout=TimeSpan.FromSeconds(15);
-            }).ConfigurePrimaryHttpMessageHandler(()=>new SocketsHttpHandler{AllowAutoRedirect=false}).RemoveAllLoggers();
+            }).ConfigurePrimaryHttpMessageHandler(()=>new SocketsHttpHandler{AllowAutoRedirect=false,MaxResponseHeadersLength=16}).RemoveAllLoggers();
         }
         else services.AddSingleton<IVerificationMessageSender>(provider=>
         {

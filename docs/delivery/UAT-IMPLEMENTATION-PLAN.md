@@ -12,7 +12,7 @@ Each implementation slice has code/tests, actual check.sh evidence, relevant bro
 
 ## Current finite progress
 
-D279 implements the server portion of step1: hosted guards, explicit SMS selection/security, trusted forwarding, health/readiness and CSP. Native UAT endpoint build configuration and provider response checks are the next software slice. Steps2–5 remain required; no readiness claim is inferred from scaffolding.
+D279 implements the server portion of step1: hosted guards, explicit SMS selection/security, trusted forwarding, health/readiness and CSP. D280 adds native UAT endpoint build configuration/provider response checks and actual local Android account-save/logout evidence, including the observed204 client fix. Steps2–5 remain required; no readiness claim is inferred from scaffolding.
 
 Read-only preparation for step2 verified the EmailSenderProvider and default factory against official Keycloak26.8.1 source: the sender has both send overloads and validate(Map). The custom HTTP sender must include validation and explicit optimized-image selection; ordinary SMTP remains local only. Source: https://github.com/keycloak/keycloak/blob/26.8.1/server-spi-private/src/main/java/org/keycloak/email/EmailSenderProvider.java . No custom email provider has been built/tested yet.
 

@@ -125,7 +125,7 @@ static class PhoneChecks
         {
             Last = request;
             Body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
-            return new HttpResponseMessage(status);
+            return new HttpResponseMessage(status){Content=new StringContent("{\"sid\":\"SM"+new string('a',32)+"\",\"status\":\"queued\"}",System.Text.Encoding.UTF8,"application/json")};
         }
     }
 

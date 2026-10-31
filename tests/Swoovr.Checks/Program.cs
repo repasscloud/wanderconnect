@@ -4,6 +4,9 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--device-client-checks"]){await DeviceClientChecks.Run();return;}
+if(args is ["--sms-checks"]){await SmsTransportChecks.Run();return;}
+
 if(args is ["--hosting-checks"]){HostingPolicyChecks.Run();await HostingProxyChecks.Run();await SmsSelectionChecks.Run();return;}
 
 if(args is ["--appearance-client-checks"]){AppearanceSyncChecks.Run();AppearanceCacheChecks.Run();await AppearanceClientChecks.Run();await AppearanceCoordinatorChecks.Run();return;}
@@ -21,6 +24,8 @@ if(args is ["--policy-checks"]){PublicPolicyDraftChecks.Run();PolicyNoticeChecks
 HostingPolicyChecks.Run();
 await HostingProxyChecks.Run();
 await SmsSelectionChecks.Run();
+await SmsTransportChecks.Run();
+await DeviceClientChecks.Run();
 PublicPolicyDraftChecks.Run();
 PolicyNoticeChecks.Run();
 MeetingSafetyChecks.Run();

@@ -25,6 +25,21 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
+    <!-- Nonsecret build target. UAT has hosted HTTPS endpoints; local API testing is never a UAT/release artifact. -->
+    <PropertyGroup>
+        <SwoovrEnvironment Condition="'$(SwoovrEnvironment)' == '' And '$(Configuration)' == 'Debug'">Development</SwoovrEnvironment>
+        <SwoovrEnvironment Condition="'$(SwoovrEnvironment)' == ''">Uat</SwoovrEnvironment>
+        <ApplicationTitle Condition="'$(SwoovrEnvironment)' == 'Uat'">Swoovr UAT</ApplicationTitle>
+        <DefineConstants Condition="'$(SwoovrEnvironment)' == 'Uat'">$(DefineConstants);SWOOVR_UAT</DefineConstants>
+        <DefineConstants Condition="'$(SwoovrOwnedApiTest)' == 'true'">$(DefineConstants);SWOOVR_OWNED_API</DefineConstants>
+        <ApnsEnvironment Condition="'$(ApnsEnvironment)' == '' And '$(SwoovrEnvironment)' == 'Uat' And '$(Configuration)' == 'Release'">production</ApnsEnvironment>
+    </PropertyGroup>
+    <Target Name="ValidateSwoovrBuild" BeforeTargets="BeforeBuild">
+        <Error Condition="'$(SwoovrEnvironment)' != 'Development' And '$(SwoovrEnvironment)' != 'Uat'" Text="SwoovrEnvironment must be Development or Uat." />
+        <Error Condition="'$(SwoovrEnvironment)' == 'Development' And '$(Configuration)' != 'Debug'" Text="Development endpoints require a Debug build." />
+        <Error Condition="'$(SwoovrOwnedApiTest)' == 'true' And ('$(Configuration)' != 'Debug' Or '$(SwoovrEnvironment)' != 'Development')" Text="Owned API testing requires a Development Debug build." />
+    </Target>
+
     <!-- Explicit provider builds only; local Debug remains labelled simulation. Credentials/config files are external. -->
     <PropertyGroup Condition="'$(EnableFcmPush)' == 'true' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <DefineConstants>$(DefineConstants);SWOOVR_FCM</DefineConstants>
@@ -41,8 +56,9 @@
     </PropertyGroup>
 
     <Target Name="ValidatePushBuild" BeforeTargets="BeforeBuild">
+        <Error Condition="'$(EnableApnsPush)' == 'true' And '$(SwoovrEnvironment)' == 'Uat' And '$(Configuration)' == 'Release' And '$(ApnsEnvironment)' != 'production'" Text="UAT Release APNs requires production entitlements." />
         <Error Condition="'$(EnableApnsPush)' == 'true' And '$(ApnsEnvironment)' != 'development' And '$(ApnsEnvironment)' != 'production'" Text="ApnsEnvironment must be development or production." />
-        <Error Condition="'$(EnableFcmPush)' == 'true' And '$(Configuration)' == 'Release' And !Exists('$(SwoovrGoogleServicesJson)')" Text="An external SwoovrGoogleServicesJson file is required for a Release FCM build." />
+        <Error Condition="'$(EnableFcmPush)' == 'true' And ('$(Configuration)' == 'Release' Or '$(SwoovrEnvironment)' == 'Uat') And !Exists('$(SwoovrGoogleServicesJson)')" Text="An external SwoovrGoogleServicesJson file is required for a Release/UAT FCM build." />
     </Target>
 
 	<ItemGroup>
@@ -63,7 +79,7 @@
 	</ItemGroup>
 
 	<!-- Debug only: plain HTTP to the local stack (ATS local networking). -->
-	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(Configuration)' == 'Debug'">
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(Configuration)' == 'Debug' And '$(SwoovrEnvironment)' == 'Development'">
 		<PartialAppManifest Include="Platforms\iOS\Debug.plist" />
 	</ItemGroup>
 
