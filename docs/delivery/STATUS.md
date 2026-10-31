@@ -4,6 +4,9 @@ As of 31 October 2026 (Australia/Adelaide). This page is the current summary; da
 
 ## Phase 0 takeover progress — 29–30 October 2026
 
+D282 explicit linux/amd64 Api/Web/Admin/Keycloak images are built locally with full published WebAssembly/static assets and non-root runtime. Isolated application runtime/command/asset checks38 pass; the same native library/processor assembly passes51 synthetic Linux photo checks; target-platform Keycloak42 runtime checks and final check.sh33 backup/85 Node/30 startup/596 PostgreSQL pass (0 .NET warnings/errors). No registry push or deployment. [Container artifacts and current limits](CONTAINERS-UAT.md). Parent Azure IaC, dedicated bootstrap/operator/backup jobs and deployment/base-URL smoke remain required original software; owner credentials/hosting/legal gates are distinct.
+
+
 D281 Keycloak HTTP authentication-email SPI and disabled UAT realms are built locally. Exact Java21/Keycloak26.8.1 image repeats162 loopback adapter assertions;41 isolated runtime checks prove UAT theme link/channel configuration, import, exact callbacks/RP, staff Entra metadata and actual template-to-selected-sender wiring with external egress blocked. Missing config/start-dev fail. Nine pure generator checks and final check.sh33 backup/85 Node/30 startup/596 PostgreSQL pass; .NET0 warnings/errors, known existing Java JPA removal warning retained. No real mailbox/Entra/browser/passkey/UAT acceptance. [Email boundary](../architecture/KEYCLOAK-EMAIL.md), [realm preparation](KEYCLOAK-UAT.md). Explicit linux/amd64 application images, service-client/operator bootstrap, parent Azure IaC/backup jobs and deployment/smoke handoff remain required software.
 
 

@@ -4,6 +4,7 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--media-checks"]){MediaChecks.Run();return;}
 if(args is ["--device-client-checks"]){await DeviceClientChecks.Run();return;}
 if(args is ["--sms-checks"]){await SmsTransportChecks.Run();return;}
 

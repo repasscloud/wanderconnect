@@ -3,7 +3,7 @@
 import argparse, importlib.util, json, os, secrets, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--image',required=True);args=parser.parse_args()
+parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--image',required=True);parser.add_argument('--platform',default='linux/amd64',choices=['linux/amd64','linux/arm64']);args=parser.parse_args()
 def docker(*values,check=True,timeout=30):
     return subprocess.run(['docker',*values],check=check,capture_output=True,text=True,timeout=timeout)
 def request(base,path,method='GET',data=None,token=None,form=False):
@@ -20,14 +20,15 @@ spec=importlib.util.spec_from_file_location('uat',ROOT/'scripts/uat/keycloak_rea
 with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private:
     folder=Path(private);os.chmod(folder,0o700)
     try:
-        config=json.loads(docker('image','inspect',args.image).stdout)[0]['Config'];assert config['User']=='1000';checks+=1
+        image=json.loads(docker('image','inspect',args.image).stdout)[0];assert image['Os']+'/'+image['Architecture']==args.platform;checks+=1
+        config=image['Config'];assert config['User']=='1000';checks+=1
         assert config['Entrypoint']==['/opt/keycloak/bin/swoovr-entrypoint.sh'];checks+=1
         for command,message in [(['start','--optimized'],'UAT MailerSend API token is required'),(['start-dev'],'refuses development startup')]:
             name=network+'-guard';created.append(name)
-            result=docker('run','--name',name,'--network','none',args.image,*command,check=False,timeout=20)
+            result=docker('run','--platform',args.platform,'--name',name,'--network','none',args.image,*command,check=False,timeout=20)
             assert result.returncode!=0 and message in result.stderr;checks+=1;docker('rm','-f',name);created.remove(name)
         name=network+'-theme';created.append(name)
-        properties=docker('run','--name',name,'--network','none','--entrypoint','/bin/bash',args.image,'-c','cat /opt/keycloak/themes/swoovr/login/theme.properties').stdout
+        properties=docker('run','--platform',args.platform,'--name',name,'--network','none','--entrypoint','/bin/bash',args.image,'-c','cat /opt/keycloak/themes/swoovr/login/theme.properties').stdout
         assert 'localhost:5081' not in properties;checks+=1
         for field,path in [('swoovrPrivacyUrl','privacy'),('swoovrTermsUrl','terms'),('swoovrCommunityUrl','community-guidelines')]:assert field+'=https://uat.swoovr.app/'+path in properties;checks+=1
         assert 'swoovrVersion=v0.1.0-uat' in properties;checks+=1
@@ -45,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         rendered=uat.render('https://admin.uat.swoovr.app','https://venues.uat.swoovr.app','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222')
         for name,value in rendered.items():
             if name!='manifest.json':p=imports/name;p.write_text(value);os.chmod(p,0o644) # Fictional public review config only, no expanded secrets.
-        created.append(kc);docker('run','-d','--name',kc,'--network',network,'--env-file',str(env),'-v',str(imports)+':/opt/keycloak/data/import:ro',args.image,'start','--optimized','--import-realm')
+        created.append(kc);docker('run','--platform',args.platform,'-d','--name',kc,'--network',network,'--env-file',str(env),'-v',str(imports)+':/opt/keycloak/data/import:ro',args.image,'start','--optimized','--import-realm')
         # Docker does not publish a port for an internal-only bridge. Keep egress closed and put the probe inside it.
         created.append(probe);docker('run','-d','--name',probe,'--network',network,'-v',str(ROOT/'tests/uat')+':/probe:ro','eclipse-temurin:21-jdk-noble@sha256:bd6ac06e2a2df928af21c75c4a8a0f2829a93377a65761d6a577bb32281e2ac3','sleep','600')
         base='http://'+kc+':8080'
@@ -87,6 +88,6 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
             target=Path(tempfile.gettempdir())/('swoovr-keycloak-image-failure-'+suffix+'.log');target.write_text(diagnostic);os.chmod(target,0o600);print('Private failure diagnostic: '+str(target),flush=True)
         raise
     finally:
-        for name in reversed(created):docker('rm','-f',name,check=False)
+        for name in reversed(created):docker('rm','-f','-v',name,check=False)
         docker('network','rm',network,check=False)
         print('CLEANUP: owned Keycloak/PostgreSQL/network/private fixture removed; MAIN unchanged.',flush=True)

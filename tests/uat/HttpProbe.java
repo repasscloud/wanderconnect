@@ -6,9 +6,10 @@ import java.time.Duration;
 class HttpProbe {
  public static void main(String[] args)throws Exception{
   var input=new BufferedReader(new InputStreamReader(System.in,java.nio.charset.StandardCharsets.UTF_8));
-  var uri=URI.create(input.readLine());if(!uri.getHost().matches("swoovr-uat-image-[a-f0-9]{12}-kc")||!uri.getScheme().equals("http")||uri.getPort()!=8080)throw new IllegalArgumentException("Owned test target required.");
+  var uri=URI.create(input.readLine());if(!uri.getHost().matches("swoovr-uat-image-[a-f0-9]{12}-(kc|api|web|admin)")||!uri.getScheme().equals("http")||uri.getPort()!=8080)throw new IllegalArgumentException("Owned test target required.");
   String method=input.readLine(),contentType=input.readLine(),token=input.readLine(),body=input.readLine();
   var request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(25));
+  if(!uri.getHost().endsWith("-kc"))request.header("X-Forwarded-Proto","https");
   if(!contentType.isEmpty())request.header("Content-Type",contentType);if(!token.isEmpty())request.header("Authorization","Bearer "+token);
   request.method(method,body==null||body.isEmpty()?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(body));
   try(var client=HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build()){
