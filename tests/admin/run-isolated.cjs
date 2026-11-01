@@ -40,6 +40,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright');edge=await require(root+'/tests/auth/managed-edge.cjs').managedEdge(chromium);const context=await edge.browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  const login=async(port)=>{await page.goto('http://localhost:'+port+'/cases');if(await page.locator('#username').count()){await page.fill('#username',email);await page.fill('#password',password);await page.click('#kc-login')}await page.waitForURL('http://localhost:'+port+'/cases');};
  await login(15882);
+ if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').refused(page);
  // Local fixture authority only in the disposable database. Production permissions are untouched.
  const staffId=await sql(`SELECT id FROM accounts WHERE subject='${userId}'`);assert(staffId);
  await sql(`INSERT INTO role_grants (id,account_id,role,granted_at) VALUES ('${crypto.randomUUID()}','${staffId}','Admin',now())`);
@@ -49,7 +50,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  if(process.env.SWOOVR_ADMIN_BASELINE_PUBLISH){await login(15883);await page.reload();await page.screenshot({path:out+'/before-queue-1440.png',fullPage:true});
  await page.goto('http://localhost:15883/access');await page.screenshot({path:out+'/before-access-1440.png',fullPage:true});}
  await login(15882);await page.reload();await page.screenshot({path:out+'/after-queue-1440.png',fullPage:true});
- await require(root+'/tests/admin/shell.browser.cjs')({page,base:'http://localhost:15882',out});
+ if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').found(page);
+ else await require(root+'/tests/admin/shell.browser.cjs')({page,base:'http://localhost:15882',out});
  if(process.env.SWOOVR_ADMIN_PREVIEW==='1'){
   const previewDir=await fs.mkdtemp(require('node:os').tmpdir()+'/swoovr-admin-preview-');await fs.chmod(previewDir,0o700);
   const fixture=path.join(previewDir,'fictional-staff.json');await fs.writeFile(fixture,JSON.stringify({url:'http://localhost:15882',email,password,fictional:true}),{mode:0o600});

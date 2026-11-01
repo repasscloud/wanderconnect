@@ -40,6 +40,9 @@ Optional context, suggested explanations or requirements.
 
 ## 2. Admin account search fails to find existing users by email address
 
+Implementation progress (2 November 2026): the false no-match on API refusal is fixed on `codex/fix/intake-admin-account-errors` (PR publication pending). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
+
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/accounts?email=fictional.alex%40example.test`

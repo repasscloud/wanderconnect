@@ -2114,6 +2114,9 @@ Owner-authorised tracking/publication only. All 15 substantive reports processed
 
 ### Q95 — Admin account search fails to find existing users by email address
 
+Implementation progress (2 November 2026): the false no-match on API refusal is fixed on `codex/fix/intake-admin-account-errors` (PR publication pending). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
+
 - Issue: [#137](https://github.com/repasscloud/wanderconnect/issues/137); [intake item 2](ISSUE-INTAKE.md#intake-2).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.

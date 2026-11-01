@@ -6,9 +6,10 @@
     <label>Exact email <input name="email" type="email" value="@Email" required /></label>
     <button type="submit">Find</button>
 </form>
-@if (Email is not null)
+@if (!string.IsNullOrWhiteSpace(Email))
 {
-    @if (results.Count == 0) { <p data-accounts="none">No account with that email.</p> }
+    @if (loadError is not null) { <p role="alert" data-accounts="refused">@loadError</p> }
+    else if (results.Count == 0) { <p data-accounts="none">No account with that email.</p> }
     else
     {
         <ul class="list" data-accounts="@results.Count">
@@ -19,9 +20,15 @@
 @code {
     [SupplyParameterFromQuery] public string? Email { get; set; }
     private List<AccountView> results = [];
+    private string? loadError;
 
     protected override async Task OnInitializedAsync()
     {
-        if (!string.IsNullOrWhiteSpace(Email)) results = (await Admin.FindAccountsAsync(Email)).Value ?? [];
+        if (!string.IsNullOrWhiteSpace(Email))
+        {
+            var response = await Admin.FindAccountsAsync(Email);
+            if (response.Ok) results = response.Value!;
+            else loadError = AdminText.Refusal(response.Status, response.Code);
+        }
     }
 }
