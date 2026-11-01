@@ -21,10 +21,10 @@ DEFAULT: reproduce security/access and workflow defects first, then independentl
 | Q103 / #145 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Fictional duplicate-email field focus/description verified. No identity-sync diagnosis claimed. |
 | Q104 / #146 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Reset frame/email input and shared theme verified; provider tokens unchanged. |
 | Q105 / #147 | Partial fix proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Dedicated equal acknowledgement for enabled/absent/disabled fixtures. Timing/rate-limit acceptance remains unverified. |
-| Q106 / #148 | Pending independent work | Account organisation; onboarding order deferred. |
-| Q107 / #149 | Pending | Profile controls/persistence and responsive layout. |
-| Q108 / #150 | Pending independent work | Preserve D175, assignments, screening and quotas. |
-| Q109 / #151 | Pending | Responsive filters; preserve per-mode semantics/entitlements. |
+| Q106 / #148 | Partial fix proposed in [#154](https://github.com/repasscloud/wanderconnect/pull/154) | Grouped settings/truthful account heading. Onboarding order and revision-based safety dismissal deferred. |
+| Q107 / #149 | Partial fix proposed in [#154](https://github.com/repasscloud/wanderconnect/pull/154) | Wider profile/mode workspace, city/long-label overlap and compact controls. Custom name and visibility-off persistence verified. Automatic initial-name mapping remains a product/data-mapping follow-up. |
+| Q108 / #150 | Partial fix proposed in [#154](https://github.com/repasscloud/wanderconnect/pull/154) | One mode-assignment gallery at a time; shared library/main and independent assignments verified. Independent mains/proposed limits deferred. |
+| Q109 / #151 | Fix proposed in [#154](https://github.com/repasscloud/wanderconnect/pull/154) | Per-mode unsaved drafts survive switches and failed reads; no stale editable fields during load. Responsive workspace, counts, disjoint choices and Plus controls verified. Page-local drafts are not durable. |
 
 ## Deferred owner decisions
 
@@ -71,3 +71,17 @@ The nullable-column upgrade was applied only to disposable test databases. No ac
 Actual Edge regression first failed on mandatory manual queue purpose. Final synthetic-only acceptance passed three generated canvas JPEG fixtures: automatic purpose, blurred preview, keyboard reveal and two recorded views, coded approval, Other-without-notes refusal/no mutation, coded rejection, protected escalation, three audited codes/counts,375px live-control reflow and cleanup. Review found a cross-item form-state leak; a regression failed with two panels opened for one failed submission. Values now restore only for the matching failed item and clear on success, with a passing no-note-copy regression and follow-up independent review. Nine Domain reason checks cover unknown/mismatched/serious codes, bounds, Other, legacy classification and refusing unsupported approval notes. Final full `./scripts/check.sh` passed:607 PostgreSQL cases, three smoke suites, ten staff-session checks and zero build warnings/errors.
 
 Safe synthetic captures: [desktop review](evidence/2026-11-02-admin-workflows/media-synthetic-1440.png), [narrow review](evidence/2026-11-02-admin-workflows/media-synthetic-375.png). For isolated preview use `SWOOVR_ADMIN_TEST_SCENARIO=media` with the existing Admin runner. It creates its own media directory and database, generates JPEGs from canvas, and removes those resources plus its provider client/user, hosts and browser. No original sensitive images, real people or adult material were used. No owned test resources remain after cleanup.
+
+## Q106–Q109 member workflow
+
+[PR #154](https://github.com/repasscloud/wanderconnect/pull/154), branch `codex/fix/member-settings-workflows`, worktree `/Users/danijeljw/.codex/worktrees/intake-member-settings/wanderconnect-brief`. [Detailed member evidence and preview instructions](https://github.com/repasscloud/wanderconnect/blob/codex/fix/member-settings-workflows/docs/delivery/ISSUE-MEMBER-FIXES.md). Member and Auth PRs use separate stylesheet files and different Account-page regions; no merge is performed or integration result claimed.
+
+The member runner creates its own API/Web15880/15881, disposable PostgreSQL database, temporary provider client/user, owned Mailpit11025/18025 and media directory. Beta and phone stay enabled. The fictional adult completes the real provider18+ action, encounters the phone-required API refusal, confirms a clearly simulated local phone code, and submits an adult DOB through the UI. No gate is disabled and no existing provider client/realm configuration is changed. Canvas-only photo fixtures are authored approved states for placement testing, not live moderation results.
+
+Final Edge acceptance passed: saved custom name/city, no selected-city overlap, visibility off/reload, per-mode draft/save and delayed/503 failure recovery, All/required/excluded persistence and independent modes, disabled Plus, shared main and independent photo assignments. All four screens passed375/768/1024/1440px in light/dark without document overflow. Representative synthetic screenshots were visually inspected. Independent review's two matching-state findings were corrected and covered; follow-up found no concrete blockers. Full `./scripts/check.sh` passed:596 PostgreSQL cases, three smoke suites, zero warnings/errors. No baseline member browser comparison is claimed. All owned test resources were removed.
+
+## Final acceptance and resource state
+
+All fifteen issues have validated independent fixes proposed in the three open main-target PRs; partial scopes/dependencies are listed above. Issues remain open. No merge, deployment, GitHub Actions enablement, installed database migration, credential rotation or private configuration change occurred. Sensitive retained evidence was neither accessed nor staged. No owned test hosts, browser profiles, mail containers, provider fixtures, temporary databases or media directories remain running after the completed harnesses.
+
+Still outstanding: review/merge of each PR and subsequent combined validation; hosted/provider acceptance; native devices and assistive technology; the original private-account linkage; reset timing/rate limits; governed retained approval-note history and legacy case-specific moderation controls; initial public-name mapping; and the explicitly deferred owner decisions. These are not claims of production readiness.
