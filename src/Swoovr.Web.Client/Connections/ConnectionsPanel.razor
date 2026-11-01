@@ -10,6 +10,7 @@
 @if (loaded && refused is null)
 {
     <p role="status" aria-live="polite" class="field-help" data-connections-status="@status">@message</p>
+    <div class="connections-grid">
     <section class="card account-section" aria-labelledby="received-heading" data-box="received">
         <h2 id="received-heading">Requests for you</h2>
         @if (received.Count == 0) { <p class="field-help">No requests waiting.</p> }
@@ -86,6 +87,7 @@
             </ul>
         }
     </section>
+    </div>
 }
 @code {
     private bool loaded, busy;
