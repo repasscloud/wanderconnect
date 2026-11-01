@@ -3004,6 +3004,8 @@ These issues should share the same visual design system and authentication navig
 
 ## 14. Redesign Swoovr Me / Account page for a desktop-first experience and clearer onboarding flow
 
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: grouped settings and truthful account heading. Onboarding order and revision-persisted safety-dismissal proposals remain deferred. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
+
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `/account` (`http://localhost:5081/account`)
@@ -3312,6 +3314,8 @@ Additional reviewed evidence: [Signed-in account capture](https://github.com/rep
 <a id="intake-15"></a>
 
 ## 15. Redesign Profile and Modes page for responsive layouts, clearer controls and improved profile management
+
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: responsive profile/mode workspace, non-overlapping city labels, compact controls and scoped saves. Custom names and explicit about sharing preserved; visibility off/reload passed. Automatic initial-name mapping remains an unapproved product/data-mapping follow-up. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -3800,6 +3804,8 @@ Safe supplementary evidence: [Blank profile capture](evidence/2026-11-01-issue-i
 
 ## 16. Redesign Your Photos page with shared photo library, independent mode galleries and membership limits
 
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: one mode-assignment gallery at a time with shared library/main preserved. Independent main photos and proposed photo limits remain deferred; API quotas and screening rules unchanged. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
+
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `/me/photos` (Your photos)
@@ -4186,6 +4192,8 @@ Additional evidence: `16.png` reviewed locally and withheld under the [publicati
 <a id="intake-17"></a>
 
 ## 17. Redesign "Who I'd Like to Meet" with responsive layouts, clearer discovery preferences and improved filtering controls
+
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Fix proposed: per-mode unsaved filter drafts survive switching and failed reads; stale fields hidden while loading and controls disabled during save. Responsive workspace and selection counts added; Any/All, reciprocal exclusions and Plus rules preserved. Drafts remain local to this page. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
