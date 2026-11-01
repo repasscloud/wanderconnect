@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Swoovr.Admin\Swoovr.Admin.csproj" Aliases="AdminHost" />
     <!-- Actual provider configuration regression checks; tests may reference the layer under test. -->
     <ProjectReference Include="..\..\src\Swoovr.Api\Swoovr.Api.csproj" />
     <ProjectReference Include="..\..\src\Swoovr.Contracts\Swoovr.Contracts.csproj" />

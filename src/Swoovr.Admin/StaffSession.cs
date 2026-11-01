@@ -6,7 +6,7 @@ namespace Swoovr.Admin;
 
 /// <summary>
 /// Adds the signed-in staff member's access token to admin API calls. The token stays in the server-side ticket
-/// (TicketStore), never in the browser. An expired token gives the API's 401, which the pages turn into "sign in again".
+/// (TicketStore), never in the browser. Cookie validation renews expiring tokens before rendering; provider renewal failure ends the local session.
 /// </summary>
 public sealed class StaffTokenHandler(IHttpContextAccessor accessor) : DelegatingHandler
 {
@@ -21,15 +21,21 @@ public sealed class StaffTokenHandler(IHttpContextAccessor accessor) : Delegatin
 /// <summary>Keeps authentication tickets (and the tokens in them) in server memory; the cookie carries only a key.</summary>
 public sealed class TicketStore(IMemoryCache cache) : ITicketStore
 {
+    private readonly object sync = new();
+
     public Task<string> StoreAsync(AuthenticationTicket ticket)
     {
         var key = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-        return RenewAsync(key, ticket).ContinueWith(_ => key);
+        lock (sync) cache.Set(key, ticket, ticket.Properties.ExpiresUtc ?? DateTimeOffset.UtcNow.AddHours(8));
+        return Task.FromResult(key);
     }
 
     public Task RenewAsync(string key, AuthenticationTicket ticket)
     {
-        cache.Set(key, ticket, ticket.Properties.ExpiresUtc ?? DateTimeOffset.UtcNow.AddHours(8));
+        // A request already rendering at sign-out must not recreate the removed session.
+        lock (sync)
+            if (cache.TryGetValue<AuthenticationTicket>(key, out _))
+                cache.Set(key, ticket, ticket.Properties.ExpiresUtc ?? DateTimeOffset.UtcNow.AddHours(8));
         return Task.CompletedTask;
     }
 
@@ -37,7 +43,7 @@ public sealed class TicketStore(IMemoryCache cache) : ITicketStore
 
     public Task RemoveAsync(string key)
     {
-        cache.Remove(key);
+        lock (sync) cache.Remove(key);
         return Task.CompletedTask;
     }
 }

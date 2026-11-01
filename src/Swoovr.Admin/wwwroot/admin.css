@@ -141,3 +141,5 @@ td a { font-weight: 600; text-underline-offset: 3px; }
 .field-help { color: var(--muted); font-size: .8125rem; font-weight: 400; line-height: 1.65; }
 .status-badge { display: inline-block; padding: 3px 8px; border-radius: 5px; background: var(--soft); border: 1px solid var(--border); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 .status-badge[data-level="urgent"] { background: var(--primary); color: var(--onPrimary); border-color: var(--primary); }
+
+.signed-out-page { max-width: 36rem; margin: 10vh auto; padding: 2rem; overflow-wrap: anywhere; }

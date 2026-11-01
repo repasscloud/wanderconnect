@@ -30,6 +30,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  await run('docker',['exec','swoovr-platform-postgres-1','psql','-p','5433','-U','swoovr','-d','postgres','-c','CREATE DATABASE '+db]);
  await run('dotnet',['src/Swoovr.Api/bin/Release/net10.0/Swoovr.Api.dll','migrate'],env);
  const base=(await kc('/clients?clientId=swoovr-admin-web'))[0],template=await kc('/clients/'+base.id);delete template.id;template.clientId=clientId;template.secret=secret;template.name='Owned admin design browser test';template.redirectUris=['http://localhost:15882/signin-oidc','http://localhost:15883/signin-oidc'];template.webOrigins=[];template.attributes={...template.attributes,'swoovr.owner':'admin-design-test'};
+ if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='sessions') template.attributes['access.token.lifespan']='5';
  for(const mapper of template.protocolMappers??[])delete mapper.id;
  await kc('/clients','POST',template);clientUuid=(await kc('/clients?clientId='+clientId))[0].id;
  await kc('/users','POST',{username:email,email,firstName:'Fictional',lastName:'Staff',emailVerified:true,enabled:true,credentials:[{type:'password',value:password,temporary:false}]});userId=(await kc('/users?username='+email))[0].id;
@@ -51,6 +52,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  await page.goto('http://localhost:15883/access');await page.screenshot({path:out+'/before-access-1440.png',fullPage:true});}
  await login(15882);await page.reload();await page.screenshot({path:out+'/after-queue-1440.png',fullPage:true});
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').found(page);
+ else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='sessions') await require('./sessions.browser.cjs')({page,kc,userId});
  else await require(root+'/tests/admin/shell.browser.cjs')({page,base:'http://localhost:15882',out});
  if(process.env.SWOOVR_ADMIN_PREVIEW==='1'){
   const previewDir=await fs.mkdtemp(require('node:os').tmpdir()+'/swoovr-admin-preview-');await fs.chmod(previewDir,0o700);

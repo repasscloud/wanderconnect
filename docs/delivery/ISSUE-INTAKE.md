@@ -40,7 +40,7 @@ Optional context, suggested explanations or requirements.
 
 ## 2. Admin account search fails to find existing users by email address
 
-Implementation progress (2 November 2026): the false no-match on API refusal is fixed on `codex/fix/intake-admin-account-errors` (PR publication pending). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
+Implementation progress (2 November 2026): the false no-match on API refusal is fixed on [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
 
 
 - **Status:** Processed — new issue created; investigation remains OPEN
@@ -149,6 +149,9 @@ Email lookup should use the canonical identity/account relationship and must res
 <a id="intake-3"></a>
 
 ## 3. Admin session incorrectly reports expiration and displays inconsistent, unbranded authentication pages
+
+Implementation progress (2 November 2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds staff token renewal and a branded anonymous signed-out page. Reproduced expired-token/cookie mismatch with an owned temporary provider client; actual Edge verified renewal and reauthentication after owned-provider-session revocation. Ten unit checks cover concurrency, absolute deadline, unchanged authentication evidence, refusal/malformed expiry and late renewal after logout. The review-discovered logout race is fixed. Final full `./scripts/check.sh` passed, including 596 PostgreSQL cases and all three smoke suites. Hosted/multi-instance and original private-session timing remain unverified; no security gates were relaxed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin

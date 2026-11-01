@@ -10,8 +10,8 @@ DEFAULT: reproduce security/access and workflow defects first, then independentl
 
 | Q / issue | Status | Result / next step |
 | --- | --- | --- |
-| Q95 / #137 | Fix validated; PR pending | Failed lookups now show the API refusal instead of a false no-match. Actual Edge: denied staff, exact/case/whitespace email, account without profile, genuine no-match, 375px reflow. Original reported identity's linkage remains unverified; no private data inspected. |
-| Q96 / #138 | Pending | Investigate staff token/cookie lifetime; keep fresh direct session gates. |
+| Q95 / #137 | Partial fix proposed in [#152](https://github.com/repasscloud/wanderconnect/pull/152) | Failed lookups now show the API refusal instead of a false no-match. Actual Edge: denied staff, exact/case/whitespace email, account without profile, genuine no-match, 375px reflow. Original reported identity's linkage remains unverified; no private data inspected. |
+| Q96 / #138 | Fix validated; proposed in [#152](https://github.com/repasscloud/wanderconnect/pull/152) | Staff cookie validation renews expiring server-held tokens through configured Keycloak metadata; a renewal refusal clears the local session before authenticated rendering. Concurrent rotation is shared; cookie deadline/auth_time/method remain unchanged. Branded signed-out page has no staff identity. |
 | Q97 / #139 | Pending independent work | Improve safe review controls without eligibility/policy changes. |
 | Q98 / #140 | Pending | Check existing admin redesign before table work. |
 | Q99 / #141 | Pending | Public landing/navigation; retain draft disclosures. |
@@ -38,10 +38,14 @@ Baseline on 094dc97: full `./scripts/check.sh` passed, including 596 PostgreSQL 
 
 Q95 regression first failed in actual Edge because a denied lookup rendered no-match; it then passed against the changed published Admin app and real API/Keycloak with disposable fictional staff/database resources. Harness cleanup succeeded.
 
+Q96 cause reproduced with a temporary client whose access tokens expire after five seconds: the old cookie stayed usable while its API token expired. Real-provider regression failed before and passed after renewal; revoking only the owned fictional provider user caused renewal to fail and reauthentication before staff HTML. Ten fake-provider/ticket-store checks also passed, covering concurrency, original deadline/authentication evidence, malformed expiry and refusal. These checks do not claim hosted/multi-instance operation; the existing ticket store is process-local. Final full `./scripts/check.sh` passed (exit 0; 596 PostgreSQL cases, three smoke suites, zero build warnings/errors). Final real Edge acceptance passed after the review fix, including renewal, revocation, anonymous branded signed-out rendering and resource cleanup. Review found a late-renewal/logout race in the existing ticket store; a deterministic regression failed before the fix. Renewal now checks that the key remains active under the same lock as removal. Follow-up independent review found no remaining concrete blockers.
+
 ## Preview and resume
 
 Worktree: `/Users/danijeljw/.codex/worktrees/issue-intake-fixes/wanderconnect-brief`.
 
-For isolated Q95 acceptance, publish Admin to a temporary directory, then set `SWOOVR_ADMIN_TEST_PUBLISH` to it, `SWOOVR_ADMIN_TEST_ENV` to the absolute existing managed env path, and `SWOOVR_ADMIN_TEST_SCENARIO=accounts`; run `node tests/admin/run-isolated.cjs`. The harness refuses occupied 15880/15882/15883 ports, creates its own DB/client/staff fixture and cleans them up. It does not take over localhost services. Existing browser harness requires installed Edge and Playwright.
+For isolated Q95 acceptance, publish Admin to a temporary directory, then set `SWOOVR_ADMIN_TEST_PUBLISH` to it, `SWOOVR_ADMIN_TEST_ENV` to the absolute existing managed env path, and `SWOOVR_ADMIN_TEST_SCENARIO=accounts`; run `node tests/admin/run-isolated.cjs`. For Q96 use the same command with `SWOOVR_ADMIN_TEST_SCENARIO=sessions`; it gives only its owned temporary client a five-second access-token lifetime and revokes only its owned fictional provider user.
+
+The harness refuses occupied 15880/15882/15883 ports, creates its own DB/client/staff fixture and cleans them up. It does not take over localhost services. Existing browser harness requires installed Edge and Playwright.
 
 Owned running resources: none after Q95 browser cleanup. Temporary build/log files are under `/tmp/swoovr-intake-*`; they contain no intentionally logged credentials and are not publication artifacts. Retained six untracked screenshots in the main checkout remain untouched.
