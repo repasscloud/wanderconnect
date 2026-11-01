@@ -153,3 +153,15 @@ td a { font-weight: 600; text-underline-offset: 3px; }
 .beta-action-forms { display: grid; gap: 1.5rem; padding-top: 1rem; }
 .beta-action-forms form + form { padding-top: 1rem; border-top: 1px solid var(--border); }
 .beta-paging { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-block: 1rem; }
+
+.review-item { padding-block: 1.5rem; }
+.review-item h2 { margin-top: 0; }
+.review-grid { display: grid; gap: 1.5rem; }
+.review-decisions { display: grid; gap: 1rem; align-content: start; }
+.review-decisions details { padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.review-controls { margin-top: .75rem; }
+.review-controls[hidden] { display: none !important; }
+.media-review img { filter: blur(28px); display: block; max-width: 100%; height: auto; }
+.media-review.is-revealed img { filter: none; }
+.review-counts { margin-block: 1.5rem; }
+@media (min-width: 1000px) { .review-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }

@@ -314,6 +314,9 @@ public sealed class AdminClient(HttpClient transport)
     public Task<int> DecideMediaAsync(Guid id, string decision, string? reason, CancellationToken cancellationToken = default) =>
         StatusAsync(HttpMethod.Post, $"api/admin/media/{id}/decision", new MediaDecision(decision, reason), cancellationToken);
 
+    public Task<ApiResult<MediaDecisionResult>> DecideMediaAsync(Guid id,MediaDecision request,CancellationToken token=default) =>
+        SendAsync<MediaDecisionResult>(HttpMethod.Post,$"api/admin/media/{id}/decision",request,token);
+
     /// <summary>The image behind a review link, or null.</summary>
     public async Task<byte[]?> MediaAsync(string link, CancellationToken cancellationToken = default)
     {

@@ -96,6 +96,15 @@ static class MediaChecks
         Expect(processor.Process([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3]).Error == MediaUploadError.Undecodable, "a broken PNG is refused");
         var big = processor.Process(SyntheticPng(3000, 1000));
         Expect(big.Error == MediaUploadError.None && big.Width == MediaPolicy.StoredMaxSide && big.Height == 683, "large photos are scaled to 2048");
+        Expect(MediaReviewReasons.Create("approve","APPROVED_STANDARD",null) is{Code:"APPROVED_STANDARD",Notes:null},"routine approval has a stable reason code");
+        Expect(MediaReviewReasons.Create("reject","REJECT_OTHER","   ") is null,"Other requires substantive notes server-side");
+        Expect(MediaReviewReasons.Create("reject","REJECT_OTHER","  Fictional explanation.  ") is{Notes:"Fictional explanation."},"review notes are normalised");
+        Expect(MediaReviewReasons.Create("reject","ESCALATE_CHILD_SAFETY",null) is null&&MediaReviewReasons.Create("approve","REJECT_PRIVACY",null) is null,"reason code cannot change its decision or downgrade escalation");
+        Expect(MediaReviewReasons.Create("escalate","ESCALATE_CHILD_SAFETY",null) is not null,"serious concern follows existing escalation without a definitive finding");
+        Expect(MediaReviewReasons.Create("approve","unknown",null) is null&&MediaReviewReasons.Create("unexpected",null,null) is null,"unknown decisions and codes refuse");
+        Expect(MediaReviewReasons.Create("approve","APPROVED_STANDARD",new string('x',MediaPolicy.ReasonMax+1)) is null,"reason notes remain bounded");
+        Expect(MediaReviewReasons.Create("approve","APPROVED_STANDARD","Private approval note") is null,"coded approval cannot silently lose private note history");
+        Expect(MediaReviewReasons.Create("approve",null,null) is{Code:"LEGACY_APPROVE"},"legacy client gets an honest uncategorised code rather than invented reason");
         Console.WriteLine($"PASS: photos and media quarantine ({checks}).");
     }
 

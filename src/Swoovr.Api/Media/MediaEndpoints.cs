@@ -116,15 +116,19 @@ public static class MediaEndpoints
         });
 
         var admin = app.MapGroup("/api/admin/media").RequireAuthorization();
-        admin.MapGet("/review", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        admin.MapGet("/review", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,HttpContext context, CancellationToken cancellationToken) =>
         {
+            context.Response.Headers.CacheControl="no-store";
             var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             var items = await db.MediaItems.Where(i => i.Status == MediaStatus.Uncertain && i.RemovedAt == null).OrderBy(i => i.CreatedAt).Take(100).ToListAsync(cancellationToken);
             var pending = await db.MediaItems.Where(i => i.Status == MediaStatus.Pending && i.RemovedAt == null).Select(i => i.CreatedAt).ToListAsync(cancellationToken);
+            var since=now.AddDays(-30);var codes=MediaReviewReasons.All.Select(r=>r.Code).ToArray();
+            var counts=await db.AuditEntries.Where(a=>a.At>=since&&a.Action=="media.reviewed"&&a.Detail!=null&&codes.Contains(a.Detail))
+                .GroupBy(a=>a.Detail!).Select(g=>new{Code=g.Key,Count=g.Count()}).ToDictionaryAsync(x=>x.Code,x=>x.Count,cancellationToken);
             return Results.Ok(new MediaReviewQueue(items.Select(i => new MediaReviewItem(i.Id, i.AccountId, i.CreatedAt, SignalReason(i.Signals), Signals(i.Signals),
-                i.Screener ?? "", i.KnownContentChecked, i.Purpose)).ToList(), pending.Count, pending.Count(c => c < now - TimeSpan.FromHours(1))));
+                i.Screener ?? "", i.KnownContentChecked, i.Purpose)).ToList(), pending.Count, pending.Count(c => c < now - TimeSpan.FromHours(1)),MediaReviewReasons.All.Select(ReasonView).ToArray(),counts,since));
         });
         admin.MapPost("/{id:guid}/view", async (Guid id, MediaViewRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -172,8 +176,8 @@ public static class MediaEndpoints
             var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, actor) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
-            if (request.Decision is not ("approve" or "reject" or "escalate") || request.Reason is { Length: > MediaPolicy.ReasonMax })
-                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidDecision, "Choose approve, reject or escalate.");
+            var review=MediaReviewReasons.Create(request.Decision,request.ReasonCode,request.Reason);
+            if(review is null)return Problem(StatusCodes.Status400BadRequest,ProblemCodes.InvalidDecision,"Choose a matching reason. Other rejection needs notes; approval notes are not supported.");
             // Uncertain photos are decided here; an approved photo can still be taken down (reject) or escalated.
             var item = await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.RemovedAt == null
                 && (i.Status == MediaStatus.Uncertain || i.Status == MediaStatus.Passed && request.Decision != "approve"), cancellationToken);
@@ -183,9 +187,9 @@ public static class MediaEndpoints
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
             var applied = request.Decision switch
             {
-                "approve" => await pipeline.PassAsync(item, actor, now, cancellationToken),
-                "reject" => await pipeline.RejectAsync(item, actor, request.Reason?.Trim(), now, cancellationToken),
-                _ => await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken),
+                "approve" => await pipeline.PassAsync(item, actor, now, cancellationToken,review),
+                "reject" => await pipeline.RejectAsync(item, actor, review.Notes, now, cancellationToken,review),
+                _ => await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken,review),
             };
             if (!applied) return Problem(StatusCodes.Status409Conflict, ProblemCodes.UnknownPhoto, "That photo isn't waiting for a decision.");
             return Results.Ok(new { item.Id, state = request.Decision switch { "approve" => "approved", "reject" => "rejected", _ => "escalated" } });
@@ -199,6 +203,19 @@ public static class MediaEndpoints
         if (current.Account is null) return (null, Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.PersistenceUnavailable, "Accounts are not available."));
         return current.Allows(AccountRole.Admin) ? (current, null) : (null, Results.Forbid());
     }
+
+    private static MediaReviewReasonView ReasonView(MediaReviewReasonDefinition reason)=>new(reason.Code,reason.Decision,reason.Code switch
+    {
+        "APPROVED_STANDARD"=>"Meets current photo rules","APPROVED_NON_EXPLICIT"=>"Non-explicit image permitted by current rules",
+        "APPROVED_AFTER_REVIEW"=>"Acceptable after manual review","APPROVED_FALSE_POSITIVE"=>"Automated flag cleared after review",
+        "REJECT_EXPLICIT_BETA"=>"Explicit content is not permitted in beta","REJECT_IMPERSONATION"=>"Impersonation or unauthorised image use",
+        "REJECT_PRIVACY"=>"Prohibited personal or location information","REJECT_VIOLENCE"=>"Graphic violence or disturbing content",
+        "REJECT_HATE"=>"Hate or prohibited extremist imagery","REJECT_SPAM"=>"Spam or prohibited promotion","REJECT_IMAGE_QUALITY"=>"Technical or image-quality requirements",
+        "REJECT_OTHER"=>"Other violation — notes required","ESCALATE_CHILD_SAFETY"=>"Child-safety concern — specialist review",
+        "ESCALATE_NON_CONSENSUAL"=>"Possible non-consensual image abuse — specialist review","ESCALATE_OTHER"=>"Uncertain serious concern — specialist review",
+        "LEGACY_APPROVE"=>"Uncategorised legacy-client approval","LEGACY_REJECT"=>"Uncategorised legacy-client rejection","LEGACY_ESCALATE"=>"Uncategorised legacy-client escalation",
+        _=>reason.Code,
+    },reason.RequiresNotes,reason.Selectable);
 
     private static string SignalReason(string? signals) => Read(signals, "reason") ?? "unknown";
 
