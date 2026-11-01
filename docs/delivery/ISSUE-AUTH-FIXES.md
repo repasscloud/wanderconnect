@@ -1,6 +1,6 @@
 # Public entry and authentication fixes — Q99–Q105
 
-2 November 2026. DEFAULT reversible presentation changes, preserving CONFIRMED authentication, theme and safety rules. Proposed through a feature PR to main; no merge, deployment, Actions or installed-realm change.
+2 November 2026. DEFAULT reversible presentation changes, preserving CONFIRMED authentication, theme and safety rules. Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153), targeting main; no merge, deployment, Actions or installed-realm change.
 
 ## Results and remaining acceptance
 
