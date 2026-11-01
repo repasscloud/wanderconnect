@@ -13,14 +13,14 @@ DEFAULT: reproduce security/access and workflow defects first, then independentl
 | Q95 / #137 | Partial fix proposed in [#152](https://github.com/repasscloud/wanderconnect/pull/152) | Failed lookups now show the API refusal instead of a false no-match. Actual Edge: denied staff, exact/case/whitespace email, account without profile, genuine no-match, 375px reflow. Original reported identity's linkage remains unverified; no private data inspected. |
 | Q96 / #138 | Fix validated; proposed in [#152](https://github.com/repasscloud/wanderconnect/pull/152) | Staff cookie validation renews expiring server-held tokens through configured Keycloak metadata; a renewal refusal clears the local session before authenticated rendering. Concurrent rotation is shared; cookie deadline/auth_time/method remain unchanged. Branded signed-out page has no staff identity. |
 | Q97 / #139 | Pending independent work | Improve safe review controls without eligibility/policy changes. |
-| Q98 / #140 | Pending | Check existing admin redesign before table work. |
-| Q99 / #141 | Pending | Public landing/navigation; retain draft disclosures. |
-| Q100 / #142 | Pending | Verify guest account routing and BFF privacy. |
-| Q101 / #143 | Pending | Provider sign-in layout; safe synthetic browser evidence. |
-| Q102 / #144 | Pending | Registration layout; preserve adult gate and legal draft wording. |
-| Q103 / #145 | Pending | Validation prominence/focus; preserve neutral recovery. |
-| Q104 / #146 | Pending | Reset layout; preserve provider semantics. |
-| Q105 / #147 | Pending | Neutral dedicated reset acknowledgement. |
+| Q98 / #140 | Fix proposed in [#152](https://github.com/repasscloud/wanderconnect/pull/152) | Database search/page/count beyond legacy1000 cap; structured SSR table, canonical linked names, status/date/sort controls and confirmed actions. Actual Edge1005-row acceptance passed;607 PostgreSQL checks passed, including11 new search cases. |
+| Q99 / #141 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Guest sign-in/create entry and accurate landing copy; truthful status/draft disclosures retained. |
+| Q100 / #142 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Configured guest account redirect, retry/unconfigured escape and BFF401 verified. |
+| Q101 / #143 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Desktop frame/canonical form and phone layout verified; native/device acceptance outstanding. |
+| Q102 / #144 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Responsive registration frame; email-first/adult/draft requirements preserved. |
+| Q103 / #145 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Fictional duplicate-email field focus/description verified. No identity-sync diagnosis claimed. |
+| Q104 / #146 | Proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Reset frame/email input and shared theme verified; provider tokens unchanged. |
+| Q105 / #147 | Partial fix proposed in [#153](https://github.com/repasscloud/wanderconnect/pull/153) | Dedicated equal acknowledgement for enabled/absent/disabled fixtures. Timing/rate-limit acceptance remains unverified. |
 | Q106 / #148 | Pending independent work | Account organisation; onboarding order deferred. |
 | Q107 / #149 | Pending | Profile controls/persistence and responsive layout. |
 | Q108 / #150 | Pending independent work | Preserve D175, assignments, screening and quotas. |
@@ -49,3 +49,15 @@ For isolated Q95 acceptance, publish Admin to a temporary directory, then set `S
 The harness refuses occupied 15880/15882/15883 ports, creates its own DB/client/staff fixture and cleans them up. It does not take over localhost services. Existing browser harness requires installed Edge and Playwright.
 
 Owned running resources: none after Q95 browser cleanup. Temporary build/log files are under `/tmp/swoovr-intake-*`; they contain no intentionally logged credentials and are not publication artifacts. Retained six untracked screenshots in the main checkout remain untouched.
+
+## Q99–Q105 evidence and preview
+
+[PR #153 implementation/evidence](https://github.com/repasscloud/wanderconnect/blob/codex/fix/intake-auth-journeys/docs/delivery/ISSUE-AUTH-FIXES.md) owns detailed results and safe synthetic screenshots. Its full check passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors), plus actual Edge guest routing/BFF privacy and isolated provider UI in light/dark at375/768/1440px. One reset request sample per enabled/absent/disabled category differed; no timing-resistance guarantee is made. All owned provider/mail/network/browser/import resources were removed. Its worktree is `/Users/danijeljw/.codex/worktrees/intake-auth-fixes/wanderconnect-brief`, branch `codex/fix/intake-auth-journeys`.
+
+## Q98 enrolment workflow
+
+[Search contract](../architecture/BETA-ENROLMENT-SEARCH.md): the existing legacy list is unchanged; the new Admin-only/no-store endpoint filters and pages in PostgreSQL, counts before paging and uses canonical account/profile linkage for names. Search supports email/name/reference, state, stable sorting, inclusive UTC created dates and25/50/100 rows. New SSR table preserves revision/confirmation/audit and separates enrolment, email provider acceptance and staff-reported Apple state.
+
+Actual Edge regression failed before the table change and passed with1005 synthetic records: nongranted role refusal, anonymous API401, next/previous pages, selectable size, sorting, search beyond the old1000 cap, status/date filters, confirmed iOS update and confirmed revocation. At375px horizontal table scrolling remains local. Eleven new real-PostgreSQL checks cover ties, references, name linkage, literal percent/underscore searches, date bounds, empty/overflow pages and invalid input. Final full `./scripts/check.sh` passed:607 PostgreSQL cases, three smoke suites, ten staff-session checks and zero build warnings/errors. Independent review found no concrete blockers. All owned resources were removed.
+
+Safe synthetic captures: [desktop table](evidence/2026-11-02-admin-workflows/beta-1440.png), [narrow filtered table](evidence/2026-11-02-admin-workflows/beta-375.png). For the existing isolated Admin runner use `SWOOVR_ADMIN_TEST_SCENARIO=beta`. The harness creates1005 fictional enrolments in its own database and removes the database, provider client/user, hosts and browser on completion. This does not establish performance at arbitrary production scale.

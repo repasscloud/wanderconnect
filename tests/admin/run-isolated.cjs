@@ -42,17 +42,23 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const login=async(port)=>{await page.goto('http://localhost:'+port+'/cases');if(await page.locator('#username').count()){await page.fill('#username',email);await page.fill('#password',password);await page.click('#kc-login')}await page.waitForURL('http://localhost:'+port+'/cases');};
  await login(15882);
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').refused(page);
+ if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='beta') await require('./beta.browser.cjs').refused(page);
  // Local fixture authority only in the disposable database. Production permissions are untouched.
  const staffId=await sql(`SELECT id FROM accounts WHERE subject='${userId}'`);assert(staffId);
  await sql(`INSERT INTO role_grants (id,account_id,role,granted_at) VALUES ('${crypto.randomUUID()}','${staffId}','Admin',now())`);
  // Dense fictional case queue; no real member, evidence or private content is copied.
  for(let i=0;i<14;i++){const id=crypto.randomUUID(),caseId=crypto.randomUUID();await sql(`INSERT INTO accounts (id,issuer,subject,realm,email,status,is_root_admin,created_at,last_seen_at,delete_founder_token) VALUES ('${id}','http://localhost:8180/realms/swoovr-members-dev','design-fictional-${i}','Members','fictional.design.${i}@example.test','Active',false,now(),now(),false); INSERT INTO moderation_cases (id,subject_account_id,status,queue,priority,created_at,updated_at) VALUES ('${caseId}','${id}','Open','Support','${i%4===0?'Urgent':'Normal'}',now(),now())`)}
+ if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='beta'){
+  const member=await sql("SELECT id FROM accounts WHERE subject='design-fictional-0'");
+  await sql(`INSERT INTO beta_enrolments(id,email,created_at,revoked_at,activated_at,account_id) SELECT gen_random_uuid(),CASE WHEN n=1 THEN 'fictional.design.0@example.test' ELSE 'fictional.paging.'||lpad(n::text,4,'0')||'@example.test' END,now()-n*interval '1 minute',CASE WHEN n=2 THEN now() END,CASE WHEN n=1 THEN now() END,CASE WHEN n=1 THEN '${member}'::uuid END FROM generate_series(1,1005) n`);
+ }
  const out=process.env.SWOOVR_ADMIN_SCREENSHOTS||root+'/.local/admin-design-evidence';await fs.mkdir(out,{recursive:true});
  if(process.env.SWOOVR_ADMIN_BASELINE_PUBLISH){await login(15883);await page.reload();await page.screenshot({path:out+'/before-queue-1440.png',fullPage:true});
  await page.goto('http://localhost:15883/access');await page.screenshot({path:out+'/before-access-1440.png',fullPage:true});}
  await login(15882);await page.reload();await page.screenshot({path:out+'/after-queue-1440.png',fullPage:true});
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').found(page);
  else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='sessions') await require('./sessions.browser.cjs')({page,kc,userId});
+ else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='beta') await require('./beta.browser.cjs')({page,base:'http://localhost:15882'});
  else await require(root+'/tests/admin/shell.browser.cjs')({page,base:'http://localhost:15882',out});
  if(process.env.SWOOVR_ADMIN_PREVIEW==='1'){
   const previewDir=await fs.mkdtemp(require('node:os').tmpdir()+'/swoovr-admin-preview-');await fs.chmod(previewDir,0o700);

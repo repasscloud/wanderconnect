@@ -90,6 +90,30 @@ static class BetaEnrolmentOperationsChecks
             check("linked beta enrolment is captured as encrypted independent evidence",await db.EvidenceItems.AnyAsync(e=>e.Kind=="beta-enrolment"&&e.AccountId==member&&e.RecordId==oldId.ToString()));
             await db.BetaEnrolments.Where(e=>e.AccountId==member).ExecuteDeleteAsync();
             check("ordinary beta erasure keeps preserved enrolment evidence",!await db.BetaEnrolments.AnyAsync(e=>e.AccountId==member)&&await db.EvidenceItems.AnyAsync(e=>e.Kind=="beta-enrolment"&&e.RecordId==oldId.ToString()));
+            // Q98: real database filtering precedes bounded pagination, including beyond the legacy1000 cap.
+            await db.MemberProfiles.Where(p=>p.AccountId==member).ExecuteUpdateAsync(set=>set.SetProperty(p=>p.DisplayName,"Fictional % Under_score Adult"));
+            var created=new DateTimeOffset(2026,10,1,12,0,0,TimeSpan.Zero);
+            var paging=Enumerable.Range(0,1005).Select(i=>new BetaEnrolment{Id=Guid.NewGuid(),Email=$"fictional.paging.{i:D4}@example.test",CreatedAt=created,
+                AccountId=i==0?member:null,ActivatedAt=i==0?created:null,RevokedAt=i==1?created:null}).ToArray();
+            db.BetaEnrolments.AddRange(paging);await db.SaveChangesAsync();
+            Task<BetaEnrolmentPage?> Search(string? q="fictional.paging.",string? state=null,string? sort=null,DateOnly? from=null,DateOnly? to=null,int page=1,int size=25)
+                =>BetaEnrolments.SearchAsync(db,q,state,sort,from,to,page,size,default);
+            var first=(await Search())!;var second=(await Search(page:2))!;
+            check("beta search totals are uncapped while pages are bounded",first.Total==1005&&first.Items.Count==25&&first.Page==1&&first.Size==25);
+            check("beta search stable ties give disjoint repeatable pages",!first.Items.Select(e=>e.Id).Intersect(second.Items.Select(e=>e.Id)).Any()&&first.Items.Select(e=>e.Id).SequenceEqual((await Search())!.Items.Select(e=>e.Id)));
+            check("beta search filters before the old list cap",(await Search("FICTIONAL.PAGING.1004")) is{Total:1,Items.Count:1});
+            var named=await Search("under_score");
+            check("beta names use canonical account links and literal substring matching",named is{Total:1}&&named.Items[0].Id==paging[0].Id&&named.Items[0].MemberName=="Fictional % Under_score Adult"&&(await Search("%")) is{Total:1});
+            check("beta search supports enrolment and linked account references",(await Search(paging[1004].Id.ToString())) is{Total:1}&&(await Search(member.ToString())) is{Total:1});
+            check("beta pending activated and revoked filters remain independent",(await Search(state:"pending")) is{Total:1003}&&(await Search(state:"activated")) is{Total:1}&&(await Search(state:"revoked")) is{Total:1});
+            check("beta created-date bounds are inclusive UTC dates",(await Search(from:new(2026,10,1),to:new(2026,10,1))) is{Total:1005}&&(await Search(from:new(2026,10,2))) is{Total:0,Page:1,Items.Count:0});
+            check("beta page overflow clamps to last page without arithmetic overflow",(await Search(page:int.MaxValue)) is{Page:41,Items.Count:5});
+            check("beta selectable sizes and sort apply in the database",(await Search(sort:"email",size:50)) is{Items.Count:50} sorted&&sorted.Items[0].Email.EndsWith("0000@example.test"));
+            check("beta search rejects unsupported filters and reversed dates",await Search(state:"verified") is null&&await Search(sort:"unexpected") is null&&await Search(size:1000) is null&&await Search(page:0) is null&&await Search(from:new(2026,10,2),to:new(2026,10,1)) is null&&await Search(new string('x',255)) is null);
+            var address=await db.Accounts.Where(a=>a.Id==member).Select(a=>a.Email).SingleAsync();
+            db.BetaEnrolments.Add(new(){Id=Guid.NewGuid(),Email=address!,CreatedAt=created});await db.SaveChangesAsync();
+            check("matching email never fabricates a member-name relationship",(await Search(address)) is{Total:1} unlinked&&unlinked.Items[0].MemberName is null);
+
         }
         finally{await using var drop=new NpgsqlCommand("DROP DATABASE "+name+" WITH (FORCE)",admin);await drop.ExecuteNonQueryAsync();}
     }

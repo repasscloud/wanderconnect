@@ -2,48 +2,82 @@
 @inject AdminClient Admin
 <PageTitle>Beta enrolments — Swoovr admin</PageTitle>
 <h1>Beta enrolments</h1>
-<p class="help">Admins can pre-authorise a verified email for the private beta. Intake and its review queue belong to the separate swoovr.com project. Joining that queue does not grant access.</p>
-<p class="help">When invitation email is enabled, adding a new enrolment queues one email; otherwise no invitation email is sent. Check its separate status below. This does not grant an Apple private-distribution invitation. Arrange the approved distribution channel separately. Pending means this enrolment has not activated through a matching verified email; activated is not proof of Apple eligibility or current access through every other account gate.</p>
+<p class="help">Pre-authorise a verified email for the private beta. Joining the separate intake queue does not grant access. Enrolment, email invitation and staff-reported iOS distribution are separate records; none is proof of Apple eligibility or delivery.</p>
 @if (message is not null) { <p class="notice" role="status" data-beta-result="@resultCode">@message</p> }
 @if (loaded && authorised)
 {
-    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="stack" data-enhance="false" data-beta-add>
+    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="row" data-enhance="false" data-beta-add>
         <AntiforgeryToken />
         <label>Email to pre-authorise <input name="email" type="email" required maxlength="254" autocomplete="off" /></label>
         <button type="submit">Add enrolment</button>
     </form>
-    <p class="help">Latest @rows.Count enrolments, up to 1,000. Revoked records remain in the list.</p>
-    @if (rows.Count == 0) { <p data-beta-empty>No enrolments returned.</p> }
-    <ul class="list" data-beta-list="@rows.Count">
-        @foreach (var row in rows)
-        {
-            <li data-beta-row="@row.Id" data-beta-state="@row.State">
-                <strong data-beta-email>@row.Email</strong> · @State(row.State) · created @row.CreatedAt.ToString("d MMM yyyy HH:mm")
-                @if (row.ActivatedAt is { } activated) { <span> · activated @activated.ToString("d MMM yyyy HH:mm")</span> }
-                <p data-beta-invitation="@row.InvitationState">Email invitation: @InvitationLabel(row.InvitationState). Attempts @row.InvitationAttempts. Acceptance is not delivery.</p>
-                <p data-ios-record="@row.IosDistributionState">iOS distribution: @IosLabel(row.IosDistributionState). Source: @row.IosDistributionSource. Revision @row.IosDistributionRevision.</p>
-                @if(row.IosDistributionChangedAt is{}changed){<p class="help">Staff record updated @changed.ToString("u"). This is not an Apple verification.</p>}
-                <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="false" class="stack" data-beta-ios="@row.Id">
-                    <AntiforgeryToken /><input type="hidden" name="iosRevision" value="@row.IosDistributionRevision" />
-                    <label>External iOS distribution state<select name="iosState">@foreach(var state in IosStates){<option value="@state" selected="@(state==row.IosDistributionState)">@IosLabel(state)</option>}</select></label>
-                    <label><input type="checkbox" name="confirmIos" value="yes" required /> Record only work checked in the external distribution service. Swoovr does not send or verify an Apple invitation.</label>
-                    <button type="submit" class="secondary">Record staff-reported state</button>
-                </form>
-                @if (row.State != "revoked")
-                {
-                    <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="() => RevokeAsync(row.Id)" data-enhance="false">
-                        <AntiforgeryToken />
-                        <label><input type="checkbox" name="confirmRevoke" value="yes" required /> Revoke this beta enrolment</label>
-                        <button type="submit" class="secondary" data-beta-revoke="@row.Id">Confirm revocation</button>
-                    </form>
-                }
-            </li>
-        }
-    </ul>
+    <p class="help">Adding an enrolment queues email only when invitation email is enabled. Provider acceptance is not delivery. Arrange any Apple private-distribution invitation separately.</p>
+}
+<form method="get" action="/beta" class="beta-filters" data-enhance="false" aria-label="Search enrolments">
+    <label>Search <input name="q" value="@Query" maxlength="254" placeholder="Email, linked member name or reference" /></label>
+    <label>Status <select name="state"><option value="">All statuses</option>@foreach(var state in new[]{"pending","activated","revoked"}){<option value="@state" selected="@(StateFilter==state)">@State(state)</option>}</select></label>
+    <label>Sort <select name="sort">@foreach(var sort in new[]{("newest","Newest first"),("oldest","Oldest first"),("email","Email"),("name","Linked member name")}){<option value="@sort.Item1" selected="@((Sort??"newest")==sort.Item1)">@sort.Item2</option>}</select></label>
+    <label>Created from (UTC) <input name="from" type="date" value="@Date(From)" /></label>
+    <label>Created to (UTC) <input name="to" type="date" value="@Date(To)" /></label>
+    <label>Per page <select name="size">@foreach(var size in new[]{25,50,100}){<option value="@size" selected="@(Size==size)">@size</option>}</select></label>
+    <button type="submit">Apply filters</button><a href="/beta">Clear filters</a>
+</form>
+@if(loaded&&authorised)
+{
+    <p data-beta-total="@total">@total matching enrolments · page @currentPage of @Pages. Names are shown only for a linked member profile.</p>
+    @if(rows.Count==0){<p data-beta-empty>No enrolments match these filters.</p>}
+    else
+    {
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Beta enrolments table; scroll horizontally on narrow screens">
+        <table data-beta-table data-beta-list="@rows.Count">
+            <thead><tr><th scope="col">Member / email</th><th scope="col">Enrolment</th><th scope="col">Email invitation</th><th scope="col">iOS distribution</th><th scope="col">Actions</th></tr></thead>
+            <tbody>@foreach(var row in rows)
+            {
+                <tr data-beta-row="@row.Id" data-beta-state="@row.State">
+                    <td class="beta-identity"><strong data-beta-email>@row.Email</strong>@if(!string.IsNullOrEmpty(row.MemberName)){<p>@row.MemberName</p>}<p class="help"><small>Reference @row.Id</small></p></td>
+                    <td>@State(row.State)<p class="help">Created @row.CreatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</p>@if(row.ActivatedAt is{}activated){<p class="help">Activated @activated.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</p>}</td>
+                    <td><p data-beta-invitation="@row.InvitationState">@InvitationLabel(row.InvitationState)</p><p class="help">Attempts @row.InvitationAttempts. Acceptance is not delivery.</p></td>
+                    <td><p data-ios-record="@row.IosDistributionState">@IosLabel(row.IosDistributionState)</p><p class="help">@row.IosDistributionSource · revision @row.IosDistributionRevision</p>@if(row.IosDistributionChangedAt is{}changed){<p class="help">Updated @changed.ToString("u"); not Apple verification.</p>}</td>
+                    <td><details class="beta-actions"><summary>Manage enrolment</summary><div class="beta-action-forms">
+                        <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="false" class="stack" data-beta-ios="@row.Id">
+                            <AntiforgeryToken /><input type="hidden" name="iosRevision" value="@row.IosDistributionRevision" />
+                            <label>External iOS distribution state<select name="iosState">@foreach(var state in IosStates){<option value="@state" selected="@(state==row.IosDistributionState)">@IosLabel(state)</option>}</select></label>
+                            <label><input type="checkbox" name="confirmIos" value="yes" required /> I checked this in the external distribution service. Swoovr does not send or verify an Apple invitation.</label>
+                            <button type="submit" class="secondary">Record staff-reported state</button>
+                        </form>
+                        @if(row.State!="revoked")
+                        {
+                            <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="()=>RevokeAsync(row.Id)" data-enhance="false" class="stack">
+                                <AntiforgeryToken /><label><input type="checkbox" name="confirmRevoke" value="yes" required /> Revoke this beta enrolment</label>
+                                <button type="submit" class="secondary" data-beta-revoke="@row.Id">Confirm revocation</button>
+                            </form>
+                        }
+                    </div></details></td>
+                </tr>
+            }</tbody>
+        </table></div>
+    }
+    <nav class="beta-paging" aria-label="Enrolment pages">@if(currentPage>1){<a href="@PageUrl(currentPage-1)">Previous page</a>}else{<span aria-disabled="true">Previous page</span>}@if(currentPage<Pages){<a href="@PageUrl(currentPage+1)">Next page</a>}else{<span aria-disabled="true">Next page</span>}</nav>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery(Name="q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name="state")] public string? StateFilter { get; set; }
+    [SupplyParameterFromQuery(Name="sort")] public string? Sort { get; set; }
+    [SupplyParameterFromQuery(Name="from")] public DateOnly? From { get; set; }
+    [SupplyParameterFromQuery(Name="to")] public DateOnly? To { get; set; }
+    [SupplyParameterFromQuery(Name="page")] public int? PageNumber { get; set; }
+    [SupplyParameterFromQuery(Name="size")] public int? RequestedSize { get; set; }
+    private int Size=>RequestedSize??25;
     private List<BetaEnrolmentView> rows = [];
+    private int total,currentPage=1;
+    private int Pages=>Math.Max(1,1+(total-1)/Math.Max(1,Size));
+    private static string? Date(DateOnly? date)=>date?.ToString("yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture);
+    private string PageUrl(int page)
+    {
+        var parameters=new Dictionary<string,string?>{{"q",Query},{"state",StateFilter},{"sort",Sort},{"from",Date(From)},{"to",Date(To)},{"page",page.ToString()},{"size",Size.ToString()}};
+        return "/beta?"+string.Join("&",parameters.Where(p=>!string.IsNullOrEmpty(p.Value)).Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value!)));
+    }
     private bool loaded, authorised;
     private string? message, resultCode;
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -51,9 +85,10 @@
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
     private async Task LoadAsync()
     {
-        var result = await Admin.BetaEnrolmentsAsync();
-        (loaded, authorised, rows) = (true, result.Ok, result.Value ?? []);
-        if (!result.Ok) { resultCode = result.Code ?? result.Status.ToString(); message = AdminText.Refusal(result.Status, result.Code); }
+        var result = await Admin.SearchBetaEnrolmentsAsync(Query,StateFilter,Sort,From,To,PageNumber??1,Size);
+        (loaded,authorised)=(true,result.Ok);
+        if(result.Ok){rows=result.Value!.Items.ToList();total=result.Value.Total;currentPage=result.Value.Page;}
+        else {rows=[];total=0;resultCode=result.Code??result.Status.ToString();message=result.Status==400?"Check the search filters, page size and date range.":AdminText.Refusal(result.Status,result.Code);}
     }
     private async Task AddAsync()
     {

@@ -2156,6 +2156,9 @@ Implementation progress (2 November 2026): [PR #152](https://github.com/repasscl
 
 ### Q98 — Redesign Beta Enrollments screen with searchable table, improved layout and scalable administration
 
+Implementation progress (2 November2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds server-side search/pagination and a structured enrolment table. Actual Edge verified1005 records, role/anonymous refusal, paging/sort/search/status/date controls and confirmed revision-aware iOS/revoke actions. Eleven new database search checks passed; full `./scripts/check.sh` passed with607 PostgreSQL cases, three smoke suites and zero build warnings/errors. Names use canonical account linkage, never email-based identity inference; Apple/provider states remain distinct. See [handoff](ISSUE-FIX-HANDOFF.md) and [contract](../architecture/BETA-ENROLMENT-SEARCH.md). Issue remains open pending merge.
+
+
 - Issue: [#140](https://github.com/repasscloud/wanderconnect/issues/140); [intake item 5](ISSUE-INTAKE.md#intake-5).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.

@@ -88,6 +88,16 @@ public static class AdminEndpoints
             return Results.Ok(list.Select(BetaEnrolments.View).ToList());
         });
 
+        admin.MapGet("/beta/search",async(string? q,string? state,string? sort,DateOnly? from,DateOnly? to,int? page,int? size,
+            ClaimsPrincipal user,AccountResolver accounts,HttpContext context,CancellationToken token)=>
+        {
+            context.Response.Headers.CacheControl="no-store";
+            var(_,denied)=await StaffAsync(user,accounts,AccountRole.Admin,token);
+            if(denied is not null)return denied;
+            var result=await BetaEnrolments.SearchAsync(accounts.Db!,q,state,sort,from,to,page??1,size??25,token);
+            return result is null?Problem(StatusCodes.Status400BadRequest,ProblemCodes.InvalidRequest,"Check the search filters and date range."):Results.Ok(result);
+        });
+
         admin.MapDelete("/beta/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
