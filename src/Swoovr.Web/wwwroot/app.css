@@ -437,3 +437,95 @@ legend { padding: 0; margin-bottom: 4px; font: var(--type-section); font-size: 1
 /* D213: system events are neutral notices, visually separate from either member's message bubbles. */
 .chat-thread .chat-system { align-self: center; max-width: 100%; padding: 16px 0; color: var(--muted); text-align: center; border-block: 1px solid var(--border); font: var(--type-small); }
 .chat-thread .chat-system p { margin: 0; }
+
+/* Member web responsive composition. Form columns retain the confirmed 420px measure;
+   browsing pages opt into the shell instead of inheriting the phone-sized column. */
+.browse-page { width: 100%; }
+.collection-page, .profile-page, .account-page { max-width: 960px; margin-inline: auto; }
+.conversation-page { max-width: 760px; margin-inline: auto; }
+.reading-page { max-width: 44rem; margin-inline: auto; }
+.browse-page > .page-heading, .browse-page > .account-actions,
+.collection-page > .account-actions, .profile-page > .account-actions { max-width: 420px; }
+.browse-page .explore-modes { max-width: 36rem; }
+.browse-page .explore-results > .notice { max-width: 65ch; margin-bottom: 24px; }
+.browse-page .people-grid { justify-content: start; }
+.connections-grid, .person-layout, .account-layout { display: grid; gap: 24px; align-items: start; }
+.connections-grid > .card { margin: 0; }
+.person-story, .person-actions, .account-details, .explore-results { min-width: 0; }
+.person-layout .account-section:first-child { margin-top: 0; }
+.person-actions form, .account-details form, .account-details > .account-actions { max-width: 420px; }
+.person-actions .account-actions { margin-top: 16px; }
+.chats-page [data-chat-list] > li { padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); justify-content: space-between; }
+.conversation-page > .account-actions { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+.conversation-page .bubble { max-width: min(78%, 34rem); }
+.home { max-width: 960px; margin-inline: auto; display: grid; gap: 32px; align-items: start; }
+.home .primary-button { max-width: 420px; }
+.home .card { margin-top: 0; }
+
+/* Shrink intrinsic tracks and wrap long names/actions instead of hiding page overflow. */
+.request-list li, .request-person, .request-actions, .chat-head > div { min-width: 0; }
+.request-person, .request-actions, .profile-name, .person-name, .chat-name { flex-wrap: wrap; }
+.request-person a { overflow-wrap: anywhere; }
+.request-actions { flex-wrap: wrap; max-width: 100%; }
+.request-actions .button { width: auto; flex: 1 1 auto; }
+.account-session dl > div, .standing-facts > div { flex-wrap: wrap; }
+.account-session dd, .standing-facts dd { overflow-wrap: anywhere; }
+.segmented { flex-wrap: wrap; }
+.segment { min-width: 0; overflow-wrap: anywhere; }
+.settings-list a { padding-block: 12px; }
+.dialog { max-height: calc(100dvh - 2 * var(--gutter)); }
+.dialog-backdrop { overflow-y: auto; }
+main { min-height: calc(100svh - 150px); }
+html { scroll-padding-block: 24px calc(var(--tab-bar) + 24px + env(safe-area-inset-bottom)); }
+
+@media (min-width: 52rem) {
+  .connections-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .person-layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; }
+  .account-layout { grid-template-columns: minmax(0, 1fr) minmax(0, .85fr); gap: 48px; }
+  .account-layout > .settings-list { margin-top: 0; }
+  .home { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 64px; padding-block: 32px; }
+}
+
+/* Keep the reference tile size on ordinary screens; use relative measures so text
+   enlargement gives tiles enough room. Narrow phones may shrink the two tracks slightly. */
+.people-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.625rem), 10.625rem)); grid-auto-rows: minmax(16.875rem, 1fr); }
+.profile-tile { width: 100%; min-height: 16.875rem; }
+.tile-photo { flex-basis: 10.625rem; height: 10.625rem; }
+@media (max-width: 389px) and (min-width: 23rem) {
+  .people-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 24rem) {
+  .tile-chips { flex-wrap: wrap; }
+  .profile-tile h2, .tile-area, .tile-contact, .tile-intentions { white-space: normal; }
+  .tile-quote { display: block; }
+  .tile-quote-box { overflow: visible; }
+}
+@media (max-width: 759px) {
+  body { padding-bottom: calc(var(--tab-bar) + env(safe-area-inset-bottom)); }
+  .action-bar { bottom: calc(var(--tab-bar) + env(safe-area-inset-bottom)); }
+  .screen-head { flex-wrap: wrap; }
+  .request-actions { margin-left: 0; }
+}
+.collection-page form { max-width: 420px; }
+.travel-layout { display: grid; gap: 24px; align-items: start; }
+.travel-layout > .card { margin: 0; }
+@media (min-width: 52rem) {
+  .travel-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .travel-layout > [data-visitors] { grid-column: 1 / -1; }
+}
+.app-header, .tab-bar { flex-wrap: wrap; }
+.tab span { overflow-wrap: anywhere; }
+@media (max-width: 759px) {
+  :root { --tab-bar: 5rem; }
+  .tab { min-width: 4rem; max-width: none; }
+}
+
+/* Intrinsic file-input and unbroken intention labels must not force a wider page at200% text. */
+input[type=file] { max-width: 100%; }
+.chip-row > li { min-width: 0; max-width: 100%; }
+.chip-row .chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.field:has(label .field-help) > label { position: static; display: block; margin-bottom: 6px; white-space: normal; overflow: visible; }
+.field:has(label .field-help) > textarea { padding-top: 16px; }
+@media (max-width: 26rem) {
+  .explore-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+}

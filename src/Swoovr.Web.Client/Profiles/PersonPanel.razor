@@ -20,6 +20,8 @@
 </div>
 @if (person is not null)
 {
+    <div class="person-layout">
+    <div class="person-story">
     @* D203: the main photo, then each shown mode's own photos (approved only, short-lived links; never another mode's). *@
     @if (person.Photo is not null || person.Modes.Any(m => m.Photos?.Count > 0))
     {
@@ -60,6 +62,8 @@
             }
         </ul>
     </section>
+    </div>
+    <div class="person-actions">
     <section class="card account-section" aria-labelledby="connect-heading">
         <h2 id="connect-heading">Connect</h2>
         <p class="field-help">A request goes to one mode at a time. Nothing connects until they accept.</p>
@@ -132,6 +136,8 @@
                 Submitted="() => reportSent=true" Blocked="() => { person = null; blockedNow = true; }" />
     @* D190: the separate Serious Safety Incident pathway. *@
     <p class="account-actions"><a class="button button-secondary" href="@($"/me/safety?type=profile&id={Id}")" data-serious-link>Report a serious safety incident</a></p>
+    </div>
+    </div>
 }
 @if (blockedNow)
 {

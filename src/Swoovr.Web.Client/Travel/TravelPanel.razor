@@ -12,6 +12,7 @@
 </div>
 @if (loaded && refused is null)
 {
+    <div class="travel-layout">
     <section class="card account-section" aria-labelledby="trips-heading" data-trips>
         <h2 id="trips-heading">Your trips</h2>
         @if (trips.Count == 0) { <p class="field-help">No trips yet.</p> }
@@ -111,6 +112,7 @@
             <p role="status" aria-live="polite" class="field-help" data-visitor-status="@visitorStatus">@visitorMessage</p>
         }
     </section>
+    </div>
 }
 @code {
     private bool loaded, busy, more, visible = true;
