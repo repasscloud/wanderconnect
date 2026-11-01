@@ -13,7 +13,7 @@ else
     <h1 data-case-detail="@c.Id">@(c.SubjectName ?? "(no name)")</h1>
     @if (detail.EvidencePurgedAt is { } expired) { <p class="notice" data-case-evidence-expired>Investigation content was disposed under its retention schedule on @expired.ToString("d MMM yyyy"). Remaining records are the restricted compliance summary. A disposed review cannot be reopened.</p> }
 
-    <dl class="facts">
+    <dl class="facts card">
         <div><dt>Status</dt><dd data-case-status="@c.Status">@c.Status</dd></div>
         <div><dt>Priority</dt><dd>@c.Priority</dd></div>
         <div><dt>Queue</dt><dd>@c.Queue@(detail.StaffAffiliatedSubject ? " (staff-affiliated)" : "")</dd></div>
@@ -74,7 +74,7 @@ else
     <h2>Action</h2>
     @if (c.Status != "closed")
     {
-        <form method="post" @formname="act" @onsubmit="ActAsync" class="stack" data-action-form data-enhance="false">
+        <form method="post" @formname="act" @onsubmit="ActAsync" class="stack card" data-action-form data-enhance="false">
             <AntiforgeryToken />
             <label>Action
                 <select name="ActForm.Action">
@@ -94,7 +94,7 @@ else
             </select></label>
             <p class="field-help">Reporting metadata records an explicit review. It does not infer a policy violation from a report category or detector label. Country is the saved home declaration at action, not verified residence.</p>
             <label>Days<input name="ActForm.Days" type="number" min="1" max="90" /></label>
-            <fieldset><legend>Recorded with a restriction (the member is fully restricted either way, Q55)</legend>
+            <fieldset><legend>Recorded with a restriction (the member is fully restricted either way)</legend>
                 <label><input type="checkbox" name="ActForm.HideFromDiscovery" value="true" /> Out of discovery</label>
                 <label><input type="checkbox" name="ActForm.NoNewRequests" value="true" /> No new requests</label>
                 <label><input type="checkbox" name="ActForm.NoMessages" value="true" /> No messages</label>
