@@ -2105,3 +2105,187 @@ From [ONLINE-DATING-CODE.md](ONLINE-DATING-CODE.md) (#55, DRAFT, not legal advic
 | --- | --- | --- | --- | --- | --- |
 | Q93 | [#134](https://github.com/repasscloud/wanderconnect/issues/134) | OPEN maintenance feedback | Legacy member-auth harness acceptance, not member layout implementation | `tests/auth/members.browser.cjs` hard-codes MAIN API and bypasses shared versioned/owned helpers; owned-runner attempt failed404 at line151. Separate account122 and auth-navigation17 pass. [Evidence](MEMBER-RESPONSIVE-LAYOUT.md). | DEFAULT: adapt the legacy fixture to paired owned API/database and current version headers, retaining negative cases; never weaken product authentication to satisfy it. |
 | Q94 | [#135](https://github.com/repasscloud/wanderconnect/issues/135) | OPEN staff accessibility feedback | Staff enlarged-text acceptance; outside member-only layout scope | Expanded interactions twice reported only `staff text resized200% at320px reflows`. Member floor25 and responsive356 pass; no staff implementation changed. [Evidence](MEMBER-RESPONSIVE-LAYOUT.md). | DEFAULT: reproduce baseline, distinguish actual overflowing elements from render timing and fix the owning staff layout/test with evidence; do not hide overflow or weaken checks. |
+
+## Issue intake investigations — 2 November 2026
+
+Owner-authorised tracking/publication only. All 15 substantive reports processed; no fixes, redesigns or policy changes implemented. OPEN findings below distinguish evidence from diagnosis; DEFAULT follow-up is current-baseline reproduction without resetting data. See [evidence review](evidence/2026-11-01-issue-intake/README.md).
+
+<a id="q95"></a>
+
+### Q95 — Admin account search fails to find existing users by email address
+
+- Issue: [#137](https://github.com/repasscloud/wanderconnect/issues/137); [intake item 2](ISSUE-INTAKE.md#intake-2).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Accounts.razor discards unsuccessful lookup status with Value ?? [], so an API refusal can appear as no match. The API normalises email, queries application Accounts and left-joins optional MemberProfiles; it does not search Keycloak directly. Neither missing application records nor provider/database mismatch is established. Capture status/code and canonical subject/account linkage with a fictional fixture before diagnosing.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #88 (staff permissions), #134 (auth harness); neither covers this lookup failure.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q96"></a>
+
+### Q96 — Admin session incorrectly reports expiration and displays inconsistent, unbranded authentication pages
+
+- Issue: [#138](https://github.com/repasscloud/wanderconnect/issues/138); [intake item 3](ISSUE-INTAKE.md#intake-3).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: AdminText maps any API 401 to session-ended; StaffTokenHandler forwards the stored access token. The signed-out endpoint returns minimal raw HTML. The header can reflect the cookie while the API refuses a token; expiration/renewal failure remains a hypothesis, not a reproduced cause. Screenshots show date-of-birth and media routes with different message treatment.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #88 and #135; neither investigates the cookie/API lifecycle or signed-out presentation.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q97"></a>
+
+### Q97 — Improve Admin photo moderation workflow, reveal controls and standardised review decisions
+
+- Issue: [#139](https://github.com/repasscloud/wanderconnect/issues/139); [intake item 4](ISSUE-INTAKE.md#intake-4).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Code confirms required purpose before a media link, CSS blur/reveal checkbox and free-text decision reason; escalation already exists. The second screenshot shows browser required-field validation, not a revealed photograph. OPEN: intake permission for explicit private-chat media conflicts with CONFIRMED D178 (no explicit content anywhere in beta). Preserve screening, conflict exclusions, audit and evidence holds; no permission change is approved here.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #85 (screening), #88 (sensitive access), #116 (playbook), #54 (explicit-media policy); these do not cover the combined review-controls/reason-code UX.
+- Owner input / missing evidence: Resolve explicit private-chat permission conflict with D178 before policy implementation.
+
+<a id="q98"></a>
+
+### Q98 — Redesign Beta Enrollments screen with searchable table, improved layout and scalable administration
+
+- Issue: [#140](https://github.com/repasscloud/wanderconnect/issues/140); [intake item 5](ISSUE-INTAKE.md#intake-5).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Code renders a list of up to 1,000 enrolments with per-record forms and no table search/sort/pagination controls. Screenshot supports dense stacked controls, not a measured 1,000-record performance failure. Preserve distinction between enrolment, invitation delivery and staff-reported Apple status.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #25 covers original enrolment portal/delivery follow-ups; this is a distinct scalable table/search redesign, not a duplicate of the original missing portal.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q99"></a>
+
+### Q99 — Redesign public landing page and remove authenticated navigation and development messaging
+
+- Issue: [#141](https://github.com/repasscloud/wanderconnect/issues/141); [intake item 7](ISSUE-INTAKE.md#intake-7).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Home source confirms work-in-progress copy and appearance CTA. Shared navigation is visible in the screenshot. OPEN: removing genuine draft/legal/readiness disclosures must not imply approved documents or a live service. Keep Standard default and personal choices; no rebranding.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #48 (accessibility) and #57 (release review); neither covers public entry navigation/copy.
+- Owner input / missing evidence: Any removal of truthful readiness/legal draft disclosures depends on actual approval; no approval inferred.
+
+<a id="q100"></a>
+
+### Q100 — Correct unauthenticated /account routing and prevent account content being displayed before sign-in
+
+- Issue: [#142](https://github.com/repasscloud/wanderconnect/issues/142); [intake item 8](ISSUE-INTAKE.md#intake-8).
+- Status: OPEN investigation / feedback; processing complete. Priority: Medium.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: The unauthenticated branch renders sign-in/create links and public settings/legal links. Private MemberAccountPanel is in the authenticated branch with prerender disabled. Screenshot supports routing/UX dissatisfaction; private account data exposure is not demonstrated. Verify guest HTML/API responses and safe return paths independently.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related intake 7/9/14; #134 is a harness issue, not this route change.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q101"></a>
+
+### Q101 — Restore approved Swoovr sign-in design and correct desktop and mobile authentication layouts
+
+- Issue: [#143](https://github.com/repasscloud/wanderconnect/issues/143); [intake item 9](ISSUE-INTAKE.md#intake-9).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Custom Keycloak theme already exists. Compare current browser viewports and system-browser mobile auth against reference, rather than assuming no theme. Read-only reference is a layout concept; canonical Standard sign-in tokens govern. Native presentation not reproduced.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #48; separate from intake 10/12 page-specific registration/recovery acceptance.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q102"></a>
+
+### Q102 — Redesign account registration screen to meet Swoovr's production design standards
+
+- Issue: [#144](https://github.com/repasscloud/wanderconnect/issues/144); [intake item 10](ISSUE-INTAKE.md#intake-10).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Theme code includes registration, adult checkbox, legal draft wording and development footer. Registration screenshot for intake 11 supports narrow layout. OPEN: cosmetic removal of draft/acceptance caveats cannot make draft legal documents operative; coordinate legal gate #57. Do not change provider or age checks.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #57 and intake 9/11; registration layout is independently actionable.
+- Owner input / missing evidence: Legal text cannot imply draft documents are in force; resolve with #57 before removing caveats.
+
+<a id="q103"></a>
+
+### Q103 — Registration errors are difficult to identify when an email address is already registered
+
+- Issue: [#145](https://github.com/repasscloud/wanderconnect/issues/145); [intake item 11](ISSUE-INTAKE.md#intake-11).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Screenshot visibly contains an existing-email error; it does not establish broken registration or invitation activation. Field macro renders error text with aria-live, but prominence/focus need actual browser/assistive-technology checks. Balance recovery guidance with neutral responses and enumeration controls; beta invitation is not a new identity.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related intake 10 and #25; neither specifically covers validation prominence/recovery.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q104"></a>
+
+### Q104 — Redesign Forgot Password screen to match Swoovr authentication standards
+
+- Issue: [#146](https://github.com/repasscloud/wanderconnect/issues/146); [intake item 12](ISSUE-INTAKE.md#intake-12).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Custom reset form uses shared theme, email input and send-reset-link action; this is a refinement request rather than evidence of an unthemed default provider page. Screenshot supports layout criticism, not failed email delivery. Preserve provider reset token semantics.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related intake 9/13; form styling and post-submit confirmation have different acceptance.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q105"></a>
+
+### Q105 — Replace password reset notification with dedicated confirmation screen and prevent account enumeration
+
+- Issue: [#147](https://github.com/repasscloud/wanderconnect/issues/147); [intake item 13](ISSUE-INTAKE.md#intake-13).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Screenshot shows a generic email acknowledgement embedded above a sign-in form, with a populated masked password field. It does not prove account enumeration, password disclosure, email delivery or automatic sign-in. Compare existing/nonexistent/disabled addresses including timing and email effects using safe fixtures; keep confirmation neutral.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related intake 12; no existing issue specifically covers reset confirmation or comparative enumeration testing.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q106"></a>
+
+### Q106 — Redesign Swoovr Me / Account page for a desktop-first experience and clearer onboarding flow
+
+- Issue: [#148](https://github.com/repasscloud/wanderconnect/issues/148); [intake item 14](ISSUE-INTAKE.md#intake-14).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Signed-in screenshot shows dense account/safety/status/settings composition. Recent responsive work already widened account layout; verify current baseline before attributing all desktop problems to old width. OPEN: fixed phone-then-DOB order and revision-persisted safety dismissal need reconciliation with configured backend gates and existing safety notices; do not weaken them.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #50 (standing), #121 (safety advice), #48; none covers this account/onboarding composition.
+- Owner input / missing evidence: Reconcile required phone → DOB sequence and revision-based safety acknowledgement with existing backend gates.
+
+<a id="q107"></a>
+
+### Q107 — Redesign Profile and Modes page for responsive layouts, clearer controls and improved profile management
+
+- Issue: [#149](https://github.com/repasscloud/wanderconnect/issues/149); [intake item 15](ISSUE-INTAKE.md#intake-15).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Screenshots support long narrow form, empty display name in one capture and home-city label overlap in another. Code uses checkboxes (styled like large controls), automatically enables visibility when enabling a mode, and also exposes a separate visibility checkbox: inability to turn visibility off is reported, not established. Check persistence and stale updates. Preserve customised names and explicit cross-mode about consent (D199).
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #37/#91 (mode privacy), #48; no exact profile-editor UX/label/initialisation duplicate.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.
+
+<a id="q108"></a>
+
+### Q108 — Redesign Your Photos page with shared photo library, independent mode galleries and membership limits
+
+- Issue: [#150](https://github.com/repasscloud/wanderconnect/issues/150); [intake item 16](ISSUE-INTAKE.md#intake-16).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Code confirms shared main photo and optional per-mode assignments; screenshot shows a photo library and repetitive mode rows. OPEN: proposal for independent mode main photos changes CONFIRMED D175; 60 library / 8 Free / 16 Plus / 24 Premium limits are intake proposals pending reconciliation with current quotas/entitlements. Preserve existing assignments, moderation and downgrade data; no migration is authorised.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #37/#73 (cross-mode policy), #85 (screening); new gallery/limits proposal is not covered in full.
+- Owner input / missing evidence: Resolve independent mode main photos versus D175 and confirm proposed 60-library / 8–16–24 tier limits.
+
+<a id="q109"></a>
+
+### Q109 — Redesign "Who I'd Like to Meet" with responsive layouts, clearer discovery preferences and improved filtering controls
+
+- Issue: [#151](https://github.com/repasscloud/wanderconnect/issues/151); [intake item 17](ISSUE-INTAKE.md#intake-17).
+- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
+- Evidence/consequence: Actual route is /me/matching, linked from Account. Screenshot supports long narrow combined identity/filter forms and separate saves. Current delivery explicitly retains 420px on matching/profile forms. Reorganise only after validating independent mode persistence, Any/All, five required/ten excluded, reciprocal exclusions and backend entitlements; no matching-semantic change is approved.
+- DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
+- Duplicate assessment: Related #44 is compatibility scoring/explanations, #48 accessibility; neither covers this settings composition.
+- Owner input / missing evidence: No immediate owner blocker. Exact capture revision, browser/viewport and runtime reproduction remain unrecorded; request fresh fictional evidence if needed.

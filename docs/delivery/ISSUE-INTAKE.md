@@ -3,9 +3,11 @@
 Use this file to investigate reported items and create GitHub issues.
 Do not implement fixes unless separately requested.
 
+Processing run: 2 November 2026. Items 2–5 and 7–17 are tracked as Q95–Q109 / GitHub #137–#151. Item 1 is an unused template, not a report; item 6 was not supplied. No substantive item remains unprocessed. See each investigation note and the [evidence publication review](evidence/2026-11-01-issue-intake/README.md). References to “issue #7” etc. in original report prose mean intake item numbers, not GitHub issue numbers; the metadata links are authoritative. Proposed acceptance below is feedback, subject to existing CONFIRMED policy and the explicit OPEN conflicts in investigation notes.
+
 ## 1. Short, descriptive title
 
-- Status: Ready for investigation
+- Status: Template only — not a report
 - Area: Member web / Admin / API / Docker / Mobile
 - Page or URL:
 - Type: Bug / Improvement / Question
@@ -34,15 +36,27 @@ Who is affected, and what does it prevent?
 ### Notes or constraints
 Optional context, suggested explanations or requirements.
 
+<a id="intake-2"></a>
+
 ## 2. Admin account search fails to find existing users by email address
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/accounts?email=fictional.alex%40example.test`
 - **Type:** Bug
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#137](https://github.com/repasscloud/wanderconnect/issues/137)
+- **Tracking Q:** Q95
+
+### Intake investigation — 2 November 2026
+
+Q95: Accounts.razor discards unsuccessful lookup status with Value ?? [], so an API refusal can appear as no match. The API normalises email, queries application Accounts and left-joins optional MemberProfiles; it does not search Keycloak directly. Neither missing application records nor provider/database mismatch is established. Capture status/code and canonical subject/account linkage with a fictional fixture before diagnosing.
+
+Source inspection: `src/Swoovr.Admin/Components/Pages/Accounts.razor; src/Swoovr.Api/Accounts/AdminEndpoints.cs:195`.
+
+Duplicate review: Related #88 (staff permissions), #134 (auth harness); neither covers this lookup failure.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -129,15 +143,27 @@ Email lookup should use the canonical identity/account relationship and must res
 - [ ] Appropriate automated tests cover existing-account lookup and genuine no-match scenarios.
 - [ ] The "No account with that email" message is displayed only when no matching account exists within the administrator's authorised search scope.
 
+<a id="intake-3"></a>
+
 ## 3. Admin session incorrectly reports expiration and displays inconsistent, unbranded authentication pages
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/media` (and other Admin pages)
 - **Type:** Bug
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#138](https://github.com/repasscloud/wanderconnect/issues/138)
+- **Tracking Q:** Q96
+
+### Intake investigation — 2 November 2026
+
+Q96: AdminText maps any API 401 to session-ended; StaffTokenHandler forwards the stored access token. The signed-out endpoint returns minimal raw HTML. The header can reflect the cookie while the API refuses a token; expiration/renewal failure remains a hypothesis, not a reproduced cause. Screenshots show date-of-birth and media routes with different message treatment.
+
+Source inspection: `src/Swoovr.Admin/StaffSession.cs; src/Swoovr.Admin/Program.cs; src/Swoovr.Admin/Components/Pages/MediaReview.razor`.
+
+Duplicate review: Related #88 and #135; neither investigates the cookie/API lifecycle or signed-out presentation.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -424,15 +450,27 @@ Where technically appropriate, use a shared authentication layout that is separa
 - [ ] Automated tests cover valid sessions, token expiration, session renewal, explicit logout and unauthorised access.
 - [ ] The underlying cause is identified and resolved rather than hidden through UI changes.
 
+<a id="intake-4"></a>
+
 ## 4. Improve Admin photo moderation workflow, reveal controls and standardised review decisions
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/media`
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#139](https://github.com/repasscloud/wanderconnect/issues/139)
+- **Tracking Q:** Q97
+
+### Intake investigation — 2 November 2026
+
+Q97: Code confirms required purpose before a media link, CSS blur/reveal checkbox and free-text decision reason; escalation already exists. The second screenshot shows browser required-field validation, not a revealed photograph. OPEN: intake permission for explicit private-chat media conflicts with CONFIRMED D178 (no explicit content anywhere in beta). Preserve screening, conflict exclusions, audit and evidence holds; no permission change is approved here.
+
+Source inspection: `src/Swoovr.Admin/Components/Pages/MediaReview.razor; docs/delivery/DECISIONS.md (D178, D203, D205)`.
+
+Duplicate review: Related #85 (screening), #88 (sensitive access), #116 (playbook), #54 (explicit-media policy); these do not cover the combined review-controls/reason-code UX.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -821,15 +859,27 @@ Optional notes should supplement, not replace, structured reasons.
 - [ ] Prohibited and high-risk media continues to be restricted or escalated appropriately.
 - [ ] Existing permissions, audit logging and evidence preservation requirements remain enforced.
 
+<a id="intake-5"></a>
+
 ## 5. Redesign Beta Enrollments screen with searchable table, improved layout and scalable administration
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/beta`
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#140](https://github.com/repasscloud/wanderconnect/issues/140)
+- **Tracking Q:** Q98
+
+### Intake investigation — 2 November 2026
+
+Q98: Code renders a list of up to 1,000 enrolments with per-record forms and no table search/sort/pagination controls. Screenshot supports dense stacked controls, not a measured 1,000-record performance failure. Preserve distinction between enrolment, invitation delivery and staff-reported Apple status.
+
+Source inspection: `src/Swoovr.Admin/Components/Pages/BetaEnrolments.razor; src/Swoovr.Api/Accounts/AdminEndpoints.cs`.
+
+Duplicate review: Related #25 covers original enrolment portal/delivery follow-ups; this is a distinct scalable table/search redesign, not a duplicate of the original missing portal.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -1131,15 +1181,27 @@ Card-based layouts may be appropriate for individual record details, but tables 
 - [ ] Administrative permissions and audit logging remain enforced.
 - [ ] Desktop and narrower viewport layouts remain usable and accessible.
 
+<a id="intake-7"></a>
+
 ## 7. Redesign public landing page and remove authenticated navigation and development messaging
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `http://localhost:5081/`
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#141](https://github.com/repasscloud/wanderconnect/issues/141)
+- **Tracking Q:** Q99
+
+### Intake investigation — 2 November 2026
+
+Q99: Home source confirms work-in-progress copy and appearance CTA. Shared navigation is visible in the screenshot. OPEN: removing genuine draft/legal/readiness disclosures must not imply approved documents or a live service. Keep Standard default and personal choices; no rebranding.
+
+Source inspection: `src/Swoovr.Web/Components/Pages/Home.razor; src/Swoovr.Web/Components/Layout/MainLayout.razor`.
+
+Duplicate review: Related #48 (accessibility) and #57 (release review); neither covers public entry navigation/copy.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -1299,15 +1361,27 @@ The current page:
 - [ ] Desktop, tablet and mobile layouts are responsive and visually polished.
 - [ ] The UAT experience reflects the intended production appearance.
 
+<a id="intake-8"></a>
+
 ## 8. Correct unauthenticated /account routing and prevent account content being displayed before sign-in
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `http://localhost:5081/account`
 - **Type:** Improvement
 - **Priority:** Medium
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#142](https://github.com/repasscloud/wanderconnect/issues/142)
+- **Tracking Q:** Q100
+
+### Intake investigation — 2 November 2026
+
+Q100: The unauthenticated branch renders sign-in/create links and public settings/legal links. Private MemberAccountPanel is in the authenticated branch with prerender disabled. Screenshot supports routing/UX dissatisfaction; private account data exposure is not demonstrated. Verify guest HTML/API responses and safe return paths independently.
+
+Source inspection: `src/Swoovr.Web/Components/Pages/Account.razor`.
+
+Duplicate review: Related intake 7/9/14; #134 is a harness issue, not this route change.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -1428,15 +1502,27 @@ The issue:
 - [ ] No redirect loops occur.
 - [ ] Login and registration options are presented through the correct public entry points.
 
+<a id="intake-9"></a>
+
 ## 9. Restore approved Swoovr sign-in design and correct desktop and mobile authentication layouts
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web / Mobile
 - **Page or URL:** Member sign-in flow, including `/account` where currently used
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#143](https://github.com/repasscloud/wanderconnect/issues/143)
+- **Tracking Q:** Q101
+
+### Intake investigation — 2 November 2026
+
+Q101: Custom Keycloak theme already exists. Compare current browser viewports and system-browser mobile auth against reference, rather than assuming no theme. Read-only reference is a layout concept; canonical Standard sign-in tokens govern. Native presentation not reproduced.
+
+Source inspection: `containers/keycloak/themes/swoovr/login/login.ftl; containers/keycloak/themes/swoovr/login/resources/css/swoovr.css; docs/product/03-SCREENS-AND-DESIGN.md`.
+
+Duplicate review: Related #48; separate from intake 10/12 page-specific registration/recovery acceptance.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -1458,7 +1544,7 @@ The member sign-in interface should follow the previously approved Swoovr aesthe
 
 Primary reference:
 
-`./docs/design/reference/screens/04-sign-in.png`
+`../design/reference/screens/04-sign-in.png`
 
 Additional visual reference:
 
@@ -1565,11 +1651,11 @@ Sign-in, registration, password recovery and other authentication screens should
 
 **Approved design reference:**
 
-![Swoovr sign-in design reference](./docs/design/reference/screens/04-sign-in.png)
+![Swoovr sign-in design reference](../design/reference/screens/04-sign-in.png)
 
 **Additional styling reference:**
 
-![Additional authentication design reference](evidence/2026-11-01-issue-intake/13-forgot-password-screen-notification-incorrect.png)
+Evidence withheld from publication: `13-forgot-password-screen-notification-incorrect.png` (authentication transaction identifiers and populated masked credential field). See [evidence review](evidence/2026-11-01-issue-intake/README.md).
 
 ### Impact
 
@@ -1609,15 +1695,27 @@ Sign-in is a primary interaction and must meet the same design standards as the 
 - [ ] Error states are styled consistently.
 - [ ] No development messaging appears in the user-facing sign-in experience.
 
+<a id="intake-10"></a>
+
 ## 10. Redesign account registration screen to meet Swoovr's production design standards
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web / Mobile
 - **Page or URL:** `http://localhost:8180/realms/swoovr-members-dev/` (Keycloak registration flow)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#144](https://github.com/repasscloud/wanderconnect/issues/144)
+- **Tracking Q:** Q102
+
+### Intake investigation — 2 November 2026
+
+Q102: Theme code includes registration, adult checkbox, legal draft wording and development footer. Registration screenshot for intake 11 supports narrow layout. OPEN: cosmetic removal of draft/acceptance caveats cannot make draft legal documents operative; coordinate legal gate #57. Do not change provider or age checks.
+
+Source inspection: `containers/keycloak/themes/swoovr/login/register.ftl; containers/keycloak/themes/swoovr/login/register-commons.ftl; containers/keycloak/themes/swoovr/login/footer.ftl`.
+
+Duplicate review: Related #57 and intake 9/11; registration layout is independently actionable.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -1701,7 +1799,7 @@ UAT should represent the intended production experience, including the appearanc
 
 Use the established authentication design reference:
 
-`./docs/design/reference/screens/04-sign-in.png`
+`../design/reference/screens/04-sign-in.png`
 
 The registration page should use:
 
@@ -1909,7 +2007,7 @@ Environment-specific behaviour may exist where required for testing, but it shou
 
 Approved Swoovr authentication design reference:
 
-![Approved Swoovr sign-in reference](./docs/design/reference/screens/04-sign-in.png)
+![Approved Swoovr sign-in reference](../design/reference/screens/04-sign-in.png)
 
 Also refer to issue intake **#9 — Login/registration screen incorrect** for related authentication styling requirements.
 
@@ -2004,15 +2102,27 @@ These issues should share consistent branding and authentication design componen
 - [ ] Existing registration, authentication and onboarding functionality remains intact.
 - [ ] UAT presents the intended production-quality registration experience.
 
+<a id="intake-11"></a>
+
 ## 11. Registration errors are difficult to identify when an email address is already registered
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** Keycloak registration flow (`http://localhost:8180/realms/swoovr-members-dev/`)
 - **Type:** Bug
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#145](https://github.com/repasscloud/wanderconnect/issues/145)
+- **Tracking Q:** Q103
+
+### Intake investigation — 2 November 2026
+
+Q103: Screenshot visibly contains an existing-email error; it does not establish broken registration or invitation activation. Field macro renders error text with aria-live, but prominence/focus need actual browser/assistive-technology checks. Balance recovery guidance with neutral responses and enumeration controls; beta invitation is not a new identity.
+
+Source inspection: `containers/keycloak/themes/swoovr/login/field.ftl; containers/keycloak/themes/swoovr/login/register.ftl`.
+
+Duplicate review: Related intake 10 and #25; neither specifically covers validation prominence/recovery.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -2178,7 +2288,7 @@ This should be coordinated with issue #10, which addresses the wider registratio
 
 ### Evidence
 
-![Registration error when email address is already registered](evidence/2026-11-01-issue-intake/11-fictional-alex-account-cannot-register.png)
+Evidence withheld from publication: `11-fictional-alex-account-cannot-register.png` (authentication transaction identifiers in browser URL). See [evidence review](evidence/2026-11-01-issue-intake/README.md).
 
 The screenshot demonstrates the current registration error presentation.
 
@@ -2256,15 +2366,27 @@ The validation improvements should reuse the same design components introduced f
 - [ ] Desktop, tablet and mobile layouts display errors correctly.
 - [ ] Automated tests cover duplicate-email registration, invalid inputs and beta-invited account scenarios.
 
+<a id="intake-12"></a>
+
 ## 12. Redesign Forgot Password screen to match Swoovr authentication standards
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** Keycloak password recovery flow (`http://localhost:8180/realms/swoovr-members-dev/`)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#146](https://github.com/repasscloud/wanderconnect/issues/146)
+- **Tracking Q:** Q104
+
+### Intake investigation — 2 November 2026
+
+Q104: Custom reset form uses shared theme, email input and send-reset-link action; this is a refinement request rather than evidence of an unthemed default provider page. Screenshot supports layout criticism, not failed email delivery. Preserve provider reset token semantics.
+
+Source inspection: `containers/keycloak/themes/swoovr/login/login-reset-password.ftl; containers/keycloak/themes/swoovr/login/template.ftl; containers/keycloak/themes/swoovr/login/resources/css/swoovr.css`.
+
+Duplicate review: Related intake 9/13; form styling and post-submit confirmation have different acceptance.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -2293,7 +2415,7 @@ The Forgot Password screen should be a dedicated, professionally designed passwo
 
 Use the established Swoovr sign-in design:
 
-`./docs/design/reference/screens/04-sign-in.png`
+`../design/reference/screens/04-sign-in.png`
 
 Maintain consistency with:
 
@@ -2449,11 +2571,11 @@ The confirmation experience after submission is addressed separately in issue #1
 
 ### Evidence
 
-![Current Forgot Password screen](evidence/2026-11-01-issue-intake/12-forgot-password-screen-is-ugly.png)
+Evidence withheld from publication: `12-forgot-password-screen-is-ugly.png` (authentication transaction identifiers in browser URL). See [evidence review](evidence/2026-11-01-issue-intake/README.md).
 
 Approved design reference:
 
-![Approved Swoovr sign-in design](./docs/design/reference/screens/04-sign-in.png)
+![Approved Swoovr sign-in design](../design/reference/screens/04-sign-in.png)
 
 ### Impact
 
@@ -2516,15 +2638,27 @@ The authentication screens should share one coherent design system.
 - [ ] Password recovery remains secure and does not disclose account existence.
 - [ ] Successful submission navigates to the dedicated confirmation experience defined in issue #13.
 
+<a id="intake-13"></a>
+
 ## 13. Replace password reset notification with dedicated confirmation screen and prevent account enumeration
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** Keycloak password recovery confirmation flow (`http://localhost:8180/realms/swoovr-members-dev/`)
 - **Type:** Bug
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#147](https://github.com/repasscloud/wanderconnect/issues/147)
+- **Tracking Q:** Q105
+
+### Intake investigation — 2 November 2026
+
+Q105: Screenshot shows a generic email acknowledgement embedded above a sign-in form, with a populated masked password field. It does not prove account enumeration, password disclosure, email delivery or automatic sign-in. Compare existing/nonexistent/disabled addresses including timing and email effects using safe fixtures; keep confirmation neutral.
+
+Source inspection: `containers/keycloak/themes/swoovr/login/login.ftl; containers/keycloak/themes/swoovr/login/template.ftl; containers/keycloak/realms/swoovr-members-dev.json`.
+
+Duplicate review: Related intake 12; no existing issue specifically covers reset confirmation or comparative enumeration testing.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -2772,7 +2906,7 @@ Do not expose internal email-provider errors or registered-account status in the
 
 ### Evidence
 
-![Current password reset notification and sign-in behaviour](evidence/2026-11-01-issue-intake/13-forgot-password-screen-notification-incorrect.png)
+Evidence withheld from publication: `13-forgot-password-screen-notification-incorrect.png` (authentication transaction identifiers and populated masked credential field). See [evidence review](evidence/2026-11-01-issue-intake/README.md).
 
 The screenshot demonstrates the current notification presentation and sign-in form state following a password reset request.
 
@@ -2866,15 +3000,27 @@ These issues should share the same visual design system and authentication navig
 - [ ] Existing Keycloak recovery security controls remain intact.
 - [ ] Tests cover registered addresses, unregistered addresses, invalid inputs and recovery failures.
 
+<a id="intake-14"></a>
+
 ## 14. Redesign Swoovr Me / Account page for a desktop-first experience and clearer onboarding flow
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `/account` (`http://localhost:5081/account`)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#148](https://github.com/repasscloud/wanderconnect/issues/148)
+- **Tracking Q:** Q106
+
+### Intake investigation — 2 November 2026
+
+Q106: Signed-in screenshot shows dense account/safety/status/settings composition. Recent responsive work already widened account layout; verify current baseline before attributing all desktop problems to old width. OPEN: fixed phone-then-DOB order and revision-persisted safety dismissal need reconciliation with configured backend gates and existing safety notices; do not weaken them.
+
+Source inspection: `src/Swoovr.Web.Client/Account/MemberAccountPanel.razor; src/Swoovr.Web/Components/Pages/Account.razor; docs/delivery/MEMBER-RESPONSIVE-LAYOUT.md`.
+
+Duplicate review: Related #50 (standing), #121 (safety advice), #48; none covers this account/onboarding composition.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -3160,15 +3306,30 @@ The experience should prioritise:
 - [ ] Existing account management and safety functionality remains available.
 - [ ] The redesigned page is responsive, accessible and consistent with Swoovr branding.
 
+
+Additional reviewed evidence: [Signed-in account capture](https://github.com/repasscloud/wanderconnect/blob/main/docs/delivery/evidence/2026-11-01-issue-intake/Screenshot%202026-11-01%20at%2023.13.40.png).
+
+<a id="intake-15"></a>
+
 ## 15. Redesign Profile and Modes page for responsive layouts, clearer controls and improved profile management
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `/me/profile` (Profile and modes)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#149](https://github.com/repasscloud/wanderconnect/issues/149)
+- **Tracking Q:** Q107
+
+### Intake investigation — 2 November 2026
+
+Q107: Screenshots support long narrow form, empty display name in one capture and home-city label overlap in another. Code uses checkboxes (styled like large controls), automatically enables visibility when enabling a mode, and also exposes a separate visibility checkbox: inability to turn visibility off is reported, not established. Check persistence and stale updates. Preserve customised names and explicit cross-mode about consent (D199).
+
+Source inspection: `src/Swoovr.Web.Client/Profiles/ProfileEditor.razor; src/Swoovr.Web.Client/UI/CitySearch.razor; docs/delivery/MEMBER-RESPONSIVE-LAYOUT.md`.
+
+Duplicate review: Related #37/#91 (mode privacy), #48; no exact profile-editor UX/label/initialisation duplicate.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -3561,7 +3722,7 @@ Particularly affected are new members completing their initial profiles and desk
 The distinction between enabling a mode and choosing to be visible within it is particularly important for member privacy and control.
 
 ### Evidence
-![screenshot](evidence/2026-11-01-issue-intake/15-redesign-profile-and-modes-page-for-responsive-layout.jpeg)
+Evidence withheld from publication: `15-redesign-profile-and-modes-page-for-responsive-layout.jpeg` (populated personal profile/intention data; fictional provenance unverified). See [evidence review](evidence/2026-11-01-issue-intake/README.md).
 
 ### Notes or constraints
 
@@ -3632,15 +3793,30 @@ Mode-specific editing should scale cleanly as the platform evolves.
 - [ ] Introductory safety guidance does not repeatedly occupy profile editing pages after acknowledgement.
 - [ ] Existing profile data and mode configurations remain intact after the redesign.
 
+
+Safe supplementary evidence: [Blank profile capture](evidence/2026-11-01-issue-intake/15-profile-screen.jpeg).
+
+<a id="intake-16"></a>
+
 ## 16. Redesign Your Photos page with shared photo library, independent mode galleries and membership limits
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `/me/photos` (Your photos)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#150](https://github.com/repasscloud/wanderconnect/issues/150)
+- **Tracking Q:** Q108
+
+### Intake investigation — 2 November 2026
+
+Q108: Code confirms shared main photo and optional per-mode assignments; screenshot shows a photo library and repetitive mode rows. OPEN: proposal for independent mode main photos changes CONFIRMED D175; 60 library / 8 Free / 16 Plus / 24 Premium limits are intake proposals pending reconciliation with current quotas/entitlements. Preserve existing assignments, moderation and downgrade data; no migration is authorised.
+
+Source inspection: `src/Swoovr.Web.Client/Profiles/PhotosPanel.razor; docs/delivery/DECISIONS.md (D175, D203)`.
+
+Duplicate review: Related #37/#73 (cross-mode policy), #85 (screening); new gallery/limits proposal is not covered in full.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -4004,15 +4180,30 @@ Photo management is a core feature of a dating and social discovery platform and
 - [ ] Library deletion clearly distinguishes itself from removing a mode assignment.
 - [ ] Existing photos and assignments are migrated without data loss.
 
+
+Additional evidence: `16.png` reviewed locally and withheld under the [publication review](evidence/2026-11-01-issue-intake/README.md); no public attachment.
+
+<a id="intake-17"></a>
+
 ## 17. Redesign "Who I'd Like to Meet" with responsive layouts, clearer discovery preferences and improved filtering controls
 
-- **Status:** Ready for investigation
+- **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
-- **Page or URL:** `/me/who-id-like-to-meet` (confirm actual route)
+- **Page or URL:** `/me/matching` (confirmed in current route source; originally reported as `/me/who-id-like-to-meet`)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#151](https://github.com/repasscloud/wanderconnect/issues/151)
+- **Tracking Q:** Q109
+
+### Intake investigation — 2 November 2026
+
+Q109: Actual route is /me/matching, linked from Account. Screenshot supports long narrow combined identity/filter forms and separate saves. Current delivery explicitly retains 420px on matching/profile forms. Reorganise only after validating independent mode persistence, Any/All, five required/ten excluded, reciprocal exclusions and backend entitlements; no matching-semantic change is approved.
+
+Source inspection: `src/Swoovr.Web/Components/Pages/Matching.razor; src/Swoovr.Web.Client/Profiles/MatchingPanel.razor; docs/delivery/MEMBER-RESPONSIVE-LAYOUT.md`.
+
+Duplicate review: Related #44 is compatibility scoring/explanations, #48 accessibility; neither covers this settings composition.
+
+Evidence and scope: screenshots reviewed locally; no runtime reproduction or token/SSO lifetime measurement performed. Original report below is retained as feedback, not a verified diagnosis or automatic amendment of CONFIRMED policy. See [publication review](evidence/2026-11-01-issue-intake/README.md).
 
 ### What happened
 
@@ -4536,4 +4727,7 @@ Discovery must remain consistent with Swoovr's established reciprocal matching, 
 - [ ] Switching modes or sections does not silently discard changes.
 - [ ] Existing matching behaviour, preferences and privacy constraints remain intact.
 
+
+
+Additional evidence: `17.png` reviewed locally and withheld under the [publication review](evidence/2026-11-01-issue-intake/README.md); no public attachment.
 
