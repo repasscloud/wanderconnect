@@ -1,0 +1,25 @@
+/* Local settings refinement. All colours continue to come from the member's theme. */
+.member-settings { width:100%; max-width:960px; margin-inline:auto; min-width:0; }
+.member-settings .field > label { position:static; display:block; padding:0; margin:0 0 8px; white-space:normal; overflow:visible; text-overflow:clip; text-transform:none; letter-spacing:normal; font-size:14px; }
+.member-settings .field input, .member-settings .field select, .member-settings .field textarea { padding:12px 14px; }
+.member-settings .city-picked { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:0; padding:12px 14px; }
+.member-settings .mode-settings { display:grid; gap:16px; }
+.member-settings .mode-settings > h2, .member-settings .mode-settings > p { grid-column:1 / -1; }
+.member-settings .mode-settings .account-section { margin:0; min-width:0; }
+.member-settings .mode-settings .check { margin-block:14px; }
+.member-settings fieldset { min-width:0; }
+.member-settings .settings-list h2 { font-size:14px; padding:20px 16px 8px; margin:0; }
+.member-settings .mode-choices { display:flex; flex-wrap:wrap; gap:8px; margin-block:16px; }
+.member-settings .mode-choices [aria-pressed="true"] { background:var(--text); color:var(--bg); }
+.member-settings .photo-grid { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); }
+@media (min-width:768px) {
+ .member-settings .mode-settings { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .member-settings [data-core-form], .member-settings [data-identity-form] { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+ .member-settings [data-core-form] > :not(.field), .member-settings [data-identity-form] > :not(.field) { grid-column:1 / -1; }
+ .member-settings [data-core-form] > .field:has(textarea) { grid-column:1 / -1; }
+ .member-settings [data-filter-form] .settings-fields > fieldset:not([data-plus-filters]) { display:flex; flex-wrap:wrap; gap:12px 24px; }
+ .member-settings [data-filter-form] .settings-fields > fieldset > legend { margin-bottom:12px; }
+ .member-settings [data-filter-form] .settings-fields > fieldset > .check { flex:0 1 260px; }
+}
+
+.member-settings .settings-fields { display:contents; }

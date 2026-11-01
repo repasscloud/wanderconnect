@@ -31,29 +31,30 @@
                 }
             </fieldset>
             <p class="field-help">"Show me" works both ways: you see someone in Dating only if each of you is in the other's choice. People who prefer not to say their gender can appear for anyone.</p>
-            <button type="submit" class="button" disabled="@busy">Save</button>
+            <button type="submit" class="button" disabled="@busy">Save identity</button>
             <p role="status" aria-live="polite" class="field-help" data-identity-status="@identityStatus">@identityMessage</p>
         </form>
     </section>
     <section class="card account-section" aria-labelledby="filters-heading">
         <h2 id="filters-heading">Filters</h2>
         <div class="field"><label for="filter-mode">Mode</label>
-            <select id="filter-mode" value="@modeId" @onchange="ChangeModeAsync">@foreach (var m in modes) { <option value="@m.Id">@m.Label</option> }</select></div>
+            <select id="filter-mode" value="@modeId" disabled="@busy" @onchange="ChangeModeAsync">@foreach (var m in modes) { <option value="@m.Id">@m.Label</option> }</select></div>
         @if (filter is not null)
         {
             <form class="stack" @onsubmit="SaveFiltersAsync" data-filter-form="@modeId">
+                <fieldset disabled="@busy" class="settings-fields">
                 <div class="field-row">
                     <div class="field"><label for="min-age">Age from</label><input id="min-age" type="number" min="18" max="120" @bind="minAge" /></div>
                     <div class="field"><label for="max-age">to</label><input id="max-age" type="number" min="18" max="120" @bind="maxAge" /></div>
                 </div>
                 <label class="check"><input type="checkbox" @bind="idVerifiedOnly" data-id-only /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> ID Verified people only</label>
-                <fieldset><legend>Must have (up to 5)</legend>
+                <fieldset><legend>Must have (@required.Count of 5)</legend>
                     <label class="check"><input type="radio" name="match" checked="@(match == "any")" @onchange='() => match = "any"' /> Any of these</label>
                     <label class="check"><input type="radio" name="match" checked="@(match == "all")" @onchange='() => match = "all"' /> All of these</label>
-                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@required.Contains(chip.Id)" @onchange="e => Toggle(required, chip.Id, e)" data-required-chip="@chip.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @chip.Label</label> }
+                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" disabled="@(busy || !required.Contains(chip.Id) && (required.Count >= 5 || excluded.Contains(chip.Id)))" checked="@required.Contains(chip.Id)" @onchange="e => Toggle(required, chip.Id, e)" data-required-chip="@chip.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @chip.Label</label> }
                 </fieldset>
-                <fieldset><legend>Not for me (up to 10, works both ways)</legend>
-                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" checked="@excluded.Contains(chip.Id)" @onchange="e => Toggle(excluded, chip.Id, e)" data-excluded-chip="@chip.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @chip.Label</label> }
+                <fieldset><legend>Not for me (@excluded.Count of 10, works both ways)</legend>
+                    @foreach (var chip in Chips) { <label class="check"><input type="checkbox" disabled="@(busy || !excluded.Contains(chip.Id) && (excluded.Count >= 10 || required.Contains(chip.Id)))" checked="@excluded.Contains(chip.Id)" @onchange="e => Toggle(excluded, chip.Id, e)" data-excluded-chip="@chip.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @chip.Label</label> }
                 </fieldset>
                 <div class="field"><label for="visitors">Visitors in Travel</label>
                     <select id="visitors" @bind="visitors"><option value="both">Here now and arriving soon</option><option value="current">Here now</option><option value="upcoming">Arriving soon</option><option value="neither">Don't show visitors</option></select></div>
@@ -64,7 +65,12 @@
                 </fieldset>
                 <button type="submit" class="button" disabled="@busy">Save filters</button>
                 <p role="status" aria-live="polite" class="field-help" data-filter-status="@filterStatus">@filterMessage</p>
+                </fieldset>
             </form>
+        }
+        else
+        {
+            <p role="status">@(busy ? "Loading this mode’s filters…" : "We couldn’t load this mode’s filters. Choose another mode and try again. Your drafts remain on this page.")</p>
         }
     </section>
 }
@@ -96,7 +102,31 @@
 
     private static void Toggle<T>(HashSet<T> set, T value, ChangeEventArgs e) { if (e.Value is true) set.Add(value); else set.Remove(value); }
 
-    private async Task ChangeModeAsync(ChangeEventArgs e) { modeId = e.Value?.ToString() ?? "dating"; await LoadFilterAsync(); }
+    // Local drafts survive mode changes; nothing is persisted until Save filters succeeds.
+    private sealed record Draft(int? Min, int? Max, Guid[] Required, string Match, Guid[] Excluded,
+        bool IdOnly, string Visitors, int? Distance, string Sort);
+    private readonly Dictionary<string, Draft> drafts = [];
+    private Draft Capture() => new(minAge, maxAge, required.ToArray(), match, excluded.ToArray(), idVerifiedOnly, visitors, distance, sort);
+    private void Restore(Draft d) => (minAge, maxAge, required, match, excluded, idVerifiedOnly, visitors, distance, sort) =
+        (d.Min, d.Max, d.Required.ToHashSet(), d.Match, d.Excluded.ToHashSet(), d.IdOnly, d.Visitors, d.Distance, d.Sort);
+    private bool Dirty => filter is not null && (minAge != filter.MinAge || maxAge != filter.MaxAge ||
+        !required.SetEquals(filter.RequiredChips) || match != filter.RequiredMatch || !excluded.SetEquals(filter.ExcludedChips) ||
+        idVerifiedOnly != filter.IdVerifiedOnly || visitors != filter.Visitors || distance != filter.MaxDistanceKm || sort != filter.Sort);
+    private async Task ChangeModeAsync(ChangeEventArgs e)
+    {
+        if (busy) return;
+        var next = e.Value?.ToString();
+        if (next is null || next == modeId || !modes.Any(m => m.Id == next)) return;
+        if (filter is not null)
+        {
+            if (Dirty) drafts[modeId] = Capture(); else drafts.Remove(modeId);
+        }
+        busy = true;
+        modeId = next;
+        filter = null;
+        try { await LoadFilterAsync(); }
+        finally { busy = false; }
+    }
 
     private async Task LoadFilterAsync()
     {
@@ -105,6 +135,11 @@
         (minAge, maxAge, required, match, excluded, idVerifiedOnly, visitors, distance, sort) = (filter.MinAge, filter.MaxAge, filter.RequiredChips.ToHashSet(),
             filter.RequiredMatch, filter.ExcludedChips.ToHashSet(), filter.IdVerifiedOnly, filter.Visitors, filter.MaxDistanceKm, filter.Sort);
         (filterStatus, filterMessage) = (null, null);
+        if (drafts.TryGetValue(modeId, out var draft))
+        {
+            Restore(draft);
+            (filterStatus, filterMessage) = ("draft", "Your unsaved changes for this mode are restored. Save filters to keep them.");
+        }
     }
 
     private async Task SaveIdentityAsync()
@@ -117,10 +152,11 @@
 
     private async Task SaveFiltersAsync()
     {
+        if (busy) return;
         busy = true;
         var result = await Members.SaveFiltersAsync(modeId, new FilterUpdate(minAge, maxAge, required.ToList(), match, excluded.ToList(), idVerifiedOnly, visitors, distance, sort));
         busy = false;
-        if (result.Value is { } saved) filter = saved;
+        if (result.Ok && result.Value is { } saved) { filter = saved; drafts.Remove(modeId); }
         (filterStatus, filterMessage) = result.Ok ? ("saved", "Filters saved.") : (result.Code ?? "failed", result.Code == ProblemCodes.PlusRequired
             ? "That filter is part of Plus." : "Check the filters: ages 18–120, up to 5 must-haves and 10 not-for-me, never the same intention in both.");
     }

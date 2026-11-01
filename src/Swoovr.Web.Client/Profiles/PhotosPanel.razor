@@ -45,7 +45,13 @@
         <section class="card account-section" aria-labelledby="modes-photos-heading">
             <h2 id="modes-photos-heading">Photos for each mode</h2>
             <p class="field-help">Your main photo shows in every mode you use. Pick extra photos for a mode here; they show only in that mode (up to @photos.MaxPerMode).</p>
+            <div class="mode-choices" aria-label="Choose a mode">
             @foreach (var mode in modes)
+            {
+                <button type="button" class="chip" aria-pressed="@(selectedMode == mode.Id ? "true" : "false")" disabled="@busy" @onclick="() => selectedMode = mode.Id" data-photo-mode="@mode.Id">@mode.Label</button>
+            }
+            </div>
+            @foreach (var mode in modes.Where(m => m.Id == selectedMode))
             {
                 var chosen = photos.Modes.GetValueOrDefault(mode.Id) ?? [];
                 <fieldset class="stack" data-mode-photos="@mode.Id" data-mode-photo-count="@chosen.Count">
@@ -63,6 +69,7 @@
     }
 }
 @code {
+    private string selectedMode = "dating";
     private const string MainScope = "main";
     private MyPhotosView? photos;
     private List<ConnectionModeView> modes = [];

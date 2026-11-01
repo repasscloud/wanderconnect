@@ -28,7 +28,7 @@
             }
             <p class="field-help"><a class="link" href="/me/photos" data-photos-link>Your photos</a>: a main photo for every mode, and photos for each mode.</p>
             <div class="field"><label for="about">About me</label><textarea id="about" maxlength="500" rows="4" @bind="about"></textarea></div>
-            <button type="submit" class="button" disabled="@busy">Save</button>
+            <button type="submit" class="button" disabled="@busy">Save profile</button>
             <p role="status" aria-live="polite" class="field-help" data-core-status="@coreStatus">@coreMessage</p>
         </form>
         @if (string.IsNullOrWhiteSpace(profile.DisplayName))
@@ -45,8 +45,8 @@
             var setting = profile.Modes.FirstOrDefault(m => m.Id == mode.Id) ?? new MyModeView(mode.Id, false, false, []);
             <article class="card account-section" data-mode-card="@mode.Id" data-mode-enabled="@(setting.Enabled ? "true" : "false")" data-mode-visible="@(setting.Visible ? "true" : "false")">
                 <h3>@mode.Label</h3>
-                <label class="option"><input type="checkbox" checked="@setting.Enabled" disabled="@busy" @onchange="e => SaveModeAsync(mode.Id, e.Value is true, setting.Visible || e.Value is true, setting.Intentions, setting.About)" /> Use @mode.Label</label>
-                <label class="option"><input type="checkbox" checked="@setting.Visible" disabled="@(busy || !setting.Enabled)" @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, e.Value is true, setting.Intentions, setting.About)" /> Show my profile in @mode.Label</label>
+                <label class="check"><input type="checkbox" checked="@setting.Enabled" disabled="@busy" @onchange="e => SaveModeAsync(mode.Id, e.Value is true, setting.Visible || e.Value is true, setting.Intentions, setting.About)" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Use @mode.Label</label>
+                <label class="check"><input type="checkbox" checked="@setting.Visible" disabled="@(busy || !setting.Enabled)" @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, e.Value is true, setting.Intentions, setting.About)" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Show my profile in @mode.Label</label>
                 @if (mode.Intentions.Count > 0)
                 {
                     var picked = setting.Intentions.Count(id => mode.Intentions.Any(i => i.Id == id));
@@ -68,9 +68,9 @@
                     <label for="@($"about-{mode.Id}")">About me in @mode.Label <span class="field-help">(optional, only shown in @mode.Label)</span></label>
                     <textarea id="@($"about-{mode.Id}")" maxlength="500" rows="3" disabled="@busy" placeholder="@(setting.ShareCoreAbout ? "Uses your main about" : "Empty: no about shows in " + mode.Label)"
                               @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, e.Value as string)">@setting.About</textarea>
-                    <label class="option"><input type="checkbox" data-share-core="@mode.Id" checked="@setting.ShareCoreAbout" disabled="@busy"
-                        @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, setting.About, e.Value is true)" /> Show my main about in @mode.Label when this is empty</label>
                 </div>
+                    <label class="check"><input type="checkbox" data-share-core="@mode.Id" checked="@setting.ShareCoreAbout" disabled="@busy"
+                        @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, setting.About, e.Value is true)" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Show my main about in @mode.Label when this is empty</label>
             </article>
         }
         <p role="status" aria-live="polite" class="field-help" data-mode-status>@modeMessage</p>
@@ -125,7 +125,7 @@
         busy = true;
         var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about, shareCoreAbout));
         busy = false;
-        if (result.Value is { } saved) { profile = saved; modeMessage = null; }
+        if (result.Value is { } saved) { profile = saved; modeMessage = "Mode settings saved."; }
         else modeMessage = result.Code == ProblemCodes.TooManyIntentions ? "You can pick up to five in each mode." : "That change wasn't saved. Try again.";
     }
 
