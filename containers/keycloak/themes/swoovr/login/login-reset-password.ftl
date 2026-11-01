@@ -11,7 +11,7 @@
             <#assign label>
                 <#if !realm.loginWithEmailAllowed>${msg("username")}<#elseif !realm.registrationEmailAsUsername>${msg("usernameOrEmail")}<#else>${msg("email")}</#if>
             </#assign>
-            <@field.input name="username" label=label value=auth.attemptedUsername!'' autofocus=true />
+            <@field.input name="username" label=label value=auth.attemptedUsername!'' autofocus=true required=true type=realm.registrationEmailAsUsername?then("email", "text") autocomplete=realm.registrationEmailAsUsername?then("email", "username") />
 
             <@buttons.actionGroup>
               <@buttons.button id="kc-form-buttons" label="swoovrSendResetLink"/>

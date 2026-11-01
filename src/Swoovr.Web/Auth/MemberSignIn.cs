@@ -79,6 +79,23 @@ public static class MemberSignIn
         return services;
     }
 
+    public static void UseAccountEntry(this WebApplication app)
+    {
+        var configured = IsConfigured(app.Configuration);
+        app.Use(async (context, next) =>
+        {
+            if (configured && HttpMethods.IsGet(context.Request.Method)
+                && string.Equals(context.Request.Path.Value?.TrimEnd('/'), "/account", StringComparison.OrdinalIgnoreCase)
+                && context.User.Identity?.IsAuthenticated != true && context.Request.Query["signin"] != "retry")
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                context.Response.Redirect("/account/sign-in");
+                return;
+            }
+            await next(context);
+        });
+    }
+
     public static void MapMemberSignIn(WebApplication app)
     {
         var configured = IsConfigured(app.Configuration);

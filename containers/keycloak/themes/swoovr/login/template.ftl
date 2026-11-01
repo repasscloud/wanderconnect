@@ -5,6 +5,11 @@
 <#import "field.ftl" as field>
 <#import "footer.ftl" as loginFooter>
 <#import "theme-resources.ftl" as themeResourceTags>
+<#-- Keycloak 26.8.1 forks every reset-email outcome with EMAIL_SENT. Never inspect the submitted address. -->
+<#function isResetConfirmation>
+  <#return pageId == "login" && message?has_content && message.type == "success" && message.summary == msg("emailSentMessage")>
+</#function>
+
 <#macro username>
   <#assign label>
     <#if !realm.loginWithEmailAllowed>${msg("username")}<#elseif !realm.registrationEmailAsUsername>${msg("usernameOrEmail")}<#else>${msg("email")}</#if>
@@ -31,6 +36,10 @@
 <#assign swIcon = {"login-reset-password": "key", "login-update-password": "lock", "login-verify-email": "mail", "login-otp": "lock", "login-config-totp": "lock"}[pageId]!"">
 <#assign swSubtitleKey = "swoovrSubtitle." + pageId>
 <#assign swSubtitle = msg(swSubtitleKey)>
+<#if isResetConfirmation()>
+  <#assign swIcon = "mail">
+  <#assign swSubtitle = msg("swoovrResetConfirmationBody")>
+</#if>
 <!DOCTYPE html>
 <html class="${properties.kcHtmlClass!}" lang="${lang}"<#if realm.internationalizationEnabled> dir="${(locale.rtl)?then('rtl','ltr')}"</#if>>
 
@@ -125,6 +134,7 @@
         </#list>
     </#if>
     <script type="module" src="${url.resourcesPath}/js/passwordVisibility.js"></script>
+    <script type="module" src="${url.resourcesPath}/js/form-feedback.js"></script>
     <script type="module">
         <#outputformat "JavaScript">
         import { startSessionPolling } from ${(url.resourcesPath + "/js/authChecker.js")?c};

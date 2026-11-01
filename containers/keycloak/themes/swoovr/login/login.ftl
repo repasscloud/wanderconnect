@@ -5,12 +5,19 @@
 <#import "buttons.ftl" as buttons>
 <#import "social-providers.ftl" as identityProviders>
 <#import "passkeys.ftl" as passkeys>
-<@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>
+<#assign resetConfirmation = layout.isResetConfirmation()>
+<@layout.registrationLayout displayMessage=(!resetConfirmation && !messagesPerField.existsError('username','password')) displayInfo=(!resetConfirmation && realm.password && realm.registrationAllowed && !registrationDisabled??); section>
 <!-- template: login.ftl -->
 
     <#if section = "header">
-        ${msg("loginAccountTitle")}
+        <#if resetConfirmation>${msg("swoovrResetConfirmationTitle")}<#else>${msg("loginAccountTitle")}</#if>
     <#elseif section = "form">
+        <#if resetConfirmation>
+          <section data-reset-confirmation aria-label="${msg('swoovrResetConfirmationTitle')}">
+            <p class="sw-reset-help">${msg("swoovrResetConfirmationHelp")}</p>
+            <p class="sw-reset-actions"><a href="${url.loginUrl}">${msg("backToLogin")}</a><a href="${url.loginResetCredentialsUrl}">${msg("swoovrResetTryAnother")}</a></p>
+          </section>
+        <#else>
         <div id="kc-form">
           <div id="kc-form-wrapper">
             <#if realm.password>
@@ -44,8 +51,9 @@
             <div class="sw-divider" aria-hidden="true">${msg("orLabel")}</div>
         </#if>
         <@passkeys.conditionalUIData />
+    </#if>
     <#elseif section = "socialProviders" >
-        <#if realm.password && social.providers?? && social.providers?has_content>
+        <#if !resetConfirmation && realm.password && social.providers?? && social.providers?has_content>
             <@identityProviders.show social=social/>
         </#if>
     <#elseif section = "info" >

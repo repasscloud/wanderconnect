@@ -49,13 +49,13 @@
   </#if>
 </#macro>
 
-<#macro input name label value="" required=false autocomplete="off" fieldName=name error=messagesPerField.get(fieldName) autofocus=false>
+<#macro input name label value="" required=false autocomplete="off" fieldName=name error=messagesPerField.get(fieldName) autofocus=false type="text">
   <@group name=name label=label error=error required=required>
     <span class="${properties.kcInputClass} <#if error?has_content>${properties.kcError}</#if>">
-        <input id="${name}" name="${name}" value="${value}" type="text" autocomplete="${autocomplete}" <#if autofocus>autofocus</#if>
+        <input id="${name}" name="${name}" value="${value}" type="${type}" autocomplete="${autocomplete}" <#if autofocus>autofocus</#if> <#if required>required</#if>
                 <#if placeholder(name)?has_content>placeholder="${placeholder(name)}"</#if>
                 <#if autocomplete == "one-time-code">inputmode="numeric"</#if>
-                aria-invalid="<#if error?has_content>true</#if>"/>
+                aria-invalid="${error?has_content?c}" <#if error?has_content>aria-describedby="input-error-${name}"</#if>/>
         <@errorIcon error=error/>
     </span>
   </@group>
@@ -66,9 +66,9 @@
     <div class="${properties.kcInputGroup}">
       <div class="${properties.kcInputGroupItemClass} ${properties.kcFill}">
         <span class="${properties.kcInputClass} <#if error?has_content>${properties.kcError}</#if>">
-          <input id="${name}" name="${name}" value="${value}" type="password" autocomplete="${autocomplete}" <#if autofocus>autofocus</#if>
+          <input id="${name}" name="${name}" value="${value}" type="password" autocomplete="${autocomplete}" <#if autofocus>autofocus</#if> <#if required>required</#if>
                   <#if placeholder(name)?has_content>placeholder="${placeholder(name)}"</#if>
-                  aria-invalid="<#if error?has_content>true</#if>"/>
+                  aria-invalid="${error?has_content?c}" <#if error?has_content>aria-describedby="input-error-${name}"</#if>/>
           <@errorIcon error=error/>
         </span>
       </div>

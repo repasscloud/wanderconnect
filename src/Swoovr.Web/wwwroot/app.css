@@ -529,3 +529,15 @@ input[type=file] { max-width: 100%; }
 @media (max-width: 26rem) {
   .explore-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
 }
+
+/* Public entry keeps member destinations behind sign-in and retains draft disclosures. */
+.public-layout { min-height: 100dvh; display: flex; flex-direction: column; }
+.public-layout > main { flex: 1; width: 100%; }
+body:has(.public-layout) { padding-bottom: 0; }
+.auth-nav, .home-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.auth-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+.home-actions { margin-block: 26px 10px; max-width: 420px; align-items: stretch; gap: 12px; }
+.home .home-actions .primary-button { margin: 0; }
+.welcome-context dt { font-weight: 700; margin-top: 20px; }
+.welcome-context dd { margin: 4px 0 0; color: var(--muted); }
+.app-footer nav { display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: center; margin-top: 12px; }
