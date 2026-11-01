@@ -384,6 +384,12 @@ Include founding-member entitlement handling and actual member onboarding.
 
 **Milestone:** Real testers can safely create a profile, discover a compatible member and communicate.
 
+### Phase 0 maintenance backlog
+
+| Follow-up | Status / source | Scope and completion evidence |
+| --- | --- | --- |
+| [Q92 / issue #132 — Docker Kerberos library warning](https://github.com/repasscloud/wanderconnect/issues/132) | CONFIRMED backlog item, owner 1 November 2026; OPEN implementation, deferred / non-blocking locally | Investigate and remove the `libgssapi_krb5.so.2` diagnostic from the owning runtime image/configuration. Preserve real failure output and existing authentication. Fresh/reuse startup, database operator commands, admin smoke and repository checks must still pass; record platform evidence. See [Q92](QUESTIONS.md#local-docker-runtime-cleanup--1-november-2026). |
+
 ### Phase 1 — Public MVP and connection quality
 
 **Timing:** After beta validation
