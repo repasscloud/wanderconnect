@@ -113,9 +113,9 @@ else
     }
     <h2>Preserved items (@h.Items.Count)</h2>
     <p class="help">Content leaves only in an export. Each item's SHA-256 is of its content as preserved.</p>
-    <table data-items="@h.Items.Count"><thead><tr><th>Capture</th><th>Kind</th><th>Source</th><th>Captured</th><th>SHA-256</th></tr></thead><tbody>
+    <div class="table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table data-items="@h.Items.Count"><thead><tr><th>Capture</th><th>Kind</th><th>Source</th><th>Captured</th><th>SHA-256</th></tr></thead><tbody>
         @foreach (var i in h.Items) { <tr><td>@i.Capture</td><td>@i.Kind</td><td>@i.Source/@i.RecordId</td><td>@i.CapturedAt.ToString("d MMM HH:mm")</td><td><code>@i.Sha256[..16]…</code></td></tr> }
-    </tbody></table>
+    </tbody></table></div>
     @foreach (var item in h.Items.Where(i => i.Kind == "media-item" && Guid.TryParse(i.RecordId, out _)).GroupBy(i => i.RecordId).Select(g => g.First()))
     {
         <form method="post" @formname="@($"preserved-photo-{item.Id}")" @onsubmit="() => PreservedPhotoAsync(Guid.Parse(item.RecordId))" class="row" data-preserved-photo-form data-enhance="false">

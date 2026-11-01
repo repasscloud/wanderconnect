@@ -1,7 +1,8 @@
 @page "/"
 @inject AdminClient Admin
 <PageTitle>Swoovr admin</PageTitle>
-<h1>Moderation</h1>
+<h1>Overview</h1>
+<p class="page-description">Your queues and reviews at a glance.</p>
 @if (holds is not null)
 {
     <ul class="tiles" data-holds-overview>
@@ -28,7 +29,7 @@ else
         <li><a href="/cases"><strong data-urgent>@urgent</strong> urgent awaiting acknowledgement</a></li>
         <li><a href="/appeals"><strong data-pending-appeals>@appeals</strong> appeals waiting</a></li>
     </ul>
-    <p class="help">Support sees the support queue; admins also see staff-affiliated cases (D134). Every action is recorded with its reason.</p>
+    <p class="help">Support sees the support queue; admins also see staff-affiliated cases. Every action is recorded with its reason.</p>
 }
 @code {
     private int open, urgent, appeals, status;

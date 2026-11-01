@@ -1,26 +1,27 @@
 @inject NavigationManager Navigation
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Context
 @inherits LayoutComponentBase
 <a class="skip-link" data-skip-main href="@(Navigation.Uri.Split('#')[0] + "#main-content")" data-enhance="false">Skip to content</a>
+<div class="admin-shell">
+<div id="sidebar-home">
+<AdminNavigation /></div>
+<div class="admin-workspace">
 <header class="admin-header">
-    <a class="admin-brand" href="/">Swoovr admin</a>
-    <nav aria-label="Admin">
-        <a href="/cases">Queue</a>
-        <a href="/appeals">Appeals</a>
-        <a href="/media">Photos</a>
-        <a href="/dob-reviews">Date of birth</a>
-        <a href="/accounts">Accounts</a>
-        <a href="/beta">Beta enrolments</a>
-        <a href="/support">Support lookup</a>
-        <a href="/contact-history">Contact history</a>
-        <a href="/registry">Identifier review</a>
-        <a href="/holds">Legal holds</a>
-        <a href="/law-enforcement">Law enforcement</a>
-        <a href="/access">Elevated access</a>
-        <a href="/security">Security</a>
-        <a href="/safety">Safety resources</a>
-        <a href="/beta-scorecard">Beta scorecard</a>
-        <a href="/code-reports">Annual report data</a>
-    </nav>
-    <form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form>
+<button type="button" class="quiet menu-toggle" data-drawer-open aria-controls="navigation-drawer" aria-expanded="false" aria-label="Open navigation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16 M4 12h16 M4 18h16" /></svg></button>
+<div class="page-context"><span>Staff workspace</span><strong>@Section</strong></div>
+<details class="staff-menu"><summary><span class="staff-avatar" aria-hidden="true">S</span><span class="staff-name">@StaffName</span><span aria-hidden="true">⌄</span></summary>
+<div class="account-actions"><p>Staff account</p><a href="/sign-in?reauth=true" data-enhance-nav="false">Sign in again</a><form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form></div></details>
 </header>
 <main id="main-content" tabindex="-1" class="admin-main">@Body</main>
+</div></div>
+<dialog id="navigation-drawer" aria-label="Navigation"><AdminNavigation Drawer="true" /></dialog>
+@code {
+private string Path => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+private string StaffName => Context.HttpContext?.User.Identity?.Name is { Length: > 0 } name ? name : "Staff account";
+private string Section => Path.Split('/').ElementAtOrDefault(1) switch {
+"cases" or "appeals" or "media" or "dob-reviews" => "Moderation",
+"accounts" or "beta" or "support" or "contact-history" or "registry" => "Members",
+"holds" or "law-enforcement" or "disclosures" or "access" or "security" => "Governance",
+"safety" or "beta-scorecard" or "code-reports" => "Reporting & resources",
+_ => "Overview" };
+}

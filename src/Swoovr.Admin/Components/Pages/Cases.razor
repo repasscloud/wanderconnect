@@ -2,8 +2,9 @@
 @inject AdminClient Admin
 <PageTitle>Queue — Swoovr admin</PageTitle>
 <h1>Queue</h1>
+<p class="page-description">Review reports, acknowledge urgent cases and record moderation decisions.</p>
 <nav class="filters" aria-label="Status">
-    <a href="/cases">Open</a> <a href="/cases?status=reviewed">Reviewed</a> <a href="/cases?status=closed">Closed</a> <a href="/cases?status=all">All</a>
+    <a href="/cases" aria-current="@(string.IsNullOrEmpty(Status) || Status == "open" ? "page" : null)">Open</a> <a href="/cases?status=reviewed" aria-current="@(Status == "reviewed" ? "page" : null)">Reviewed</a> <a href="/cases?status=closed" aria-current="@(Status == "closed" ? "page" : null)">Closed</a> <a href="/cases?status=all" aria-current="@(Status == "all" ? "page" : null)">All</a>
 </nav>
 @if (refused is not null)
 {
@@ -11,23 +12,23 @@
 }
 else if (cases.Count == 0)
 {
-    <p data-cases="none">Nothing here.</p>
+    <p data-cases="none">No cases in this view.</p>
 }
 else
 {
-    <table data-cases="@cases.Count">
+    <div class="table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table data-cases="@cases.Count">
         <thead><tr><th>Priority</th><th>Member</th><th>Reports</th><th>Queue</th><th>Status</th><th>Opened</th></tr></thead>
         <tbody>
             @foreach (var c in cases)
             {
                 <tr data-case="@c.Id" data-priority="@c.Priority" data-queue="@c.Queue">
-                    <td>@c.Priority@(c.AwaitingAcknowledgement ? " · needs acknowledgement" : "")</td>
+                    <td><span class="status-badge" data-level="@c.Priority">@c.Priority</span>@(c.AwaitingAcknowledgement ? " · needs acknowledgement" : "")</td>
                     <td><a href="/cases/@c.Id">@(c.SubjectName ?? "(no name)")</a></td>
-                    <td data-system-flag="@c.SystemFlag">@(c.SystemFlag == "returning-terminated" ? "No reports · same email as a terminated member who deleted their account" : c.Reports.ToString())</td><td>@c.Queue</td><td>@c.Status</td><td>@c.CreatedAt.ToString("d MMM HH:mm")</td>
+                    <td data-system-flag="@c.SystemFlag">@(c.SystemFlag == "returning-terminated" ? "No reports · same email as a terminated member who deleted their account" : c.Reports.ToString())</td><td>@c.Queue</td><td><span class="status-badge">@c.Status</span></td><td>@c.CreatedAt.ToString("d MMM HH:mm")</td>
                 </tr>
             }
         </tbody>
-    </table>
+    </table></div>
 }
 @code {
     [SupplyParameterFromQuery] public string? Status { get; set; }

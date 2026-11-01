@@ -63,9 +63,9 @@ else
 {
     <h2>Access log</h2>
     <p data-log-chain="@(log.Intact ? "intact" : "broken")">@(log.Intact ? "Chain intact." : "CHAIN BROKEN: report this as a security incident.")</p>
-    <table data-log="@log.Entries.Count"><thead><tr><th>#</th><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Status</th></tr></thead><tbody>
+    <div class="table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table data-log="@log.Entries.Count"><thead><tr><th>#</th><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Status</th></tr></thead><tbody>
         @foreach (var e in log.Entries.AsEnumerable().Reverse().Take(100)) { <tr><td>@e.Sequence</td><td>@e.At.ToLocalTime().ToString("d MMM HH:mm:ss")</td><td><code>@(e.Actor?.ToString()[..8] ?? "—")</code></td><td>@e.Action</td><td>@e.Resource @e.ResourceId</td><td>@e.Status</td></tr> }
-    </tbody></table>
+    </tbody></table></div>
     <h2>Revoke a staff member (root admin)</h2>
     <form method="post" @formname="revoke-staff" @onsubmit="RevokeStaffAsync" class="row" data-enhance="false">
         <AntiforgeryToken />
