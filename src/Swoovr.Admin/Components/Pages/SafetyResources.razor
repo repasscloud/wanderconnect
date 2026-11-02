@@ -19,7 +19,7 @@ else
 @if (country is not null)
 {
     <h2>@country.Name</h2>
-    <form method="post" @formname="country" @onsubmit="SaveCountryAsync" class="stack" data-country-edit="@country.Code" data-enhance="false">
+    <form method="post" @formname="country" @onsubmit="SaveCountryAsync" class="stack" data-country-edit="@country.Code" data-enhance="true">
         <AntiforgeryToken />
         <label>Name<input name="name" value="@country.Name" maxlength="100" required /></label>
         <label><input type="checkbox" name="enabled" value="true" checked="@country.Enabled" /> Offered in the country list</label>

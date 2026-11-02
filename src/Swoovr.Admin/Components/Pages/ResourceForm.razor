@@ -1,5 +1,5 @@
 @* One Safety & Support contact's fields (issue 103), for editing or adding. *@
-<form method="post" @formname="@FormName" @onsubmit="OnSubmit" class="stack" data-resource-form="@(Resource?.Id.ToString() ?? "new")" data-enhance="false">
+<form method="post" @formname="@FormName" @onsubmit="OnSubmit" class="stack" data-resource-form="@(Resource?.Id.ToString() ?? "new")" data-enhance="true">
     <AntiforgeryToken />
     <label>Category<select name="category">
         @foreach (var c in Categories) { <option value="@c" selected="@(Resource?.Category == c)">@c</option> }

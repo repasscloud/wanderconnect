@@ -35,7 +35,7 @@ else
                 @if (r.BreakGlass) { <strong data-break-glass> · emergency approval@(r.RetrospectiveAt is null ? $", review due {r.RetrospectiveDue?.ToLocalTime():d MMM}" : ", reviewed")</strong> }
                 @if (open && r.Status == "open")
                 {
-                    <form method="post" @formname="@($"decide-{r.Id}")" @onsubmit="() => DecideAsync(r.Id)" class="row" data-enhance="false">
+                    <form method="post" @formname="@($"decide-{r.Id}")" @onsubmit="() => DecideAsync(r.Id)" class="row" data-enhance="true">
                         <AntiforgeryToken />
                         <select name="outcome"><option value="preserved">Preserved</option><option value="disclosed">Disclosed</option><option value="partly-disclosed">Partly disclosed</option><option value="refused">Refused</option><option value="withdrawn">Withdrawn</option><option value="redirected">Redirected (provider or MLAT)</option></select>
                         <input name="reason" placeholder="Decision and reasons" maxlength="2000" required />
@@ -45,7 +45,7 @@ else
                 }
                 @if (r.BreakGlass && r.RetrospectiveAt is null)
                 {
-                    <form method="post" @formname="@($"retro-{r.Id}")" @onsubmit="() => RetrospectiveAsync(r.Id)" class="row" data-enhance="false">
+                    <form method="post" @formname="@($"retro-{r.Id}")" @onsubmit="() => RetrospectiveAsync(r.Id)" class="row" data-enhance="true">
                         <AntiforgeryToken />
                         <input name="note" placeholder="Retrospective review" maxlength="2000" required />
                         <button type="submit" class="secondary" data-retro="@r.Id">Record review</button>
@@ -62,7 +62,7 @@ else
     <ul class="list" data-le-notifications="@c.Notifications.Count">
         @foreach (var n in c.Notifications) { <li data-le-notification="@n.Decision">@n.Decision · <code>@n.AccountId</code> · @n.Reason @if (n.ReconsiderAt is { } at) { <strong data-reconsider="@(n.ReconsiderationDue ? "due" : "later")">reconsider @at.ToLocalTime().ToString("d MMM yyyy")</strong> }</li> }
     </ul>
-    <form method="post" @formname="notify" @onsubmit="NotifyAsync" class="row" data-enhance="false">
+    <form method="post" @formname="notify" @onsubmit="NotifyAsync" class="row" data-enhance="true">
         <AntiforgeryToken />
         <input name="account" placeholder="Subject account id" required />
         <select name="decision"><option value="delay">Delay</option><option value="withhold">Withhold (law or safety)</option><option value="notified">Notified</option></select>
@@ -82,7 +82,7 @@ else
                 @if (t.ReceiptAt is { } receipt) { <span data-receipt> · receipt @t.ReceiptReference (@receipt.ToLocalTime().ToString("d MMM"))</span> }
                 else
                 {
-                    <form method="post" @formname="@($"receipt-{t.Id}")" @onsubmit="() => ReceiptAsync(t.Id)" class="row" data-enhance="false">
+                    <form method="post" @formname="@($"receipt-{t.Id}")" @onsubmit="() => ReceiptAsync(t.Id)" class="row" data-enhance="true">
                         <AntiforgeryToken />
                         <input name="reference" placeholder="Acknowledgement reference" maxlength="200" required />
                         <button type="submit" class="secondary" data-receipt-form="@t.Id">Record receipt</button>
@@ -96,18 +96,18 @@ else
     @if (open)
     {
         <h2>Steps</h2>
-        <form method="post" @formname="respond" @onsubmit="RespondAsync" class="row" data-enhance="false">
+        <form method="post" @formname="respond" @onsubmit="RespondAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <select name="kind"><option value="acknowledgement">Acknowledgement sent</option><option value="update">Update sent</option></select>
             <button type="submit" class="secondary" data-respond>Record response</button>
         </form>
-        <form method="post" @formname="verify" @onsubmit="VerifyAsync" class="stack" data-enhance="false">
+        <form method="post" @formname="verify" @onsubmit="VerifyAsync" class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>Independent verification (§3.2)<select name="source"><option value="agency-switchboard">Agency switchboard callback</option><option value="official-directory">Official directory</option><option value="agency-portal">Agency portal</option><option value="in-person">In person</option></select></label>
             <label>How it was verified (numbers you found yourself, who confirmed)<textarea name="evidence" rows="2" maxlength="2000" required></textarea></label>
             <button type="submit" data-verify>Record verification</button>
         </form>
-        <form method="post" @formname="assess" @onsubmit="AssessAsync" class="stack" data-enhance="false">
+        <form method="post" @formname="assess" @onsubmit="AssessAsync" class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>Instrument<select name="instrument"><option value="warrant">Warrant</option><option value="court-order">Court order</option><option value="subpoena">Subpoena</option><option value="statutory-notice">Statutory notice</option><option value="app-6.2e">APP 6.2(e) enforcement-related</option><option value="serious-threat">Serious threat</option><option value="consent">Consent</option><option value="none">None</option></select></label>
             <label><input type="checkbox" name="mandatory" value="true" /> Mandatory</label>
@@ -115,24 +115,24 @@ else
             <label>Confidentiality assessment (optional)<textarea name="confidentiality" rows="2" maxlength="2000"></textarea></label>
             <button type="submit" data-assess>Record assessment</button>
         </form>
-        <form method="post" @formname="app65" @onsubmit="App65Async" class="stack" data-enhance="false">
+        <form method="post" @formname="app65" @onsubmit="App65Async" class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>APP 6.5 note (factual basis for the reasonable belief, extent, recipients, date)<textarea name="note" rows="3" maxlength="2000" required></textarea></label>
             <button type="submit" class="secondary" data-app65>Record APP 6.5 note</button>
         </form>
-        <form method="post" @formname="request" @onsubmit="AddRequestAsync" class="row" data-enhance="false">
+        <form method="post" @formname="request" @onsubmit="AddRequestAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <select name="kind"><option value="preservation">Preservation</option><option value="disclosure">Disclosure</option><option value="emergency-disclosure">Emergency disclosure</option><option value="assistance">Assistance</option><option value="other">Other</option></select>
             <input name="description" placeholder="What is asked" maxlength="2000" required />
             <button type="submit" class="secondary" data-add-request>Add request</button>
         </form>
-        <form method="post" @formname="person" @onsubmit="PersonAsync" class="row" data-enhance="false">
+        <form method="post" @formname="person" @onsubmit="PersonAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <input name="account" placeholder="Account id" required />
             <select name="kind"><option value="subject">Subject (member)</option><option value="implicated-staff">Implicated staff (excluded from the case)</option></select>
             <button type="submit" class="secondary" data-add-person>Add</button>
         </form>
-        <form method="post" @formname="flags" @onsubmit="FlagsAsync" class="row" data-enhance="false">
+        <form method="post" @formname="flags" @onsubmit="FlagsAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <label><input type="checkbox" name="privileged" value="true" checked="@c.Privileged" /> Privileged</label>
             <label><input type="checkbox" name="confidential" value="true" checked="@c.Confidential" /> Confidential</label>
@@ -140,7 +140,7 @@ else
         </form>
         <h2>Temporary police preservation hold (§7)</h2>
         <p class="help">For a verified request before formal process: only this case's subjects, reviewed within 30 days. Review is not release; another officer releases it.</p>
-        <form method="post" @formname="hold" @onsubmit="HoldAsync" class="stack" data-enhance="false">
+        <form method="post" @formname="hold" @onsubmit="HoldAsync" class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>Account ids (subjects; one per line)<textarea name="accounts" rows="2" required></textarea></label>
             <label>Lawful basis<input name="basis" maxlength="200" required /></label>
@@ -148,7 +148,7 @@ else
             <button type="submit" data-temp-hold>Place temporary hold and preserve</button>
         </form>
         <h2>Record a transfer (§8)</h2>
-        <form method="post" @formname="transfer" @onsubmit="TransferAsync" class="row" data-enhance="false">
+        <form method="post" @formname="transfer" @onsubmit="TransferAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <input name="export" placeholder="Downloaded export id" required />
             <input name="recipient" placeholder="Verified recipient" maxlength="200" required />
@@ -157,7 +157,7 @@ else
         </form>
         <h2>Close (§13)</h2>
         <ul class="list" data-closure>@foreach (var i in c.Closure) { <li data-closure-item="@i.Item" data-done="@(i.Done ? "yes" : "no")">@(i.Done ? "✓" : "✗") @LeText.Item(i.Item)</li> }</ul>
-        <form method="post" @formname="close" @onsubmit="CloseAsync" class="stack" data-enhance="false">
+        <form method="post" @formname="close" @onsubmit="CloseAsync" class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label><input type="checkbox" name="confirm" value="true" /> Outstanding legal obligations, communications and follow-up duties were checked</label>
             <label>Closure note<textarea name="note" rows="2" maxlength="2000" required></textarea></label>

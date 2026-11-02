@@ -12,7 +12,7 @@ else
     <p>Coverage: @report.DataQuality.CoverageStatus. Unknown and not-recorded values are not zero. A saved revision is preserved after its source window expires.</p>
     <ul>@foreach(var limit in report.DataQuality.Limitations){<li>@limit</li>}</ul>
     <p><a href="/code-reports/@EndingYear/export" data-code-report-export>Download aggregate JSON</a></p>
-    <form method="post" @formname="save-code-report" @onsubmit="SaveAsync" class="stack" data-code-report-save data-enhance="false"><AntiforgeryToken />
+    <form method="post" @formname="save-code-report" @onsubmit="SaveAsync" class="stack" data-code-report-save data-enhance="true"><AntiforgeryToken />
         <input type="hidden" name="SaveForm.Year" value="@EndingYear" />
         <label><input type="checkbox" name="SaveForm.Confirmed" value="true" required /> Save this internal aggregate revision with its coverage gaps. This does not publish it.</label>
         <button type="submit">Save internal revision</button>

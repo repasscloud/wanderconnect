@@ -38,12 +38,12 @@ else
     @if (h.Status != "released")
     {
         <h2>Manage</h2>
-        <form method="post" @formname="step" @onsubmit="StepAsync" class="row" data-enhance="false">
+        <form method="post" @formname="step" @onsubmit="StepAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             @if (h.Status == "provisional") { <button name="step" value="confirm" type="submit" data-step="confirm">Confirm hold</button> }
             <button name="step" value="capture" type="submit" class="secondary" data-step="capture">Capture again</button>
         </form>
-        <form method="post" @formname="review" @onsubmit="ReviewAsync" class="row" data-enhance="false">
+        <form method="post" @formname="review" @onsubmit="ReviewAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <label>Next review<input name="due" type="date" required /></label>
             <button type="submit" class="secondary" data-review>Record review</button>
@@ -52,7 +52,7 @@ else
     @if (h.Status != "released" || h.Items.Count > 0)
     {
         <h2>Export evidence</h2>
-        <form method="post" @formname="export" @onsubmit="ExportAsync" class="stack" data-export-form data-enhance="false">
+        <form method="post" @formname="export" @onsubmit="ExportAsync" class="stack" data-export-form data-enhance="true">
             <AntiforgeryToken />
             <label>Purpose (required)<textarea name="purpose" maxlength="1000" rows="2" required></textarea></label>
             <fieldset><legend>Law-enforcement disclosure (fill all to record it in the register)</legend>
@@ -84,7 +84,7 @@ else
     @if (h.Status != "released")
     {
         <h2>Release</h2>
-        <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="row" data-enhance="false">
+        <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="row" data-enhance="true">
             <AntiforgeryToken />
             <input name="reason" placeholder="Why the preservation need has ended" maxlength="1000" required />
             @if (h.Overlaps > 0) { <label><input type="checkbox" name="overlaps" value="true" /> I checked the @h.Overlaps other live hold(s) on these accounts</label> }
@@ -96,7 +96,7 @@ else
     {
         <h2>Independent retention disposition</h2>
         <p class="help">Only for copies with positively established provenance and no qualifying review, police or overlapping preservation obligation. An officer who placed or confirmed the hold cannot make this disposition. Record the basis without copying private content.</p>
-        <form method="post" @formname="retention-disposition" @onsubmit="DispositionAsync" class="stack" data-retention-disposition data-enhance="false">
+        <form method="post" @formname="retention-disposition" @onsubmit="DispositionAsync" class="stack" data-retention-disposition data-enhance="true">
             <AntiforgeryToken />
             <label>Disposition basis<textarea name="retentionReason" minlength="20" maxlength="1000" rows="3" required></textarea></label>
             <label><input type="checkbox" name="retentionConfirmed" value="true" required /> I reviewed the provenance and confirmed there is no qualifying review, police or other retention obligation.</label>
@@ -118,7 +118,7 @@ else
     </tbody></table></div>
     @foreach (var item in h.Items.Where(i => i.Kind == "media-item" && Guid.TryParse(i.RecordId, out _)).GroupBy(i => i.RecordId).Select(g => g.First()))
     {
-        <form method="post" @formname="@($"preserved-photo-{item.Id}")" @onsubmit="() => PreservedPhotoAsync(Guid.Parse(item.RecordId))" class="row" data-preserved-photo-form data-enhance="false">
+        <form method="post" @formname="@($"preserved-photo-{item.Id}")" @onsubmit="() => PreservedPhotoAsync(Guid.Parse(item.RecordId))" class="row" data-preserved-photo-form data-enhance="true">
             <AntiforgeryToken />
             <label>Purpose for photo @item.RecordId<input name="photoPurpose" maxlength="500" required /></label>
             <button type="submit" class="secondary">Request photo link</button>

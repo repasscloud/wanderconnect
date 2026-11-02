@@ -9,7 +9,7 @@
     <h2>Find an identifier</h2>
     @if (grant is null) { <p class="help" data-lookup-access="required">Ask for identifier-release access with a recorded purpose before searching.</p> }
     else { <p class="help" data-lookup-purpose>Recorded access purpose: @grant.Purpose</p> }
-    <form method="post" @formname="lookup" @onsubmit="LookupAsync" class="stack" data-registry-lookup data-enhance="false">
+    <form method="post" @formname="lookup" @onsubmit="LookupAsync" class="stack" data-registry-lookup data-enhance="true">
         <AntiforgeryToken />
         <fieldset disabled="@(grant is null)">
             <label>Identifier type<select name="type"><option value="email">Email</option><option value="mobile">Mobile number</option></select></label>

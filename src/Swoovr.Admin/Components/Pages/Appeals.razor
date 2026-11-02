@@ -13,7 +13,7 @@ else
             <li data-appeal="@a.Id">
                 <strong>@a.SanctionKind</strong> · <a href="/accounts/@a.AccountId">account</a> · @a.CreatedAt.ToString("d MMM HH:mm")
                 @if (a.Text is not null) { <blockquote>@a.Text</blockquote> }
-                <form method="post" @formname="@($"decide-{a.Id}")" @onsubmit="() => DecideAsync(a.Id)" class="row" data-enhance="false">
+                <form method="post" @formname="@($"decide-{a.Id}")" @onsubmit="() => DecideAsync(a.Id)" class="row" data-enhance="true">
                     <AntiforgeryToken />
                     <button name="outcome" value="uphold" type="submit" class="secondary" data-decide="uphold">Uphold</button>
                     <button name="outcome" value="overturn" type="submit" data-decide="overturn">Overturn (lift)</button>

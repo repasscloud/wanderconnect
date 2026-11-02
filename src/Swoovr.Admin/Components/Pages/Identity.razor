@@ -5,7 +5,7 @@
 <h1>Verified identity</h1>
 <p class="help">For the security and legal officer (policy §2.3, §11). One record at a time, for a recorded purpose; every opening is logged with who, whose and why. Use it only for a case, a legal request or ban enforcement, never out of curiosity.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-identity-form data-enhance="false">
+<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-identity-form data-enhance="true">
     <AntiforgeryToken />
     <label>Account id<input name="account" value="@Account" required /></label>
     <label>Purpose (required)<textarea name="purpose" maxlength="500" rows="2" required></textarea></label>

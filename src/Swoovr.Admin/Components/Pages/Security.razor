@@ -20,13 +20,13 @@ else
                 <blockquote>@i.Summary</blockquote>
                 @if (i.Status != "closed")
                 {
-                    <form method="post" @formname="@($"assess-{i.Id}")" @onsubmit="() => AssessAsync(i.Id)" class="row" data-enhance="false">
+                    <form method="post" @formname="@($"assess-{i.Id}")" @onsubmit="() => AssessAsync(i.Id)" class="row" data-enhance="true">
                         <AntiforgeryToken />
                         <select name="notifiable"><option value="false">Not an eligible data breach</option><option value="true">Eligible data breach (notify OAIC and people affected)</option></select>
                         <input name="reason" placeholder="Why" maxlength="2000" required />
                         <button type="submit" class="secondary" data-assess="@i.Id">Record assessment</button>
                     </form>
-                    <form method="post" @formname="@($"step-{i.Id}")" @onsubmit="() => StepAsync(i.Id)" class="row" data-enhance="false">
+                    <form method="post" @formname="@($"step-{i.Id}")" @onsubmit="() => StepAsync(i.Id)" class="row" data-enhance="true">
                         <AntiforgeryToken />
                         @if (i.Status == "open") { <button name="step" value="contain" type="submit" class="secondary" data-contain="@i.Id">Contained</button> }
                         <button name="step" value="close" type="submit" class="quiet" data-close-incident="@i.Id">Close</button>
@@ -37,7 +37,7 @@ else
     </ul>
 }
 <h2>Open an incident</h2>
-<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-incident data-enhance="false">
+<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-incident data-enhance="true">
     <AntiforgeryToken />
     <label>Severity<select name="severity"><option value="sev1">Sev1 critical</option><option value="sev2">Sev2 high</option><option value="sev3" selected>Sev3 medium</option><option value="sev4">Sev4 low</option></select></label>
     <label>What happened (ids, not member content)<textarea name="summary" rows="3" maxlength="2000" required></textarea></label>

@@ -23,7 +23,7 @@ else
 @if (Status != "released")
 {
     <h2>Place a hold</h2>
-    <form method="post" @formname="place" @onsubmit="PlaceAsync" class="stack" data-place-hold data-enhance="false">
+    <form method="post" @formname="place" @onsubmit="PlaceAsync" class="stack" data-place-hold data-enhance="true">
         <AntiforgeryToken />
         <label>Reason (who asked or what happened; up to 1,000 characters)<textarea name="reason" maxlength="1000" rows="3" required></textarea></label>
         <label>Account ids (one per line, up to 20)<textarea name="accounts" rows="2" required></textarea></label>

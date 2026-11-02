@@ -35,7 +35,7 @@ else
             <h2>@Label(selected.Field, selected.ModeId, selected.MessageId)</h2>
             <p>Review the exact current text before confirming. If it changes, reload and review it again.</p>
             <pre data-content-source>@selected.Text</pre>
-            <form method="post" @formname="remove-content" @onsubmit="RemoveAsync" class="stack" data-content-removal-form data-enhance="false">
+            <form method="post" @formname="remove-content" @onsubmit="RemoveAsync" class="stack" data-content-removal-form data-enhance="true">
                 <AntiforgeryToken />
                 <input type="hidden" name="RemovalForm.CommandId" value="@RemovalForm!.CommandId" />
                 <input type="hidden" name="RemovalForm.ReportId" value="@RemovalForm.ReportId" />

@@ -12,7 +12,7 @@ else
         {
             <li data-dob-review="@r.Id">
                 <a href="/accounts/@r.AccountId">@(r.DisplayName ?? "account")</a> · @(r.Reason == "no-document-date" ? "Didit gave no date" : "still different after the correction") · @r.CreatedAt.ToString("d MMM HH:mm")
-                <form method="post" @formname="@($"resolve-{r.Id}")" @onsubmit="() => ResolveAsync(r.Id)" class="row" data-enhance="false">
+                <form method="post" @formname="@($"resolve-{r.Id}")" @onsubmit="() => ResolveAsync(r.Id)" class="row" data-enhance="true">
                     <AntiforgeryToken />
                     <input name="reason" placeholder="Reason" maxlength="1000" required />
                     <button name="outcome" value="verified" type="submit" data-resolve="verified">Date of birth matches the ID</button>

@@ -32,13 +32,13 @@ else
                     {
                         <div class="media-review @(revealed?"is-revealed":null)" data-media-view="@item.Id"><img src="/media/@link" alt="Photo under review" width="320" data-media-image="@item.Id" /></div>
                     }
-                    <form method="post" @formname="@($"view-{item.Id}")" @onsubmit="()=>ViewAsync(item.Id)" class="row review-controls" data-enhance="false" hidden="@visible">
+                    <form method="post" @formname="@($"view-{item.Id}")" @onsubmit="()=>ViewAsync(item.Id)" class="row review-controls" data-enhance="true" hidden="@visible">
                         <AntiforgeryToken /><button type="submit" class="secondary" data-view="@item.Id">Open blurred preview</button>
                     </form>
-                    <form method="post" @formname="@($"reveal-{item.Id}")" @onsubmit="()=>ViewAsync(item.Id,true)" class="row review-controls" data-enhance="false" hidden="@(!visible||revealed)">
+                    <form method="post" @formname="@($"reveal-{item.Id}")" @onsubmit="()=>ViewAsync(item.Id,true)" class="row review-controls" data-enhance="true" hidden="@(!visible||revealed)">
                         <AntiforgeryToken /><button type="submit" class="secondary" data-reveal="@item.Id">Reveal photo (access recorded)</button>
                     </form>
-                    <form method="post" @formname="@($"conceal-{item.Id}")" @onsubmit="ConcealAsync" class="row review-controls" data-enhance="false" hidden="@(!visible)">
+                    <form method="post" @formname="@($"conceal-{item.Id}")" @onsubmit="ConcealAsync" class="row review-controls" data-enhance="true" hidden="@(!visible)">
                         <AntiforgeryToken /><button type="submit" class="quiet">Conceal photo</button>
                     </form>
                 </div>
@@ -47,18 +47,18 @@ else
                     else
                     {
                         <details open="@(active is null or "approve")"><summary data-decision="approve">Approve</summary>
-                        <form method="post" @formname="@($"approve-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"approve")' class="stack" data-enhance="false">
+                        <form method="post" @formname="@($"approve-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"approve")' class="stack" data-enhance="true">
                             <AntiforgeryToken /><label>Approval reason<select name="reasonCode" required>@foreach(var reason in Reasons("approve")){<option value="@reason.Code" selected="@(active=="approve"&&Field("reasonCode")==reason.Code)">@reason.Label</option>}</select></label>
                             <button type="submit" class="secondary" data-approve="@item.Id">Approve</button>
                         </form></details>
                         <details open="@(active=="reject")"><summary data-decision="reject">Reject</summary>
-                        <form method="post" @formname="@($"reject-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"reject")' class="stack" data-enhance="false">
+                        <form method="post" @formname="@($"reject-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"reject")' class="stack" data-enhance="true">
                             <AntiforgeryToken /><label>Rejection reason<select name="reasonCode" required data-reject-reason><option value="">Choose a reason</option>@foreach(var reason in Reasons("reject")){<option value="@reason.Code" selected="@(active=="reject"&&Field("reasonCode")==reason.Code)">@reason.Label</option>}</select></label>
                             <label>Notes (required for Other)<textarea name="reason" maxlength="500" data-reject-notes>@(active=="reject"?Field("reason"):null)</textarea></label>
                             <button type="submit" class="secondary" data-reject="@item.Id">Reject</button>
                         </form></details>
                         <details open="@(active=="escalate")"><summary data-decision="escalate">Escalate for specialist review</summary>
-                        <form method="post" @formname="@($"escalate-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"escalate")' class="stack" data-enhance="false">
+                        <form method="post" @formname="@($"escalate-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"escalate")' class="stack" data-enhance="true">
                             <AntiforgeryToken /><label>Safety concern<select name="reasonCode" required data-escalate-reason><option value="">Choose a concern</option>@foreach(var reason in Reasons("escalate")){<option value="@reason.Code" selected="@(active=="escalate"&&Field("reasonCode")==reason.Code)">@reason.Label</option>}</select></label>
                             <label>Optional notes<textarea name="reason" maxlength="500">@(active=="escalate"?Field("reason"):null)</textarea></label>
                             <p class="help">You do not need a definitive finding. This seals evidence, opens the existing Serious Safety Incident and places a legal hold.</p>

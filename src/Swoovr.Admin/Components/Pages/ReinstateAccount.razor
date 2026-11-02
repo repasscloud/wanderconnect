@@ -31,7 +31,7 @@ else
         }
 
     </section>
-    <form method="post" @formname="reinstate" @onsubmit="ReinstateAsync" class="stack card" data-reinstatement-form data-enhance="false">
+    <form method="post" @formname="reinstate" @onsubmit="ReinstateAsync" class="stack card" data-reinstatement-form data-enhance="true">
         <AntiforgeryToken />
         <fieldset disabled="@(!preview.Eligible)">
             <legend>Explicit reconciliation</legend>

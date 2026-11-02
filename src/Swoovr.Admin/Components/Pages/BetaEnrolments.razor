@@ -6,7 +6,7 @@
 @if (message is not null) { <p class="notice" role="status" data-beta-result="@resultCode">@message</p> }
 @if (loaded && authorised)
 {
-    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="row" data-enhance="false" data-beta-add>
+    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="row" data-enhance="true" data-beta-add>
         <AntiforgeryToken />
         <label>Email to pre-authorise <input name="email" type="email" required maxlength="254" autocomplete="off" /></label>
         <button type="submit">Add enrolment</button>
@@ -39,7 +39,7 @@
                     <td><p data-beta-invitation="@row.InvitationState">@InvitationLabel(row.InvitationState)</p><p class="help">Attempts @row.InvitationAttempts. Acceptance is not delivery.</p></td>
                     <td><p data-ios-record="@row.IosDistributionState">@IosLabel(row.IosDistributionState)</p><p class="help">@row.IosDistributionSource · revision @row.IosDistributionRevision</p>@if(row.IosDistributionChangedAt is{}changed){<p class="help">Updated @changed.ToString("u"); not Apple verification.</p>}</td>
                     <td><details class="beta-actions"><summary>Manage enrolment</summary><div class="beta-action-forms">
-                        <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="false" class="stack" data-beta-ios="@row.Id">
+                        <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="true" class="stack" data-beta-ios="@row.Id">
                             <AntiforgeryToken /><input type="hidden" name="iosRevision" value="@row.IosDistributionRevision" />
                             <label>External iOS distribution state<select name="iosState">@foreach(var state in IosStates){<option value="@state" selected="@(state==row.IosDistributionState)">@IosLabel(state)</option>}</select></label>
                             <label><input type="checkbox" name="confirmIos" value="yes" required /> I checked this in the external distribution service. Swoovr does not send or verify an Apple invitation.</label>
@@ -47,7 +47,7 @@
                         </form>
                         @if(row.State!="revoked")
                         {
-                            <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="()=>RevokeAsync(row.Id)" data-enhance="false" class="stack">
+                            <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="()=>RevokeAsync(row.Id)" data-enhance="true" class="stack">
                                 <AntiforgeryToken /><label><input type="checkbox" name="confirmRevoke" value="yes" required /> Revoke this beta enrolment</label>
                                 <button type="submit" class="secondary" data-beta-revoke="@row.Id">Confirm revocation</button>
                             </form>

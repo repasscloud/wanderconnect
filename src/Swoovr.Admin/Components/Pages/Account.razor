@@ -35,7 +35,7 @@ else
                 }
             </ul>
         }
-        <form method="post" @formname="verify" @onsubmit='() => RunAsync("verify")' class="row" data-enhance="false">
+        <form method="post" @formname="verify" @onsubmit='() => RunAsync("verify")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <button name="value" value="allow-again" type="submit" class="secondary" data-op="allow-again">Allow another attempt</button>
             <button name="value" value="revoke" type="submit" class="secondary" data-op="revoke">Revoke ID Verified</button>
@@ -44,7 +44,7 @@ else
 
     <section class="card">
         <h2>Age assurance (D127)</h2>
-        <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="row" data-enhance="false">
+        <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <button name="value" value="flag" type="submit" class="secondary" data-op="age-flag">Require an age check</button>
             <button name="value" value="clear" type="submit" class="secondary" data-op="age-clear">Clear a flag set in error</button>
@@ -55,7 +55,7 @@ else
     <section class="card">
         <h2>Home city (D150)</h2>
         <p class="help">Lets the member move their home city into another market now, for a genuine move or a mistake.</p>
-        <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="row" data-enhance="false">
+        <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <input name="reason" placeholder="Reason" maxlength="1000" required />
             <button type="submit" class="secondary" data-op="home-override">Lift the 30-day wait</button>
@@ -71,7 +71,7 @@ else
             <p data-home-checks="@account.InconsistentHomeChecks">Home-location checks that disagreed in the last 30 days: @account.InconsistentHomeChecks@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged for review {flagged:d MMM yyyy}" : "")</p>
             @if (account.HomeReviewFlaggedAt is not null)
             {
-                <form method="post" @formname="home-review" @onsubmit='() => RunAsync("home-review")' class="row" data-enhance="false">
+                <form method="post" @formname="home-review" @onsubmit='() => RunAsync("home-review")' class="row" data-enhance="true">
                     <AntiforgeryToken />
                     <input name="reason" placeholder="Reason" maxlength="1000" required />
                     <button type="submit" class="secondary" data-op="home-review-clear">Clear the review</button>
@@ -83,7 +83,7 @@ else
                     <li data-trip="@t.Id" data-arrival="@t.ArrivalState">@(t.Market ?? "outside every market") · @t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")
                         @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled"))
                         {
-                            <form method="post" @formname="@($"arrival-{t.Id}")" @onsubmit='() => RunAsync("arrival", t.Id)' class="row" data-enhance="false">
+                            <form method="post" @formname="@($"arrival-{t.Id}")" @onsubmit='() => RunAsync("arrival", t.Id)' class="row" data-enhance="true">
                                 <AntiforgeryToken />
                                 <input name="reason" placeholder="Reason" maxlength="1000" required />
                                 <button type="submit" class="secondary" data-op="confirm-arrival">Confirm arrival</button>
@@ -104,7 +104,7 @@ else
                 <li data-entitlement="@e.Id" data-valid="@(e.Valid ? "true" : "false")">@e.Tier (@e.Source) until @(e.EndsAt?.ToString("d MMM yyyy") ?? "open") · @e.Reason@(e.RevokedAt is not null ? " · revoked" : "")
                     @if (e.RevokedAt is null && e.Source == "adminGrant")
                     {
-                        <form method="post" @formname="@($"grant-{e.Id}")" @onsubmit='() => RunAsync("grant-change", e.Id)' class="row" data-enhance="false">
+                        <form method="post" @formname="@($"grant-{e.Id}")" @onsubmit='() => RunAsync("grant-change", e.Id)' class="row" data-enhance="true">
                             <AntiforgeryToken />
                             <input name="days" type="number" min="1" max="366" placeholder="Days from now" />
                             <button name="value" value="extend" type="submit" class="secondary" data-op="extend">Set end</button>
@@ -114,7 +114,7 @@ else
                 </li>
             }
         </ul>
-        <form method="post" @formname="grant" @onsubmit='() => RunAsync("grant")' class="row" data-enhance="false">
+        <form method="post" @formname="grant" @onsubmit='() => RunAsync("grant")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <select name="tier"><option value="plus">Plus</option><option value="premium">Premium</option></select>
             <input name="days" type="number" min="1" max="366" value="90" />
@@ -125,7 +125,7 @@ else
 
     <section class="card">
         <h2>Staff badge (D134)</h2>
-        <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="row" data-enhance="false">
+        <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <button name="value" value="on" type="submit" class="secondary" data-op="staff-on">Set Staff badge</button>
             <button name="value" value="off" type="submit" class="secondary" data-op="staff-off">Remove Staff badge</button>
@@ -134,7 +134,7 @@ else
 
     <section class="card">
         <h2>Act without a report (D133)</h2>
-        <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="stack" data-enhance="false">
+        <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>Action <select name="action"><option value="warn">Warn</option><option value="restrict">Restrict</option><option value="suspend">Suspend</option><option value="terminate">Terminate</option></select></label>
             <label>Reason <textarea name="reason" maxlength="1000" rows="2"></textarea></label>

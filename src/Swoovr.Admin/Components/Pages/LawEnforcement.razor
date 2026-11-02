@@ -33,7 +33,7 @@ else
 @if (Status != "closed")
 {
     <h2>Open a case</h2>
-    <form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-case data-enhance="false">
+    <form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-case data-enhance="true">
         <AntiforgeryToken />
         <div class="row">
             <label>Channel<select name="channel"><option value="email">Email (lawenforcement@swoovr.app)</option><option value="phone">Phone</option><option value="letter">Letter</option><option value="portal">Portal</option><option value="in-person">In person</option></select></label>
