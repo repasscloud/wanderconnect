@@ -165,3 +165,12 @@ td a { font-weight: 600; text-underline-offset: 3px; }
 .media-review.is-revealed img { filter: none; }
 .review-counts { margin-block: 1.5rem; }
 @media (min-width: 1000px) { .review-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+
+/* Enlarged text must reflow independently of the locally scrolling data table. */
+.beta-filters label { max-width: 100%; }
+.beta-filters input, .beta-filters select { min-width: 0; }
+@media (max-width: 800px) {
+  .admin-header { flex-wrap: wrap; height: auto; min-height: 68px; }
+  .page-context { min-width: 0; flex: 1 1 5rem; }
+  .staff-menu { min-width: 0; max-width: 100%; }
+}

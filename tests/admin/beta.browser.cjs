@@ -25,6 +25,11 @@ module.exports=async({page,base})=>{
  await page.locator('input[name=confirmRevoke]').check();await page.locator('[data-beta-revoke]').click();await page.waitForSelector('[data-beta-result="revoked"]');
  assert.equal(await page.locator('[data-beta-state="revoked"]').count(),1,'confirmed revocation persists');
  assert.match(await page.locator('body').innerText(),/not.*Apple|separately/i,'external invitation remains separate');
+ await page.setViewportSize({width:320,height:844});
+ await page.evaluate(async()=>{document.documentElement.style.fontSize='200%';await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))});
+ const enlarged=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('.admin-header *, .beta-filters *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>e.tagName+'.'+e.className)}));
+ assert(enlarged.scroll<=enlarged.width,'320px/200% staff reflow '+JSON.stringify(enlarged));
+ await page.evaluate(()=>document.documentElement.style.fontSize='');
  await page.setViewportSize({width:375,height:812});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'table scrolling stays local');
  await page.screenshot({path:'/tmp/swoovr-intake-beta-375.png',fullPage:true});
  console.log('PASS: actual Edge1005-record beta table, server paging/search/status, staff iOS revision and confirmed revocation.');
