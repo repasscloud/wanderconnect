@@ -8,7 +8,7 @@
     <h1>Travel</h1>
     <p class="field-help">Locals can see you're visiting from 14 days before you arrive (or before the first stop of an itinerary). Your modes and home discovery don't change.</p>
     @if (!loaded) { <p role="status">Loading…</p> }
-    else if (refused is not null) { <p role="status" data-travel-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Travel opens once your email is on the private beta list." : "We couldn't load Travel.")</p> }
+    else if (refused is not null) { <p role="status" data-travel-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Travel opens once your email is on the invitation list." : "We couldn't load Travel.")</p> }
 </div>
 @if (loaded && refused is null)
 {

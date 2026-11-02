@@ -19,7 +19,7 @@ public sealed record MessageView(Guid Id, Guid ConversationId, bool Mine, string
 public sealed record MessagePage(IReadOnlyList<MessageView> Items, bool More, DateTimeOffset? Before);
 
 /// <summary>Opens (or returns) the conversation with a connected member, by their public profile id.</summary>
-public sealed record StartConversation(Guid To);
+public sealed record StartConversation(Guid To, string? Mode = null);
 
 public sealed record NewMessage(string? Text);
 

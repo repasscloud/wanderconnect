@@ -7,14 +7,14 @@
     <p class="breadcrumb"><a href="/account">Me</a> / Profile</p>
     <h1>Your profile</h1>
     @if (!loaded) { <p role="status">Loading…</p> }
-    else if (refused is not null) { <p role="status" data-profile-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Your profile opens once your email is on the private beta list." : "We couldn't load your profile.")</p> }
+    else if (refused is not null) { <p role="status" data-profile-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Your profile opens once your email is on the invitation list." : "We couldn't load your profile.")</p> }
 </div>
 @if (loaded && refused is null && profile is not null)
 {
-    <Swoovr.Web.Client.Moderation.SafetyAdviceCard />
+
     <section class="card account-section" aria-labelledby="core-heading">
         <h2 id="core-heading">About you</h2>
-        <p class="field-help">The same in every mode. Others see it only in modes you show yourself in.</p>
+        <p class="field-help">Your main public profile. Each mode can use its own name; leaving it blank uses your main display name.</p>
         <form class="stack" @onsubmit="SaveProfileAsync" data-core-form>
             <div class="field"><label for="display-name">Display name</label><input id="display-name" maxlength="40" @bind="displayName" autocomplete="nickname" /></div>
             <div class="field"><label for="area">Area</label><input id="area" maxlength="60" @bind="area" placeholder="For example, Adelaide CBD" /></div>
@@ -26,7 +26,7 @@
                 <p class="field-help"><button type="button" class="link-button" disabled="@busy" @onclick="HomeCheckAsync" data-home-check>Check my location matches</button>
                     <span data-home-check-result="@homeCheck">@(homeCheck is null ? "" : MemberText.HomeCheck(homeCheck))</span></p>
             }
-            <p class="field-help"><a class="link" href="/me/photos" data-photos-link>Your photos</a>: a main photo for every mode, and photos for each mode.</p>
+            <p class="field-help"><a class="link" href="/me/photos" data-photos-link>Your photos</a>: choose an independent main and gallery for each mode.</p>
             <div class="field"><label for="about">About me</label><textarea id="about" maxlength="500" rows="4" @bind="about"></textarea></div>
             <button type="submit" class="button" disabled="@busy">Save profile</button>
             <p role="status" aria-live="polite" class="field-help" data-core-status="@coreStatus">@coreMessage</p>
@@ -63,6 +63,12 @@
                         </ul>
                     </div>
                 }
+                <div class="field" data-mode-name="@mode.Id">
+                    <label for="@($"name-{mode.Id}")">Display name in @mode.Label <span class="field-help">(optional)</span></label>
+                    <input id="@($"name-{mode.Id}")" maxlength="40" autocomplete="nickname" value="@setting.DisplayName" placeholder="@profile.DisplayName" disabled="@busy"
+                           @onchange="e => SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, setting.About, displayName: e.Value as string ?? string.Empty)" />
+                    <p class="field-help">Leave blank to use your main public display name. Your registered name is never used here.</p>
+                </div>
                 @* D175: an about for this mode only; people in other modes never see it. #91: the main about shows here only if you say so. *@
                 <div class="field" data-mode-about="@mode.Id">
                     <label for="@($"about-{mode.Id}")">About me in @mode.Label <span class="field-help">(optional, only shown in @mode.Label)</span></label>
@@ -120,10 +126,10 @@
         else (coreStatus, coreMessage) = ("invalid", "Check the fields: no special characters, and keep within the lengths shown.");
     }
 
-    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about, bool? shareCoreAbout = null)
+    private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about, bool? shareCoreAbout = null, string? displayName = null)
     {
         busy = true;
-        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about, shareCoreAbout));
+        var result = await Members.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about, shareCoreAbout, displayName));
         busy = false;
         if (result.Value is { } saved) { profile = saved; modeMessage = "Mode settings saved."; }
         else modeMessage = result.Code == ProblemCodes.TooManyIntentions ? "You can pick up to five in each mode." : "That change wasn't saved. Try again.";

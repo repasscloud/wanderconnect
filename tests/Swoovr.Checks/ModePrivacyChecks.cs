@@ -32,6 +32,17 @@ static class ModePrivacyChecks
         Expect(ModePrivacy.About(null, "Main about", null) is null && ModePrivacy.About(null, "Main about", false) is null, "no consent: nothing crosses");
         Expect(ModePrivacy.About("Mode about", "Main about", false) == "Mode about", "the mode's own about never needs consent");
 
+        // Q118 supersedes shared names: only the requested mode override, else the main public name.
+        foreach (var mode in ConnectionModeIds.All)
+        {
+            Expect(ModePrivacy.DisplayName("  " + mode + " alias  ", "Main public") == mode + " alias", "mode override wins: " + mode);
+            Expect(ModePrivacy.DisplayName(null, "Main public") == "Main public", "legacy null fallback: " + mode);
+            Expect(ModePrivacy.DisplayName("  ", "Main public") == "Main public", "cleared override fallback: " + mode);
+        }
+        Expect(ModePrivacy.DisplayName(null, null) is null, "no public name means none; no registered identity fallback");
+        Expect(ProfileTextPolicy.Check(new string('x', 41), null, null) == ProfileTextError.DisplayNameTooLong, "override uses name length limit");
+        Expect(ProfileTextPolicy.Check("Alias\nName", null, null) == ProfileTextError.ControlCharacters, "override rejects control characters");
+
         // D176: disconnecting without blocking.
         Guid a = Guid.NewGuid(), b = Guid.NewGuid(), stranger = Guid.NewGuid();
         ConnectionRequest Accepted() => new() { Id = Guid.NewGuid(), FromAccountId = a, ToAccountId = b, ModeId = "friends", Status = ConnectionRequestStatus.Accepted, CreatedAt = now.AddDays(-5) };

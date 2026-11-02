@@ -2503,6 +2503,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D300** ([source](https://g
 
 ### Q118 — Decide optional per-mode public display-name overrides and safe fallback
 
+Implementation checkpoint: [Q118 evidence](Q118-MODE-NAMES-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 Owner answer recorded 2 November 2026 — **CONFIRMED D301** ([source](https://github.com/repasscloud/wanderconnect/issues/163#issuecomment-6572853394)): 163.1–163.3 A; 163.4 Yes. Optional display-name override in all four modes; empty override uses main public display name only, never registered name. Chat uses name for the mode where conversation began (one conversation across modes, D143). Explicitly supersedes D175 shared-display-name requirement; retain all other per-mode privacy rules and historical evidence. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#163](https://github.com/repasscloud/wanderconnect/issues/163); [intake item 24](ISSUE-INTAKE.md#intake-24).

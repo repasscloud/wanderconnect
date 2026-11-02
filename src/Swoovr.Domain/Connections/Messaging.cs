@@ -10,6 +10,8 @@ public sealed class Conversation
     public Guid Id { get; set; }
     public Guid PairLow { get; set; }
     public Guid PairHigh { get; set; }
+    /// <summary>Q118: the mode this conversation began in; null for legacy unknown origin.</summary>
+    public string? OriginModeId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? LastMessageAt { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
