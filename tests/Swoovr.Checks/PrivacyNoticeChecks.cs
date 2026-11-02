@@ -14,7 +14,7 @@ static class PrivacyNoticeChecks
         string Text(string id) => string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == id).Paragraphs);
         var all = string.Join(" ", PrivacyNotice.Sections.SelectMany(s => s.Paragraphs));
 
-        Expect(PrivacyNotice.DraftLabel.StartsWith("DRAFT") && PrivacyNotice.DraftLabel.Contains("not in force"), "labelled DRAFT, not in force");
+        Expect(!PrivacyNotice.DraftLabel.Contains("DRAFT") && PrivacyNotice.DraftLabel.Contains("Privacy notice"), "D290 operative notice without draft label");
         Expect(PrivacyNotice.Sections.Select(s => s.Id).Distinct().Count() == PrivacyNotice.Sections.Count, "unique section ids");
         Expect(Text("identity").Contains("legal first and last name") && Text("identity").Contains("issuing country") && Text("identity").Contains("expiry date"), "the identity record's fields (D191)");
         Expect(Text("identity").Contains("never keep your document number, address, document images, selfie, liveness or biometric data"), "what's never kept");

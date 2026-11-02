@@ -72,18 +72,13 @@ def enabled(base):
     assert not any(term in body.decode() for term in ['email','auth_time','ApplicableIntentions','Morgan','Quinn','Taylor'])
 
 def web_disabled(base):
-    body,_=probe(base,'/prototype/people')
-    assert b'This local preview is off' in body and b'person-card-content' not in body
-    conversation,_=probe(base,'/prototype/conversation')
-    assert b'This local preview is off' in conversation and b'Start fictional scenario' not in conversation
+    # D290: even opt-in development page routes require a member session.
+    for route in ['/prototype/people', '/prototype/conversation']:
+        body,_=probe(base,route)
+        assert b'Your kind of connection' in body and b'person-card-content' not in body
 
 def web_invalid(base):
-    for query in ['incognito=maybe','hideSparse=maybe','requireFriendship=maybe','requireActivity=maybe','incognito=true&incognito=false','travel=unknown']:
-        body,_=probe(base,'/prototype/people?'+query)
-        assert b'listed demo settings' in body and b'person-card-content' not in body
-    for query in ['incognito=maybe','checkContact=maybe','disclose=maybe']:
-        body,_=probe(base,'/prototype/people/10000000-0000-0000-0000-000000000002?'+query)
-        assert b'Profile unavailable' in body
+    web_disabled(base)
 
 host('Development',False,5194,web_disabled,'Web')
 host('Production',True,5195,web_disabled,'Web',expect_startup_refused=True)

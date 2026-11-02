@@ -1,7 +1,7 @@
 @inject MemberClient Members
 <div class="page-heading"><h1>Required policies</h1><p>Review the exact approved version before choosing whether to accept it.</p></div>
 @if(state is null){<p role="status">Policy information is loading or unavailable.</p>}
-else if(state.RequiredVersion is null){<p data-policy-none>No approved policy version is currently required. The public draft terms remain drafts; reading them does not record acceptance.</p><a href="/terms">Terms of use (draft)</a>}
+else if(state.RequiredVersion is null){<p data-policy-none>No approved policy version is currently required. Reading the public terms does not record acceptance.</p><a href="/terms">Terms of use</a>}
 else if(state.Accepted){<p data-policy-accepted>You explicitly accepted version @state.RequiredVersion on @state.AcceptedAt?.ToString("yyyy-MM-dd").</p><a href="@state.ReadPath">Read this version</a>}
 else
 {

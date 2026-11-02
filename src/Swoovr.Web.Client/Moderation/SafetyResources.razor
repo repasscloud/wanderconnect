@@ -25,11 +25,15 @@
         @if (Pack.ReviewedOn is { } reviewed) { <p class="field-help" data-safety-reviewed="@reviewed.ToString("yyyy-MM-dd")">Checked by Swoovr on @reviewed.ToString("d MMMM yyyy").</p> }
     }
 </section>
+@if (ShowMemberActions)
+{
 <section class="card account-section" aria-labelledby="swoovr-actions-heading" data-swoovr-actions>
     <h2 id="swoovr-actions-heading">@SafetyText.SwoovrActions</h2>
     <p class="field-help">@SafetyText.SwoovrHelp</p>
     <p class="account-actions"><a class="button button-secondary" href="/me/meeting-safety">I’m meeting someone</a> <a class="button button-secondary" href="/me/safety#serious" data-serious-entry>Report a serious safety incident</a></p>
 </section>
+}
 @code {
+    [Parameter] public bool ShowMemberActions { get; set; } = true;
     [Parameter] public SafetyPack? Pack { get; set; }
 }

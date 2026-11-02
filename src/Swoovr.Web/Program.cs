@@ -56,7 +56,7 @@ app.UseAntiforgery();
 app.UseRestrictionGate();
 app.UseAccountEntry();
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 MemberSignIn.MapMemberSignIn(app);
 Bff.MapBff(app);
 MeetingSafetyPages.Map(app);

@@ -10,8 +10,8 @@ namespace Swoovr.Client;
 /// </summary>
 public static class PrivacyNotice
 {
-    public const string DraftLabel = "DRAFT — release candidate for legal review, not in force. It describes how Swoovr handles information today; it becomes our privacy policy only once our lawyers approve it and we publish it without this label.";
-    public const string Version = "Draft 0.17, 2 November 2026";
+    public const string DraftLabel = "Privacy notice — approved 2 November 2026.";
+    public const string Version = "0.17, 2 November 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 

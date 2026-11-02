@@ -5,12 +5,12 @@ namespace Swoovr.Client;
 /// Markdown and regenerate rather than editing this text.</summary>
 public static class PublicPolicyDrafts
 {
-    public const string Version = "draft-2026-11-02-0.2";
-    public const string Status = "draft";
+    public const string Version = "2026-11-02-0.2";
+    public const string Status = "approved";
     public const string Source = "docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md";
     public const string SourceSha256 = "8c2a55247543aa711d239e21d200dbbe9dd0020afeb1964f8a1d787523b4a1e9";
-    public const bool IsApproved = false;
-    public const string DraftLabel = "DRAFT — proposed text, pending legal review. Not in force. Reading this page does not accept or activate these terms.";
+    public const bool IsApproved = true;
+    public const string DraftLabel = "Reading this page does not record acceptance of these terms.";
     public sealed record Document(string Id, string Title, IReadOnlyList<string> Paragraphs, IReadOnlyList<string> Rules);
     public static readonly Document Terms = new("terms", "Terms of use", [
         "1. About these terms. These terms are an agreement between you and RePass Cloud Pty Ltd (ABN 74 642 243 801, ACN 642 243 801) of Findon, South Australia 5023, the company that operates Swoovr (\"Swoovr\", \"we\", \"us\"). They apply to the Swoovr website, apps and services. The community guidelines and the privacy notice form part of how Swoovr works; please read them too. If you don't agree to these terms, don't use Swoovr.",

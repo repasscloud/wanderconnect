@@ -81,15 +81,20 @@ public static class MemberSignIn
 
     public static void UseAccountEntry(this WebApplication app)
     {
-        var configured = IsConfigured(app.Configuration);
         app.Use(async (context, next) =>
         {
-            if (configured && HttpMethods.IsGet(context.Request.Method)
-                && string.Equals(context.Request.Path.Value?.TrimEnd('/'), "/account", StringComparison.OrdinalIgnoreCase)
-                && context.User.Identity?.IsAuthenticated != true && context.Request.Query["signin"] != "retry")
+            var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
+            var publicPage = path is "" or "/terms" or "/community-guidelines" or "/privacy" or "/safety/advice" or "/safety";
+            // Protocol operations and static assets are not navigable guest pages. BFF retains its own 401/CSRF gate.
+            var protocol = path is "/account/sign-in" or "/account/create" or "/account/sign-out"
+                or "/signin-oidc" or "/signout-callback-oidc" or "/signout-oidc"
+                or "/health/live" or "/health/ready";
+            var resource = context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is not null
+                || context.Request.Path.StartsWithSegments("/bff");
+            if (context.User.Identity?.IsAuthenticated != true && !publicPage && !protocol && !resource)
             {
                 context.Response.Headers.CacheControl = "no-store";
-                context.Response.Redirect("/account/sign-in");
+                context.Response.Redirect("/");
                 return;
             }
             await next(context);
@@ -101,7 +106,7 @@ public static class MemberSignIn
         var configured = IsConfigured(app.Configuration);
         app.MapGet("/account/sign-in", (HttpContext context) =>
         {
-            if (!configured) return Results.Redirect("/account");
+            if (!configured) return Results.Redirect("/");
             // Launch splash (docs/design/reference/UI-STYLE.md): the first sign-in visit of a browser
             // session plays it here, before the hand-off, because Keycloak pages can't run it between
             // redirects. The page returns with intro=done; the cookie stops replays on later visits.
@@ -119,12 +124,12 @@ public static class MemberSignIn
                     return Results.Stream(launch.CreateReadStream(), "text/html; charset=utf-8");
                 }
             }
-            return Results.Challenge(new AuthenticationProperties { RedirectUri = "/account" }, [OpenIdConnectDefaults.AuthenticationScheme]);
+            return Results.Challenge(new AuthenticationProperties { RedirectUri = "/explore" }, [OpenIdConnectDefaults.AuthenticationScheme]);
         });
         app.MapGet("/account/create", (HttpContext context) =>
         {
-            if (!configured) return Results.Redirect("/account");
-            var properties = new AuthenticationProperties { RedirectUri = "/account" };
+            if (!configured) return Results.Redirect("/");
+            var properties = new AuthenticationProperties { RedirectUri = "/explore" };
             // Keycloak's registration endpoint shares the authorization request (prompt=create).
             properties.Parameters["prompt"] = "create";
             return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
@@ -133,7 +138,7 @@ public static class MemberSignIn
         // member in again (prompt=login: password, passkey or a linked Apple/Google identity) and returns to a local page.
         app.MapGet("/account/reauthenticate", (string? returnUrl) =>
         {
-            if (!configured) return Results.Redirect("/account");
+            if (!configured) return Results.Redirect("/");
             var target = returnUrl is { Length: > 1 } url && url[0] == '/' && url[1] != '/' && url[1] != '\\' ? url : "/account";
             var properties = new AuthenticationProperties { RedirectUri = target };
             properties.Parameters["prompt"] = "login";

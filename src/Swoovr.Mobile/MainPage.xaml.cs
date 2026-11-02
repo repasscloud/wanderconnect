@@ -50,6 +50,8 @@ public partial class MainPage : ContentPage
 	{
 		(Heading.Text, Intro.Text) = ("Swoovr", "Sign in to see your account.");
 		(SignedOutPanel.IsVisible, AccountPanel.IsVisible) = (true, false);
+        Shell.SetTabBarIsVisible(this, false);
+        AppearanceButton.IsVisible=false;
 		ShowStatus(message);
 	}
 
@@ -63,6 +65,8 @@ public partial class MainPage : ContentPage
 		EmailChangeHelp.Text = AccountText.EmailChangeHelp;
 		EmailChangeMessage.Text = session?.EmailChangeProblem is {} issue ? AccountText.EmailChangeMessage(issue) : null;
 		(SignedOutPanel.IsVisible, AccountPanel.IsVisible) = (false, true);
+        Shell.SetTabBarIsVisible(this, true);
+        AppearanceButton.IsVisible=true;
 		if (session is null)
 		{
 			(Heading.Text, Intro.Text) = ("Swoovr", "We couldn't confirm your session with the Swoovr API. Try signing in again.");
@@ -72,7 +76,7 @@ public partial class MainPage : ContentPage
 		}
 		var blocked = AccountText.BetaBlocked(session);
 		(Heading.Text, Intro.Text) = blocked
-			? ("Almost there.", "You're signed in. The Swoovr app opens once your email is on the private beta list.")
+			? ("Almost there.", "You're signed in. The Swoovr app opens once your email is on the invitation list.")
 			: ("You're in.", "Manage your Swoovr account, profile and connections.");
 		BetaNotice.IsVisible = blocked;
 		Method.Text = AccountText.MethodLabel(session.Method) + (session.MultiFactor ? " + one-time code" : "");

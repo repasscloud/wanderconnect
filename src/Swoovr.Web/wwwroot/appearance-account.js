@@ -2,7 +2,7 @@
 (function(){
  'use strict';const cache=window.SwoovrAccountCache;let active=null,callback=null,started=false;
  const state=()=>window.SwoovrGuestAppearance;
- function guest(){const s=state();if(!s)return;const value=window.SwoovrAppearance.load(s.storage);s.guestPreference=value.preference;s.preference=value.preference;s.apply();}
+ function guest(){const s=state();if(!s)return;const value={preference:{scheme:"standard",mode:"system"}};s.guestPreference=value.preference;s.preference=value.preference;s.apply();}
  function start(owner){
   const s=state();if(!s)return;
   owner=cache.validOwner(owner)?owner:null;
@@ -10,7 +10,7 @@
   started=true;
   const previous=active;active=owner;s.activeAccount=owner;
   const stored=cache.owner(s.storage);if(!owner)cache.clear(s.storage);else if(stored&&stored!==owner)cache.clear(s.storage,stored);
-  const value=owner?cache.load(s.storage,owner):null;s.preference=value?.preference??window.SwoovrAppearance.load(s.storage).preference;s.apply();
+  const value=owner?cache.load(s.storage,owner):null;s.preference=owner?(value?.preference??window.SwoovrAppearance.load(s.storage).preference):{scheme:"standard",mode:"system"};s.apply();
   if(previous&&previous!==owner)notify('owner-changed');
  }
  function notify(reason){if(callback)callback.reference.invokeMethodAsync('AppearanceBrowserChanged',reason).catch(()=>{});}

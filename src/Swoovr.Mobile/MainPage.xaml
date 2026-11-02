@@ -7,10 +7,15 @@
         <VerticalStackLayout Padding="24,30" Spacing="16">
             <Label x:Name="Heading" Text="Swoovr" Style="{StaticResource PageTitle}" SemanticProperties.HeadingLevel="Level1" />
             <Label x:Name="Intro" Style="{StaticResource Subtitle}" />
-            <Button Text="Appearance" AutomationId="Appearance" Style="{StaticResource SecondaryButton}" Clicked="OnAppearance" />
+            <Button x:Name="AppearanceButton" Text="Appearance" AutomationId="Appearance" Style="{StaticResource SecondaryButton}" Clicked="OnAppearance" />
             <Label x:Name="Status" AutomationId="Status" IsVisible="False" />
 
             <VerticalStackLayout x:Name="SignedOutPanel" Spacing="12" IsVisible="False">
+                <Button Text="Terms" Clicked="OnTerms" Style="{StaticResource SecondaryButton}" />
+                <Button Text="Community guidelines" Clicked="OnCommunity" Style="{StaticResource SecondaryButton}" />
+                <Button Text="Privacy" Clicked="OnPrivacy" Style="{StaticResource SecondaryButton}" />
+                <Button Text="Connection and meeting advice" Clicked="OnSafetyAdvice" Style="{StaticResource SecondaryButton}" />
+                <Button Text="Safety &amp; Support" Clicked="OnSafety" Style="{StaticResource SecondaryButton}" />
                 <Button x:Name="SignInButton" Text="Sign in" AutomationId="SignIn" Style="{StaticResource PrimaryButton}" Clicked="OnSignIn" />
                 <Label Text="You sign in on Swoovr's sign-in page in your phone's browser. Swoovr never sees your password." Style="{StaticResource FooterClaims}" />
             </VerticalStackLayout>
@@ -35,7 +40,7 @@
                 <Border x:Name="BetaNotice" Style="{StaticResource Card}" IsVisible="False">
                     <VerticalStackLayout Spacing="6">
                         <Label><Label.FormattedText><FormattedString>
-                            <Span Text="Swoovr is in private beta." FontAttributes="Bold" />
+                            <Span Text="Swoovr is currently invite-only." FontAttributes="Bold" />
                             <Span Text=" You're not on the list yet." />
                         </FormattedString></Label.FormattedText></Label>
                         <Label Text="Ask to join the beta on swoovr.com" Style="{StaticResource Link}" AutomationId="BetaLink">
@@ -114,9 +119,9 @@
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
-                            <Button Text="Terms of use (draft)" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />
-                            <Button Text="Community guidelines (draft)" AutomationId="MeCommunity" Style="{StaticResource SecondaryButton}" Clicked="OnCommunity" />
-                            <Button Text="Privacy notice (draft)" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
+                            <Button Text="Terms of use" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />
+                            <Button Text="Community guidelines" AutomationId="MeCommunity" Style="{StaticResource SecondaryButton}" Clicked="OnCommunity" />
+                            <Button Text="Privacy notice" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
                         </VerticalStackLayout>
                     </Border>
 

@@ -2574,3 +2574,21 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 - 121.1 A: register current `com.swoovr.app` in Firebase and replace local config (**Suggested**). B: explicitly approve different provider-test package and review callback/signing implications.
 - 121.2 Confirm corrected file ready at `.local/firebase/google-services.json` after A. Never paste keys.
 - No private file was changed because the consistency check failed first. Physical-device/APNs acceptance stays OPEN. Independent work continues.
+
+<a id="q122"></a>
+
+### Q122 — Safety industry forum shortlist
+
+- Issue: [#172](https://github.com/repasscloud/wanderconnect/issues/172); owner feedback 119.4, CONFIRMED D304.
+- Status: OPEN later / product-review, no current code blocker.
+- 122.1 A: research a concise evidence-backed Australian safety/dating industry forum shortlist before public-beta review; owner selects memberships later (**Suggested**). B: defer until after invited UAT.
+- No joining, payments, outreach, membership or compliance claim is authorised. Preserve the owner's request for a list rather than silently choosing organisations.
+
+<a id="q123"></a>
+
+### Q123 — Guest allowlist and trusted-contact safety capability pages
+
+- Issue: [#173](https://github.com/repasscloud/wanderconnect/issues/173); conflict between latest CONFIRMED D290/Q99 and earlier D263 non-member trusted-contact readers.
+- Status: OPEN / decision-needed; blocks acceptance of shared-plan contact responses/readers, not ordinary member-route protection.
+- 123.1 A: narrowly allow existing token/code-protected contact/meeting workflows with all consent/expiry/rate/privacy controls (**Suggested**). B: keep the absolute six-page guest rule and explicitly remove/disable that non-member sharing journey.
+- The current implementation follows the latest strict six-page instruction, so contact/meeting capability pages redirect home. These rendered pages are not honestly classifiable as static/authentication protocol resources. No anonymous exception or feature removal is inferred; independent work continues.

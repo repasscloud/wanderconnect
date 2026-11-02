@@ -37,3 +37,12 @@ Q121/#170 records that the supplied Android client package is `com.swoovr.app.ua
 ## Recording checkpoint
 
 All current owner answers are recorded as CONFIRMED D289–D305; Q110 remains OPEN because the answer posted on #155 is explicitly 156.*. Q121/#170 is the newly discovered Firebase package blocker. Baseline `check.sh` passed including 607 disposable PostgreSQL cases and all three HTTP smoke stages. The recording checkpoint run `owner-records-check` passed naming, backup, design/link/disabled-workflow, realm and Node gates, then failed compilation in concurrent in-progress Q112 (`RegistrationSettings.razor` Razor variable and `RegistrationAuthority.cs` EF1003). It did not reach persistence or HTTP smoke and is not a full pass. The implementation will be checked again after integration; no failed stage is represented as acceptance.
+
+## Current implementation checkpoints
+
+- Q113/#158 committed `6898f60`: enhanced SSR forms, actual owned media/refresh regression passed; physical Safari27.2 and old native POST history remain unverified.
+- Q94/#135 committed `50ef4a5`: actual365px→320px enlarged-text reflow fix passed with owned Beta fixture.
+- Q92/#132 committed `a5552af`: both architecture runtime builds and native library checks passed; no running host replaced, fresh/reuse operator acceptance remains.
+- Q99/#141 guest routing/presentation implemented and actual owned guest browser passed. OPEN Q123/#173 blocks reconciliation with trusted-contact capability pages; do not close Q99 as fully accepted.
+- Q122/#172 records the owner's later forum-shortlist request, out of the current product-review scope.
+- Integrated check3 built all Release projects with zero warnings/errors and passed portable suites; disposable persistence stopped at Beta operations' old static-gate assertion. This is not a full repository pass and later HTTP smoke did not run.

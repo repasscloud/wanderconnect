@@ -24,7 +24,7 @@ public static class NativeAppearance
     public static event Action? Changed;
     public static void Initialize(Application application)
     {
-        app=application;Guest=ReadGuest();Apply(Guest);
+        app=application;Guest=AppearancePreferences.Default;Apply(Guest);
         application.RequestedThemeChanged+=(_,_)=>{if(!applying&&Current.Mode=="system"){Apply(Current);Changed?.Invoke();}};
         Connectivity.Current.ConnectivityChanged+=(_,_)=>MainThread.BeginInvokeOnMainThread(async()=>{await EnsureAccountAsync(MainPage.Auth);});
     }
@@ -66,7 +66,7 @@ public static class NativeAppearance
     }
     public static async Task RestoreAsync()
     {
-        var scope=await StoredOwnerAsync()??CachedOwner();if(scope is null){ForgetAccount();return;}
+        var scope=await StoredOwnerAsync();if(scope is null){ForgetAccount();return;}
         owner=scope;var cached=ReadCache(scope);var state=new AppearanceSyncState(Guest);state.BeginAccount(cached);
         if(!state.IsLoading)Apply(state.Current);
     }

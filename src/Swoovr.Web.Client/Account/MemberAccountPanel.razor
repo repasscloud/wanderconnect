@@ -12,7 +12,7 @@
     else if (session is not null && BetaBlocked)
     {
         <h1>Almost there, @Name.</h1>
-        <p>You're signed in. The Swoovr app opens once your email is on the private beta list.</p>
+        <p>You're signed in. The Swoovr app opens once your email is on the invitation list.</p>
     }
     else
     {
@@ -35,7 +35,7 @@
             {
                 @* D77: same words whatever the reason, so the page never says whether an address was ever enrolled. *@
                 <div class="notice" role="status" data-beta="@session.Beta">
-                    <p><strong>Swoovr is in private beta.</strong> You're not on the list yet.</p>
+                    <p><strong>Swoovr is currently invite-only.</strong> You're not on the list yet.</p>
                     <p><a class="link" href="@AccountText.BetaUrl">Ask to join the beta on swoovr.com</a></p>
                 </div>
             }
