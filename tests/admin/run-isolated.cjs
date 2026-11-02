@@ -18,6 +18,9 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const config=Object.fromEntries(raw.split('\n').filter(l=>/^[A-Z0-9_]+=/.test(l)).map(l=>{const i=l.indexOf('=');return[l.slice(0,i),l.slice(i+1).replace(/^['"]|['"]$/g,'')]}));
  const db='swoovr_admin_design_'+crypto.randomBytes(8).toString('hex'),clientId='swoovr-admin-design-'+crypto.randomBytes(5).toString('hex'),secret=crypto.randomBytes(32).toString('hex');
  const email=clientId+'@example.test',password=crypto.randomBytes(24).toString('hex');
+ // Registration changes are Root-only: this owned fixture signs in with actual password + seeded TOTP evidence.
+ const otpSecret=process.env.SWOOVR_ADMIN_TEST_SCENARIO==='registration'?Array.from(crypto.randomBytes(32),n=>'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[n&31]).join(''):null;
+ let lastOtpStep=-1;
  const sql=q=>run('docker',['exec','swoovr-platform-postgres-1','psql','-p','5433','-U','swoovr','-d',db,'-v','ON_ERROR_STOP=1','-tAc',q]);
  let userId,clientUuid,token,edge,ownedMedia;const children=[];
  const authenticate=async()=>{const response=await fetch('http://localhost:8180/realms/master/protocol/openid-connect/token',{method:'POST',body:new URLSearchParams({grant_type:'password',client_id:'admin-cli',username:'local-bootstrap',password:config.KC_BOOTSTRAP_ADMIN_PASSWORD})});
@@ -33,17 +36,32 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  }
  await run('docker',['exec','swoovr-platform-postgres-1','psql','-p','5433','-U','swoovr','-d','postgres','-c','CREATE DATABASE '+db]);
  await run('dotnet',['src/Swoovr.Api/bin/Release/net10.0/Swoovr.Api.dll','migrate'],env);
+ // Explicit disposable test policy; never restore the removed runtime Beta:Enabled bypass.
+ await sql("UPDATE registration_availability SET beta_enabled=false,public_enabled=true,revision=revision+1 WHERE id=1");
  const base=(await kc('/clients?clientId=swoovr-admin-web'))[0],template=await kc('/clients/'+base.id);delete template.id;template.clientId=clientId;template.secret=secret;template.name='Owned admin design browser test';template.redirectUris=['http://localhost:15882/signin-oidc','http://localhost:15883/signin-oidc'];template.webOrigins=[];template.attributes={...template.attributes,'swoovr.owner':'admin-design-test'};
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='sessions') template.attributes['access.token.lifespan']='5';
  for(const mapper of template.protocolMappers??[])delete mapper.id;
  await kc('/clients','POST',template);clientUuid=(await kc('/clients?clientId='+clientId))[0].id;
- await kc('/users','POST',{username:email,email,firstName:'Fictional',lastName:'Staff',emailVerified:true,enabled:true,credentials:[{type:'password',value:password,temporary:false}]});userId=(await kc('/users?username='+email))[0].id;
+ await kc('/users','POST',{username:email,email,firstName:'Fictional',lastName:'Staff',emailVerified:true,enabled:true,credentials:[{type:'password',value:password,temporary:false},...(otpSecret?[require('../auth/owned-support.cjs').otpCredential(otpSecret)]:[])]});userId=(await kc('/users?username='+email))[0].id;
  await start(root+'/src/Swoovr.Api/bin/Release/net10.0/Swoovr.Api.dll',root+'/src/Swoovr.Api',15880);
  const adminEnv={Keycloak__Authority:'http://localhost:8180/realms/swoovr-staff-dev',Keycloak__ClientId:clientId,Keycloak__ClientSecret:secret,Api__BaseUrl:'http://localhost:15880/'};
  await start(path.join(baselinePublish,'Swoovr.Admin.dll'),baselinePublish,15883,adminEnv);
  await start(path.join(currentPublish,'Swoovr.Admin.dll'),currentPublish,15882,adminEnv);
  const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/playwright');edge=await require(root+'/tests/auth/managed-edge.cjs').managedEdge(chromium);const context=await edge.browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
- const login=async(port)=>{await page.goto('http://localhost:'+port+'/cases');if(await page.locator('#username').count()){await page.fill('#username',email);await page.fill('#password',password);await page.click('#kc-login')}await page.waitForURL('http://localhost:'+port+'/cases');};
+ const login=async(port)=>{
+  await page.goto('http://localhost:'+port+'/cases');
+  if(await page.locator('#username').count()){
+   await page.fill('#username',email);await page.fill('#password',password);await page.click('#kc-login');
+   if(otpSecret){
+    await page.waitForSelector('#otp');
+    const{totp}=await import('../../scripts/auth/totp.mjs');
+    while(Math.floor(Date.now()/30000)<=lastOtpStep)await sleep(250);
+    lastOtpStep=Math.floor(Date.now()/30000);
+    await page.fill('#otp',totp(otpSecret));await page.click('#kc-login');
+   }
+  }
+  await page.waitForURL('http://localhost:'+port+'/cases');
+ };
  await login(15882);
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').refused(page);
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='beta') await require('./beta.browser.cjs').refused(page);
@@ -73,7 +91,9 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='accounts') await require('./accounts.browser.cjs').found(page);
  else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='sessions') await require('./sessions.browser.cjs')({page,kc,userId});
  else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='beta') await require('./beta.browser.cjs')({page,base:'http://localhost:15882'});
+ else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='registration') await require('./registration.browser.cjs')({page,base:'http://localhost:15882',sql,staffId});
  else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='media') await require('./media-review.browser.cjs')({page,base:'http://localhost:15882',sql});
+ else if(process.env.SWOOVR_ADMIN_TEST_SCENARIO==='presentation') await require('./presentation.browser.cjs')({page,base:'http://localhost:15882'});
  else await require(root+'/tests/admin/shell.browser.cjs')({page,base:'http://localhost:15882',out});
  if(process.env.SWOOVR_ADMIN_PREVIEW==='1'){
   const previewDir=await fs.mkdtemp(require('node:os').tmpdir()+'/swoovr-admin-preview-');await fs.chmod(previewDir,0o700);
