@@ -11,3 +11,6 @@ A decision recording does not imply its implementation or acceptance.
 | #137 | Q95 | D289 | Recorded; implementation follows / external gates remain |
 
 Recording #137: `./scripts/check.sh` exit 0 including disposable PostgreSQL persistence and three HTTP smoke stages; no browser/native/provider acceptance from this documentation change.
+| #141 | Q99 | D290 | Recorded; implementation follows / external gates remain |
+
+Recording #141: `./scripts/check.sh` exit 0 including disposable PostgreSQL persistence and three HTTP smoke stages; no browser/native/provider acceptance from this documentation change.

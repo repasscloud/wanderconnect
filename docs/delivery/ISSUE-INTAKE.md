@@ -1217,6 +1217,10 @@ Implementation progress (2 November 2026): Guest navigation/landing fixed; truth
 - **GitHub issue:** [#141](https://github.com/repasscloud/wanderconnect/issues/141)
 - **Tracking Q:** Q99
 
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D290** ([source](https://github.com/repasscloud/wanderconnect/issues/141#issuecomment-6572956911)): 141.1 A; 141.2 Yes; 141.3 A; 141.4 A; 141.5–141.7 Yes. Anonymous pages are only /, /terms, /community-guidelines, /privacy, /safety/advice and country-only /safety. Other page routes redirect to / silently. Sign-in/create buttons only on home, no top-right links; remove Private beta and draft labels; Support goes to https://swoovr.com/support. Standard only for guests; successful sign-in lands on Explore. Same pre-sign-in rule on native. Supersedes D288 runtime draft deferral for these approved operative readers and D20 guest theme choice; authentication callbacks/assets remain necessary protocol resources, not guest pages. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+
 ### Historical intake investigation — pre-merge source snapshot
 
 Q99: Home source confirms work-in-progress copy and appearance CTA. Shared navigation is visible in the screenshot. OPEN: removing genuine draft/legal/readiness disclosures must not imply approved documents or a live service. Keep Standard default and personal choices; no rebranding.
