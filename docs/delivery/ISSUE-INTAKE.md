@@ -56,6 +56,10 @@ Implementation progress (2 November 2026): the false no-match on API refusal is 
 - **GitHub issue:** [#137](https://github.com/repasscloud/wanderconnect/issues/137)
 - **Tracking Q:** Q95
 
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D289** ([source](https://github.com/repasscloud/wanderconnect/issues/137#issuecomment-6570109341)): Account email lookup works; owner requests resolution in this PR. Original cause remains unproven. Closes #137 on merge; phone search/browse is separate Q110. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+
 Current disposition (2 November 2026): the owner confirmed successful lookup in [#137](https://github.com/repasscloud/wanderconnect/issues/137) and requested resolution on a next PR; this task leaves the issue open. The original cause is unproven. New phone/browse scope is [Q110 / #155](https://github.com/repasscloud/wanderconnect/issues/155).
 
 ### Historical intake investigation — pre-merge source snapshot

@@ -2114,6 +2114,8 @@ Owner-authorised tracking/publication only. All 15 substantive reports processed
 
 ### Q95 — Admin account search fails to find existing users by email address
 
+Owner answer recorded 2 November 2026 — **CONFIRMED D289** ([source](https://github.com/repasscloud/wanderconnect/issues/137#issuecomment-6570109341)): Account email lookup works; owner requests resolution in this PR. Original cause remains unproven. Closes #137 on merge; phone search/browse is separate Q110. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
 Current status checked 2 November 2026: [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) is merged into main; issue remains OPEN. Owner confirmed working lookup on #137 (2 November); original cause remains unproven and closure is deferred to a next PR. New scope: Q110/#155.
 
 Implementation progress (2 November 2026): the false no-match on API refusal is fixed on [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
