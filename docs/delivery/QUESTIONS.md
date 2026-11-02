@@ -2549,6 +2549,8 @@ Implementation checkpoint: [Q119 evidence](Q119-ADMIN-PRESENTATION-2026-11-02.md
 
 ### Q120 — Assess Admin workflow availability on desktop, tablet and mobile
 
+Implementation checkpoint: [Q120 evidence](Q120-ADMIN-DEVICE-MATRIX-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 Owner answer recorded 2 November 2026 — **CONFIRMED D302** ([source](https://github.com/repasscloud/wanderconnect/issues/165#issuecomment-6572882262)): 165.1 Yes; 165.2 A; 165.3 A; 165.4 Yes. Approve route matrix in owner questions; desktop-only is presentation, not trusted-device authorization. Tablets have desktop access, including photo review. Phones see This page needs a larger screen and overview link on desktop workflows. Backend role/elevation/conflict controls remain authoritative. Corrects D297 cross-reference: tablet policy is D302. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#165](https://github.com/repasscloud/wanderconnect/issues/165); [intake item 25](ISSUE-INTAKE.md#intake-25).
