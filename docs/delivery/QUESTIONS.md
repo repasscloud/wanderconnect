@@ -2459,6 +2459,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D297** ([source](https://g
 
 ### Q115 — Define photo rejection notices, appeals and retention-safe reconsideration
 
+Implementation checkpoint: [Q115 evidence](Q115-PHOTO-APPEALS-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 Owner answer recorded 2 November 2026 — **CONFIRMED D298** ([source](https://github.com/repasscloud/wanderconnect/issues/160#issuecomment-6572660549)): 160.1 A; 160.2 A; 160.3 Yes; 160.4 A; 160.5 A; 160.6 Yes. In-app photo rejection/outcome notices; one appeal within 30 days, different Admin decides, final. Suspected CSAM/known illegal/specialist media never appealable and no detailed reason. Keep rejected file privately 30 days then delete unless held. Admin may reconsider independently with reason and re-screening. Rejection remains hidden; ordinary approval cannot bypass screening/specialist/preservation. Existing D135 sanction appeals remain distinct. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#160](https://github.com/repasscloud/wanderconnect/issues/160); [intake item 22](ISSUE-INTAKE.md#intake-22).

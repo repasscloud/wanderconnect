@@ -11,7 +11,7 @@ public static class ModerationTransparencyMapping
         snapshot.Property(s=>s.DefinitionVersion).HasMaxLength(80);snapshot.Property(s=>s.Fingerprint).HasMaxLength(64);
         snapshot.ToTable(t=>t.HasCheckConstraint("ck_transparency_snapshot","ending_year BETWEEN 2 AND 9998 AND revision>0 AND fingerprint ~ '^[0-9a-f]{64}$' AND octet_length(aggregate_json)<=200000 AND jsonb_typeof(aggregate_json::jsonb)='object'"));
         var fact=model.Entity<ModerationTransparencyFact>();fact.ToTable("moderation_transparency_facts");fact.HasKey(f=>f.Id);
-        fact.HasIndex(f=>new{f.SourceKind,f.SourceId}).IsUnique();fact.HasIndex(f=>new{f.ActionAt,f.Environment});
+        fact.HasIndex(f=>new{f.SourceKind,f.SourceId,f.ActionAt}).IsUnique().HasDatabaseName("ix_transparency_source_action");fact.HasIndex(f=>new{f.ActionAt,f.Environment});
         fact.HasIndex(f=>new{f.SourceCaseId,f.SubjectAccountId});
         fact.Property(f=>f.SourceKind).HasMaxLength(24);fact.Property(f=>f.Action).HasMaxLength(24);
         fact.Property(f=>f.HomeCountryAtAction).HasMaxLength(8);fact.Property(f=>f.CountryProvenance).HasMaxLength(40);

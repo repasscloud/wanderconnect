@@ -1,0 +1,26 @@
+@page "/media/appeals"
+@inject AdminClient Admin
+<PageTitle>Photo appeals — Swoovr admin</PageTitle>
+<h1>Photo appeals</h1><p class="help">A different Admin decides each appeal once. Approval requires fresh screening; rejected photos stay private. A missing or expired object cannot be approved.</p><p><a href="/media">Safety acknowledgement and review queue</a> · <a href="/media/history">Decision history</a></p>
+@if(message is not null){<p role="status">@message</p>}
+@if(appeals is null){<p>Photo appeals are available only to eligible Admin sessions.</p>}
+else
+{
+    @if(appeals.Total==0){<p>No eligible appeals waiting.</p>}
+    <div class="table-wrap"><table><thead><tr><th scope="col">Submitted</th><th scope="col">Appeal</th><th scope="col">Review</th><th scope="col">Outcome</th></tr></thead><tbody>@foreach(var row in appeals.Items)
+    {<tr><td>@row.SubmittedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</td><td><a href="/accounts/@row.AccountId">Account</a><p>@row.Text</p></td><td>
+        @if(viewed==row.Id&&link is not null){<img src="/media/@link" alt="Rejected photo under independent appeal review" class="photo-appeal-image" />}
+        <form method="post" @formname="@($"appeal-view-{row.Id}")" @onsubmit="()=>ViewAsync(row.Id,row.MediaId)" data-enhance="true"><AntiforgeryToken /><button type="submit" class="secondary">Reveal retained photo</button></form>
+        </td><td><form method="post" @formname="@($"appeal-resolve-{row.Id}")" @onsubmit="()=>ResolveAsync(row.Id)" data-enhance="true"><AntiforgeryToken /><label>Final outcome<select name="outcome" required><option value="">Choose</option><option value="uphold">Uphold rejection</option><option value="approve">Re-screen and approve if clear</option></select></label><label>Recorded reason<textarea name="reason" maxlength="500" required></textarea></label><button type="submit">Decide appeal</button></form></td></tr>}
+    </tbody></table></div>
+    <nav class="row" aria-label="Photo appeal pages">@if(Page>1){<a href="/media/appeals?page=@(Page-1)">Previous</a>}<span>Page @appeals.Page · @appeals.Total appeals</span>@if(Page*appeals.PageSize<appeals.Total){<a href="/media/appeals?page=@(Page+1)">Next</a>}</nav>
+}
+@code {
+    [CascadingParameter]private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery(Name="page")]public int Page { get; set; }=1;
+    private PhotoAppealPage? appeals;private string? message,link;private Guid? viewed;
+    protected override async Task OnInitializedAsync(){Page=Math.Max(1,Page);await LoadAsync();}
+    private async Task LoadAsync()=>appeals=(await Admin.PhotoAppealsAsync(Page)).Value;
+    private async Task ViewAsync(Guid appeal,Guid media){var result=await Admin.ViewRejectedPhotoAsync(media,"Independent photo appeal review");if(result.Ok){viewed=appeal;link=result.Value!.Link.Split('/').Last();}else message=AdminText.Refusal(result.Status,result.Code);}
+    private async Task ResolveAsync(Guid id){var form=Context?.Request.Form;var status=await Admin.ResolvePhotoAppealAsync(id,new PhotoAppealResolution(form?["outcome"].ToString(),form?["reason"].ToString()));link=null;viewed=null;message=status<300?"Final photo appeal outcome saved.":status==403?"A different Admin and current safety acknowledgement are required.":"The photo was not approved. Check the current state and retained source.";await LoadAsync();}
+}
