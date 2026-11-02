@@ -5,7 +5,7 @@ namespace Swoovr.Mobile;
 
 /// <summary>
 /// The member's photos (D203), as on the web: add a photo from the library, see its state (nobody sees it until it is
-/// approved), pick the main photo (shown in every mode) and each mode's own photos, delete. The API checks everything again.
+/// approved), pick each mode's independent main and gallery, delete. The API checks everything again.
 /// </summary>
 public sealed class PhotosPage : ContentPage
 {
@@ -13,6 +13,7 @@ public sealed class PhotosPage : ContentPage
 	private readonly Label status = Ui.Text(null, id: "PhotosStatus");
 	private MyPhotosView? photos;
 	private List<ConnectionModeView> modes = [];
+	private string selectedMode = "dating";
 
 	public PhotosPage()
 	{
@@ -32,6 +33,17 @@ public sealed class PhotosPage : ContentPage
 		body.Children.Add(Ui.Text("Your photos", "PageTitle"));
 		body.Children.Add(Ui.Text(PhotoText.Rules, "FooterClaims", "PhotosRules"));
 		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to manage your photos.", id: "PhotosSignedOut")); return; }
+		var decisions = (await Ui.Members!.PhotoDecisionsAsync()).Value ?? [];
+		foreach (var decision in decisions)
+		{
+			var rows = new List<View> { Ui.Text(decision.Reason, "FieldLabel"), Ui.Text(decision.AppealId is null ? "" : decision.AppealOutcome ?? "Appeal awaiting review", "FooterClaims") };
+			if (decision.CanAppeal)
+			{
+				var explanation = new Editor { Placeholder = "Why should this decision be reviewed?", MaxLength = 1000, AutomationId = $"PhotoAppealText_{decision.Id}" };
+				rows.Add(explanation); rows.Add(Ui.Button("Submit photo appeal", $"PhotoAppeal_{decision.Id}", async () => { var result = await Ui.Members.AppealPhotoAsync(decision.Id, explanation.Text ?? ""); await LoadAsync(); status.Text = result.Ok ? "Photo appeal submitted." : "The decision is not eligible or the explanation is missing."; }));
+			}
+			body.Children.Add(Ui.Card([.. rows]));
+		}
 		var (own, catalogue) = (await Ui.Members!.PhotosAsync(), await Ui.Members.ModesAsync());
 		if (own.Value is null) { body.Children.Add(Ui.Text("We couldn't load your photos.", id: "PhotosRefused")); return; }
 		(photos, modes) = (own.Value, catalogue.Value ?? []);
@@ -44,21 +56,42 @@ public sealed class PhotosPage : ContentPage
 		{
 			var rows = new List<View>();
 			if (photo.Link is not null) rows.Add(Ui.Photo(photo.Link, $"Photo_{photo.Id}", 160));
-			rows.Add(Ui.Text(PhotoText.State(photo.State) + (photos.Main == photo.Id ? " · Main photo" : ""), "FooterClaims", $"PhotoState_{photo.Id}"));
-			if (photo.State == "approved" && photos.Main != photo.Id)
-				rows.Add(Ui.Button("Make main photo", $"PhotoMain_{photo.Id}", () => PlaceAsync("main", [photo.Id]), primary: false));
-			rows.Add(Ui.Button("Delete", $"PhotoDelete_{photo.Id}", async () => await ShowAsync(await Ui.Members!.DeletePhotoAsync(photo.Id), "Deleted."), primary: false));
+			rows.Add(Ui.Text(PhotoText.State(photo.State), "FooterClaims", $"PhotoState_{photo.Id}"));
+			rows.Add(Ui.Button("Delete from library and every mode", $"PhotoDelete_{photo.Id}", async () =>
+			{
+				if (await DisplayAlertAsync("Delete photo?", "This removes the photo from your library and every mode.", "Delete everywhere", "Keep photo")) await ShowAsync(await Ui.Members!.DeletePhotoAsync(photo.Id), "Deleted.");
+			}, primary: false));
 			list.Add(new VerticalStackLayout { Spacing = 6, Children = { } }.With(rows));
 		}
 		body.Children.Add(Ui.Card([.. list]));
 		var approved = photos.Photos.Where(p => p.State == "approved").ToList();
 		if (approved.Count == 0) return;
 		var perMode = new List<View> { Ui.Text("Photos for each mode", "SectionHeading"),
-			Ui.Text($"Your main photo shows in every mode you use. Extra photos show only in the mode you pick (up to {photos.MaxPerMode}).", "FooterClaims") };
-		foreach (var mode in modes)
+			Ui.Text($"{photos.Photos.Count} of {photos.MaxKept} library photos. {photos.Tier}: {photos.MaxPerMode} per mode, including its main. Free 8 · Plus 16 · Premium 24.", "FooterClaims") };
+		var picker = new Picker { Title = "Connection mode", AutomationId = "PhotoMode" };
+		foreach (var item in modes) picker.Items.Add(item.Label);
+		picker.SelectedIndex = Math.Max(0, modes.FindIndex(m => m.Id == selectedMode));
+		picker.SelectedIndexChanged += async (_, _) => { if (picker.SelectedIndex >= 0 && modes[picker.SelectedIndex].Id != selectedMode) { selectedMode = modes[picker.SelectedIndex].Id; await LoadAsync(); } };
+		perMode.Add(picker);
+		foreach (var mode in modes.Where(m => m.Id == selectedMode))
 		{
 			var chosen = photos.Modes.GetValueOrDefault(mode.Id) ?? [];
-			perMode.Add(Ui.Text(mode.Label, "TileName"));
+			var main = photos.Mains?.GetValueOrDefault(mode.Id);
+			perMode.Add(Ui.Text($"{mode.Label}: {Math.Min(chosen.Count, photos.MaxPerMode)} of {photos.MaxPerMode} visible", "FieldLabel"));
+			if (chosen.Count > photos.MaxPerMode) perMode.Add(Ui.Text("Extra photos are kept and hidden. Move them earlier to show them.", "FooterClaims"));
+			perMode.Add(main is null || !chosen.Take(photos.MaxPerMode).Contains(main.Value) ? Ui.Text("No main selected: a placeholder shows.", "FooterClaims")
+				: Ui.Button("Use a placeholder", "ClearModeMain", () => PlaceAsync(mode.Id, chosen.ToList(), null, true), primary: false));
+			foreach (var id in chosen)
+			{
+				var index = chosen.ToList().IndexOf(id); var photo = approved.FirstOrDefault(p => p.Id == id);
+				if (photo?.Link is { } link) perMode.Add(Ui.Photo(link, $"Assigned_{id}", 120));
+				perMode.Add(Ui.Text($"Photo {index + 1}" + (main == id ? " · Main" : "") + (index >= photos.MaxPerMode ? " · Hidden by your plan" : ""), "FieldLabel"));
+				if (main != id && index < photos.MaxPerMode) perMode.Add(Ui.Button("Make main in " + mode.Label, $"PhotoMain_{mode.Id}_{id}", () => PlaceAsync(mode.Id, chosen.ToList(), id, true), primary: false));
+				if (index > 0) perMode.Add(Ui.Button("Move earlier", $"PhotoEarlier_{id}", () => PlaceAsync(mode.Id, Move(chosen, index, -1)), primary: false));
+				if (index + 1 < chosen.Count) perMode.Add(Ui.Button("Move later", $"PhotoLater_{id}", () => PlaceAsync(mode.Id, Move(chosen, index, 1)), primary: false));
+				perMode.Add(Ui.Button("Remove from " + mode.Label, $"PhotoRemove_{id}", () => PlaceAsync(mode.Id, chosen.Where(c => c != id).ToList()), primary: false));
+			}
+			perMode.Add(Ui.Text("Add from your library. Removing from a mode keeps the library photo.", "FooterClaims"));
 			foreach (var photo in approved)
 			{
 				var on = chosen.Contains(photo.Id);
@@ -71,24 +104,40 @@ public sealed class PhotosPage : ContentPage
 
 	private async Task AddAsync()
 	{
-		var picked = (await MediaPicker.Default.PickPhotosAsync(new MediaPickerOptions { SelectionLimit = 1 }))?.FirstOrDefault();
-		if (picked is null) return;
-		await using var stream = await picked.OpenReadAsync();
-		using var buffer = new MemoryStream();
-		await stream.CopyToAsync(buffer);
-		var result = await Ui.Members!.UploadPhotoAsync(buffer.ToArray(), picked.FileName, picked.ContentType);
-		status.Text = result.Ok ? "Uploaded. We're checking it now — nobody can see it until it's approved." : PhotoText.Refusal(result.Code);
-		if (!result.Ok) return;
+		var members = Ui.Members; if (members is null) return;
+		var remaining = Math.Max(0, (photos?.MaxKept ?? 60) - (photos?.Photos.Count ?? 0));
+		if (remaining == 0) { status.Text = "Your library is full. Delete a library photo first."; return; }
+		var picked = (await MediaPicker.Default.PickPhotosAsync(new MediaPickerOptions { SelectionLimit = remaining }))?.ToList();
+		if (picked is null || picked.Count == 0) return;
+		var failed = 0;
+		for (var index = 0; index < picked.Count; index++)
+		{
+			status.Text = $"Uploading {index + 1} of {picked.Count}…";
+			await using var stream = await picked[index].OpenReadAsync();
+			using var buffer = new MemoryStream();
+			var chunk = new byte[81920]; int read;
+			while ((read = await stream.ReadAsync(chunk)) > 0 && buffer.Length <= 10 * 1024 * 1024) await buffer.WriteAsync(chunk.AsMemory(0, read));
+			if (buffer.Length > 10 * 1024 * 1024) { failed++; continue; }
+			var result = await members.UploadPhotoAsync(buffer.ToArray(), picked[index].FileName, picked[index].ContentType);
+			if (!result.Ok) failed++;
+		}
+		status.Text = failed == 0 ? "Uploaded. Photos are checked before anyone can see them." : $"{failed} upload(s) weren't accepted. Check photo size, format and library allowance.";
 		for (var i = 0; i < 20; i++)
 		{
 			await Task.Delay(1500);
-			if ((await Ui.Members.PhotosAsync()).Value is { } now && now.Photos.All(p => p.State != "checking")) break;
+			if ((await members.PhotosAsync()).Value is { } now && now.Photos.All(p => p.State != "checking")) break;
 		}
 		await LoadAsync();
-		status.Text = "Uploaded.";
+		status.Text = failed == 0 ? "Uploaded." : $"{failed} upload(s) were not accepted.";
 	}
 
-	private async Task PlaceAsync(string scope, List<Guid> ids) => await ShowAsync(await Ui.Members!.PlacePhotosAsync(scope, ids), "Saved.");
+	private static List<Guid> Move(IReadOnlyList<Guid> ids, int index, int offset) { var result = ids.ToList(); (result[index], result[index + offset]) = (result[index + offset], result[index]); return result; }
+	private async Task PlaceAsync(string scope, List<Guid> ids, Guid? main = null, bool changeMain = false)
+	{
+		var selected = changeMain ? main : photos?.Mains?.GetValueOrDefault(scope);
+		if (selected is { } id && !ids.Contains(id)) selected = null;
+		await ShowAsync(await Ui.Members!.PlaceModePhotosAsync(scope, ids, selected), "Saved.");
+	}
 
 	private async Task ShowAsync(ApiResult<MyPhotosView> result, string ok)
 	{
