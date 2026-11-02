@@ -141,3 +141,27 @@ td a { font-weight: 600; text-underline-offset: 3px; }
 .field-help { color: var(--muted); font-size: .8125rem; font-weight: 400; line-height: 1.65; }
 .status-badge { display: inline-block; padding: 3px 8px; border-radius: 5px; background: var(--soft); border: 1px solid var(--border); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 .status-badge[data-level="urgent"] { background: var(--primary); color: var(--onPrimary); border-color: var(--primary); }
+
+.signed-out-page { max-width: 36rem; margin: 10vh auto; padding: 2rem; overflow-wrap: anywhere; }
+
+.beta-filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin-block: 2rem 1rem; }
+.beta-filters label { display: grid; gap: .4rem; min-width: 0; }
+.beta-filters input, .beta-filters select { max-width: 100%; }
+.beta-identity { min-width: 14rem; overflow-wrap: anywhere; }
+[data-beta-table] { min-width: 62rem; }
+.beta-actions { min-width: 15rem; }
+.beta-action-forms { display: grid; gap: 1.5rem; padding-top: 1rem; }
+.beta-action-forms form + form { padding-top: 1rem; border-top: 1px solid var(--border); }
+.beta-paging { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-block: 1rem; }
+
+.review-item { padding-block: 1.5rem; }
+.review-item h2 { margin-top: 0; }
+.review-grid { display: grid; gap: 1.5rem; }
+.review-decisions { display: grid; gap: 1rem; align-content: start; }
+.review-decisions details { padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.review-controls { margin-top: .75rem; }
+.review-controls[hidden] { display: none !important; }
+.media-review img { filter: blur(28px); display: block; max-width: 100%; height: auto; }
+.media-review.is-revealed img { filter: none; }
+.review-counts { margin-block: 1.5rem; }
+@media (min-width: 1000px) { .review-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }

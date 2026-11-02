@@ -314,6 +314,9 @@ public sealed class AdminClient(HttpClient transport)
     public Task<int> DecideMediaAsync(Guid id, string decision, string? reason, CancellationToken cancellationToken = default) =>
         StatusAsync(HttpMethod.Post, $"api/admin/media/{id}/decision", new MediaDecision(decision, reason), cancellationToken);
 
+    public Task<ApiResult<MediaDecisionResult>> DecideMediaAsync(Guid id,MediaDecision request,CancellationToken token=default) =>
+        SendAsync<MediaDecisionResult>(HttpMethod.Post,$"api/admin/media/{id}/decision",request,token);
+
     /// <summary>The image behind a review link, or null.</summary>
     public async Task<byte[]?> MediaAsync(string link, CancellationToken cancellationToken = default)
     {
@@ -334,6 +337,13 @@ public sealed class AdminClient(HttpClient transport)
 
     public Task<ApiResult<List<BetaEnrolmentView>>> BetaEnrolmentsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<BetaEnrolmentView>>(HttpMethod.Get, "api/admin/beta", null, cancellationToken);
+
+    public Task<ApiResult<BetaEnrolmentPage>> SearchBetaEnrolmentsAsync(string? query,string? state,string? sort,DateOnly? from,DateOnly? to,int page,int size,CancellationToken token=default)
+    {
+        var parameters=new Dictionary<string,string?>{{"q",query},{"state",state},{"sort",sort},{"from",from?.ToString("yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture)},{"to",to?.ToString("yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture)},{"page",page.ToString(System.Globalization.CultureInfo.InvariantCulture)},{"size",size.ToString(System.Globalization.CultureInfo.InvariantCulture)}};
+        var search=string.Join("&",parameters.Where(p=>!string.IsNullOrEmpty(p.Value)).Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value!)));
+        return SendAsync<BetaEnrolmentPage>(HttpMethod.Get,"api/admin/beta/search?"+search,null,token);
+    }
 
     public Task<ApiResult<BetaEnrolmentView>> AddBetaEnrolmentAsync(string email, CancellationToken cancellationToken = default) =>
         SendAsync<BetaEnrolmentView>(HttpMethod.Post, "api/admin/beta", new BetaEnrolmentRequest(email), cancellationToken);

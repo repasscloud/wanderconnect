@@ -2114,6 +2114,9 @@ Owner-authorised tracking/publication only. All 15 substantive reports processed
 
 ### Q95 — Admin account search fails to find existing users by email address
 
+Implementation progress (2 November 2026): the false no-match on API refusal is fixed on [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
+
 - Issue: [#137](https://github.com/repasscloud/wanderconnect/issues/137); [intake item 2](ISSUE-INTAKE.md#intake-2).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2125,6 +2128,9 @@ Owner-authorised tracking/publication only. All 15 substantive reports processed
 <a id="q96"></a>
 
 ### Q96 — Admin session incorrectly reports expiration and displays inconsistent, unbranded authentication pages
+
+Implementation progress (2 November 2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds staff token renewal and a branded anonymous signed-out page. Reproduced expired-token/cookie mismatch with an owned temporary provider client; actual Edge verified renewal and reauthentication after owned-provider-session revocation. Ten unit checks cover concurrency, absolute deadline, unchanged authentication evidence, refusal/malformed expiry and late renewal after logout. The review-discovered logout race is fixed. Final full `./scripts/check.sh` passed, including 596 PostgreSQL cases and all three smoke suites. Hosted/multi-instance and original private-session timing remain unverified; no security gates were relaxed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
 
 - Issue: [#138](https://github.com/repasscloud/wanderconnect/issues/138); [intake item 3](ISSUE-INTAKE.md#intake-3).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
@@ -2138,6 +2144,9 @@ Owner-authorised tracking/publication only. All 15 substantive reports processed
 
 ### Q97 — Improve Admin photo moderation workflow, reveal controls and standardised review decisions
 
+Implementation progress (2 November2026): independently actionable queue fixes are proposed in [PR #152](https://github.com/repasscloud/wanderconnect/pull/152): factual automatic review purpose, blurred preview, audited keyboard reveal, stable decision-bound codes, server-side Other-note requirement and retained coded counts. Synthetic-only actual Edge acceptance and full `./scripts/check.sh` passed (607 PostgreSQL cases, three smoke suites, zero build warnings/errors). Review-discovered cross-item note restoration is fixed and regressed. D178 eligibility remains deferred/unchanged; no adult material or owner review is needed. Case-specific legacy controls remain, and private approval notes require a governed retained-history design rather than ungoverned retention; coded approvals refuse unsupported notes. See [handoff](ISSUE-FIX-HANDOFF.md) and [reason boundaries](../architecture/MEDIA-REVIEW-REASONS.md). Issue remains partially fixed/open pending merge and these precise dependencies.
+
+
 - Issue: [#139](https://github.com/repasscloud/wanderconnect/issues/139); [intake item 4](ISSUE-INTAKE.md#intake-4).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2149,6 +2158,9 @@ Owner-authorised tracking/publication only. All 15 substantive reports processed
 <a id="q98"></a>
 
 ### Q98 — Redesign Beta Enrollments screen with searchable table, improved layout and scalable administration
+
+Implementation progress (2 November2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds server-side search/pagination and a structured enrolment table. Actual Edge verified1005 records, role/anonymous refusal, paging/sort/search/status/date controls and confirmed revision-aware iOS/revoke actions. Eleven new database search checks passed; full `./scripts/check.sh` passed with607 PostgreSQL cases, three smoke suites and zero build warnings/errors. Names use canonical account linkage, never email-based identity inference; Apple/provider states remain distinct. See [handoff](ISSUE-FIX-HANDOFF.md) and [contract](../architecture/BETA-ENROLMENT-SEARCH.md). Issue remains open pending merge.
+
 
 - Issue: [#140](https://github.com/repasscloud/wanderconnect/issues/140); [intake item 5](ISSUE-INTAKE.md#intake-5).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.

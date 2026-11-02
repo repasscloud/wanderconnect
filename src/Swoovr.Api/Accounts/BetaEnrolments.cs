@@ -64,6 +64,39 @@ public static class BetaEnrolments
         return(IosUpdateResult.Updated,current);
     }
 
+    public static async Task<BetaEnrolmentPage?> SearchAsync(SwoovrDbContext db,string? text,string? state,string? sort,
+        DateOnly? from,DateOnly? to,int page,int size,CancellationToken token)
+    {
+        text=text?.Trim();state=string.IsNullOrEmpty(state)?null:state;sort=string.IsNullOrEmpty(sort)?"newest":sort;
+        if(text is{Length:>254}||state is not(null or "pending" or "activated" or "revoked")
+            ||sort is not("newest" or "oldest" or "email" or "name")||size is not(25 or 50 or 100)||page<1||from>to)return null;
+        var query=from e in db.BetaEnrolments.AsNoTracking()
+            join p in db.MemberProfiles.AsNoTracking() on e.AccountId equals (Guid?)p.AccountId into profiles
+            from p in profiles.DefaultIfEmpty()
+            select new {Row=e,Name=p==null?null:p.DisplayName};
+        if(!string.IsNullOrEmpty(text))
+        {
+            var term=text.ToLowerInvariant();var referenceSearch=Guid.TryParse(text,out var reference);
+            query=query.Where(x=>x.Row.Email.Contains(term)||x.Name!=null&&x.Name.ToLower().Contains(term)
+                ||referenceSearch&&(x.Row.Id==reference||x.Row.AccountId==reference));
+        }
+        if(state=="revoked")query=query.Where(x=>x.Row.RevokedAt!=null);
+        else if(state=="activated")query=query.Where(x=>x.Row.RevokedAt==null&&x.Row.ActivatedAt!=null);
+        else if(state=="pending")query=query.Where(x=>x.Row.RevokedAt==null&&x.Row.ActivatedAt==null);
+        if(from is{}start){var instant=new DateTimeOffset(start.ToDateTime(TimeOnly.MinValue,DateTimeKind.Utc));query=query.Where(x=>x.Row.CreatedAt>=instant);}
+        if(to is{}end&&end<DateOnly.MaxValue){var instant=new DateTimeOffset(end.AddDays(1).ToDateTime(TimeOnly.MinValue,DateTimeKind.Utc));query=query.Where(x=>x.Row.CreatedAt<instant);}
+        var total=await query.CountAsync(token);page=Math.Min(page,Math.Max(1,1+(total-1)/size));
+        query=sort switch
+        {
+            "oldest"=>query.OrderBy(x=>x.Row.CreatedAt).ThenBy(x=>x.Row.Id),
+            "email"=>query.OrderBy(x=>x.Row.Email).ThenBy(x=>x.Row.Id),
+            "name"=>query.OrderBy(x=>x.Name==null||x.Name=="").ThenBy(x=>x.Name).ThenBy(x=>x.Row.Email).ThenBy(x=>x.Row.Id),
+            _=>query.OrderByDescending(x=>x.Row.CreatedAt).ThenBy(x=>x.Row.Id),
+        };
+        var rows=await query.Skip((page-1)*size).Take(size).ToListAsync(token);
+        return new(rows.Select(x=>View(x.Row) with{MemberName=x.Name}).ToList(),total,page,size);
+    }
+
     public static BetaEnrolmentView View(BetaEnrolment e) => new(e.Id, e.Email, e.CreatedAt,
         e.RevokedAt is not null ? "revoked" : e.ActivatedAt is not null ? "activated" : "pending", e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.IosDistributionRevision>0?"staff-recorded-not-provider-verified":"not-recorded",e.InvitationState,e.InvitationAttempts,e.InvitationQueuedAt,e.InvitationCompletedAt);
 }

@@ -400,6 +400,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             item.Property(i => i.PolicyVersion).HasMaxLength(32);
             item.Property(i => i.Signals).HasMaxLength(2000);
             item.Property(i => i.ReviewReason).HasMaxLength(MediaPolicy.ReasonMax);
+            item.Property(i => i.ReviewReasonCode).HasMaxLength(64);
             item.HasIndex(i => new { i.AccountId, i.CreatedAt });
             item.HasIndex(i => new { i.Status, i.NextScreenAt });
             item.HasIndex(i => i.Sha256);

@@ -1,0 +1,33 @@
+const assert=require('node:assert/strict');
+module.exports=async({page,base})=>{
+ await page.goto(base+'/beta');
+ const denied=await fetch('http://localhost:15880/api/admin/beta/search',{headers:{'Swoovr-Version':'2026-10-28'}});assert.equal(denied.status,401,'search requires a staff token');
+ assert.equal(await page.locator('[data-beta-table]').count(),1,'enrolments use a structured table');
+ assert.equal(await page.locator('[data-beta-row]').count(),25,'bounded default page');
+ assert.equal(await page.locator('[data-beta-total]').getAttribute('data-beta-total'),'1005','total includes records past the old1000 cap');
+ await page.screenshot({path:'/tmp/swoovr-intake-beta-1440.png',fullPage:true});
+ const first=await page.locator('[data-beta-email]').first().innerText();await page.getByRole('link',{name:'Next page',exact:true}).click();await page.waitForFunction(()=>/page 2 of/.test(document.querySelector('[data-beta-total]')?.textContent||''));assert.notEqual(await page.locator('[data-beta-email]').first().innerText(),first,'next server page changes rows');await page.getByRole('link',{name:'Previous page',exact:true}).click();await page.waitForFunction(()=>/page 1 of/.test(document.querySelector('[data-beta-total]')?.textContent||''));
+ await page.selectOption('select[name=size]','50');await page.getByRole('button',{name:'Apply filters'}).click();
+ assert.equal(await page.locator('[data-beta-row]').count(),50,'selectable bounded page size');
+ await page.selectOption('select[name=sort]','oldest');await page.getByRole('button',{name:'Apply filters'}).click();assert.match(await page.locator('[data-beta-email]').first().innerText(),/1005/,'created-date sorting');
+ await page.fill('input[name=q]','fictional.paging.1005');await page.getByRole('button',{name:'Apply filters'}).click();
+ assert.equal(await page.locator('[data-beta-row]').count(),1,'search runs before pagination');
+ assert.match(await page.locator('[data-beta-email]').innerText(),/1005/);
+ await page.fill('input[name=q]','');await page.selectOption('select[name=state]','revoked');await page.getByRole('button',{name:'Apply filters'}).click();
+ assert.equal(await page.locator('[data-beta-row]').count(),1,'revoked status filter');
+ await page.fill('input[name=from]','2099-01-01');await page.getByRole('button',{name:'Apply filters'}).click();assert.equal(await page.locator('[data-beta-empty]').count(),1,'UTC date filter binds and excludes old rows');
+ await page.goto(base+'/beta?q=fictional.paging.0003');
+ await page.locator('[data-beta-row] summary').click();
+ const ios=page.locator('[data-beta-ios]');await ios.locator('select[name=iosState]').selectOption('invited');await ios.locator('input[name=confirmIos]').check();await ios.getByRole('button',{name:'Record staff-reported state'}).click();
+ await page.waitForSelector('[data-beta-result="ios-recorded"]');
+ assert.equal(await page.locator('[data-ios-record="invited"]').count(),1,'confirmed staff status saves');
+ await page.locator('[data-beta-row] summary').click();
+ await page.locator('input[name=confirmRevoke]').check();await page.locator('[data-beta-revoke]').click();await page.waitForSelector('[data-beta-result="revoked"]');
+ assert.equal(await page.locator('[data-beta-state="revoked"]').count(),1,'confirmed revocation persists');
+ assert.match(await page.locator('body').innerText(),/not.*Apple|separately/i,'external invitation remains separate');
+ await page.setViewportSize({width:375,height:812});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'table scrolling stays local');
+ await page.screenshot({path:'/tmp/swoovr-intake-beta-375.png',fullPage:true});
+ console.log('PASS: actual Edge1005-record beta table, server paging/search/status, staff iOS revision and confirmed revocation.');
+};
+
+module.exports.refused=async page=>{await page.goto('http://localhost:15882/beta');assert.equal(await page.locator('[data-beta-row]').count(),0,'ungranted staff cannot read enrolments');assert.equal(await page.locator('[data-beta-result="403"]').count(),1,'role refusal is explicit');};

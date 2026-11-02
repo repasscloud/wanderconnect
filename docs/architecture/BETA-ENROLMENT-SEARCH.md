@@ -1,0 +1,9 @@
+# Beta enrolment search contract
+
+DEFAULT implementation for Q98/#140,2 November2026. Existing `/api/admin/beta` remains a capped legacy list. New `GET /api/admin/beta/search` uses the existing date-version header, authenticated staff token and Admin-area authorization; every result is server-filtered and paged. Responses are `Cache-Control: no-store`.
+
+Optional query: `q` (trimmed literal substring, up to254 characters: email or canonically linked member display name; a UUID also matches enrolment/account reference), `state` (`pending`, `activated`, `revoked`, or empty), `sort` (`newest` default, `oldest`, `email`, `name`), `from`/`to` (inclusive created dates in UTC), `page` (positive integer, default1), `size` (25 default,50 or100). Invalid options/range return400 after authorization. A page past the last page is clamped to the last available page; no matches yields page1. All sorting has an enrolment-id tie breaker.
+
+200 shape: `{items:[BetaEnrolmentView],total:123,page:1,size:25}`. `total` counts the filtered database query before pagination, without the legacy1000 cap. The additive nullable `memberName` in each view comes only from an existing `AccountId` → member-profile relationship, never from an email-based identity merge. Invitations without a linked profile have no known member name. Existing view fields retain their meanings: enrolment, provider invitation acceptance and staff-reported iOS state are separate. Search creates no invitation and changes no membership, identity or access gate. Counts and rows are a current administrative view, not a transactionally frozen export.
+
+The SSR table uses the new typed client method; add/revoke/iOS mutations retain their existing routes, antiforgery, confirmation, revision and audit behavior. It does not claim Apple delivery or verification. Domain and persistence stay in existing projects; no new service/project or database reset.

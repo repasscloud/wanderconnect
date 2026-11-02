@@ -40,6 +40,9 @@ Optional context, suggested explanations or requirements.
 
 ## 2. Admin account search fails to find existing users by email address
 
+Implementation progress (2 November 2026): the false no-match on API refusal is fixed on [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
+
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/accounts?email=fictional.alex%40example.test`
@@ -146,6 +149,9 @@ Email lookup should use the canonical identity/account relationship and must res
 <a id="intake-3"></a>
 
 ## 3. Admin session incorrectly reports expiration and displays inconsistent, unbranded authentication pages
+
+Implementation progress (2 November 2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds staff token renewal and a branded anonymous signed-out page. Reproduced expired-token/cookie mismatch with an owned temporary provider client; actual Edge verified renewal and reauthentication after owned-provider-session revocation. Ten unit checks cover concurrency, absolute deadline, unchanged authentication evidence, refusal/malformed expiry and late renewal after logout. The review-discovered logout race is fixed. Final full `./scripts/check.sh` passed, including 596 PostgreSQL cases and all three smoke suites. Hosted/multi-instance and original private-session timing remain unverified; no security gates were relaxed. See [handoff](ISSUE-FIX-HANDOFF.md).
+
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -453,6 +459,9 @@ Where technically appropriate, use a shared authentication layout that is separa
 <a id="intake-4"></a>
 
 ## 4. Improve Admin photo moderation workflow, reveal controls and standardised review decisions
+
+Implementation progress (2 November2026): independently actionable queue fixes are proposed in [PR #152](https://github.com/repasscloud/wanderconnect/pull/152): factual automatic review purpose, blurred preview, audited keyboard reveal, stable decision-bound codes, server-side Other-note requirement and retained coded counts. Synthetic-only actual Edge acceptance and full `./scripts/check.sh` passed (607 PostgreSQL cases, three smoke suites, zero build warnings/errors). Review-discovered cross-item note restoration is fixed and regressed. D178 eligibility remains deferred/unchanged; no adult material or owner review is needed. Case-specific legacy controls remain, and private approval notes require a governed retained-history design rather than ungoverned retention; coded approvals refuse unsupported notes. See [handoff](ISSUE-FIX-HANDOFF.md) and [reason boundaries](../architecture/MEDIA-REVIEW-REASONS.md). Issue remains partially fixed/open pending merge and these precise dependencies.
+
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -862,6 +871,9 @@ Optional notes should supplement, not replace, structured reasons.
 <a id="intake-5"></a>
 
 ## 5. Redesign Beta Enrollments screen with searchable table, improved layout and scalable administration
+
+Implementation progress (2 November2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds server-side search/pagination and a structured enrolment table. Actual Edge verified1005 records, role/anonymous refusal, paging/sort/search/status/date controls and confirmed revision-aware iOS/revoke actions. Eleven new database search checks passed; full `./scripts/check.sh` passed with607 PostgreSQL cases, three smoke suites and zero build warnings/errors. Names use canonical account linkage, never email-based identity inference; Apple/provider states remain distinct. See [handoff](ISSUE-FIX-HANDOFF.md) and [contract](../architecture/BETA-ENROLMENT-SEARCH.md). Issue remains open pending merge.
+
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin

@@ -55,6 +55,7 @@ public sealed class MediaItem
     public Guid? ReviewedBy { get; set; }
     public DateTimeOffset? ReviewedAt { get; set; }
     public string? ReviewReason { get; set; }
+    public string? ReviewReasonCode { get; set; }
     /// <summary>The photo this one replaces once it passes (re-scanned like any upload).</summary>
     public Guid? ReplacesId { get; set; }
     public Guid? CaseId { get; set; }

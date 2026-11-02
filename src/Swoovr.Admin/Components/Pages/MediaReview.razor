@@ -2,89 +2,103 @@
 @inject AdminClient Admin
 <PageTitle>Photo review — Swoovr admin</PageTitle>
 <h1>Photo review</h1>
-<p class="help">Photos the screening couldn't clear (policy §5; D203). Nothing here is visible to members. To look at one, record why: every view is logged with your purpose. Images stay blurred until you choose to reveal them. Refuse explicit content (D178). If you suspect child sexual abuse material, don't look further and don't download or share it: choose <strong>Escalate</strong>, which seals it as evidence, opens a Serious Safety Incident and places a legal hold (procedure §4).</p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-@if (queue is null) { <p data-media-queue="refused">@loadError</p> }
+<p class="help">Photos screening could not clear. Nothing here is visible to members. Opening and revealing a queued photo records your staff access. Images stay blurred until you choose to reveal them. Current beta rules still apply (D178). If you suspect child sexual abuse material, stop viewing; do not download or share it. Escalate to the existing restricted safety and evidence workflow.</p>
+@if(message is not null){<p class="notice" role="@(resultCode=="ok"?"status":"alert")" data-result="@resultCode">@message</p>}
+@if(queue is null){<p data-media-queue="refused">@loadError</p>}
 else
 {
-    <p class="help" data-media-pending="@queue.Pending">Waiting for a usable screening answer: @queue.Pending (over an hour: @queue.PendingOverAnHour). Those stay hidden until screening answers.</p>
-    @if (queue.Items.Count == 0) { <p data-media-queue="none">No photos waiting for review.</p> }
+    <p class="help" data-media-pending="@queue.Pending">Waiting for usable screening: @queue.Pending (over an hour: @queue.PendingOverAnHour). These remain hidden until screening answers.</p>
+    @if(queue.DecisionCounts is{}counts&&counts.Count>0)
+    {
+        <details class="review-counts"><summary>Coded reviews since @queue.CountsSince?.ToUniversalTime().ToString("d MMM yyyy") UTC</summary>
+        <p class="help">Retained coded decisions in the last 30 days. Older uncoded decisions are excluded; legacy clients are labelled separately.</p>
+        <table><thead><tr><th scope="col">Reason</th><th scope="col">Decisions</th></tr></thead><tbody>@foreach(var count in counts.OrderBy(c=>c.Key))
+        {<tr data-review-count="@count.Key"><td>@(queue.Reasons?.FirstOrDefault(r=>r.Code==count.Key)?.Label??count.Key)</td><td>@count.Value</td></tr>}</tbody></table></details>
+    }
+    @if(queue.Items.Count==0){<p data-media-queue="none">No photos waiting for review.</p>}
     else
     {
-        <ul class="list" data-media-queue="@queue.Items.Count">
-            @foreach (var item in queue.Items)
-            {
-                <li data-media-item="@item.Id">
-                    <strong>@item.Reason</strong>@(item.Purpose == "attachment" ? " · chat photo" : "") · uploaded @item.CreatedAt.ToLocalTime().ToString("d MMM HH:mm") · <a href="/accounts/@item.AccountId">account</a>
-                    · @(item.KnownContentChecked ? "known-content check done" : "known-content check NOT run") · @item.Screener
-                    @if (item.Signals.Count > 0) { <div class="help">@string.Join(" · ", item.Signals)</div> }
-                    @if (viewed == item.Id && link is not null)
+        <ul class="list" data-media-queue="@queue.Items.Count">@foreach(var item in queue.Items)
+        {
+            var visible=viewed==item.Id&&link is not null;
+            var active=deciding==item.Id?activeDecision:null;
+            <li data-media-item="@item.Id" class="review-item">
+                <h2>@item.Reason</h2><p class="help">@(item.Purpose=="attachment"?"Chat photo":"Profile photo") · uploaded @item.CreatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC · <a href="/accounts/@item.AccountId">Account</a></p>
+                <p class="help">@(item.KnownContentChecked?"Known-content check done":"Known-content check NOT run") · @item.Screener</p>
+                @if(item.Signals.Count>0){<p class="help">@string.Join(" · ",item.Signals)</p>}
+                <div class="review-grid">
+                <div>
+                    @if(visible)
                     {
-                        <div class="media-review" data-media-view="@item.Id">
-                            <input type="checkbox" id="reveal-@item.Id" class="media-reveal" data-reveal="@item.Id" />
-                            <label for="reveal-@item.Id" class="secondary">Reveal</label>
-                            <img src="/media/@link" alt="Photo under review" width="320" data-media-image="@item.Id" />
-                        </div>
+                        <div class="media-review @(revealed?"is-revealed":null)" data-media-view="@item.Id"><img src="/media/@link" alt="Photo under review" width="320" data-media-image="@item.Id" /></div>
                     }
+                    <form method="post" @formname="@($"view-{item.Id}")" @onsubmit="()=>ViewAsync(item.Id)" class="row review-controls" data-enhance="false" hidden="@visible">
+                        <AntiforgeryToken /><button type="submit" class="secondary" data-view="@item.Id">Open blurred preview</button>
+                    </form>
+                    <form method="post" @formname="@($"reveal-{item.Id}")" @onsubmit="()=>ViewAsync(item.Id,true)" class="row review-controls" data-enhance="false" hidden="@(!visible||revealed)">
+                        <AntiforgeryToken /><button type="submit" class="secondary" data-reveal="@item.Id">Reveal photo (access recorded)</button>
+                    </form>
+                    <form method="post" @formname="@($"conceal-{item.Id}")" @onsubmit="ConcealAsync" class="row review-controls" data-enhance="false" hidden="@(!visible)">
+                        <AntiforgeryToken /><button type="submit" class="quiet">Conceal photo</button>
+                    </form>
+                </div>
+                <div class="review-decisions">
+                    @if(queue.Reasons is null){<p role="status">Review categories are unavailable. Try again later.</p>}
                     else
                     {
-                        <form method="post" @formname="@($"view-{item.Id}")" @onsubmit="() => ViewAsync(item.Id)" class="row" data-enhance="false">
-                            <AntiforgeryToken />
-                            <input name="purpose" placeholder="Why you need to look (recorded)" maxlength="500" required data-purpose="@item.Id" />
-                            <button type="submit" class="secondary" data-view="@item.Id">Look at this photo</button>
-                        </form>
+                        <details open="@(active is null or "approve")"><summary data-decision="approve">Approve</summary>
+                        <form method="post" @formname="@($"approve-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"approve")' class="stack" data-enhance="false">
+                            <AntiforgeryToken /><label>Approval reason<select name="reasonCode" required>@foreach(var reason in Reasons("approve")){<option value="@reason.Code" selected="@(active=="approve"&&Field("reasonCode")==reason.Code)">@reason.Label</option>}</select></label>
+                            <button type="submit" class="secondary" data-approve="@item.Id">Approve</button>
+                        </form></details>
+                        <details open="@(active=="reject")"><summary data-decision="reject">Reject</summary>
+                        <form method="post" @formname="@($"reject-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"reject")' class="stack" data-enhance="false">
+                            <AntiforgeryToken /><label>Rejection reason<select name="reasonCode" required data-reject-reason><option value="">Choose a reason</option>@foreach(var reason in Reasons("reject")){<option value="@reason.Code" selected="@(active=="reject"&&Field("reasonCode")==reason.Code)">@reason.Label</option>}</select></label>
+                            <label>Notes (required for Other)<textarea name="reason" maxlength="500" data-reject-notes>@(active=="reject"?Field("reason"):null)</textarea></label>
+                            <button type="submit" class="secondary" data-reject="@item.Id">Reject</button>
+                        </form></details>
+                        <details open="@(active=="escalate")"><summary data-decision="escalate">Escalate for specialist review</summary>
+                        <form method="post" @formname="@($"escalate-{item.Id}")" @onsubmit='()=>DecideAsync(item.Id,"escalate")' class="stack" data-enhance="false">
+                            <AntiforgeryToken /><label>Safety concern<select name="reasonCode" required data-escalate-reason><option value="">Choose a concern</option>@foreach(var reason in Reasons("escalate")){<option value="@reason.Code" selected="@(active=="escalate"&&Field("reasonCode")==reason.Code)">@reason.Label</option>}</select></label>
+                            <label>Optional notes<textarea name="reason" maxlength="500">@(active=="escalate"?Field("reason"):null)</textarea></label>
+                            <p class="help">You do not need a definitive finding. This seals evidence, opens the existing Serious Safety Incident and places a legal hold.</p>
+                            <button type="submit" class="quiet" data-escalate="@item.Id">Escalate</button>
+                        </form></details>
                     }
-                    <form method="post" @formname="@($"decide-{item.Id}")" @onsubmit="() => DecideAsync(item.Id)" class="row" data-enhance="false">
-                        <AntiforgeryToken />
-                        <input name="reason" placeholder="Reason (never shown to the member)" maxlength="500" />
-                        <button name="decision" value="approve" type="submit" class="secondary" data-approve="@item.Id">Approve</button>
-                        <button name="decision" value="reject" type="submit" class="secondary" data-reject="@item.Id">Reject</button>
-                        <button name="decision" value="escalate" type="submit" class="quiet" data-escalate="@item.Id">Escalate (suspected abuse material)</button>
-                    </form>
-                </li>
-            }
-        </ul>
+                </div></div>
+            </li>
+        }</ul>
     }
 }
-<style>
-    .media-review img { filter: blur(28px); display: block; margin-top: .5rem; max-width: 100%; }
-    .media-review .media-reveal { position: absolute; opacity: 0; }
-    .media-review .media-reveal:checked ~ img { filter: none; }
-</style>
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
     private MediaReviewQueue? queue;
-    private string? message, loadError, resultCode, link;
-    private Guid? viewed;
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
+    private string? message,loadError,resultCode,link,activeDecision;
+    private Guid? viewed,deciding;
+    private bool revealed;
+    protected override async Task OnInitializedAsync()=>await LoadAsync();
+    private async Task LoadAsync(){var result=await Admin.MediaReviewAsync();queue=result.Value;if(!result.Ok)loadError=AdminText.Refusal(result.Status,result.Code);}
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    private IEnumerable<MediaReviewReasonView> Reasons(string decision)=>queue?.Reasons?.Where(r=>r.Selectable&&r.Decision==decision)??[];
+    private async Task ViewAsync(Guid id,bool reveal=false)
     {
-        var result = await Admin.MediaReviewAsync();
-        queue = result.Value;
-        if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
-    }
-
-    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
-
-    private async Task ViewAsync(Guid id)
-    {
-        var result = await Admin.ViewMediaAsync(id, Field("purpose"));
-        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
-        if (result.Ok) (viewed, link, message) = (id, result.Value!.Link.Split('/').Last(), "Your view is recorded. The image is blurred until you reveal it.");
-        else message = result.Code == "purpose-required" ? "Say why you need to look." : AdminText.Refusal(result.Status, result.Code);
+        var result=await Admin.ViewMediaAsync(id,reveal?"Routine moderation queue reveal":"Routine moderation queue review");
+        resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        if(result.Ok){viewed=id;link=result.Value!.Link.Split('/').Last();revealed=reveal;message=reveal?"Your reveal is recorded.":"Your review access is recorded. Reveal the photo when you are ready.";}
+        else message=AdminText.Refusal(result.Status,result.Code);
         await LoadAsync();
     }
-
-    private async Task DecideAsync(Guid id)
+    private async Task ConcealAsync(){viewed=null;link=null;revealed=false;resultCode="ok";message="Photo concealed.";await LoadAsync();}
+    private async Task DecideAsync(Guid id,string decision)
     {
-        var decision = Field("decision");
-        var status = await Admin.DecideMediaAsync(id, decision, Field("reason") is { Length: > 0 } r ? r : null);
-        resultCode = status is >= 200 and < 300 ? "ok" : status.ToString();
-        message = status is >= 200 and < 300
-            ? decision switch { "approve" => "Approved: the photo can now be shown.", "reject" => "Rejected: the photo is off the profile and deleted unless a hold needs it.", _ => "Escalated: sealed as evidence, a Serious Safety Incident is open and a legal hold placed." }
-            : AdminText.Refusal(status, null);
+        activeDecision=decision;deciding=id;
+        var reason=Reasons(decision).SingleOrDefault(r=>r.Code==Field("reasonCode"));
+        var notes=Field("reason");
+        if(reason is null||reason.RequiresNotes&&string.IsNullOrWhiteSpace(notes)){resultCode="reason-required";message="Choose a matching reason. Other rejection needs notes.";return;}
+        var result=await Admin.DecideMediaAsync(id,new MediaDecision(decision,decision=="approve"?null:notes,reason.Code));
+        resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?decision switch{"approve"=>"Approved under the current photo rules.","reject"=>"Rejected. The photo stays off profiles and is deleted only when preservation permits.",_=>"Escalated through the restricted safety and evidence workflow."}:result.Code=="invalid-decision"?"Choose a matching reason and check the notes.":AdminText.Refusal(result.Status,result.Code);
+        if(result.Ok){activeDecision=null;deciding=null;}
         await LoadAsync();
     }
 }

@@ -21,7 +21,9 @@ public sealed record MediaReviewItem(Guid Id, Guid AccountId, DateTimeOffset Cre
     string? Purpose = null);
 
 /// <summary>The review queue and how many uploads are still waiting for a usable screening answer.</summary>
-public sealed record MediaReviewQueue(IReadOnlyList<MediaReviewItem> Items, int Pending, int PendingOverAnHour);
+public sealed record MediaReviewReasonView(string Code,string Decision,string Label,bool RequiresNotes,bool Selectable=true);
+public sealed record MediaReviewQueue(IReadOnlyList<MediaReviewItem> Items, int Pending, int PendingOverAnHour,
+    IReadOnlyList<MediaReviewReasonView>? Reasons=null,IReadOnlyDictionary<string,int>? DecisionCounts=null,DateTimeOffset? CountsSince=null);
 
 public sealed record MediaViewRequest(string? Purpose);
 
@@ -32,4 +34,6 @@ public sealed record MediaCaseViewRequest(Guid? CaseId, string? Purpose);
 public sealed record MediaReviewLink(Guid Id, string Link, DateTimeOffset Expires);
 
 /// <summary>`approve`, `reject` (with a reason the member never sees) or `escalate` (suspected child abuse material: blocked, procedure §4).</summary>
-public sealed record MediaDecision(string? Decision, string? Reason);
+public sealed record MediaDecision(string? Decision, string? Reason,string? ReasonCode=null);
+
+public sealed record MediaDecisionResult(Guid Id,string State);
