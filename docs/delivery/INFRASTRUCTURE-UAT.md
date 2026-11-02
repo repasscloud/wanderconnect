@@ -1,5 +1,7 @@
 # UAT infrastructure preparation
 
+CONFIRMED D291 (owner #124, 2 November 2026) approves Australia East, Container Apps, separate application/Keycloak databases and logins, the proposed resource names/tags and backup schedule. Earlier references to an unanswered hosting proposal below are historical. Subscription creation and initial deployment remain with the owner; these files do not provision resources by themselves.
+
 D283 DEFAULT implements the reversible Australia East choice in D221/Q90 (#124), still awaiting the owner hosting answer. These Bicep files have been compiled locally, not provisioned, Azure-validated or cost-approved. The owner creates/selects the subscription. No Actions are enabled.
 
 `infra/uat/foundation.bicep` prepares a Consumption Container Apps environment, VNet, delegated private PostgreSQL subnet/DNS, private Key Vault and backup Blob endpoints/DNS, authenticated ACR, infrastructure logs and dedicated managed identities. `services.bicep` prepares PostgreSQL17 and staged applications/jobs. All service, job, secret-grant, invitation and schedule switches default off. PostgreSQL creation still occurs in the services stage; inspect/approve an Azure what-if before deployment. ACR uses the documented2025-06-01-preview contract to explicitly disable anonymous pulls and select ordinary AcrPull role semantics. This is a deployment dependency, not a general preview upgrade policy.

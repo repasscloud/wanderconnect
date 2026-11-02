@@ -1,5 +1,7 @@
 # Trust & Safety leadership and operations — draft role charter
 
+CONFIRMED D304 (owner #119, 2 November 2026): the owner is the interim Trust and Safety Leader ("me for now"). Police-cooperation selection and industry forum engagement remain deferred; the Safety by Design self-assessment is due just before public beta. This records the appointment, not training, delegated substitutes, staffing, urgent coverage or completed Code compliance.
+
 Status: **DRAFT 0.1, 30 October 2026**, issue [119](https://github.com/repasscloud/wanderconnect/issues/119). CONFIRMED D220 implements the [owner governance decision on106](https://github.com/repasscloud/wanderconnect/issues/106#issuecomment-6470617112). The role structure below is DEFAULT; appointment and operational acceptance remain OPEN. Legal review57 applies. No named appointment, paid team, on-call coverage or Code status is asserted.
 
 ## Accountable appointment

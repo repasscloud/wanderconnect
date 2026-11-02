@@ -14,3 +14,26 @@ Recording #137: `./scripts/check.sh` exit 0 including disposable PostgreSQL pers
 | #141 | Q99 | D290 | Recorded; implementation follows / external gates remain |
 
 Recording #141: `./scripts/check.sh` exit 0 including disposable PostgreSQL persistence and three HTTP smoke stages; no browser/native/provider acceptance from this documentation change.
+| #124 | Q90 | D291 | Recorded; implementation follows / external gates remain |
+| #148 | Q106 | D292 | Recorded; implementation follows / external gates remain |
+| #150 | Q108 | D293 | Recorded; implementation follows / external gates remain |
+| #156 | Q111 | D294 | Recorded; implementation follows / external gates remain |
+| #157 | Q112 | D295 | Recorded; implementation follows / external gates remain |
+| #158 | Q113 | D296 | Recorded; implementation follows / external gates remain |
+| #159 | Q114 | D297 | Recorded; implementation follows / external gates remain |
+| #160 | Q115 | D298 | Recorded; implementation follows / external gates remain |
+| #161 | Q116 | D299 | Recorded; implementation follows / external gates remain |
+| #162 | Q117 | D300 | Recorded; implementation follows / external gates remain |
+| #163 | Q118 | D301 | Recorded; implementation follows / external gates remain |
+| #165 | Q120 | D302 | Recorded; implementation follows / external gates remain |
+| #57 | Existing governance follow-up | D303 | Recorded; implementation follows / external gates remain |
+| #119 | Existing governance follow-up | D304 | Recorded; implementation follows / external gates remain |
+| #127 | Q83 | D305 | Recorded; implementation follows / external gates remain |
+
+## Q83 provider preparation blocker
+
+Q121/#170 records that the supplied Android client package is `com.swoovr.app.uat`, whereas this app and the owner answer use `com.swoovr.app`. Both Firebase files match `swoovr-uat`. Consistency validation refused the configuration before modifying env/launcher or sending traffic. No private configuration or credentials were printed, staged or changed. Samsung physical acceptance and Apple/APNs remain open.
+
+## Recording checkpoint
+
+All current owner answers are recorded as CONFIRMED D289–D305; Q110 remains OPEN because the answer posted on #155 is explicitly 156.*. Q121/#170 is the newly discovered Firebase package blocker. Baseline `check.sh` passed including 607 disposable PostgreSQL cases and all three HTTP smoke stages. The recording checkpoint run `owner-records-check` passed naming, backup, design/link/disabled-workflow, realm and Node gates, then failed compilation in concurrent in-progress Q112 (`RegistrationSettings.razor` Razor variable and `RegistrationAuthority.cs` EF1003). It did not reach persistence or HTTP smoke and is not a full pass. The implementation will be checked again after integration; no failed stage is represented as acceptance.

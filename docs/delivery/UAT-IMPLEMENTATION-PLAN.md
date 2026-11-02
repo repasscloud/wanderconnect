@@ -1,5 +1,7 @@
 # Finite UAT preparation plan
 
+Update, 2 November 2026: CONFIRMED D291 resolves the hosting proposal for preparation, and D288/D290 approve the operative legal readers. Owner subscription creation/deployment, security/store review before unrestricted beta (D303), operational actions (D304), and actual provider/device/hosted acceptance remain. The separate overnight issue queue is authorised in OVERNIGHT-IMPLEMENTATION-PLAN-2026-11-02.md.
+
 Original takeover Phase8 only. D221 hosting DEFAULT remains reversible until Q90/#124 is answered. No provisioning, deployment, merge or Actions activation. Stop after the software and reviewable operator handoff are complete; external credentials, subscription/billing, legal approval and physical provider evidence remain owner gates.
 
 1. Hosted configuration: fail startup outside Development for local staff passwords, simulated delivery, local/unchecked media screening, development realms or incomplete critical crypto/provider configuration. Explicit email/SMS/push configuration; real Twilio transport fake tests; readiness for each host. Native nonsecret UAT endpoint build configuration. Hosted CSP includes the required WebAssembly directive, with no routing/prerender rewrite. Actual refusal tests.

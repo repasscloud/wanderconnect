@@ -3054,6 +3054,10 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 - **GitHub issue:** [#148](https://github.com/repasscloud/wanderconnect/issues/148)
 - **Tracking Q:** Q106
 
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D292** ([source](https://github.com/repasscloud/wanderconnect/issues/148#issuecomment-6572313253)): 148.1 A; 148.2 Yes; 148.3 A; 148.4 A; 148.5 B; 148.6 Yes; 148.7 A. Mobile verification then DOB, only DOB if phone gate off; tabs remain and offer direct setup recovery. Safety notice once per server-stored wording revision, thereafter footer only. Coupon redemption in Membership & billing; desktop account sidebar with specified sections. 148.8 adds small version/build footer text. Supersedes intake onboarding deferral; retain actual phone-gate configuration and essential account rights. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+
 ### Historical intake investigation — pre-merge source snapshot
 
 Q106: Signed-in screenshot shows dense account/safety/status/settings composition. Recent responsive work already widened account layout; verify current baseline before attributing all desktop problems to old width. OPEN: fixed phone-then-DOB order and revision-persisted safety dismissal need reconciliation with configured backend gates and existing safety notices; do not weaken them.
@@ -3852,6 +3856,10 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 - **Priority:** High
 - **GitHub issue:** [#150](https://github.com/repasscloud/wanderconnect/issues/150)
 - **Tracking Q:** Q108
+
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D293** ([source](https://github.com/repasscloud/wanderconnect/issues/150#issuecomment-6572392572)): 150.1 A; 150.2 60 unless ridiculous overhead, otherwise 30; 150.3 Yes; 150.4 A; 150.5 B; 150.6 No. Independent main photo per mode, explicitly selected with no automatic migration; placeholders allowed because members may have no profile photos. Free/Plus/Premium mode totals 8/16/24. Downgrade hides excess by order without deleting. Explicitly supersedes D175 shared-main-photo requirement. DEFAULT choose 60 library objects: same existing storage path, no eager duplication; measure storage rather than claim cost acceptance. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
 
 ### Historical intake investigation — pre-merge source snapshot
 
@@ -9462,3 +9470,55 @@ This issue establishes the shared Admin presentation standards that should apply
 - [ ] No existing administrative functionality is removed unintentionally.
 - [ ] UAT uses the same production-intended UI and components.
 - [ ] Automated or visual regression tests cover representative Admin pages.
+
+### Owner answer follow-up #124 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D291** ([source](https://github.com/repasscloud/wanderconnect/issues/124#issuecomment-6572260299)): 124.1 A; 124.2 A; 124.3–124.4 Yes; 124.5 A; 124.6 A; 124.7–124.8 Yes. Australia East, Container Apps, separate Keycloak Container App/PostgreSQL databases/logins and nondev realms; uat.swoovr.app plus admin/api/auth.uat.swoovr.app; paid edge coverage and origin certificate in Key Vault; HTTPS Cloudflare proxy without Tunnel. Approved encrypted backup schedule and naming/tags from owner questions. Owner creates subscription later and deploys personally or by script; 124.10 A until first UAT run. Approves D221/D283 topology preparation only. No purchase, provisioning or deployment; subscription remains owner-action. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #156 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D294** ([source](https://github.com/repasscloud/wanderconnect/issues/155#issuecomment-6572427017)): 156.1–156.3 A; 156.4–156.5 Yes (posted on #155). All staff see calculated age/DOB assurance, full DOB only with elevation and recorded purpose. Read-only mode previews for Support/Admin/Root without visits/impersonation. Hidden/unassigned/pending/rejected photos Admin-only via audited reveal. Chats only through report/case. Legal gains no moderation; Root gains no Legal privilege. Answers belong to Q111/#156 despite posting on #155. Q110/#155 permissions remain OPEN. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #157 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D295** ([source](https://github.com/repasscloud/wanderconnect/issues/157#issuecomment-6572579483)): 157.1 Yes; 157.2a A; 157.2b A; 157.3–157.5 Yes. Two persisted flags: closed, invite-only beta, public, public with beta tracking. Root-only changes with reason/confirmation/audit; all staff see state. Closure covers Keycloak direct/brokered creation, fails closed if unreadable while existing sign-in/reset remains. UAT starts invite-only. 157.6 title: Swoovr is currently invite-only; text: We're not accepting public registrations just yet. If you'd like early access, you can register your interest in our beta.; link: Join the beta waitlist → https://swoovr.com/beta. Existing Keycloak remains authentication authority; no API-minted sessions and no public launch authorization. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #158 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D296** ([source](https://github.com/repasscloud/wanderconnect/issues/158#issuecomment-6572996253)): 158.1 Yes; 158.2 any Admin page in private Safari; 158.3 Cmd+R/reload prompts resend form each time; 158.4 independent of time open, navigation works. Safari 27.2 (22625.2.8.11.9). Owner reproduction evidence supports POST refresh investigation, not a proven session-expiry cause. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #159 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D297** ([source](https://github.com/repasscloud/wanderconnect/issues/159#issuecomment-6572633682)): 159.1 A; 159.2 B; 159.3 A; 159.4 B; 159.5 A. Server-stored per-staff/per-notice safety acknowledgement valid four hours. Support may review alongside Admin; counts only for reviewers. No approval free text, codes only. Tablet full-screen review dialog; phone hides review tools. Extends routine review capability to Support without granting Legal or protected specialist evidence access; aligns D302 tablets as desktop presentation. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #160 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D298** ([source](https://github.com/repasscloud/wanderconnect/issues/160#issuecomment-6572660549)): 160.1 A; 160.2 A; 160.3 Yes; 160.4 A; 160.5 A; 160.6 Yes. In-app photo rejection/outcome notices; one appeal within 30 days, different Admin decides, final. Suspected CSAM/known illegal/specialist media never appealable and no detailed reason. Keep rejected file privately 30 days then delete unless held. Admin may reconsider independently with reason and re-screening. Rejection remains hidden; ordinary approval cannot bypass screening/specialist/preservation. Existing D135 sanction appeals remain distinct. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #161 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D299** ([source](https://github.com/repasscloud/wanderconnect/issues/161#issuecomment-6572733484)): 161.1 A; 161.2–161.4 Yes; 161.5 A; 161.6 A. Lock DOB after first confirmation, including existing populated dates immediately. Confirm before first save. Support request at https://swoovr.com/support; Admin/Root one-use audited 24-hour correction grant, never Support. Corrected ID-verified DOB compares encrypted D191 identity; match verified, mismatch manual DOB review with ID badge retained (D166). Previous DOB encrypted Legal-only under retention schedule. Explicitly supersedes D158 unverified-edit permission; preserves D166 provider-mismatch correction and non-punitive ID-badge handling. No existing DB deletion is authorized. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #162 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D300** ([source](https://github.com/repasscloud/wanderconnect/issues/162#issuecomment-6572808962)): 162.1 A; 162.2 A; 162.3 Yes; 162.4 A; 162.5 Yes; 162.6 A; 162.7 A with owner condition; 162.8 B. Required surname with one-name exception; provider names confirmed/completed on first sign-in. Existing incomplete accounts complete before continuing (owner expects later DB reset, not authorized here). Initialize public name from first name only if unset. Support/Admin/Root see registered names. Members can edit registered names with audit, but ID-verified members lose ID Verified and must submit ID again. Staff see registered-name/ID match flag without decrypted names. Registered and verified identity remain separate; explicit owner badge revocation on name edits supersedes any general assumption that ID badge persists through that edit. D166 DOB mismatch handling remains. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #163 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D301** ([source](https://github.com/repasscloud/wanderconnect/issues/163#issuecomment-6572853394)): 163.1–163.3 A; 163.4 Yes. Optional display-name override in all four modes; empty override uses main public display name only, never registered name. Chat uses name for the mode where conversation began (one conversation across modes, D143). Explicitly supersedes D175 shared-display-name requirement; retain all other per-mode privacy rules and historical evidence. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #165 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D302** ([source](https://github.com/repasscloud/wanderconnect/issues/165#issuecomment-6572882262)): 165.1 Yes; 165.2 A; 165.3 A; 165.4 Yes. Approve route matrix in owner questions; desktop-only is presentation, not trusted-device authorization. Tablets have desktop access, including photo review. Phones see This page needs a larger screen and overview link on desktop workflows. Backend role/elevation/conflict controls remain authoritative. Corrects D297 cross-reference: tablet policy is D302. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #57 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D303** ([source](https://github.com/repasscloud/wanderconnect/issues/57#issuecomment-6576118805)): 57.1a not chosen yet; 57.1b B; 57.2 owner reviews app-store policy personally; 57.3 Yes. Invited UAT can precede application-security and store-policy reviews; unrestricted external beta waits. Legal wording approved under D288/D290; no penetration test, store compliance or public launch certified. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #119 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D304** ([source](https://github.com/repasscloud/wanderconnect/issues/119#issuecomment-6576252928)): 119.1 owner (me for now) is Trust and Safety Leader; 119.2 C, decide police cooperation later; 119.3 self-assessment just before public beta; 119.4 later, needs a list of forums. Appointment recorded; no completed training, staffing/urgent coverage, agreement, assessment or Code compliance claim. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
+
+### Owner answer follow-up #127 (2 November 2026)
+
+Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://github.com/repasscloud/wanderconnect/issues/127#issuecomment-6576814746)): 127.1 Firebase swoovr-uat/com.swoovr.app exists and is approved for local tests for now; separate dev project later. Apple account/key not ready. 127.2 Samsung Galaxy A14 5G Android15; iPhone16 Pro Max iOS27.0.1. 127.3 Firebase files ready at .local/firebase/google-services.json and fcm-service-account.json. Wire Android FCM per D210 with backed-up private env/launcher; never publish keys. Physical-device delivery remains owner acceptance; APNs later. Keep #127 open. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.

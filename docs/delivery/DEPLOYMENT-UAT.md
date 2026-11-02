@@ -1,5 +1,7 @@
 # UAT deployment operator handoff
 
+CONFIRMED D291 approves Q90 hosting topology, hostnames, certificates and backup/naming choices. The owner creates/selects the subscription later and runs deployments personally or via the prepared scripts; deployment rights remain owner-only until UAT has run once. No provisioning, purchase, deployment or Actions execution was performed in this delivery.
+
 D286 DEFAULT. **Preparation only: no deployment, merge, registry push, subscription purchase, DNS change or Actions activation has occurred.** The owner must explicitly approve deployment. Q90/#124 selects subscription, billing, region/topology and Cloudflare certificate options; this runbook implements reversible D221 Australia East defaults. Legal57, real credentials, staff/operational coverage and hosted acceptance remain admission gates. This document is the endpoint for the original preparation queue, not authority to admit testers.
 
 ## Before approval-time execution
