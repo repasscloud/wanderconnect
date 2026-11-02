@@ -43,12 +43,18 @@ def user_profile():
     attributes = [
         attribute('username', '${username}', False, {'validations': {'length': {'min': 3, 'max': 255}, 'username-prohibited-characters': {}, 'up-username-not-idn-homograph': {}}, 'permissions': {'view': ['admin', 'user'], 'edit': ['admin']}}),
         # Prototype order and placeholders (docs/design/reference/screens/06-create-account.png).
-        attribute('firstName', '${firstName}', True, {'validations': {'length': {'max': 255}, 'person-name-prohibited-characters': {}},
+        attribute('firstName', '${firstName}', True, {'validations': {'length': {'max': 100}, 'person-name-prohibited-characters': {}},
                                                        'annotations': {'inputTypePlaceholder': '${swoovrPlaceholder.firstName}'}}),
+        # D300: guarded creation requires this unless the explicit one-name checkbox is selected.
+        # The declarative profile cannot express that cross-field condition; the pinned SPI validates it.
+        attribute('lastName', '${lastName}', False, {'validations': {'length': {'max': 100}, 'person-name-prohibited-characters': {}}}),
+        attribute('swoovr_mononym', 'One-name declaration', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}}),
         attribute('email', '${email}', True, {'validations': {'email': {}, 'length': {'max': 255}},
                                                'annotations': {'inputTypePlaceholder': '${swoovrPlaceholder.username}'}}),
     ]
     # Written by the built-in registration terms step (the 18+ checkbox, D40); undeclared attributes are dropped.
+    for name in ['swoovr_email_request_binding','swoovr_email_requested_ms','swoovr_email_verified_binding','swoovr_email_verified_ms','swoovr_email_request_session_sha256']:
+        attributes.append(attribute(name, 'Provider email verification evidence', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}, 'validations': {'length': {'max': 64}}}))
     attributes.append(attribute('terms_and_conditions', 'Adult attestation time', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}}))
     return {'attributes': attributes, 'groups': [], 'unmanagedAttributePolicy': None}
 
@@ -65,6 +71,13 @@ def web_client(client_id, secret_env, path='', base=web):
         'fullScopeAllowed': False,
         'defaultClientScopes': ['basic', 'profile', 'email', 'acr', 'web-origins'], 'optionalClientScopes': [],
         'protocolMappers': [
+            *[{'name': 'swoovr-email-clock-'+name, 'protocol': 'openid-connect', 'protocolMapper': 'oidc-usermodel-attribute-mapper',
+               'config': {'user.attribute': name, 'claim.name': name, 'jsonType.label': 'String',
+                          'id.token.claim': 'false', 'access.token.claim': 'true', 'introspection.token.claim': 'true'}}
+              for name in ['swoovr_email_request_binding','swoovr_email_requested_ms','swoovr_email_verified_binding','swoovr_email_verified_ms','swoovr_email_request_session_sha256']],
+            {'name': 'swoovr-mononym', 'protocol': 'openid-connect', 'protocolMapper': 'oidc-usermodel-attribute-mapper',
+             'config': {'user.attribute': 'swoovr_mononym', 'claim.name': 'swoovr_mononym', 'jsonType.label': 'boolean',
+                        'id.token.claim': 'true', 'access.token.claim': 'true', 'introspection.token.claim': 'true'}},
             {'name': 'swoovr-amr', 'protocol': 'openid-connect', 'protocolMapper': 'oidc-amr-mapper',
              'config': {'id.token.claim': 'true', 'access.token.claim': 'true', 'introspection.token.claim': 'true'}},
             {'name': 'swoovr-identity-provider', 'protocol': 'openid-connect', 'protocolMapper': 'oidc-usersessionmodel-note-mapper',
@@ -128,6 +141,7 @@ realms = {
     'swoovr-staff-dev': realm('swoovr-staff-dev', 'Swoovr staff', registration=False, passkeys=False,
                               clients=[web_client('swoovr-admin-web', 'SWOOVR_STAFF_WEB_SECRET', base=admin_web)]),
 }
+realms['swoovr-members-dev']['eventsListeners'] = ['jboss-logging','swoovr-contact-clocks']
 realms['swoovr-staff-dev']['resetPasswordAllowed'] = False  # Entra owns employee passwords; root admin is reset by master admin.
 
 

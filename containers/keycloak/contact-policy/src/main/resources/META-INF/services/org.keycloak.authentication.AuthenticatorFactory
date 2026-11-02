@@ -1,0 +1,2 @@
+app.swoovr.identity.GuardedBrokerCreationFactory
+app.swoovr.identity.GuardedLoginFormFactory

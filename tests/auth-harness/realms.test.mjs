@@ -167,3 +167,21 @@ test('the deletion client (D169): created once with only view-users and manage-u
   assert.deepEqual(await applyAccountsClient(api, 's2'), ['secret swoovr-api-accounts']);
   assert.equal(state.secret, 's2');
 });
+
+
+test('D300 generated profile declares surname and private one-name claim without inventing confirmation', async () => {
+  const profile = await generatedProfile('swoovr-members-dev');
+  assert.equal(profile.attributes.find(a => a.name === 'lastName').validations.length.max, 100);
+  const mononym = profile.attributes.find(a => a.name === 'swoovr_mononym');
+  assert.deepEqual(mononym.permissions.edit, ['admin']);
+  assert.equal(profile.attributes.find(a => a.name === 'firstName').validations.length.max, 100);
+});
+
+
+test('contact verification clock attributes are bounded and cannot be edited by members', async () => {
+  const profile=await generatedProfile('swoovr-members-dev');
+  for(const name of ['swoovr_email_request_binding','swoovr_email_requested_ms','swoovr_email_verified_binding','swoovr_email_verified_ms','swoovr_email_request_session_sha256']) {
+    const field=profile.attributes.find(a=>a.name===name);
+    assert.deepEqual(field.permissions.edit,['admin']);assert.deepEqual(field.permissions.view,['admin']);assert.equal(field.validations.length.max,64);
+  }
+});

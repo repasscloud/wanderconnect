@@ -4,6 +4,29 @@ import argparse,ipaddress,json,re
 from urllib.parse import urlsplit
 from pathlib import Path
 
+def registration_admission_url(values):
+    """The nonsecret endpoint derived by services.bicep; never accept a token or URL override."""
+    domain=values.get('environmentDefaultDomain')
+    label=r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
+    if not isinstance(domain,str) or not re.fullmatch(label+r'\.'+label+r'\.azurecontainerapps\.io',domain):
+        raise ValueError('Use the foundation output default domain.')
+    prefix=values.get('prefix','swoovr-uat')
+    if not isinstance(prefix,str) or not re.fullmatch(r'[a-z](?:[a-z0-9-]{0,57}[a-z0-9])?',prefix):
+        raise ValueError('Prefix must form a valid lowercase DNS label for the derived API admission origin.')
+    return 'https://'+prefix+'-api.'+domain+'/api/registration/admission'
+
+def validate_registration_bindings(records):
+    """One shared credential is readable only by the API and Keycloak service identities."""
+    expected={'Registration__ProviderToken':['api'],'SWOOVR_REGISTRATION_AUTHORITY_TOKEN':['keycloak']}
+    if not isinstance(records,list) or any(not isinstance(r,dict) for r in records):
+        raise ValueError('Invalid service secret binding metadata.')
+    selected=[r for r in records if r.get('env') in expected or r.get('name')=='registration-authority']
+    if len(selected)!=2 or {r.get('env') for r in selected}!=set(expected):
+        raise ValueError('Both registration authority service bindings are required.')
+    for record in selected:
+        if set(record)!={'name','env','actors'} or record.get('name')!='registration-authority' or record.get('actors')!=expected[record['env']]:
+            raise ValueError('The shared registration credential is restricted to API and Keycloak identities.')
+
 def validate(values):
     def required(name):
         value=values.get(name)
@@ -23,7 +46,8 @@ def validate(values):
     for name in ['r2Endpoint','backupAccountUrl']:
         value=required(name);url=urlsplit(value)
         if url.scheme!='https' or not url.hostname or url.username or url.password or url.port or url.path or url.query or url.fragment:raise ValueError(name+' must be an exact HTTPS origin without credentials or a trailing slash.')
-    if not re.fullmatch(r'[a-z0-9-]+\.[a-z0-9-]+\.azurecontainerapps\.io',required('environmentDefaultDomain')):raise ValueError('Use the foundation output default domain.')
+    registration_admission_url(values)
+    validate_registration_bindings(json.loads((Path(__file__).resolve().parents[2]/'infra/uat/secret-bindings.json').read_text()))
     if not re.fullmatch(r'age1[0-9a-z]{58}',required('backupRecipient')):raise ValueError('An age public recipient is required; never supply the recovery identity.')
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]',required('r2Bucket')):raise ValueError('Invalid private R2 bucket name.')
     active=(['api','web','admin'] if values.get('deployServing') else [])+(['keycloak'] if values.get('deployIdentity') else [])

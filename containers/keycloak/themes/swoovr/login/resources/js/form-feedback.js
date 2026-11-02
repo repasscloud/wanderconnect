@@ -10,3 +10,12 @@ if (invalid) {
   }
   invalid.focus();
 }
+
+// D300: the server enforces the same surname/one-name condition; this only explains native validity.
+(() => {
+  const toggle = document.getElementById('swoovr-mononym');
+  const surname = document.querySelector('#kc-register-form [name="lastName"]');
+  if (!toggle || !surname) return;
+  const update = () => { surname.required = !toggle.checked; surname.disabled = toggle.checked; };
+  toggle.addEventListener('change', update); update();
+})();

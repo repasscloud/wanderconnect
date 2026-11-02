@@ -2085,7 +2085,7 @@ From [ONLINE-DATING-CODE.md](ONLINE-DATING-CODE.md) (#55, DRAFT, not legal advic
 
 | ID | Issue | Status | Blocks | Question | Why it matters | Recommended default | Owner answer |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Q90 | [#124](https://github.com/repasscloud/wanderconnect/issues/124) | OPEN | Provisioning and actual UAT deployment; independent implementation continues | Approve region, Container Apps vs App Service, Keycloak, PostgreSQL, Key Vault, Cloudflare, MailerSend, screening, backups, naming and subscription owner? | Establishes residency, costs and operator ownership | D221: Australia East, Container Apps, PostgreSQL Flexible Server, Key Vault, Cloudflare proxy, MailerSend HTTP, private screening, isolated Blob backups; owner creates/selects subscription. Full proposal in issue | Awaiting owner |
+| Q90 | [#124](https://github.com/repasscloud/wanderconnect/issues/124) | CONFIRMED D291; owner-action | Provisioning and actual UAT deployment; independent implementation continues | D291 confirms topology; code preparation only; owner provisions subscription and deploys. | Establishes residency, costs and operator ownership | D221: Australia East, Container Apps, PostgreSQL Flexible Server, Key Vault, Cloudflare proxy, MailerSend HTTP, private screening, isolated Blob backups; owner creates/selects subscription. Full proposal in issue | Owner subscription/provisioning and hosted acceptance |
 
 ## Active contact retirement — 29 October 2026
 
@@ -2186,18 +2186,18 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 
 Owner answer recorded 2 November 2026 — **CONFIRMED D290** ([source](https://github.com/repasscloud/wanderconnect/issues/141#issuecomment-6572956911)): 141.1 A; 141.2 Yes; 141.3 A; 141.4 A; 141.5–141.7 Yes. Anonymous pages are only /, /terms, /community-guidelines, /privacy, /safety/advice and country-only /safety. Other page routes redirect to / silently. Sign-in/create buttons only on home, no top-right links; remove Private beta and draft labels; Support goes to https://swoovr.com/support. Standard only for guests; successful sign-in lands on Explore. Same pre-sign-in rule on native. Supersedes D288 runtime draft deferral for these approved operative readers and D20 guest theme choice; authentication callbacks/assets remain necessary protocol resources, not guest pages. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
-Current status checked 2 November 2026: [PR #153](https://github.com/repasscloud/wanderconnect/pull/153) is merged into main; issue remains OPEN. Remaining acceptance and scope boundaries below still apply; merge is not production or device acceptance.
+Historical intake status before this delivery: [PR #153](https://github.com/repasscloud/wanderconnect/pull/153) is merged into main; issue remains OPEN. Remaining acceptance and scope boundaries below still apply; merge is not production or device acceptance.
 
-Implementation progress (2 November 2026): Guest navigation/landing fixed; truthful private-beta and draft-policy disclosures retained. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
+Historical implementation before this delivery: Guest navigation/landing fixed; private-beta and draft-policy disclosures were retained then; D290 now explicitly supersedes that presentation. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 
 - Issue: [#141](https://github.com/repasscloud/wanderconnect/issues/141); [intake item 7](ISSUE-INTAKE.md#intake-7).
-- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Status: D290 implemented in draft PR171; OPEN Q123/#173 blocks trusted-contact capability reconciliation. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
 - Evidence/consequence: Home source confirms work-in-progress copy and appearance CTA. Shared navigation is visible in the screenshot. OPEN: removing genuine draft/legal/readiness disclosures must not imply approved documents or a live service. Keep Standard default and personal choices; no rebranding.
 - DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
 - Duplicate assessment: Related #48 (accessibility) and #57 (release review); neither covers public entry navigation/copy.
-- Owner input / missing evidence: Any removal of truthful readiness/legal draft disclosures depends on actual approval; no approval inferred.
+- Owner input: D290 explicitly approves activation/presentation of the public readers; Q123 remains OPEN. No deployment or compliance approval is inferred.
 
 <a id="q100"></a>
 
@@ -2307,12 +2307,12 @@ Implementation progress (2 November 2026): Dedicated neutral acknowledgement ver
 
 Owner answer recorded 2 November 2026 — **CONFIRMED D292** ([source](https://github.com/repasscloud/wanderconnect/issues/148#issuecomment-6572313253)): 148.1 A; 148.2 Yes; 148.3 A; 148.4 A; 148.5 B; 148.6 Yes; 148.7 A. Mobile verification then DOB, only DOB if phone gate off; tabs remain and offer direct setup recovery. Safety notice once per server-stored wording revision, thereafter footer only. Coupon redemption in Membership & billing; desktop account sidebar with specified sections. 148.8 adds small version/build footer text. Supersedes intake onboarding deferral; retain actual phone-gate configuration and essential account rights. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
-Current status checked 2 November 2026: [PR #154](https://github.com/repasscloud/wanderconnect/pull/154) is merged into main; issue remains OPEN. New DOB policy scope is Q116/#161; onboarding order and safety-dismissal decisions remain deferred.
+Historical intake status, before the owner answer and this implementation: [PR #154](https://github.com/repasscloud/wanderconnect/pull/154) is merged into main; issue remains OPEN. New DOB policy scope is Q116/#161; onboarding order and safety-dismissal decisions remain deferred.
 
-Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: grouped settings and truthful account heading. Onboarding order and revision-persisted safety-dismissal proposals remain deferred. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). PR #154 is merged; the issue remains open for remaining acceptance or deferred scope.
+Historical implementation progress before this delivery: [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: grouped settings and truthful account heading. Onboarding order and revision-persisted safety-dismissal proposals remain deferred. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). PR #154 is merged; the issue remains open for remaining acceptance or deferred scope.
 
 - Issue: [#148](https://github.com/repasscloud/wanderconnect/issues/148); [intake item 14](ISSUE-INTAKE.md#intake-14).
-- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Status: Owner answer CONFIRMED; source implementation in draft PR171; acceptance gaps tracked in the linked evidence. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
 - Evidence/consequence: Signed-in screenshot shows dense account/safety/status/settings composition. Recent responsive work already widened account layout; verify current baseline before attributing all desktop problems to old width. OPEN: fixed phone-then-DOB order and revision-persisted safety dismissal need reconciliation with configured backend gates and existing safety notices; do not weaken them.
 - DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
@@ -2341,12 +2341,12 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 
 Owner answer recorded 2 November 2026 — **CONFIRMED D293** ([source](https://github.com/repasscloud/wanderconnect/issues/150#issuecomment-6572392572)): 150.1 A; 150.2 60 unless ridiculous overhead, otherwise 30; 150.3 Yes; 150.4 A; 150.5 B; 150.6 No. Independent main photo per mode, explicitly selected with no automatic migration; placeholders allowed because members may have no profile photos. Free/Plus/Premium mode totals 8/16/24. Downgrade hides excess by order without deleting. Explicitly supersedes D175 shared-main-photo requirement. DEFAULT choose 60 library objects: same existing storage path, no eager duplication; measure storage rather than claim cost acceptance. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
-Current status checked 2 November 2026: [PR #154](https://github.com/repasscloud/wanderconnect/pull/154) is merged into main; issue remains OPEN. Q111/#156 and Q114–Q115/#159–#160 must preserve the shared main photo and current quotas; independent mains/photo limits remain deferred.
+Historical intake status, before the owner answer and this implementation: [PR #154](https://github.com/repasscloud/wanderconnect/pull/154) is merged into main; issue remains OPEN. Q111/#156 and Q114–Q115/#159–#160 must preserve the shared main photo and current quotas; independent mains/photo limits remain deferred.
 
-Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: one mode-assignment gallery at a time with shared library/main preserved. Independent main photos and proposed photo limits remain deferred; API quotas and screening rules unchanged. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). PR #154 is merged; the issue remains open for remaining acceptance or deferred scope.
+Historical implementation progress before this delivery: [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: one mode-assignment gallery at a time with shared library/main preserved. Independent main photos and proposed photo limits remain deferred; API quotas and screening rules unchanged. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). PR #154 is merged; the issue remains open for remaining acceptance or deferred scope.
 
 - Issue: [#150](https://github.com/repasscloud/wanderconnect/issues/150); [intake item 16](ISSUE-INTAKE.md#intake-16).
-- Status: OPEN investigation / feedback; processing complete. Priority: High.
+- Status: Owner answer CONFIRMED; source implementation in draft PR171; acceptance gaps tracked in the linked evidence. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
 - Evidence/consequence: Code confirms shared main photo and optional per-mode assignments; screenshot shows a photo library and repetitive mode rows. OPEN: proposal for independent mode main photos changes CONFIRMED D175; 60 library / 8 Free / 16 Plus / 24 Premium limits are intake proposals pending reconciliation with current quotas/entitlements. Preserve existing assignments, moderation and downgrade data; no migration is authorised.
 - DEFAULT follow-up: reproduce current baseline using fictional adult data; record actual behaviour and status codes; preserve confirmed policies and existing data. Full reproduction, impact and acceptance criteria are in the issue and intake.
@@ -2406,6 +2406,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D294** ([source](https://g
 <a id="q112"></a>
 
 ### Q112 — Define authoritative beta/public/closed registration controls across Keycloak and applications
+
+Implementation checkpoint: [Q112 evidence](Q112-REGISTRATION-CONTROLS-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
 
 Owner answer recorded 2 November 2026 — **CONFIRMED D295** ([source](https://github.com/repasscloud/wanderconnect/issues/157#issuecomment-6572579483)): 157.1 Yes; 157.2a A; 157.2b A; 157.3–157.5 Yes. Two persisted flags: closed, invite-only beta, public, public with beta tracking. Root-only changes with reason/confirmation/audit; all staff see state. Closure covers Keycloak direct/brokered creation, fails closed if unreadable while existing sign-in/reset remains. UAT starts invite-only. 157.6 title: Swoovr is currently invite-only; text: We're not accepting public registrations just yet. If you'd like early access, you can register your interest in our beta.; link: Join the beta waitlist → https://swoovr.com/beta. Existing Keycloak remains authentication authority; no API-minted sessions and no public launch authorization. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
@@ -2508,7 +2510,7 @@ Implementation checkpoint: [Q118 evidence](Q118-MODE-NAMES-2026-11-02.md) contai
 Owner answer recorded 2 November 2026 — **CONFIRMED D301** ([source](https://github.com/repasscloud/wanderconnect/issues/163#issuecomment-6572853394)): 163.1–163.3 A; 163.4 Yes. Optional display-name override in all four modes; empty override uses main public display name only, never registered name. Chat uses name for the mode where conversation began (one conversation across modes, D143). Explicitly supersedes D175 shared-display-name requirement; retain all other per-mode privacy rules and historical evidence. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#163](https://github.com/repasscloud/wanderconnect/issues/163); [intake item 24](ISSUE-INTAKE.md#intake-24).
-- Status: OPEN investigation / feedback; intake processing complete. Priority: Medium — independent product/data-model change; shared display name is the current confirmed rule.
+- Status: OPEN investigation / feedback; intake processing complete. Priority: Medium — independent product/data-model change; the historical shared-name rule is superseded by D301.
 - Earliest blocker/consequence: acceptance of this proposed Profile / mode privacy slice; independent intake work continues. No deployment or provider change authorised.
 - Scope: Item 24 D and mode-name portions of B/E/L/M and public-profile acceptance.
 - Source-supported finding: MemberProfile owns DisplayName; MemberMode stores Enabled/Visible/About/ShareCoreAbout and intentions, with no per-mode name. CONFIRMED D175 explicitly shares display name across all modes. PR #154 preserved custom names and did not implement provider-name initialisation or per-mode overrides.
@@ -2522,7 +2524,7 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D301** ([source](https://g
 ### Q119 — Standardise Admin presentation and contextual guidance across routes
 
 - Issue: [#164](https://github.com/repasscloud/wanderconnect/issues/164); [intake item 25](ISSUE-INTAKE.md#intake-25).
-- Status: OPEN investigation / feedback; intake processing complete. Priority: High — repeated development prose and inconsistent controls affect every operational workflow.
+- Status: source implementation in draft PR171; validation and acceptance gaps in the linked evidence. Priority: High — repeated development prose and inconsistent controls affect every operational workflow.
 - Earliest blocker/consequence: acceptance of this proposed Admin / shared presentation / accessibility slice; independent intake work continues. No deployment or provider change authorised.
 - Scope: Item 25 A–I/M–O and shared presentation/security acceptance; J–L split to Q120.
 - Source-supported finding: SupportLookup.razor contains the quoted #50/permission/logging paragraph. Account.razor exposes D-code headings; MediaReview.razor includes beta and implementation guidance. App.razor loads themes.css/admin.css, not a Bootstrap bundle; admin.css already provides shared controls, responsive layout and top-aligned td. The report's 'existing Bootstrap' premise is not established by the current shell. Functional beta/provider/safety distinctions remain operational facts.
@@ -2538,7 +2540,7 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D301** ([source](https://g
 Owner answer recorded 2 November 2026 — **CONFIRMED D302** ([source](https://github.com/repasscloud/wanderconnect/issues/165#issuecomment-6572882262)): 165.1 Yes; 165.2 A; 165.3 A; 165.4 Yes. Approve route matrix in owner questions; desktop-only is presentation, not trusted-device authorization. Tablets have desktop access, including photo review. Phones see This page needs a larger screen and overview link on desktop workflows. Backend role/elevation/conflict controls remain authoritative. Corrects D297 cross-reference: tablet policy is D302. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#165](https://github.com/repasscloud/wanderconnect/issues/165); [intake item 25](ISSUE-INTAKE.md#intake-25).
-- Status: OPEN investigation / feedback; intake processing complete. Priority: Medium — new availability restrictions require operational and accessibility review before enforcement.
+- Status: source implementation in draft PR171; validation and acceptance gaps in the linked evidence. Priority: Medium — new availability restrictions require operational and accessibility review before enforcement.
 - Earliest blocker/consequence: acceptance of this proposed Admin / supported devices / access policy slice; independent intake work continues. No deployment or provider change authorised.
 - Scope: Item 25 J–L and responsive availability criteria; conflicts with item 22 D recorded explicitly.
 - Source-supported finding: Current Admin shell/CSS adapts layouts to narrow viewports; no route-level supported-device matrix is established by the inspected shell. The proposed table labels media/legal/root routes desktop-only, while item 22 proposes an adapted mobile/tablet review dialog. This conflict requires a route decision. A resized viewport or user-agent is not evidence of a trusted device and cannot enforce sensitive backend access.
@@ -2573,8 +2575,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 
 - Issue: [#170](https://github.com/repasscloud/wanderconnect/issues/170); follows Q83/#127 and D305.
 - Status: OPEN / decision-needed. Supplied local Firebase client targets `com.swoovr.app.uat`; current MAUI app and owner answer use `com.swoovr.app`. Project/service-account ids match; no key material published.
-- 121.1 A: register current `com.swoovr.app` in Firebase and replace local config (**Suggested**). B: explicitly approve different provider-test package and review callback/signing implications.
-- 121.2 Confirm corrected file ready at `.local/firebase/google-services.json` after A. Never paste keys.
+- 170.1 A: register current `com.swoovr.app` in Firebase and replace local config (**Suggested**). B: explicitly approve different provider-test package and review callback/signing implications.
+- 170.2 Confirm corrected file ready at `.local/firebase/google-services.json` after A. Never paste keys.
 - No private file was changed because the consistency check failed first. Physical-device/APNs acceptance stays OPEN. Independent work continues.
 
 <a id="q122"></a>
@@ -2583,7 +2585,7 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 
 - Issue: [#172](https://github.com/repasscloud/wanderconnect/issues/172); owner feedback 119.4, CONFIRMED D304.
 - Status: OPEN later / product-review, no current code blocker.
-- 122.1 A: research a concise evidence-backed Australian safety/dating industry forum shortlist before public-beta review; owner selects memberships later (**Suggested**). B: defer until after invited UAT.
+- 172.1 A: research a concise evidence-backed Australian safety/dating industry forum shortlist before public-beta review; owner selects memberships later (**Suggested**). B: defer until after invited UAT.
 - No joining, payments, outreach, membership or compliance claim is authorised. Preserve the owner's request for a list rather than silently choosing organisations.
 
 <a id="q123"></a>
@@ -2592,5 +2594,5 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 
 - Issue: [#173](https://github.com/repasscloud/wanderconnect/issues/173); conflict between latest CONFIRMED D290/Q99 and earlier D263 non-member trusted-contact readers.
 - Status: OPEN / decision-needed; blocks acceptance of shared-plan contact responses/readers, not ordinary member-route protection.
-- 123.1 A: narrowly allow existing token/code-protected contact/meeting workflows with all consent/expiry/rate/privacy controls (**Suggested**). B: keep the absolute six-page guest rule and explicitly remove/disable that non-member sharing journey.
+- 173.1 A: narrowly allow existing token/code-protected contact/meeting workflows with all consent/expiry/rate/privacy controls (**Suggested**). B: keep the absolute six-page guest rule and explicitly remove/disable that non-member sharing journey.
 - The current implementation follows the latest strict six-page instruction, so contact/meeting capability pages redirect home. These rendered pages are not honestly classifiable as static/authentication protocol resources. No anonymous exception or feature removal is inferred; independent work continues.

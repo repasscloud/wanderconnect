@@ -14,6 +14,11 @@
             ${msg("registerTitle")}
         </#if>
     <#elseif section = "form">
+        <#if message?? && message.summary?contains(msg("swoovrRegistrationInviteOnly"))>
+            <h2>${msg("swoovrRegistrationInviteOnly")}</h2>
+            <p>${msg("swoovrRegistrationInviteOnlyText")}</p>
+            <p><a href="https://swoovr.com/beta">${msg("swoovrBetaWaitlist")}</a></p>
+        </#if>
         <form id="kc-register-form" class="${properties.kcFormClass!}" action="${url.registrationAction}" method="post" novalidate="novalidate">
             <@userProfileCommons.userProfileFormFields; callback, attribute>
                 <#if callback = "afterField">
@@ -25,6 +30,7 @@
                 </#if>
             </@userProfileCommons.userProfileFormFields>
 
+            <label><input id="swoovr-mononym" type="checkbox" name="swoovr_mononym" value="true" <#if ((register.formData['swoovr_mononym'][0])!'false') == 'true'>checked</#if> /> ${msg("swoovrMononym")}</label>
             <@registerCommons.termsAcceptance/>
 
             <#if recaptchaRequired?? && (recaptchaVisible!false)>

@@ -1,0 +1,42 @@
+@page "/registration"
+@inject AdminClient Admin
+<PageTitle>Registration availability — Swoovr admin</PageTitle>
+<h1>Registration availability</h1>
+<p>These controls govern new registration. Existing sign-in and password recovery remain available. Beta enrolments and historical records are retained.</p>
+@if(message is not null){<p role="status" data-registration-result="@resultCode">@message</p>}
+@if(policy is not null)
+{
+    <p data-registration-state="@policy.State">Effective state: @policy.State · revision @policy.Revision</p>
+    @if(policy.CanChange)
+    {
+        <form method="post" @formname="registration-policy" @onsubmit="SaveAsync" data-enhance="true" class="stack" data-registration-form>
+            <AntiforgeryToken /><input type="hidden" name="revision" value="@policy.Revision" />
+            <label><input type="checkbox" name="beta" value="yes" checked="@policy.BetaEnabled" /> Enable invited beta registration and beta tracking</label>
+            <label><input type="checkbox" name="public" value="yes" checked="@policy.PublicEnabled" /> Enable public registration</label>
+            <label>Reason<textarea name="reason" required maxlength="500">@Field("reason")</textarea></label>
+            <label><input type="checkbox" name="confirm" value="yes" required /> I confirm this registration availability change.</label>
+            <button type="submit">Save availability</button>
+        </form>
+    }
+    else{<p>Only the Root administrator can change availability.</p>}
+}
+@code {
+    [CascadingParameter] private HttpContext? Context{get;set;}
+    private RegistrationAvailabilityView? policy;
+    private string? message,resultCode;
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    protected override async Task OnInitializedAsync()=>await LoadAsync();
+    private async Task LoadAsync()
+    {
+        var result=await Admin.RegistrationAvailabilityAsync();policy=result.Value;
+        if(!result.Ok){resultCode=result.Code??result.Status.ToString();message="Registration availability could not be read. New registration must remain closed until the authority is available.";}
+    }
+    private async Task SaveAsync()
+    {
+        if(!long.TryParse(Field("revision"),out var revision)){resultCode="invalid-revision";message="Reload the latest availability before changing it.";return;}
+        var result=await Admin.UpdateRegistrationAvailabilityAsync(new(Field("beta")=="yes",Field("public")=="yes",revision,Field("confirm")=="yes",Field("reason")));
+        resultCode=result.Ok?"saved":result.Code??result.Status.ToString();
+        message=result.Ok?"Registration availability saved and audited.":result.Status==409?"Availability changed in another session. Review the latest revision and confirm again.":AdminText.Refusal(result.Status,result.Code);
+        await LoadAsync();
+    }
+}

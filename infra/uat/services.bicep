@@ -49,6 +49,8 @@ module access 'modules/secret-access.bicep' = [for (actor,index) in actors: if(g
   params: { vaultName: vaultName, principalId: identities[index].properties.principalId, secretNames: union([],map(filter(records,r=>contains(r.actors,actor)),r=> '${prefix}-${r.name}')) }
 }]
 var apiHost = '${prefix}-api.${environmentDefaultDomain}'
+// Provider guard calls the API over its Azure-managed HTTPS hostname; no caller-supplied origin or token literal.
+var registrationAuthorityUrl = 'https://${apiHost}/api/registration/admission'
 var authHost = '${prefix}-keycloak.${environmentDefaultDomain}'
 var screenHost = '${prefix}-screening.internal.${environmentDefaultDomain}'
 var common = [
@@ -124,6 +126,7 @@ module identityApp 'modules/container-app.bicep' = if(deployIdentity) {
     livenessPath: '/health/live'
     readinessPath: '/health/ready'
     environmentVariables: [
+      { name: 'SWOOVR_REGISTRATION_AUTHORITY_URL', value: registrationAuthorityUrl }
       { name: 'KC_DB', value: 'postgres' }
       { name: 'KC_DB_URL', value: 'jdbc:postgresql://${database.outputs.host}:5432/keycloak?sslmode=verify-full&sslrootcert=/etc/pki/tls/certs/ca-bundle.crt' }
       { name: 'KC_DB_USERNAME', value: 'swoovr_keycloak' }
