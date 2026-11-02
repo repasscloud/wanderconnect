@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Security incidents — Swoovr admin</PageTitle>
 <h1>Security incidents</h1>
-<p class="help">Policy §12 and the <strong>breach-response runbook</strong> (docs/delivery/BREACH-RESPONSE-RUNBOOK.md). Contain first, then assess: if it may be an eligible data breach under the Notifiable Data Breaches scheme, start the assessment now and finish it within 30 days. Sev1 critical · Sev2 high · Sev3 medium · Sev4 low.</p>
+<AdminGuidance><p class="help">Policy §12 and the <strong>breach-response runbook</strong> (docs/delivery/BREACH-RESPONSE-RUNBOOK.md). Contain first, then assess: if it may be an eligible data breach under the Notifiable Data Breaches scheme, start the assessment now and finish it within 30 days. Sev1 critical · Sev2 high · Sev3 medium · Sev4 low.</p></AdminGuidance>
 <p class="row"><a href="/security">Open</a> · <a href="/security?status=closed">Closed</a></p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 @if (incidents is null) { <p data-incidents="refused">@loadError</p> }

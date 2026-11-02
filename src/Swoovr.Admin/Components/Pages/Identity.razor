@@ -3,7 +3,7 @@
 <PageTitle>Verified identity — Swoovr admin</PageTitle>
 <p class="breadcrumb"><a href="/holds">Legal holds</a> / Verified identity</p>
 <h1>Verified identity</h1>
-<p class="help">For the security and legal officer (policy §2.3, §11). One record at a time, for a recorded purpose; every opening is logged with who, whose and why. Use it only for a case, a legal request or ban enforcement, never out of curiosity.</p>
+<AdminGuidance><p class="help">For the security and legal officer (policy §2.3, §11). One record at a time, for a recorded purpose; every opening is logged with who, whose and why. Use it only for a case, a legal request or ban enforcement, never out of curiosity.</p></AdminGuidance>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 <form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-identity-form data-enhance="true">
     <AntiforgeryToken />

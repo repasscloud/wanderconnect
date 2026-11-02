@@ -1,0 +1,5 @@
+<aside class="admin-guidance" aria-label="@Title"><h2>@Title</h2>@ChildContent</aside>
+@code {
+    [Parameter] public string Title { get; set; } = "Handling guidance";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

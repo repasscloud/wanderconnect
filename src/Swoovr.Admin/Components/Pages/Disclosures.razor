@@ -3,7 +3,7 @@
 <PageTitle>Disclosure register — Swoovr admin</PageTitle>
 <p class="breadcrumb"><a href="/holds">Legal holds</a> / Disclosures</p>
 <h1>Disclosure register</h1>
-<p class="help">Every law-enforcement disclosure (APP 6.5 records): who asked, the legal basis, how the request was verified, and the hold it came from. Police get only what a hold preserved and an export contained, never open access to the platform.</p>
+<AdminGuidance><p class="help">Every law-enforcement disclosure (APP 6.5 records): who asked, the legal basis, how the request was verified, and the hold it came from. Police get only what a hold preserved and an export contained, never open access to the platform.</p></AdminGuidance>
 @if (rows is null) { <p data-disclosures="refused">@loadError</p> }
 else if (rows.Count == 0) { <p data-disclosures="none">No disclosures recorded.</p> }
 else

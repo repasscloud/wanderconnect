@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Support lookup — Swoovr admin</PageTitle>
 <h1>Support lookup</h1>
-<p class="help">Support and admins (#50). Find the report behind a member's support reference (SW-XXXXXX). Admin-queue cases (staff-affiliated accounts, serious incidents) show to admins only. Every lookup is logged. Tell the member only what their own standing page says.</p>
+<p class="help">Find a report using its support reference.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 <form method="post" @formname="lookup" @onsubmit="LookupAsync" class="row" data-support-form data-enhance="true">
     <AntiforgeryToken />

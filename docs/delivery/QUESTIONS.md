@@ -2531,6 +2531,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D301** ([source](https://g
 
 ### Q119 — Standardise Admin presentation and contextual guidance across routes
 
+Implementation checkpoint: [Q119 evidence](Q119-ADMIN-PRESENTATION-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 - Issue: [#164](https://github.com/repasscloud/wanderconnect/issues/164); [intake item 25](ISSUE-INTAKE.md#intake-25).
 - Status: source implementation in draft PR171; validation and acceptance gaps in the linked evidence. Priority: High — repeated development prose and inconsistent controls affect every operational workflow.
 - Earliest blocker/consequence: acceptance of this proposed Admin / shared presentation / accessibility slice; independent intake work continues. No deployment or provider change authorised.

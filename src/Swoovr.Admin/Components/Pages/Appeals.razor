@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Appeals — Swoovr admin</PageTitle>
 <h1>Appeals</h1>
-<p class="help">Decided by someone other than the original decider; staff-affiliated accounts and admins' actions only by admins (D135).</p>
+<p class="help">Decided by someone other than the original decider; staff-affiliated accounts and admins' actions only by admins.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 @if (appeals.Count == 0) { <p data-appeals="none">No appeals waiting.</p> }
 else

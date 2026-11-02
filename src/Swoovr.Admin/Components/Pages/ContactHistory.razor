@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Contact history — Swoovr admin</PageTitle>
 <h1>Contact history</h1>
-<p class="help">Admins only (D187, #87). Which accounts used a mobile number or email address, and when; never the stored values. Every search is logged. Numbers are reassigned and addresses shared: a match is a lead, never proof that two accounts are one person.</p>
+<p class="help">Find previous use of an email address or mobile number. Numbers are reassigned and addresses shared: a match is a lead, never proof that two accounts are one person.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 <form method="post" @formname="search" @onsubmit="SearchAsync" class="row" data-contact-form data-enhance="true">
     <AntiforgeryToken />

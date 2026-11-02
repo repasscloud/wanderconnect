@@ -13,7 +13,7 @@
     else
     {
         <ul class="list" data-accounts="@results.Count">
-            @foreach (var a in results) { <li><a href="/accounts/@a.Id" data-account-link="@a.Id">@a.Realm account</a> · @a.Status · created @a.CreatedAt.ToString("d MMM yyyy")</li> }
+            @foreach (var a in results) { <li><a href="/accounts/@a.Id" data-account-link="@a.Id">@(a.RegisteredName??a.Realm+" account")</a> · @a.Status · created @a.CreatedAt.ToString("d MMM yyyy")</li> }
         </ul>
     }
 }

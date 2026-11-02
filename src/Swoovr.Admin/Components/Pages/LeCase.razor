@@ -139,7 +139,7 @@ else
             <button type="submit" class="secondary" data-flags>Save flags</button>
         </form>
         <h2>Temporary police preservation hold (§7)</h2>
-        <p class="help">For a verified request before formal process: only this case's subjects, reviewed within 30 days. Review is not release; another officer releases it.</p>
+        <AdminGuidance><p class="help">For a verified request before formal process: only this case's subjects, reviewed within 30 days. Review is not release; another officer releases it.</p></AdminGuidance>
         <form method="post" @formname="hold" @onsubmit="HoldAsync" class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>Account ids (subjects; one per line)<textarea name="accounts" rows="2" required></textarea></label>

@@ -29,7 +29,7 @@ else
         <h2>Evidence retention</h2>
         <p>@RetentionLabel(h.RetentionReason)</p>
         @if (h.RetainUntil is { } until) { <p>Schedule date: @until.ToString("d MMM yyyy HH:mm 'UTC'"). Active preservation obligations take precedence.</p> }
-        <p class="help">Releasing a hold ends its preservation authority. Required review or police evidence stays in restricted storage until its applicable disposition. Unresolved provenance is kept for legal review.</p>
+        <AdminGuidance><p class="help">Releasing a hold ends its preservation authority. Required review or police evidence stays in restricted storage until its applicable disposition. Unresolved provenance is kept for legal review.</p></AdminGuidance>
     </section>
     <h2>Scope</h2>
     <ul class="list" data-scope-accounts="@h.AccountIds.Count">@foreach (var a in h.AccountIds) { <li>Account <code>@a</code></li> }</ul>
