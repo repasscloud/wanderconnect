@@ -2495,6 +2495,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D299** ([source](https://g
 
 ### Q117 — Define registered-name collection and preserve separation from public and verified identity
 
+Implementation checkpoint: [Q117 evidence](Q117-REGISTERED-NAMES-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 Owner answer recorded 2 November 2026 — **CONFIRMED D300** ([source](https://github.com/repasscloud/wanderconnect/issues/162#issuecomment-6572808962)): 162.1 A; 162.2 A; 162.3 Yes; 162.4 A; 162.5 Yes; 162.6 A; 162.7 A with owner condition; 162.8 B. Required surname with one-name exception; provider names confirmed/completed on first sign-in. Existing incomplete accounts complete before continuing (owner expects later DB reset, not authorized here). Initialize public name from first name only if unset. Support/Admin/Root see registered names. Members can edit registered names with audit, but ID-verified members lose ID Verified and must submit ID again. Staff see registered-name/ID match flag without decrypted names. Registered and verified identity remain separate; explicit owner badge revocation on name edits supersedes any general assumption that ID badge persists through that edit. D166 DOB mismatch handling remains. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#162](https://github.com/repasscloud/wanderconnect/issues/162); [intake item 24](ISSUE-INTAKE.md#intake-24).
