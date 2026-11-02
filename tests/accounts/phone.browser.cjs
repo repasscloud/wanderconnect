@@ -125,13 +125,15 @@ async function latestCode(number) {
     assert.deepEqual(code(await call(tokens.cat, '/api/me/phone', { method: 'POST', body: { number: local(110) } })), [429, 'phone-code-limit']); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE actor_account_id = '${ids.cat}' AND action = 'phone.code-limited'`), '1'); pass();
 
+    assert.equal(await sql("SELECT count(*) FROM phone_codes WHERE request_evidence IS NOT NULL AND octet_length(request_evidence)>29")!=='0',true,'new code requests retain bounded encrypted security evidence only');pass();
+
     // The web panel in Edge (through the BFF).
     await sql(`DELETE FROM phone_codes WHERE account_id = '${ids.cat}'`);
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.cat.email); await page.fill('#password', members.cat.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     if (gate) {
       await page.goto(web + '/connections');
       await page.waitForURL(/\/account\?phone=required/); pass();

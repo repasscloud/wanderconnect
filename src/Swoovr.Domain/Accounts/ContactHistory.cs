@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace Swoovr.Domain;
 
@@ -66,7 +67,7 @@ public static class ContactHistoryPolicy
         return [version, .. nonce, .. tag, .. cipher];
     }
 
-    public static string Decrypt(IReadOnlyDictionary<byte, byte[]> keys, byte[] sealedValue)
+    internal static string DecryptRaw(IReadOnlyDictionary<byte, byte[]> keys, byte[] sealedValue)
     {
         var version = sealedValue[0];
         var plain = new byte[sealedValue.Length - 29];
@@ -75,10 +76,24 @@ public static class ContactHistoryPolicy
         return Encoding.UTF8.GetString(plain);
     }
 
-    public static ContactHistory Record(Guid accountId, ContactType type, string previous, DateTimeOffset? validFrom, DateTimeOffset now,
-        Guid? changedBy, string reason, byte version, byte[] encryptionKey, byte[] lookupKey) => new()
+    private const string Envelope="swoovr-contact-history/2\n";
+    private sealed record Payload(string Value,ContactChangeEvidence Evidence);
+    private static Payload? Open(IReadOnlyDictionary<byte,byte[]> keys,byte[] sealedValue,out string raw)
     {
-        Id = Guid.NewGuid(), AccountId = accountId, ContactType = type, EncryptedValue = Encrypt(version, encryptionKey, Canonical(type, previous)),
+        raw=DecryptRaw(keys,sealedValue);
+        if(!raw.StartsWith(Envelope,StringComparison.Ordinal))return null;
+        if(raw.Length>4096)throw new CryptographicException("Contact history envelope exceeds its bound.");
+        var payload=JsonSerializer.Deserialize<Payload>(raw[Envelope.Length..]);
+        if(payload is null||payload.Value is not{Length:<=254}||payload.Evidence is not{Valid:true})throw new CryptographicException("Contact history envelope is invalid.");
+        return payload;
+    }
+    public static string Decrypt(IReadOnlyDictionary<byte,byte[]> keys,byte[] sealedValue)=>Open(keys,sealedValue,out var raw)?.Value??raw;
+    public static ContactChangeEvidence? Evidence(IReadOnlyDictionary<byte,byte[]> keys,byte[] sealedValue)=>Open(keys,sealedValue,out _)?.Evidence;
+
+    public static ContactHistory Record(Guid accountId, ContactType type, string previous, DateTimeOffset? validFrom, DateTimeOffset now,
+        Guid? changedBy, string reason, byte version, byte[] encryptionKey, byte[] lookupKey,ContactChangeEvidence? evidence=null) => new()
+    {
+        Id = Guid.NewGuid(), AccountId = accountId, ContactType = type, EncryptedValue = Encrypt(version, encryptionKey, evidence is null?Canonical(type, previous):evidence.Valid?Envelope+JsonSerializer.Serialize(new Payload(Canonical(type,previous),evidence)):throw new ArgumentException("Contact change evidence is invalid.")),
         LookupHmac = Lookup(lookupKey, type, previous), ValidFrom = validFrom, ValidUntil = now, ChangedBy = changedBy, ChangeReason = reason,
         RetainUntil = now + Retention,
     };
