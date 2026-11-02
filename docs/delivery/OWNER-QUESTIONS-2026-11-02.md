@@ -80,7 +80,8 @@ Exact-email search works (#137). Not decided: who may use phone search and the b
 ### #157 — Q112 Beta, public and closed registration
 
 - **157.1 Two switches, four states.** Approve: Beta off + Public off = **closed** (no new accounts); Beta on + Public off = **invite-only beta** (today); Beta off + Public on = **public**; Beta on + Public on = **public, with beta enrolments still tracked**. Yes / amend.
-- **157.2 Who changes it.** A: Root Admin only, with a reason and a confirmation step, audited. B: Admin as well. *Suggested: A.* Who can *see* the current state? A: all staff. B: Admin and Root only.
+- **157.2a Who can change the registration setting.** A: Root Admin only, with a reason and a confirmation step, audited. B: Admin as well. *Suggested: A.*
+- **157.2b Who can see the current registration state** in Admin. A: all staff. B: Admin and Root Admin only. *Suggested: A.*
 - **157.3 What "closed" covers.** Confirm that closing registration also hides "Create account" in Keycloak and refuses new accounts there (including a first-time Apple or Google sign-in), not just in the app. Yes / No.
 - **157.4 If the setting can't be read**, new registrations are refused (fail closed); existing members can still sign in and reset passwords. Confirm? Yes / No.
 - **157.5 UAT starting state.** Invite-only beta (Beta on, Public off)? Yes / other.
@@ -174,7 +175,8 @@ Thanks for the Safari version (27.2). To reproduce it:
 
 Legal review is done (D288). The application-security and app-store-policy reviews are still open.
 
-- **57.1 Security review.** Who will do the application-security review / penetration test, and is it before UAT testers join or before the unrestricted external beta?
+- **57.1a Security reviewer.** Who will do the application-security review / penetration test? (A name, a firm, or "not chosen yet".)
+- **57.1b Security review timing.** A: before UAT testers join. B: before the unrestricted external beta.
 - **57.2 App-store review.** Will you review against the current App Store and Google Play rules yourself, or engage someone?
 - **57.3 Gate.** Confirm invited UAT testers may use the app before these two reviews, and only the *unrestricted* external beta waits for them. Yes / No.
 
