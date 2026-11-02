@@ -1,5 +1,7 @@
 # Q106–Q109 member workflow fixes
 
+Current status checked 2 November 2026: the implementation PR is merged into main (#153 for authentication, #154 for member workflows). The validation and worktree instructions below are historical per-slice evidence; remaining gaps still apply. [Current intake and follow-up dependencies](ISSUE-INTAKE-2026-11-02.md). No new runtime acceptance is claimed by this status correction.
+
 2 November 2026. These independently actionable changes preserve the existing member gates and confirmed product rules. The coordination handoff is maintained on [the Admin work branch](https://github.com/repasscloud/wanderconnect/blob/codex/fix/intake-admin-account-errors/docs/delivery/ISSUE-FIX-HANDOFF.md).
 
 ## Changes and boundaries

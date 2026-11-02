@@ -1,5 +1,7 @@
 # Public entry and authentication fixes — Q99–Q105
 
+Current status checked 2 November 2026: the implementation PR is merged into main (#153 for authentication, #154 for member workflows). The validation and worktree instructions below are historical per-slice evidence; remaining gaps still apply. [Current intake and follow-up dependencies](ISSUE-INTAKE-2026-11-02.md). No new runtime acceptance is claimed by this status correction.
+
 2 November 2026. DEFAULT reversible presentation changes, preserving CONFIRMED authentication, theme and safety rules. Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153), targeting main; no merge, deployment, Actions or installed-realm change.
 
 ## Results and remaining acceptance

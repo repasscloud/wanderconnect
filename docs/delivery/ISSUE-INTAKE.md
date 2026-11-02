@@ -3,7 +3,7 @@
 Use this file to investigate reported items and create GitHub issues.
 Do not implement fixes unless separately requested.
 
-Processing run: 2 November 2026. Items 2–5 and 7–17 are tracked as Q95–Q109 / GitHub #137–#151. Item 1 is an unused template, not a report; item 6 was not supplied. No substantive item remains unprocessed. See each investigation note and the [evidence publication review](evidence/2026-11-01-issue-intake/README.md). References to “issue #7” etc. in original report prose mean intake item numbers, not GitHub issue numbers; the metadata links are authoritative. Proposed acceptance below is feedback, subject to existing CONFIRMED policy and the explicit OPEN conflicts in investigation notes.
+Processing refresh: 2 November 2026. Items 2–5 and 7–17 retain Q95–Q109 / GitHub #137–#151; PRs #152–#154 are now merged. Items 18–25 are processed as Q110–Q120 / GitHub #155–#165, with item 20 styling reusing Q98/#140. Every substantive report has a disposition; item 1 remains a template and item 6 was not supplied. See the [current investigation and scope map](ISSUE-INTAKE-2026-11-02.md) and historical [evidence publication review](evidence/2026-11-01-issue-intake/README.md). Original “issue #N” references mean intake item numbers unless a GitHub URL is supplied. Original reports and proposed checklists remain feedback; CONFIRMED policy is unchanged and OPEN conflicts are identified in the investigation notes.
 
 ## 1. Short, descriptive title
 
@@ -46,7 +46,7 @@ Optional context, suggested explanations or requirements.
 
 ## 2. Admin account search fails to find existing users by email address
 
-Implementation progress (2 November 2026): the false no-match on API refusal is fixed on [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
+Implementation progress (2 November 2026): the false no-match on API refusal is included in merged [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -56,7 +56,9 @@ Implementation progress (2 November 2026): the false no-match on API refusal is 
 - **GitHub issue:** [#137](https://github.com/repasscloud/wanderconnect/issues/137)
 - **Tracking Q:** Q95
 
-### Intake investigation — 2 November 2026
+Current disposition (2 November 2026): the owner confirmed successful lookup in [#137](https://github.com/repasscloud/wanderconnect/issues/137) and requested resolution on a next PR; this task leaves the issue open. The original cause is unproven. New phone/browse scope is [Q110 / #155](https://github.com/repasscloud/wanderconnect/issues/155).
+
+### Historical intake investigation — pre-merge source snapshot
 
 Q95: Accounts.razor discards unsuccessful lookup status with Value ?? [], so an API refusal can appear as no match. The API normalises email, queries application Accounts and left-joins optional MemberProfiles; it does not search Keycloak directly. Neither missing application records nor provider/database mismatch is established. Capture status/code and canonical subject/account linkage with a fictional fixture before diagnosing.
 
@@ -165,7 +167,7 @@ Implementation progress (2 November 2026): [PR #152](https://github.com/repasscl
 - **GitHub issue:** [#138](https://github.com/repasscloud/wanderconnect/issues/138)
 - **Tracking Q:** Q96
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q96: AdminText maps any API 401 to session-ended; StaffTokenHandler forwards the stored access token. The signed-out endpoint returns minimal raw HTML. The header can reflect the cookie while the API refuses a token; expiration/renewal failure remains a hypothesis, not a reproduced cause. Screenshots show date-of-birth and media routes with different message treatment.
 
@@ -464,7 +466,7 @@ Where technically appropriate, use a shared authentication layout that is separa
 
 ## 4. Improve Admin photo moderation workflow, reveal controls and standardised review decisions
 
-Implementation progress (2 November2026): independently actionable queue fixes are proposed in [PR #152](https://github.com/repasscloud/wanderconnect/pull/152): factual automatic review purpose, blurred preview, audited keyboard reveal, stable decision-bound codes, server-side Other-note requirement and retained coded counts. Synthetic-only actual Edge acceptance and full `./scripts/check.sh` passed (607 PostgreSQL cases, three smoke suites, zero build warnings/errors). Review-discovered cross-item note restoration is fixed and regressed. D178 eligibility remains deferred/unchanged; no adult material or owner review is needed. Case-specific legacy controls remain, and private approval notes require a governed retained-history design rather than ungoverned retention; coded approvals refuse unsupported notes. See [handoff](ISSUE-FIX-HANDOFF.md) and [reason boundaries](../architecture/MEDIA-REVIEW-REASONS.md). Issue remains partially fixed/open pending merge and these precise dependencies.
+Implementation progress (2 November2026): independently actionable queue fixes are included in merged [PR #152](https://github.com/repasscloud/wanderconnect/pull/152): factual automatic review purpose, blurred preview, audited keyboard reveal, stable decision-bound codes, server-side Other-note requirement and retained coded counts. Synthetic-only actual Edge acceptance and full `./scripts/check.sh` passed (607 PostgreSQL cases, three smoke suites, zero build warnings/errors). Review-discovered cross-item note restoration is fixed and regressed. D178 eligibility remains deferred/unchanged; no adult material or owner review is needed. Case-specific legacy controls remain, and private approval notes require a governed retained-history design rather than ungoverned retention; coded approvals refuse unsupported notes. See [handoff](ISSUE-FIX-HANDOFF.md) and [reason boundaries](../architecture/MEDIA-REVIEW-REASONS.md). Issue remains partially fixed/open pending remaining acceptance and these precise dependencies.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -474,7 +476,7 @@ Implementation progress (2 November2026): independently actionable queue fixes a
 - **GitHub issue:** [#139](https://github.com/repasscloud/wanderconnect/issues/139)
 - **Tracking Q:** Q97
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q97: Code confirms required purpose before a media link, CSS blur/reveal checkbox and free-text decision reason; escalation already exists. The second screenshot shows browser required-field validation, not a revealed photograph. OPEN: intake permission for explicit private-chat media conflicts with CONFIRMED D178 (no explicit content anywhere in beta). Preserve screening, conflict exclusions, audit and evidence holds; no permission change is approved here.
 
@@ -875,7 +877,7 @@ Optional notes should supplement, not replace, structured reasons.
 
 ## 5. Redesign Beta Enrollments screen with searchable table, improved layout and scalable administration
 
-Implementation progress (2 November2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds server-side search/pagination and a structured enrolment table. Actual Edge verified1005 records, role/anonymous refusal, paging/sort/search/status/date controls and confirmed revision-aware iOS/revoke actions. Eleven new database search checks passed; full `./scripts/check.sh` passed with607 PostgreSQL cases, three smoke suites and zero build warnings/errors. Names use canonical account linkage, never email-based identity inference; Apple/provider states remain distinct. See [handoff](ISSUE-FIX-HANDOFF.md) and [contract](../architecture/BETA-ENROLMENT-SEARCH.md). Issue remains open pending merge.
+Implementation progress (2 November2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds server-side search/pagination and a structured enrolment table. Actual Edge verified1005 records, role/anonymous refusal, paging/sort/search/status/date controls and confirmed revision-aware iOS/revoke actions. Eleven new database search checks passed; full `./scripts/check.sh` passed with607 PostgreSQL cases, three smoke suites and zero build warnings/errors. Names use canonical account linkage, never email-based identity inference; Apple/provider states remain distinct. See [handoff](ISSUE-FIX-HANDOFF.md) and [contract](../architecture/BETA-ENROLMENT-SEARCH.md). Issue remains open pending remaining acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -885,7 +887,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 - **GitHub issue:** [#140](https://github.com/repasscloud/wanderconnect/issues/140)
 - **Tracking Q:** Q98
 
-### Intake investigation — 2 November 2026
+Amended scope (2 November 2026): [item 20](#intake-20) G–L reuses this issue for field width, filter/action consistency and first-line cell alignment. The merged table remains; CSS already top-aligns cells. Registration policy is separate [Q112 / #157](https://github.com/repasscloud/wanderconnect/issues/157).
+
+### Historical intake investigation — pre-merge source snapshot
 
 Q98: Code renders a list of up to 1,000 enrolments with per-record forms and no table search/sort/pagination controls. Screenshot supports dense stacked controls, not a measured 1,000-record performance failure. Preserve distinction between enrolment, invitation delivery and staff-reported Apple status.
 
@@ -1199,7 +1203,7 @@ Card-based layouts may be appropriate for individual record details, but tables 
 
 ## 7. Redesign public landing page and remove authenticated navigation and development messaging
 
-Implementation progress (2 November 2026): Guest navigation/landing fixed; truthful private-beta and draft-policy disclosures retained. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Guest navigation/landing fixed; truthful private-beta and draft-policy disclosures retained. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -1209,7 +1213,7 @@ Implementation progress (2 November 2026): Guest navigation/landing fixed; truth
 - **GitHub issue:** [#141](https://github.com/repasscloud/wanderconnect/issues/141)
 - **Tracking Q:** Q99
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q99: Home source confirms work-in-progress copy and appearance CTA. Shared navigation is visible in the screenshot. OPEN: removing genuine draft/legal/readiness disclosures must not imply approved documents or a live service. Keep Standard default and personal choices; no rebranding.
 
@@ -1381,7 +1385,7 @@ The current page:
 
 ## 8. Correct unauthenticated /account routing and prevent account content being displayed before sign-in
 
-Implementation progress (2 November 2026): Configured guests route directly into sign-in; retry/unconfigured fallbacks retained; BFF still401. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Configured guests route directly into sign-in; retry/unconfigured fallbacks retained; BFF still401. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -1391,7 +1395,7 @@ Implementation progress (2 November 2026): Configured guests route directly into
 - **GitHub issue:** [#142](https://github.com/repasscloud/wanderconnect/issues/142)
 - **Tracking Q:** Q100
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q100: The unauthenticated branch renders sign-in/create links and public settings/legal links. Private MemberAccountPanel is in the authenticated branch with prerender disabled. Screenshot supports routing/UX dissatisfaction; private account data exposure is not demonstrated. Verify guest HTML/API responses and safe return paths independently.
 
@@ -1524,7 +1528,7 @@ The issue:
 
 ## 9. Restore approved Swoovr sign-in design and correct desktop and mobile authentication layouts
 
-Implementation progress (2 November 2026): Desktop auth frame implemented; canonical420px form/mobile layout retained; native acceptance outstanding. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Desktop auth frame implemented; canonical420px form/mobile layout retained; native acceptance outstanding. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web / Mobile
@@ -1534,7 +1538,7 @@ Implementation progress (2 November 2026): Desktop auth frame implemented; canon
 - **GitHub issue:** [#143](https://github.com/repasscloud/wanderconnect/issues/143)
 - **Tracking Q:** Q101
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q101: Custom Keycloak theme already exists. Compare current browser viewports and system-browser mobile auth against reference, rather than assuming no theme. Read-only reference is a layout concept; canonical Standard sign-in tokens govern. Native presentation not reproduced.
 
@@ -1719,7 +1723,7 @@ Sign-in is a primary interaction and must meet the same design standards as the 
 
 ## 10. Redesign account registration screen to meet Swoovr's production design standards
 
-Implementation progress (2 November 2026): Registration shares the responsive frame; email-first/adult/draft requirements preserved. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Registration shares the responsive frame; email-first/adult/draft requirements preserved. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web / Mobile
@@ -1729,7 +1733,7 @@ Implementation progress (2 November 2026): Registration shares the responsive fr
 - **GitHub issue:** [#144](https://github.com/repasscloud/wanderconnect/issues/144)
 - **Tracking Q:** Q102
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q102: Theme code includes registration, adult checkbox, legal draft wording and development footer. Registration screenshot for intake 11 supports narrow layout. OPEN: cosmetic removal of draft/acceptance caveats cannot make draft legal documents operative; coordinate legal gate #57. Do not change provider or age checks.
 
@@ -2128,7 +2132,7 @@ These issues should share consistent branding and authentication design componen
 
 ## 11. Registration errors are difficult to identify when an email address is already registered
 
-Implementation progress (2 November 2026): Duplicate-email error focus and accessible descriptions verified with fictional fixture. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Duplicate-email error focus and accessible descriptions verified with fictional fixture. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -2138,7 +2142,7 @@ Implementation progress (2 November 2026): Duplicate-email error focus and acces
 - **GitHub issue:** [#145](https://github.com/repasscloud/wanderconnect/issues/145)
 - **Tracking Q:** Q103
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q103: Screenshot visibly contains an existing-email error; it does not establish broken registration or invitation activation. Field macro renders error text with aria-live, but prominence/focus need actual browser/assistive-technology checks. Balance recovery guidance with neutral responses and enumeration controls; beta invitation is not a new identity.
 
@@ -2394,7 +2398,7 @@ The validation improvements should reuse the same design components introduced f
 
 ## 12. Redesign Forgot Password screen to match Swoovr authentication standards
 
-Implementation progress (2 November 2026): Reset frame and email input/autocomplete corrected without changing provider token handling. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Reset frame and email input/autocomplete corrected without changing provider token handling. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -2404,7 +2408,7 @@ Implementation progress (2 November 2026): Reset frame and email input/autocompl
 - **GitHub issue:** [#146](https://github.com/repasscloud/wanderconnect/issues/146)
 - **Tracking Q:** Q104
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q104: Custom reset form uses shared theme, email input and send-reset-link action; this is a refinement request rather than evidence of an unthemed default provider page. Screenshot supports layout criticism, not failed email delivery. Preserve provider reset token semantics.
 
@@ -2668,7 +2672,7 @@ The authentication screens should share one coherent design system.
 
 ## 13. Replace password reset notification with dedicated confirmation screen and prevent account enumeration
 
-Implementation progress (2 November 2026): Dedicated neutral acknowledgement verified for enabled/absent/disabled fixtures; timing resistance remains unverified. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+Implementation progress (2 November 2026): Dedicated neutral acknowledgement verified for enabled/absent/disabled fixtures; timing resistance remains unverified. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Merged in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending outstanding acceptance.
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -2678,7 +2682,7 @@ Implementation progress (2 November 2026): Dedicated neutral acknowledgement ver
 - **GitHub issue:** [#147](https://github.com/repasscloud/wanderconnect/issues/147)
 - **Tracking Q:** Q105
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q105: Screenshot shows a generic email acknowledgement embedded above a sign-in form, with a populated masked password field. It does not prove account enumeration, password disclosure, email delivery or automatic sign-in. Compare existing/nonexistent/disabled addresses including timing and email effects using safe fixtures; keep confirmation neutral.
 
@@ -3032,7 +3036,7 @@ These issues should share the same visual design system and authentication navig
 
 ## 14. Redesign Swoovr Me / Account page for a desktop-first experience and clearer onboarding flow
 
-Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: grouped settings and truthful account heading. Onboarding order and revision-persisted safety-dismissal proposals remain deferred. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: grouped settings and truthful account heading. Onboarding order and revision-persisted safety-dismissal proposals remain deferred. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -3042,7 +3046,7 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 - **GitHub issue:** [#148](https://github.com/repasscloud/wanderconnect/issues/148)
 - **Tracking Q:** Q106
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q106: Signed-in screenshot shows dense account/safety/status/settings composition. Recent responsive work already widened account layout; verify current baseline before attributing all desktop problems to old width. OPEN: fixed phone-then-DOB order and revision-persisted safety dismissal need reconciliation with configured backend gates and existing safety notices; do not weaken them.
 
@@ -3342,7 +3346,7 @@ Additional reviewed evidence: [Signed-in account capture](https://github.com/rep
 
 ## 15. Redesign Profile and Modes page for responsive layouts, clearer controls and improved profile management
 
-Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: responsive profile/mode workspace, non-overlapping city labels, compact controls and scoped saves. Custom names and explicit about sharing preserved; visibility off/reload passed. Automatic initial-name mapping remains an unapproved product/data-mapping follow-up. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: responsive profile/mode workspace, non-overlapping city labels, compact controls and scoped saves. Custom names and explicit about sharing preserved; visibility off/reload passed. Automatic initial-name mapping remains an unapproved product/data-mapping follow-up. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -3352,7 +3356,7 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 - **GitHub issue:** [#149](https://github.com/repasscloud/wanderconnect/issues/149)
 - **Tracking Q:** Q107
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q107: Screenshots support long narrow form, empty display name in one capture and home-city label overlap in another. Code uses checkboxes (styled like large controls), automatically enables visibility when enabling a mode, and also exposes a separate visibility checkbox: inability to turn visibility off is reported, not established. Check persistence and stale updates. Preserve customised names and explicit cross-mode about consent (D199).
 
@@ -3831,7 +3835,7 @@ Safe supplementary evidence: [Blank profile capture](evidence/2026-11-01-issue-i
 
 ## 16. Redesign Your Photos page with shared photo library, independent mode galleries and membership limits
 
-Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: one mode-assignment gallery at a time with shared library/main preserved. Independent main photos and proposed photo limits remain deferred; API quotas and screening rules unchanged. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial implementation merged: one mode-assignment gallery at a time with shared library/main preserved. Independent main photos and proposed photo limits remain deferred; API quotas and screening rules unchanged. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -3841,7 +3845,7 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 - **GitHub issue:** [#150](https://github.com/repasscloud/wanderconnect/issues/150)
 - **Tracking Q:** Q108
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q108: Code confirms shared main photo and optional per-mode assignments; screenshot shows a photo library and repetitive mode rows. OPEN: proposal for independent mode main photos changes CONFIRMED D175; 60 library / 8 Free / 16 Plus / 24 Premium limits are intake proposals pending reconciliation with current quotas/entitlements. Preserve existing assignments, moderation and downgrade data; no migration is authorised.
 
@@ -4219,7 +4223,7 @@ Additional evidence: `16.png` reviewed locally and withheld under the [publicati
 
 ## 17. Redesign "Who I'd Like to Meet" with responsive layouts, clearer discovery preferences and improved filtering controls
 
-Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Fix proposed: per-mode unsaved filter drafts survive switching and failed reads; stale fields hidden while loading and controls disabled during save. Responsive workspace and selection counts added; Any/All, reciprocal exclusions and Plus rules preserved. Drafts remain local to this page. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Implementation merged: per-mode unsaved filter drafts survive switching and failed reads; stale fields hidden while loading and controls disabled during save. Responsive workspace and selection counts added; Any/All, reciprocal exclusions and Plus rules preserved. Drafts remain local to this page. Real Edge with gates enabled and synthetic fixtures passed; full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero warnings/errors). See [member evidence and limitations](ISSUE-MEMBER-FIXES.md).
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -4229,7 +4233,7 @@ Implementation progress (2 November 2026): [PR #154](https://github.com/repasscl
 - **GitHub issue:** [#151](https://github.com/repasscloud/wanderconnect/issues/151)
 - **Tracking Q:** Q109
 
-### Intake investigation — 2 November 2026
+### Historical intake investigation — pre-merge source snapshot
 
 Q109: Actual route is /me/matching, linked from Account. Screenshot supports long narrow combined identity/filter forms and separate saves. Current delivery explicitly retains 420px on matching/profile forms. Reorganise only after validating independent mode persistence, Any/All, five required/ten excluded, reciprocal exclusions and backend entitlements; no matching-semantic change is approved.
 
@@ -4763,15 +4767,29 @@ Discovery must remain consistent with Swoovr's established reciprocal matching, 
 
 Additional evidence: `17.png` reviewed locally and withheld under the [publication review](evidence/2026-11-01-issue-intake/README.md); no public attachment.
 
+<a id="intake-18"></a>
+
 ## 18. Improve Admin account search with email and phone lookup, searchable account table and configurable filters
 
-- **Status:** Ready for investigation**
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/accounts`
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#155](https://github.com/repasscloud/wanderconnect/issues/155)
+- **Tracking Q:** [Q110](QUESTIONS.md#q110)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q110](QUESTIONS.md#q110) / [#155](https://github.com/repasscloud/wanderconnect/issues/155) — Entire item 18; registered-name search also depends on Q117.**
+
+Source-supported: Accounts.razor uses an exact-email GET form and a basic result list. AdminEndpoints.cs normalises the verified email, left-joins profiles, returns at most 10 matches and audits a result count. It has no phone lookup or browse/filter contract. PR #152 merged the refusal/no-match correction; the owner confirmed lookup works on #137. This is an extension, not a recurrence of Q95.
+
+Requirements/dependencies: CONFIRMED D38/D55 issuer/subject account identity and D185 least privilege remain. DEFAULT: reuse existing phone normalisation, account routes and pagination conventions. OPEN: demographic-filter purposes/field matrix and name-search authority (Q117); no broad support access is inferred.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -5118,7 +5136,7 @@ The ability to browse all accounts must not imply unrestricted access to every m
 
 ### Evidence
 
-![Current Admin Accounts search results](evidence/2026-11-01-issue-intake/18-accounts-screen-results-and-filter.png)
+Evidence reference (not opened or publication-reviewed in this run): Current Admin Accounts search results — `evidence/2026-11-01-issue-intake/18-accounts-screen-results-and-filter.png`.
 
 The screenshot demonstrates:
 
@@ -5230,15 +5248,29 @@ The Accounts and Beta Enrollments pages should use consistent table, filtering a
 - [ ] Search endpoints enforce appropriate security and abuse protections.
 - [ ] Automated tests cover email search, phone normalisation, combined filters, pagination and permissions.
 
+<a id="intake-19"></a>
+
 ## 19. Redesign Admin member account detail page with complete profile inspection, role-based access and improved account management
 
-- **Status:** Ready for investigation**
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/accounts/{accountId}` (confirm actual route)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#156](https://github.com/repasscloud/wanderconnect/issues/156)
+- **Tracking Q:** [Q111](QUESTIONS.md#q111)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q111](QUESTIONS.md#q111) / [#156](https://github.com/repasscloud/wanderconnect/issues/156) — Entire item 19; independent search, appeals, DOB/name and shared presentation work is cross-linked.**
+
+Source-supported: Actual route is /accounts/{Id:guid}. Account.razor labels AgeStatus as Age and renders raw wire values, decision IDs, Plus grants and two staff-badge actions. ModerationEndpoints.SummaryAsync returns no numeric age/full DOB, but already supplies sanctions, entitlements, trips/review flags and an identity-on-file marker. D191 deliberately keeps decrypted verified identity separate. Existing case-scoped profile-at-report/evidence surfaces must be reused, not replaced by unrestricted chat inspection.
+
+Requirements/dependencies: CONFIRMED D134 affiliation grants no permissions, D175 shared display name/main photo, D185/D191 restricted identity and D197 elevated access remain. DEFAULT: reuse existing capabilities and case links. OPEN: new sensitive-field inspection/preview scopes; per-mode main photos remain deferred under Q108.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -5990,7 +6022,7 @@ All access to sensitive evidence must be explicitly authorised, appropriately sc
 
 ### Evidence
 
-![Current Admin member account detail page](evidence/2026-11-01-issue-intake/19-members-account-view-update.png)
+Evidence reference (not opened or publication-reviewed in this run): Current Admin member account detail page — `evidence/2026-11-01-issue-intake/19-members-account-view-update.png`.
 
 The screenshot demonstrates:
 
@@ -6155,15 +6187,31 @@ The account detail page should use the same Admin design system and table conven
 - [ ] Navigation remains consistent across the Admin application.
 - [ ] UAT uses the same production-intended UI without development-only labels.
 
+<a id="intake-20"></a>
+
 ## 20. Improve Beta Enrollments UI and introduce configurable Beta and Public Registration controls
 
-- **Status:** Ready for investigation
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Admin / API / Member web
 - **Page or URL:** `http://localhost:5082/beta`
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#157](https://github.com/repasscloud/wanderconnect/issues/157); visual refinements reuse [#140](https://github.com/repasscloud/wanderconnect/issues/140)
+- **Tracking Q:** [Q112](QUESTIONS.md#q112); existing [Q98](QUESTIONS.md#q98) for styling
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q112](QUESTIONS.md#q112) / [#157](https://github.com/repasscloud/wanderconnect/issues/157) — Item 20 A–F and registration criteria only. Visual refinements G–L reuse Q98/#140.**
+
+Source-supported: AccountResolver reads static Beta:Enabled (default true) for application access. The generated member realm separately has registrationAllowed=true. D237 explicitly distinguishes Keycloak user creation from application registration/adoption; the beta access check is not evidence that Keycloak creation is closed. No persisted two-flag Root-managed policy was found in these sources. PR #153 merged guest registration navigation but did not add this policy.
+
+Requirements/dependencies: CONFIRMED D62 invitation-only beta, D127 age/email/mobile gates and Keycloak ownership remain. OPEN: approve the proposed four-state model, Root-only mutation/view matrix, shared authority and supported provider enforcement/propagation contract before implementation. DEFAULT: fail closed on unavailable authority. No public launch or provider configuration change is authorised.
+
+**Duplicate disposition — Q98 / [#140](https://github.com/repasscloud/wanderconnect/issues/140):** G–L and the Beta page checklist extend the existing table/layout issue. The source already uses `td { vertical-align: top; }`; child paragraph margins are a hypothesis for first-line misalignment, not a reproduced cause. Added expected acceptance for realistic email widths, consistent filters/Apply/Clear, first-line alignment and narrow/keyboard layouts while preserving existing data, provider labels and confirmed actions. No separate visual issue created.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -6545,7 +6593,7 @@ When public registration becomes available, beta enrollment records should remai
 
 ### Evidence
 
-![Current Beta Enrollments page](evidence/2026-11-01-issue-intake/20-beta-enrollments-page-visual-update.png)
+Evidence reference (not opened or publication-reviewed in this run): Current Beta Enrollments page — `evidence/2026-11-01-issue-intake/20-beta-enrollments-page-visual-update.png`.
 
 The screenshot demonstrates the current filter alignment, narrow email input and inconsistent table cell positioning.
 
@@ -6669,15 +6717,29 @@ These issues should use consistent Admin and member-facing design components whe
 - [ ] Beta enrollment history remains accessible after beta registration is disabled.
 - [ ] The page uses consistent Bootstrap components and follows the Swoovr Admin design system.
 
+<a id="intake-21"></a>
+
 ## 21. Admin page refresh intermittently displays raw form submission error in Safari
 
-- **Status:** Ready for investigation
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/media` (potentially other Admin routes)
 - **Type:** Bug
 - **Priority:** Medium
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#158](https://github.com/repasscloud/wanderconnect/issues/158)
+- **Tracking Q:** [Q113](QUESTIONS.md#q113)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q113](QUESTIONS.md#q113) / [#158](https://github.com/repasscloud/wanderconnect/issues/158) — Entire item 21, including the additional approve-form report.**
+
+Source-supported: User reports both missing form 'search' and a removed approve-{mediaId} form after refreshing /media. MediaReview.razor renders dynamic item-bound POST form names; successful decisions reload a queue in which that item may disappear. ContactHistory.razor contains the separate POST form 'search'; Accounts/Beta search uses GET. Program.cs registers static SSR and enables exception handling only outside Development. These facts support investigating stale POST replay but do not establish the request method, route or cause.
+
+Requirements/dependencies: DEFAULT hypothesis: Safari refresh may replay an SSR POST whose named form no longer exists. OPEN cause: request/response trace is absent; not proven to be a session-expiry defect. Keep dynamic form identity/antiforgery and avoid navigation rewrites without evidence.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -6741,7 +6803,7 @@ If a genuine error occurs, the application should display a properly styled Admi
 
 ### Evidence
 
-![Safari Admin refresh error](evidence/2026-11-02-issue-intake/21-admin-safari-refresh-form-error.png)
+Evidence reference (not opened or publication-reviewed in this run): Safari Admin refresh error — `evidence/2026-11-01-issue-intake/21-admin-safari-refresh-form-error.png`.
 
 The screenshot shows Safari displaying a plain text error response, with the message indicating that the named form `search` could not be found.
 
@@ -6808,15 +6870,35 @@ Note: Was on the media page, and I know a new photo needed to be reviewed, so I 
 - [ ] Any unexpected failure displays a consistent Swoovr Admin error page.
 - [ ] The underlying form submission issue is corrected rather than hidden.
 
+<a id="intake-22"></a>
+
 ## 22. Redesign Admin Photo Review for high-volume moderation, member appeals and rejected-photo management
 
-- **Status:** Ready for investigation
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Admin / Member web / API
 - **Page or URL:** `http://localhost:5082/media`
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#159](https://github.com/repasscloud/wanderconnect/issues/159), [#160](https://github.com/repasscloud/wanderconnect/issues/160)
+- **Tracking Q:** [Q114](QUESTIONS.md#q114), [Q115](QUESTIONS.md#q115)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q114](QUESTIONS.md#q114) / [#159](https://github.com/repasscloud/wanderconnect/issues/159) — Item 22 A–K/T, queue/history/interface acceptance; L–S split to Q115.**
+
+Source-supported: MediaReview.razor renders inline list items and approve/reject/escalate details, separate reveal/conceal forms and a 30-day coded-count expander. MediaEndpoints review selects up to 100 uncertain items, with a separate pending-screening count, not a paginated workload query. Home.razor shows case/appeal/hold counts but no photo-review total. PR #152 merged factual purpose, audited reveals and stable decision codes. No server-side four-hour/versioned safety acknowledgement was found in the inspected review path.
+
+Requirements/dependencies: CONFIRMED D178 screening/eligibility and restricted evidence remain. DEFAULT: reuse coded controls and existing lifecycle locks. OPEN: four-hour acknowledgement and governed private approval-note history (Q97). Support access is not implied: the current general media queue requires Admin. Retention and appeals are split to Q115.
+
+**[Q115](QUESTIONS.md#q115) / [#160](https://github.com/repasscloud/wanderconnect/issues/160) — Item 22 L–S and rejected-photo/member-notification/appeal acceptance.**
+
+Source-supported: MediaPipeline.RejectAsync records rejection and invokes DeleteObjectIfAllowedAsync; rejected objects can be deleted when preservation permits. MediaEndpoints review/view handles uncertain items; ordinary decisions accept uncertain/passed states, not a general rejected-photo override. Existing sanction appeals (D135/#50) do not themselves implement photo-specific appeals. The current review code does not establish member rejection notifications or durable photo-appeal history.
+
+Requirements/dependencies: CONFIRMED D135 sanction appeal independence/30-day window must be reconciled explicitly for photo decisions, not silently generalised or weakened. CONFIRMED D178/D185/D191 evidence restrictions remain. OPEN: photo-specific eligibility/window/finality, reviewer capability and bounded retention; no blanket retention or ordinary approval of specialist-blocked media.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -7422,17 +7504,17 @@ Technical screening details may remain accessible within a dedicated diagnostic 
 
 ### Evidence
 
-![Photo review — oversized moderation form](evidence/2026-11-02-issue-intake/22-photo-review-01.png)
+Evidence reference (not opened or publication-reviewed in this run): Photo review — oversized moderation form — `evidence/2026-11-01-issue-intake/22-photo-review-01.png`.
 
-![Photo review — main queue layout](evidence/2026-11-02-issue-intake/22-photo-review-02.png)
+Evidence reference (not opened or publication-reviewed in this run): Photo review — main queue layout — `evidence/2026-11-01-issue-intake/22-photo-review-02.png`.
 
-![Photo review — blurred preview and reveal controls](evidence/2026-11-02-issue-intake/22-photo-review-03.png)
+Evidence reference (not opened or publication-reviewed in this run): Photo review — blurred preview and reveal controls — `evidence/2026-11-01-issue-intake/22-photo-review-03.png`.
 
-![Photo review — revealed image and review layout](evidence/2026-11-02-issue-intake/22-photo-review-04.png)
+Evidence reference (not opened or publication-reviewed in this run): Photo review — revealed image and review layout — `evidence/2026-11-01-issue-intake/22-photo-review-04.png`.
 
 The four screenshots demonstrate excessive whitespace, large inline moderation controls, inconsistent field styling, lengthy page text and inefficient image reveal behaviour.
 
-Adjust the evidence paths to match the files' final location in the repository.
+Processing note: references above use the current tracked filenames; no image was opened, copied, uploaded or staged.
 
 ### Impact
 
@@ -7606,15 +7688,29 @@ This issue extends #4 by addressing high-volume queue usability, rejected-photo 
 - [ ] Automated tests cover decisions, notifications, appeals, overrides and permissions.
 - [ ] UAT presents the same production-intended interface without development labels.
 
+<a id="intake-23"></a>
+
 ## 23. Prevent members from changing their date of birth after initial registration and introduce Admin-controlled DOB correction
 
-- **Status:** Ready for investigation
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Member web / Admin / API / Mobile
 - **Page or URL:** `http://localhost:5081/account`
 - **Type:** Bug / Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#161](https://github.com/repasscloud/wanderconnect/issues/161)
+- **Tracking Q:** [Q116](QUESTIONS.md#q116)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q116](QUESTIONS.md#q116) / [#161](https://github.com/repasscloud/wanderconnect/issues/161) — Entire item 23; linked follow-up to #33 rather than a duplicate of verified-DOB mismatch handling.**
+
+Source-supported: MemberAccountPanel keeps an editable DOB form when DobCheck is none, even for verified DOB (with explanatory text). AccountEndpoints /me/age rejects verified-date changes and open correction/review states, but permits validated unverified-date changes; underage entries lock the account. That is consistent with CONFIRMED D158, not proof of a backend bypass. D166 already provides a one-use provider-mismatch correction and preserves ID Verified during manual DOB review. #33 covers that mismatch, not universal first-save locking.
+
+Requirements/dependencies: OPEN: universal locking supersedes CONFIRMED D158 allowing unverified changes; blanket re-verification/badge changes must reconcile D166. Historical DOB retention/access needs D191/D185 review. DEFAULT: 24-hour single-use grant is only a proposal. Onboarding order remains deferred. No existing issue is reopened or closed.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -7993,7 +8089,7 @@ Do not overwrite existing DOB values during migration.
 
 ### Evidence
 
-![Member account — editable date of birth](evidence/2026-11-02-issue-intake/23-member-date-of-birth-editable.png)
+Evidence reference (not opened or publication-reviewed in this run): Member account — editable date of birth — `evidence/2026-11-01-issue-intake/23-member-date-of-birth-editable.png`.
 
 The screenshot shows a previously populated DOB field that remains editable, with a Save button available.
 
@@ -8115,15 +8211,35 @@ This issue should be implemented alongside the existing age assurance and ID ver
 - [ ] Existing populated DOB values are locked during migration.
 - [ ] Automated tests cover initial entry, locking, authorisation, expiry, correction, age eligibility and verification impacts.
 
+<a id="intake-24"></a>
+
 ## 24. Require first and last name at registration, default profile display name to first name and standardise identity across Admin
 
-- **Status:** Ready for investigation
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Member web / Admin / API / Mobile
 - **Page or URL:** Keycloak registration (`http://localhost:8180/realms/swoovr-members-dev/`), member profile and Admin account management
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#162](https://github.com/repasscloud/wanderconnect/issues/162), [#163](https://github.com/repasscloud/wanderconnect/issues/163)
+- **Tracking Q:** [Q117](QUESTIONS.md#q117), [Q118](QUESTIONS.md#q118)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q117](QUESTIONS.md#q117) / [#162](https://github.com/repasscloud/wanderconnect/issues/162) — Item 24 except independent mode-specific public-name overrides; links Q110 search, Q111 details and Q116 DOB.**
+
+Source-supported: scripts/keycloak_realms.py generates required firstName/email but no lastName in the member user profile; register.ftl renders those dynamic fields. Account stores issuer/subject and accepted email, with no registered FirstName/LastName fields. MemberProfile has a separate nullable DisplayName; AccountResolver does not initialise it from provider names. D191 already stores encrypted verified names behind Legal-only access, which must not become ordinary Admin registered-name data.
+
+Requirements/dependencies: OPEN: required surname, registered-name authority/field matrix, provider comparison and existing-account completion policy. Item 24's 'Core product decisions' are report proposals, not amendments to the confirmed register. DEFAULT: keep custom public names and declared/verified identity separate. Per-mode names are split to Q118; mandatory verification is not authorised.
+
+**[Q118](QUESTIONS.md#q118) / [#163](https://github.com/repasscloud/wanderconnect/issues/163) — Item 24 D and mode-name portions of B/E/L/M and public-profile acceptance.**
+
+Source-supported: MemberProfile owns DisplayName; MemberMode stores Enabled/Visible/About/ShareCoreAbout and intentions, with no per-mode name. CONFIRMED D175 explicitly shares display name across all modes. PR #154 preserved custom names and did not implement provider-name initialisation or per-mode overrides.
+
+Requirements/dependencies: OPEN: approval to replace shared D175 names, fallback/edit semantics and required migrations/projections. DEFAULT: no automatic override creation or overwriting. Registered-name collection/initialisation is separate Q117; independent main photos remain deferred Q108.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -8534,7 +8650,7 @@ Do not expose implementation terminology such as database property names or raw 
 
 ### Evidence
 
-![Current Swoovr registration screen](evidence/2026-11-02-issue-intake/24-create-your-account-screen.png)
+Evidence reference (not opened or publication-reviewed in this run): Current Swoovr registration screen — `evidence/2026-11-01-issue-intake/24-create-your-account-screen.png`.
 
 The screenshot shows the existing registration form collecting First Name without a Last Name field.
 
@@ -8654,15 +8770,35 @@ These changes should be implemented consistently across registration, member pro
 - [ ] API and identity-provider data remain consistent.
 - [ ] Automated tests cover registered identity, public display names and mode-specific overrides.
 
+<a id="intake-25"></a>
+
 ## 25. Standardise all Admin pages, remove unnecessary instructional text and enforce consistent responsive design
 
-- **Status:** Ready for investigation
+- **Status:** Processed — follow-up issues created; investigation / decisions OPEN
 - **Area:** Admin
 - **Page or URL:** All Swoovr Admin routes (`http://localhost:5082/`)
 - **Type:** Improvement
 - **Priority:** High
-- **GitHub issue:** Not created
-- **Tracking Q:** Not assigned
+- **GitHub issue:** [#164](https://github.com/repasscloud/wanderconnect/issues/164), [#165](https://github.com/repasscloud/wanderconnect/issues/165)
+- **Tracking Q:** [Q119](QUESTIONS.md#q119), [Q120](QUESTIONS.md#q120)
+
+### Intake investigation refresh — 2 November 2026
+
+Text/source investigation only; no screenshot opened and no runtime reproduction. The original report and unchecked acceptance below are preserved as user feedback, not confirmed implementation requirements.
+
+**[Q119](QUESTIONS.md#q119) / [#164](https://github.com/repasscloud/wanderconnect/issues/164) — Item 25 A–I/M–O and shared presentation/security acceptance; J–L split to Q120.**
+
+Source-supported: SupportLookup.razor contains the quoted #50/permission/logging paragraph. Account.razor exposes D-code headings; MediaReview.razor includes beta and implementation guidance. App.razor loads themes.css/admin.css, not a Bootstrap bundle; admin.css already provides shared controls, responsive layout and top-aligned td. The report's 'existing Bootstrap' premise is not established by the current shell. Functional beta/provider/safety distinctions remain operational facts.
+
+Requirements/dependencies: CONFIRMED docs/design is read-only, Standard staff styling and D185/D197 audit/security remain. DEFAULT: reuse current CSS/components; framework adoption needs a deliberate dependency choice. OPEN: any removal of required disclosures requires owning policy review; legal-draft approval remains deferred. Device availability is separately Q120.
+
+**[Q120](QUESTIONS.md#q120) / [#165](https://github.com/repasscloud/wanderconnect/issues/165) — Item 25 J–L and responsive availability criteria; conflicts with item 22 D recorded explicitly.**
+
+Source-supported: Current Admin shell/CSS adapts layouts to narrow viewports; no route-level supported-device matrix is established by the inspected shell. The proposed table labels media/legal/root routes desktop-only, while item 22 proposes an adapted mobile/tablet review dialog. This conflict requires a route decision. A resized viewport or user-agent is not evidence of a trusted device and cannot enforce sensitive backend access.
+
+Requirements/dependencies: OPEN: route classifications, meaning of desktop-only and device trust/enforcement requirements; the report table is a proposed starting point. DEFAULT: preserve existing role permissions and accessible reflow while policy is unresolved. No device deny rule or new authentication requirement is approved by this intake.
+
+Related PRs: [#152](https://github.com/repasscloud/wanderconnect/pull/152), [#153](https://github.com/repasscloud/wanderconnect/pull/153) and [#154](https://github.com/repasscloud/wanderconnect/pull/154) are merged; no open PR was found at investigation time. Source links, duplicate assessment, split boundaries and validation gaps: [run record](ISSUE-INTAKE-2026-11-02.md).
 
 ### What happened
 
@@ -9175,7 +9311,7 @@ Document any route that requires an intentional exception.
 
 ### Evidence
 
-![Admin Support Lookup showing excessive introductory text](evidence/2026-11-02-issue-intake/25-remove-woke-text-each-admin-page.png)
+Evidence reference (not opened or publication-reviewed in this run): Admin Support Lookup showing excessive introductory text — `evidence/2026-11-01-issue-intake/25-remove-woke-text-each-admin-page.png`.
 
 The screenshot demonstrates excessive explanatory text, internal issue references and routine logging statements.
 
