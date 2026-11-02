@@ -24,7 +24,7 @@ const { web, createMember, memberToken, cli, call } = require('../auth/local-tok
     const context = await browser.newContext(); const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', member.email); await page.fill('#password', member.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     for (const version of [null, '2026-10-28']) {
       const response = await page.request.get(web + '/bff/api/me', { headers: { 'X-Swoovr-Bff': '1', ...(version ? { 'Swoovr-Version': version } : {}) } });
       assert.equal(response.status(), 200); assert.equal(response.headers()['swoovr-version'], '2026-10-28'); passed++;

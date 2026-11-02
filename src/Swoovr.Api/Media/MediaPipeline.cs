@@ -147,6 +147,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     {
         if(actor is null||review is null)return;
         item.ReviewReasonCode=review.Code;
+        PhotoReviewWorkflows.Stage(db, item, actor, MediaReviewReasons.All.Single(r => r.Code == review.Code).Decision, review.Code, review.Notes, now);
         if(review.Notes is not null)item.ReviewReason=review.Notes;
         Audit.Record(db,now,actor,"account","media.reviewed","media",item.Id.ToString(),review.Code);
     }
@@ -181,6 +182,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     {
         await PublicationBarrierAsync(item.Id, "before-lease", cancellationToken);
         await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, item.AccountId, cancellationToken);
+        now = services.GetService<TimeProvider>()?.GetUtcNow() ?? TimeProvider.System.GetUtcNow();
+        if (reviewer is { } staff && await PhotoReviewWorkflows.AckUntilAsync(db, staff, now, cancellationToken) is null) return false;
         await db.Entry(item).ReloadAsync(cancellationToken);
         if (db.Entry(item).State == EntityState.Detached || item.RemovedAt is not null || item.ObjectKey is null || item.ObjectKey.StartsWith("evidence/", StringComparison.Ordinal)
             || item.Status != (reviewer is null ? MediaStatus.Pending : MediaStatus.Uncertain)) return false;
@@ -210,16 +213,15 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             // A chat photo never goes on a profile; the recipient sees it from now on (#41).
             Audit.Record(db, now, reviewer, reviewer is null ? "system" : "account", "media.passed", "media", item.Id.ToString(), reviewer is null ? "attachment" : "review");
             await SaveModerationAsync(item,inspectionCompleted,false,false,now,cancellationToken);
-            await DeleteSupersededCopyAsync(quarantined, cancellationToken);
+            if (quarantined != published) await DeleteSupersededCopyAsync(quarantined, cancellationToken);
             await AttachmentChangedAsync(item, now, cancellationToken);
             return true;
         }
         var places = item.ReplacesId is { } old
             ? await db.MediaPlacements.Where(p => p.AccountId == item.AccountId && p.MediaId == old).ToListAsync(cancellationToken) : [];
         foreach (var place in places) place.MediaId = item.Id;
-        // The member's first approved photo becomes their main photo.
-        if (places.Count == 0 && !await db.MediaPlacements.AnyAsync(p => p.AccountId == item.AccountId && p.Scope == MediaPolicy.Main, cancellationToken))
-            db.MediaPlacements.Add(new MediaPlacement { AccountId = item.AccountId, Scope = MediaPolicy.Main, Position = 0, MediaId = item.Id });
+        // D293: approval adds to the shared library only. No mode or main is inferred.
+        // Explicit replacement keeps the existing mode placements and their main selections.
         Audit.Record(db, now, reviewer, reviewer is null ? "system" : "account", "media.passed", "media", item.Id.ToString(), reviewer is null ? null : "review");
         // The original leaves in the same save that publishes its replacement, so nobody ever sees both or neither.
         var original = item.ReplacesId is { } replaced && await db.MediaItems.FindAsync([replaced], cancellationToken) is { Status: MediaStatus.Passed } found ? found : null;
@@ -229,7 +231,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             Audit.Record(db, now, item.AccountId, "account", "media.removed", "media", original.Id.ToString(), "replaced");
         }
         await SaveModerationAsync(item,inspectionCompleted,false,false,now,cancellationToken);
-        await DeleteSupersededCopyAsync(quarantined, cancellationToken);
+        if (quarantined != published) await DeleteSupersededCopyAsync(quarantined, cancellationToken);
         if (original is not null) await DeleteObjectIfAllowedAsync(original, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
         return true;
@@ -243,6 +245,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     public async Task<bool> BlockAsync(MediaItem item, Guid? actor, string reason, DateTimeOffset now, CancellationToken cancellationToken,MediaReviewMetadata? review=null)
     {
         await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, item.AccountId, cancellationToken);
+        now = services.GetService<TimeProvider>()?.GetUtcNow() ?? TimeProvider.System.GetUtcNow();
+        if (actor is { } staff && await PhotoReviewWorkflows.AckUntilAsync(db, staff, now, cancellationToken) is null) return false;
         await db.Entry(item).ReloadAsync(cancellationToken);
         if (db.Entry(item).State == EntityState.Detached || item.Status != MediaStatus.Blocked
             && (item.RemovedAt is not null || item.ObjectKey is null || item.Status is not (MediaStatus.Uncertain or MediaStatus.Passed))) return false;
@@ -257,6 +261,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             (item.Status, item.ScreenedAt, item.NextScreenAt, item.LastScreenError) = (MediaStatus.Blocked, item.ScreenedAt ?? now, null, null);
             if (actor is not null) (item.ReviewedBy, item.ReviewedAt) = (actor, now);
             RecordReview(item,actor,review,now);
+            if (review is null) PhotoReviewWorkflows.Stage(db, item, actor, "escalate", "SPECIALIST_RESTRICTED", null, now);
             item.PreservationPendingAt = now; item.NextPreservationAt = now; item.PreservationLegacy = false;
             item.PreservationSourceKey = item.ObjectKey;
             Audit.Record(db, now, actor, actor is null ? "system" : "account", "media.blocked", "media", item.Id.ToString(), reason);
@@ -269,10 +274,14 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     public async Task<bool> RejectAsync(MediaItem item, Guid reviewer, string? reason, DateTimeOffset now, CancellationToken cancellationToken,MediaReviewMetadata? review=null)
     {
         await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, item.AccountId, cancellationToken);
+        now = services.GetService<TimeProvider>()?.GetUtcNow() ?? TimeProvider.System.GetUtcNow();
+        if (reviewer is { } staff && await PhotoReviewWorkflows.AckUntilAsync(db, staff, now, cancellationToken) is null) return false;
         await db.Entry(item).ReloadAsync(cancellationToken);
         if (db.Entry(item).State == EntityState.Detached || item.RemovedAt is not null || item.Status is not (MediaStatus.Uncertain or MediaStatus.Passed)) return false;
         (item.Status, item.ReviewedBy, item.ReviewedAt, item.ReviewReason, item.NextScreenAt) = (MediaStatus.Rejected, reviewer, now, reason, null);
+        item.RejectedRetainUntil = now + PhotoReviewPolicy.AppealWindow;
         RecordReview(item,reviewer,review,now);
+        if (review is null) PhotoReviewWorkflows.Stage(db, item, reviewer, "reject", "LEGACY_REJECT", reason, now);
         Audit.Record(db, now, reviewer, "account", "media.rejected", "media", item.Id.ToString());
         await SaveModerationAsync(item,false,false,true,now,cancellationToken);
         await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
@@ -329,6 +338,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
         await db.Entry(item).ReloadAsync(cancellationToken);
         if (db.Entry(item).State == EntityState.Detached || item.ObjectKey is null) return false;
+        if (item.Status == MediaStatus.Rejected && item.RejectedRetainUntil is { } until && now < until) return false;
         var evidence = services.GetRequiredService<Evidence.EvidencePreservation>();
         if (await services.GetRequiredService<Retention.SafetyRetention>().MediaRequiredAsync(item, cancellationToken)) return false;
         var held = await evidence.TryHeldAccountsAsync(cancellationToken);
@@ -387,6 +397,53 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         await db.MediaItems.Where(i => i.AccountId == account && i.RemovedAt == null).ExecuteUpdateAsync(u => u.SetProperty(i => i.RemovedAt, now), cancellationToken);
     }
 
+    /// <summary>D298: an independent Admin can clear a retained rejection only after a fresh complete screening pass.</summary>
+    public async Task<bool> ReconsiderAsync(MediaItem item, Guid actor, string reason, DateTimeOffset now, CancellationToken token, bool notifyOutcome = true)
+    {
+        await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, item.AccountId, token);
+        await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, item.AccountId, token);
+        now = services.GetService<TimeProvider>()?.GetUtcNow() ?? TimeProvider.System.GetUtcNow();
+        await db.Entry(item).ReloadAsync(token);
+        if (item.Status != MediaStatus.Rejected || item.RemovedAt is not null || item.ObjectKey is null || item.ObjectKey.StartsWith("evidence/") || item.RejectedRetainUntil is null || item.RejectedRetainUntil <= now || item.ReviewedBy == actor || Store is null
+            || !await db.Accounts.AnyAsync(a => a.Id == item.AccountId && a.Status == AccountStatus.Active, token)) return false;
+        if (await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, token) is null) return false;
+        // Generic reconsideration must not bypass an appeal committed while it waited for account/media authority.
+        if (notifyOutcome && await db.Set<MediaAppeal>().AnyAsync(a => a.MediaId == item.Id, token)) return false;
+        await using var transaction = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(token) : null;
+        PhotoReviewWorkflows.Stage(db, item, actor, "reconsider-request", "RECONSIDER_REQUESTED", reason, now);
+        Audit.Record(db, now, actor, "account", "media.reconsider-requested", "media", item.Id.ToString()); await db.SaveChangesAsync(token);
+        var data = await Store.GetAsync(item.ObjectKey, token);
+        if (data is null) { if (transaction is not null) await transaction.CommitAsync(token); return false; }
+        var response = await screening.ScreenAsync(data, token); var decision = MediaScreeningPolicy.Decide(response, settings.RequireKnownContentCheck);
+        now = services.GetService<TimeProvider>()?.GetUtcNow() ?? TimeProvider.System.GetUtcNow();
+        if (decision.Verdict == ScreeningVerdict.Blocked)
+        {
+            item.Screener = screening.Name;
+            item.KnownContentChecked = true; item.Status = MediaStatus.Blocked; item.ScreenedAt = now;
+            // This is a new automated screening action; prior human attribution remains in decision history.
+            item.ReviewedBy = null; item.ReviewedAt = null;
+            item.PreservationPendingAt = now; item.NextPreservationAt = now; item.PreservationLegacy = false; item.PreservationSourceKey = item.ObjectKey;
+            PhotoReviewWorkflows.Stage(db, item, actor, "escalate", "SPECIALIST_RESTRICTED", null, now);
+            Audit.Record(db, now, actor, "account", "media.blocked", "media", item.Id.ToString(), "known-content-match-on-reconsideration");
+            // Commit the blocked source/outbox first; the existing preservation worker retries the specialist workflow.
+            await SaveModerationAsync(item, true, false, true, now, token);
+            if (transaction is not null) await transaction.CommitAsync(token); return false;
+        }
+        if (decision.Verdict != ScreeningVerdict.Passed) { if (transaction is not null) await transaction.CommitAsync(token); return false; }
+        if (item.RejectedRetainUntil <= now || await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, token) is null)
+        { if (transaction is not null) await transaction.CommitAsync(token); return false; }
+        // Keep the same private object key: source bytes cannot disappear between object operations and DB commit.
+        // Approval restores the library item only; former mode placements are never silently republished.
+        item.Screener = screening.Name;
+        item.Status = MediaStatus.Passed; item.KnownContentChecked = decision.KnownContentChecked; item.ScreenedAt = now;
+        item.ReviewedBy = actor; item.ReviewedAt = now; item.RejectedRetainUntil = null;
+        RecordReview(item, actor, new MediaReviewMetadata("APPROVED_AFTER_REVIEW", null), now);
+        if (notifyOutcome) PhotoReviewWorkflows.Stage(db, item, actor, "reconsider-approved", "APPROVED_AFTER_REVIEW", null, now);
+        await SaveModerationAsync(item, false, false, false, now, token);
+        if (transaction is not null) await transaction.CommitAsync(token);
+        await AttachmentChangedAsync(item, now, token); return true;
+    }
+
     /// <summary>The bytes of a photo the member may export (never a refused one: those read the same as each other).</summary>
     public async Task<byte[]?> ExportBytesAsync(MediaItem item, CancellationToken cancellationToken) =>
         Store is null || item.ObjectKey is null || item.Status is MediaStatus.Blocked or MediaStatus.Rejected || item.ObjectKey.StartsWith("evidence/")
@@ -400,7 +457,9 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         var allowed = variant switch
         {
             "member" => item is { Status: MediaStatus.Passed, RemovedAt: null },
+            "inspection" => MediaPolicy.ProfileInspectable(item),
             "case" => MediaPolicy.CaseReviewable(item),
+            "appeal" => item is { Status: MediaStatus.Rejected, RemovedAt: null, RejectedRetainUntil: not null } && item.RejectedRetainUntil > DateTimeOffset.UtcNow,
             _ => item is { Status: MediaStatus.Uncertain, RemovedAt: null },
         };
         if (!allowed || Store is null || item.ObjectKey is null || item.ObjectKey.StartsWith("evidence/")) return null;

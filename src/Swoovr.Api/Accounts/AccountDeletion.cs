@@ -131,7 +131,9 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.SearchEvents.Where(e => e.At < now - LocationPrivacy.EventRetention).ExecuteDeleteAsync(cancellationToken);
         // D191: a terminated member's identity record goes after its two years, unless a legal hold names the account.
         kept += await db.VerifiedIdentities.CountAsync(i => i.RetainUntil <= now && held.Contains(i.AccountId), cancellationToken);
+        kept += await db.DobChangeHistories.CountAsync(i=>i.RetainUntil<=now&&held.Contains(i.AccountId),cancellationToken);
         await db.VerifiedIdentities.Where(i => i.RetainUntil <= now && !held.Contains(i.AccountId)).ExecuteDeleteAsync(cancellationToken);
+        await db.DobChangeHistories.Where(i=>i.RetainUntil<=now&&!held.Contains(i.AccountId)).ExecuteDeleteAsync(cancellationToken);
         kept += await db.ContactHistories.CountAsync(h => h.RetainUntil <= now && held.Contains(h.AccountId), cancellationToken);
         await db.ContactHistories.Where(h => h.RetainUntil <= now && !held.Contains(h.AccountId)).ExecuteDeleteAsync(cancellationToken);
         // D195 (procedure §13): law-enforcement case records go seven years after closure, unless a live hold serves the case.
@@ -276,10 +278,15 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         foreach (var link in await db.StaffMemberLinks.AsNoTracking().Where(l => l.MemberAccountId == id || l.StaffAccountId == id).ToListAsync(cancellationToken))
             await conflicts.PreserveAsync(link, now, cancellationToken);
         await db.StaffMemberLinks.Where(l => l.MemberAccountId == id || l.StaffAccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // D298: required held copies were captured before ordinary private appeal/decision metadata leaves.
+        await db.Set<MediaAppeal>().Where(a => a.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.Set<MediaDecisionRecord>().Where(d => d.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.Set<MediaSafetyAcknowledgement>().Where(a => a.StaffAccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Set<MemberAppearance>().Where(a=>a.AccountId==id).ExecuteDeleteAsync(cancellationToken);
         await db.BetaEnrolments.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.RoleGrants.Where(g => g.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.DataExports.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM safety_advice_acknowledgements WHERE account_id={id}",cancellationToken);
         await db.PhoneCodes.Where(c => c.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         // #90, #91: search events and profile versions go with the account (held versions were captured above).
         await db.SearchEvents.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
@@ -290,6 +297,10 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         if (VerifiedIdentityPolicy.RetainAfterDeletion(terminated, now) is { } retain)
             await db.VerifiedIdentities.Where(i => i.AccountId == id).ExecuteUpdateAsync(u => u.SetProperty(i => i.RetainUntil, retain), cancellationToken);
         else await db.VerifiedIdentities.Where(i => i.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        if(VerifiedIdentityPolicy.RetainAfterDeletion(terminated,now)is{}historyRetention)
+            await db.DobChangeHistories.Where(h=>h.AccountId==id).ExecuteUpdateAsync(u=>u.SetProperty(h=>h.RetainUntil,historyRetention),cancellationToken);
+        else await db.DobChangeHistories.Where(h=>h.AccountId==id).ExecuteDeleteAsync(cancellationToken);
+        await db.DobChangeGrants.Where(g=>g.AccountId==id).ExecuteDeleteAsync(cancellationToken);
         // D187: contact history goes with the account, except a terminated member's (ban enforcement, policy §8, §13).
         if (!terminated) await db.ContactHistories.Where(h => h.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberPhones.Where(p => p.AccountId == id).ExecuteDeleteAsync(cancellationToken);

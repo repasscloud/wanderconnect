@@ -45,8 +45,25 @@ static class PersistenceChecks
                     VALUES({legacyEmail},'https://issuer.example.test','fictional-clock-email','Members','fictional.clock@example.test','Active',false,now()-interval '1 day',now()),
                           ({legacyEmpty},'https://issuer.example.test','fictional-clock-empty','Members',NULL,'Active',false,now()-interval '1 day',now())
                     """);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO member_modes(account_id,mode_id,enabled,visible,about,updated_at)
+                    VALUES({legacyEmail},'friends',true,false,'Fictional preserved mode about',now())
+                    """);
+                var legacyPhoto = Guid.NewGuid();
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO media_items(id,account_id,status,sha256,upload_sha256,content_type,width,height,bytes,created_at,screen_attempts,known_content_checked)
+                    VALUES({legacyPhoto},{legacyEmail},'Passed',''::bytea,''::bytea,'image/jpeg',300,300,100,now(),1,false);
+                    INSERT INTO media_placements(account_id,scope,position,media_id) VALUES({legacyEmail},'main',0,{legacyPhoto}),({legacyEmail},'friends',0,{legacyPhoto})
+                    """);
                 var beforeUpgrade = DateTimeOffset.UtcNow;
                 await db.Database.MigrateAsync();
+            await AdviceAcknowledgementPersistenceChecks.Run(db, Check);
+                Check("Q118 legacy mode migration adds no alias and preserves visibility/about", await db.MemberModes.AnyAsync(m => m.AccountId == legacyEmail && m.ModeId == "friends"
+                    && m.DisplayName == null && m.Enabled && !m.Visible && m.About == "Fictional preserved mode about"));
+                Check("D293 migration preserves placements without inventing per-mode main", await db.MediaPlacements.CountAsync(p => p.MediaId == legacyPhoto) == 2
+                    && !await db.MediaPlacements.AnyAsync(p => p.MediaId == legacyPhoto && p.IsMain));
+                Check("D298 legacy media receives no invented rejection retention clock", await db.MediaItems.AnyAsync(i => i.Id == legacyPhoto && i.RejectedRetainUntil == null));
+                db.MediaItems.Remove(await db.MediaItems.SingleAsync(i => i.Id == legacyPhoto)); await db.SaveChangesAsync();
                 var acceptedAt = await db.Accounts.Where(a=>a.Id==legacyEmail).Select(a=>a.EmailAcceptedAt).SingleAsync();
                 Check("legacy accepted email gets conservative migration watermark",acceptedAt>=beforeUpgrade && acceptedAt<=DateTimeOffset.UtcNow.AddSeconds(5));
                 Check("legacy null email gets no invented acceptance clock",await db.Accounts.Where(a=>a.Id==legacyEmpty).Select(a=>a.EmailAcceptedAt).SingleAsync() is null);
@@ -100,6 +117,11 @@ static class PersistenceChecks
             }
             await Extra(options, Check);
             await Modes(options, Check);
+            await ModeNamePersistenceChecks.Run(options, Check);
+            await PhotoReviewPersistenceChecks.Run(options, Check);
+            await MediaCopyProvenanceChecks.Run(options, Check);
+            await DobChangePersistenceChecks.Run(options, Check);
+            await AccountInspectionPersistenceChecks.Run(options, Check);
             await Travel(options, Check);
             await Messaging(options, Check);
             await FallbackKeyPersistenceChecks.Run(options, Check);
@@ -119,6 +141,8 @@ static class PersistenceChecks
             await PolicyAcceptancePersistenceChecks.Run(options, Check);
             await BetaAnalyticsPersistenceChecks.Run(options, Check);
             await BetaEnrolmentOperationsChecks.Run(options, Check);
+            await RegistrationAvailabilityPersistenceChecks.Run(options, Check);
+            await RegisteredNamesPersistenceChecks.Run(options, Check);
             await BetaInvitationChecks.Run(options, Check);
             await AppearancePersistenceChecks.Run(options, Check);
             await ContentRemovalGuardChecks.Run(options, Check);

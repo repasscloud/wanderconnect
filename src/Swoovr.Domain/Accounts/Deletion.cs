@@ -112,6 +112,8 @@ public static class AccountDeletionPolicy
         account.StatusReason = null;
         account.Email = null;
         account.EmailAcceptedAt = null;
+        account.RegisteredFirstName=null;account.RegisteredLastName=null;account.RegisteredMononym=false;
+        account.RegisteredNamesConfirmedAt=null;account.RegisteredNamesMatchId=null;
         account.DeletedAt = now;
         (account.DeletionRestoreStatus, account.DeleteFounderToken) = (null, false);
     }

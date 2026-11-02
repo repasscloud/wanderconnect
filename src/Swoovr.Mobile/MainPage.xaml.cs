@@ -44,14 +44,18 @@ public partial class MainPage : ContentPage
 		catch (TaskCanceledException) { }
 		ShowAccount(session, me);
         await NativeAppearance.EnsureAccountAsync(Auth);
+        FirstUseAdviceCard.IsVisible=false;
+        if(me?.Value is {AccountState:"active",PhoneRequired:false,RegisteredNamesRequired:false,DateOfBirth:not null})
+            try {FirstUseAdviceCard.IsVisible=(await Auth.Members!.SafetyAdviceAsync()).Value is{Acknowledged:false};}catch(Exception e) when(e is HttpRequestException or TaskCanceledException) { }
 	}
 
 	private void ShowSignedOut(string? message)
 	{
 		(Heading.Text, Intro.Text) = ("Swoovr", "Sign in to see your account.");
 		(SignedOutPanel.IsVisible, AccountPanel.IsVisible) = (true, false);
+        NativeAppearance.ShowGuestSurface();
         Shell.SetTabBarIsVisible(this, false);
-        AppearanceButton.IsVisible=false;
+        AppearanceButton.IsVisible=false;FirstUseAdviceCard.IsVisible=false;
 		ShowStatus(message);
 	}
 
@@ -65,6 +69,7 @@ public partial class MainPage : ContentPage
 		EmailChangeHelp.Text = AccountText.EmailChangeHelp;
 		EmailChangeMessage.Text = session?.EmailChangeProblem is {} issue ? AccountText.EmailChangeMessage(issue) : null;
 		(SignedOutPanel.IsVisible, AccountPanel.IsVisible) = (false, true);
+        NativeAppearance.ShowAccountSurface();
         Shell.SetTabBarIsVisible(this, true);
         AppearanceButton.IsVisible=true;
 		if (session is null)
@@ -99,7 +104,15 @@ public partial class MainPage : ContentPage
 		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;
-		if(account.PolicyRequired){MemberSections.IsVisible=false;PolicyGateCard.IsVisible=true;return;}
+        if(account.RegisteredNamesRequired)
+        {
+            MemberSections.IsVisible=false;
+            if(Navigation.NavigationStack.LastOrDefault() is not RegisteredNamesPage)
+                MainThread.BeginInvokeOnMainThread(async()=>await Ui.PushAsync(new RegisteredNamesPage()));
+            return;
+        }
+		SetupAgeStep.Text=account.DateOfBirth is null?(account.PhoneRequired?"Step 1 of 2 · Verify your mobile first":account.PhoneGateEnabled?"Step 2 of 2 · Confirm date of birth":"Step 1 of 1 · Confirm date of birth"):"";
+        if(account.PolicyRequired){MemberSections.IsVisible=false;PolicyGateCard.IsVisible=true;return;}
 		AgeCheckCard.IsVisible = account.AgeStatus == "needsVerification";
 		// D148: with the gate on, the phone step opens before anything else.
 		if (account.PhoneRequired && Navigation.NavigationStack.LastOrDefault() is not PhonePage)
@@ -118,11 +131,12 @@ public partial class MainPage : ContentPage
 				},
 			});
 		if (account.DateOfBirth is { } dob) DateOfBirth.Date = dob.ToDateTime(TimeOnly.MinValue);
-		DateOfBirthVerified.IsVisible = account.DateOfBirthVerified || account.DobCheck == "manualReview";
+		DateOfBirthVerified.IsVisible = account.DateOfBirth is not null || account.DobCheck == "manualReview";
 		DateOfBirthVerified.Text = account.DobCheck == "manualReview"
 			? "Swoovr is checking your date of birth against your ID, so it can't be changed for now."
-			: "Verified with your ID. Contact Swoovr support to change it.";
-		SaveAge.IsEnabled = DateOfBirth.IsEnabled = account.DobCheck == "none";
+			: account.DateOfBirthVerified ? "Verified with your ID. The saved date is locked." : "Your saved date of birth is locked. Request a correction through support.";
+		SaveAge.IsEnabled = DateOfBirth.IsEnabled = account.DobCheck == "none" && (account.DateOfBirth is null || account.DateOfBirthCorrectionUntil>DateTimeOffset.UtcNow);
+		SaveAge.IsVisible = SaveAge.IsEnabled;
 		// D166: the one-time correction pops up over Me when an approved check reported a different date of birth.
 		if (account.DobCheck == "correctionNeeded" && Navigation.ModalStack.Count == 0)
 			MainThread.BeginInvokeOnMainThread(async () => await Navigation.PushModalAsync(new DobCorrectionPage(account.DateOfBirth, async updated =>
@@ -138,6 +152,12 @@ public partial class MainPage : ContentPage
 	private async void OnMatching(object? sender, EventArgs e) => await Ui.PushAsync(new MatchingPage());
 	private async void OnTravel(object? sender, EventArgs e) => await Ui.PushAsync(new TravelPage());
 	private async void OnVerification(object? sender, EventArgs e) => await Ui.PushAsync(new VerificationPage());
+	private async void OnAdviceGotIt(object? sender,EventArgs e)
+    {
+        try{if((await Auth.Members!.AcknowledgeSafetyAdviceAsync()).Value?.Acknowledged==true)FirstUseAdviceCard.IsVisible=false;else ShowStatus("We couldn't save that. Please try again.");}
+        catch(Exception error) when(error is HttpRequestException or TaskCanceledException){ShowStatus("We couldn't save that. Please try again.");}
+    }
+    private async void OnRegisteredNames(object? sender,EventArgs e)=>await Ui.PushAsync(new RegisteredNamesPage());
 	private async void OnPolicies(object? sender,EventArgs e)=>await Ui.PushAsync(new PolicyAcceptancePage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 	private async void OnStanding(object? sender, EventArgs e) => await Ui.PushAsync(new StandingPage());
@@ -194,14 +214,17 @@ public partial class MainPage : ContentPage
 	private async void OnSaveAge(object? sender, EventArgs e)
 	{
 		if (DateOfBirth.Date is not { } date) return;
+		if(!await DisplayAlertAsync("Confirm date of birth",$"Save {date:d MMMM yyyy}? This date will be locked after saving.","Confirm and save","Cancel"))return;
 		SaveAge.IsEnabled = false;
-		var result = await Auth.Members!.SaveAgeAsync(new AgeUpdate(DateOnly.FromDateTime(date), null));
+		var result = await Auth.Members!.SaveAgeAsync(new AgeUpdate(DateOnly.FromDateTime(date), null, true));
 		SaveAge.IsEnabled = true;
 		if (result.Code is ProblemCodes.InvalidAge or ProblemCodes.DateOfBirthRequired) { AgeMessage.Text = AccountText.InvalidAge; return; }
-		if (result.Code == ProblemCodes.DateOfBirthLocked) { AgeMessage.Text = "Your age was confirmed by ID verification. Contact Swoovr support to change it."; return; }
+		if (result.Code == ProblemCodes.DateOfBirthLocked) { AgeMessage.Text = "Your saved date of birth is locked. Request a correction at https://swoovr.com/support."; return; }
 		ShowMember(result);
+        if(result.Value is not null)await RefreshAsync();
 		AgeMessage.Text = result.Code == ProblemCodes.AccountLocked ? null : AccountText.AgeSaved(result.Value);
 	}
+	private async void OnDobSupport(object? sender,EventArgs e)=>await Launcher.Default.OpenAsync("https://swoovr.com/support");
 
 	private async void OnApplyCoupon(object? sender, EventArgs e)
 	{

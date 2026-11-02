@@ -24,7 +24,7 @@ const {api,web,call,createMember,memberToken,rootAdminToken,cli,sql,claims}=requ
   await sql(`UPDATE member_appearances SET scheme='retired',mode='unknown' WHERE account_id='${id}'`);
   assert.deepEqual((await call(ta,'/api/me/appearance')).body,{preference:{scheme:'standard',mode:'system'},revision:2});assert.equal(await sql(`SELECT scheme FROM member_appearances WHERE account_id='${id}'`),'retired');checks++;
   const fresh=await fetch(api+'/api/me/appearance',{headers:{Authorization:'Bearer '+ta}});assert.match(fresh.headers.get('cache-control')??'',/no-store/);assert.ok(fresh.headers.get('swoovr-version'));checks++;
-  const page=await edge.browser.newPage();await page.goto(web+'/account/sign-in');await page.fill('#username',a.email);await page.fill('#password',a.password);await page.click('#kc-login');await page.waitForURL(web+'/account');
+  const page=await edge.browser.newPage();await page.goto(web+'/account/sign-in');await page.fill('#username',a.email);await page.fill('#password',a.password);await page.click('#kc-login');await page.waitForURL(web+'/explore');await page.goto(web+'/account');
   assert.equal((await page.request.get(web+'/bff/api/me/appearance')).status(),400);checks++;
   const relay=await page.request.get(web+'/bff/api/me/appearance',{headers:{'X-Swoovr-Bff':'1'}});assert.equal(relay.status(),200);assert.equal((await relay.json()).revision,2);checks++;
   const update=await page.request.put(web+'/bff/api/me/appearance',{headers:{'X-Swoovr-Bff':'1','Swoovr-Appearance-Owner':owner(ta)},data:{preference:{scheme:'union',mode:'light'},expectedRevision:2,changeId:crypto.randomUUID()}});assert.equal(update.status(),200);assert.equal((await update.json()).revision,3);checks++;

@@ -272,7 +272,7 @@ const pushBox = id => `push-${id.replace(/-/g, '')}@simulated.swoovr.invalid`;
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.bob.email); await page.fill('#password', members.bob.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     assert.ok(await page.isVisible('[data-notifications-link]')); pass();
     await page.goto(web + '/me/notifications');
     await page.waitForSelector('[data-notifications="ready"]', { timeout: 20000 });

@@ -6,11 +6,11 @@ namespace Swoovr.Contracts;
 /// </summary>
 public sealed record MyPhotoView(Guid Id, string State, string? Link, DateTimeOffset CreatedAt, IReadOnlyList<string> Scopes, Guid? Replaces = null);
 
-/// <summary>The member's photos, the main photo (shown in every mode, D175) and each mode's own photos in order (#91).</summary>
-public sealed record MyPhotosView(IReadOnlyList<MyPhotoView> Photos, Guid? Main, IReadOnlyDictionary<string, IReadOnlyList<Guid>> Modes, int MaxPerMode, int MaxKept);
+/// <summary>D293 shared library, full retained mode galleries and explicitly selected mode mains. Legacy Main is always null.</summary>
+public sealed record MyPhotosView(IReadOnlyList<MyPhotoView> Photos, Guid? Main, IReadOnlyDictionary<string, IReadOnlyList<Guid>> Modes, int MaxPerMode, int MaxKept, IReadOnlyDictionary<string, Guid>? Mains = null, string Tier = "free");
 
-/// <summary>Where photos show: scope `main` (at most one) or a mode id (up to MaxPerMode). A full replacement for that scope.</summary>
-public sealed record PhotoPlacementUpdate(string Scope, IReadOnlyList<Guid> MediaIds);
+/// <summary>A full replacement for one mode gallery, including its optional main selection. Null clears the main.</summary>
+public sealed record PhotoPlacementUpdate(string Scope, IReadOnlyList<Guid> MediaIds, Guid? MainMediaId = null);
 
 /// <summary>Another member's approved photo as the viewer may see it: a short-lived signed link, nothing else.</summary>
 public sealed record PhotoView(Guid Id, string Link);
@@ -23,7 +23,7 @@ public sealed record MediaReviewItem(Guid Id, Guid AccountId, DateTimeOffset Cre
 /// <summary>The review queue and how many uploads are still waiting for a usable screening answer.</summary>
 public sealed record MediaReviewReasonView(string Code,string Decision,string Label,bool RequiresNotes,bool Selectable=true);
 public sealed record MediaReviewQueue(IReadOnlyList<MediaReviewItem> Items, int Pending, int PendingOverAnHour,
-    IReadOnlyList<MediaReviewReasonView>? Reasons=null,IReadOnlyDictionary<string,int>? DecisionCounts=null,DateTimeOffset? CountsSince=null);
+    IReadOnlyList<MediaReviewReasonView>? Reasons=null,IReadOnlyDictionary<string,int>? DecisionCounts=null,DateTimeOffset? CountsSince=null, int Page=1, int Total=0, int PageSize=25, DateTimeOffset? AcknowledgedUntil=null, string? NoticeVersion=null, string? SafetyNotice=null);
 
 public sealed record MediaViewRequest(string? Purpose);
 
@@ -37,3 +37,14 @@ public sealed record MediaReviewLink(Guid Id, string Link, DateTimeOffset Expire
 public sealed record MediaDecision(string? Decision, string? Reason,string? ReasonCode=null);
 
 public sealed record MediaDecisionResult(Guid Id,string State);
+
+public sealed record MediaSafetyAck(string Version, bool Confirmed);
+public sealed record PhotoWorkload(int ManualReview, int PendingScreening, int Specialist, int Appeals, int Rejected);
+public sealed record PhotoDecisionView(Guid Id, Guid MediaId, string Decision, string Reason, DateTimeOffset At, bool CanAppeal,
+    Guid? AppealId = null, string? AppealOutcome = null);
+public sealed record PhotoAppealRequest(string? Text);
+public sealed record PhotoAppealResolution(string? Outcome, string? Reason);
+public sealed record PhotoAppealView(Guid Id, Guid DecisionId, Guid MediaId, Guid AccountId, DateTimeOffset SubmittedAt, string Text, string? Outcome, DateTimeOffset? DecidedAt);
+public sealed record PhotoAppealPage(IReadOnlyList<PhotoAppealView> Items, int Page, int Total, int PageSize = 25);
+public sealed record PhotoDecisionHistory(Guid Id, Guid MediaId, Guid AccountId, Guid? ActorId, string Decision, string Code, DateTimeOffset At);
+public sealed record PhotoDecisionPage(IReadOnlyList<PhotoDecisionHistory> Items, int Page, int Total, int PageSize = 25);

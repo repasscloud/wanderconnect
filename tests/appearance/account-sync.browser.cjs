@@ -9,7 +9,7 @@ try{
  const owner=crypto.createHash('sha256').update(claims(token).iss+'\0'+claims(token).sub).digest('hex');
  const context=await edge.browser.newContext({viewport:{width:390,height:900},colorScheme:'light'}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
  await page.goto(web+'/settings/appearance');await page.locator('input[name=scheme][value=coral]').check();
- await page.goto(web+'/account/sign-in');await page.fill('#username',a.email);await page.fill('#password',a.password);await page.click('#kc-login');await page.waitForURL(web+'/account');
+ await page.goto(web+'/account/sign-in');await page.fill('#username',a.email);await page.fill('#password',a.password);await page.click('#kc-login');await page.waitForURL(web+'/explore');await page.goto(web+'/account');
  await page.goto(web+'/settings/appearance');await page.locator('[data-account-appearance=ready]').waitFor();
  const state=async(s,m)=>{await page.waitForFunction(([s,m])=>document.documentElement.dataset.scheme===s&&document.documentElement.dataset.requestedMode===m,[s,m]);assert.equal(await page.locator(`input[name=scheme][value=${s}]`).isChecked(),true);checks++;};
  const saved=async(s,m)=>{await page.waitForFunction(async([s,m])=>{let r=await fetch('/bff/api/me/appearance',{headers:{'X-Swoovr-Bff':'1'}});if(!r.ok)return false;let v=await r.json();return v.preference.scheme===s&&v.preference.mode===m;},[s,m]);checks++;};
@@ -41,7 +41,7 @@ try{
  await page.goto(web+'/settings/appearance');await page.locator('input[name=scheme][value=coral]').waitFor();
  assert.equal(await page.evaluate(()=>localStorage.getItem('swoovr.appearance.account.v1')),null);assert.equal(await page.evaluate(()=>document.documentElement.dataset.scheme),'coral');checks++;
  const b=await createMember('appearance-ui-switch');await cli('beta','add',b.email);const bt=await memberToken(edge.browser,b);await call(bt,'/api/me');
- await page.goto(web+'/account/sign-in');await page.fill('#username',b.email);await page.fill('#password',b.password);await page.click('#kc-login');await page.waitForURL(web+'/account');await page.goto(web+'/settings/appearance');await page.locator('[data-account-appearance=ready]').waitFor();await state('coral','system');
+ await page.goto(web+'/account/sign-in');await page.fill('#username',b.email);await page.fill('#password',b.password);await page.click('#kc-login');await page.waitForURL(web+'/explore');await page.goto(web+'/account');await page.goto(web+'/settings/appearance');await page.locator('[data-account-appearance=ready]').waitFor();await state('coral','system');
  assert.equal((await call(bt,'/api/me/appearance')).body.preference.scheme,'coral');checks++;
  await context.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw Error('injected storage denial');}}));await page.reload();await page.locator('[data-account-appearance=ready]').waitFor();await page.locator('input[name=scheme][value=union]').check();await state('union','system');await saved('union','system');assert.match(await page.locator('.save-area').innerText(),/storage is unavailable/);checks++;
  assert.ok(errors.every(e=>e.includes('injected storage denial')&&e.includes('/_framework/blazor.web.')&&e.includes('startLoadingWebAssemblyIfNotStarted')),JSON.stringify(errors));checks++;await context.close();console.log(`PASS account appearance UI: ${checks} checks; real local auth/BFF/store, guest seed, schemes/modes, offline pending/reload/retry, explicit conflict, reset, private HTML.`);

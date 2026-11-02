@@ -15,7 +15,11 @@ public partial class AppShell : Shell
         if (!args.CanCancel || !new[] { "ExplorePage", "ConnectionsPage", "ChatsPage" }.Any(target.Contains)) return;
         var pending = args.GetDeferral();
         var redirect = false;
-        try { if (!await Ui.SignedInAsync()) { args.Cancel(); redirect = true; } }
+        try {
+            if (!await Ui.SignedInAsync()) { args.Cancel(); redirect = true; }
+            else { var account=(await MainPage.Auth.Members!.MeAsync()).Value;if(account is not null&&(account.PhoneRequired||account.DateOfBirth is null||account.RegisteredNamesRequired)){args.Cancel();redirect=true;} }
+        }
+        catch(Exception error) when(error is HttpRequestException or TaskCanceledException) {args.Cancel();redirect=true;}
         finally { pending.Complete(); }
         if (redirect) await GoToAsync("//MainPage");
     }

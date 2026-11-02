@@ -850,7 +850,8 @@ public static class ModerationEndpoints
             profile is null ? "none" : Wire(profile.DobCheck),
             // D191: only that a verified identity is on file, when and from which country; never the fields.
             await db.VerifiedIdentities.Where(i => i.AccountId == id).Select(i => (DateTimeOffset?)i.VerifiedAt).SingleOrDefaultAsync(cancellationToken),
-            await db.VerifiedIdentities.Where(i => i.AccountId == id).Select(i => i.IssuingCountry).SingleOrDefaultAsync(cancellationToken));
+            await db.VerifiedIdentities.Where(i => i.AccountId == id).Select(i => i.IssuingCountry).SingleOrDefaultAsync(cancellationToken),
+            profile?.DateOfBirth is{}date?AgePolicy.YearsOn(date,DateOnly.FromDateTime(now.UtcDateTime)):null);
     }
 }
 

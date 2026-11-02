@@ -1,6 +1,6 @@
 namespace Swoovr.Client;
 
-/// <summary>DEFAULT D264 draft content for review, never activated terms or a consent record. Generated from
+/// <summary>CONFIRMED D288/D290 operative reader; reading is not a consent record. Text generated from
 /// docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md by swoovr-legal-docs scripts/sync-policy-drafts.py; edit the
 /// Markdown and regenerate rather than editing this text.</summary>
 public static class PublicPolicyDrafts

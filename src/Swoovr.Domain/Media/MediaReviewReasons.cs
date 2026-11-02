@@ -22,9 +22,8 @@ public static class MediaReviewReasons
         var reason=All.SingleOrDefault(r=>r.Code==code&&r.Decision==decision&&(legacy||r.Selectable));
         notes=string.IsNullOrWhiteSpace(notes)?null:notes.Trim();
         if(reason is null||reason.RequiresNotes&&notes is null)return null;
-        // Approval can later be superseded. Do not silently create/discard private approval-note history.
-        // Legacy approval notes were ignored; coded clients must omit them until retained history exists.
-        if(decision=="approve"){if(!legacy&&notes is not null)return null;notes=null;}
+        // D297: approvals use structured codes only; no client may silently discard submitted approval notes.
+        if(decision=="approve"){if(notes is not null)return null;notes=null;}
         return new(code,notes);
     }
 }

@@ -93,7 +93,7 @@ async function listen(token){
     assert.equal((await call(member, '/api/admin/beta')).status, 403); checks++;
     assert.equal((await call(member, '/api/me/deletion')).status,200,'revoked beta preserves account rights');checks++;
     assert.equal((await call(member, `/api/admin/beta/${id}/ios-distribution`,{method:'PUT',body:{state:'invited',expectedRevision:2,confirm:true}})).status,403);checks++;
-    const memberPage=await browser.newPage();await memberPage.goto(web+'/account/sign-in?intro=done');await memberPage.fill('#username',tester.email);await memberPage.fill('#password',tester.password);await Promise.all([memberPage.waitForURL(web+'/account'),memberPage.click('#kc-login')]);
+    const memberPage=await browser.newPage();await memberPage.goto(web+'/account/sign-in?intro=done');await memberPage.fill('#username',tester.email);await memberPage.fill('#password',tester.password);await Promise.all([memberPage.waitForURL(web+'/explore'),memberPage.click('#kc-login')]);await memberPage.goto(web+'/account');
     assert.equal(await memberPage.locator('a[href="/account/data"]').count()>0,true,'revoked beta retains visible data link');checks++;await memberPage.goto(web+'/account/data');await memberPage.waitForSelector('[data-data-panel=none]');assert.equal(await memberPage.locator('[data-delete-form]').count(),1);checks++;
     await page.goto(admin + '/beta');
     assert.equal(await page.locator(`[data-beta-row="${id}"]`).getAttribute('data-beta-state'), 'revoked'); checks++;

@@ -72,11 +72,12 @@ public enum AccessRefusal { None, NotPermitted, PurposeRequired, Unknown, Expire
 public static class StaffAccessPolicy
 {
     public const string IdentityOpen = "identity-open";
+    public const string ProfileDobOpen="profile-dob-open";
     public const string EvidenceExport = "evidence-export";
     public const string Termination = "termination";
     public const string IdentifierRelease = "identifier-release";
     public const string AccountReinstatement = "account-reinstatement";
-    public static readonly IReadOnlyList<string> Capabilities = [IdentityOpen, EvidenceExport, Termination, IdentifierRelease, AccountReinstatement];
+    public static readonly IReadOnlyList<string> Capabilities = [IdentityOpen, EvidenceExport, Termination, IdentifierRelease, AccountReinstatement,ProfileDobOpen];
     /// <summary>DEFAULT (owner, 27 October 2026): 60 minutes, renewable.</summary>
     public static readonly TimeSpan Duration = TimeSpan.FromMinutes(60);
     /// <summary>At most eight renewals: a working day, then ask again.</summary>
@@ -97,7 +98,7 @@ public static class StaffAccessPolicy
 
     public static AccessRefusal CheckRequest(string? capability, string? purpose, Func<AccountRole, bool> allows) =>
         capability is null || !Capabilities.Contains(capability) ? AccessRefusal.Unknown
-        : !allows(RoleFor(capability)) ? AccessRefusal.NotPermitted
+        : !(capability==ProfileDobOpen ? allows(AccountRole.Support)||allows(AccountRole.Admin)||allows(AccountRole.Legal) : allows(RoleFor(capability))) ? AccessRefusal.NotPermitted
         : string.IsNullOrWhiteSpace(purpose) || purpose.Length > PurposeMax ? AccessRefusal.PurposeRequired : AccessRefusal.None;
 
     public static bool Active(AccessGrant grant, DateTimeOffset now) => grant.RevokedAt is null && grant.ExpiresAt > now;
@@ -175,6 +176,8 @@ public static class StaffAccessPolicy
             "access" => ("access", Id(4), false),
             "staff" => ("staff", Id(3), false),
             "accounts" when parts.Length > 4 && parts[4] == "identity" => ("identity", Id(3), false),
+            "accounts" when parts.Length > 4 && parts[4] is "date-of-birth" or "dob-history" => ("identity", Id(3), false),
+            "accounts" when parts.Length > 4 && parts[4] is "profile-preview" or "profile-photos" or "action-history" or "assurance" or "dob-correction" => ("account-inspection", Id(3), false),
             "media" => ("media", Id(3), false),
             _ => null,
         };
@@ -182,7 +185,7 @@ public static class StaffAccessPolicy
         var action = status is 401 or 403 ? "refused"
             : resource == "banned-identifiers" && parts.Length > 3 && parts[3] == "lookup" ? "query"
             : export ? "export"
-            : resource == "identity" || resource == "media" && path.EndsWith("/view") ? "view"
+            : resource == "identity" || resource is "media" or "account-inspection" && (path.EndsWith("/view") || path.EndsWith("/appeal-view")) ? "view"
             : method is "GET" or "HEAD" ? (id is null ? "query" : "view")
             : "change";
         return (resource, id, action);

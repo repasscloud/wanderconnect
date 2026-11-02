@@ -126,11 +126,27 @@ public static class MemberSignIn
             }
             return Results.Challenge(new AuthenticationProperties { RedirectUri = "/explore" }, [OpenIdConnectDefaults.AuthenticationScheme]);
         });
-        app.MapGet("/account/create", (HttpContext context) =>
+        app.MapGet("/account/create", async (HttpContext context,IHttpClientFactory clients) =>
         {
             if (!configured) return Results.Redirect("/");
+            context.Response.Headers.CacheControl="no-store";
+            Swoovr.Contracts.RegistrationAvailabilityView? availability=null;
+            try
+            {
+                using var deadline=CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                using var response=await clients.CreateClient(Bff.ApiClient).GetAsync("api/registration",deadline.Token);
+                if(response.IsSuccessStatusCode)availability=await response.Content.ReadFromJsonAsync<Swoovr.Contracts.RegistrationAvailabilityView>(deadline.Token);
+            }
+            catch(Exception failure)when(failure is HttpRequestException or OperationCanceledException or JsonException){ }
+            if(availability is not{Revision:>=0}||!availability.PublicEnabled&&!(availability.BetaEnabled&&context.Request.Query["invited"]=="true"))
+            {
+                var invited=availability is{BetaEnabled:true}?"<p><a href=\"/account/create?invited=true\" data-enhance-nav=\"false\">I have a beta invitation</a></p>":"";
+                return Results.Content("""
+                    <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Swoovr is currently invite-only</title><link rel="stylesheet" href="/themes.css"></head>
+                    <body><main><h1>Swoovr is currently invite-only</h1><p>We're not accepting public registrations just yet. If you'd like early access, you can register your interest in our beta.</p><p><a href="https://swoovr.com/beta">Join the beta waitlist</a></p>
+                    """+invited+"<p><a href=\"/account/sign-in\">Sign in to an existing account</a></p></main></body></html>","text/html",statusCode:availability is null?503:200);
+            }
             var properties = new AuthenticationProperties { RedirectUri = "/explore" };
-            // Keycloak's registration endpoint shares the authorization request (prompt=create).
             properties.Parameters["prompt"] = "create";
             return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
         });

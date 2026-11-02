@@ -165,7 +165,7 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.bob.email); await page.fill('#password', members.bob.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     const bff = path => page.request.fetch(web + '/bff/' + path, { method: 'POST', headers: { 'X-Swoovr-Bff': '1' } });
     assert.equal((await bff(`api/requests/${resLink}/disconnect`)).status(), 200, 'disconnect is on the BFF allow-list'); pass();
     await page.goto(web + `/people/${pid.ana}?mode=business`);

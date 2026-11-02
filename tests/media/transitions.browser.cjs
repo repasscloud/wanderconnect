@@ -8,12 +8,13 @@ async function stop(port){await new Promise(r=>execFile('bash',['-c',`lsof -ti t
 async function start(port,env,backups){await stop(port);try{await fs.copyFile(`.local/logs/api-${port}.log`,path.join(backups,`api-${port}-${Date.now()}.log`));}catch(e){if(e.code!=='ENOENT')throw e;}
  await new Promise((resolve,reject)=>{const p=spawn('bash',['.local/run-hosts.sh'],{env:{...process.env,SWOOVR_EXTRA_API_PORT:String(port),Phone__Required:'false',Accounts__ReauthSeconds:'45',...env},stdio:['ignore','pipe','pipe']});p.on('exit',n=>n===0?resolve():reject(Error('Extra transition API did not start')));});}
 async function waitFor(check,attempts=160){for(let i=0;i<attempts;i++){if(await check())return;await sleep(100);}throw Error('Transition state timed out');}
-async function decision(port,token,id,choice){const r=await fetch(`http://127.0.0.1:${port}/api/admin/media/${id}/decision`,{method:'POST',headers:{Authorization:'Bearer '+token,'Swoovr-Version':'2026-10-28','Content-Type':'application/json'},body:JSON.stringify({decision:choice,reason:'Fictional concurrency acceptance'})});return{status:r.status,body:await r.json()};}
+async function decision(port,token,id,choice){const r=await fetch(`http://127.0.0.1:${port}/api/admin/media/${id}/decision`,{method:'POST',headers:{Authorization:'Bearer '+token,'Swoovr-Version':'2026-10-28','Content-Type':'application/json'},body:JSON.stringify({decision:choice,reasonCode:choice==='approve'?'APPROVED_STANDARD':choice==='reject'?'REJECT_OTHER':'ESCALATE_CHILD_SAFETY',...(choice==='approve'?{}:{reason:'Fictional concurrency acceptance'})})});return{status:r.status,body:await r.json()};}
 (async()=>{
  const folder=await fs.mkdtemp(path.join(os.tmpdir(),'swoovr-transition-'));const backups=await fs.mkdtemp(path.join(os.tmpdir(),'swoovr-transition-log-backups-'));
  const browser=await chromium.launch({channel:'msedge',headless:true});const canvas=await browser.newPage();let account,legal,fake,scanReply;let passed=0;const pass=()=>passed++;
  try{
   const root=await rootAdminToken(browser),member=await createMember('photo-transition'),officer=await createStaff('transition-legal');
+  assert.equal((await call(root,'/api/admin/media/safety-ack',{method:'POST',body:{version:'2026-11-02',confirmed:true}})).status,200);
   await cli('beta','add',member.email);const token=await memberToken(browser,member);
   await call(token,'/api/me/profile',{method:'PUT',body:{displayName:'Fictional Transition Tester',homeCityId:2078025}});await matchReady(token);
   account=await sql(`SELECT id FROM accounts WHERE subject='${claims(token).sub}'`);

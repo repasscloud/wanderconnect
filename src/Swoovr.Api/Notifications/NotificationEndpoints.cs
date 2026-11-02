@@ -17,6 +17,7 @@ public static class NotificationLinks
     {
         NotificationKind.Message or NotificationKind.ConversationEnded => $"/chats/{n.SubjectId}",
         NotificationKind.ReportOutcome => "/me/notices",
+        NotificationKind.PhotoDecision => "/me/photos",
         NotificationKind.Request => "/connections",
         NotificationKind.Connection when n.ActorAccountId is { } actor
             && await db.MemberProfiles.Where(p => p.AccountId == actor).Select(p => (Guid?)p.PublicId).SingleOrDefaultAsync(cancellationToken) is { } person
@@ -198,7 +199,7 @@ public static class NotificationEndpoints
     public static async Task<NotificationCentre> CentreAsync(SwoovrDbContext db, Guid me, bool barred, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if(!await db.Accounts.AnyAsync(a=>a.Id==me&&a.Status==AccountStatus.Active,cancellationToken))return new([],0);
-        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account || n.Kind==NotificationKind.ReportOutcome))
+        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account || n.Kind==NotificationKind.ReportOutcome || n.Kind == NotificationKind.PhotoDecision))
             .OrderByDescending(n => n.UpdatedAt).Take(NotificationPolicy.PageSize * 2).ToListAsync(cancellationToken);
         var outcomeIds=rows.Where(n=>n.Kind==NotificationKind.ReportOutcome&&n.SubjectId!=null).Select(n=>n.SubjectId!.Value).ToList();
         var ownOutcomes=await db.Reports.Where(r=>r.ReporterAccountId==me&&outcomeIds.Contains(r.Id)).Select(r=>r.Id).ToListAsync(cancellationToken);
@@ -206,6 +207,9 @@ public static class NotificationEndpoints
         var allowed = new Dictionary<Guid, bool>();
         foreach (var actor in actors) allowed[actor] = await Notifier.AllowedAsync(db, me, actor, now, cancellationToken);
         var names = await db.MemberProfiles.Where(p => actors.Contains(p.AccountId)).ToDictionaryAsync(p => p.AccountId, p => p.DisplayName ?? "Someone", cancellationToken);
+        var aliases = await db.MemberModes.Where(m => actors.Contains(m.AccountId)).ToListAsync(cancellationToken);
+        var conversationIds = rows.Where(n => n.Kind == NotificationKind.Message && n.SubjectId != null).Select(n => n.SubjectId!.Value).ToList();
+        var origins = await db.Conversations.Where(c => conversationIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.OriginModeId, cancellationToken);
         var labels = await db.ConnectionModes.ToDictionaryAsync(m => m.Id, m => m.Label, cancellationToken);
         var tripIds = rows.Where(n => n.Kind == NotificationKind.Travel && n.SubjectId is not null).Select(n => n.SubjectId!.Value).ToList();
         var trips = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
@@ -222,10 +226,13 @@ public static class NotificationEndpoints
                 ||!PolicyNoticePolicy.CanDisplay(publication,now)||n.DedupeKey!=PolicyNoticePolicy.Dedupe(publicationId)))continue;
             if (n.ActorAccountId is { } actor && !allowed[actor]) continue;
             var name = n.ActorAccountId is { } who && names.TryGetValue(who, out var known) ? known : "Someone";
+            var nameMode = n.ModeId ?? (n.Kind == NotificationKind.Message && n.SubjectId is { } conversationId ? origins.GetValueOrDefault(conversationId) : null);
+            if (n.ActorAccountId is { } named) name = ModePrivacy.DisplayName(aliases.FirstOrDefault(m => m.AccountId == named && m.ModeId == nameMode)?.DisplayName, name)!;
             var mode = n.ModeId is { } id && labels.TryGetValue(id, out var label) ? label : null;
             string? title = n.Kind switch
             {
                 NotificationKind.PolicyChange => "Safety policy update: "+publications[n.SubjectId!.Value].Title,
+                NotificationKind.PhotoDecision => "There is an update to one of your photos. Open Your photos to review it.",
                 NotificationKind.ReportOutcome => "There is an update to a report you submitted. Open Notices and reports to review it.",
                 NotificationKind.ConversationEnded => ConversationEnding.Notification,
                 NotificationKind.MeetingSafety => "You have a meeting safety update. Open it to check in.",

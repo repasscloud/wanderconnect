@@ -215,7 +215,7 @@ public static class AdminEndpoints
             Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", "account.searched", null, null, $"results:{found.Count}");
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(found.Select(x => new AccountView(x.a.Id, Wire(x.a.Realm), Wire(x.a.Status), x.a.StatusReason,
-                x.p is null ? null : Wire(x.p.AgeStatus), x.a.CreatedAt)).ToList());
+                x.p is null ? null : Wire(x.p.AgeStatus), x.a.CreatedAt,x.a.RegisteredNamesConfirmedAt is null?null:string.Join(" ",new[]{x.a.RegisteredFirstName,x.a.RegisteredLastName}.Where(n=>!string.IsNullOrWhiteSpace(n))))).ToList());
         });
 
         // D40: support or an admin can confirm a member is an adult. This also lifts an
@@ -310,6 +310,7 @@ public static class AdminEndpoints
             var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
             var db = accounts.Db!;
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, id, cancellationToken);
             var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
             if (profile is null) return Results.NotFound();
             if (request.Active && profile.Bot)

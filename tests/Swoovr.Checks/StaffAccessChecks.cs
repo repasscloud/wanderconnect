@@ -16,6 +16,8 @@ static class StaffAccessChecks
         Func<AccountRole, bool> legal = r => r == AccountRole.Legal, adminRole = r => r == AccountRole.Admin, support = r => r == AccountRole.Support;
 
         // Requests.
+        foreach(var role in new[]{legal,adminRole,support})Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.ProfileDobOpen,"Fictional profile-date check",role)==AccessRefusal.None,"every staff role may request current profile DOB elevation without identity decrypt");
+        Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.ProfileDobOpen,"",support)==AccessRefusal.PurposeRequired,"current profile DOB elevation requires purpose");
         Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.IdentifierRelease,"Fictional reviewed reassignment",adminRole)==AccessRefusal.None,"admins may request separate identifier-release permission");
         Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.AccountReinstatement,"Fictional reviewed reinstatement",adminRole)==AccessRefusal.None,"admins may request separate reinstatement permission");
         Expect(StaffAccessPolicy.CheckRequest(StaffAccessPolicy.IdentifierRelease,"Fictional",support)==AccessRefusal.NotPermitted,"support cannot release identifiers");

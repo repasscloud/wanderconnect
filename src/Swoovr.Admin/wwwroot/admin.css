@@ -174,3 +174,34 @@ td a { font-weight: 600; text-underline-offset: 3px; }
   .page-context { min-width: 0; flex: 1 1 5rem; }
   .staff-menu { min-width: 0; max-width: 100%; }
 }
+
+/* D302: tablets retain the full workspace; this is not device authorisation. */
+.desktop-required { display: none; }
+@media (max-width: 767px) {
+  .requires-desktop > .desktop-required { display: block; }
+  .requires-desktop > [data-workflow] { display: none; }
+  .phone-summary [data-workflow] form, .phone-desktop-tools { display: none; }
+}
+
+.admin-guidance { padding: 1rem 1.25rem; margin-block: 1rem 1.5rem; border-inline-start: 3px solid var(--border); background: var(--surface); max-width: 72rem; }
+.admin-guidance h2 { font-size: 1rem; margin: 0 0 .5rem; }
+.admin-guidance .help { margin: 0; }
+input:read-only, textarea:read-only { background: var(--soft); }
+
+/* Beta operations retain bounded server paging and independent table scrolling. */
+.beta-add { align-items: end; gap: 1rem; }
+.beta-add > label { display: grid; gap: .4rem; flex: 1 1 22rem; max-width: 40rem; }
+.beta-add input { width: 100%; }
+.beta-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+.beta-filters input, .beta-filters select { width: 100%; }
+.button-link { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 11px 16px; border: 1px solid var(--border); border-radius: 7px; background: var(--soft); color: var(--softText); font: 600 .875rem/1.3 var(--font); text-decoration: none; }
+[data-beta-table] td { vertical-align: top; }
+[data-beta-table] td > :first-child { margin-top: 0; }
+[data-beta-table] td > p { margin-bottom: .4rem; }
+
+/* D297: bounded focused photo review, full screen on tablets; phone tools remain governed by AdminLayout. */
+.photo-review-dialog { width:min(58rem,calc(100vw - 3rem)); max-height:calc(100dvh - 3rem); overflow:auto; border:1px solid var(--line); border-radius:12px; padding:1.5rem; background:var(--surface); color:var(--text); }
+.photo-review-dialog::backdrop { background:color-mix(in srgb,var(--text) 65%,transparent); }
+.photo-review-dialog .media-review img,.photo-appeal-image { display:block; max-width:100%; width:auto; max-height:45dvh; object-fit:contain; margin-inline:auto; }
+.photo-concealed { min-height:10rem; display:grid; place-items:center; border:1px dashed currentColor; margin-block:1rem; }
+@media(min-width:641px) and (max-width:1024px) { .photo-review-dialog { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; margin:0; border-radius:0; } }

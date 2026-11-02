@@ -33,7 +33,7 @@ const {web,createMember,memberToken,rootAdminToken,cli,sql,call,claims,elevate,m
   equal(await sql(`SELECT status FROM accounts WHERE id='${id}'`),'Active','legitimate account not banned');
   context=await browser.newContext({viewport:{width:1280,height:900}});const page=await context.newPage();
   await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',source.email);await page.fill('#password',member.password);
-  await Promise.all([page.waitForURL(web+'/account'),page.click('#kc-login')]);
+  await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
   const warning=page.locator('[data-email-change-problem="identifier-restricted"]');await warning.waitFor();
   equal(await warning.locator('[data-email-support]').getAttribute('href'),'https://swoovr.com/support','approved support link');
   assert.ok((await warning.innerText()).includes('previously accepted email'));checks++;

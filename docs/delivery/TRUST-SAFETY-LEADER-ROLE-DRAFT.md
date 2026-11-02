@@ -2,11 +2,11 @@
 
 CONFIRMED D304 (owner #119, 2 November 2026): the owner is the interim Trust and Safety Leader ("me for now"). Police-cooperation selection and industry forum engagement remain deferred; the Safety by Design self-assessment is due just before public beta. This records the appointment, not training, delegated substitutes, staffing, urgent coverage or completed Code compliance.
 
-Status: **DRAFT 0.1, 30 October 2026**, issue [119](https://github.com/repasscloud/wanderconnect/issues/119). CONFIRMED D220 implements the [owner governance decision on106](https://github.com/repasscloud/wanderconnect/issues/106#issuecomment-6470617112). The role structure below is DEFAULT; appointment and operational acceptance remain OPEN. Legal review57 applies. No named appointment, paid team, on-call coverage or Code status is asserted.
+Status: **DRAFT 0.1, 30 October 2026**, issue [119](https://github.com/repasscloud/wanderconnect/issues/119). CONFIRMED D220 implements the [owner governance decision on106](https://github.com/repasscloud/wanderconnect/issues/106#issuecomment-6470617112). The role structure below is DEFAULT; the interim owner appointment is CONFIRMED D304; operational acceptance remains OPEN. D288 resolves the supplied wording review. No paid team, on-call coverage or Code status is asserted.
 
 ## Accountable appointment
 
-Before external beta, record a named senior accountable Trust & Safety Leader, appointing authority, acceptance date, delegated authority, reporting route, alternate and conflict substitute in a restricted appointment record. The founder may initially hold the role; permission to do so is not an appointment. The leader must have authority to escalate safety risks, request resources, stop unsafe releases and require documented corrective actions. Uninvolved senior oversight must remain available when the leader or founder is implicated.
+Before external beta, record a named senior accountable Trust & Safety Leader, appointing authority, acceptance date, delegated authority, reporting route, alternate and conflict substitute in a restricted appointment record. The owner holds the interim role under D304; delegation, alternates and conflict-substitute records remain operational actions. The leader must have authority to escalate safety risks, request resources, stop unsafe releases and require documented corrective actions. Uninvolved senior oversight must remain available when the leader or founder is implicated.
 
 ## Responsibilities and separation
 

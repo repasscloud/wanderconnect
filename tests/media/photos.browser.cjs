@@ -80,6 +80,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
       assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {}, sid = {};
     for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); sid[n] = await sql(`SELECT id FROM accounts WHERE subject = '${claims(st[n]).sub}'`); }
+    for (const reviewer of [st.adm, st.sup]) assert.equal((await call(reviewer, '/api/admin/media/safety-ack', { method: 'POST', body: { version: '2026-11-02', confirmed: true } })).status, 200);
     const up = (who, bytes, opts = {}) => upload((opts.base ?? api) + '/api/me/photos', bytes, { token: tk[who], ...opts });
     const mine = who => call(tk[who], '/api/me/photos');
     const settle = async (who, photoId, from = 'checking') => {
@@ -119,7 +120,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     assert.deepEqual(jpegSize(served), { width: 480, height: 640 }, 'orientation applied'); pass();
     assert.equal(sha(served), row[4], 'stored hash is of the served bytes'); pass();
     let own = (await mine('ana')).body;
-    assert.equal(own.main, first); assert.deepEqual(own.photos[0].scopes, ['main']); pass();
+    assert.equal(own.main, null); assert.deepEqual(own.mains, {}); assert.deepEqual(own.photos[0].scopes, []); pass();
     // PNG, noise and text images pass too (synthetic only).
     const extraIds = [];
     for (const [i, kind] of ['solid', 'noise', 'text'].entries()) {
@@ -130,13 +131,13 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     pass();
 
     // ---- Placement: one main, up to six per mode, own approved photos only.
-    const place = (who, scope, mediaIds) => call(tk[who], '/api/me/photos/placement', { method: 'PUT', body: { scope, mediaIds } });
-    assert.equal((await place('ana', 'friends', [extraIds[0], extraIds[1]])).status, 200); pass();
+    const place = (who, scope, mediaIds, mainMediaId = null) => call(tk[who], '/api/me/photos/placement', { method: 'PUT', body: { scope, mediaIds, mainMediaId } });
+    assert.equal((await place('ana', 'friends', [first, extraIds[0], extraIds[1]], first)).status, 200); pass();
     assert.equal((await place('ana', 'dating', [extraIds[2]])).status, 200); pass();
     assert.deepEqual(code(await place('ana', 'main', [first, extraIds[0]])), [400, 'invalid-placement']); pass();
     assert.deepEqual(code(await place('ana', 'nonsense', [first])), [400, 'invalid-placement']); pass();
     assert.deepEqual(code(await place('ana', 'friends', [first, first])), [400, 'invalid-placement']); pass();
-    assert.deepEqual(code(await place('ana', 'friends', Array.from({ length: 7 }, () => crypto.randomUUID()))), [400, 'invalid-placement']); pass();
+    assert.deepEqual(code(await place('ana', 'friends', Array.from({ length: 9 }, () => crypto.randomUUID()))), [400, 'invalid-placement']); pass();
     assert.deepEqual(code(await place('ben', 'friends', [first])), [409, 'photo-not-approved'], "someone else's photo"); pass();
     assert.deepEqual(code(await place('ana', 'friends', [crypto.randomUUID()])), [409, 'photo-not-approved']); pass();
     const tampered = await fetch(api + '/api/me/photos/placement', { method: 'PUT', headers: { Authorization: 'Bearer ' + tk.ana, 'Content-Type': 'application/json' }, body: '{"scope":"main","mediaIds":"all"}' });
@@ -151,7 +152,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     let person = (await call(tk.ben, `/api/profiles/${pub.ana}?mode=friends`)).body;
     assert.equal(person.photo.id, first); pass();
     const friendsPhotos = person.modes.find(m => m.id === 'friends').photos.map(p => p.id);
-    assert.deepEqual(friendsPhotos, [extraIds[0], extraIds[1]]); pass();
+    assert.deepEqual(friendsPhotos, [first, extraIds[0], extraIds[1]]); pass();
     assert.ok(!JSON.stringify(person).includes(extraIds[2]), 'a Dating photo never shows in Friends'); pass();
     assert.equal((await call(tk.cam, `/api/profiles/${pub.ana}?mode=friends`)).status, 404, 'blocked: no profile, no links'); pass();
     assert.ok(!JSON.stringify((await call(tk.cam, '/api/explore?mode=friends')).body).includes(first)); pass();
@@ -163,16 +164,16 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     assert.equal((await fetch(web + '/media/' + token.replace('.member.', '.review.'))).status, 404); pass();
     // Profile versions carry photo ids and hashes (#91).
     const core = await sql(`SELECT content_json FROM profile_versions WHERE account_id = '${id.ana}' AND mode_id = 'core' ORDER BY captured_at DESC LIMIT 1`);
-    assert.ok(core.includes(first) && core.includes(row[4]), 'core version names the main photo and hash'); pass();
+    assert.ok(!core.includes(first), 'new core versions no longer expose a shared main'); pass();
     const friendsVersion = await sql(`SELECT content_json FROM profile_versions WHERE account_id = '${id.ana}' AND mode_id = 'friends' ORDER BY captured_at DESC LIMIT 1`);
-    assert.ok(friendsVersion.includes(extraIds[0]) && !friendsVersion.includes(extraIds[2])); pass();
+    assert.ok(friendsVersion.includes(first) && friendsVersion.includes(row[4]) && friendsVersion.includes(extraIds[0]) && !friendsVersion.includes(extraIds[2])); pass();
 
     // ---- Replacement is screened again and takes over the original's places once it passes.
     r = await up('ana', await jpeg(20), { replaces: first });
     assert.equal(r.status, 202); assert.equal(r.body.replaces, first); pass();
     assert.equal((await settle('ana', r.body.id)).state, 'approved'); pass();
     own = (await mine('ana')).body;
-    assert.equal(own.main, r.body.id); assert.ok(!own.photos.some(p => p.id === first)); pass();
+    assert.equal(own.mains.friends, r.body.id); assert.ok(!own.photos.some(p => p.id === first)); pass();
     assert.equal((await fetch(web + '/media/' + token)).status, 404, "the replaced photo's link stops working"); pass();
     for (let i = 0; i < 20 && await sql(`SELECT coalesce(object_key, 'none') FROM media_items WHERE id = '${first}'`) !== 'none'; i++) await sleep(500);
     assert.equal(await sql(`SELECT status || '|' || coalesce(object_key, 'none') FROM media_items WHERE id = '${first}'`), 'Removed|none', 'replaced object deleted'); pass();
@@ -184,7 +185,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     assert.deepEqual(code(await up('ben', await jpeg(30))), [429, 'upload-limit']); pass();
     await sql(`UPDATE media_items SET created_at = now() - interval '2 hours', status = 'Rejected' WHERE account_id = '${id.ben}'`);
     await sql(`INSERT INTO media_items (id, account_id, status, sha256, upload_sha256, content_type, width, height, bytes, created_at, screen_attempts, known_content_checked)
-      SELECT gen_random_uuid(), '${id.ben}', 'Rejected', ''::bytea, ''::bytea, 'image/jpeg', 1, 1, 1, now() - interval '2 hours', 0, false FROM generate_series(1, 10)`);
+      SELECT gen_random_uuid(), '${id.ben}', 'Rejected', ''::bytea, ''::bytea, 'image/jpeg', 1, 1, 1, now() - interval '2 hours', 0, false FROM generate_series(1, 40)`);
     assert.deepEqual(code(await up('ben', await jpeg(31))), [409, 'photo-limit']); pass();
     await sql(`DELETE FROM media_items WHERE account_id = '${id.ben}' AND object_key IS NULL`);
     assert.equal((await call(st.adm, `/api/admin/accounts/${id.dee}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction', days: 2 } })).status, 200);
@@ -193,7 +194,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     // ---- Staff routes: admins only.
     assert.equal((await call(null, '/api/admin/media/review')).status, 401); pass();
     assert.equal((await call(tk.ana, '/api/admin/media/review')).status, 403, 'member'); pass();
-    assert.equal((await call(st.sup, '/api/admin/media/review')).status, 403, 'support'); pass();
+    assert.equal((await call(st.sup, '/api/admin/media/review')).status, 200, 'support routine review'); pass();
     assert.equal((await call(st.leg, '/api/admin/media/review')).status, 403, 'legal'); pass();
     assert.equal((await call(st.adm, '/api/admin/media/review')).status, 200); pass();
 
@@ -210,7 +211,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     let queue = (await call(st.adm, '/api/admin/media/review')).body;
     assert.ok(queue.items.some(i => i.id === unsure && i.reason === 'nudity-signal')); pass();
     assert.deepEqual(code(await call(st.adm, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: '' } })), [400, 'purpose-required']); pass();
-    assert.equal((await call(st.sup, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'x' } })).status, 403); pass();
+    assert.equal((await call(st.sup, `/api/admin/media/${unsure}/view`, { method: 'POST', body: { purpose: 'x' } })).status, 200); pass();
     assert.deepEqual(code(await call(st.adm, `/api/admin/media/${crypto.randomUUID()}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo']); pass();
     assert.deepEqual(code(await call(st.adm, `/api/admin/media/${mainId}/view`, { method: 'POST', body: { purpose: 'x' } })), [404, 'unknown-photo'], 'approved photos are not for casual viewing'); pass();
     // A conflict of interest keeps the reviewer away.
@@ -226,7 +227,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     assert.ok(Number(await sql(`SELECT count(*) FROM sensitive_access_log WHERE resource = 'media' AND resource_id = '${unsure}' AND action = 'view'`)) >= 1, 'view logged'); pass();
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE target_id = '${unsure}' AND detail LIKE '%Fictional%'`), '0', 'the purpose stays out of the audit'); pass();
     assert.deepEqual(code(await call(st.adm, `/api/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'publish' } })), [400, 'invalid-decision']); pass();
-    assert.equal((await call(st.sup, `/api/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 403); pass();
+    assert.equal((await call(st.leg, `/api/admin/media/${unsure}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 403); pass();
     // Admin app: blurred until revealed, then approved there.
     const adminPage = await browser.newPage();
     await adminPage.goto(admin + '/');
@@ -234,24 +235,23 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     await adminPage.waitForURL(admin + '/**');
     await adminPage.goto(admin + '/media');
     await adminPage.waitForSelector(`[data-media-item="${unsure}"]`); pass();
-    await adminPage.fill(`[data-purpose="${unsure}"]`, 'Fictional review in the admin app');
-    await adminPage.click(`[data-view="${unsure}"]`);
+    await adminPage.locator(`[data-review-open="${unsure}"]`).click();
+    assert.equal(await adminPage.locator('[data-media-image]').count(), 0, 'concealed before an explicit audited reveal'); pass();
+    await adminPage.locator('[data-reveal]').click();
     await adminPage.waitForSelector(`[data-media-image="${unsure}"]`);
     await adminPage.waitForFunction(id => document.querySelector(`[data-media-image="${id}"]`).naturalWidth > 0, unsure);
-    assert.match(await adminPage.$eval(`[data-media-image="${unsure}"]`, e => getComputedStyle(e).filter), /blur/, 'blurred by default'); pass();
-    await adminPage.click(`label[for="reveal-${unsure}"]`);
     assert.equal(await adminPage.$eval(`[data-media-image="${unsure}"]`, e => getComputedStyle(e).filter), 'none'); pass();
     if (output) await adminPage.screenshot({ path: output + '/admin-photo-review.png', fullPage: true });
-    await adminPage.click(`[data-approve="${unsure}"]`);
-    await adminPage.waitForSelector('[data-result="ok"]'); pass();
+    await adminPage.selectOption('[data-photo-decision]', 'APPROVED_STANDARD'); await adminPage.locator('[data-photo-decide]').click();
+    await waitFor(async () => (await mine('ana')).body.photos.find(p => p.id === unsure).state === 'approved'); pass();
     assert.equal((await mine('ana')).body.photos.find(p => p.id === unsure).state, 'approved'); pass();
-    // A second uncertain photo is rejected: off the profile, object deleted, reads as "not approved".
+    // A second uncertain photo is rejected: off the profile, retained privately for thirty days, reads as not approved.
     r = await up('ana', await jpeg(41), { base: EXTRA });
     const refused = r.body.id;
     await settle('ana', refused);
     assert.equal((await call(st.adm, `/api/admin/media/${refused}/decision`, { method: 'POST', body: { decision: 'reject', reason: 'Fictional: explicit content' } })).status, 200); pass();
     assert.equal((await mine('ana')).body.photos.find(p => p.id === refused).state, 'not-approved'); pass();
-    assert.equal(await sql(`SELECT coalesce(object_key, 'none') FROM media_items WHERE id = '${refused}'`), 'none'); pass();
+    assert.notEqual(await sql(`SELECT coalesce(object_key, 'none') FROM media_items WHERE id = '${refused}'`), 'none', 'retained privately for appeal window'); pass();
 
     // ---- Blocked (simulated known-content match): sealed evidence, Serious Safety Incident, provisional hold, ids-only escalation.
     await extraApi({ Media__Screening__Simulate: 'blocked' });
@@ -317,25 +317,27 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     const evePage = await phone.newPage();
     await evePage.goto(web + '/account/sign-in?intro=done');
     await evePage.fill('#username', members.eve.email); await evePage.fill('#password', members.eve.password);
-    await Promise.all([evePage.waitForURL(web + '/account'), evePage.click('#kc-login')]);
+    await Promise.all([evePage.waitForURL(web + '/explore'), evePage.click('#kc-login')]);
     await evePage.locator('[data-photos-link]').first().evaluate(a => a.click());
     await evePage.waitForSelector('[data-photos-panel="ready"]');
     await evePage.setInputFiles('[data-photo-input]', { name: 'synthetic.png', mimeType: 'image/png', buffer: await synthetic(canvas, { kind: 'gradient', seed: 70 }) });
     await evePage.waitForSelector('[data-photo-state="approved"]', { timeout: 45000 }); pass();
     await evePage.waitForFunction(() => document.querySelector('[data-photo-image]')?.naturalWidth > 0);
-    assert.equal(await evePage.getAttribute('[data-photo-state="approved"]', 'data-photo-main'), 'yes'); pass();
+    assert.equal((await mine('eve')).body.main, null, 'approval never selects a main'); pass();
+    await evePage.locator('[data-photo-mode=friends]').click();
     await evePage.locator('[data-mode-photo^="friends:"]').first().evaluate(e => e.click());
-    await evePage.waitForSelector('[data-mode-photos="friends"][data-mode-photo-count="1"]'); pass();
+    await evePage.waitForSelector('[data-mode-photos="friends"][data-mode-photo-count="1"]');
+    await evePage.locator('[data-mode-make-main]').first().click(); pass();
     if (output) await evePage.screenshot({ path: output + '/web-photos.png', fullPage: true });
     const benPage = await phone.newPage();
     await phone.clearCookies();
     await benPage.goto(web + '/account/sign-in?intro=done');
     await benPage.fill('#username', members.ben.email); await benPage.fill('#password', members.ben.password);
-    await Promise.all([benPage.waitForURL(web + '/account'), benPage.click('#kc-login')]);
+    await Promise.all([benPage.waitForURL(web + '/explore'), benPage.click('#kc-login')]);
     await benPage.goto(`${web}/people/${pub.ana}?mode=friends`);
     await benPage.waitForSelector('[data-person-photo="main"]');
     await benPage.waitForFunction(() => document.querySelector('[data-person-photo="main"]').naturalWidth > 0); pass();
-    assert.equal(await benPage.locator('[data-person-photo="friends"]').count(), 2); pass();
+    assert.equal(await benPage.locator('[data-person-photo="friends"]').count(), 3); pass();
     assert.equal(await benPage.locator('[data-person-photo="dating"]').count(), 0); pass();
     if (output) await benPage.screenshot({ path: output + '/web-person-photos.png', fullPage: true });
     await benPage.goto(web + '/explore?mode=friends');

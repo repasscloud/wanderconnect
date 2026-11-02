@@ -9,6 +9,17 @@ namespace Swoovr.Client;
 /// </summary>
 public sealed class AdminClient(HttpClient transport)
 {
+    public Task<ApiResult<RegisteredNamesView>> RegisteredNamesAsync(Guid id,CancellationToken token=default)=>SendAsync<RegisteredNamesView>(HttpMethod.Get,$"api/admin/accounts/{id}/registered-names",null,token);
+    public Task<ApiResult<StaffAgeAssurance>> AssuranceAsync(Guid id,CancellationToken token=default)=>SendAsync<StaffAgeAssurance>(HttpMethod.Get,$"api/admin/accounts/{id}/assurance",null,token);
+    public Task<ApiResult<StaffDateOfBirth>> ProfileDobAsync(Guid id,string purpose,CancellationToken token=default)=>SendAsync<StaffDateOfBirth>(HttpMethod.Post,$"api/admin/accounts/{id}/date-of-birth",new IdentityAccessRequest(purpose),token);
+    public Task<ApiResult<StaffProfilePreview>> ProfilePreviewAsync(Guid id,CancellationToken token=default)=>SendAsync<StaffProfilePreview>(HttpMethod.Get,$"api/admin/accounts/{id}/profile-preview",null,token);
+    public Task<ApiResult<List<StaffProfilePhoto>>> ProfilePhotosAsync(Guid id,CancellationToken token=default)=>SendAsync<List<StaffProfilePhoto>>(HttpMethod.Get,$"api/admin/accounts/{id}/profile-photos",null,token);
+    public Task<ApiResult<MediaReviewLink>> InspectProfilePhotoAsync(Guid id,Guid photo,string purpose,CancellationToken token=default)=>SendAsync<MediaReviewLink>(HttpMethod.Post,$"api/admin/accounts/{id}/profile-photos/{photo}/view",new MediaViewRequest(purpose),token);
+    public Task<ApiResult<StaffActionPage>> AccountHistoryAsync(Guid id,long? before=null,CancellationToken token=default)=>SendAsync<StaffActionPage>(HttpMethod.Get,$"api/admin/accounts/{id}/action-history"+(before is{}cursor?"?before="+cursor:""),null,token);
+    public Task<ApiResult<List<DobGrantView>>> DobGrantsAsync(Guid id,CancellationToken token=default)=>SendAsync<List<DobGrantView>>(HttpMethod.Get,$"api/admin/accounts/{id}/dob-correction",null,token);
+    public Task<ApiResult<DobGrantView>> GrantDobCorrectionAsync(Guid id,string reason,CancellationToken token=default)=>SendAsync<DobGrantView>(HttpMethod.Post,$"api/admin/accounts/{id}/dob-correction",new DobGrantRequest(reason),token);
+    public Task<ApiResult<DobGrantView>> RevokeDobCorrectionAsync(Guid id,Guid grant,CancellationToken token=default)=>SendAsync<DobGrantView>(HttpMethod.Post,$"api/admin/accounts/{id}/dob-correction/{grant}/revoke",new{},token);
+    public Task<ApiResult<List<DobHistoryView>>> DobHistoryAsync(Guid id,string purpose,CancellationToken token=default)=>SendAsync<List<DobHistoryView>>(HttpMethod.Post,$"api/admin/accounts/{id}/dob-history",new IdentityAccessRequest(purpose),token);
     private readonly HttpClient http = ApiContractClient.Configure(transport);
 
     public async Task<ApiResult<BannedIdentifierPage>> RegistryAsync(Guid? caseId = null,bool due = true,Guid? after = null,CancellationToken cancellationToken = default)
@@ -299,6 +310,16 @@ public sealed class AdminClient(HttpClient transport)
         SendAsync<List<SafetyRevisionView>>(HttpMethod.Get, "api/admin/safety/revisions?country=" + Uri.EscapeDataString(country ?? ""), null, cancellationToken);
 
     /// <summary>D203: uncertain photos waiting for review (admins only).</summary>
+    public Task<ApiResult<MediaReviewQueue>> MediaReviewPageAsync(int page, string? kind = null, string? reason = null, CancellationToken token = default) =>
+        SendAsync<MediaReviewQueue>(HttpMethod.Get, $"api/admin/media/review?page={page}" + (kind is null ? "" : "&kind=" + Uri.EscapeDataString(kind)) + (reason is null ? "" : "&reason=" + Uri.EscapeDataString(reason)), null, token);
+    public Task<int> AcknowledgePhotoSafetyAsync(string version, bool confirmed, CancellationToken token = default) => StatusAsync(HttpMethod.Post, "api/admin/media/safety-ack", new MediaSafetyAck(version, confirmed), token);
+    public Task<ApiResult<PhotoWorkload>> PhotoWorkloadAsync(CancellationToken token = default) => SendAsync<PhotoWorkload>(HttpMethod.Get, "api/admin/media/workload", null, token);
+    public Task<ApiResult<PhotoDecisionPage>> PhotoHistoryAsync(int page = 1, string? decision = null, CancellationToken token = default) => SendAsync<PhotoDecisionPage>(HttpMethod.Get, $"api/admin/media/history?page={page}" + (decision is null ? "" : "&decision=" + Uri.EscapeDataString(decision)), null, token);
+    public Task<ApiResult<PhotoAppealPage>> PhotoAppealsAsync(int page = 1, CancellationToken token = default) => SendAsync<PhotoAppealPage>(HttpMethod.Get, $"api/admin/media/appeals?page={page}", null, token);
+    public Task<int> ResolvePhotoAppealAsync(Guid id, PhotoAppealResolution request, CancellationToken token = default) => StatusAsync(HttpMethod.Post, $"api/admin/media/appeals/{id}/resolve", request, token);
+    public Task<int> ReconsiderPhotoAsync(Guid id, string reason, CancellationToken token = default) => StatusAsync(HttpMethod.Post, $"api/admin/media/{id}/reconsider", new PhotoAppealResolution("approve", reason), token);
+    public Task<ApiResult<MediaReviewLink>> ViewRejectedPhotoAsync(Guid id, string purpose, CancellationToken token = default) => SendAsync<MediaReviewLink>(HttpMethod.Post, $"api/admin/media/{id}/appeal-view", new MediaViewRequest(purpose), token);
+
     public Task<ApiResult<MediaReviewQueue>> MediaReviewAsync(CancellationToken cancellationToken = default) =>
         SendAsync<MediaReviewQueue>(HttpMethod.Get, "api/admin/media/review", null, cancellationToken);
 
@@ -334,6 +355,9 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<List<TextHarmCandidateSummary>>> TextHarmCandidatesAsync(Guid caseId,CancellationToken token=default)=>SendAsync<List<TextHarmCandidateSummary>>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates",null,token);
     public Task<ApiResult<TextHarmCandidateEvidence>> TextHarmEvidenceAsync(Guid caseId,Guid reviewId,CancellationToken token=default)=>SendAsync<TextHarmCandidateEvidence>(HttpMethod.Get,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",null,token);
     public Task<ApiResult<TextHarmCandidateReviewReceipt>> ReviewTextHarmAsync(Guid caseId,Guid reviewId,TextHarmCandidateReviewRequest request,CancellationToken token=default)=>SendAsync<TextHarmCandidateReviewReceipt>(HttpMethod.Post,$"api/admin/cases/{caseId}/text-candidates/{reviewId}",request,token);
+
+    public Task<ApiResult<RegistrationAvailabilityView>> RegistrationAvailabilityAsync(CancellationToken token=default)=>SendAsync<RegistrationAvailabilityView>(HttpMethod.Get,"api/admin/registration",null,token);
+    public Task<ApiResult<RegistrationAvailabilityView>> UpdateRegistrationAvailabilityAsync(RegistrationAvailabilityUpdate update,CancellationToken token=default)=>SendAsync<RegistrationAvailabilityView>(HttpMethod.Put,"api/admin/registration",update,token);
 
     public Task<ApiResult<List<BetaEnrolmentView>>> BetaEnrolmentsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<BetaEnrolmentView>>(HttpMethod.Get, "api/admin/beta", null, cancellationToken);

@@ -25,7 +25,7 @@ try{
  check((await call(tokens.first,'/api/me/policies')).body.requiredVersion===null,'real API has no approved legal requirement');
  check((await call(tokens.first,'/api/me/policies/accept',{method:'POST',body:{version:'draft-2026-10-30-0.1',confirm:true}})).status===400,'draft acceptance refused by real API');
  check(await sql('SELECT count(*) FROM policy_acceptances')==='0','no implicit or draft acceptance rows');
- await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',members.first.email);await page.fill('#password',members.first.password);await Promise.all([page.waitForURL(web+'/account'),page.click('#kc-login')]);await page.waitForSelector('[data-account-panel=ready]');
+ await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',members.first.email);await page.fill('#password',members.first.password);await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');await page.waitForSelector('[data-account-panel=ready]');
  check(await page.locator('[data-safety-advice]').count()===1,'first-use Me prominently shows advice before profile setup');check(await page.locator('a[href="/terms"]').count()>0&&await page.locator('a[href="/community-guidelines"]').count()>0,'Me links draft policies');
  await page.screenshot({path:path.join(folder,'first-use-advice-390.png'),fullPage:true});
  await page.goto(web+'/account/policies');await page.waitForSelector('[data-policy-none]');check(await page.locator('input[type=checkbox]').count()===0,'no checkbox when no approved requirement exists');

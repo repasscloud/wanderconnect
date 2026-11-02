@@ -18,10 +18,11 @@
 
 </header>
 <main id="main-content" tabindex="-1">@Body</main>
-<footer class="app-footer"><p>Starting in Adelaide · Adults 18+</p><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community guidelines</a> <a href="/privacy">Privacy notice</a> <a href="/safety/advice">Safety advice</a> @if (SignedIn) { <a href="/settings/appearance">Appearance</a> } <a href="https://swoovr.com/support">Support</a></nav></footer>
+<footer class="app-footer"><p>Starting in Adelaide · Adults 18+</p><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community guidelines</a> <a href="/privacy">Privacy notice</a> <a href="/safety/advice">Safety advice</a> @if (SignedIn) { <a href="/settings/appearance">Appearance</a> } <a href="https://swoovr.com/support">Support</a></nav><small class="field-help">Version @BuildVersion</small></footer>
 </div>
 @code {
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    private static string BuildVersion => typeof(Swoovr.Web.Components.App).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false).Cast<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion is{}v ? (v.Contains('+') ? v.Split('+')[0]+" · build "+v.Split('+')[1][..Math.Min(8,v.Split('+')[1].Length)] : v) : "1.0.0";
     private bool SignedIn => HttpContext?.User.Identity?.IsAuthenticated == true;
     private bool Prototype => Environment.IsDevelopment() && Configuration.GetValue<bool>("Prototype:Enabled");
     private string Path => "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0];

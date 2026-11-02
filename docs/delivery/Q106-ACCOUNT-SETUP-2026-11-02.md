@@ -13,3 +13,5 @@ Peer review found and corrected missing name/policy recovery branches in the sha
 Safety-advice acknowledgements are included in own export and ordinary deletion. Legal-hold capture seals the stored revision and actual acknowledgement time when in scope; replacing an older revision preserves covered evidence first.
 
 Coordinated pre-commit gate `integrated-check-8`: `./scripts/check.sh` exit0, 690 disposable PostgreSQL cases and all three HTTP smoke stages, zero build warnings/errors. Owned onboarding already passed; phone-enabled and physical-native acceptance remain separate.
+
+Final native compilation checkpoint (3 November): Android Debug and iOS simulator-arm64 Debug both passed, zero warnings/errors (`android-final.log`, `ios-final.log` in private overnight evidence). These are compilation checks, not physical-device, provider or store acceptance.

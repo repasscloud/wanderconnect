@@ -92,7 +92,7 @@ module.exports.run=async({base,container,bootstrapUser,bootstrapPassword,folder,
   const sourceId=await query(`SELECT id FROM accounts WHERE subject='${sourceToken.claims.sub}'`),reviewerId=await query(`SELECT id FROM accounts WHERE subject='${reviewToken.claims.sub}'`),supportId=await query(`SELECT id FROM accounts WHERE subject='${supportToken.claims.sub}'`);
   // Explicit application-role fixtures; no invitation/hosted Entra or identity ownership claim.
   await query(`INSERT INTO role_grants(id,account_id,role,granted_at) VALUES('${crypto.randomUUID()}','${reviewerId}','Admin',now()),('${crypto.randomUUID()}','${supportId}','Support',now())`);
-  equal((await call(sourceToken.access,'/api/me/age','PUT',{dateOfBirth:'1990-01-01'})).status,200,'Fictional source is an adult');
+  equal((await call(sourceToken.access,'/api/me/age','PUT',{dateOfBirth:'1990-01-01',confirmed:true})).status,200,'Fictional source is an adult');
   equal((await call(sourceToken.access,'/api/me/profile','PUT',{displayName:'Fictional Original Retained Profile'})).status,200,'Original profile has its own content');
   equal((await call(reviewToken.access,'/api/admin/access/grants','POST',{capability:'termination',purpose:'Fictional owned contact workflow'})).status,201,'Separate termination capability');
   equal((await call(reviewToken.access,'/api/admin/accounts/'+sourceId+'/sanctions','POST',{action:'terminate',reason:'Fictional original safety case'})).status,200,'Source terminated through API');

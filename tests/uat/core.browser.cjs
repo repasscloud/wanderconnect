@@ -8,7 +8,7 @@ const {web,createMember,memberToken,cli,matchReady,call}=require('../auth/local-
   const members=await Promise.all(['a','b'].map(x=>createMember('uat-core-'+x)));await cli('beta','add',...members.map(m=>m.email));const clients=[];
   for(const [i,member] of members.entries()){
    const token=await memberToken(edge.browser,member);assert.equal((await call(token,'/api/me/profile',{method:'PUT',body:{displayName:'Fictional UAT '+(i?'B':'A'),homeCityId:2078025}})).status,200);await matchReady(token);assert.equal((await call(token,'/api/me/modes/friends',{method:'PUT',body:{enabled:true,visible:true}})).status,200);
-   const context=await edge.browser.newContext();const page=await context.newPage();await page.goto(web+'/account/sign-in');await page.fill('#username',member.email);await page.fill('#password',member.password);await page.click('#kc-login');await page.waitForURL(web+'/account');
+   const context=await edge.browser.newContext();const page=await context.newPage();await page.goto(web+'/account/sign-in');await page.fill('#username',member.email);await page.fill('#password',member.password);await page.click('#kc-login');await page.waitForURL(web+'/explore');await page.goto(web+'/account');
    clients.push(async(path,{method='GET',body}={})=>{const response=await context.request.fetch(web+'/bff'+path,{method,headers:{'X-Swoovr-Bff':'1','Swoovr-Version':'2026-10-28'},...(body===undefined?{}:{data:body})});return {status:response.status(),body:response.status()===204?null:await response.json().catch(()=>null)};});
   }
   const result=await journeyCore(...clients,()=>checks++);assert.equal(result.steps,7);assert.equal(checks,7);

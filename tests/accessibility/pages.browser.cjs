@@ -38,7 +38,7 @@ const audit = require('./audit.cjs');
     const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', member.email); await page.fill('#password', member.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     for (const [path, ready] of [['/account', 'main h1'], ['/account/policies','[data-policy-none]'], ['/me/meeting-safety','[data-meeting-plan-form]'], ['/me/profile', '[data-profile-editor="ready"]'], ['/me/photos', '[data-photos-panel="ready"]'],
       ['/explore?mode=friends', '.people-grid, [data-explore-empty], [data-explore-local]'], ['/connections', 'main h1'], ['/chats', 'main h1'], ['/me/safety', '[data-safety-services]'],
       ['/me/matching', 'main h1'], ['/travel', 'main h1'], ['/account/data', '[data-privacy-link]'], ['/me/notices', 'main h1'], ['/me/verification', 'main h1'],

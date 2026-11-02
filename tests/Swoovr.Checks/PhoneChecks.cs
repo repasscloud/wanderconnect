@@ -100,6 +100,22 @@ static class PhoneChecks
         Expect(wrongKey, "the wrong key reads nothing");
         Expect(!ContactHistoryPolicy.Encrypt(1, encKey, number).SequenceEqual(ContactHistoryPolicy.Encrypt(1, encKey, number)), "a fresh nonce each time");
 
+        var receipt=new ContactChangeEvidence(me,now.AddMinutes(-2),now,now,now,"phone-code",new string('a',64),"EmailPassword",true,true,now.AddMinutes(-3),now.AddMinutes(-3),new string('b',64));
+        var protectedChange=ContactHistoryPolicy.Record(me,ContactType.Mobile,number,now.AddDays(-40),now,me,"changed",1,encKey,key,receipt);
+        var historyKeys=new Dictionary<byte,byte[]>{[1]=encKey};
+        Expect(ContactHistoryPolicy.Decrypt(historyKeys,protectedChange.EncryptedValue)==number,"history envelope preserves the previous value API");
+        Expect(ContactHistoryPolicy.Evidence(historyKeys,protectedChange.EncryptedValue)==receipt,"request verification activation clocks and session correlation share protected payload");
+        Expect(ContactHistoryPolicy.Evidence(historyKeys,record.EncryptedValue)is null,"legacy records invent no security receipt");
+        Expect(protectedChange.LookupHmac.SequenceEqual(record.LookupHmac)&&protectedChange.RetainUntil==record.RetainUntil,"receipt never changes exact lookup or retention");
+        Expect(!System.Text.Encoding.UTF8.GetString(protectedChange.EncryptedValue).Contains(new string('a',64)),"session correlation and metadata never stored as plaintext");
+        var version2=new byte[32];version2[0]=17;historyKeys[2]=version2;
+        var rotated=SecurityOperationsPolicy.Reseal(protectedChange.EncryptedValue,historyKeys,2)!;
+        Expect(ContactHistoryPolicy.Evidence(historyKeys,rotated)==receipt&&ContactHistoryPolicy.Decrypt(historyKeys,rotated)==number,"key rotation preserves full contact evidence envelope");
+        var invalidReceipt=receipt with{VerifiedAt=receipt.RequestedAt!.Value.AddSeconds(-1)};
+        var invalidRefused=false;try{ContactHistoryPolicy.Record(me,ContactType.Mobile,number,null,now,me,"changed",1,encKey,key,invalidReceipt);}catch(ArgumentException){invalidRefused=true;}
+        Expect(invalidRefused,"impossible clock ordering refused before persistence");
+        var emailReceipt=receipt with{Source="validated-email-claim",RequestedAt=null,VerifiedAt=null};
+        Expect(emailReceipt.Valid,"provider-unknown clocks remain explicitly absent rather than fabricated");
         var claimAt=now.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
         Expect(!EmailClaimPolicy.CanAdopt(claimAt,null,now),"unknown acceptance clock refuses contact adoption");
         Expect(EmailClaimPolicy.CanAdopt(claimAt,now.AddSeconds(-1),now),"newer email evidence can advance accepted contact");

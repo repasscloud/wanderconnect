@@ -30,3 +30,7 @@ SHA-256 identifies the owner-supplied text before this approval record was added
 - #55, #113, #118, #119, #120, #121: revised Code gap analysis/register, terms, retention and policy notices. Existing closed issues are not reopened; organisational work and actual publication remain separate.
 
 No issue is closed solely by this approval record. No deployment, migration, acceptance activation or merge is performed.
+
+## Operative reader activation — D290
+
+The owner subsequently confirmed 141.2 Yes and directed removal of pre-approval reader labels. D290 activates the public readers separately from this historical approval snapshot. Runtime metadata and obsolete statements that the terms are not in force or the approved schedule still awaits legal review are updated; obligations and retention periods are retained. Reading/sign-in still does not record consent, and no required-acceptance catalogue or notification campaign is silently enabled. The SHA table above remains the historical owner-supplied snapshot, not the hashes of later implementation files.

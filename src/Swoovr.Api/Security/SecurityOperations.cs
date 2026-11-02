@@ -196,6 +196,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
         {
             case "contact-history":
                 foreach (var row in await db.ContactHistories.ToListAsync(cancellationToken)) Apply(row.EncryptedValue, v => row.EncryptedValue = v);
+                foreach(var row in await db.PhoneCodes.Where(c=>c.RequestEvidence!=null).ToListAsync(cancellationToken))Apply(row.RequestEvidence!,v=>row.RequestEvidence=v);
                 foreach (var row in await db.EmailRetirementOperations.ToListAsync(cancellationToken)) Apply(row.EncryptedCommand, v => row.EncryptedCommand = v);
                 foreach (var row in await db.TrustedContacts.ToListAsync(cancellationToken)) Apply(row.DestinationEncrypted, v => row.DestinationEncrypted = v);
                 break;
@@ -217,6 +218,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
                 break;
             default:
                 foreach (var record in await db.VerifiedIdentities.ToListAsync(cancellationToken)) Apply(record.Sealed, v => record.Sealed = v);
+                foreach(var record in await db.DobChangeHistories.ToListAsync(cancellationToken))Apply(record.Sealed,v=>record.Sealed=v);
                 break;
         }
         Audit.Record(db, DateTimeOffset.UtcNow, null, "system", "keys.rotated", null, null, $"{set}:v{target}:resealed:{resealed}");
@@ -229,10 +231,10 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
     {
         var firsts = set switch
         {
-            "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).Concat(db.EmailRetirementOperations.Select(o=>o.EncryptedCommand)).Concat(db.TrustedContacts.Select(c=>c.DestinationEncrypted)).ToListAsync(cancellationToken),
+            "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).Concat(db.PhoneCodes.Where(c=>c.RequestEvidence!=null).Select(c=>c.RequestEvidence!)).Concat(db.EmailRetirementOperations.Select(o=>o.EncryptedCommand)).Concat(db.TrustedContacts.Select(c=>c.DestinationEncrypted)).ToListAsync(cancellationToken),
             "evidence" => await db.EvidenceItems.Select(i => i.Sealed).Concat(db.Set<TextHarmIntent>().Where(r=>r.SealedText!=null).Select(r=>r.SealedText!)).Concat(db.Set<TextHarmReview>().Where(r=>r.SealedEvidence!=null).Select(r=>r.SealedEvidence!)).Concat(db.Set<ContentRemoval>().Where(r=>r.SealedSnapshot!=null).Select(r=>r.SealedSnapshot!)).ToListAsync(cancellationToken),
             "police" => (await db.Reports.Where(r => r.PoliceReference != null).Select(r => r.PoliceReference).ToListAsync(cancellationToken)).Select(v => v!).ToList(),
-            _ => await db.VerifiedIdentities.Select(i => i.Sealed).ToListAsync(cancellationToken),
+            _ => await db.VerifiedIdentities.Select(i => i.Sealed).Concat(db.DobChangeHistories.Select(i=>i.Sealed)).ToListAsync(cancellationToken),
         };
         return firsts.Where(v => v.Length > 0).GroupBy(v => v[0]).ToDictionary(g => g.Key, g => g.Count());
     }

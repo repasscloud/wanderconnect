@@ -149,6 +149,32 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("realm");
 
+                    b.Property<string>("RegisteredFirstName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("registered_first_name");
+
+                    b.Property<string>("RegisteredLastName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("registered_last_name");
+
+                    b.Property<bool>("RegisteredMononym")
+                        .HasColumnType("boolean")
+                        .HasColumnName("registered_mononym");
+
+                    b.Property<DateTimeOffset?>("RegisteredNamesConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registered_names_confirmed_at");
+
+                    b.Property<bool?>("RegisteredNamesMatchId")
+                        .HasColumnType("boolean")
+                        .HasColumnName("registered_names_match_id");
+
+                    b.Property<long>("RegisteredNamesRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("registered_names_revision");
+
                     b.Property<DateTimeOffset?>("SessionsRevokedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sessions_revoked_at");
@@ -1291,6 +1317,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_message_at");
 
+                    b.Property<string>("OriginModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("origin_mode_id");
+
                     b.Property<Guid>("PairHigh")
                         .HasColumnType("uuid")
                         .HasColumnName("pair_high");
@@ -1520,6 +1551,104 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_disclosures_hold_id");
 
                     b.ToTable("disclosures");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.DobChangeGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("GrantedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("granted_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dob_change_grants");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_dob_change_grants_account_id")
+                        .HasFilter("consumed_at IS NULL AND revoked_at IS NULL");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_dob_change_grants_account_id_created_at");
+
+                    b.ToTable("dob_change_grants", "restricted", t =>
+                        {
+                            t.HasCheckConstraint("ck_dob_grant_window", "expires_at = created_at + interval '24 hours'");
+                        });
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.DobChangeHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at");
+
+                    b.Property<Guid?>("GrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("grant_id");
+
+                    b.Property<DateTimeOffset?>("RetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retain_until");
+
+                    b.Property<byte[]>("Sealed")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dob_change_histories");
+
+                    b.HasIndex("RetainUntil")
+                        .HasDatabaseName("ix_dob_change_histories_retain_until");
+
+                    b.HasIndex("AccountId", "ChangedAt")
+                        .HasDatabaseName("ix_dob_change_histories_account_id_changed_at");
+
+                    b.ToTable("dob_change_histories", "restricted");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.DobReview", b =>
@@ -2227,6 +2356,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("provider_status");
+
+                    b.Property<long>("RegisteredNamesRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("registered_names_revision");
 
                     b.Property<bool>("SelfService")
                         .HasColumnType("boolean")
@@ -3136,6 +3269,116 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MediaAppeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by");
+
+                    b.Property<Guid>("DecisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decision_id");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_media_appeals");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_media_appeals_account_id");
+
+                    b.HasIndex("DecisionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_media_appeals_decision_id");
+
+                    b.HasIndex("DecidedAt", "SubmittedAt")
+                        .HasDatabaseName("ix_media_appeals_decided_at_submitted_at");
+
+                    b.ToTable("media_appeals", (string)null);
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaDecisionRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("decision");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.HasKey("Id")
+                        .HasName("pk_media_decision_records");
+
+                    b.HasIndex("AccountId", "At")
+                        .HasDatabaseName("ix_media_decision_records_account_id_at");
+
+                    b.HasIndex("MediaId", "At")
+                        .HasDatabaseName("ix_media_decision_records_media_id_at");
+
+                    b.ToTable("media_decision_records", (string)null);
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MediaEscalationDelivery", b =>
                 {
                     b.Property<Guid>("MediaId")
@@ -3284,6 +3527,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("purpose");
 
+                    b.Property<DateTimeOffset?>("RejectedRetainUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_retain_until");
+
                     b.Property<DateTimeOffset?>("RemovedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("removed_at");
@@ -3381,6 +3628,12 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("position");
 
+                    b.Property<bool>("IsMain")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_main");
+
                     b.Property<Guid>("MediaId")
                         .HasColumnType("uuid")
                         .HasColumnName("media_id");
@@ -3390,6 +3643,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MediaId")
                         .HasDatabaseName("ix_media_placements_media_id");
+
+                    b.HasIndex(new[] { "AccountId", "Scope" }, "ix_media_placements_one_main")
+                        .IsUnique()
+                        .HasDatabaseName("ix_media_placements_one_main")
+                        .HasFilter("is_main = true");
 
                     b.ToTable("media_placements");
                 });
@@ -3428,6 +3686,27 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_media_review_views_media_id_at");
 
                     b.ToTable("media_review_views");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaSafetyAcknowledgement", b =>
+                {
+                    b.Property<Guid>("StaffAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staff_account_id");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("version");
+
+                    b.Property<DateTimeOffset>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acknowledged_at");
+
+                    b.HasKey("StaffAccountId", "Version")
+                        .HasName("pk_media_safety_acknowledgements");
+
+                    b.ToTable("media_safety_acknowledgements", (string)null);
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MeetingSafetyCheckIn", b =>
@@ -3986,6 +4265,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("about");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("display_name");
 
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean")
@@ -5022,9 +5306,9 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.HasIndex("SourceCaseId", "SubjectAccountId")
                         .HasDatabaseName("ix_moderation_transparency_facts_source_case_id_subject_accoun~");
 
-                    b.HasIndex("SourceKind", "SourceId")
+                    b.HasIndex("SourceKind", "SourceId", "ActionAt")
                         .IsUnique()
-                        .HasDatabaseName("ix_moderation_transparency_facts_source_kind_source_id");
+                        .HasDatabaseName("ix_transparency_source_action");
 
                     b.ToTable("moderation_transparency_facts", null, t =>
                         {
@@ -5302,6 +5586,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<byte[]>("RequestEvidence")
+                        .HasColumnType("bytea")
+                        .HasColumnName("request_evidence");
 
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uuid")
@@ -7826,6 +8114,33 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_market_modes_connection_modes_mode_id");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MediaAppeal", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_appeals_accounts_account_id");
+
+                    b.HasOne("Swoovr.Domain.MediaDecisionRecord", null)
+                        .WithMany()
+                        .HasForeignKey("DecisionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_appeals_media_decision_records_decision_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaDecisionRecord", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_decision_records_accounts_account_id");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MediaEscalationDelivery", b =>
                 {
                     b.HasOne("Swoovr.Domain.MediaItem", null)
@@ -7844,6 +8159,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_media_placements_media_items_media_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MediaSafetyAcknowledgement", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("StaffAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_media_safety_acknowledgements_accounts_staff_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MeetingSafetyCheckIn", b =>

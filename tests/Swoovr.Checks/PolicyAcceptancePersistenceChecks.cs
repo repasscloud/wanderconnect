@@ -29,13 +29,14 @@ static class PolicyAcceptancePersistenceChecks
             var connection=new NpgsqlConnectionStringBuilder(original){Database=name,Pooling=false}.ConnectionString;
             var options=new DbContextOptionsBuilder<SwoovrDbContext>().UseNpgsql(connection).Options;
             await using var db=new SwoovrDbContext(options);await db.Database.MigrateAsync();
+            await db.Database.ExecuteSqlRawAsync("UPDATE registration_availability SET beta_enabled=false,public_enabled=true,revision=revision+1 WHERE id=1");
             var clock=new Clock();var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["Evidence:Keys:1"]=Convert.ToBase64String(Enumerable.Repeat((byte)41,32).ToArray())}).Build();
             const string terms="Fictional approved fixture, not real legal terms.",guidelines="Fictional approved community fixture.";
             var version=new PublicPolicyVersion("fictional-approved-1",PublicPolicyStatus.Approved,clock.Now.AddDays(-1),ApprovedPolicyDocument.Hash(terms,guidelines));
             var catalogue=new ApprovedPolicyCatalogue([new(version,terms,guidelines)]);var empty=new ApprovedPolicyCatalogue();
             check("deployed empty catalogue cannot select fictional approved fixture",empty.Resolve(version.Id,clock.Now).State==PolicyRequirementState.ConfigurationInvalid);
             var a=Guid.NewGuid();var b=Guid.NewGuid();var c=Guid.NewGuid();var staff=Guid.NewGuid();
-            foreach(var id in new[]{a,b,c,staff})db.Accounts.Add(new(){Id=id,Issuer="https://policy-fixture.example.test/realms/members",Subject=id.ToString(),Email="fictional."+id+"@example.test",EmailAcceptedAt=clock.Now.AddDays(-2),Realm=id==staff?AccountRealm.Staff:AccountRealm.Members,Status=AccountStatus.Active,CreatedAt=clock.Now.AddDays(-2),LastSeenAt=clock.Now,IsRootAdmin=id==staff});
+            foreach(var id in new[]{a,b,c,staff})db.Accounts.Add(new(){Id=id,Issuer="https://policy-fixture.example.test/realms/members",Subject=id.ToString(),Email="fictional."+id+"@example.test",EmailAcceptedAt=clock.Now.AddDays(-2),Realm=id==staff?AccountRealm.Staff:AccountRealm.Members,RegisteredFirstName="Fictional",RegisteredLastName="Example",RegisteredNamesConfirmedAt=clock.Now,Status=AccountStatus.Active,CreatedAt=clock.Now.AddDays(-2),LastSeenAt=clock.Now,IsRootAdmin=id==staff});
             foreach(var id in new[]{a,b,c})db.MemberProfiles.Add(new(){AccountId=id,PublicId=Guid.NewGuid(),AgeStatus=AgeStatus.Attested,DateOfBirth=new DateOnly(1990,1,1)});
             await db.SaveChangesAsync();var service=new PolicyAcceptanceService(db,catalogue,config,clock);
             check("no selected version preserves access without inventing acceptance",(await service.StateAsync(a,default)).RequiredVersion==null&&!await db.Set<PolicyAcceptance>().AnyAsync());

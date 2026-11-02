@@ -21,10 +21,11 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout x:Name="AccountPanel" Spacing="16" IsVisible="False">
-                <Border Style="{StaticResource Card}" AutomationId="FirstUseSafetyAdvice">
+                <Border x:Name="FirstUseAdviceCard" IsVisible="False" Style="{StaticResource Card}" AutomationId="FirstUseSafetyAdvice">
                     <VerticalStackLayout Spacing="12">
                         <Label x:Name="AdviceHeading" Style="{StaticResource SectionHeading}" />
                         <Label x:Name="AdviceFirst" /><Label x:Name="AdviceSecond" /><Label x:Name="AdviceThird" />
+                        <Button Text="Got it" AutomationId="AdviceGotIt" Clicked="OnAdviceGotIt" Style="{StaticResource PrimaryButton}" />
                         <Button Text="Connection and meeting advice" AutomationId="FirstUseAdviceOpen" Style="{StaticResource SecondaryButton}" Clicked="OnSafetyAdvice" />
                     </VerticalStackLayout>
                 </Border>
@@ -95,6 +96,7 @@
                 <!-- #103: Safety &amp; Support contacts for anyone, signed in or not; reporting still needs a signed-in member. -->
                 <Button Text="Safety &amp; Support" AutomationId="SafetySupport" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                 <VerticalStackLayout x:Name="MemberSections" Spacing="16" IsVisible="False">
+                        <Button Text="Registered names" AutomationId="RegisteredNames" Clicked="OnRegisteredNames" />
                     <!-- D127: the rest of the app answers age-verification-required until the check passes or support resolves it. -->
                     <Border x:Name="AgeCheckCard" Style="{StaticResource Card}" IsVisible="False" AutomationId="AgeCheckRequired">
                         <VerticalStackLayout Spacing="8">
@@ -134,20 +136,22 @@
 
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="8">
+                            <Label x:Name="SetupAgeStep" Style="{StaticResource FieldLabel}" />
                             <Label Text="Your age" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
                             <!-- D139: a date of birth is required and never shown; the age shows unless hidden (Who I'd like to meet). -->
                             <Label Text="We need your date of birth to show you in discovery. It's never shown; your age is, unless you hide it. Entering it isn't age verification." Style="{StaticResource FooterClaims}" />
                             <Label Text="Date of birth" Style="{StaticResource FieldLabel}" />
                             <DatePicker x:Name="DateOfBirth" AutomationId="DateOfBirth" SemanticProperties.Description="Date of birth" />
                             <Label x:Name="DateOfBirthVerified" AutomationId="DateOfBirthVerified" Text="Verified with your ID. Contact Swoovr support to change it." Style="{StaticResource FooterClaims}" IsVisible="False" />
-                            <Button x:Name="SaveAge" Text="Save" AutomationId="SaveAge" Style="{StaticResource PrimaryButton}" Clicked="OnSaveAge" />
+                            <Button x:Name="SaveAge" Text="Confirm and save" AutomationId="SaveAge" Style="{StaticResource PrimaryButton}" Clicked="OnSaveAge" />
+                            <Button Text="Request a date of birth correction" Clicked="OnDobSupport" />
                             <Label x:Name="AgeMessage" AutomationId="AgeMessage" Style="{StaticResource FooterClaims}" />
                         </VerticalStackLayout>
                     </Border>
 
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="8">
-                            <Label Text="Coupon code" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
+                            <Label Text="Membership &amp; billing — Coupon code" Style="{StaticResource SectionHeading}" SemanticProperties.HeadingLevel="Level2" />
                             <Label Text="Founding members: if you've returned to Swoovr, enter the founder code we emailed you to restore your founding status." Style="{StaticResource FooterClaims}" />
                             <Border Style="{StaticResource InputBorder}">
                                 <Entry x:Name="Coupon" Placeholder="FOUNDER-…" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" SemanticProperties.Description="Code" />

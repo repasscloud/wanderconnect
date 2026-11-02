@@ -56,6 +56,7 @@ public sealed class MediaItem
     public DateTimeOffset? ReviewedAt { get; set; }
     public string? ReviewReason { get; set; }
     public string? ReviewReasonCode { get; set; }
+    public DateTimeOffset? RejectedRetainUntil { get; set; }
     /// <summary>The photo this one replaces once it passes (re-scanned like any upload).</summary>
     public Guid? ReplacesId { get; set; }
     public Guid? CaseId { get; set; }
@@ -76,8 +77,8 @@ public sealed class MediaItem
 }
 
 /// <summary>
-/// Where a passed photo shows: scope `main` (the one main photo, shown in every mode the member is shown in, D175) or a
-/// mode id (photos the member picked for that mode only, #91). Position orders a mode's photos.
+/// D293: a mode gallery placement. Position orders its photos; IsMain is an explicit per-mode selection.
+/// Historic scope `main` rows are retained but never published or automatically assigned.
 /// </summary>
 public sealed class MediaPlacement
 {
@@ -85,6 +86,8 @@ public sealed class MediaPlacement
     public string Scope { get; set; } = "";
     public int Position { get; set; }
     public Guid MediaId { get; set; }
+    /// <summary>D293: explicitly selected main for this mode only; false for all legacy placements.</summary>
+    public bool IsMain { get; set; }
 }
 
 /// <summary>A staff view of an uncertain photo, with the recorded purpose (policy §11). Never possible for a blocked one.</summary>
@@ -108,8 +111,11 @@ public static class MediaPolicy
     /// <summary>The stored copy's longest side and JPEG quality.</summary>
     public const int StoredMaxSide = 2048;
     public const int JpegQuality = 85;
-    public const int MaxPerMode = 6;
-    public const int MaxKept = 30;
+    public const int MaxKept = 60;
+    public static int ModeLimit(PlanTier tier) => tier switch { PlanTier.Premium => 24, PlanTier.Plus => 16, _ => 8 };
+    /// <summary>Downgrade retains and permits reorder/removal of an existing oversized gallery, never excess additions.</summary>
+    public static bool PlacementAllowed(IReadOnlyCollection<Guid> requested, IReadOnlyCollection<Guid> current, int limit) =>
+        requested.Count <= limit || requested.Count <= current.Count && requested.All(current.Contains);
     public const int UploadsPerHour = 20;
     public static readonly TimeSpan LinkLifetime = TimeSpan.FromMinutes(10);
     public const int PurposeMax = 500;
@@ -130,7 +136,7 @@ public static class MediaPolicy
         : MediaUploadError.None;
 
     /// <summary>A placement scope: `main` or a mode id the catalogue offers.</summary>
-    public static bool ValidScope(string scope, IReadOnlyCollection<string> modes) => scope == Main || modes.Contains(scope);
+    public static bool ValidScope(string scope, IReadOnlyCollection<string> modes) => modes.Contains(scope);
 
     /// <summary>When to try a pending item again: 1, 5, 15 minutes, then hourly. It never becomes visible while pending.</summary>
     public static DateTimeOffset NextAttempt(int attempts, DateTimeOffset now) => now + (attempts switch
@@ -157,6 +163,9 @@ public static class MediaPolicy
     }
 
     /// <summary>Authorised case/legal review only: known blocked/unchecked material never becomes viewable after removal.</summary>
+    public static bool ProfileInspectable(MediaItem item)=>item.Purpose is null&&item.RemovedAt is null
+        &&item.Status is MediaStatus.Passed or MediaStatus.Pending or MediaStatus.Uncertain or MediaStatus.Rejected;
+
     public static bool CaseReviewable(MediaItem item) => item.ScreenedAt is not null
         && item.Status is MediaStatus.Passed or MediaStatus.Uncertain or MediaStatus.Rejected or MediaStatus.Removed;
 
@@ -183,11 +192,11 @@ public static class MediaPolicy
     public static (Guid Media, string Variant)? ReadLink(byte[] key, string token, DateTimeOffset now)
     {
         var parts = token.Split('.');
-        if (parts.Length != 4 || !Guid.TryParseExact(parts[0], "N", out var media) || parts[1] is not ("member" or "review" or "case")
+        if (parts.Length != 4 || !Guid.TryParseExact(parts[0], "N", out var media) || parts[1] is not ("member" or "review" or "case" or "inspection" or "appeal")
             || !long.TryParse(parts[2], out var seconds)) return null;
         var expected = HMACSHA256.HashData(key, Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}.{parts[2]}"));
         if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(Base64Url(expected)), Encoding.ASCII.GetBytes(parts[3]))) return null;
-        return DateTimeOffset.FromUnixTimeSeconds(seconds) < now ? null : (media, parts[1]);
+        return DateTimeOffset.FromUnixTimeSeconds(seconds) <= now ? null : (media, parts[1]);
     }
 
     private static string Base64Url(byte[] data) => Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');

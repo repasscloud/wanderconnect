@@ -112,7 +112,7 @@ const ADELAIDE = 2078025;
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.free.email); await page.fill('#password', members.free.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.goto(web + '/me/profile');
     const box = page.locator('[data-share-core="friends"]');
     await box.waitFor({ timeout: 20000 });

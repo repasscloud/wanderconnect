@@ -169,6 +169,7 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 {
                     past.Id, past.AccountId, past.ContactType, past.ValidFrom, past.ValidUntil, past.ChangedBy, past.ChangeReason,
                     Value = ContactHistoryPolicy.Decrypt(contactKeys.Encryption, past.EncryptedValue),
+                    ChangeEvidence=ContactHistoryPolicy.Evidence(contactKeys.Encryption,past.EncryptedValue),
                 });
             foreach (var request in await db.ConnectionRequests.Where(r => r.FromAccountId == id || r.ToAccountId == id).ToListAsync(cancellationToken))
                 if (InPeriod(request.CreatedAt)) Add("request", "connection_requests", request.Id.ToString(), id, request);
@@ -223,6 +224,8 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
                 Add("beta-enrolment","beta_enrolments",enrolment.Id.ToString(),id,enrolment);
             foreach(var observation in await db.Set<BetaJourneyDay>().AsNoTracking().Where(r=>r.AccountId==id).ToListAsync(cancellationToken))
                 Add("beta-journey","beta_journey_days",id+"/"+observation.Day.ToString("yyyy-MM-dd")+"/"+observation.Dataset,id,observation);
+            if(await Accounts.AdviceAcknowledgements.ReadAsync(db,id,cancellationToken) is{}advice && advice.AcknowledgedAt is{}acknowledgedAt && InPeriod(acknowledgedAt))
+                Add("safety-advice-acknowledgement","safety_advice_acknowledgements",id+"/"+advice.Revision,id,new{accountId=id,advice.Revision,advice.AcknowledgedAt});
             foreach(var acceptance in await db.Set<PolicyAcceptance>().AsNoTracking().Where(p=>p.AccountId==id).ToListAsync(cancellationToken))
                 Add("policy-acceptance","policy_acceptances",id+"/"+acceptance.Version,id,acceptance);
             foreach(var target in await db.Set<PolicyNoticeRecipient>().AsNoTracking().Where(r=>r.AccountId==id).ToListAsync(cancellationToken))
@@ -267,6 +270,15 @@ public sealed class EvidencePreservation(IServiceProvider services, EvidenceKeys
     {
         foreach (var media in await db.MediaItems.Where(i => i.AccountId == account).ToListAsync(cancellationToken))
             await AddMediaAsync(media, add, cancellationToken);
+        foreach (var decision in await db.Set<MediaDecisionRecord>().Where(d => d.AccountId == account).ToListAsync(cancellationToken))
+            add("media", "media_decision_records", decision.Id.ToString(), account, decision);
+        foreach (var appeal in await db.Set<MediaAppeal>().Where(a => a.AccountId == account).ToListAsync(cancellationToken))
+            add("media", "media_appeals", appeal.Id.ToString(), account, appeal);
+        foreach(var grant in (await db.DobChangeGrants.Where(g=>g.AccountId==account).ToListAsync(cancellationToken)).Where(g=>LegalHoldPolicy.InPeriod(hold,g.CreatedAt)))
+            add("identity-record","restricted.dob_change_grants",grant.Id.ToString(),account,grant);
+        foreach(var previous in (await db.DobChangeHistories.Where(h=>h.AccountId==account).ToListAsync(cancellationToken)).Where(h=>LegalHoldPolicy.InPeriod(hold,h.ChangedAt)))
+            add("identity-record","restricted.dob_change_histories",previous.Id.ToString(),account,new{previous.Id,previous.AccountId,previous.ChangedAt,previous.RetainUntil,
+                PreviousDateOfBirth=DobChangePolicy.Open(account,services.GetRequiredService<Verification.IdentityKeys>().Encryption,previous.Sealed)});
         if (await db.VerifiedIdentities.FindAsync([account], cancellationToken) is not { } record) return;
         var fields = services.GetRequiredService<Verification.VerifiedIdentityStore>().OpenForEvidence(record)
             ?? throw new InvalidOperationException("A required identity encryption key is unavailable; preservation is incomplete.");

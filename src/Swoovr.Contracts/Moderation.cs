@@ -84,7 +84,16 @@ public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, s
     bool CanRequestIdVerification, bool Bot, bool Employee, bool Founder, string? HomeMarket, DateTimeOffset? HomeMarketMovedAt, string Plan,
     IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases, bool DateOfBirthVerified = false,
     DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none",
-    DateTimeOffset? IdentityOnFileSince = null, string? IdentityIssuingCountry = null);
+    DateTimeOffset? IdentityOnFileSince = null, string? IdentityIssuingCountry = null,int? Age=null);
+
+public sealed record StaffAgeAssurance(Guid AccountId,int? Age,bool DateOfBirthPresent,bool DateOfBirthVerified,string AgeAssurance);
+public sealed record StaffDateOfBirth(DateOnly? DateOfBirth,bool Verified);
+public sealed record StaffModePreview(string Id,string Label,bool Enabled,bool Visible,ProfileCard? PublicProfile,IReadOnlyList<PhotoView> Photos);
+public sealed record StaffCaseLink(Guid Id,string Status);
+public sealed record StaffProfilePreview(Guid AccountId,IReadOnlyList<StaffModePreview> Modes,IReadOnlyList<StaffCaseLink> Cases,bool CanInspectPrivatePhotos);
+public sealed record StaffProfilePhoto(Guid Id,string State,DateTimeOffset CreatedAt,IReadOnlyList<string> Scopes,IReadOnlyList<string>? MainScopes=null);
+public sealed record StaffActionEntry(long Id,DateTimeOffset At,string Action);
+public sealed record StaffActionPage(IReadOnlyList<StaffActionEntry> Items,long? NextCursor);
 
 /// <summary>D191: opening a verified identity record needs the `legal` role and a recorded purpose (up to 500 characters).</summary>
 public sealed record IdentityAccessRequest(string? Purpose);
