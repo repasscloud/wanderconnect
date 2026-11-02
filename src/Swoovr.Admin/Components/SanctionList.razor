@@ -14,7 +14,7 @@ else
                 <blockquote>@s.Reason</blockquote>
                 @if (s.Live && s.Kind != "warning")
                 {
-                    <form method="post" @formname="@($"lift-{s.Id}")" @onsubmit="() => LiftAsync(s.Id)" class="row" data-enhance="false">
+                    <form method="post" @formname="@($"lift-{s.Id}")" @onsubmit="() => LiftAsync(s.Id)" class="row" data-enhance="true">
                         <AntiforgeryToken />
                         <input name="reason" placeholder="Reason for lifting" maxlength="1000" required />
                         <button type="submit" class="secondary" data-lift="@s.Id">Lift</button>
