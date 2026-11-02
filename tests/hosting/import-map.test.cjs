@@ -16,7 +16,7 @@ for(const environment of ['Development','Uat'])test(environment+' authorizes exa
   let response;const deadline=Date.now()+15000;
   while(Date.now()<deadline){
    assert.equal(child.exitCode,null,'owned host must stay running');
-   try{response=await get('http://127.0.0.1:'+port+'/account');if(response.status===200)break;}catch{}
+   try{response=await get('http://127.0.0.1:'+port+'/');if(response.status===200)break;}catch{}
    await sleep(100);
   }
   assert.equal(response?.status,200);const html=response.body;const map=html.match(/<script\b[^>]*type="importmap"[^>]*>([\s\S]*?)<\/script>/i);assert.ok(map);

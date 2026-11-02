@@ -1,12 +1,24 @@
 @page "/"
-<PageTitle>Swoovr — foundation</PageTitle>
+<PageTitle>Swoovr — Your kind of connection</PageTitle>
 <div class="home">
     <div class="page-heading home-heading">
-        <p class="eyebrow">Real people. Clear intentions.</p>
+        <p class="eyebrow">Dating, friendship and activities</p>
         <h1>Your kind of connection.</h1>
-        <p>Friendship, conversation, romance, or a shared afternoon. We’re building a little more room for the way people connect.</p>
-        <a class="primary-button" href="/settings/appearance">Choose your appearance</a>
-        <p class="field-help">Try eight personal colour schemes, each with light and dark modes.</p>
+        <p>Friendship, conversation, romance, or a shared afternoon. Find room for the way you want to connect.</p>
+        <div class="home-actions">
+        @if (HttpContext?.User.Identity?.IsAuthenticated == true)
+        {
+            <a class="primary-button" href="/explore">Explore</a><a class="button button-secondary" href="/account">Your account</a>
+        }
+        else
+        {
+            <a class="primary-button" href="/account/sign-in" data-enhance-nav="false">Sign in</a><a class="button button-secondary" href="/account/create" data-enhance-nav="false">Create account</a>
+        }
+        </div>
+        <p class="field-help">Private beta, starting in Adelaide. Adults 18+.</p>
     </div>
-    <section class="card foundation-note"><h2>A work in progress</h2><p>Member experiences and sign-in are not connected. Appearance settings save on this browser; account sync is not available yet.</p></section>
+    <section class="card welcome-context" aria-labelledby="connection-options"><h2 id="connection-options">Ways to connect</h2><dl><dt>Dating</dt><dd>Be clear about the connection you're looking for.</dd><dt>Friendship</dt><dd>Make room for new people in your everyday life.</dd><dt>Activities</dt><dd>Find a shared interest and something to do together.</dd></dl></section>
 </div>
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+}

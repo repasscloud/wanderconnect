@@ -288,3 +288,15 @@ html:active-view-transition-type(sw-back)::view-transition-new(root) { animation
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   .sw-box, .sw-box svg, .pf-v5-c-button, .sw-btn { transition: none; }
 }
+
+/* DEFAULT desktop framing: preserve the canonical 420px form and the phone layout. */
+@media (min-width: 760px) {
+  html, body, .pf-v5-c-login { background: var(--sw-bg) !important; }
+  .pf-v5-c-login__container { margin: clamp(24px, 6vh, 72px) auto; padding: 36px 28px; border: 1px solid var(--sw-border); border-radius: 20px; background: var(--sw-surface); }
+  .pf-v5-c-login__main { min-height: 0; }
+  .sw-foot { margin-top: 36px; }
+}
+.sw-reset-help { color: var(--sw-muted); margin-top: 26px; line-height: 1.5; }
+.sw-reset-actions { display: flex; flex-wrap: wrap; gap: 16px 24px; margin-top: 26px; }
+[aria-invalid="true"] { scroll-margin-block: 24px; }
+[id^="input-error-"] .pf-v5-c-form__helper-text { font-weight: 600; }

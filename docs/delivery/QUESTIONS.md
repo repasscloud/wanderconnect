@@ -2174,6 +2174,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 
 ### Q99 — Redesign public landing page and remove authenticated navigation and development messaging
 
+Implementation progress (2 November 2026): Guest navigation/landing fixed; truthful private-beta and draft-policy disclosures retained. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
+
 - Issue: [#141](https://github.com/repasscloud/wanderconnect/issues/141); [intake item 7](ISSUE-INTAKE.md#intake-7).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2185,6 +2188,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 <a id="q100"></a>
 
 ### Q100 — Correct unauthenticated /account routing and prevent account content being displayed before sign-in
+
+Implementation progress (2 November 2026): Configured guests route directly into sign-in; retry/unconfigured fallbacks retained; BFF still401. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
 
 - Issue: [#142](https://github.com/repasscloud/wanderconnect/issues/142); [intake item 8](ISSUE-INTAKE.md#intake-8).
 - Status: OPEN investigation / feedback; processing complete. Priority: Medium.
@@ -2198,6 +2204,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 
 ### Q101 — Restore approved Swoovr sign-in design and correct desktop and mobile authentication layouts
 
+Implementation progress (2 November 2026): Desktop auth frame implemented; canonical420px form/mobile layout retained; native acceptance outstanding. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
+
 - Issue: [#143](https://github.com/repasscloud/wanderconnect/issues/143); [intake item 9](ISSUE-INTAKE.md#intake-9).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2209,6 +2218,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 <a id="q102"></a>
 
 ### Q102 — Redesign account registration screen to meet Swoovr's production design standards
+
+Implementation progress (2 November 2026): Registration shares the responsive frame; email-first/adult/draft requirements preserved. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
 
 - Issue: [#144](https://github.com/repasscloud/wanderconnect/issues/144); [intake item 10](ISSUE-INTAKE.md#intake-10).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
@@ -2222,6 +2234,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 
 ### Q103 — Registration errors are difficult to identify when an email address is already registered
 
+Implementation progress (2 November 2026): Duplicate-email error focus and accessible descriptions verified with fictional fixture. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
+
 - Issue: [#145](https://github.com/repasscloud/wanderconnect/issues/145); [intake item 11](ISSUE-INTAKE.md#intake-11).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2234,6 +2249,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 
 ### Q104 — Redesign Forgot Password screen to match Swoovr authentication standards
 
+Implementation progress (2 November 2026): Reset frame and email input/autocomplete corrected without changing provider token handling. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
+
 - Issue: [#146](https://github.com/repasscloud/wanderconnect/issues/146); [intake item 12](ISSUE-INTAKE.md#intake-12).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2245,6 +2263,9 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 <a id="q105"></a>
 
 ### Q105 — Replace password reset notification with dedicated confirmation screen and prevent account enumeration
+
+Implementation progress (2 November 2026): Dedicated neutral acknowledgement verified for enabled/absent/disabled fixtures; timing resistance remains unverified. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
+
 
 - Issue: [#147](https://github.com/repasscloud/wanderconnect/issues/147); [intake item 13](ISSUE-INTAKE.md#intake-13).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.

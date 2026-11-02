@@ -71,7 +71,9 @@ try:
             assert error.headers['Cache-Control']=='no-store'
     with urllib.request.urlopen(web) as r:
         html = r.read().decode()
-        assert 'Swoovr' in html and 'not connected' in html
+        assert 'Swoovr' in html and 'Your kind of connection.' in html
+        assert '/account/sign-in' in html and '/account/create' in html and 'data-tab=' not in html
+        assert 'Member experiences and sign-in are not connected' not in html
     check_web_assets(web)
     # Without a token, or with a malformed one, the session endpoint is 401 and never 500.
     # The Basic value is random per run: a wrong scheme, never a stored credential.
