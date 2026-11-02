@@ -7,13 +7,15 @@ static class PublicPolicyDraftChecks
     {
         static void Need(bool ok,string name){if(!ok)throw new Exception("Public policy check failed: "+name);}
         Need(PublicPolicyDrafts.Status=="draft"&&!PublicPolicyDrafts.IsApproved,"draft never approved");
-        Need(PublicPolicyDrafts.Version=="draft-2026-10-30-0.1","stable draft version identity");
+        Need(PublicPolicyDrafts.Version=="draft-2026-11-02-0.2","stable draft version identity");
         Need(PublicPolicyDrafts.Source=="docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md"&&PublicPolicyDrafts.SourceSha256.Length==64,"source provenance");
         var sourcePath=PublicPolicyDrafts.Source;
         Need(File.Exists(sourcePath),"run source-fidelity check from repository root");
         Need(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(sourcePath)))==PublicPolicyDrafts.SourceSha256,"source has not drifted from prepared draft");
         Need(PublicPolicyDrafts.DraftLabel.Contains("Not in force")&&PublicPolicyDrafts.DraftLabel.Contains("does not accept"),"reader is not acceptance");
-        Need(PublicPolicyDrafts.Terms.Paragraphs.Count==6&&PublicPolicyDrafts.Community.Rules.Count==8,"complete supplied sections");
+        Need(PublicPolicyDrafts.Terms.Paragraphs.Count==14&&PublicPolicyDrafts.Community.Rules.Count==12&&PublicPolicyDrafts.Community.Paragraphs.Count==2,"complete supplied sections");
+        Need(PublicPolicyDrafts.Terms.Paragraphs.Any(p=>p.Contains("Australian Consumer Law")&&p.Contains("cannot be excluded")),"consumer guarantees preserved");
+        Need(PublicPolicyDrafts.Terms.Paragraphs.Any(p=>p.Contains("appeal an action once within 30 days")),"appeal route (D135)");
         Need(PublicPolicyDrafts.Community.Rules.Any(p=>p.Contains("non-consensual intimate images")),"image abuse prohibition retained");
         Need(PublicPolicyDrafts.Find("unknown")==null,"no arbitrary policy lookup");
         Need(File.ReadAllText("containers/keycloak/themes/swoovr/login/register-commons.ftl").Contains("sw-terms-link")&&File.ReadAllText("containers/keycloak/themes/swoovr/login/register-commons.ftl").Contains("sw-community-link"),"registration source links both drafts");

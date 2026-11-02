@@ -37,6 +37,17 @@ static class PrivacyNoticeChecks
         Expect(Text("photos").Contains("private until they have been checked") && Text("photos").Contains("EXIF") && Text("photos").Contains("fingerprint")
             && Text("photos").Contains("safety-review retention period or legal hold") && Text("photos").Contains("stay with Didit"), "the photos section (D203)");
 
+        // APP 1.4 contents, APP 3.3 sensitive-information consent and APP 1.7–1.9 automated decisions (from 10 December 2026).
+        Expect(Text("why").Contains("don't sell") && Text("why").Contains("required"), "purposes and the consequences of not providing information (APP 1.4(c), APP 5.2(f))");
+        Expect(Text("sensitive").Contains("sexual orientation") && Text("sensitive").Contains("consent"), "sensitive information collected with consent (APP 3.3, D138)");
+        Expect(Text("automated").Contains("under 18") && Text("automated").Contains("safety registry") && Text("automated").Contains("A person, not a program"), "automated decisions disclosed (APP 1.7)");
+        Expect(Text("overseas").Contains("United States") && Text("overseas").Contains("Canada"), "likely overseas recipients and countries (APP 1.4(f)–(g))");
+        Expect(Text("overseas").Contains("Sydney, Australia") && Text("overseas").Contains("not processed in those regions") && Text("overseas").Contains("European Union"), "Sydney processing with storage-only regional replicas");
+        Expect(Text("who").Contains("ABN 74 642 243 801") && Text("international").Contains("directly to us in Australia") && Text("international").Contains("standard contractual clauses") && Text("international").Contains("California"), "operator particulars and GDPR/CCPA rights");
+        Expect(Text("international").Contains("45 days") && Text("international").Contains("have not sold or shared") && Text("international").Contains("appeal")
+            && Text("international").Contains("Biometric Information Privacy Act"), "CCPA disclosures, US state appeals and biometric retention policy");
+        Expect(Text("choices").Contains("access") && Text("choices").Contains("correct") && Text("choices").Contains("30 days"), "access, correction and complaint handling (APP 1.4(d)–(e))");
+        Expect(Text("sharing").Contains("Didit") && Text("sharing").Contains("Twilio") && Text("sharing").Contains("MailerSend"), "service providers named");
         Console.WriteLine($"PASS: privacy notice draft ({checks}).");
     }
 }

@@ -2518,3 +2518,7 @@ Processing complete, investigation/decisions OPEN. Q110–Q120 follow actual pri
 - Requirements / decisions: OPEN: route classifications, meaning of desktop-only and device trust/enforcement requirements; the report table is a proposed starting point. DEFAULT: preserve existing role permissions and accessible reflow while policy is unresolved. No device deny rule or new authentication requirement is approved by this intake.
 - Duplicate assessment: distinct follow-up; related [#88](https://github.com/repasscloud/wanderconnect/issues/88), [#48](https://github.com/repasscloud/wanderconnect/issues/48), [#135](https://github.com/repasscloud/wanderconnect/issues/135), [#139](https://github.com/repasscloud/wanderconnect/issues/139). Split dependencies and detailed criteria are in the issue and [run record](ISSUE-INTAKE-2026-11-02.md).
 - Validation gap: no runtime reproduction or image review; exact capture revision and browser traces unavailable. Use fictional/synthetic evidence only; current source does not establish native/device, throughput or hosted acceptance.
+
+## Legal review update — 2 November 2026
+
+CONFIRMED D288: owner confirms legal approval of the supplied policy/privacy/terms revisions. [Exact source snapshot and scope](LEGAL-APPROVAL-2026-11-02.md). This resolves the pending legal wording review for those revisions; it is not a new question. Issue57 retains separate application-security/app-store gates;119 retains organisational work. Existing runtime draft/catalogue state is unchanged pending publication/activation.

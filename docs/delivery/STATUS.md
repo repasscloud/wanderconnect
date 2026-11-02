@@ -1,5 +1,9 @@
 # Current Swoovr delivery status
 
+## Legal approval — 2 November 2026
+
+CONFIRMED D288: owner-supplied legal/privacy/terms revisions are approved by legal per the owner. [Exact approved snapshot and issue mapping](LEGAL-APPROVAL-2026-11-02.md). Runtime draft labels/catalogue remain unchanged; publication/acceptance activation, deployment and operational/security/app-store acceptance are separate. Validation is recorded in VALIDATION.md.
+
 As of 31 October 2026 (Australia/Adelaide). This page is the current summary; dated slice documents and the progress ledger explain how we reached it. Swoovr is an integrated local prototype, not a member-ready pilot or production deployment.
 
 ## PR125 review follow-up — 31 October 2026
