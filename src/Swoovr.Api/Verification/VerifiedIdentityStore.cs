@@ -57,6 +57,9 @@ public sealed class VerifiedIdentityStore(IServiceProvider services, IdentityKey
         if (fields is null && provider.Configured && await provider.GetDecisionAsync(attempt.SessionId, cancellationToken) is { } decision && decision.SessionId == attempt.SessionId)
             fields = decision.Identity;
         if (fields is null) return false;
+        var declaration=await db.Accounts.SingleAsync(a=>a.Id==account,cancellationToken);
+        if(declaration.RegisteredNamesRevision==attempt.RegisteredNamesRevision&&RegisteredNamePolicy.Complete(declaration))
+            declaration.RegisteredNamesMatchId=RegisteredNamePolicy.Matches(new(declaration.RegisteredFirstName!,declaration.RegisteredLastName,declaration.RegisteredMononym),fields.FirstName,fields.LastName);
         var record = VerifiedIdentityPolicy.Record(account, attempt, fields, now, version, keys.Encryption[version], hmac);
         var existing = await db.VerifiedIdentities.FindAsync([account], cancellationToken);
         if (existing is not null) db.VerifiedIdentities.Remove(existing);

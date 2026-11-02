@@ -2477,6 +2477,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D298** ([source](https://g
 
 ### Q116 — Review universal DOB locking and temporary Admin-authorised member correction
 
+Implementation checkpoint: [Q116 evidence](Q116-DOB-CORRECTION-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 Owner answer recorded 2 November 2026 — **CONFIRMED D299** ([source](https://github.com/repasscloud/wanderconnect/issues/161#issuecomment-6572733484)): 161.1 A; 161.2–161.4 Yes; 161.5 A; 161.6 A. Lock DOB after first confirmation, including existing populated dates immediately. Confirm before first save. Support request at https://swoovr.com/support; Admin/Root one-use audited 24-hour correction grant, never Support. Corrected ID-verified DOB compares encrypted D191 identity; match verified, mismatch manual DOB review with ID badge retained (D166). Previous DOB encrypted Legal-only under retention schedule. Explicitly supersedes D158 unverified-edit permission; preserves D166 provider-mismatch correction and non-punitive ID-badge handling. No existing DB deletion is authorized. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#161](https://github.com/repasscloud/wanderconnect/issues/161); [intake item 23](ISSUE-INTAKE.md#intake-23).

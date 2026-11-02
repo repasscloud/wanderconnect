@@ -2,7 +2,7 @@
 @inject AdminClient Admin
 <PageTitle>Date of birth reviews — Swoovr admin</PageTitle>
 <h1>Date of birth reviews</h1>
-<p class="help">An ID check passed but the member's date of birth still differs from the document's after their one correction, or Didit gave no date (D166). Compare them in Didit's console (kept 30 days): Swoovr stores neither date here. The member keeps ID Verified either way; only the date-of-birth mark waits. A mismatch alone isn't fraud.</p>
+<p class="help">An ID check passed but the member's date of birth still differs from the document's after their one correction, or Didit gave no date. Compare them in Didit's console (kept 30 days): Dates are not displayed in this queue. The member keeps ID Verified either way; only the date-of-birth mark waits. A mismatch alone isn't fraud.</p>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 @if (reviews.Count == 0) { <p data-dob-reviews="none">No reviews waiting.</p> }
 else

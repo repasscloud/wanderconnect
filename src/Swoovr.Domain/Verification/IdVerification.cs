@@ -18,6 +18,7 @@ public sealed class IdVerificationAttempt
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
     /// <summary>Didit's session id (a UUID string).</summary>
+    public long RegisteredNamesRevision { get; set; }
     public string SessionId { get; set; } = "";
     public string WorkflowId { get; set; } = "";
     public IdAttemptState State { get; set; }
