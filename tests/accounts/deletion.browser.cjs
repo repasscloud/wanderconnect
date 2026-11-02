@@ -138,6 +138,8 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     assert.equal(r.body.founderCodeEmailed, true); pass();
     let mail = []; for (let i = 0; i < 20 && mail.length <= mailBefore; i++) { mail = await mailTo(members.fou.email); await sleep(250); }
     assert.match(mail[0], /FOUNDER-V1-[0-9A-F]{64}/, 'the founder code arrived before deletion'); pass();
+    assert.match(mail[0], /keep the founder recovery-token record unless you choose/, 'actual deletion email discloses retained record and deletion opt-out');pass();
+    assert.match(mail[0], /ask Swoovr Support to remove it at https:\/\/swoovr\.com\/support/, 'actual deletion email gives later removal process');pass();
     await fresh('fou');
     await call(tokens.fou, '/api/me/deletion', { method: 'DELETE' });
     await fresh('fou');
@@ -214,7 +216,7 @@ const REAUTH_SECONDS = Number(process.env.SWOOVR_REAUTH_SECONDS ?? 45);
     const signIn = async () => {
       await page.goto(web + '/account/sign-in?intro=done');
       await page.fill('#username', members.webm.email); await page.fill('#password', members.webm.password);
-      await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+      await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     };
     await signIn();
     const signedInAt = Date.now();
