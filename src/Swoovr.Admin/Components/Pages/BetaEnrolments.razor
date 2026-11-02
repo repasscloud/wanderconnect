@@ -6,7 +6,7 @@
 @if (message is not null) { <p class="notice" role="status" data-beta-result="@resultCode">@message</p> }
 @if (loaded && authorised)
 {
-    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="row" data-enhance="true" data-beta-add>
+    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="row beta-add" data-enhance="true" data-beta-add>
         <AntiforgeryToken />
         <label>Email to pre-authorise <input name="email" type="email" required maxlength="254" autocomplete="off" /></label>
         <button type="submit">Add enrolment</button>
@@ -20,7 +20,7 @@
     <label>Created from (UTC) <input name="from" type="date" value="@Date(From)" /></label>
     <label>Created to (UTC) <input name="to" type="date" value="@Date(To)" /></label>
     <label>Per page <select name="size">@foreach(var size in new[]{25,50,100}){<option value="@size" selected="@(Size==size)">@size</option>}</select></label>
-    <button type="submit">Apply filters</button><a href="/beta">Clear filters</a>
+    <button type="submit">Apply filters</button><a class="button-link secondary" href="/beta">Clear filters</a>
 </form>
 @if(loaded&&authorised)
 {

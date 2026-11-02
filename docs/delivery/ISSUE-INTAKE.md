@@ -891,6 +891,8 @@ Implementation progress (2 November2026): [PR #152](https://github.com/repassclo
 - **GitHub issue:** [#140](https://github.com/repasscloud/wanderconnect/issues/140)
 - **Tracking Q:** Q98
 
+Implementation checkpoint: [Q98 evidence](Q98-BETA-VISUALS-2026-11-02.md) records this draft PR's changes, actual checks and remaining acceptance.
+
 Amended scope (2 November 2026): [item 20](#intake-20) G–L reuses this issue for field width, filter/action consistency and first-line cell alignment. The merged table remains; CSS already top-aligns cells. Registration policy is separate [Q112 / #157](https://github.com/repasscloud/wanderconnect/issues/157).
 
 ### Historical intake investigation — pre-merge source snapshot
