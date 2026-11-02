@@ -2,9 +2,10 @@
 
 **Classification:** Internal — Restricted\
 **Version:** 1.0 — Owner-approved policy draft\
-**Date:** 27 October 2026\
-**Related issue:** https://github.com/repasscloud/wanderconnect/issues/84\
-**Status:** Approved owner decisions Q1–Q37; legal and operational readiness review required before production activation.
+**Date:** 27 October 2026 (cross-references and statutory notes revised 2 November 2026)\
+**Related issue:** <https://github.com/repasscloud/wanderconnect/issues/84>\
+**Status:** Approved owner decisions Q1–Q37; legal and operational readiness review required before production activation.\
+**Related documents:** [breach response runbook](BREACH-RESPONSE-RUNBOOK.md), [retention schedule](RETENTION-SCHEDULE.md), [internal policy](INTERNAL-TRUST-SAFETY-EVIDENCE-PROTECTION-POLICY.md), [law-enforcement cooperation plan](LAW-ENFORCEMENT-COOPERATION-PLAN-DRAFT.md).
 
 ## 1. Purpose and principles
 
@@ -16,7 +17,7 @@ The procedure does not expand collection or retention beyond Swoovr's lawful pro
 
 ## 2. Contact channels and request intake (Q1, Q16, Q22–Q23)
 
-- Official intake: **lawenforcement@swoovr.app**. Publish it as the designated authority-contact channel.
+- Official intake: **<lawenforcement@swoovr.app>**. Publish it as the designated authority-contact channel.
 - Maintain a separate, protected **24/7 emergency escalation mechanism**, with an on-call roster and tested escalation pathway. Do not publish an unstaffed emergency promise.
 - Redirect informal calls, personal emails, direct messages and other approaches to the official channel, without acknowledging that a named person has an account or disclosing member information.
 - Record each material approach in a restricted case system. Assign a unique case identifier and log channel, receipt time, request documents, agency, officer, contact details, claimed urgency, affected subjects, deadlines and case owner.
@@ -29,7 +30,7 @@ The procedure does not expand collection or retention beyond Swoovr's lawful pro
 3. Assess whether the request is mandatory or voluntary, what specific statutory or judicial authority applies, its territorial reach, scope and deadline, and whether disclosure is necessary, proportionate and permitted.
 4. Require and verify the applicable legal instrument where necessary: warrant, court order, subpoena, statutory notice or other effective legal process. Do not assume such an instrument is universally necessary or universally sufficient.
 5. For foreign authorities, consider Australian jurisdiction, cross-border disclosure safeguards, recognised mutual legal assistance channels and any lawful emergency exception. Foreign orders do not automatically compel Swoovr in Australia.
-6. For regulators, child-protection bodies and other agencies, identify their actual statutory powers; government status alone confers no blanket access.
+6. For regulators, child-protection bodies and other agencies, identify their actual statutory powers; government status alone confers no blanket access. Notices from the eSafety Commissioner under the Online Safety Act 2021 (for example removal, blocking or information notices, and Basic Online Safety Expectations reporting requests) are logged through this intake, verified the same way and answered within the statutory period, which overrides the service targets in §2.
 7. Clarify, narrow or lawfully challenge unclear, overbroad, contradictory or potentially unlawful requests. Escalate substantive disputes to legal counsel. Seek extensions or judicial directions where needed rather than missing binding deadlines.
 
 **APP 6 note:** Where Swoovr relies on the enforcement-related activities exception under APP 6.2(e), the case record must contain the written note required by APP 6.5, including the factual basis for reasonable belief, extent of disclosure, recipients and date, unless prohibited by law.
@@ -82,7 +83,7 @@ Corrections must not overwrite original evidence or packages. Where a material i
 
 ## 9. Ongoing monitoring, deletion and sensitive directives (Q12, Q30)
 
-Swoovr does not voluntarily conduct ongoing surveillance or build hidden monitoring facilities for authorities. Any prospective monitoring or technical assistance requires specific applicable legal authority, legal counsel review, senior approval, narrow limits, a defined duration and an audit trail. Assess technical feasibility and relevant telecommunications, interception and surveillance restrictions independently.
+Swoovr does not voluntarily conduct ongoing surveillance or build hidden monitoring facilities for authorities. Any prospective monitoring or technical assistance requires specific applicable legal authority, legal counsel review, senior approval, narrow limits, a defined duration and an audit trail. Assess technical feasibility and relevant telecommunications, interception and surveillance restrictions independently, including the Telecommunications (Interception and Access) Act 1979 (stored communications and interception), Part 15 of the Telecommunications Act 1997 (technical assistance requests and notices to designated communications providers) and state and territory surveillance devices laws. A request under Part 15 is never actioned without counsel's written advice and director approval; its existence may itself be confidential.
 
 Lawful public-content removal, account restriction and safety measures may occur while original evidence remains preserved. Do not falsify, secretly rewrite or improperly destroy evidence. Refer conflicting preservation, secrecy or deletion directives for urgent legal review.
 
@@ -98,7 +99,7 @@ Maintain individual cases, requests, holds, disclosure assessments and approvals
 
 ## 12. Security incidents and complaints (Q24, Q36)
 
-Suspected unauthorised access, modification, transfer or disclosure of protected evidence is a high-priority security incident. Contain access, preserve forensic material, alert designated Security/Trust & Safety/Legal stakeholders, investigate independently when privileged staff are implicated, and assess mandatory notices to police, members, regulators and the OAIC. Record root causes, remediation, approvals and outcomes. The Australian Notifiable Data Breaches scheme is applied where relevant; reporting is not automatic merely because an incident is alleged.
+Suspected unauthorised access, modification, transfer or disclosure of protected evidence is a high-priority security incident. Contain access, preserve forensic material, alert designated Security/Trust & Safety/Legal stakeholders, investigate independently when privileged staff are implicated, and assess mandatory notices to police, members, regulators and the OAIC. Record root causes, remediation, approvals and outcomes. The Australian Notifiable Data Breaches scheme is applied where relevant through the [breach response runbook](BREACH-RESPONSE-RUNBOOK.md); reporting is not automatic merely because an incident is alleged.
 
 Member complaints concerning police disclosure receive independent privacy review by someone uninvolved in the original release. Review the legal basis, permissions, data scope and audit record; escalate suspected unlawful conduct to legal counsel and the designated privacy officer; aim to respond within 30 calendar days where practicable; explain external complaint channels, including the OAIC where applicable. Do not reveal protected investigations or others' personal data in responses.
 
@@ -106,7 +107,7 @@ Member complaints concerning police disclosure receive independent privacy revie
 
 A case may close only after an authorised officer verifies outstanding legal obligations, required communications, evidence manifests, transfer receipts, notification decisions, legal holds and follow-up duties. Continuing holds may outlive closure only if separately assigned, tracked and periodically reviewed. Case closure never silently releases holds or destroys evidence.
 
-Retain case requests, identity-verification checks, legal assessments, authorisations, APP 6 disclosure notes, export manifests, transfer receipts and access logs for a **target of seven years from case closure**, where lawful and still justified. This is an internal default subject to APP 11, applicable laws, court orders and specific retention needs. Retained member evidence follows its distinct schedules and applicable holds. Restrict access and securely delete or de-identify records when no longer lawfully needed.
+Retain case requests, identity-verification checks, legal assessments, authorisations, APP 6 disclosure notes, export manifests, transfer receipts and access logs for a **target of seven years (84 calendar months) from case closure or the latest transfer receipt, whichever is later**, where lawful and still justified (see the [retention schedule](RETENTION-SCHEDULE.md)). This is an internal default subject to APP 11, applicable laws, court orders and specific retention needs. Retained member evidence follows its distinct schedules and applicable holds. Restrict access and securely delete or de-identify records when no longer lawfully needed.
 
 Conduct **quarterly internal reviews**, an **annual independent audit**, and immediate targeted reviews following major incidents or significant legal changes. Maintain findings, owners, remedies and deadlines. Publish an **annual aggregated law-enforcement transparency report** covering request types, agency/country, outcomes, emergencies, legal holds and affected account counts where safe, lawful and non-identifying. Suppress sensitive small counts and confidential cases.
 
@@ -132,4 +133,4 @@ Before launch, confirm the real monitored contact address and 24/7 on-call servi
 ---
 
 **Decision source:** Owner Q1–Q37 selections (all Option A). Subsequent details follow the same recommended, privacy-protective approach and are operational defaults rather than additional owner decisions.\
-**Legal reference points:** OAIC APP 6 guidelines (https://www.oaic.gov.au/privacy/australian-privacy-principles/australian-privacy-principles-guidelines/chapter-6-app-6-use-or-disclosure-of-personal-information); OAIC APP 11 guidelines (https://www.oaic.gov.au/privacy/australian-privacy-principles/australian-privacy-principles-guidelines/chapter-11-app-11-security-of-personal-information); OAIC NDB guidelines (https://www.oaic.gov.au/privacy/notifiable-data-breaches/).
+**Legal reference points:** [OAIC APP 6 guidelines](https://www.oaic.gov.au/privacy/australian-privacy-principles/australian-privacy-principles-guidelines/chapter-6-app-6-use-or-disclosure-of-personal-information); [OAIC APP 11 guidelines](https://www.oaic.gov.au/privacy/australian-privacy-principles/australian-privacy-principles-guidelines/chapter-11-app-11-security-of-personal-information); [OAIC NDB guidance](https://www.oaic.gov.au/privacy/notifiable-data-breaches/); Online Safety Act 2021; Telecommunications (Interception and Access) Act 1979; Telecommunications Act 1997 Part 15.
