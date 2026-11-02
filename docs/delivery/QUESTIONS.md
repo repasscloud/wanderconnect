@@ -2279,6 +2279,8 @@ Implementation progress (2 November 2026): Dedicated neutral acknowledgement ver
 
 ### Q106 — Redesign Swoovr Me / Account page for a desktop-first experience and clearer onboarding flow
 
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: grouped settings and truthful account heading. Onboarding order and revision-persisted safety-dismissal proposals remain deferred. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). Issue remains open until merge.
+
 - Issue: [#148](https://github.com/repasscloud/wanderconnect/issues/148); [intake item 14](ISSUE-INTAKE.md#intake-14).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2290,6 +2292,8 @@ Implementation progress (2 November 2026): Dedicated neutral acknowledgement ver
 <a id="q107"></a>
 
 ### Q107 — Redesign Profile and Modes page for responsive layouts, clearer controls and improved profile management
+
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: responsive profile/mode workspace, non-overlapping city labels, compact controls and scoped saves. Custom names and explicit about sharing preserved; visibility off/reload passed. Automatic initial-name mapping remains an unapproved product/data-mapping follow-up. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). Issue remains open until merge.
 
 - Issue: [#149](https://github.com/repasscloud/wanderconnect/issues/149); [intake item 15](ISSUE-INTAKE.md#intake-15).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
@@ -2303,6 +2307,8 @@ Implementation progress (2 November 2026): Dedicated neutral acknowledgement ver
 
 ### Q108 — Redesign Your Photos page with shared photo library, independent mode galleries and membership limits
 
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Partial fix proposed: one mode-assignment gallery at a time with shared library/main preserved. Independent main photos and proposed photo limits remain deferred; API quotas and screening rules unchanged. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). Issue remains open until merge.
+
 - Issue: [#150](https://github.com/repasscloud/wanderconnect/issues/150); [intake item 16](ISSUE-INTAKE.md#intake-16).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
 - Blocks: acceptance of the reported journey or proposed change; independent investigations continue.
@@ -2314,6 +2320,8 @@ Implementation progress (2 November 2026): Dedicated neutral acknowledgement ver
 <a id="q109"></a>
 
 ### Q109 — Redesign "Who I'd Like to Meet" with responsive layouts, clearer discovery preferences and improved filtering controls
+
+Implementation progress (2 November 2026): [PR #154](https://github.com/repasscloud/wanderconnect/pull/154). Fix proposed: per-mode unsaved filter drafts survive switching and failed reads; stale fields hidden while loading and controls disabled during save. Responsive workspace and selection counts added; Any/All, reciprocal exclusions and Plus rules preserved. Drafts remain local to this page. Validation and remaining acceptance: [member evidence](ISSUE-MEMBER-FIXES.md). Issue remains open until merge.
 
 - Issue: [#151](https://github.com/repasscloud/wanderconnect/issues/151); [intake item 17](ISSUE-INTAKE.md#intake-17).
 - Status: OPEN investigation / feedback; processing complete. Priority: High.
