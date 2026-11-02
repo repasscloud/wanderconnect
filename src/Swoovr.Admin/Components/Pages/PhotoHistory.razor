@@ -1,0 +1,26 @@
+@page "/media/history"
+@inject AdminClient Admin
+<PageTitle>Photo decision history — Swoovr admin</PageTitle>
+<h1>Photo decision history</h1><p class="help">Prior coded decisions remain in history. Reconsideration requires a different Admin, a recorded reason and fresh screening. Specialist media is excluded.</p>
+<p><a href="/media">Review queue</a> · <a href="/media/appeals">Photo appeals</a></p>
+@if(message is not null){<p role="status">@message</p>}
+<form method="get" class="row"><label>Decision<select name="decision"><option value="">All routine</option><option value="reject" selected="@(Decision=="reject")">Rejected</option><option value="approve" selected="@(Decision=="approve")">Approved</option></select></label><button type="submit">Filter</button></form>
+@if(history is null){<p>History is unavailable for this staff session.</p>}
+else
+{
+    <div class="table-wrap"><table><thead><tr><th scope="col">When</th><th scope="col">Photo</th><th scope="col">Decision</th><th scope="col">Reason code</th><th scope="col">Action</th></tr></thead><tbody>@foreach(var row in history.Items)
+    {
+        <tr><td>@row.At.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</td><td><a href="/accounts/@row.AccountId">Account</a> · @row.MediaId</td><td>@row.Decision</td><td>@row.Code</td><td>@if(row.Decision=="reject")
+        {<form method="post" @formname="@($"reconsider-{row.Id}")" @onsubmit="()=>ReconsiderAsync(row.MediaId)" data-enhance="true"><AntiforgeryToken /><label>Reconsideration reason<textarea name="reason" maxlength="500" required></textarea></label><button type="submit" class="secondary">Re-screen for reconsideration</button></form>}</td></tr>
+    }</tbody></table></div>
+    <nav class="row" aria-label="Photo history pages">@if(Page>1){<a href="@Url(Page-1)">Previous</a>}<span>Page @history.Page · @history.Total decisions</span>@if(Page*history.PageSize<history.Total){<a href="@Url(Page+1)">Next</a>}</nav>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery(Name="page")] public int Page { get; set; }=1;
+    [SupplyParameterFromQuery(Name="decision")] public string? Decision { get; set; }
+    private PhotoDecisionPage? history;private string? message;
+    protected override async Task OnInitializedAsync(){Page=Math.Max(1,Page);history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
+    private string Url(int page)=>$"/media/history?page={page}"+(Decision is null?"":"&decision="+Uri.EscapeDataString(Decision));
+    private async Task ReconsiderAsync(Guid id){var reason=Context?.Request.Form["reason"].ToString()??"";var status=await Admin.ReconsiderPhotoAsync(id,reason);message=status<300?"Reconsidered after fresh screening. Prior decisions remain in history.":status==403?"A different Admin and current safety acknowledgement are required.":"The retained photo could not be cleared. It stays rejected; review the current state.";history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
+}

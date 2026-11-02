@@ -2441,6 +2441,8 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D296** ([source](https://g
 
 ### Q114 — Provide a compact photo-review queue, focused review controls and scoped workload history
 
+Implementation checkpoint: [Q114 evidence](Q114-PHOTO-REVIEW-2026-11-02.md) contains the code, actual validation and remaining acceptance. Source implementation is in this draft PR; provider/physical/hosted gaps are not represented as passed.
+
 Owner answer recorded 2 November 2026 — **CONFIRMED D297** ([source](https://github.com/repasscloud/wanderconnect/issues/159#issuecomment-6572633682)): 159.1 A; 159.2 B; 159.3 A; 159.4 B; 159.5 A. Server-stored per-staff/per-notice safety acknowledgement valid four hours. Support may review alongside Admin; counts only for reviewers. No approval free text, codes only. Tablet full-screen review dialog; phone hides review tools. Extends routine review capability to Support without granting Legal or protected specialist evidence access; aligns D302 tablets as desktop presentation. Implementation/acceptance is tracked in [overnight delivery](OVERNIGHT-DELIVERY-2026-11-02.md); recording is not completion of the code.
 
 - Issue: [#159](https://github.com/repasscloud/wanderconnect/issues/159); [intake item 22](ISSUE-INTAKE.md#intake-22).
