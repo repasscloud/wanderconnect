@@ -2,6 +2,8 @@
 @inject AdminClient Admin
 <PageTitle>Account — Swoovr admin</PageTitle>
 <p class="breadcrumb"><a href="/accounts">Accounts</a> / Account</p>
+<h1 data-account="@account?.Id">@(account is null?"Account":registeredName is{Confirmed:true}?string.Join(" ",new[]{registeredName.FirstName,registeredName.LastName}.Where(n=>!string.IsNullOrWhiteSpace(n))):account.DisplayName ?? "(no name)")</h1>
+<AccountInspection AccountId="Id" />
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id" data-enhance-nav="false">Sign in again</a> }</p> }
 @if (account is null)
 {
@@ -9,11 +11,12 @@
 }
 else
 {
-    <h1 data-account="@account.Id">@(account.DisplayName ?? "(no name)")</h1>
+    @if(account.Realm=="members"){<DobCorrectionTools AccountId="Id" />}
     <p><a href="/accounts/@Id/reinstate" data-account-reinstatement>Review account reinstatement</a> · <a href="/registry">Identifier review (separate action)</a></p>
+    @if(registeredName is{}registered){<section class="card" data-registered-identity><h2>Registered name</h2><p>@registered.FirstName @registered.LastName</p><p>@(registered.Confirmed?"Confirmed by the member":"Awaiting member confirmation") · @(registered.MatchesId is null?"ID comparison unavailable":registered.MatchesId==true?"Registered name matches ID":"Registered name does not match ID")</p><p class="help">Self-declared account details. Verified identity remains separately protected.</p></section>}
     <dl class="facts">
         <div><dt>Account</dt><dd>@account.Realm · @account.Status</dd></div>
-        <div><dt>Age</dt><dd data-age-status="@account.AgeStatus">@account.AgeStatus@(account.DateOfBirthVerified ? " · date of birth verified" : "")</dd></div>
+        <div><dt>Age assurance</dt><dd data-age-status="@account.AgeStatus">@account.AgeStatus@(account.DateOfBirthVerified ? " · date of birth verified" : "")</dd></div>
         <div><dt>ID verification</dt><dd data-id-status="@account.IdStatus">@account.IdStatus@(account.CanRequestIdVerification ? " · may start a check" : "")</dd></div>
         @* D191: only that a record is on file; the security and legal officer opens it with a recorded purpose. *@
         <div><dt>Verified identity</dt><dd data-identity-on-file="@(account.IdentityOnFileSince is null ? "none" : "on-file")">@(account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file") @if (account.IdentityOnFileSince is not null) { <a href="/identity?account=@account.Id">Open (legal officer)</a> }</dd></div>
@@ -25,7 +28,7 @@ else
     </dl>
 
     <section class="card">
-        <h2>ID verification (D129)</h2>
+        <h2>ID verification</h2>
         @if (verification is not null)
         {
             <ul class="list" data-attempts="@verification.Attempts.Count">
@@ -43,7 +46,7 @@ else
     </section>
 
     <section class="card">
-        <h2>Age assurance (D127)</h2>
+        <h2>Age assurance</h2>
         <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <button name="value" value="flag" type="submit" class="secondary" data-op="age-flag">Require an age check</button>
@@ -53,7 +56,7 @@ else
     </section>
 
     <section class="card">
-        <h2>Home city (D150)</h2>
+        <h2>Home city</h2>
         <p class="help">Lets the member move their home city into another market now, for a genuine move or a mistake.</p>
         <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="row" data-enhance="true">
             <AntiforgeryToken />
@@ -65,7 +68,7 @@ else
     @if (account.Realm == "members")
     {
         <section class="card" data-location-review="@(account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
-            <h2>Location and arrival (D149, D150)</h2>
+            <h2>Location and arrival</h2>
             <p class="help">Outcomes only: Swoovr keeps no coordinates, IP addresses or places. A flag never suspends anyone.</p>
             <p data-dob-check="@account.DobCheck">Date of birth: @(account.DobCheck switch { "correctionNeeded" => "the member has one correction to make", "manualReview" => "waiting for review in Date of birth", _ => account.DateOfBirthVerified ? "verified with the ID" : "not verified" })</p>
             <p data-home-checks="@account.InconsistentHomeChecks">Home-location checks that disagreed in the last 30 days: @account.InconsistentHomeChecks@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged for review {flagged:d MMM yyyy}" : "")</p>
@@ -96,7 +99,7 @@ else
     }
 
     <section class="card">
-        <h2>Plus for testers (D151)</h2>
+        <h2>Complimentary Plus access</h2>
         <p class="help">Complimentary: never charged. A lapsed or revoked grant falls back to Free.</p>
         <ul class="list" data-entitlements="@account.Entitlements.Count">
             @foreach (var e in account.Entitlements)
@@ -124,7 +127,7 @@ else
     </section>
 
     <section class="card">
-        <h2>Staff badge (D134)</h2>
+        <h2>Staff badge</h2>
         <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="row" data-enhance="true">
             <AntiforgeryToken />
             <button name="value" value="on" type="submit" class="secondary" data-op="staff-on">Set Staff badge</button>
@@ -133,7 +136,7 @@ else
     </section>
 
     <section class="card">
-        <h2>Act without a report (D133)</h2>
+        <h2>Act without a report</h2>
         <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="stack" data-enhance="true">
             <AntiforgeryToken />
             <label>Action <select name="action"><option value="warn">Warn</option><option value="restrict">Restrict</option><option value="suspend">Suspend</option><option value="terminate">Terminate</option></select></label>
@@ -150,6 +153,7 @@ else
     [Parameter] public Guid Id { get; set; }
     [CascadingParameter] private HttpContext? Context { get; set; }
     private AccountAdminSummary? account;
+    private RegisteredNamesView? registeredName;
     private AdminVerificationView? verification;
     private List<TripAdminView> trips = [];
     private string? message, loadError, resultCode;
@@ -164,6 +168,7 @@ else
         if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
         else if (account!.Realm == "members")
         {
+            registeredName=(await Admin.RegisteredNamesAsync(Id)).Value;
             verification = (await Admin.VerificationAsync(Id)).Value;
             trips = (await Admin.TripsAsync(Id)).Value ?? [];
         }
