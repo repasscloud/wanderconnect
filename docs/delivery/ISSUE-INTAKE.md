@@ -16,24 +16,30 @@ Processing run: 2 November 2026. Items 2–5 and 7–17 are tracked as Q95–Q10
 - Tracking Q: Not assigned
 
 ### What happened
+
 Describe the behaviour you observed.
 
 ### What I expected
+
 Describe what should happen instead, or say “Needs investigation”.
 
 ### Steps to reproduce
+
 1.
 2.
 3.
 
 ### Evidence
+
 Paste relevant error messages or link screenshots.
 Do not include passwords, tokens or real personal information.
 
 ### Impact
+
 Who is affected, and what does it prevent?
 
 ### Notes or constraints
+
 Optional context, suggested explanations or requirements.
 
 <a id="intake-2"></a>
@@ -41,7 +47,6 @@ Optional context, suggested explanations or requirements.
 ## 2. Admin account search fails to find existing users by email address
 
 Implementation progress (2 November 2026): the false no-match on API refusal is fixed on [PR #152](https://github.com/repasscloud/wanderconnect/pull/152). Actual Edge regression failed before and passed after the fix: denied staff lookup, exact/normalised email, an account without a profile and genuine no-match. Full `./scripts/check.sh` passed with 596 PostgreSQL cases and three smoke suites. Original private account linkage is unverified; no sync defect or provider search is claimed. See [handoff](ISSUE-FIX-HANDOFF.md).
-
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -151,7 +156,6 @@ Email lookup should use the canonical identity/account relationship and must res
 ## 3. Admin session incorrectly reports expiration and displays inconsistent, unbranded authentication pages
 
 Implementation progress (2 November 2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds staff token renewal and a branded anonymous signed-out page. Reproduced expired-token/cookie mismatch with an owned temporary provider client; actual Edge verified renewal and reauthentication after owned-provider-session revocation. Ten unit checks cover concurrency, absolute deadline, unchanged authentication evidence, refusal/malformed expiry and late renewal after logout. The review-discovered logout race is fixed. Final full `./scripts/check.sh` passed, including 596 PostgreSQL cases and all three smoke suites. Hosted/multi-instance and original private-session timing remain unverified; no security gates were relaxed. See [handoff](ISSUE-FIX-HANDOFF.md).
-
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
@@ -462,7 +466,6 @@ Where technically appropriate, use a shared authentication layout that is separa
 
 Implementation progress (2 November2026): independently actionable queue fixes are proposed in [PR #152](https://github.com/repasscloud/wanderconnect/pull/152): factual automatic review purpose, blurred preview, audited keyboard reveal, stable decision-bound codes, server-side Other-note requirement and retained coded counts. Synthetic-only actual Edge acceptance and full `./scripts/check.sh` passed (607 PostgreSQL cases, three smoke suites, zero build warnings/errors). Review-discovered cross-item note restoration is fixed and regressed. D178 eligibility remains deferred/unchanged; no adult material or owner review is needed. Case-specific legacy controls remain, and private approval notes require a governed retained-history design rather than ungoverned retention; coded approvals refuse unsupported notes. See [handoff](ISSUE-FIX-HANDOFF.md) and [reason boundaries](../architecture/MEDIA-REVIEW-REASONS.md). Issue remains partially fixed/open pending merge and these precise dependencies.
 
-
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/media`
@@ -600,7 +603,7 @@ When approving a photograph, administrators should choose from standardised appr
 Suggested approval reasons:
 
 | Code | Approval reason |
-|---|---|
+| --- | --- |
 | APPROVED_STANDARD | Meets Swoovr photo guidelines |
 | APPROVED_NON_EXPLICIT | Non-explicit image permitted |
 | APPROVED_AFTER_REVIEW | Acceptable following manual review |
@@ -623,7 +626,7 @@ However, the administrator should select a clear reason for rejection.
 Suggested rejection categories:
 
 | Code | Rejection reason |
-|---|---|
+| --- | --- |
 | REJECT_EXPLICIT_PUBLIC | Nudity or explicit sexual content in a public profile |
 | REJECT_UNDERAGE | Suspected underage or child-safety concern |
 | REJECT_NON_CONSENSUAL | Suspected non-consensual or intimate-image abuse |
@@ -874,7 +877,6 @@ Optional notes should supplement, not replace, structured reasons.
 
 Implementation progress (2 November2026): [PR #152](https://github.com/repasscloud/wanderconnect/pull/152) adds server-side search/pagination and a structured enrolment table. Actual Edge verified1005 records, role/anonymous refusal, paging/sort/search/status/date controls and confirmed revision-aware iOS/revoke actions. Eleven new database search checks passed; full `./scripts/check.sh` passed with607 PostgreSQL cases, three smoke suites and zero build warnings/errors. Names use canonical account linkage, never email-based identity inference; Apple/provider states remain distinct. See [handoff](ISSUE-FIX-HANDOFF.md) and [contract](../architecture/BETA-ENROLMENT-SEARCH.md). Issue remains open pending merge.
 
-
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Admin
 - **Page or URL:** `http://localhost:5082/beta`
@@ -925,7 +927,7 @@ Use a responsive table as the primary enrollment overview.
 Suggested columns:
 
 | Column | Description |
-|---|---|
+| --- | --- |
 | Member | Display name and member reference |
 | Email | Registered email address, subject to permissions |
 | Enrollment date | Date the member joined the beta |
@@ -1199,7 +1201,6 @@ Card-based layouts may be appropriate for individual record details, but tables 
 
 Implementation progress (2 November 2026): Guest navigation/landing fixed; truthful private-beta and draft-policy disclosures retained. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
 
-
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `http://localhost:5081/`
@@ -1382,7 +1383,6 @@ The current page:
 
 Implementation progress (2 November 2026): Configured guests route directly into sign-in; retry/unconfigured fallbacks retained; BFF still401. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
 
-
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** `http://localhost:5081/account`
@@ -1525,7 +1525,6 @@ The issue:
 ## 9. Restore approved Swoovr sign-in design and correct desktop and mobile authentication layouts
 
 Implementation progress (2 November 2026): Desktop auth frame implemented; canonical420px form/mobile layout retained; native acceptance outstanding. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
-
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web / Mobile
@@ -1721,7 +1720,6 @@ Sign-in is a primary interaction and must meet the same design standards as the 
 ## 10. Redesign account registration screen to meet Swoovr's production design standards
 
 Implementation progress (2 November 2026): Registration shares the responsive frame; email-first/adult/draft requirements preserved. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
-
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web / Mobile
@@ -2132,7 +2130,6 @@ These issues should share consistent branding and authentication design componen
 
 Implementation progress (2 November 2026): Duplicate-email error focus and accessible descriptions verified with fictional fixture. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
 
-
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
 - **Page or URL:** Keycloak registration flow (`http://localhost:8180/realms/swoovr-members-dev/`)
@@ -2398,7 +2395,6 @@ The validation improvements should reuse the same design components introduced f
 ## 12. Redesign Forgot Password screen to match Swoovr authentication standards
 
 Implementation progress (2 November 2026): Reset frame and email input/autocomplete corrected without changing provider token handling. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
-
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -2673,7 +2669,6 @@ The authentication screens should share one coherent design system.
 ## 13. Replace password reset notification with dedicated confirmation screen and prevent account enumeration
 
 Implementation progress (2 November 2026): Dedicated neutral acknowledgement verified for enabled/absent/disabled fixtures; timing resistance remains unverified. See [implementation and actual-browser evidence](ISSUE-AUTH-FIXES.md). Full `./scripts/check.sh` passed (596 PostgreSQL cases, three smoke suites, zero build warnings/errors); Proposed in [PR #153](https://github.com/repasscloud/wanderconnect/pull/153); the issue stays open pending merge and outstanding acceptance.
-
 
 - **Status:** Processed — new issue created; investigation remains OPEN
 - **Area:** Member web
@@ -3136,7 +3131,7 @@ A persistent sidebar may be preferable to a hamburger menu on larger desktop scr
 **Suggested desktop account sections:**
 
 | Section | Purpose |
-|---|---|
+| --- | --- |
 | Overview | Welcome, profile completion, account readiness and relevant actions |
 | My profile | Profile details, personal information, photos and active modes |
 | Discovery preferences | Who I'd like to meet and related preferences |
@@ -3340,7 +3335,6 @@ The experience should prioritise:
 - [ ] Explore, Connections, Chats and Me remain consistently accessible when the member is eligible.
 - [ ] Existing account management and safety functionality remains available.
 - [ ] The redesigned page is responsive, accessible and consistent with Swoovr branding.
-
 
 Additional reviewed evidence: [Signed-in account capture](https://github.com/repasscloud/wanderconnect/blob/main/docs/delivery/evidence/2026-11-01-issue-intake/Screenshot%202026-11-01%20at%2023.13.40.png).
 
@@ -3759,6 +3753,7 @@ Particularly affected are new members completing their initial profiles and desk
 The distinction between enabling a mode and choosing to be visible within it is particularly important for member privacy and control.
 
 ### Evidence
+
 Evidence withheld from publication: `15-redesign-profile-and-modes-page-for-responsive-layout.jpeg` (populated personal profile/intention data; fictional provenance unverified). See [evidence review](evidence/2026-11-01-issue-intake/README.md).
 
 ### Notes or constraints
@@ -3829,7 +3824,6 @@ Mode-specific editing should scale cleanly as the platform evolves.
 - [ ] Existing photo ownership, moderation and visibility rules remain intact.
 - [ ] Introductory safety guidance does not repeatedly occupy profile editing pages after acknowledgement.
 - [ ] Existing profile data and mode configurations remain intact after the redesign.
-
 
 Safe supplementary evidence: [Blank profile capture](evidence/2026-11-01-issue-intake/15-profile-screen.jpeg).
 
@@ -3943,7 +3937,7 @@ There should be no requirement that all modes share the same main photo.
 The number of photos assigned to each individual mode must depend on the member's membership tier.
 
 | Membership | Maximum photos per mode |
-|---|---:|
+| --- | --: |
 | Free | 8 |
 | Plus | 16 |
 | Premium | 24 |
@@ -4218,7 +4212,6 @@ Photo management is a core feature of a dating and social discovery platform and
 - [ ] Membership downgrades do not automatically delete stored photographs.
 - [ ] Library deletion clearly distinguishes itself from removing a mode assignment.
 - [ ] Existing photos and assignments are migrated without data loss.
-
 
 Additional evidence: `16.png` reviewed locally and withheld under the [publication review](evidence/2026-11-01-issue-intake/README.md); no public attachment.
 
@@ -4768,7 +4761,4560 @@ Discovery must remain consistent with Swoovr's established reciprocal matching, 
 - [ ] Switching modes or sections does not silently discard changes.
 - [ ] Existing matching behaviour, preferences and privacy constraints remain intact.
 
-
-
 Additional evidence: `17.png` reviewed locally and withheld under the [publication review](evidence/2026-11-01-issue-intake/README.md); no public attachment.
 
+## 18. Improve Admin account search with email and phone lookup, searchable account table and configurable filters
+
+- **Status:** Ready for investigation**
+- **Area:** Admin
+- **Page or URL:** `http://localhost:5082/accounts`
+- **Type:** Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+The Swoovr Admin Accounts page currently supports searching for member accounts using an exact email address.
+
+While email searching now works, the overall account lookup and management experience is extremely basic and does not provide the functionality expected from a professional administrative application.
+
+The current page contains:
+
+- An "Exact email" input.
+- A "Find" button.
+- A basic text-based search result displaying the account type, status and creation date.
+- A hyperlink to open the matching account.
+
+The search result lacks meaningful structure, visual hierarchy and relevant account information.
+
+There is also no obvious way to browse all member accounts or filter accounts using other useful attributes.
+
+Specific problems include:
+
+1. **Email-only search.** Administrators cannot locate accounts using a registered mobile phone number.
+2. **Limited phone number handling.** There is no support for searching international phone numbers in common formats.
+3. **No account listing.** Administrators cannot open a complete, paginated table of member accounts.
+4. **No configurable filters.** Administrators cannot filter accounts by location, demographics, verification or membership state.
+5. **Poor search result presentation.** A matching account appears as a basic text line rather than a properly formatted account summary.
+6. **Limited administrative usability.** The page does not provide an efficient way to identify, compare and review accounts.
+7. **Poor scalability.** The current presentation is unsuitable for managing a large member population.
+
+### What I expected
+
+The Admin Accounts page should become a central account lookup and management interface.
+
+It should provide two primary capabilities:
+
+1. **Quick account lookup** using an email address or mobile phone number.
+2. **Browse all accounts** using a searchable, sortable, paginated Bootstrap table with configurable filtering.
+
+The redesign should make effective use of the desktop viewport and follow Swoovr's existing Admin design system.
+
+#### A. Support email address and mobile phone number searches
+
+Replace the existing "Exact email" input with a more flexible search field.
+
+Suggested label:
+
+**Find an account**
+
+Placeholder:
+
+"Enter email address or mobile number"
+
+Administrators should be able to search using either identifier.
+
+**Email address**
+
+- Support exact email lookup.
+- Ignore leading and trailing whitespace.
+- Handle case differences appropriately.
+- Return the matching member account.
+- Preserve existing account lookup permissions.
+
+**Mobile phone number**
+
+Support international phone number lookup, including common formatting variations.
+
+For example, the following should resolve to the same Australian mobile number when applicable:
+
+- `+61412345678`
+- `61412345678`
+- `0412345678` (when interpreted using the appropriate Australian country context)
+- `+61 412 345 678`
+- `+61 412-345-678`
+
+Phone numbers should be normalised before searching.
+
+Use the existing canonical phone number representation, preferably E.164, rather than relying on literal string comparisons.
+
+Do not attempt to infer ambiguous international numbers without a known country context.
+
+The lookup should use registered account identifiers, not arbitrary phone numbers mentioned in profiles or messages.
+
+#### B. Improve quick search results
+
+When an account is found, do not display it as a basic hyperlink followed by unformatted text.
+
+Instead, display a clearly structured account result.
+
+Suggested information:
+
+| Field | Example |
+| --- | --- |
+| Display name | Fictional Sam |
+| Email | fictional.sam@example.test |
+| Mobile | +61 412 *** 678 |
+| Account status | Active |
+| Membership | Free |
+| ID verification | Not verified |
+| Home city | Adelaide |
+| Created | 2 Nov 2026 |
+
+Provide a clearly labelled action:
+
+**View account**
+
+The result should use a compact account summary card or similarly structured component consistent with Swoovr Admin styling.
+
+The member's display name or account reference should be the primary identifier.
+
+Avoid exposing unnecessary sensitive information in search results.
+
+Account data visibility must respect administrator permissions.
+
+#### C. Add a Browse all accounts action
+
+Provide a clearly visible button on the Accounts page:
+
+**Browse all accounts**
+
+This should display a structured Bootstrap table containing member accounts.
+
+The table may appear beneath the search interface or within a dedicated listing view.
+
+The page should not require administrators to know a member's email address before they can access the account listing.
+
+Suggested table columns:
+
+| Column | Description |
+| --- | --- |
+| Member | Display name and account reference |
+| Email | Registered email address |
+| Mobile | Registered mobile number |
+| Home city | Member's configured home city |
+| Age | Calculated age, not date of birth |
+| Gender | Member's selected gender |
+| ID verification | Current verification state |
+| Membership | Current membership tier |
+| Membership status | Active, expired, cancelled or other supported state |
+| Account status | Active, suspended, restricted or other supported state |
+| Created | Account creation date |
+| Actions | View account |
+
+Membership tier, subscription status and account standing must remain distinct fields.
+
+Do not combine them into an ambiguous single status.
+
+Use existing data model values and do not invent unsupported states.
+
+#### D. Allow administrators to choose visible table columns
+
+The account table should support configurable column visibility.
+
+Provide a **Columns** control that allows authorised administrators to select which fields appear.
+
+For example:
+
+- Email address.
+- Mobile number.
+- Home city.
+- Age.
+- Gender.
+- ID verification state.
+- Membership tier.
+- Membership status.
+- Account status.
+- Account creation date.
+
+Keep Member and Actions visible by default.
+
+Column visibility preferences should be remembered for the administrator where practical.
+
+Do not allow column preferences to bypass field-level authorisation.
+
+Administrators should only be offered fields they have permission to view.
+
+#### E. Add configurable account filtering
+
+Provide a **Filters** control or filter panel.
+
+Administrators should be able to filter accounts using relevant supported fields.
+
+**Recommended filters**
+
+| Field | Suggested filter |
+| --- | --- |
+| Email address | Exact or partial search |
+| Home city | Searchable city selector |
+| Phone number | Normalised lookup |
+| Age | Minimum and maximum age |
+| Gender | Multi-select |
+| ID verification state | Multi-select |
+| Membership tier | Free / Plus / Premium |
+| Membership status | Supported subscription states |
+| Account status | Supported account standing states |
+
+Filters should support combinations.
+
+For example, an authorised administrator may need to find:
+
+- Members in Adelaide.
+- Between 25 and 40 years old.
+- With an active Plus subscription.
+- Who have completed ID verification.
+
+The table should display only accounts matching the selected criteria.
+
+Provide:
+
+- **Apply filters**
+- **Clear filters**
+- A visible indication of active filters.
+- Total matching result count.
+
+**Important:** Filter availability must follow administrator role permissions and authorised operational purposes.
+
+Demographic filters such as age and gender should be restricted to roles with a legitimate need to use them. They should not automatically be available to every support or moderation user.
+
+#### F. Use a proper Bootstrap data table
+
+Use the existing Bootstrap-based Admin styling to create a professional account listing.
+
+The table should support:
+
+- Clear column headings.
+- Consistent row heights.
+- Appropriate spacing and padding.
+- Sortable columns where supported.
+- Server-side pagination.
+- Server-side filtering.
+- Configurable page sizes.
+- Clear empty and loading states.
+- Responsive desktop behaviour.
+- Accessible keyboard navigation.
+
+Suggested page sizes:
+
+- 25 records.
+- 50 records.
+- 100 records.
+
+Avoid fetching every account into the browser.
+
+The design must remain usable with thousands or millions of member records.
+
+For smaller viewports, provide appropriate horizontal scrolling or a responsive alternative rather than crushing every column into a narrow layout.
+
+#### G. Separate quick lookup from account browsing
+
+The two workflows should remain distinct.
+
+**Quick lookup**
+
+For administrators who already know a member's email address or mobile number.
+
+Expected behaviour:
+
+1. Enter identifier.
+2. Click Find or press Enter.
+3. Review matching account summary.
+4. Select View account.
+
+**Browse accounts**
+
+For administrators investigating or reviewing groups of members.
+
+Expected behaviour:
+
+1. Select Browse all accounts.
+2. View a paginated account table.
+3. Choose visible columns.
+4. Apply filters.
+5. Sort results.
+6. Open an account.
+
+The quick lookup should not require loading the complete account table.
+
+#### H. Improve account navigation
+
+Selecting View account should open the existing Admin member account detail page.
+
+The detail page should provide access to relevant information according to administrator permissions, including:
+
+- Account overview.
+- Contact information.
+- Verification status.
+- Membership and subscription information.
+- Account standing.
+- Relevant support and Trust and Safety functions.
+
+When returning to the listing, preserve the administrator's previous search, filters, sorting and pagination where practical.
+
+Do not require administrators to rebuild their search after reviewing an account.
+
+#### I. Handle missing and incomplete data
+
+Not every member will have every profile field populated.
+
+The table must handle:
+
+- Missing home city.
+- Missing or undisclosed gender.
+- Unavailable age information.
+- Incomplete verification.
+- Missing membership records.
+- Incomplete onboarding.
+
+Display a neutral value such as "Not provided" or "Not available" where appropriate.
+
+Do not silently exclude members simply because optional profile fields are empty.
+
+A member with incomplete onboarding should remain discoverable to an authorised administrator.
+
+#### J. Maintain privacy, security and audit controls
+
+The Accounts page contains personal information and must enforce existing administrative access controls.
+
+Requirements:
+
+- Authorise search and listing operations server-side.
+- Apply field-level permissions to returned data.
+- Restrict demographic filtering where appropriate.
+- Avoid returning full dates of birth when age is sufficient.
+- Mask phone numbers in summary results unless the administrator is authorised to view the complete number.
+- Do not expose data through hidden columns, browser responses or client-side filtering.
+- Rate-limit or otherwise protect bulk search and enumeration endpoints.
+- Record appropriate administrative access and investigation activity.
+- Prevent unauthorised bulk extraction of member information.
+- Do not introduce unrestricted CSV exports or bulk download functionality as part of this issue.
+
+The ability to browse all accounts must not imply unrestricted access to every member's sensitive information.
+
+### Steps to reproduce
+
+1. Sign in to the Swoovr Admin application.
+2. Navigate to `http://localhost:5082/accounts`.
+3. Observe the "Exact email" search field.
+4. Search for an existing member using their registered email address.
+5. Observe the basic text-based search result.
+6. Attempt to search using the member's registered mobile number.
+7. Observe that mobile number searching is not supported.
+8. Look for an option to browse all accounts.
+9. Observe that no structured account listing is available.
+10. Look for configurable filters and column visibility options.
+11. Observe that these capabilities are not present.
+
+### Evidence
+
+![Current Admin Accounts search results](evidence/2026-11-01-issue-intake/18-accounts-screen-results-and-filter.png)
+
+The screenshot demonstrates:
+
+- The current email-only search.
+- Basic, unstructured account result presentation.
+- Large unused desktop space.
+- No visible account listing.
+- No filtering controls.
+- No configurable table columns.
+
+### Impact
+
+**Affected users:** Swoovr administrators, support personnel and authorised Trust and Safety staff.
+
+**Impact:**
+
+- Administrators cannot locate accounts using mobile numbers.
+- Account investigations require knowing the exact registered email address.
+- Support staff cannot efficiently browse or compare accounts.
+- Locating accounts with shared characteristics requires manual investigation.
+- The current interface will become increasingly inefficient as the member population grows.
+- Basic search results provide insufficient context for efficient account identification.
+- Administrative workflows require unnecessary additional navigation.
+
+A structured Accounts interface is essential for efficient support, account management and Trust and Safety operations.
+
+### Notes or constraints
+
+**Design direction**
+
+This is an administrative application, not a member-facing page.
+
+Prioritise clear information hierarchy, efficient searching, readable tables and practical operational workflows.
+
+Avoid card-based layouts for large account collections.
+
+Use Bootstrap components and the existing Swoovr Admin design system.
+
+**Phone number lookup**
+
+- Use canonical international phone number normalisation.
+- Support E.164 formatting.
+- Support common spacing and punctuation variations.
+- Support Australian national formatting where the country context is known.
+- Do not use unreliable substring matching for exact phone lookup.
+- Handle invalid or ambiguous phone number input clearly.
+
+**Filtering and data protection**
+
+- Use server-side search, filtering, sorting and pagination.
+- Enforce role-based access controls.
+- Apply field-level authorisation.
+- Restrict sensitive demographic filters where required.
+- Do not return sensitive fields merely because a column is hidden in the UI.
+- Avoid unrestricted data export.
+- Preserve existing privacy and audit requirements.
+
+**Existing functionality**
+
+- Preserve working email lookup.
+- Reuse existing account detail routes.
+- Reuse established membership and verification states.
+- Do not alter member records merely to implement searching.
+- Ensure account lookup works for members with incomplete profiles or onboarding.
+
+**Related issues**
+
+- **#2:** Admin account search fails to find existing users by email address.
+- **#5:** Beta Enrollments table redesign.
+
+The Accounts and Beta Enrollments pages should use consistent table, filtering and pagination patterns.
+
+**Suggested implementation order**
+
+1. Review existing Admin account search endpoints and data sources.
+2. Add canonical mobile number lookup.
+3. Redesign the quick-search results.
+4. Introduce the Browse all accounts view.
+5. Implement server-side pagination, sorting and filtering.
+6. Add configurable column visibility.
+7. Apply field-level permissions and relevant audit controls.
+8. Improve responsive table styling and accessibility.
+9. Test with large datasets and incomplete member records.
+10. Verify consistency with the Beta Enrollments administration interface.
+
+### Acceptance criteria
+
+- [ ] Email address lookup continues to work.
+- [ ] Mobile number lookup is supported.
+- [ ] `+61412345678` and `61412345678` resolve to the same applicable phone number.
+- [ ] Common phone formatting variations are handled correctly.
+- [ ] Quick search results use a professional, structured account summary.
+- [ ] Search results include a clearly labelled View account action.
+- [ ] Browse all accounts is available to authorised administrators.
+- [ ] Account listing uses a Bootstrap-based data table.
+- [ ] Administrators can select which authorised columns are visible.
+- [ ] Email, phone, home city, age, gender, ID verification and membership filtering are supported where authorised.
+- [ ] Membership tier and membership status are displayed separately.
+- [ ] Account status is distinguishable from membership status.
+- [ ] Multiple filters can be combined.
+- [ ] Server-side pagination and sorting are implemented.
+- [ ] Page size can be configured.
+- [ ] Total matching results are displayed.
+- [ ] Incomplete account records are handled correctly.
+- [ ] Table layouts remain usable across supported desktop and narrower viewports.
+- [ ] Existing account details can be opened directly from search results and table rows.
+- [ ] Search and filter state is preserved when returning from account details where practical.
+- [ ] Sensitive fields and filters respect administrator permissions.
+- [ ] Search endpoints enforce appropriate security and abuse protections.
+- [ ] Automated tests cover email search, phone normalisation, combined filters, pagination and permissions.
+
+## 19. Redesign Admin member account detail page with complete profile inspection, role-based access and improved account management
+
+- **Status:** Ready for investigation**
+- **Area:** Admin
+- **Page or URL:** `http://localhost:5082/accounts/{accountId}` (confirm actual route)
+- **Type:** Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+The current Swoovr Admin member account detail page provides limited information about a member and does not offer an effective way for authorised staff to investigate accounts, review profiles or resolve reports.
+
+After locating a member through the Accounts search page and opening their record, administrators are presented with a collection of basic account attributes and administrative actions.
+
+The page does not provide meaningful access to the member's complete profile configuration, connection modes, photographs, verification history, relevant reports or conversations.
+
+Consequently, staff cannot easily determine what information a member has provided, what profile settings are enabled, what other members can see, or what activity may be relevant to an investigation.
+
+The layout is also inconsistent, visually unpolished and resembles a collection of development forms rather than a production administrative interface.
+
+**Specific problems identified**
+
+1. **Insufficient account information.** The overview provides only a small number of account attributes, without access to the member's full profile or configuration.
+
+2. **No profile inspection functionality.** Administrators cannot conveniently inspect completed profile fields, enabled connection modes, intentions, discovery visibility or member-facing profile presentation.
+
+3. **No consolidated photo inspection.** There is no obvious way to review the member's uploaded photographs, moderation states or mode-specific photo assignments.
+
+4. **No contextual conversation access.** There is no clear path from a member account to relevant reported conversations, message evidence or authorised conversation investigations.
+
+5. **Poor presentation of account status.** Information appears as raw text such as `members · active` instead of properly labelled account and status fields.
+
+6. **Incorrect age presentation.** The Age field displays `selfDeclaredAdult` rather than the member's actual calculated age.
+
+7. **Date of birth is missing.** There is no clearly presented date-of-birth field for authorised staff.
+
+8. **Raw internal values are displayed.** Values such as `notStarted`, `free` and `adelaide` are displayed without user-friendly formatting.
+
+9. **Development identifiers are visible.** Headings include internal references such as `(D127)`, `(D129)`, `(D134)`, `(D149)`, `(D150)` and `(D151)`.
+
+10. **Inconsistent form controls.** Input fields and buttons vary in size, spacing and presentation.
+
+11. **Membership grant controls are poorly designed.** The "Plus for testers" section is presented as a separate development-oriented feature rather than an appropriate membership management function.
+
+12. **Membership grant fields are too narrow.** The reason field truncates its placeholder text and does not provide adequate space for entering an explanation.
+
+13. **Staff Badge management is confusing.** The interface provides actions such as "Set staff badge" even when a badge has already been assigned, without clearly displaying the current state.
+
+14. **Administrative action history is poorly presented.** Records created through "Act without a report" appear as plain text separated by horizontal rules, with insufficient spacing and no proper table structure.
+
+15. **No clear separation of sensitive information.** The page lacks an obvious permission-based structure distinguishing ordinary account information from protected identities, conversations and legal evidence.
+
+### What I expected
+
+The Admin member account detail page should become a comprehensive, professional account investigation and management interface.
+
+Authorised staff should be able to inspect a member's account, understand their profile configuration, review relevant activity and perform permitted administrative actions without needing to navigate through disconnected tools.
+
+The interface must respect Swoovr's established staff roles and permissions.
+
+**This is not a request to give every administrator unrestricted access to member information or private conversations.**
+
+The page should expose information and actions according to the staff member's specific permissions and the purpose of the investigation.
+
+### A. Redesign the account overview
+
+The top of the page should provide a clear, professionally formatted member summary.
+
+Suggested information:
+
+| Field | Expected presentation |
+| --- | --- |
+| Member | Display name |
+| Account ID | Member reference |
+| Email | Registered email address |
+| Mobile | Registered mobile number |
+| Account status | Active, Restricted, Suspended or other supported state |
+| Age | Calculated age, e.g. 42 |
+| Date of birth | Actual DOB, where authorised |
+| Gender | Human-readable selected gender |
+| Home city | Adelaide, South Australia, Australia |
+| ID verification | Not started, Pending, Verified, Failed, etc. |
+| Membership | Free, Plus or Premium |
+| Membership status | Active, Expired, Cancelled, etc. |
+| Staff affiliation | Enabled or Disabled |
+| Created | Formatted account creation date |
+| Last activity | Last recorded member activity, where available |
+| Open cases | Number of relevant open cases |
+
+Use actual supported values from the application's data model.
+
+Do not fabricate missing information.
+
+If a value has not been supplied, display an appropriate label such as "Not provided" or "Not available".
+
+### B. Replace raw internal values with readable labels
+
+The current interface displays values such as:
+
+- `members · active`
+- `selfDeclaredAdult`
+- `notStarted · may start a check`
+- `None on file`
+- `free`
+- `adelaide · moved 2 Nov 2026`
+
+These are implementation-oriented representations rather than professionally formatted administrative information.
+
+Display meaningful labels instead.
+
+Examples:
+
+| Current | Expected |
+| --- | --- |
+| `members · active` | Account type: Member / Status: Active |
+| `selfDeclaredAdult` | Age assurance: Self-declared adult |
+| `notStarted` | Not started |
+| `may start a check` | Eligible to begin verification |
+| `None on file` | No verified identity recorded |
+| `free` | Free |
+| `adelaide` | Adelaide |
+| `moved 2 Nov 2026` | Home city last changed: 2 Nov 2026 |
+
+**Important:** `selfDeclaredAdult` must not be presented as the member's age.
+
+Age should be calculated from the stored date of birth where available.
+
+Age assurance is a separate verification attribute and should remain labelled separately.
+
+Use existing enums or domain values with appropriate display mappings rather than exposing raw enum identifiers.
+
+### C. Display actual age and date of birth
+
+The account overview should show the member's calculated age.
+
+For example:
+
+**Age: 42**
+
+Where permitted, staff should also be able to see:
+
+**Date of birth: 15 March 1984**
+
+The example is illustrative only.
+
+Age must be calculated from the member's stored date of birth using the appropriate date calculation.
+
+Do not confuse:
+
+- Declared age eligibility.
+- Calculated age.
+- Age assurance state.
+- Verified date of birth.
+
+These are separate concepts.
+
+**Access requirements**
+
+- Support and Admin may see calculated age where relevant to their authorised duties.
+- Full DOB should be restricted to authorised age-assurance or investigation workflows.
+- Legal officers may access DOB and protected identity information where specifically authorised.
+- Root Admin does not automatically receive Legal-only identity access.
+
+Do not display a complete DOB to every staff member by default.
+
+### D. Introduce dedicated account detail sections
+
+The page should not display every administrative function as one continuous list of cards.
+
+Provide a structured interface with dedicated sections or tabs.
+
+Suggested navigation:
+
+1. Overview
+2. Profile & Modes
+3. Photos
+4. Discovery & Preferences
+5. Verification
+6. Membership
+7. Reports & Cases
+8. Conversations
+9. Account Actions
+10. Activity & Audit
+11. Legal & Evidence — restricted access
+
+Not every section should appear to every role.
+
+The navigation must be permission-aware.
+
+A desktop sidebar, tabbed interface or similarly structured layout would be appropriate.
+
+Avoid a single excessively long page.
+
+### E. Provide complete profile inspection
+
+Authorised administrators should be able to inspect the member's profile information.
+
+This should include:
+
+**Main profile**
+
+- Display name.
+- Main About Me.
+- Home city.
+- Area.
+- Gender and pronouns.
+- Sexual orientation, where access is authorised and relevant.
+- Age visibility.
+- Gender and pronoun visibility.
+- Orientation visibility.
+- Profile completion state.
+
+**Connection modes**
+
+- Dating enabled/disabled.
+- Friends enabled/disabled.
+- Activities enabled/disabled.
+- Business enabled/disabled.
+- Profile visibility for each mode.
+- Selected intentions for each mode.
+- Mode-specific About Me.
+- Main About Me fallback setting.
+- Other relevant mode configuration.
+
+Clearly indicate whether a field is:
+
+- Populated.
+- Empty.
+- Hidden from other members.
+- Disabled.
+- Not applicable.
+
+Administrators should be able to distinguish between information the member has entered and information actually visible in discovery.
+
+### F. Add member-facing profile preview
+
+Provide a **View as member** or **Preview profile** function.
+
+This should allow authorised staff to inspect how the member's profile appears in each enabled connection mode.
+
+For example:
+
+- Preview Dating profile.
+- Preview Friends profile.
+- Preview Activities profile.
+- Preview Business profile.
+
+The preview should reflect:
+
+- The selected mode.
+- Profile visibility settings.
+- Main and additional photos.
+- About Me text.
+- Intentions.
+- Visible identity information.
+
+This is a read-only preview.
+
+It must not impersonate the member, modify the account or create discovery activity.
+
+Staff should be able to inspect a hidden or disabled mode's stored configuration when their investigation permissions allow it, but the preview must clearly indicate that the profile is not currently discoverable.
+
+### G. Add photo inspection and moderation history
+
+Provide a dedicated Photos section.
+
+Authorised reviewers should be able to inspect:
+
+- Uploaded photos.
+- Moderation status.
+- Upload timestamps.
+- Shared photo library assignments.
+- Main photo for each connection mode.
+- Additional photos assigned to each mode.
+- Relevant moderation history.
+- Existing reports involving the photos.
+
+The interface should clearly distinguish:
+
+- Public profile photos.
+- Mode-specific gallery photos.
+- Private album media.
+- Private-chat media.
+
+Access to private or sensitive media must be independently authorised.
+
+Ordinary account access must not automatically permit staff to reveal private images.
+
+For authorised media review, preserve the existing blurred-preview, deliberate-reveal and auditing requirements.
+
+### H. Add conversations and messaging investigation links
+
+Provide a Conversations section allowing authorised staff to identify relevant conversation records associated with the member.
+
+The section should not automatically expose all private message contents.
+
+**Conversation metadata**
+
+Where authorised, staff may be able to see:
+
+- Conversation reference.
+- Participants, subject to applicable identity masking.
+- Creation date.
+- Last activity timestamp.
+- Conversation status.
+- Whether a report or investigation is associated with the conversation.
+
+**Message content**
+
+Message contents require a separate, appropriately scoped access permission and investigation purpose.
+
+Recommended behaviour:
+
+- Support may access message evidence submitted with an authorised ordinary report, but not unrestricted unrelated chat history.
+- Admin may inspect evidence relevant to authorised escalated cases, subject to the same investigation-scoping requirements.
+- Legal officers may access preserved conversation evidence through the legal evidence workflow when explicitly authorised.
+- Root Admin does not automatically receive Legal evidence access.
+
+The interface should provide links to the relevant report, case or evidence viewer.
+
+Do not introduce a general-purpose "read any member's chats" function.
+
+Where broader content access is required for a legitimate investigation, it should use a separately authorised, audited process with a documented case or purpose.
+
+### I. Apply role-based access controls
+
+The account detail interface must enforce the existing four staff roles.
+
+**Support**
+
+Permitted:
+
+- Review ordinary support cases.
+- Inspect relevant account information.
+- Review member-visible profile content relevant to a case.
+- Review permitted case evidence.
+- Dismiss eligible reports.
+- Issue warnings.
+- Apply or remove temporary restrictions up to 30 days.
+- Handle authorised appeals.
+
+Not permitted:
+
+- Override Admin sanctions.
+- Suspend or terminate accounts.
+- Decide staff-affiliated cases.
+- Access protected legal evidence.
+- Retrieve protected identity information.
+- Browse unrelated private conversations.
+
+**Admin**
+
+Includes the authorised Support capabilities, plus:
+
+- Review escalated cases.
+- Review staff-affiliated cases.
+- Suspend accounts for up to 90 days.
+- Permanently terminate accounts.
+- Revoke public staff affiliation.
+- Decide eligible appeals.
+- Open provisional legal holds.
+
+Opening a provisional legal hold must not grant access to preserved evidence.
+
+Admin must not automatically gain Legal evidence or protected identity access.
+
+**Legal / Security officer**
+
+This is a separate specialist permission set.
+
+Permitted according to the specific Legal grant:
+
+- Manage legal holds.
+- Access preserved evidence.
+- Retrieve protected identities.
+- Export authorised evidence.
+- Record law-enforcement disclosures.
+- Handle security incidents.
+
+Legal does not automatically inherit Support or Admin moderation capabilities.
+
+A Legal officer without Admin permission must not be able to issue ordinary sanctions simply because they can access preserved evidence.
+
+**Root Admin (`IsRootAdmin`)**
+
+One account only.
+
+Includes Admin capabilities, plus:
+
+- Appoint Legal officers.
+- Revoke staff administrative access.
+- Inspect sensitive-access logs.
+- Manage security incidents.
+
+Root Admin does not automatically receive Legal evidence permissions.
+
+Legal evidence access requires an explicit Legal grant, even for Root Admin.
+
+Mandatory MFA and the existing Root Admin authentication requirements must remain enforced.
+
+### J. Enforce permissions in both UI and API
+
+The UI must only display sections and actions available to the current staff member.
+
+However, hiding a menu item is not sufficient.
+
+All access checks must be enforced server-side.
+
+Use capability-based permissions where appropriate rather than broad assumptions that Admin or Root can access all information.
+
+Recommended permission areas include:
+
+- Account summary.
+- Profile inspection.
+- Sensitive identity inspection.
+- Public photo review.
+- Private media investigation.
+- Case-scoped conversation evidence.
+- Legal evidence access.
+- Membership management.
+- Staff affiliation management.
+- Account sanctions.
+- Sensitive audit inspection.
+
+Do not implement broad access simply because a staff member is authenticated.
+
+### K. Redesign account status presentation
+
+Replace the current raw text presentation with clearly labelled status indicators.
+
+For example:
+
+**Account status:** Active
+
+**Membership:** Free
+
+**ID verification:** Not started
+
+Use Bootstrap status badges or equivalent components.
+
+Appropriate colours may be used to distinguish statuses, such as:
+
+- Active — success.
+- Pending — neutral or informational.
+- Restricted — warning.
+- Suspended — warning or danger.
+- Terminated — danger.
+
+Do not rely on colour alone.
+
+Display the actual status text.
+
+Avoid combining unrelated fields into text such as `members · active`.
+
+### L. Remove development identifiers
+
+Remove internal references from user-facing headings, including:
+
+- `(D127)`
+- `(D129)`
+- `(D134)`
+- `(D149)`
+- `(D150)`
+- `(D151)`
+
+Examples:
+
+**Current:** ID verification (D129)
+
+**Expected:** ID Verification
+
+**Current:** Staff badge (D134)
+
+**Expected:** Staff Badge
+
+**Current:** Home city (D150)
+
+**Expected:** Home City
+
+These references belong in code, documentation or development tracking, not the application interface.
+
+UAT must represent the production UI.
+
+Do not maintain separate unfinished-looking UI components for UAT.
+
+### M. Redesign membership grant management
+
+Replace the development-oriented "Plus for testers" section with a proper membership administration section.
+
+Suggested heading:
+
+**Membership Management**
+
+Display:
+
+- Current membership tier.
+- Membership status.
+- Subscription or entitlement source.
+- Current entitlement start date.
+- Expiration date, where applicable.
+- Relevant grant history.
+
+For authorised manual grants, provide:
+
+**Membership tier**
+
+Free / Plus / Premium, subject to supported grant rules.
+
+**Grant duration**
+
+Number of days.
+
+**Reason**
+
+A properly sized multiline text area suitable for recording a meaningful explanation.
+
+**Grant membership**
+
+Primary action.
+
+For example, an authorised administrator may grant Plus membership for 90 days with a documented reason.
+
+The interface should clearly distinguish a complimentary administrative grant from a paid subscription.
+
+Granting membership must not modify a Stripe subscription unless the existing business workflow explicitly requires it.
+
+Use the existing entitlement system and audit requirements.
+
+Avoid cramped inputs and truncated placeholder text.
+
+### N. Redesign Staff Badge management
+
+The Staff Badge section should display the actual current state.
+
+Suggested presentation:
+
+**Staff Badge**
+
+Current state: Enabled / Disabled
+
+Use a clearly labelled toggle or switch for authorised staff affiliation changes, subject to the established rules.
+
+If the member already has an enabled badge, the control should reflect that state.
+
+Do not continue displaying a generic "Set staff badge" action without indicating that the badge is already active.
+
+Ensure:
+
+- The current state is retrieved from authoritative account data.
+- Changes require appropriate permissions.
+- Relevant changes are confirmed where necessary.
+- The previous and new states are audited.
+- Public staff affiliation remains distinct from internal staff account permissions.
+
+**Important:** A public Staff Badge must not grant administrative access.
+
+Administrative roles and staff affiliation are separate concepts.
+
+Support must not be able to decide staff-affiliated cases.
+
+The existing rules for applying and revoking affiliation must remain authoritative. Do not introduce unrestricted badge changes through a simple frontend toggle.
+
+### O. Improve administrative action controls
+
+Sections such as:
+
+- ID Verification.
+- Age Assurance.
+- Home City.
+- Location and Arrival.
+- Membership Management.
+- Staff Badge.
+- Account Sanctions.
+
+should use consistent Bootstrap form controls and layout patterns.
+
+Requirements:
+
+- Consistent input heights.
+- Consistent labels and helper text.
+- Appropriate spacing between fields.
+- Sensible button sizes.
+- No touching or overlapping controls.
+- Properly aligned actions.
+- Clear validation messages.
+- Consistent confirmation patterns.
+- Uniform card and section styling.
+
+Avoid placing numerous unrelated actions into large, repetitive blocks.
+
+Sensitive actions should use dedicated confirmation dialogs or action panels where appropriate.
+
+### P. Improve account sanctions and actions
+
+The existing "Act without a report" section should be redesigned.
+
+Suggested heading:
+
+**Account Actions**
+
+Provide a clear form for authorised actions such as:
+
+- Warning.
+- Temporary restriction.
+- Other supported administrative sanctions.
+
+Available actions must depend on the staff member's permissions.
+
+Support must not be offered actions exceeding the 30-day restriction limit.
+
+Admin may access additional permitted sanctions according to established policy.
+
+Legal officers must not receive sanction capabilities merely because they have Legal access.
+
+The form should include:
+
+- Action type.
+- Applicable duration.
+- Restrictions, where supported.
+- Structured reason.
+- Optional detailed notes.
+- Clear confirmation action.
+
+A structured reason category should be used where practical.
+
+Avoid relying exclusively on arbitrary free-text reasons.
+
+### Q. Replace action history with a proper table
+
+Currently, administrative action records appear as plain text separated by horizontal rules.
+
+They are positioned too close to the Apply button and lack a useful information hierarchy.
+
+Replace this with a dedicated table.
+
+Suggested heading:
+
+**Account Action History**
+
+Suggested columns:
+
+| Column | Description |
+| --- | --- |
+| Date | Action timestamp |
+| Action | Warning, restriction, suspension, etc. |
+| Reason | Structured reason category |
+| Duration | Applicable period |
+| Status | Active, expired, revoked, etc. |
+| Staff member | Authorised actor or reference |
+| Details | Open action record |
+
+Requirements:
+
+- Provide clear spacing between the action form and the history table.
+- Use proper table headers and row separation.
+- Support sorting where appropriate.
+- Use readable status labels.
+- Provide access to authorised action details.
+- Avoid horizontal-rule-separated text blocks.
+- Preserve historical actions rather than overwriting them.
+
+If the member has many records, support pagination.
+
+Do not expose restricted case information to roles without the required permissions.
+
+### R. Improve page navigation and layout
+
+The current page is excessively long and relies on vertically stacked administrative forms.
+
+Redesign it for desktop administrative use.
+
+Suggested structure:
+
+**Header**
+
+- Member display name.
+- Member reference.
+- Account status.
+- Membership tier.
+- Relevant quick actions.
+
+**Primary account navigation**
+
+- Overview.
+- Profile & Modes.
+- Photos.
+- Verification.
+- Membership.
+- Reports & Cases.
+- Conversations.
+- Account Actions.
+- Additional restricted sections where authorised.
+
+**Main content**
+
+Displays the selected section rather than every administrative form simultaneously.
+
+**Contextual actions**
+
+Present only the actions relevant to the selected section.
+
+Use a suitable maximum content width without unnecessarily constraining the page to a narrow column.
+
+Preserve consistent sidebar, header and navigation styling across the Admin application.
+
+### S. Separate ordinary activity from protected evidence
+
+Account activity and sensitive investigation evidence must not be treated as the same information.
+
+**Ordinary account activity**
+
+Examples include:
+
+- Account creation.
+- Profile updates.
+- Verification state changes.
+- Membership changes.
+- Administrative warnings and restrictions.
+
+These may be visible to appropriately authorised operational staff.
+
+**Protected investigation evidence**
+
+Examples include:
+
+- Preserved private messages.
+- Protected identity documents.
+- Legal hold materials.
+- Restricted media evidence.
+- Law-enforcement disclosure records.
+
+These require separate permissions and workflows.
+
+Legal hold creation must not automatically grant access to the materials placed under hold.
+
+All access to sensitive evidence must be explicitly authorised, appropriately scoped and audited.
+
+### Steps to reproduce
+
+1. Sign in to the Swoovr Admin application.
+2. Navigate to `http://localhost:5082/accounts`.
+3. Search for an existing member account.
+4. Open the member account detail page.
+5. Observe the limited account summary.
+6. Review raw values such as `members · active`, `selfDeclaredAdult`, `notStarted` and `free`.
+7. Observe the absence of a clearly presented actual age and authorised DOB view.
+8. Review internal development references in section headings.
+9. Attempt to inspect the member's complete profile, enabled modes and profile visibility.
+10. Attempt to inspect the member's photographs and mode assignments.
+11. Look for links to relevant reports, cases and conversation evidence.
+12. Review the Membership Management and Staff Badge controls.
+13. Review the "Act without a report" form.
+14. Create an authorised test action.
+15. Observe the resulting history entries displayed as plain text with horizontal separators.
+16. Compare the layout and available actions across Support, Admin, Legal and Root Admin roles.
+
+### Evidence
+
+![Current Admin member account detail page](evidence/2026-11-01-issue-intake/19-members-account-view-update.png)
+
+The screenshot demonstrates:
+
+- Raw internal account values.
+- Weak information hierarchy.
+- Inconsistent form controls.
+- Development identifiers in section headings.
+- Limited profile inspection functionality.
+- Poor membership management presentation.
+- Confusing Staff Badge controls.
+- Unstructured administrative action history.
+- Excessively long account detail layout.
+
+### Impact
+
+**Affected users:** Swoovr Support, Admin, Legal/Security and Root Admin staff, according to their assigned permissions.
+
+**Impact:**
+
+- Staff cannot efficiently understand a member's account configuration.
+- Investigating reports requires navigating disconnected administrative systems.
+- Profile visibility and mode settings cannot be reviewed conveniently.
+- Relevant photographs and conversation evidence are difficult to locate.
+- Raw internal values make account information harder to interpret.
+- Sensitive administrative actions are presented inconsistently.
+- Membership grants and staff affiliation settings lack clear state presentation.
+- Historical sanctions are difficult to review.
+- Poor separation of sensitive information increases the risk of inappropriate access if new functionality is added without proper permissions.
+- The page does not meet the expected standard for production administrative software.
+
+This is a high-priority improvement because the member account detail page is central to support operations, account investigations and Trust and Safety workflows.
+
+### Notes or constraints
+
+**Authoritative staff role boundaries**
+
+| Role | Permissions |
+| --- | --- |
+| Support | Ordinary cases, eligible appeals, warnings and restrictions up to 30 days. No admin sanction overrides or staff-affiliated case decisions |
+| Admin | Support capabilities plus escalated and staff-affiliated cases, suspensions up to 90 days, permanent termination, eligible appeals and provisional legal holds |
+| Legal | Separate specialist permissions for legal holds, preserved evidence, protected identities, evidence exports, law-enforcement disclosures and security incidents |
+| Root Admin | Admin capabilities plus staff access administration, Legal appointments, sensitive-access logs and security incident controls |
+
+Legal does not automatically inherit Admin or Support.
+
+Root Admin does not automatically receive Legal evidence permissions.
+
+Protected evidence access requires explicit authorisation.
+
+**Technical requirements**
+
+- Use server-side permission enforcement.
+- Prefer granular capabilities over broad role-only checks.
+- Keep Legal evidence access separate from ordinary moderation.
+- Preserve existing audit requirements.
+- Use human-readable mappings for enums and state values.
+- Calculate age from DOB rather than presenting age-assurance state as age.
+- Protect full DOB and other sensitive identity information.
+- Do not expose private conversation contents through ordinary account lookup.
+- Use case-scoped evidence access where appropriate.
+- Preserve existing account data, sanctions, verification and membership records.
+- Maintain existing business rules for staff affiliation.
+- Use consistent Bootstrap components and responsive layouts.
+- Remove development identifiers and placeholders from the UI.
+- Do not expose sensitive data in frontend responses merely because the corresponding UI section is hidden.
+
+**Related issues**
+
+- **#18:** Admin account search, account listing and filtering.
+- **#4:** Photo moderation and review workflow.
+- **#5:** Beta Enrollments table redesign.
+- **#3:** Admin session and authentication state handling.
+
+The account detail page should use the same Admin design system and table conventions established by these related improvements.
+
+**Suggested implementation order**
+
+1. Review the current account detail data sources, API endpoints and permissions.
+2. Define a role/capability matrix for each proposed section and action.
+3. Redesign the account overview and status presentation.
+4. Correct age, DOB and human-readable account information.
+5. Remove development references and standardise form controls.
+6. Introduce section-based account navigation.
+7. Implement read-only profile and mode inspection.
+8. Add member-facing profile previews.
+9. Integrate authorised photo inspection and moderation history.
+10. Add links to reports, cases and appropriately scoped conversation evidence.
+11. Redesign membership grants and Staff Badge management.
+12. Improve administrative sanctions and structured action history.
+13. Implement restricted Legal and evidence navigation where permitted.
+14. Validate backend permissions and audit logging.
+15. Test each staff role independently.
+16. Verify the complete interface using realistic accounts and investigation scenarios.
+
+### Acceptance criteria
+
+**Account overview**
+
+- [ ] Member account overview uses a professional, structured layout.
+- [ ] Raw enum values are replaced with human-readable labels.
+- [ ] Account status uses clearly labelled status indicators.
+- [ ] Membership tier and status are displayed separately.
+- [ ] Age displays the calculated numerical age where DOB is available.
+- [ ] Age assurance is displayed separately from age.
+- [ ] Full DOB is available only to appropriately authorised staff.
+- [ ] Internal development identifiers are removed from headings.
+- [ ] Missing data is presented clearly without misleading placeholder values.
+
+**Profile inspection**
+
+- [ ] Authorised staff can inspect populated profile fields.
+- [ ] Staff can see which connection modes are enabled.
+- [ ] Staff can see mode-specific profile visibility.
+- [ ] Staff can inspect selected intentions and About Me content.
+- [ ] Hidden and empty fields are clearly distinguished.
+- [ ] Read-only member-facing profile previews are available where authorised.
+
+**Photos and conversations**
+
+- [ ] Authorised reviewers can inspect relevant photos and moderation states.
+- [ ] Mode-specific main and additional photo assignments are visible.
+- [ ] Private media access requires appropriate permissions.
+- [ ] Conversation metadata and relevant case links are available where authorised.
+- [ ] Private message content is not exposed through unrestricted account browsing.
+- [ ] Protected conversation evidence requires explicit investigation or Legal permissions.
+- [ ] Sensitive access and photo reveal actions are audited.
+
+**Administrative controls**
+
+- [ ] Membership Management replaces "Plus for testers".
+- [ ] Authorised staff can grant supported membership entitlements for a defined duration.
+- [ ] Membership grant reasons use appropriately sized input controls.
+- [ ] Staff Badge clearly displays Enabled or Disabled.
+- [ ] Staff Badge changes follow existing permission rules.
+- [ ] Form fields and buttons use consistent Bootstrap styling and spacing.
+- [ ] Administrative actions are clearly grouped by purpose.
+- [ ] Account Action History uses a structured table.
+- [ ] Action history is visually separated from the action form.
+- [ ] Existing action records remain accessible according to permissions.
+
+**Security and role boundaries**
+
+- [ ] Support cannot exceed its 30-day restriction authority.
+- [ ] Support cannot override Admin sanctions or decide staff-affiliated cases.
+- [ ] Admin can perform only its established additional actions.
+- [ ] Legal does not automatically inherit Admin or Support capabilities.
+- [ ] Root Admin does not automatically receive Legal evidence access.
+- [ ] Provisional legal holds do not grant preserved-evidence access.
+- [ ] Role-specific sections and actions are hidden when unauthorised.
+- [ ] All protected operations are authorised server-side.
+- [ ] Sensitive access is logged appropriately.
+- [ ] Automated tests cover each role's allowed and denied operations.
+
+**Design and usability**
+
+- [ ] Desktop layout uses the available space effectively.
+- [ ] Account information is organised into logical sections.
+- [ ] The page no longer consists of one excessively long sequence of unrelated forms.
+- [ ] Buttons and fields do not touch or overlap.
+- [ ] Forms, labels and status indicators are visually consistent.
+- [ ] Tables are readable, sortable and paginated where appropriate.
+- [ ] Navigation remains consistent across the Admin application.
+- [ ] UAT uses the same production-intended UI without development-only labels.
+
+## 20. Improve Beta Enrollments UI and introduce configurable Beta and Public Registration controls
+
+- **Status:** Ready for investigation
+- **Area:** Admin / API / Member web
+- **Page or URL:** `http://localhost:5082/beta`
+- **Type:** Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+The Beta Enrollments page has been updated to use a table-based layout, which is an improvement over the previous card-based design.
+
+However, several visual inconsistencies remain, and there is currently no clearly defined administrative mechanism to enable or disable private beta registration and public account registration.
+
+Beta enrollment is intended to be a temporary access-control mechanism during Swoovr's pre-launch testing period.
+
+Once Swoovr launches publicly, members should be able to register without requiring their email addresses to have been pre-authorised.
+
+The registration system therefore needs independently configurable controls for beta enrollment and public registration.
+
+**Problems identified**
+
+1. **Email input is too narrow.** The "Email to pre-authorise" field is not wide enough for typical email addresses.
+
+2. **Inconsistent filter controls.** Search, Status, Sort, Created from, Created to and Per page use different heights, widths and styling.
+
+3. **Buttons are inconsistent with form controls.** Apply filters and Clear filters do not follow a consistent alignment or visual hierarchy.
+
+4. **Table cell alignment is inconsistent.** Email Invitation and iOS Distribution content appears vertically lower than content in the other columns.
+
+5. **No clear registration availability controls.** Administrators cannot readily determine whether beta enrollment or public registration is enabled.
+
+6. **No defined registration mode management.** There is no obvious mechanism to transition from private beta to public registration, or temporarily disable all new registrations.
+
+7. **Registration navigation does not reflect availability.** The member-facing Create account/Register action should disappear when all registration methods are disabled.
+
+### What I expected
+
+The Beta Enrollments page should retain its existing table-based layout while improving form consistency, spacing and usability.
+
+Additionally, Swoovr should introduce two independent registration configuration flags:
+
+- **Beta registration enabled**
+- **Public registration enabled**
+
+These flags must determine whether new accounts can be created and whether beta pre-authorisation is required.
+
+### A. Introduce registration availability controls
+
+Provide two configurable settings.
+
+**Beta registration enabled**
+
+Controls whether new registrations can proceed through the private beta enrollment process.
+
+When enabled:
+
+- Beta enrollment pre-authorisation is enforced for the private beta registration path.
+- Eligible invited members can register.
+- Accounts without the required beta eligibility cannot register through the private beta path, unless public registration is also enabled.
+- Existing member sign-in remains unaffected.
+
+**Public registration enabled**
+
+Controls whether members may register without prior beta enrollment.
+
+When enabled:
+
+- New members can register without a beta invitation.
+- Beta pre-authorisation is not required for public registration.
+- Normal registration, age eligibility, verification and onboarding requirements remain enforced.
+
+The controls must not affect existing accounts or revoke previously granted access.
+
+### B. Define how both registration flags work together
+
+The two flags should produce the following behaviour:
+
+| Beta enabled | Public enabled | Registration behaviour |
+| --- | --- | --- |
+| On | Off | Private beta only. Registration requires valid beta eligibility |
+| Off | Off | Registration closed. No new accounts can be created |
+| Off | On | Public registration open. No beta enrollment required |
+| On | On | Public registration takes precedence. Beta enrollment is not required |
+
+For the fourth combination, the system should permit registration publicly while retaining beta enrollment functionality for existing beta participants or administrative tracking.
+
+However, this configuration should not be necessary for normal operations.
+
+The Admin interface should explain the effective registration state.
+
+Suggested labels:
+
+- **Private beta**
+- **Registration closed**
+- **Public registration**
+- **Public registration with beta tracking**
+
+Do not allow conflicting or ambiguous registration behaviour.
+
+### C. Provide a dedicated Registration Settings area
+
+Registration controls should not be buried among individual beta enrollment records.
+
+Introduce a clearly separated **Registration Settings** section, preferably within an appropriate Admin configuration area, with a link or summary on the Beta Enrollments page.
+
+Suggested layout:
+
+**Registration Settings**
+
+Beta registration
+
+[On / Off]
+
+"Require beta pre-authorisation when public registration is closed."
+
+Public registration
+
+[On / Off]
+
+"Allow anyone meeting Swoovr's eligibility requirements to register."
+
+Current registration mode:
+
+**Private beta**
+
+The controls should clearly display their current persisted values.
+
+Only authorised administrators should be able to change these settings.
+
+Recommended permission boundary:
+
+- Support: View registration status only, where authorised.
+- Admin: View status.
+- Legal: No automatic access to registration configuration.
+- Root Admin: View and modify registration availability.
+
+This is a platform-wide operational control, not an ordinary member moderation setting.
+
+### D. Ensure registration restrictions are enforced server-side
+
+The configuration must be enforced by the registration backend and identity provider.
+
+Do not rely solely on hiding the Create account button.
+
+When registration is closed:
+
+- New account creation must be rejected through all registration entry points.
+- Direct access to Keycloak registration endpoints must not bypass the restriction.
+- API-based or alternative registration flows must respect the same settings.
+- Existing accounts must remain able to sign in.
+- Existing member sessions must remain unaffected.
+- Password recovery must continue to function.
+
+When beta-only registration is enabled:
+
+- Validate beta eligibility using the canonical registered email address.
+- Apply the existing invitation and enrollment state rules.
+- Prevent unauthorised registrations.
+- Ensure beta registration decisions are made by authoritative backend services.
+
+When public registration is enabled:
+
+- Remove the beta enrollment requirement from normal account creation.
+- Continue enforcing all ordinary eligibility and security requirements.
+
+**Keycloak consideration:** Investigate how the existing Keycloak registration flow can consume the authoritative registration policy. Use supported authentication extensions or configuration mechanisms where required.
+
+Do not implement a frontend-only restriction that can be bypassed through direct Keycloak URLs.
+
+### E. Update member-facing registration navigation
+
+The member web application must reflect the current registration availability.
+
+**When registration is available**
+
+Display the normal Create account/Register action on the unauthenticated landing and sign-in screens.
+
+**When both registration flags are disabled**
+
+- Hide the Create account/Register action.
+- Keep Sign in available.
+- Keep Forgot password available.
+- Do not display broken registration links.
+
+If someone accesses the registration page directly, display a professionally designed, Swoovr-branded message:
+
+**Registration is currently closed**
+
+"We're not accepting new registrations at the moment."
+
+Provide a **Back to sign in** action.
+
+Do not expose infrastructure configuration details or internal development messages.
+
+The same policy should apply to mobile web, native iOS and Android authentication entry points.
+
+### F. Make registration configuration persistent and auditable
+
+Registration availability must be stored in an authoritative, shared configuration source.
+
+The configuration must:
+
+- Survive application restarts.
+- Apply consistently across multiple API instances.
+- Be available to the registration/identity-provider flow.
+- Support safe changes without redeploying applications.
+- Avoid inconsistent registration behaviour between instances.
+
+Record configuration changes with:
+
+- Administrator ID.
+- Previous values.
+- New values.
+- Timestamp in UTC.
+- Reason for change.
+
+A short reason should be required when changing registration availability.
+
+Consider a confirmation dialog when closing all registration or enabling unrestricted public registration.
+
+**Fail-safe behaviour:** If the authoritative policy cannot be retrieved, registration must not silently default to open. Use a defined secure fallback and make configuration failures visible to authorised operations staff.
+
+### G. Improve Email to pre-authorise field
+
+The current email input is too narrow.
+
+Increase it to a sensible width suitable for normal email addresses.
+
+Expected behaviour:
+
+- Use a standard Bootstrap email input.
+- Provide enough width to display a typical email address.
+- Apply consistent height and padding.
+- Align the Add enrollment button appropriately.
+- Validate email formatting.
+- Display clear success and error feedback.
+
+On desktop, the email input and Add enrollment action may appear horizontally.
+
+On mobile, they may stack with appropriate spacing.
+
+Do not allow controls to touch.
+
+When beta registration is disabled, retain access to historical enrollment records, but clearly indicate that new pre-authorisations are not currently being enforced. Disabling beta registration should not automatically delete pending enrollments.
+
+### H. Standardise all filtering controls
+
+The following controls must use consistent Bootstrap styling:
+
+- Search.
+- Status.
+- Sort.
+- Created from.
+- Created to.
+- Per page.
+- Apply filters.
+- Clear filters.
+
+Requirements:
+
+- Consistent input heights.
+- Consistent label typography.
+- Consistent horizontal and vertical padding.
+- Proper alignment within the filter row.
+- Appropriate gaps between controls.
+- Sensible widths according to the expected content.
+- No overlapping or touching fields.
+- Consistent focus and disabled states.
+
+Dates should use the same date-picker styling and format.
+
+Avoid mixing native-looking inputs with heavily customised controls unless their visual presentation is consistent.
+
+### I. Improve filter layout and responsiveness
+
+The filter interface should have a clear visual hierarchy.
+
+Suggested desktop arrangement:
+
+**Primary filters**
+
+- Search.
+- Status.
+- Sort.
+
+**Date and pagination filters**
+
+- Created from.
+- Created to.
+- Per page.
+
+**Actions**
+
+- Apply filters.
+- Clear filters.
+
+The exact arrangement may vary with available screen width.
+
+Use Bootstrap grid and spacing utilities to produce consistent alignment.
+
+Avoid forcing all controls into a single row when it creates cramped fields.
+
+On narrower screens, controls should wrap naturally while maintaining consistent spacing.
+
+Apply filters should be the primary action.
+
+Clear filters should be a secondary or outline action rather than an inconsistently positioned plain hyperlink.
+
+### J. Correct table column vertical alignment
+
+The existing table layout is generally acceptable and should be retained.
+
+However, the content under the following columns appears vertically lower than adjacent cells:
+
+- Email Invitation.
+- iOS Distribution.
+
+All table cells should align to the top.
+
+Use consistent cell padding and vertical alignment.
+
+For example, ensure Bootstrap table cells use the equivalent of:
+
+`vertical-align: top;`
+
+The first line of content in every column should begin at the same vertical position.
+
+Secondary information may appear underneath, using consistent spacing.
+
+Do not centre some columns vertically while top-aligning others.
+
+### K. Improve table consistency
+
+Retain the current columns:
+
+- Member / Email.
+- Enrollment.
+- Email Invitation.
+- iOS Distribution.
+- Actions.
+
+Improve presentation where necessary:
+
+- Consistent cell padding.
+- Top-aligned content.
+- Clear primary and secondary text.
+- Consistent date formatting.
+- Appropriate status indicators.
+- Readable reference identifiers.
+- Consistent action links and buttons.
+
+Do not allow internal diagnostic values to dominate the table.
+
+Existing invitation and distribution information should remain accessible, but technical details may be moved into expanded enrollment details where appropriate.
+
+### L. Maintain existing Beta Enrollments functionality
+
+The redesign must preserve:
+
+- Pre-authorisation by email.
+- Enrollment status tracking.
+- Existing beta invitation workflow.
+- Email invitation status.
+- iOS distribution tracking.
+- Search, filtering, sorting and pagination.
+- Enrollment management actions.
+- Existing audit history.
+
+Registration availability settings must not delete or modify historical beta enrollment data.
+
+When public registration becomes available, beta enrollment records should remain accessible for reporting and historical purposes.
+
+### Steps to reproduce
+
+1. Sign in to the Swoovr Admin application.
+2. Navigate to `http://localhost:5082/beta`.
+3. Observe the existing Beta Enrollments table.
+4. Review the width of the Email to pre-authorise input.
+5. Compare the heights and styles of Search, Status, Sort, Created from, Created to and Per page.
+6. Compare the alignment of Apply filters and Clear filters.
+7. Observe the vertical alignment of Email Invitation and iOS Distribution table cells.
+8. Look for controls to enable or disable beta registration and public registration.
+9. Confirm that no clearly defined registration availability management interface is present.
+10. Review the current member-facing registration behaviour when registration availability changes or is intended to be closed.
+
+### Evidence
+
+![Current Beta Enrollments page](evidence/2026-11-01-issue-intake/20-beta-enrollments-page-visual-update.png)
+
+The screenshot demonstrates the current filter alignment, narrow email input and inconsistent table cell positioning.
+
+The registration availability controls are a new requirement and are not illustrated in the screenshot.
+
+### Impact
+
+**Affected users:** Swoovr administrators, beta participants and prospective members.
+
+**Impact:**
+
+- Inconsistent form styling reduces administrative usability.
+- Narrow fields make enrollment entry awkward.
+- Misaligned table content reduces readability.
+- There is no clearly controlled transition from private beta to public registration.
+- Registration may remain incorrectly restricted after public launch.
+- The platform lacks a straightforward way to temporarily close new registrations.
+- Frontend-only registration restrictions could be bypassed if backend enforcement is not implemented.
+- Multiple API and authentication instances may apply inconsistent policies without an authoritative shared configuration.
+
+This is a high-priority improvement because registration availability is a platform-wide operational control required for beta testing, launch and ongoing operations.
+
+### Notes or constraints
+
+**Registration state model**
+
+Implement two independent flags:
+
+- `BetaRegistrationEnabled`
+- `PublicRegistrationEnabled`
+
+Recommended evaluation:
+
+1. If public registration is enabled, eligible members can register without beta pre-authorisation.
+2. Otherwise, if beta registration is enabled, a valid beta enrollment is required.
+3. Otherwise, registration is closed.
+
+The flags must not affect existing member sign-in.
+
+**Security and permissions**
+
+- Restrict configuration changes to Root Admin initially.
+- Enforce registration policy server-side and through Keycloak.
+- Audit every configuration change.
+- Do not allow public registration to become enabled accidentally through configuration failure.
+- Preserve existing email verification, mobile verification, age eligibility and onboarding requirements.
+- Prevent registration bypasses through direct identity-provider endpoints.
+
+**Infrastructure**
+
+The flags may be stored in the application database or another authoritative shared configuration system.
+
+They should not be implemented exclusively as static environment variables if administrators are expected to change them at runtime.
+
+Ensure consistency across multiple Azure API instances and Keycloak.
+
+A distributed cache may be used if appropriate, but stale values must not permit registration contrary to the authoritative policy.
+
+**Related issues**
+
+- **#5:** Beta Enrollments table redesign.
+- **#7:** Public landing page and unauthenticated navigation.
+- **#8:** Unauthenticated account routing.
+- **#9:** Sign-in design.
+- **#10:** Registration design.
+- **#11:** Registration error presentation.
+- **#18:** Admin account searching and listing.
+
+These issues should use consistent Admin and member-facing design components where applicable.
+
+**Suggested implementation order**
+
+1. Review the current beta eligibility and registration architecture.
+2. Define and persist the two registration configuration flags.
+3. Implement authoritative registration policy evaluation.
+4. Integrate enforcement into the existing Keycloak registration flow.
+5. Add Root Admin registration configuration controls.
+6. Update public landing, sign-in and registration navigation.
+7. Implement the closed-registration screen.
+8. Audit configuration changes.
+9. Standardise Beta Enrollments form controls.
+10. Correct table cell alignment.
+11. Validate registration behaviour across all four flag combinations.
+12. Test desktop, mobile web and native app entry points.
+
+### Acceptance criteria
+
+**Registration configuration**
+
+- [ ] Beta registration can be independently enabled or disabled.
+- [ ] Public registration can be independently enabled or disabled.
+- [ ] Private beta requires valid beta eligibility when public registration is disabled.
+- [ ] Public registration does not require beta enrollment.
+- [ ] Disabling both registration methods prevents new account creation.
+- [ ] Existing members can continue signing in when registration is closed.
+- [ ] Forgot password remains available when registration is closed.
+- [ ] Registration settings are persistent across application restarts.
+- [ ] All API and identity-provider instances follow the same authoritative policy.
+- [ ] Only appropriately authorised staff can modify registration availability.
+- [ ] Configuration changes are audited.
+- [ ] Registration remains closed on a policy retrieval failure rather than silently opening.
+
+**Member-facing behaviour**
+
+- [ ] Create account/Register is hidden when both registration methods are disabled.
+- [ ] Registration remains accessible when either permitted registration method is enabled.
+- [ ] Direct registration endpoints cannot bypass the configured policy.
+- [ ] Closed registration displays a properly branded explanation.
+- [ ] Existing authentication and onboarding requirements remain intact.
+- [ ] Desktop, mobile web and native app registration entry points behave consistently.
+
+**Beta Enrollments page**
+
+- [ ] Email to pre-authorise input is appropriately sized.
+- [ ] Search, Status, Sort, Created from, Created to and Per page use consistent control heights and styling.
+- [ ] Apply filters and Clear filters have consistent alignment and spacing.
+- [ ] Filter controls adapt correctly to narrower viewports.
+- [ ] Table cells are consistently top-aligned.
+- [ ] Email Invitation and iOS Distribution content aligns with other columns.
+- [ ] Existing table functionality and enrollment records are preserved.
+- [ ] Beta enrollment history remains accessible after beta registration is disabled.
+- [ ] The page uses consistent Bootstrap components and follows the Swoovr Admin design system.
+
+## 21. Admin page refresh intermittently displays raw form submission error in Safari
+
+- **Status:** Ready for investigation
+- **Area:** Admin
+- **Page or URL:** `http://localhost:5082/media` (potentially other Admin routes)
+- **Type:** Bug
+- **Priority:** Medium
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+When using the Swoovr Admin application in Safari, refreshing a page sometimes causes the application to display a raw error message instead of reloading the current page.
+
+This occurred while signed in as an administrator on:
+
+`http://localhost:5082/media`
+
+The browser displays:
+
+> Cannot submit the form 'search' because no form on the page currently has that name.
+
+The normal Swoovr Admin interface disappears and is replaced by a plain text error response.
+
+Once this happens, refreshing the page again does not resolve the problem.
+
+To recover, I must manually change the browser URL back to `http://localhost:5082/` and navigate to the required page again.
+
+**Observed behaviour:**
+
+1. Administrator is authenticated and using the Admin application normally.
+2. Administrator navigates to `/media`.
+3. Refreshing the page intermittently causes an error.
+4. The application displays a raw text response instead of the Admin interface.
+5. Further refresh attempts continue displaying the error.
+6. Navigating manually to `/` restores normal functionality.
+
+The issue has been observed in Safari, which is the browser used for Admin testing.
+
+### What I expected
+
+Refreshing any Swoovr Admin page should reload that page successfully without losing the authenticated session or requiring navigation back to the application root.
+
+Specifically:
+
+- Refreshing `/media` should reload `/media`.
+- The Admin layout should render normally.
+- The authenticated administrator should remain signed in when the session is valid.
+- Form state or interactive components should not prevent direct page loading.
+- The application should not attempt to submit a form that is no longer present.
+- Raw framework error messages should never be displayed to the user.
+
+If a genuine error occurs, the application should display a properly styled Admin error page with a recovery action.
+
+### Steps to reproduce
+
+1. Open Safari.
+2. Sign in to the Swoovr Admin application at `http://localhost:5082/`.
+3. Navigate to `http://localhost:5082/media`.
+4. Refresh the page using `Cmd + R`.
+5. Repeat navigation and refresh attempts until the intermittent error appears.
+6. Observe the raw error message:
+
+   `Cannot submit the form 'search' because no form on the page currently has that name.`
+
+7. Attempt to refresh again.
+8. Observe that the error remains.
+9. Navigate manually to `http://localhost:5082/`.
+10. Confirm that the Admin application becomes accessible again.
+
+### Evidence
+
+![Safari Admin refresh error](evidence/2026-11-02-issue-intake/21-admin-safari-refresh-form-error.png)
+
+The screenshot shows Safari displaying a plain text error response, with the message indicating that the named form `search` could not be found.
+
+### Impact
+
+**Affected users:** Administrators using Safari, potentially other browsers.
+
+**Impact:**
+
+- Refreshing an Admin page can unexpectedly interrupt work.
+- The current page becomes inaccessible until the administrator manually returns to `/`.
+- Normal browser refresh behaviour is unreliable.
+- The application exposes an internal framework error instead of a professional error screen.
+- The issue creates unnecessary navigation and disrupts administrative workflows.
+
+The problem is intermittent and currently has a straightforward workaround, so Medium priority is appropriate.
+
+### Notes or constraints
+
+**Investigation focus**
+
+The error suggests a possible issue with ASP.NET Core / Blazor form handling.
+
+Investigate:
+
+- Whether a form named `search` is being submitted during navigation or refresh.
+- Whether `FormName` and `EditForm` declarations are correctly configured.
+- Whether duplicate or stale form references exist.
+- Whether static SSR and interactive component behaviour are interacting incorrectly.
+- Whether Safari is restoring form submission state during page reload.
+- Whether enhanced form handling or navigation is involved.
+- Whether a POST request is being replayed or routed incorrectly.
+
+The exact cause has not been confirmed.
+
+**Implementation requirements**
+
+- Keep the fix focused on the underlying refresh/form-handling problem.
+- Do not introduce unnecessary changes to the Admin navigation architecture.
+- Preserve existing search and filtering functionality.
+- Ensure direct navigation to Admin routes works correctly.
+- Do not require administrators to return to `/` to recover from a refresh.
+- Ensure unexpected errors use the standard Swoovr Admin error presentation.
+- Avoid exposing raw framework exceptions or technical details to the browser.
+
+**Related issue**
+
+- **#3:** Admin session incorrectly reports expiration and displays inconsistent authentication pages.
+
+The problems may be unrelated, but both involve unexpected interruptions during Admin navigation.
+
+Note: Was on the media page, and I know a new photo needed to be reviewed, so I refreshed the page and it returned this error: `Cannot submit the form 'approve-5d8b6e7c-a15f-4447-87a8-102a1f35795c' because no form on the page currently has that name.`
+
+### Acceptance criteria
+
+- [ ] Refreshing `/media` in Safari reloads the page successfully.
+- [ ] Repeated refreshes do not produce missing-form errors.
+- [ ] Direct navigation to `/media` works without first visiting `/`.
+- [ ] Existing Admin search and filtering forms continue working.
+- [ ] Valid authenticated sessions remain intact during refresh.
+- [ ] Other Admin routes are checked for the same issue.
+- [ ] Safari behaviour is verified.
+- [ ] Raw framework error messages are not displayed to users.
+- [ ] Any unexpected failure displays a consistent Swoovr Admin error page.
+- [ ] The underlying form submission issue is corrected rather than hidden.
+
+## 22. Redesign Admin Photo Review for high-volume moderation, member appeals and rejected-photo management
+
+- **Status:** Ready for investigation
+- **Area:** Admin / Member web / API
+- **Page or URL:** `http://localhost:5082/media`
+- **Type:** Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+The Swoovr Admin Photo Review page is unnecessarily large, visually cluttered and inefficient for staff who may need to review hundreds of photographs per hour.
+
+The current interface displays extensive explanatory text, development references, oversized photo review sections and multiple expanded moderation forms.
+
+Each photograph occupies a substantial amount of screen space, making it difficult to work through a queue efficiently.
+
+The page also lacks a complete workflow for rejected photographs, member notifications, appeals and administrative reconsideration.
+
+**Problems identified:**
+
+1. Excessive explanatory text at the top of the page, including references to beta rules and internal development codes.
+2. Important child sexual abuse material (CSAM) handling instructions are buried within ordinary page text.
+3. "Coded reviews since..." appears as an expandable section rather than a dedicated review history interface.
+4. Each photograph occupies an excessively large section of the page.
+5. Photo previews and moderation actions are displayed inline instead of inside a focused review dialog.
+6. Native-looking dropdowns are inconsistent with the Swoovr Admin design system.
+7. Revealing and concealing a photograph use separate controls rather than one state-aware toggle.
+8. Revealed photographs consume excessive screen space.
+9. There is no prominent pending-photo count on the Admin dashboard or moderation navigation.
+10. Rejection reasons are not clearly communicated to the affected member through notifications.
+11. Members do not have a clear method to appeal a rejected photograph.
+12. Administrators do not have an organised Rejected Photos queue for reconsideration or overriding previous decisions.
+
+### What I expected
+
+The Photo Review page should become a compact, professional and high-throughput moderation workspace.
+
+The primary page should focus on identifying photographs awaiting review.
+
+Detailed inspection and decision-making should take place inside an appropriately sized modal dialog or dedicated review panel.
+
+The system must also support rejected-photo management, member notifications, appeals and authorised review overrides.
+
+### A. Simplify the page header
+
+Replace the existing lengthy introduction with a concise heading and description.
+
+**Photo Review**
+
+"Review photographs flagged for manual moderation."
+
+Remove routine display of:
+
+- Beta-related wording.
+- Internal development identifiers such as `(D178)`.
+- Unnecessary technical explanations.
+- Repeated references to how the application is implemented.
+- Excessive instructional text that does not help the reviewer perform the task.
+
+Technical screening details should remain accessible in the review detail view where useful.
+
+The page should not resemble development documentation.
+
+Do not remove important safety requirements or warnings. Present them in the appropriate context instead.
+
+### B. Introduce a dismissible CSAM safety warning
+
+The existing warning about suspected child sexual abuse material is important and should be retained.
+
+However, it should not occupy a permanent paragraph at the top of every Photo Review page.
+
+Display a dedicated safety notice when an authorised reviewer first enters the media moderation workspace.
+
+Suggested heading:
+
+**Important safety guidance**
+
+Suggested message:
+
+"If you encounter suspected child sexual abuse material, stop reviewing the image immediately. Do not download, copy or share it. Use the specialist escalation process so the appropriate Trust and Safety or Legal personnel can handle it."
+
+Provide a clear action:
+
+**I understand**
+
+**Behaviour**
+
+- Display the notice when a reviewer enters Photo Review and no valid acknowledgement exists.
+- Require acknowledgement before revealing potentially sensitive images.
+- Store acknowledgement server-side, associated with the staff account and current notice version.
+- Suppress repeated display for four hours after acknowledgement.
+- Show the notice again after four hours when the reviewer next enters the moderation workspace.
+- Re-display immediately if a materially revised safety notice is issued.
+- Audit acknowledgement where appropriate.
+
+A secure cookie may assist with presentation state, but should not be the sole authoritative record.
+
+The notice must not replace the actual specialist escalation controls.
+
+Keep the warning concise, accessible and suitable for professional staff.
+
+### C. Replace oversized photo review blocks with a compact table
+
+The main Photo Review page should display queued photographs in a structured Bootstrap table.
+
+Suggested columns:
+
+| Column | Description |
+| --- | --- |
+| Photo | Small blurred thumbnail or placeholder |
+| Member | Display name or member reference |
+| Uploaded | Upload date and time |
+| Context | Profile, mode gallery or other applicable media type |
+| Screening | Reason the photograph entered manual review |
+| Status | Pending review, escalated, etc. |
+| Actions | Review photo |
+
+The table should:
+
+- Use consistent row heights.
+- Display concise information.
+- Support pagination.
+- Support sorting and filtering.
+- Allow quick access to the selected photograph.
+- Avoid showing full-sized images and approval forms directly in the table.
+
+Do not automatically reveal potentially sensitive content in thumbnails.
+
+A blurred thumbnail or appropriate placeholder is sufficient.
+
+**Target:** A reviewer should be able to scan many queued photographs without scrolling through large individual cards.
+
+### D. Open photo review in a modal dialog
+
+Selecting **Review photo** should open a focused modal dialog.
+
+Suggested desktop layout:
+
+**Left side**
+
+- Photo preview.
+- Reveal/conceal control.
+- Photo metadata.
+
+**Right side**
+
+- Screening result.
+- Approval/rejection/escalation controls.
+- Structured reason selection.
+- Optional notes.
+- Submit decision.
+
+The modal should have a practical maximum width and height.
+
+Large photographs should scale to fit the available preview area without expanding the entire page.
+
+Use internal scrolling only where necessary.
+
+The modal should remain usable on smaller desktop screens.
+
+For mobile or tablet administrative access, use an appropriately adapted full-screen dialog or equivalent interface.
+
+### E. Use one Reveal / Conceal toggle
+
+Replace separate static Reveal photo and Conceal photo buttons with one state-aware control.
+
+**When concealed:**
+
+Button: **Reveal photo**
+
+**When revealed:**
+
+Button: **Conceal photo**
+
+The button must update immediately to reflect the current state.
+
+Expected behaviour:
+
+1. Reviewer opens the photo review modal.
+2. A blurred preview appears.
+3. Reviewer selects Reveal photo.
+4. Access is recorded.
+5. The photograph becomes visible.
+6. The button changes to Conceal photo.
+7. Reviewer can conceal the image again without closing the modal.
+
+Revealing a photograph must remain auditable.
+
+Do not require a new free-text justification for routine assigned moderation.
+
+Closing the modal should reset the preview to concealed.
+
+### F. Limit photograph dimensions
+
+Photographs must not expand the review workspace unnecessarily.
+
+Use a fixed or responsive preview container with sensible maximum dimensions.
+
+The image should:
+
+- Preserve its aspect ratio.
+- Fit within the preview area.
+- Avoid overflowing the modal.
+- Avoid stretching or distortion.
+- Remain clearly visible for moderation.
+- Support a deliberate larger inspection view where authorised and necessary.
+
+Use `object-fit: contain` or equivalent behaviour.
+
+Do not render a full-resolution image at its native dimensions inside the main page.
+
+Authorised higher-resolution inspection should remain subject to the same access controls and auditing.
+
+### G. Consolidate moderation actions
+
+The current interface displays separate large sections for:
+
+- Approve.
+- Reject.
+- Escalate for specialist review.
+
+Replace these with a compact decision selector inside the review modal.
+
+Suggested actions:
+
+**Approve | Reject | Escalate**
+
+Selecting an action should display only the fields relevant to that decision.
+
+**Approve**
+
+- Approval reason dropdown.
+- Optional notes.
+- Confirm approval.
+
+**Reject**
+
+- Rejection reason dropdown.
+- Optional notes or required explanation where appropriate.
+- Confirm rejection.
+
+**Escalate**
+
+- Safety concern dropdown.
+- Optional or required notes based on concern type.
+- Confirm escalation.
+
+Only one decision form should be visible at a time.
+
+Use the existing structured moderation reason codes established in issue #4.
+
+Do not force reviewers to navigate through three large expanded forms for every photograph.
+
+### H. Standardise all controls
+
+The moderation interface should use consistent Bootstrap styling.
+
+Requirements:
+
+- Uniform dropdown heights.
+- Consistent input borders.
+- Consistent padding and spacing.
+- Consistent button heights.
+- Clear primary and secondary actions.
+- Properly styled text areas.
+- Readable labels.
+- No overlapping controls.
+- No unnecessary full-width buttons.
+
+The current native-looking dropdowns are visually inconsistent and should be replaced or styled appropriately.
+
+Do not mix default browser controls with unrelated custom components.
+
+All controls should remain keyboard-accessible.
+
+### I. Optimise high-volume review workflows
+
+The system should support reviewers processing hundreds of photographs per hour.
+
+After a decision:
+
+1. Save the moderation result.
+2. Update the queue.
+3. Display a brief success confirmation.
+4. Advance to the next available review item, where appropriate.
+
+Provide a **Next photo** action if automatic advancement is not enabled.
+
+Avoid returning the reviewer to the main page after every decision.
+
+The workflow should minimise unnecessary clicks without removing essential controls.
+
+**Additional requirements**
+
+- Prevent duplicate decision submissions.
+- Handle cases where another reviewer has already processed the item.
+- Prevent conflicting concurrent moderation decisions.
+- Preserve decision history.
+- Ensure sensitive escalation actions remain deliberate.
+
+Keyboard shortcuts may be considered for experienced reviewers, but must not allow accidental approval or rejection.
+
+### J. Add moderation queue counts to the Admin dashboard
+
+Pending photo reviews should be visible without requiring staff to open the Photo Review page.
+
+On the Admin Overview page, display a moderation summary.
+
+Suggested:
+
+**Photo Reviews**
+
+- Pending: 24
+- Escalated: 3
+- Appeals awaiting review: 5
+
+Use actual backend counts.
+
+Also consider displaying a count beside the Photos navigation item.
+
+For example:
+
+**Photos (24)**
+
+Counts must reflect the current authorised queue and should update when decisions are completed.
+
+Do not expose restricted specialist queue counts to staff who are not authorised to access them.
+
+The dashboard should link directly to the relevant queue.
+
+### K. Move coded review history to a dedicated area
+
+The current "Coded reviews since..." expandable section should not remain part of the main review queue.
+
+Create a separate area:
+
+**Review History**
+
+The review history should use a searchable, sortable and paginated table.
+
+Suggested columns:
+
+| Column | Description |
+| --- | --- |
+| Date | Decision timestamp |
+| Photo | Media reference |
+| Member | Member reference |
+| Decision | Approved, Rejected, Escalated |
+| Reason | Structured moderation reason |
+| Reviewer | Staff member |
+| Actions | View review details |
+
+Provide appropriate filters for:
+
+- Decision.
+- Reason.
+- Reviewer.
+- Date range.
+- Member reference.
+
+The table must support thousands of records without loading everything into the browser.
+
+Use server-side pagination and filtering.
+
+Keep sensitive or restricted review details subject to existing permissions.
+
+### L. Introduce a Rejected Photos queue
+
+Rejected photographs should remain available for authorised reconsideration, subject to the applicable retention and evidence rules.
+
+Create a dedicated section or tab:
+
+**Rejected Photos**
+
+This should display previously rejected photographs in a structured table.
+
+Suggested columns:
+
+- Photo reference.
+- Member.
+- Rejection date.
+- Rejection reason.
+- Original reviewer.
+- Appeal status.
+- Current moderation status.
+- Review action.
+
+The queue should support filtering by rejection reason, date and appeal status.
+
+Rejected photographs must remain unavailable for member profile display unless a subsequent authorised decision changes their moderation state.
+
+Do not make rejected photographs publicly visible merely because they appear in this queue.
+
+### M. Allow authorised administrative reconsideration
+
+Authorised staff should be able to reopen a rejected-photo decision for review.
+
+Suggested actions:
+
+**Uphold rejection**
+
+The photograph remains rejected.
+
+**Override rejection — Approve**
+
+The photograph is approved following reconsideration.
+
+**Escalate**
+
+The matter is sent for specialist review.
+
+An override must:
+
+- Require appropriate permissions.
+- Record the administrator performing the action.
+- Record the original and new decisions.
+- Record the reason for overriding.
+- Preserve the original rejection history.
+- Revalidate applicable moderation rules.
+- Update the member's photo status.
+- Notify the member of the outcome where appropriate.
+
+Do not overwrite or erase the original decision.
+
+For serious prohibited-content categories or evidence under legal hold, ordinary approval overrides must not bypass specialist restrictions or evidence-preservation requirements.
+
+### N. Notify members when a photo is rejected
+
+When a photograph is rejected, the member should receive a notification.
+
+Suggested notification:
+
+**Photo not approved**
+
+"One of your photos couldn't be approved because it doesn't meet Swoovr's photo guidelines."
+
+Display the applicable member-facing rejection reason.
+
+For example:
+
+**Reason:** Public profile photos cannot contain explicit nudity.
+
+Provide actions:
+
+- **View photo details**
+- **Appeal decision**, where eligible.
+
+Notifications should be accessible through the member's existing notification system.
+
+The member should also be able to see the rejection status and explanation when managing their photos.
+
+**Important:** Internal moderation codes, automated screening scores, sensitive investigative details and confidential evidence must not be included in member notifications.
+
+Use clear member-facing reason descriptions mapped from the structured moderation codes.
+
+### O. Introduce member photo rejection appeals
+
+Members should have an appropriate way to request reconsideration of a rejected photograph.
+
+Suggested flow:
+
+1. Member receives a photo rejection notification.
+2. Member opens the rejected photo details.
+3. Member selects **Appeal decision**.
+4. Member optionally provides an explanation.
+5. The appeal is submitted.
+6. The member receives confirmation.
+7. The appeal enters the appropriate moderation appeals queue.
+
+Suggested appeal form:
+
+**Appeal photo decision**
+
+"We'll review the photo and the reason it was rejected."
+
+**Your explanation (optional)**
+
+Multiline text field.
+
+**Submit appeal**
+
+The form should clearly indicate that an appeal does not guarantee approval.
+
+The photograph must remain rejected while the appeal is pending.
+
+### P. Route photo appeals into a dedicated review queue
+
+Member photo appeals should appear in an authorised queue.
+
+Suggested section:
+
+**Photo Appeals**
+
+Display:
+
+- Photo reference.
+- Member reference.
+- Original rejection reason.
+- Original reviewer.
+- Member's appeal explanation.
+- Appeal submitted date.
+- Appeal status.
+- Review action.
+
+Appeal reviewers should be able to:
+
+- Uphold the rejection.
+- Approve the photo following review.
+- Escalate for specialist handling.
+
+Where practical, avoid assigning an appeal to the same staff member who made the original decision.
+
+The system must respect existing staff permissions and appeal eligibility rules.
+
+A Support reviewer must not override an Admin-level or specialist decision without the necessary authority.
+
+### Q. Notify members of appeal outcomes
+
+When an appeal is decided, the member should receive a notification.
+
+**Appeal approved**
+
+"Your photo appeal was approved. Your photo is now eligible to appear in your profile, subject to your photo settings."
+
+**Appeal declined**
+
+"We reviewed your appeal and confirmed the original photo decision."
+
+Where appropriate, provide a concise member-facing explanation.
+
+The notification should link to the relevant photo or appeal record.
+
+Do not expose internal reviewer notes or sensitive investigative information.
+
+### R. Prevent repeated or abusive appeals
+
+Introduce reasonable controls to prevent duplicate or excessive appeal submissions.
+
+Requirements:
+
+- Do not create multiple active appeals for the same photo decision.
+- Display the current appeal status.
+- Preserve previous appeal history.
+- Apply existing abuse-prevention controls.
+- Avoid unrestricted repeated appeals after a final decision.
+
+If further reconsideration is warranted, authorised staff should retain an appropriate administrative mechanism.
+
+Do not permanently prevent specialist review of genuinely new safety information.
+
+### S. Preserve moderation and evidence security
+
+The redesigned interface must maintain appropriate safeguards.
+
+**Routine moderation**
+
+Support or Admin reviewers may process ordinary photo moderation according to their assigned permissions.
+
+**Escalated cases**
+
+Serious safety concerns must be transferred to the appropriate restricted Trust and Safety workflow.
+
+**Protected evidence**
+
+Legal holds, preserved evidence and protected identities must remain restricted to explicitly authorised personnel.
+
+An Admin or Root Admin account must not receive protected Legal evidence access merely because it can moderate public photographs.
+
+**CSAM concerns**
+
+Suspected CSAM must use the existing specialist incident and evidence-handling workflow.
+
+Do not allow routine photo approval, appeals or administrative overrides to bypass an active specialist restriction.
+
+### T. Remove development-oriented presentation
+
+The Photo Review page must not display internal implementation references or beta-specific wording as part of the normal reviewer interface.
+
+Examples include:
+
+- `(D178)`.
+- "Current beta rules still apply".
+- Development implementation notes.
+- Unnecessary technical identifiers presented without context.
+
+UAT must represent the intended production user interface.
+
+Technical screening details may remain accessible within a dedicated diagnostic or review information panel for authorised staff.
+
+### Steps to reproduce
+
+1. Sign in to the Swoovr Admin application.
+2. Navigate to `http://localhost:5082/media`.
+3. Review the lengthy explanatory text at the top of the page.
+4. Observe the CSAM warning embedded within ordinary text.
+5. Review the "Coded reviews since..." expandable section.
+6. Locate a photograph requiring manual review.
+7. Observe the amount of page space occupied by a single item.
+8. Open its blurred preview.
+9. Reveal the photograph.
+10. Observe the separate reveal and conceal controls and oversized preview.
+11. Expand the Approve, Reject and Escalate sections.
+12. Review the inconsistent dropdown and form styling.
+13. Submit a test rejection using an authorised test photograph.
+14. Check whether the member receives a notification explaining the rejection.
+15. Check whether the member can submit an appeal.
+16. Check whether rejected photographs can be viewed in a dedicated Admin queue.
+17. Check whether authorised administrators can reconsider or override a rejection.
+18. Return to the Admin Overview and check whether pending photo-review counts are displayed.
+
+### Evidence
+
+![Photo review — oversized moderation form](evidence/2026-11-02-issue-intake/22-photo-review-01.png)
+
+![Photo review — main queue layout](evidence/2026-11-02-issue-intake/22-photo-review-02.png)
+
+![Photo review — blurred preview and reveal controls](evidence/2026-11-02-issue-intake/22-photo-review-03.png)
+
+![Photo review — revealed image and review layout](evidence/2026-11-02-issue-intake/22-photo-review-04.png)
+
+The four screenshots demonstrate excessive whitespace, large inline moderation controls, inconsistent field styling, lengthy page text and inefficient image reveal behaviour.
+
+Adjust the evidence paths to match the files' final location in the repository.
+
+### Impact
+
+**Affected users:** Swoovr Support, Admin and authorised Trust and Safety reviewers, as well as members whose photographs are rejected.
+
+**Operational impact**
+
+- Routine photo reviews take unnecessarily long.
+- Reviewers cannot efficiently scan large volumes of queued media.
+- Oversized interfaces reduce the number of review items visible at once.
+- Review actions require excessive scrolling and navigation.
+- Pending workloads are not immediately visible from the Admin dashboard.
+- Previous review decisions are difficult to search and analyse.
+- Rejected photographs lack an organised reconsideration workflow.
+
+**Member impact**
+
+- Members may not receive clear rejection reasons.
+- Members cannot easily understand why a photograph was rejected.
+- There is no clear photo-specific appeal process.
+- Incorrect rejections may remain unresolved.
+- Members may repeatedly upload the same photo instead of appealing the original decision.
+
+**Security and governance impact**
+
+- Sensitive media must remain appropriately protected.
+- Review access and reveal actions must remain auditable.
+- Specialist restrictions must not be bypassed through ordinary administrative overrides.
+- Review decisions and appeal outcomes must retain a complete history.
+
+This is a high-priority improvement because photo moderation is expected to become a frequent, high-volume operational task.
+
+### Notes or constraints
+
+**Design direction**
+
+The Photo Review page should behave like a professional moderation queue, not a collection of full-page forms.
+
+Prioritise:
+
+- Compact queue rows.
+- Modal-based review.
+- Fast decision-making.
+- Consistent form controls.
+- Clear queue counts.
+- Structured review history.
+- Member-facing transparency.
+- Auditable reconsideration and appeals.
+
+**Access and safety**
+
+- Preserve blurred previews.
+- Audit photo reveals.
+- Retain the four-hour CSAM guidance acknowledgement, with notice-version tracking.
+- Preserve specialist escalation and evidence-handling requirements.
+- Respect existing Support, Admin, Legal and Root Admin boundaries.
+- Do not expose restricted evidence through ordinary moderation views.
+- Do not automatically approve images on appeal.
+- Prevent ordinary overrides of active specialist restrictions.
+
+**Member notifications**
+
+- Use the existing Swoovr notification infrastructure.
+- Store structured moderation outcomes.
+- Map internal reason codes to appropriate member-facing explanations.
+- Do not expose sensitive screening scores or confidential reviewer notes.
+- Record appeal and notification status.
+
+**Technical considerations**
+
+- Use Bootstrap components consistent with the Admin design system.
+- Use server-side pagination and filtering.
+- Support concurrent reviewers safely.
+- Prevent duplicate decisions.
+- Preserve existing media moderation records.
+- Maintain existing Cloudflare R2 image access controls.
+- Avoid unrestricted image download capabilities.
+- Reuse existing reports, appeals and case infrastructure where appropriate.
+- Apply backend authorisation to all moderation and override actions.
+- Ensure image approval restores eligibility without bypassing current profile visibility or account restrictions.
+
+**Related issues**
+
+- **#4:** Photo moderation workflow and structured decision reasons.
+- **#19:** Member account inspection, photos and case access.
+- **#3:** Admin authentication and session handling.
+
+This issue extends #4 by addressing high-volume queue usability, rejected-photo management, member notifications and appeals.
+
+**Suggested implementation order**
+
+1. Review the existing media moderation and appeals data model.
+2. Simplify the Photo Review page header.
+3. Introduce the timed safety acknowledgement.
+4. Replace inline photo review sections with a compact table.
+5. Implement the modal-based review interface.
+6. Consolidate Approve, Reject and Escalate into a single decision workflow.
+7. Replace separate Reveal and Conceal buttons with one state-aware control.
+8. Standardise form controls and preview dimensions.
+9. Implement reviewer workflow progression and concurrency protection.
+10. Add dashboard moderation queue counts.
+11. Move coded review history to a dedicated paginated view.
+12. Introduce the Rejected Photos queue.
+13. Add authorised reconsideration and override handling.
+14. Implement member photo rejection notifications.
+15. Implement photo-specific member appeals.
+16. Add appeal review and outcome notifications.
+17. Validate permissions, audit logs and evidence restrictions.
+18. Test performance with realistic high-volume review queues.
+
+### Acceptance criteria
+
+**Photo review interface**
+
+- [ ] Page header is concise and free from development-oriented wording.
+- [ ] CSAM guidance is presented as a dismissible safety notice.
+- [ ] Safety acknowledgement remains valid for four hours.
+- [ ] Safety notice revisions can require renewed acknowledgement.
+- [ ] Main Photo Review page uses a compact, paginated table.
+- [ ] Individual photographs no longer occupy large inline sections.
+- [ ] Selecting Review photo opens a focused modal.
+- [ ] Photos initially appear blurred where required.
+- [ ] Reveal and Conceal use a single state-aware control.
+- [ ] Revealing photographs remains audited.
+- [ ] Image previews are appropriately constrained.
+- [ ] Approve, Reject and Escalate use a consolidated decision interface.
+- [ ] Only fields relevant to the selected decision are displayed.
+- [ ] Dropdowns, inputs, buttons and text areas use consistent styling.
+- [ ] Reviewers can efficiently advance to the next item.
+- [ ] Concurrent decisions are handled safely.
+
+**Dashboard and history**
+
+- [ ] Admin Overview displays relevant pending photo-review counts.
+- [ ] Photos navigation can display an authorised queue count.
+- [ ] Coded review history is moved out of the main queue.
+- [ ] Review history supports server-side pagination and filtering.
+- [ ] Historical decisions remain accessible according to permissions.
+
+**Rejected photographs**
+
+- [ ] Rejected photographs appear in a dedicated queue.
+- [ ] Rejection reason and original decision history are retained.
+- [ ] Authorised staff can reconsider rejected photographs.
+- [ ] Authorised staff can uphold, override or escalate decisions.
+- [ ] Overrides require a recorded reason.
+- [ ] Previous decisions are never overwritten or erased.
+- [ ] Restricted specialist cases cannot be approved through ordinary override actions.
+
+**Member notifications and appeals**
+
+- [ ] Members receive a notification when a photograph is rejected.
+- [ ] Notifications contain an appropriate member-facing rejection reason.
+- [ ] Members can view the rejection details in their photo management area.
+- [ ] Eligible rejected photographs provide an Appeal decision action.
+- [ ] Members can submit an appeal with an optional explanation.
+- [ ] Duplicate active appeals are prevented.
+- [ ] Appeals enter an authorised review queue.
+- [ ] Appeal reviewers can uphold, approve or escalate according to permissions.
+- [ ] Members receive the outcome of their appeals.
+- [ ] Internal moderation details are not disclosed through member notifications.
+- [ ] Appeal and reconsideration history is preserved.
+
+**Security and performance**
+
+- [ ] Existing moderation permissions remain enforced.
+- [ ] Sensitive media access remains restricted and audited.
+- [ ] Specialist escalation and legal evidence protections remain intact.
+- [ ] Pending queues support high-volume workloads.
+- [ ] The interface remains usable with thousands of review records.
+- [ ] Automated tests cover decisions, notifications, appeals, overrides and permissions.
+- [ ] UAT presents the same production-intended interface without development labels.
+
+## 23. Prevent members from changing their date of birth after initial registration and introduce Admin-controlled DOB correction
+
+- **Status:** Ready for investigation
+- **Area:** Member web / Admin / API / Mobile
+- **Page or URL:** `http://localhost:5081/account`
+- **Type:** Bug / Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+The Swoovr member account page currently allows members to modify their date of birth after it has already been entered and saved.
+
+This is incorrect behaviour.
+
+A member's date of birth is an important identity and age eligibility attribute used throughout Swoovr, including:
+
+- Determining whether the member meets the minimum age requirement of 18.
+- Calculating the member's age.
+- Supporting age-based discovery and matching.
+- Maintaining accurate member identity information.
+- Supporting ID verification and age assurance.
+- Preventing deliberate misrepresentation of age.
+
+Currently, a member can enter their date of birth, save it, and subsequently return to the account page to change it.
+
+This creates an opportunity for members to manipulate their age, potentially bypass age-based restrictions or create inconsistencies between their account information and identity verification records.
+
+The date of birth should be established during initial onboarding and become locked once successfully saved.
+
+### What I expected
+
+A member should be allowed to enter their date of birth once during initial account setup.
+
+Before saving it, the application should clearly explain why accurate information is required and warn that the date of birth cannot subsequently be changed without assistance from Swoovr.
+
+Once confirmed, the date of birth must become read-only.
+
+Members who genuinely entered an incorrect date should be able to request a correction through Swoovr Support.
+
+Only an appropriately authorised Admin should be able to temporarily unlock the date-of-birth field to permit a controlled correction.
+
+### A. Require confirmation before initially saving DOB
+
+During onboarding, when the member enters their date of birth for the first time, display a confirmation dialog before permanently saving the value.
+
+Suggested dialog:
+
+**Confirm your date of birth**
+
+"Please make sure your date of birth is correct.
+
+Swoovr uses your date of birth to confirm age eligibility, calculate your age and support identity verification.
+
+Your date of birth is never displayed to other members, and you can choose whether to show your age on your profile.
+
+For trust and transparency, your date of birth cannot be changed after confirmation without assistance from Swoovr Support."
+
+Display the selected date of birth clearly.
+
+Actions:
+
+- **Go back and edit**
+- **Confirm date of birth**
+
+The member must explicitly confirm the date before it is saved.
+
+Do not lock the field merely because a date has been entered but has not yet been confirmed.
+
+### B. Lock the date of birth after confirmation
+
+Once the member confirms and saves their DOB:
+
+- Mark the DOB as confirmed and locked.
+- Display the saved DOB as read-only in the member account area.
+- Remove the ordinary DOB editing and Save controls.
+- Do not permit modification through the standard profile or onboarding endpoints.
+- Do not allow modification through mobile applications or alternative clients.
+- Enforce the restriction server-side.
+
+The lock must be authoritative and must not depend solely on a disabled input control.
+
+A member must not be able to modify their DOB by manipulating API requests or frontend state.
+
+### C. Improve the member-facing DOB presentation
+
+After DOB confirmation, the member account page should display a concise, read-only section.
+
+Suggested presentation:
+
+**Date of birth**
+
+19 August 1940
+
+<Read-only — confirmed>
+
+Supporting text:
+
+"Your date of birth is private and cannot be changed without assistance from Swoovr Support."
+
+Action:
+
+**Request a correction**
+
+This should direct the member to the existing support process.
+
+Do not continue displaying an editable date picker and Save button after confirmation.
+
+The member should be able to view their DOB but not modify it directly.
+
+### D. Keep DOB private from other members
+
+A member's date of birth must never be displayed publicly on their profile.
+
+The application may calculate their current age for discovery and profile presentation.
+
+Existing privacy preferences must remain available.
+
+For example:
+
+**Show my age**
+
+On / Off
+
+This controls whether the member's calculated age is visible to other members.
+
+It must not affect:
+
+- The stored DOB.
+- Age eligibility.
+- Internal age calculations.
+- ID verification.
+- Age-related safety checks.
+- Applicable discovery eligibility rules.
+
+Hiding age must not permit the member to bypass age-related requirements.
+
+### E. Introduce Admin-controlled DOB unlocking
+
+Add a controlled administrative action to the member account detail page.
+
+Suggested section:
+
+**Date of Birth**
+
+Display:
+
+- Current DOB.
+- Calculated age.
+- DOB confirmation status.
+- Age assurance status.
+- ID verification status.
+- Previous correction history, where authorised.
+
+For appropriately authorised Admin staff, provide an action:
+
+**Authorise DOB correction**
+
+This should not permanently unlock the member's DOB.
+
+Instead, create a temporary, single-use permission allowing the member to submit one corrected date of birth.
+
+The Admin must:
+
+1. Open the member's account.
+2. Select Authorise DOB correction.
+3. Provide a structured correction reason.
+4. Record the associated support case or investigation reference.
+5. Confirm the authorisation.
+
+The member should then receive a notification explaining that their DOB can be corrected.
+
+### F. Make DOB correction authorisation temporary and single-use
+
+An administrative unlock should have a limited validity period.
+
+**Suggested default: 24 hours.**
+
+Requirements:
+
+- The authorisation applies only to the specified member.
+- It may be used once.
+- It automatically expires after 24 hours.
+- It is consumed after a successful DOB correction.
+- It cannot be transferred to another account.
+- It cannot be reused through repeated API calls.
+- It may be revoked by an authorised administrator before use.
+- Expiration and consumption must be enforced by the API.
+
+The DOB must return to the locked state immediately after the corrected value is confirmed.
+
+If the authorisation expires unused, the existing DOB remains unchanged and locked.
+
+### G. Allow the member to correct DOB after authorisation
+
+When an Admin authorises a correction:
+
+1. Notify the member that a DOB correction has been authorised.
+2. Display a clear notification within their account.
+3. Make the DOB field editable for that authorised correction only.
+4. Display the existing DOB and allow the member to choose a replacement.
+5. Require explicit confirmation before saving.
+6. Validate the corrected DOB.
+7. Save the new DOB.
+8. Consume the correction authorisation.
+9. Lock the field again.
+10. Notify the member that the correction was completed.
+
+Suggested notification:
+
+**Date of birth correction available**
+
+"Swoovr Support has authorised you to correct your date of birth. You can update it once before the authorisation expires."
+
+Action:
+
+**Correct date of birth**
+
+Do not expose internal administrative notes or investigation details in the notification.
+
+### H. Provide a support request option
+
+Members who entered an incorrect DOB should be able to request assistance.
+
+Add a link:
+
+**Request a date of birth correction**
+
+This should open the existing Swoovr support process, using the relevant account correction category.
+
+The member should be able to explain the problem.
+
+Support should receive a case containing the account reference and correction request.
+
+Do not require members to send identity documents through ordinary email.
+
+If supporting identity evidence is required, use the established secure identity verification or document submission workflow.
+
+### I. Enforce staff role permissions
+
+DOB correction must respect Swoovr's existing administrative permission boundaries.
+
+**Support**
+
+- May receive and review DOB correction requests.
+- May inspect information necessary for authorised support duties.
+- May escalate correction requests to Admin.
+- Cannot independently unlock or change DOB.
+
+**Admin**
+
+- May review an eligible correction request.
+- May authorise a temporary, single-use DOB correction.
+- Must provide a reason and associated case reference.
+- Cannot bypass age eligibility or verification requirements.
+
+**Legal / Security officer**
+
+- May access protected identity information only through the applicable Legal permissions and authorised purposes.
+- Does not automatically inherit Admin DOB correction authority.
+
+**Root Admin**
+
+- Has Admin-level DOB correction authority.
+- Must follow the same audit and correction requirements.
+- Does not automatically receive Legal-only evidence access.
+
+An Admin may authorise a correction, but ordinary correction should be performed by the member through the temporary authorised workflow.
+
+Any exceptional staff-entered correction should require a separately defined, higher-assurance procedure rather than an unrestricted DOB edit field.
+
+### J. Revalidate age eligibility after correction
+
+Changing DOB can affect a member's eligibility and discovery behaviour.
+
+After a successful correction, the system must:
+
+- Recalculate age.
+- Re-evaluate the minimum age requirement.
+- Re-evaluate age-related account restrictions.
+- Update age-based discovery eligibility.
+- Update applicable age-range matching.
+- Reassess the existing age assurance state.
+- Check for conflicts with completed identity verification.
+
+**If the corrected DOB indicates the member is under 18:**
+
+- Immediately prevent access to adult-only functionality.
+- Apply the established underage account handling workflow.
+- Prevent discovery, messaging and other restricted member functionality.
+- Escalate for appropriate Trust and Safety handling.
+
+An administrative correction must never allow an underage member to remain active in an adult-only service.
+
+### K. Reconcile DOB with ID verification
+
+DOB is used as an identity attribute during ID verification.
+
+Where a member has completed ID verification, a subsequent DOB correction must not silently preserve an inconsistent verified state.
+
+Requirements:
+
+- Compare the corrected DOB with the identity verification information available through the authorised verification process.
+- Determine whether existing verification remains valid.
+- Require re-verification where necessary.
+- Do not automatically mark the corrected DOB as identity-verified.
+- Preserve the historical verification record and appropriate audit trail.
+- Restrict affected features until required verification is restored.
+
+A completed ID verification should not be treated as permanently valid when its underlying identity attributes materially change.
+
+### L. Maintain a complete DOB correction audit trail
+
+Every administrative authorisation and successful DOB correction must be recorded.
+
+Suggested audit information:
+
+| Field | Description |
+| --- | --- |
+| Member ID | Account receiving the correction |
+| Authorising Admin | Staff account granting permission |
+| Case reference | Associated support or investigation case |
+| Reason | Structured correction reason |
+| Authorised at | UTC timestamp |
+| Expires at | UTC timestamp |
+| Used at | UTC timestamp, where applicable |
+| Previous DOB | Restricted audit value |
+| Corrected DOB | Restricted audit value |
+| Verification impact | Whether re-verification was required |
+| Result | Completed, expired, revoked or otherwise failed |
+
+Full historical DOB values must be restricted to staff with an appropriate authorised need.
+
+Do not expose historical DOB values in ordinary support listings, logs or notifications.
+
+The audit trail should be tamper-resistant and subject to applicable retention rules.
+
+### M. Protect DOB correction endpoints
+
+The DOB correction workflow must be enforced by the API.
+
+Requirements:
+
+- Reject ordinary DOB updates after confirmation.
+- Require a valid correction authorisation for subsequent changes.
+- Verify the authorisation belongs to the authenticated member.
+- Check expiry and single-use status.
+- Consume the authorisation atomically with the successful update.
+- Prevent concurrent requests from using the same authorisation twice.
+- Validate the proposed DOB.
+- Apply age eligibility checks.
+- Audit the operation.
+- Return clear, structured error responses.
+
+Do not rely on frontend flags, hidden fields or disabled controls as the primary enforcement mechanism.
+
+### N. Handle existing accounts
+
+Existing members may already have a DOB stored without a separate confirmation or lock indicator.
+
+The migration must not allow unrestricted DOB changes simply because the new confirmation system did not previously exist.
+
+Recommended behaviour:
+
+- Existing populated DOB values should be locked by default.
+- Existing members should not be required to re-enter their DOB.
+- Members without a DOB should complete the required initial entry and confirmation workflow.
+- Previously verified accounts should preserve their verification history.
+- Any existing DOB inconsistencies should follow the controlled correction process.
+
+Do not overwrite existing DOB values during migration.
+
+### Steps to reproduce
+
+1. Sign in to the Swoovr member application.
+2. Navigate to `http://localhost:5081/account`.
+3. Locate the **Your age** section.
+4. Observe the existing Date of birth field.
+5. Change the date to a different value.
+6. Click Save.
+7. Observe that the application permits the DOB to be changed after its initial submission.
+8. Refresh the account page.
+9. Confirm whether the modified date persists.
+
+### Evidence
+
+![Member account — editable date of birth](evidence/2026-11-02-issue-intake/23-member-date-of-birth-editable.png)
+
+The screenshot shows a previously populated DOB field that remains editable, with a Save button available.
+
+### Impact
+
+**Affected users:** All Swoovr members, administrators and Trust and Safety personnel.
+
+**Impact:**
+
+- Members can change an important identity attribute without review.
+- Age-based discovery can become unreliable.
+- Members may misrepresent their age.
+- Stored DOB may become inconsistent with completed ID verification.
+- Age assurance and eligibility checks may be undermined.
+- Trust and Safety investigations may rely on incorrect account information.
+- Support staff lack a controlled process for legitimate corrections.
+
+Because Swoovr is restricted to adults aged 18 and older, DOB integrity is an important account safety and eligibility requirement.
+
+### Notes or constraints
+
+**Core decision**
+
+A member's DOB is a one-time, confirmed account attribute.
+
+After initial confirmation, it must remain locked unless a specifically authorised correction workflow is completed.
+
+**Recommended correction model**
+
+- Initial DOB entry: Member.
+- Initial DOB confirmation: Member.
+- Subsequent DOB change: Not permitted by default.
+- Correction request: Member through Support.
+- Correction authorisation: Admin or Root Admin.
+- Authorisation validity: 24 hours.
+- Authorisation usage: Single-use.
+- Corrected DOB entry: Member.
+- Reverification: Required where applicable.
+
+**Privacy**
+
+- DOB is never public.
+- Members can control the public visibility of their calculated age.
+- Hiding age does not affect internal age eligibility.
+- Historical DOB values require restricted access.
+
+**Implementation considerations**
+
+- Preserve the existing onboarding sequence.
+- Implement server-side locking.
+- Use transactional single-use correction authorisations.
+- Maintain audit records.
+- Recalculate age after correction.
+- Re-evaluate age eligibility.
+- Reconcile DOB changes with ID verification.
+- Preserve existing Trust and Safety escalation requirements.
+- Do not allow staff to bypass underage restrictions.
+- Apply the same behaviour to web, mobile web, iOS and Android.
+- Use the existing Swoovr support and notification systems.
+- Maintain consistency with the Admin member account redesign.
+
+**Related issues**
+
+- **#19:** Admin member account details, role permissions and DOB presentation.
+- **#10:** Registration and onboarding design.
+- Existing member account redesign issue covering the Me / Account page.
+
+This issue should be implemented alongside the existing age assurance and ID verification architecture, without weakening those controls.
+
+### Acceptance criteria
+
+**Initial DOB entry**
+
+- [ ] Members can enter DOB during initial onboarding.
+- [ ] DOB requires explicit confirmation before first save.
+- [ ] Confirmation explains the importance of accuracy and the future correction process.
+- [ ] DOB is validated for the minimum age requirement.
+- [ ] DOB becomes locked immediately after confirmation.
+
+**Member account**
+
+- [ ] Confirmed DOB displays as read-only.
+- [ ] Ordinary DOB editing and Save controls are removed after confirmation.
+- [ ] Members can request a DOB correction through Support.
+- [ ] DOB is never displayed publicly.
+- [ ] Age visibility remains independently configurable.
+
+**Administrative correction**
+
+- [ ] Support can receive and escalate correction requests.
+- [ ] Admin can authorise a temporary DOB correction.
+- [ ] Legal does not automatically inherit correction authority.
+- [ ] Root Admin follows the same correction requirements.
+- [ ] Authorisations require a reason and case reference.
+- [ ] Authorisations expire after 24 hours.
+- [ ] Authorisations are single-use.
+- [ ] Members receive notification when correction is authorised.
+- [ ] Members must confirm the corrected DOB.
+- [ ] DOB becomes locked again immediately after correction.
+- [ ] Expired or revoked authorisations cannot be used.
+
+**Age and verification**
+
+- [ ] Age is recalculated after correction.
+- [ ] Age-related discovery rules are re-evaluated.
+- [ ] Underage corrections immediately trigger the appropriate restrictions.
+- [ ] ID verification is reassessed where DOB changes.
+- [ ] Required re-verification is enforced.
+- [ ] Existing verification history is preserved.
+
+**Security and auditing**
+
+- [ ] API rejects unauthorised DOB changes.
+- [ ] Frontend manipulation cannot bypass DOB locking.
+- [ ] Correction authorisations are consumed atomically.
+- [ ] Concurrent correction attempts cannot reuse authorisation.
+- [ ] Administrative authorisations and corrections are audited.
+- [ ] Historical DOB values are protected.
+- [ ] Existing populated DOB values are locked during migration.
+- [ ] Automated tests cover initial entry, locking, authorisation, expiry, correction, age eligibility and verification impacts.
+
+## 24. Require first and last name at registration, default profile display name to first name and standardise identity across Admin
+
+- **Status:** Ready for investigation
+- **Area:** Member web / Admin / API / Mobile
+- **Page or URL:** Keycloak registration (`http://localhost:8180/realms/swoovr-members-dev/`), member profile and Admin account management
+- **Type:** Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+Swoovr currently collects a member's first name during account registration but does not require their last name.
+
+The application also does not consistently distinguish between a member's registered identity and their public-facing profile name.
+
+This creates inconsistencies between registration, member profiles, administrative account records and identity verification.
+
+Swoovr needs to maintain two separate concepts:
+
+1. **Registered identity:** The member's first and last name, used for account administration, identity verification and authorised support operations.
+2. **Public profile identity:** The name or handle displayed to other members, which can be customised independently for each connection mode.
+
+These identities must be linked to the same account without being treated as interchangeable.
+
+### What I expected
+
+Swoovr should require a first name and last name during registration.
+
+The member's first name should automatically become their initial public display name.
+
+Members should subsequently be able to customise their public display name, including independently for Dating, Friends, Activities and Business.
+
+Throughout the Admin application, authorised staff should see the member's registered first and last name as their primary account identifier.
+
+Public display names and mode-specific handles should remain available as supplementary information.
+
+The registered name must also form part of the ID verification process.
+
+### A. Require first and last name during registration
+
+Update the Swoovr registration form to collect:
+
+- First name — required.
+- Last name — required.
+- Email address — required.
+- Existing age declaration and other applicable registration requirements.
+
+Suggested form labels:
+
+**First name**
+
+**Last name**
+
+Do not combine both into a single Full name input.
+
+Use the existing Swoovr Keycloak authentication theme and follow the approved registration design from issue #10.
+
+Requirements:
+
+- Validate both names server-side.
+- Trim unnecessary leading and trailing whitespace.
+- Support Unicode characters, accents, hyphens, apostrophes and multi-part names.
+- Do not impose English-only naming assumptions.
+- Avoid unnecessarily restrictive character or length rules.
+- Preserve the entered values after unrelated validation errors.
+- Do not display first or last names publicly merely because they were collected at registration.
+
+The registration page should retain appropriate responsive styling on desktop, tablet and mobile.
+
+### B. Store registered identity separately from public display names
+
+The member's registered identity should consist of:
+
+- Registered first name.
+- Registered last name.
+
+These are account identity attributes.
+
+Public display names are separate profile attributes.
+
+Do not use one database field to represent both concepts.
+
+Suggested conceptual model:
+
+**Account identity**
+
+- `FirstName`
+- `LastName`
+
+**Main member profile**
+
+- `DisplayName`
+
+**Mode-specific profiles**
+
+- `DisplayNameOverride` or equivalent nullable field per mode.
+
+Use the existing domain model where suitable rather than introducing duplicate identity storage.
+
+If Keycloak is the authoritative source for registered names, ensure the member account model correctly synchronises or references those attributes.
+
+### C. Default the public display name to the registered first name
+
+When a new member account is created, initialise their main profile display name using the first name supplied during registration.
+
+Example:
+
+Registered identity:
+
+- First name: Alexander
+- Last name: Smith
+
+Initial public display name:
+
+**Alexander**
+
+The member can subsequently change their display name.
+
+This initialisation should occur only when the profile is first created or when an existing profile has no display name.
+
+Do not overwrite a customised display name during subsequent sign-ins, profile updates or identity changes.
+
+The registered first and last name must remain separate from the public display name.
+
+### D. Support independent display names for each connection mode
+
+Swoovr supports:
+
+- Dating.
+- Friends.
+- Activities.
+- Business.
+
+Each mode should support an optional public display name override.
+
+For example:
+
+| Profile | Display name |
+| --- | --- |
+| Registered identity | Alexander Smith |
+| Main profile | Alex |
+| Dating | Alex |
+| Friends | Alexander |
+| Activities | Alex |
+| Business | Alexander S. |
+
+The registered identity must never automatically become public merely because a mode-specific display name is absent.
+
+**Fallback behaviour**
+
+1. Use the mode-specific display name if one is configured.
+2. Otherwise, use the main profile display name.
+3. If the main display name has never been customised, it defaults to the registered first name.
+
+Members should not be forced to use their registered first name publicly.
+
+A mode-specific display name should remain unchanged when the member updates another mode's display name.
+
+Existing profile visibility and discovery settings must continue to apply.
+
+### E. Clarify public profile presentation
+
+When another member views a profile, they should see the selected public display name for that mode.
+
+They may also see the member's calculated age if the member has enabled age visibility.
+
+Example:
+
+**Alex, 42**
+
+Do not automatically expose the registered surname.
+
+Do not use the registered full name as a fallback on public profiles.
+
+A member's legal identity and public profile identity must remain separate.
+
+Age visibility must continue to follow Swoovr's existing privacy settings and eligibility rules.
+
+### F. Standardise registered names throughout Admin
+
+The Admin application should use the member's registered first and last name as the primary human-readable account identifier.
+
+This applies to authorised staff working in:
+
+- Support.
+- Admin.
+- Legal / Security.
+- Root Admin.
+
+Examples of affected areas:
+
+- Account search results.
+- Account detail pages.
+- Beta Enrollments.
+- Reports and moderation cases.
+- Appeals.
+- Photo moderation.
+- Account standing.
+- Verification reviews.
+- Membership management.
+- Support lookup.
+- Contact history.
+- Authorised investigation views.
+- Administrative action history.
+
+For example:
+
+**Alexander Smith**
+
+Supporting information:
+
+Display name: Alex
+
+Account reference: SW-...
+
+The public profile display name should not replace the registered identity in administrative records.
+
+Where useful, show both the registered name and the relevant public profile name.
+
+### G. Distinguish registered identity from verified identity
+
+A first and last name entered during registration is a **self-declared identity** until appropriately verified.
+
+The Admin application should clearly distinguish between:
+
+- Registered name.
+- ID verification status.
+- Verified identity attributes, where available and authorised.
+
+Do not label a registered name as legally verified solely because the member entered it during registration.
+
+A member with no completed ID verification should still have their registered first and last name displayed in authorised Admin views, but the identity verification state must remain accurate.
+
+### H. Include registered names in ID verification
+
+When the member begins ID verification, use their registered identity details as part of the verification process.
+
+Relevant attributes include:
+
+- First name.
+- Last name.
+- Date of birth.
+
+The verification workflow should compare the registered details against the identity information returned by the approved ID verification provider.
+
+Where supported, account for legitimate name variations, including:
+
+- Middle names.
+- Hyphenated surnames.
+- Multi-part surnames.
+- Diacritics and transliteration.
+- Common abbreviated or alternative given-name forms.
+
+Do not automatically reject every non-exact textual match without appropriate provider rules or review.
+
+Where a material identity mismatch occurs:
+
+- Follow the established verification exception workflow.
+- Do not silently overwrite registered identity information.
+- Do not automatically grant verified status.
+- Provide an appropriate correction or review pathway.
+
+Protected identity documents and verification evidence must remain subject to the existing Legal and identity-access permission boundaries.
+
+### I. Control changes to registered names
+
+Members should not be able to bypass identity verification by freely replacing registered identity details after verification.
+
+**Before ID verification**
+
+Permit legitimate corrections to registered first and last names through a controlled account settings process, subject to validation and abuse protections.
+
+**After successful ID verification**
+
+Material changes to registered identity details should require an appropriate identity correction and reverification workflow.
+
+Examples include:
+
+- Legal name changes.
+- Correction of registration errors.
+- Changes following marriage or other legitimate circumstances.
+
+A change to the registered name must not automatically change the member's public display names.
+
+A public display name change must not alter registered identity attributes.
+
+All security-relevant registered-name changes should be appropriately audited.
+
+### J. Apply staff access permissions
+
+Use the established Swoovr administrative role model.
+
+**Support**
+
+May view the registered first and last name where required for authorised account and support operations.
+
+May view relevant public profile names and account references.
+
+Does not automatically receive access to protected identity documents or Legal evidence.
+
+**Admin**
+
+May view registered account identity and relevant profile details for authorised administrative investigations.
+
+May perform permitted account management and moderation actions.
+
+Does not automatically receive protected Legal evidence access.
+
+**Legal / Security officer**
+
+May access registered identity and additional protected identity evidence only through applicable specialist permissions and authorised workflows.
+
+Legal does not automatically inherit ordinary Support or Admin moderation authority.
+
+**Root Admin**
+
+May view registered account identity through Admin permissions.
+
+Root Admin does not automatically receive Legal evidence access without an explicit Legal grant.
+
+All protected identity information and evidence access must continue to be enforced server-side.
+
+### K. Update account searching and filtering
+
+Coordinate with issue #18.
+
+Admin account search should support registered identity fields in addition to existing email and mobile lookup.
+
+Suggested supported search identifiers:
+
+- Registered first name.
+- Registered last name.
+- Full registered name.
+- Email address.
+- Mobile number.
+- Member reference.
+
+Where appropriate, allow searching by public display name as a separate search option.
+
+Search results should clearly distinguish registered names from display names.
+
+For example:
+
+**Alexander Smith**
+
+Display name: Alex
+
+Email: alexander@example.test
+
+Do not assume public handles are unique identifiers.
+
+### L. Update existing member accounts
+
+Existing member records may contain a first name but no registered last name.
+
+Implement a safe migration and completion process.
+
+Requirements:
+
+- Preserve existing first names.
+- Preserve existing public display names.
+- Do not overwrite customised mode-specific names.
+- Do not invent last names.
+- Identify accounts missing required registered identity information.
+- Prompt affected members to supply a last name through a controlled account completion process.
+- Validate and save the supplied last name.
+- Update Admin account presentation accordingly.
+
+Members who already have a customised display name must not unexpectedly revert to their registered first name.
+
+Where existing identity verification records are present, reconcile newly supplied names with the verification workflow rather than silently declaring them verified.
+
+### M. Maintain consistent presentation across platforms
+
+Apply these requirements to:
+
+- Member web.
+- Mobile web.
+- Native iOS.
+- Native Android.
+- Admin web.
+- API and identity-provider integrations.
+
+The registration form should be properly designed for each viewport.
+
+Profile editing should clearly distinguish:
+
+**Registered name**
+
+Used for account identity and verification.
+
+**Display name**
+
+Shown to other Swoovr members.
+
+**Mode-specific display name**
+
+Optional override for each connection mode.
+
+Use concise labels and explanatory text.
+
+Do not expose implementation terminology such as database property names or raw enum values in the member-facing interface.
+
+### Steps to reproduce
+
+1. Open the Swoovr registration flow.
+2. Observe that First Name is required but Last Name is not collected.
+3. Register using a test account.
+4. Complete the required onboarding steps.
+5. Open the member profile editor.
+6. Observe how the initial display name is populated.
+7. Review the available mode-specific profile name settings.
+8. Open the member's record in the Admin application.
+9. Observe whether the Admin interface displays the registered identity or public display name.
+10. Review the ID verification process and its handling of registered names.
+
+### Evidence
+
+![Current Swoovr registration screen](evidence/2026-11-02-issue-intake/24-create-your-account-screen.png)
+
+The screenshot shows the existing registration form collecting First Name without a Last Name field.
+
+### Impact
+
+**Affected users:** All Swoovr members and authorised administrative staff.
+
+**Impact:**
+
+- Registered identity information is incomplete.
+- Admin staff cannot consistently identify members by first and last name.
+- Public display names may be confused with registered identity.
+- Identity verification cannot reliably compare both registered name components.
+- Members may be forced into inappropriate public naming conventions.
+- Administrative reports and investigation records may inconsistently identify the same account.
+- Existing profiles may require migration to support the revised identity structure.
+
+Separating registered identity from public profile names improves account consistency, identity verification and administrative usability while preserving member control over public presentation.
+
+### Notes or constraints
+
+**Core product decisions**
+
+1. First name is mandatory at registration.
+2. Last name is mandatory at registration.
+3. The registered first name becomes the initial main profile display name.
+4. Members can change their public display name.
+5. Each connection mode may have an independent display name override.
+6. Registered first and last names are the primary names displayed throughout authorised Admin interfaces.
+7. Registered names and DOB form part of ID verification.
+8. Public profile names never automatically expose the registered surname.
+
+**Technical considerations**
+
+- Reuse existing identity and profile models where possible.
+- Maintain a clear authoritative source for registered identity.
+- Avoid duplicated or conflicting name data between Keycloak and member records.
+- Do not automatically change public display names when registered identity changes.
+- Preserve existing mode-specific profile information.
+- Handle Unicode and international naming conventions.
+- Maintain account privacy and administrative role boundaries.
+- Enforce identity update restrictions server-side.
+- Preserve applicable identity verification and audit requirements.
+- Ensure existing accounts can complete missing identity information safely.
+
+**Related issues**
+
+- **#10:** Registration screen redesign.
+- **#11:** Registration validation and error presentation.
+- **#18:** Admin account search and filtering.
+- **#19:** Admin member account detail and profile inspection.
+- **#23:** Date-of-birth locking and identity correction.
+
+These changes should be implemented consistently across registration, member profiles, identity verification and Admin account management.
+
+**Suggested implementation order**
+
+1. Review the existing Keycloak and member identity data model.
+2. Add or confirm registered Last Name support.
+3. Update registration validation and storage.
+4. Initialise main Display Name from First Name.
+5. Add or confirm independent mode-specific display name overrides.
+6. Update member profile editing and fallback behaviour.
+7. Standardise registered-name presentation throughout Admin.
+8. Update account search to support registered names.
+9. Integrate registered first and last names into ID verification.
+10. Implement appropriate identity correction restrictions.
+11. Migrate or complete existing member records safely.
+12. Validate web, mobile and Admin behaviour.
+13. Add automated tests for registration, display-name fallback, identity changes and verification.
+
+### Acceptance criteria
+
+**Registration**
+
+- [ ] First Name is required.
+- [ ] Last Name is required.
+- [ ] Both fields support international names.
+- [ ] Registration validates and persists both names.
+- [ ] Existing registration and onboarding requirements remain intact.
+
+**Public profiles**
+
+- [ ] Main Display Name defaults to registered First Name.
+- [ ] Members can customise their main Display Name.
+- [ ] Each mode supports an optional display name override.
+- [ ] Mode-specific names fall back to the main Display Name.
+- [ ] Public profiles do not automatically expose registered surnames.
+- [ ] Existing customised display names are preserved.
+- [ ] Changing a public display name does not modify registered identity.
+
+**Admin**
+
+- [ ] Registered first and last names are displayed throughout authorised Admin interfaces.
+- [ ] Public display names are shown as secondary information where relevant.
+- [ ] Account search supports registered names.
+- [ ] Admin account detail clearly distinguishes registered and public identity.
+- [ ] Registered names are not incorrectly labelled as verified identities.
+- [ ] Protected identity information remains permission-controlled.
+
+**Identity verification**
+
+- [ ] Registered first and last names are included in the verification workflow.
+- [ ] DOB remains part of the age and identity verification process.
+- [ ] Legitimate name variations are handled appropriately.
+- [ ] Material identity mismatches follow the established review process.
+- [ ] Changes to verified identity details trigger appropriate reassessment.
+- [ ] Protected identity evidence remains restricted.
+
+**Migration and security**
+
+- [ ] Existing first names are preserved.
+- [ ] Existing public display names are preserved.
+- [ ] Missing last names can be collected securely.
+- [ ] No fabricated surnames are introduced.
+- [ ] Identity changes are validated and appropriately audited.
+- [ ] API and identity-provider data remain consistent.
+- [ ] Automated tests cover registered identity, public display names and mode-specific overrides.
+
+## 25. Standardise all Admin pages, remove unnecessary instructional text and enforce consistent responsive design
+
+- **Status:** Ready for investigation
+- **Area:** Admin
+- **Page or URL:** All Swoovr Admin routes (`http://localhost:5082/`)
+- **Type:** Improvement
+- **Priority:** High
+- **GitHub issue:** Not created
+- **Tracking Q:** Not assigned
+
+### What happened
+
+Throughout the Swoovr Admin application, pages contain excessive instructional, explanatory and development-oriented text.
+
+Many screens display large paragraphs describing how the application works, which internal development decisions apply, or that administrative activity is being recorded.
+
+This creates unnecessary visual clutter, wastes available screen space and makes the application feel more like development documentation than a professional administrative system.
+
+The Admin application is an operational tool for Support, Admin, Legal/Security and Root Admin staff.
+
+Its interface should prioritise information, actions and efficient workflows rather than repeatedly explaining routine functionality.
+
+There are also inconsistencies in the appearance of dropdowns, inputs, buttons and other form controls.
+
+**Problems identified:**
+
+1. Excessive instructional and explanatory paragraphs appear at the top of many Admin pages.
+2. Internal development references such as `(D127)`, `(D150)` and similar identifiers are visible in headings and descriptions.
+3. Beta, UAT and development-oriented wording appears in normal application content.
+4. Repeated explanations make pages feel unnecessarily complicated.
+5. Routine notices stating that actions are recorded or logged appear throughout the interface.
+6. Dropdowns, text fields, date pickers, buttons and other controls use inconsistent styling and dimensions.
+7. Important information is sometimes presented as large blocks of text rather than structured contextual guidance.
+8. The application does not consistently distinguish between operational pages suitable for mobile devices and sensitive administrative functions that should require desktop access.
+9. Some pages waste significant space on instructional text rather than presenting the information or actions staff need.
+
+The attached Support Lookup screenshot is one example, but **this issue applies to the entire Admin application**.
+
+### What I expected
+
+The Swoovr Admin application should use a consistent, professional, production-ready design across every page.
+
+Information should be concise, relevant and presented only where it materially assists the user.
+
+All administrative controls should follow one shared design system.
+
+Sensitive or complex administrative workflows should be designed primarily for desktop use, with mobile and tablet access limited according to the operational requirements and security sensitivity of the function.
+
+### A. Remove unnecessary explanatory text from Admin pages
+
+Review every Admin route and identify instructional text that does not directly assist the staff member with their current task.
+
+Remove unnecessary paragraphs describing:
+
+- Routine application behaviour.
+- Internal implementation details.
+- Development decisions.
+- Obvious functionality.
+- General operational processes already understood by authorised staff.
+- Repetitive statements about logging and monitoring.
+- Internal development ticket references.
+
+For example, the Support Lookup page currently displays:
+
+"Support and admins (#50). Find the report behind a member's support reference (SW-XXXXXX). Admin-queue cases (staff-affiliated accounts, serious incidents) show to admins only. Every lookup is logged. Tell the member only what their own standing page says."
+
+This is excessively detailed for a basic lookup screen.
+
+Suggested replacement:
+
+**Support Lookup**
+
+"Find a report using its support reference."
+
+The existing reference input and Find action should remain.
+
+The longer explanation of permissions and operational procedures does not need to appear as a permanent paragraph.
+
+Permission restrictions must continue to be enforced by the application.
+
+**General principle:** If removing explanatory text does not make the interface harder to use or less safe, remove it.
+
+### B. Keep important guidance where genuinely necessary
+
+Not all informational text should be removed.
+
+Some administrative workflows involve legal obligations, sensitive information or consequences that warrant clear guidance.
+
+Examples include:
+
+- Law Enforcement.
+- Legal Holds.
+- Protected identity access.
+- Evidence preservation.
+- Serious safety incidents.
+- Destructive account actions.
+- Sensitive data exports.
+
+For these pages, retain concise, task-relevant instructions and warnings.
+
+However, avoid displaying them as large paragraphs above the main content.
+
+Use a structured contextual information panel.
+
+**Suggested desktop layout**
+
+**Main content area**
+
+Contains the actual administrative form, case information or operational workflow.
+
+**Right-side information panel**
+
+Contains relevant guidance, requirements, warnings or procedural information.
+
+The information panel should:
+
+- Have a visually distinct but restrained container.
+- Use a concise heading.
+- Use short paragraphs or structured instructions.
+- Avoid repeating information already visible in the main interface.
+- Remain appropriately positioned alongside the relevant workflow.
+- Support links to full internal procedures where necessary.
+
+For example, the Law Enforcement page could display its operational controls on the left and relevant legal handling guidance on the right.
+
+Do not use large full-width text blocks where contextual guidance would be more appropriate.
+
+### C. Remove internal development references
+
+Remove internal identifiers from all normal Admin page headings, labels and descriptions.
+
+Examples:
+
+- `(D127)`
+- `(D129)`
+- `(D134)`
+- `(D149)`
+- `(D150)`
+- `(D151)`
+- `(D178)`
+- `(#50)` when referring to internal implementation tracking.
+
+These identifiers are not useful to staff performing administrative operations.
+
+They belong in:
+
+- Source code.
+- Development documentation.
+- GitHub issues.
+- Internal technical references.
+
+They should not appear in the normal production interface.
+
+Actual member references, support references, case IDs, audit IDs and other operational identifiers must remain available where required.
+
+The restriction applies to internal development references, not legitimate business identifiers.
+
+### D. Remove development and beta messaging
+
+UAT must represent the intended production application.
+
+Remove normal user-facing references such as:
+
+- "In development".
+- "Work in progress".
+- "Current beta rules".
+- "Draft implementation".
+- Internal build numbers.
+- Development decision codes.
+- Unnecessary UAT-specific commentary.
+
+Do not maintain a separate unfinished-looking interface for UAT.
+
+The same production-intended UI components should be used across UAT and production.
+
+Environment-specific configuration and integrations may differ, but the application should not require visual clean-up before production deployment.
+
+**Exception:** Genuine operational statuses, such as an active Beta Enrollment program, should remain visible where they have a real business purpose.
+
+Do not remove legitimate functional information merely because it contains the word "beta".
+
+### E. Remove routine logging and monitoring notices
+
+The Admin application currently displays messages such as:
+
+- "This action is recorded."
+- "Your access is recorded."
+- "Every lookup is logged."
+- "This activity will be logged."
+
+Remove these routine statements from normal administrative pages.
+
+Authorised Swoovr staff operate under established security, access-control and monitoring policies.
+
+Repeatedly displaying these statements provides little operational value and creates unnecessary clutter.
+
+**Important distinction**
+
+Removing these notices must not disable, weaken or alter auditing.
+
+The application must continue recording appropriate:
+
+- Administrative access.
+- Account changes.
+- Moderation decisions.
+- Sensitive data access.
+- Photo reveals.
+- Evidence access.
+- Legal actions.
+- Permission changes.
+- Security-relevant activities.
+
+Logging and monitoring must remain enforced independently of the interface.
+
+**Exceptions**
+
+Retain explicit acknowledgement or confirmation where required by law, policy or a specific high-risk workflow.
+
+Examples include a required evidence-access acknowledgement or a serious safety handling warning.
+
+Do not display routine logging explanations on every page, but do not remove mandatory security or legal disclosures.
+
+### F. Standardise all form controls
+
+All Admin pages must use a consistent component library and design system.
+
+Review:
+
+- Text inputs.
+- Email inputs.
+- Number inputs.
+- Date pickers.
+- Dropdowns.
+- Searchable selectors.
+- Checkboxes.
+- Switches.
+- Radio buttons.
+- Text areas.
+- Buttons.
+- Filter controls.
+- Modal dialogs.
+- Confirmation dialogs.
+
+Use the existing Bootstrap-based Admin styling consistently.
+
+**Requirements**
+
+- Uniform control heights for comparable fields.
+- Consistent border radius.
+- Consistent border styling.
+- Consistent horizontal and vertical padding.
+- Consistent label typography.
+- Consistent spacing between fields.
+- Consistent focus and validation states.
+- Consistent disabled and read-only presentation.
+- Consistent button sizing.
+- Appropriate text-area dimensions.
+- No overlapping or touching controls.
+
+Where different dimensions are necessary, they should be intentional and defined through shared component variants.
+
+Do not allow each page to implement unrelated input styling.
+
+### G. Introduce reusable Admin components
+
+Where appropriate, centralise common UI components.
+
+Suggested shared components:
+
+- Admin text input.
+- Admin select.
+- Admin date picker.
+- Admin checkbox.
+- Admin toggle.
+- Admin text area.
+- Admin primary button.
+- Admin secondary button.
+- Admin destructive button.
+- Admin confirmation dialog.
+- Admin information panel.
+- Admin status badge.
+- Admin data table.
+- Admin filter toolbar.
+- Admin empty state.
+- Admin error state.
+
+These should use common design tokens and Bootstrap styling.
+
+Individual pages should not need to recreate form styling.
+
+The goal is consistency and maintainability rather than introducing unnecessary abstraction.
+
+### H. Standardise page headers
+
+Every Admin page should follow a consistent heading structure.
+
+Suggested format:
+
+**Page title**
+
+Optional one-line description, only if required.
+
+Main content.
+
+Avoid:
+
+- Long introductory paragraphs.
+- Internal development references.
+- Repeated permission explanations.
+- Unnecessary operational disclaimers.
+
+If additional guidance is required, use a contextual panel or help link.
+
+The page title should clearly describe the function.
+
+Examples:
+
+- Support Lookup.
+- Photo Review.
+- Beta Enrollments.
+- Account Management.
+- Law Enforcement.
+- Legal Holds.
+- Identifier Review.
+
+Use consistent capitalisation and spacing.
+
+### I. Establish desktop-first Admin design
+
+Swoovr Admin is primarily an operational desktop application.
+
+Desktop should be the primary design target.
+
+Requirements:
+
+- Use available desktop width effectively.
+- Maintain consistent sidebar and header navigation.
+- Use structured tables for data-heavy pages.
+- Use modals or detail panels for focused workflows.
+- Avoid unnecessarily narrow forms.
+- Avoid excessive empty space and oversized cards.
+- Keep contextual information separate from primary actions.
+- Maintain consistent content margins and section spacing.
+
+The application should feel like a professional administrative platform rather than a mobile layout displayed on a desktop browser.
+
+### J. Define which Admin functions are available on mobile
+
+Not every Admin function should be accessible from mobile or tablet.
+
+Review all Admin routes and classify them according to their operational requirements.
+
+**Suggested classification**
+
+| Function | Desktop | Mobile / Tablet |
+|---|---|---|
+| Admin Overview | Full access | Supported |
+| Support Lookup | Full access | Supported |
+| Basic support cases | Full access | Supported where appropriate |
+| Contact History | Full access | Read-only or limited |
+| Account Search | Full access | Basic search |
+| Account Detail | Full access | Limited summary |
+| Beta Enrollments | Full access | Read-only or limited |
+| Photo Moderation | Full access | Desktop only |
+| Identifier Review | Full access | Desktop only |
+| Serious Safety Incidents | Full access | Desktop only |
+| Legal Holds | Full access | Desktop only |
+| Law Enforcement | Full access | Desktop only |
+| Protected Evidence Access | Full access | Desktop only |
+| Evidence Export | Full access | Desktop only |
+| Staff Permission Management | Full access | Desktop only |
+| Root Admin Security Controls | Full access | Desktop only |
+
+This is a proposed starting point.
+
+Codex should review the actual workflows and determine appropriate availability.
+
+**Important:** Desktop restrictions are an additional usability and operational safeguard, not a substitute for authentication, authorisation or device security.
+
+### K. Provide a proper desktop-required screen
+
+When a staff member attempts to access a desktop-only function from a mobile or tablet viewport, do not display a broken or compressed version of the page.
+
+Instead, display a professionally designed message.
+
+Suggested heading:
+
+**Desktop required**
+
+"This function is available in the desktop version of Swoovr Admin."
+
+Provide an action:
+
+**Return to Admin Overview**
+
+Do not expose sensitive page content behind the restriction screen.
+
+The message should use the standard Swoovr Admin design system.
+
+Access limitations must not be bypassed merely by changing CSS or resizing a browser window.
+
+For security-sensitive operations, any actual device or platform restrictions must be enforced through appropriate backend and access policies.
+
+Viewport size alone must not be treated as a security boundary.
+
+### L. Ensure useful mobile functionality remains available
+
+Basic day-to-day administrative operations may remain accessible on mobile where appropriate.
+
+Examples include:
+
+- Checking workload counts.
+- Looking up support references.
+- Reviewing basic account information.
+- Viewing authorised support cases.
+- Performing low-risk support actions where permitted.
+
+Mobile layouts should be specifically designed for those workflows.
+
+Do not simply compress large desktop tables and forms into narrow columns.
+
+Provide mobile-appropriate navigation, controls and spacing.
+
+Tablet functionality should be assessed separately where the available screen size and workflow justify it.
+
+### M. Maintain role-based permissions
+
+The responsive design changes must not alter existing staff permissions.
+
+**Support**
+
+Ordinary support cases, eligible appeals, warnings and restrictions up to 30 days.
+
+**Admin**
+
+Support capabilities plus escalated and staff-affiliated cases, suspensions up to 90 days, termination, eligible appeals and provisional legal holds.
+
+**Legal / Security officer**
+
+Separate permissions for protected identities, legal holds, preserved evidence, disclosures and security incidents.
+
+Legal does not automatically inherit Support or Admin permissions.
+
+**Root Admin**
+
+Admin capabilities plus staff-access and security administration.
+
+Root Admin requires an explicit Legal grant for protected evidence access.
+
+Hiding a page on mobile must not change the underlying role permissions.
+
+All authorisation remains server-side.
+
+### N. Standardise status and feedback messages
+
+Replace verbose operational explanations with concise feedback.
+
+Examples:
+
+**Successful action**
+
+"Changes saved."
+
+**Failed action**
+
+"Unable to save changes. Try again."
+
+**No results**
+
+"No matching records."
+
+**Permission denied**
+
+"You don't have permission to access this function."
+
+Use consistent notification, validation and error components.
+
+Avoid exposing internal API errors, development identifiers or implementation details.
+
+Do not remove actionable information required to understand or recover from an error.
+
+### O. Review every Admin route
+
+This is an application-wide consistency issue.
+
+Codex should audit all existing Admin pages rather than fixing only the Support Lookup screenshot.
+
+For every route, review:
+
+1. Page heading and description.
+2. Unnecessary instructional text.
+3. Internal development references.
+4. Logging and monitoring notices.
+5. Form control styling.
+6. Button dimensions and spacing.
+7. Table presentation.
+8. Information panels.
+9. Desktop layout.
+10. Mobile and tablet availability.
+11. Error and success feedback.
+12. Accessibility.
+13. Role-based visibility and permissions.
+
+Document any route that requires an intentional exception.
+
+### Steps to reproduce
+
+1. Sign in to the Swoovr Admin application.
+2. Navigate to `http://localhost:5082/`.
+3. Open Support Lookup.
+4. Observe the lengthy explanatory paragraph containing internal references and logging information.
+5. Navigate through other Admin areas, including Accounts, Beta Enrollments, Photos and Law Enforcement.
+6. Compare heading styles, descriptions, dropdowns, input fields and buttons.
+7. Observe inconsistencies in control dimensions and spacing.
+8. Identify pages displaying internal development codes or routine monitoring notices.
+9. Review important legal and security pages containing large blocks of information.
+10. Repeat the review at desktop, tablet and mobile viewport sizes.
+11. Identify functions that should be restricted to desktop.
+
+### Evidence
+
+![Admin Support Lookup showing excessive introductory text](evidence/2026-11-02-issue-intake/25-remove-woke-text-each-admin-page.png)
+
+The screenshot demonstrates excessive explanatory text, internal issue references and routine logging statements.
+
+This is one example of an application-wide problem.
+
+### Impact
+
+**Affected users:** All Swoovr Support, Admin, Legal/Security and Root Admin staff.
+
+**Impact:**
+
+- Unnecessary text reduces the amount of useful information visible.
+- Pages feel cluttered and unfinished.
+- Internal development references make UAT appear unlike production.
+- Inconsistent controls reduce usability and increase maintenance overhead.
+- Important operational guidance is difficult to distinguish from routine information.
+- Excessive explanatory content slows administrative workflows.
+- Complex workflows may be difficult or unsafe to operate on small screens.
+- Inconsistent page designs reduce the overall quality of the Admin application.
+
+A consistent, concise interface will improve efficiency, usability and maintainability across the entire administrative platform.
+
+### Notes or constraints
+
+**Primary design principles**
+
+- Admin is an operational tool.
+- Information should be concise and task-relevant.
+- Do not display explanatory paragraphs unless they are genuinely useful.
+- Keep essential legal and safety guidance.
+- Remove internal development codes.
+- Remove routine logging notices.
+- Use a consistent Bootstrap-based design system.
+- Design primarily for desktop.
+- Explicitly classify mobile and tablet availability.
+- Preserve all existing security, permissions and audit requirements.
+
+**UAT and production**
+
+UAT must use the same production-intended application UI and code.
+
+Differences should be limited to appropriate environment configuration, integrations and test data.
+
+Do not rely on a separate visual clean-up before production release.
+
+**Monitoring and auditing**
+
+Remove redundant UI notices such as "Your access is recorded".
+
+Continue all existing administrative monitoring, auditing and security logging.
+
+The absence of a notice must not imply that auditing is disabled.
+
+Retain mandatory acknowledgements or notices where legally or operationally required.
+
+**Important information**
+
+Use contextual information panels where guidance materially assists the task.
+
+Examples include Law Enforcement, Legal Holds and serious safety workflows.
+
+Do not turn every page into a documentation screen.
+
+**Desktop restrictions**
+
+Codex should classify routes based on risk, complexity and operational suitability.
+
+Desktop-only UI restrictions must not be mistaken for sufficient security controls.
+
+**Related issues**
+
+- **#3:** Admin authentication and session presentation.
+- **#4:** Photo moderation controls.
+- **#5:** Beta Enrollments layout.
+- **#18:** Account search and table design.
+- **#19:** Member account detail redesign.
+- **#20:** Beta Enrollments styling and registration settings.
+- **#21:** Admin refresh error handling.
+- **#22:** High-volume photo moderation redesign.
+
+This issue establishes the shared Admin presentation standards that should apply to those improvements.
+
+**Suggested implementation order**
+
+1. Audit all Admin routes.
+2. Identify shared design inconsistencies.
+3. Establish reusable Bootstrap components and design tokens.
+4. Standardise page headings and content structure.
+5. Remove unnecessary development and explanatory text.
+6. Remove redundant monitoring notices.
+7. Introduce reusable contextual information panels.
+8. Standardise all form controls and button styling.
+9. Classify Admin functions by desktop, tablet and mobile availability.
+10. Implement desktop-required screens for unsupported workflows.
+11. Validate role-based access controls remain unchanged.
+12. Review responsive behaviour across supported routes.
+13. Verify UAT and production use the same intended UI.
+14. Add visual regression tests where practical.
+
+### Acceptance criteria
+
+**Content and presentation**
+
+- [ ] Unnecessary introductory paragraphs are removed from Admin pages.
+- [ ] Internal development identifiers are removed from normal UI content.
+- [ ] Routine beta and development messaging is removed where not operationally relevant.
+- [ ] Redundant "This action is recorded" and similar notices are removed.
+- [ ] Essential safety and legal guidance remains available.
+- [ ] Important contextual information uses structured panels where appropriate.
+- [ ] Page headings use consistent styling and capitalisation.
+- [ ] Feedback and validation messages are concise and consistent.
+
+**Form controls**
+
+- [ ] Text inputs use consistent styling and height.
+- [ ] Dropdowns use consistent styling and height.
+- [ ] Date pickers follow the shared design system.
+- [ ] Checkboxes and switches are consistently presented.
+- [ ] Text areas use appropriate dimensions and padding.
+- [ ] Buttons have consistent sizing, spacing and visual hierarchy.
+- [ ] No controls overlap or touch unnecessarily.
+- [ ] Common UI elements use reusable components where appropriate.
+
+**Responsive Admin experience**
+
+- [ ] Desktop remains the primary Admin design target.
+- [ ] Admin routes are classified for mobile and tablet suitability.
+- [ ] Basic permitted operations have usable mobile layouts.
+- [ ] Sensitive or complex workflows are restricted to desktop where required.
+- [ ] Unsupported mobile workflows display a branded Desktop required screen.
+- [ ] Protected content is not exposed through unavailable mobile views.
+- [ ] Responsive presentation does not weaken backend authorisation.
+
+**Security and operational integrity**
+
+- [ ] Existing audit logging remains active.
+- [ ] Mandatory legal and security acknowledgements are preserved.
+- [ ] Support, Admin, Legal and Root Admin permission boundaries remain unchanged.
+- [ ] Sensitive operations continue to enforce server-side authorisation.
+- [ ] No existing administrative functionality is removed unintentionally.
+- [ ] UAT uses the same production-intended UI and components.
+- [ ] Automated or visual regression tests cover representative Admin pages.

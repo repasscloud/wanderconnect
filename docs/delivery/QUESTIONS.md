@@ -1488,7 +1488,7 @@ Swoovr will provide useful discovery filters to all members, with expanded filte
 **Mode-specific filters:**
 
 | Mode | Additional Free filters |
-|---|---|
+| --- | --- |
 | Dating | Gender and reciprocal "Show me" preferences |
 | Friends | Friendship intentions and shared interests |
 | Activities | Activity categories and interests |

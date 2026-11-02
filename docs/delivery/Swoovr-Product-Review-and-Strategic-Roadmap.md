@@ -18,7 +18,7 @@ The market also supports the direction of moving beyond conventional swiping. Ad
 ## Overall assessment
 
 | Area | Assessment | Qualitative planning completeness |
-|---|---|---:|
+| --- | --- |---:|
 | Product vision and differentiation | Strong | 90% |
 | Discovery and profile concepts | Strong | 82% |
 | Verification and safety design | Needs completion | 68% |
@@ -34,7 +34,7 @@ The market also supports the direction of moving beyond conventional swiping. Ad
 These are concepts I would preserve rather than redesign.
 
 | Existing decision | Why it matters |
-|---|---|
+| --- | --- |
 | Four independent modes: Dating, Friends, Activities and Business | People can maintain multiple intentions without forcing every interaction into dating. |
 | Travel as an independent state | Discovery works before and during travel without becoming an unrelated fifth mode. |
 | Photo Verified and ID Verified as separate credentials | More transparent than one ambiguous verified tick. |
@@ -294,7 +294,7 @@ It should have professional credentials, company affiliations, appropriate visib
 I would define these four interactions explicitly:
 
 | Mode | Primary connection | Success outcome |
-|---|---|---|
+| --- | --- | --- |
 | Dating | Two people exploring romantic or casual compatibility | A mutually wanted conversation, date or relationship |
 | Friends | People building platonic relationships | An established friendship or repeat social interaction |
 | Activities | People joining a shared experience | Attendance at an activity or event |
@@ -311,7 +311,7 @@ The Australian eSafety Commissioner's guidance highlights harassment, unwanted s
 ### Priority improvements
 
 | Requirement | What I would specify |
-|---|---|
+| --- | --- |
 | Age assurance | Minimum age 18, with age checks, DOB discrepancy handling, disputed results and re-verification procedures |
 | Photo verification | Liveness/photo matching, image-change invalidation, manual review and expiry/revocation |
 | Identity verification | Separate from photo verification; verified DOB treated as authoritative after a controlled discrepancy review |
@@ -437,7 +437,7 @@ Consider calls and additional AI assistance once the core safety and operational
 The .NET MAUI, Blazor Web App and API direction remains appropriate. I would concentrate on defining product domains and their boundaries before adding more user interfaces.
 
 | Domain | Responsibilities |
-|---|---|
+| --- | --- |
 | Identity & Assurance | Keycloak integration, verification records, age status, credentials |
 | Member Profiles | Base profile, mode-specific data, privacy and visibility |
 | Discovery | Eligibility, location, interests, filters, ranking |
@@ -467,7 +467,7 @@ A few architecture decisions deserve early attention:
 Several features might initially appear attractive but could weaken Swoovr.
 
 | Avoid | Reason |
-|---|---|
+| --- | --- |
 | Public user star ratings | Encourages retaliation and social scoring |
 | Paying to override safety boundaries | Undermines recipient consent |
 | Selling preferential compatibility rankings | Makes compatibility less credible |
@@ -490,7 +490,7 @@ I would use the following performance framework during the Adelaide beta.
 ### Proposed beta scorecard
 
 | Metric | Definition |
-|---|---|
+| --- | --- |
 | Activation | Percentage completing a useful profile and first discovery session |
 | Discovery quality | Percentage finding at least one relevant, contactable member |
 | Connection acceptance | Accepted requests divided by requests sent |

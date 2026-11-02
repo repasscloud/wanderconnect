@@ -5,7 +5,7 @@ D271 DEFAULT implements issue48 under the owner's Phase0 queue. Accessibility is
 Before requesting UAT deployment approval, attach the actual commit, date, tester, device/OS/browser and results for the following finite checks. Any failure that prevents registration, profile editing, discovery, consent, messaging, blocking/reporting, support or account rights blocks release until corrected and retested. Do not infer success from a build or a DOM attribute.
 
 | Gate | Required evidence | Current evidence |
-|---|---|---|
+| --- | --- | --- |
 | Repository | `./scripts/check.sh`, no hidden skipped persistence | Actual results in VALIDATION.md |
 | Web automated | `tests/accessibility/pages.browser.cjs` at390/320px; `interactions.browser.cjs` keyboard skip links, rendered personal theme modes,200% text, reduced motion, forced colors, staff pages | Actual results in VALIDATION.md |
 | Web human review | Keyboard-only core journey and visible focus; browser zoom200%/400%; screen reader names, error/status announcements, heading/navigation order | OPEN: automation does not establish these human results |
