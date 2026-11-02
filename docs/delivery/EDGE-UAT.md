@@ -2,7 +2,7 @@
 
 CONFIRMED D291 (owner #124, 2 November 2026) approves the proposed nested UAT hostnames, paid edge certificate coverage plus Key Vault origin certificate, and direct Cloudflare HTTPS proxy without Tunnel. This is preparation only: the owner creates the Azure subscription and performs the first deployments. No certificate purchase, DNS change or deployment occurred.
 
-D285 DEFAULT preserves D221: Cloudflare DNS/proxy to HTTPS Azure origins, no Tunnel dependency. This is an operator plan, not configured DNS/TLS. Q90/#124 still covers topology, subscription and billing approval. No paid feature is purchased or enabled by these files.
+D285 DEFAULT preserves D221: Cloudflare DNS/proxy to HTTPS Azure origins, no Tunnel dependency. This is an operator plan, not configured DNS/TLS. Q90/#124 retains subscription creation and deployment-time owner actions; D291 resolves topology and certificate/billing choice approval. No paid feature is purchased or enabled by these files.
 
 Two independent certificates are necessary: Cloudflare's browser-facing edge certificate and the Azure origin certificate. In a normal full `swoovr.app` zone, Universal SSL covers `uat.swoovr.app` but not deeper `api.uat.swoovr.app`, `admin.uat.swoovr.app` or `auth.uat.swoovr.app`. Before proxying, the owner must provide edge coverage for all four, using an already approved advanced/custom certificate or an approved Advanced Certificate Manager/Total TLS option. Do not assume a paid option exists or authorise its purchase. DNS-only is a reversible diagnostic/alternative, not the approved proxy topology. Tunnel remains optional owner hosting scope and requires its own connector, origin restriction and certificate acceptance.
 
