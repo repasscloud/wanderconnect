@@ -1,0 +1,22 @@
+@inject MemberClient Members
+@if(loaded && !acknowledged)
+{
+    <Swoovr.Web.Client.Moderation.SafetyAdviceCard />
+    <button type="button" class="button" disabled="@busy" @onclick="DismissAsync" data-advice-dismiss>Got it</button>
+    @if(error is not null){<p role="status">@error</p>}
+}
+@code {
+    private bool loaded,acknowledged,busy;private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        try { var r=await Members.SafetyAdviceAsync();if(r.Value is{}v){acknowledged=v.Acknowledged;loaded=true;} }
+        catch(Exception e) when(e is HttpRequestException or TaskCanceledException) { }
+    }
+    private async Task DismissAsync()
+    {
+        busy=true;
+        try { var r=await Members.AcknowledgeSafetyAdviceAsync();if(r.Value?.Acknowledged==true)acknowledged=true;else error="We couldn't save that. Please try again."; }
+        catch(Exception e) when(e is HttpRequestException or TaskCanceledException) {error="We couldn't save that. Please try again.";}
+        finally{busy=false;}
+    }
+}

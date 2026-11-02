@@ -1,0 +1,15 @@
+# Q106 / issue148 — account setup and safety advice
+
+CONFIRMED D292: phone-first setup when the configured gate is on; DOB-only when off. The member summary explicitly carries PhoneGateEnabled to distinguish a disabled gate from an already verified phone. Main tabs remain visible; web/native navigation offers setup recovery while incomplete. Web phone completion refreshes the own summary before rendering DOB. The account sidebar uses the requested sections and collapses on smaller windows; coupon redemption is under Membership & billing. Footer carries small assembly version/build info.
+
+The versioned educational advice acknowledgement has its own account-keyed server row, deliberate current-revision POST and original timestamp on exact retry. It is not legal consent or reading telemetry. Own GET is available without the phone gate; POST requires complete active setup and current member authorisation. No read failure marks it dismissed. A new revision shows again; normal cross-device reads use the same server record. Own export includes it, ordinary final deletion erases it, and existing preserved export/evidence remains independent. Advice remains linked from the footer after dismissal; the profile editor no longer repeats the card.
+
+Contract: GET/POST `/api/me/safety-advice`, versioned like the existing member API, typed web/native callers through the existing BFF/native bearer boundary. Body `{ revision, confirmed }`; unknown revision or absent confirmation is refused. No new project. Raw-table migration owns its schema; lifecycle and preservation authority serialise dismissal against deletion.
+
+Evidence: added disposable PostgreSQL tests for unknown revision, deliberate confirmation, own-account isolation, exact retry timestamp and deletion. RED compilation observed missing store/contract before implementation. Owned browser and integrated checks pending; no physical native or hosted acceptance claimed.
+
+Peer review found and corrected missing name/policy recovery branches in the shared tab gate and missing immediate native first-use refresh after the first DOB save. Native guest rendering now clamps Standard while preserving the personal cache until an authenticated account surface is shown, including an expired-token/offline cold start. The sidebar's native details control is collapsible at narrow widths; DEFAULT initially open avoids hiding account navigation, and the owner did not require default-closed. Physical/native interaction evidence remains pending.
+
+Safety-advice acknowledgements are included in own export and ordinary deletion. Legal-hold capture seals the stored revision and actual acknowledgement time when in scope; replacing an older revision preserves covered evidence first.
+
+Coordinated pre-commit gate `integrated-check-8`: `./scripts/check.sh` exit0, 690 disposable PostgreSQL cases and all three HTTP smoke stages, zero build warnings/errors. Owned onboarding already passed; phone-enabled and physical-native acceptance remain separate.

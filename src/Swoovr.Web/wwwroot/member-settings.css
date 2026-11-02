@@ -23,3 +23,11 @@
 }
 
 .member-settings .settings-fields { display:contents; }
+
+.account-sidebar { min-width: 0; }
+.account-sidebar summary { cursor: pointer; font-weight: 600; }
+@media (min-width: 1024px) {
+  .member-settings .account-layout { grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); }
+  .account-sidebar { grid-column: 1; grid-row: 1; }
+  .account-details { grid-column: 2; grid-row: 1; }
+}
