@@ -82,7 +82,7 @@ const widths = [375, 768, 1024, 1440];
     await capture(guest, '/safety', '[data-safety-page]', 'safety');
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', viewer.email); await page.fill('#password', viewer.password);
-    await Promise.all([page.waitForURL(web + '/account**'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web + '/explore'), page.click('#kc-login')]);
     const routes = [
       ['/explore', '.people-grid', 'explore'], ['/people/' + peer.id + '?mode=friends', '[data-connect-modes]', 'profile'],
       ['/connections', '[data-connections="ready"]', 'connections'], ['/chats', '[data-chat-list]', 'chats'],

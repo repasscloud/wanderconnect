@@ -10,7 +10,7 @@
 <div class="reading-page">
     <div class="page-heading" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
         <h1>@SafetyText.Title</h1>
-        <p>Help outside Swoovr in your country, and how to report or block someone on Swoovr.</p>
+        <p>Help outside Swoovr in your country, resources.</p>
     </div>
     <form method="get" action="/safety" class="card account-section stack" data-country-form data-enhance="false">
         <div class="field"><label for="safety-country">Country</label>
@@ -25,8 +25,8 @@
         <button type="submit" class="button button-secondary">Show contacts</button>
     </form>
     @if (unavailable) { <p role="status" data-safety-unavailable>Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now.</p> }
-    <nav class="card account-section" aria-label="Safety policies"><a href="/safety/advice">Connection and meeting advice</a> · <a href="/terms">Terms of use (draft)</a> · <a href="/community-guidelines">Community guidelines (draft)</a></nav>
-<SafetyResources Pack="pack" />
+    <nav class="card account-section" aria-label="Safety policies"><a href="/safety/advice">Connection and meeting advice</a> · <a href="/terms">Terms of use</a> · <a href="/community-guidelines">Community guidelines</a></nav>
+<SafetyResources Pack="pack" ShowMemberActions="@(HttpContext.User.Identity?.IsAuthenticated == true)" />
 </div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;

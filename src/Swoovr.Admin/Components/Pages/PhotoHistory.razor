@@ -1,0 +1,51 @@
+@page "/media/history"
+@inject AdminClient Admin
+<PageTitle>Media history — Swoovr admin</PageTitle>
+<MediaTabs Active="history" />
+@if(message is not null){<p class="notice" role="status">@message</p>}
+<div class="ui-results-head">
+    <nav class="ui-segmented" aria-label="Decision filter">
+        @foreach(var (value,label) in new[]{("","All"),("approve","Approved"),("reject","Rejected")})
+        {
+            <a href="@(value==""?"/media/history":"/media/history?decision="+value)" aria-current="@(((Decision??"")==value)?"page":null)">@label</a>
+        }
+    </nav>
+    @if(history is not null){<p><strong>@history.Total</strong> decision@(history.Total==1?"":"s")</p>}
+</div>
+@if(history is null){<div class="ui-empty"><strong>History unavailable</strong>This staff session cannot read media history.</div>}
+else if(history.Items.Count==0){<div class="ui-empty"><strong>No decisions</strong>Nothing matches this filter.</div>}
+else
+{
+    <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Media decision history">
+    <table><thead><tr><th scope="col">When</th><th scope="col">Media</th><th scope="col">Decision</th><th scope="col">Reason</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead><tbody>@foreach(var row in history.Items)
+    {
+        <tr>
+            <td>@row.At.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</td>
+            <td><span class="beta-ref"><code>@row.MediaId.ToString()[..8]</code><CopyButton Value="@row.MediaId.ToString()" /></span><a class="ui-sub" href="/accounts/@row.AccountId">Account</a></td>
+            <td><span class="ui-pill" data-tone="@MediaText.Tone(row.Decision)">@MediaText.Decision(row.Decision)</span></td>
+            <td>@MediaText.Reason(row.Code)</td>
+            <td class="ui-right">@if(row.Decision=="reject")
+            {
+                <details class="beta-actions media-reconsider"><summary>Reconsider</summary><div class="beta-action-forms">
+                    <form method="post" @formname="@($"reconsider-{row.Id}")" @onsubmit="()=>ReconsiderAsync(row.MediaId)" data-enhance="true" class="beta-action">
+                        <AntiforgeryToken />
+                        <h3>Reconsider rejection</h3>
+                        <label class="ui-field"><span>Reason</span><textarea name="reason" maxlength="500" required placeholder="Why this is being reconsidered"></textarea></label>
+                        <button type="submit" class="beta-action-button">Re-screen</button>
+                    </form>
+                </div></details>
+            }</td>
+        </tr>
+    }</tbody></table></div>
+    <nav class="ui-paging" aria-label="History pages"><span class="ui-help">Page @history.Page of @Pages</span><span class="ui-paging-links">@if(Page>1){<a class="ui-button-ghost" href="@Url(Page-1)">Previous</a>}else{<span class="ui-button-ghost" aria-disabled="true">Previous</span>}@if(Page*history.PageSize<history.Total){<a class="ui-button-ghost" href="@Url(Page+1)">Next</a>}else{<span class="ui-button-ghost" aria-disabled="true">Next</span>}</span></nav>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery(Name="page")] public int Page { get; set; }=1;
+    [SupplyParameterFromQuery(Name="decision")] public string? Decision { get; set; }
+    private PhotoDecisionPage? history;private string? message;
+    private int Pages=>history is null?1:Math.Max(1,1+(history.Total-1)/Math.Max(1,history.PageSize));
+    protected override async Task OnInitializedAsync(){Page=Math.Max(1,Page);history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
+    private string Url(int page)=>$"/media/history?page={page}"+(Decision is null?"":"&decision="+Uri.EscapeDataString(Decision));
+    private async Task ReconsiderAsync(Guid id){var reason=Context?.Request.Form["reason"].ToString()??"";var status=await Admin.ReconsiderPhotoAsync(id,reason);message=status<300?"Sent for re-screening.":status==403?"Another Admin must reconsider this, with a current safety acknowledgement.":"Re-screening did not clear this media. It stays rejected.";history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
+}

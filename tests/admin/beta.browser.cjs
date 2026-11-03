@@ -5,6 +5,10 @@ module.exports=async({page,base})=>{
  assert.equal(await page.locator('[data-beta-table]').count(),1,'enrolments use a structured table');
  assert.equal(await page.locator('[data-beta-row]').count(),25,'bounded default page');
  assert.equal(await page.locator('[data-beta-total]').getAttribute('data-beta-total'),'1005','total includes records past the old1000 cap');
+ assert((await page.locator('[data-beta-add] input[name=email]').boundingBox()).width>=320,'desktop pre-authorisation email has usable width');
+ const cells=page.locator('[data-beta-row]').first().locator('td');
+ const tops=await cells.evaluateAll(es=>es.slice(0,4).map(e=>{const walker=document.createTreeWalker(e,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))if(node.textContent.trim()){const range=document.createRange();range.selectNodeContents(node);return range.getBoundingClientRect().top;}return e.getBoundingClientRect().top;}));
+ assert(Math.max(...tops)-Math.min(...tops)<=2,'table first lines top-align '+JSON.stringify(tops));
  await page.screenshot({path:'/tmp/swoovr-intake-beta-1440.png',fullPage:true});
  const first=await page.locator('[data-beta-email]').first().innerText();await page.getByRole('link',{name:'Next page',exact:true}).click();await page.waitForFunction(()=>/page 2 of/.test(document.querySelector('[data-beta-total]')?.textContent||''));assert.notEqual(await page.locator('[data-beta-email]').first().innerText(),first,'next server page changes rows');await page.getByRole('link',{name:'Previous page',exact:true}).click();await page.waitForFunction(()=>/page 1 of/.test(document.querySelector('[data-beta-total]')?.textContent||''));
  await page.selectOption('select[name=size]','50');await page.getByRole('button',{name:'Apply filters'}).click();
@@ -25,6 +29,11 @@ module.exports=async({page,base})=>{
  await page.locator('input[name=confirmRevoke]').check();await page.locator('[data-beta-revoke]').click();await page.waitForSelector('[data-beta-result="revoked"]');
  assert.equal(await page.locator('[data-beta-state="revoked"]').count(),1,'confirmed revocation persists');
  assert.match(await page.locator('body').innerText(),/not.*Apple|separately/i,'external invitation remains separate');
+ await page.setViewportSize({width:320,height:844});
+ await page.evaluate(async()=>{document.documentElement.style.fontSize='200%';await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))});
+ const enlarged=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('.admin-header *, .beta-filters *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>e.tagName+'.'+e.className)}));
+ assert(enlarged.scroll<=enlarged.width,'320px/200% staff reflow '+JSON.stringify(enlarged));
+ await page.evaluate(()=>document.documentElement.style.fontSize='');
  await page.setViewportSize({width:375,height:812});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'table scrolling stays local');
  await page.screenshot({path:'/tmp/swoovr-intake-beta-375.png',fullPage:true});
  console.log('PASS: actual Edge1005-record beta table, server paging/search/status, staff iOS revision and confirmed revocation.');

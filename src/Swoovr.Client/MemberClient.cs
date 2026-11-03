@@ -23,8 +23,13 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<SessionSummary>> SessionAsync(CancellationToken cancellationToken = default) =>
         SendAsync<SessionSummary>(new HttpRequestMessage(HttpMethod.Get, "api/session"), cancellationToken);
 
+    public Task<ApiResult<AdviceAcknowledgementView>> SafetyAdviceAsync(CancellationToken token=default)=>SendAsync<AdviceAcknowledgementView>(new HttpRequestMessage(HttpMethod.Get,"api/me/safety-advice"),token);
+    public Task<ApiResult<AdviceAcknowledgementView>> AcknowledgeSafetyAdviceAsync(CancellationToken token=default)=>SendAsync<AdviceAcknowledgementView>(new HttpRequestMessage(HttpMethod.Post,"api/me/safety-advice"){Content=JsonContent.Create(new AdviceAcknowledgementRequest(AdviceAcknowledgementView.CurrentRevision,true))},token);
     public Task<ApiResult<MemberAccount>> MeAsync(CancellationToken cancellationToken = default) =>
         SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Get, "api/me"), cancellationToken);
+
+    public Task<ApiResult<RegisteredNamesView>> RegisteredNamesAsync(CancellationToken token=default)=>SendAsync<RegisteredNamesView>(new HttpRequestMessage(HttpMethod.Get,"api/me/registered-names"),token);
+    public Task<ApiResult<RegisteredNamesView>> SaveRegisteredNamesAsync(RegisteredNamesUpdate update,CancellationToken token=default)=>SendAsync<RegisteredNamesView>(new HttpRequestMessage(HttpMethod.Put,"api/me/registered-names"){Content=JsonContent.Create(update)},token);
 
     public Task<ApiResult<MemberAccount>> SaveAgeAsync(AgeUpdate update, CancellationToken cancellationToken = default) =>
         SendAsync<MemberAccount>(new HttpRequestMessage(HttpMethod.Put, "api/me/age") { Content = JsonContent.Create(update) }, cancellationToken);
@@ -197,6 +202,10 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<ConversationView>> StartConversationAsync(Guid profileId, CancellationToken cancellationToken = default) =>
         SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Post, "api/conversations") { Content = JsonContent.Create(new StartConversation(profileId)) }, cancellationToken);
 
+    /// <summary>Opens a conversation from an accepted mode, retained for its public names.</summary>
+    public Task<ApiResult<ConversationView>> StartConversationInModeAsync(Guid profileId, string mode, CancellationToken cancellationToken = default) =>
+        SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Post, "api/conversations") { Content = JsonContent.Create(new StartConversation(profileId, mode)) }, cancellationToken);
+
     public Task<ApiResult<ConversationView>> ConversationAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<ConversationView>(new HttpRequestMessage(HttpMethod.Get, $"api/conversations/{id}"), cancellationToken);
 
@@ -303,6 +312,9 @@ public sealed partial class MemberClient(HttpClient transport)
         SendAsync<SafetyPack>(new HttpRequestMessage(HttpMethod.Get, "api/safety/resources" + (country is null ? "" : "?country=" + Uri.EscapeDataString(country))), cancellationToken);
 
     /// <summary>D203: the member's photos, main photo and per-mode photos.</summary>
+    public Task<ApiResult<List<PhotoDecisionView>>> PhotoDecisionsAsync(CancellationToken token = default) => SendAsync<List<PhotoDecisionView>>(new HttpRequestMessage(HttpMethod.Get, "api/me/photos/decisions"), token);
+    public Task<ApiResult<object>> AppealPhotoAsync(Guid id, string text, CancellationToken token = default) => SendAsync<object>(new HttpRequestMessage(HttpMethod.Post, $"api/me/photos/decisions/{id}/appeal") { Content = JsonContent.Create(new PhotoAppealRequest(text)) }, token);
+
     public Task<ApiResult<MyPhotosView>> PhotosAsync(CancellationToken cancellationToken = default) =>
         SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Get, "api/me/photos"), cancellationToken);
 
@@ -320,9 +332,12 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<MyPhotosView>> DeletePhotoAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Delete, $"api/me/photos/{id}"), cancellationToken);
 
-    /// <summary>Scope "main" (one photo) or a mode id (up to the limit), in order.</summary>
+    /// <summary>A full mode gallery replacement. Legacy callers choose no main; use PlaceModePhotosAsync for an explicit main.</summary>
     public Task<ApiResult<MyPhotosView>> PlacePhotosAsync(string scope, IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
         SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Put, "api/me/photos/placement") { Content = JsonContent.Create(new PhotoPlacementUpdate(scope, ids)) }, cancellationToken);
+
+    public Task<ApiResult<MyPhotosView>> PlaceModePhotosAsync(string mode, IReadOnlyList<Guid> ids, Guid? mainMediaId, CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Put, "api/me/photos/placement") { Content = JsonContent.Create(new PhotoPlacementUpdate(mode, ids, mainMediaId)) }, cancellationToken);
 
     private async Task<int> StatusAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

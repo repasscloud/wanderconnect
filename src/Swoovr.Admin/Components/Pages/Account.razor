@@ -1,155 +1,220 @@
 @page "/accounts/{Id:guid}"
 @inject AdminClient Admin
 <PageTitle>Account — Swoovr admin</PageTitle>
-<p class="breadcrumb"><a href="/accounts">Accounts</a> / Account</p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id" data-enhance-nav="false">Sign in again</a> }</p> }
+<p class="ui-back"><a href="/accounts">← Accounts</a></p>
 @if (account is null)
 {
-    <p data-account="missing">@(loadError ?? "Not found.")</p>
+    <h1 data-account="@account?.Id">Account</h1>
+    <p class="notice" data-account="missing">@(loadError ?? "Not found.")</p>
 }
 else
 {
-    <h1 data-account="@account.Id">@(account.DisplayName ?? "(no name)")</h1>
-    <p><a href="/accounts/@Id/reinstate" data-account-reinstatement>Review account reinstatement</a> · <a href="/registry">Identifier review (separate action)</a></p>
-    <dl class="facts">
-        <div><dt>Account</dt><dd>@account.Realm · @account.Status</dd></div>
-        <div><dt>Age</dt><dd data-age-status="@account.AgeStatus">@account.AgeStatus@(account.DateOfBirthVerified ? " · date of birth verified" : "")</dd></div>
-        <div><dt>ID verification</dt><dd data-id-status="@account.IdStatus">@account.IdStatus@(account.CanRequestIdVerification ? " · may start a check" : "")</dd></div>
-        @* D191: only that a record is on file; the security and legal officer opens it with a recorded purpose. *@
-        <div><dt>Verified identity</dt><dd data-identity-on-file="@(account.IdentityOnFileSince is null ? "none" : "on-file")">@(account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file") @if (account.IdentityOnFileSince is not null) { <a href="/identity?account=@account.Id">Open (legal officer)</a> }</dd></div>
-        <div><dt>Plan</dt><dd data-plan="@account.Plan">@account.Plan@(account.Founder ? " · founding member" : "")</dd></div>
-        <div><dt>Flags</dt><dd>@(account.Bot ? "Bot " : "")@(account.Employee ? "Staff-affiliated " : "")@(!account.Bot && !account.Employee ? "None" : "")</dd></div>
-        <div><dt>Home market</dt><dd data-home-market="@(account.HomeMarket ?? "none")">@(account.HomeMarket ?? "None")@(account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd></div>
-        <div><dt>Open cases</dt><dd>@account.OpenCases</dd></div>
-        <div><dt>Standing</dt><dd><a href="/accounts/@account.Id/standing" data-standing-link>What the member sees</a></dd></div>
-    </dl>
+    var name = registeredName is { Confirmed: true } ? string.Join(" ", new[] { registeredName.FirstName, registeredName.LastName }.Where(n => !string.IsNullOrWhiteSpace(n))) : account.DisplayName ?? "No display name";
+    <header class="acct-head">
+        <span class="acct-avatar" aria-hidden="true">@Initials(name)</span>
+        <div class="acct-title">
+            <h1 data-account="@account.Id">@name</h1>
+            <div class="acct-badges">
+                <span class="ui-pill" data-tone="@(account.Status == "active" ? "approve" : "reject")">@AccountLabels.Status(account.Status)</span>
+                <span class="ui-pill" data-tone="@(account.IdStatus == "verified" ? "approve" : "quiet")">@AccountLabels.Id(account.IdStatus)</span>
+                <span class="ui-pill" data-tone="quiet">@AccountLabels.Plan(account.Plan)@(account.Founder ? " · founder" : "")</span>
+                @if (account.Realm != "members") {<span class="ui-pill" data-tone="quiet">@AccountLabels.Realm(account.Realm)</span>}
+                @if (account.Bot) {<span class="ui-pill" data-tone="quiet">Bot</span>}
+                @if (account.Employee) {<span class="ui-pill" data-tone="quiet">Staff-affiliated</span>}
+                @if (account.OpenCases > 0) {<a class="ui-pill" data-tone="escalate" href="#acct-inspection">@account.OpenCases open case@(account.OpenCases == 1 ? "" : "s")</a>}
+            </div>
+            <span class="beta-ref"><code>@account.Id</code><CopyButton Value="@account.Id.ToString()" /></span>
+        </div>
+        <div class="acct-actions">
+            <a class="ui-button-ghost" href="/accounts/@account.Id/standing" data-standing-link>What the member sees</a>
+            <a class="ui-button-ghost" href="#acct-actions">Take action</a>
+        </div>
+    </header>
+    @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id" data-enhance-nav="false">Sign in again</a> }</p> }
+    <nav class="acct-sections" aria-label="Account sections">
+        <a href="#acct-overview">Overview</a><a href="#acct-inspection">Profile &amp; cases</a><a href="#acct-verification">Verification</a>
+        @if (account.Realm == "members") {<a href="#acct-location">Location</a>}<a href="#acct-membership">Membership</a><a href="#acct-actions">Actions</a>
+    </nav>
 
-    <section class="card">
-        <h2>ID verification (D129)</h2>
-        @if (verification is not null)
-        {
-            <ul class="list" data-attempts="@verification.Attempts.Count">
-                @foreach (var a in verification.Attempts)
+    <section id="acct-overview" class="acct-grid">
+        <div class="ui-card">
+            <h2 class="ui-card-title">Identity and age</h2>
+            <dl class="media-meta">
+                <dt>Age</dt><dd><strong>@(account.Age?.ToString() ?? "Not provided")</strong></dd>
+                <dt>Age assurance</dt><dd data-age-status="@account.AgeStatus">@AccountLabels.Age(account.AgeStatus)</dd>
+                <dt>Date of birth</dt><dd data-dob-check="@account.DobCheck">@(account.DateOfBirthVerified ? "Verified by ID" : account.DobCheck switch { "correctionNeeded" => "Correction requested", "manualReview" => "Waiting for review", _ => "Not verified" })</dd>
+                @if (registeredName is { } registered)
                 {
-                    <li>@a.State (Didit: @a.ProviderStatus) · @(a.Started ? "started" : "never started") · @(a.SelfService ? "self-service" : "allowed by an admin") · @a.CreatedAt.ToString("d MMM yyyy")@(a.Adult is { } adult ? adult ? " · adult" : " · under 18" : "")</li>
+                    <dt>Registered name</dt><dd data-registered-identity>@registered.FirstName @registered.LastName <span class="ui-sub">@(registered.Confirmed ? "Confirmed by the member" : "Awaiting confirmation") · @(registered.MatchesId is null ? "No ID comparison" : registered.MatchesId == true ? "Matches ID" : "Differs from ID")</span></dd>
                 }
-            </ul>
-        }
-        <form method="post" @formname="verify" @onsubmit='() => RunAsync("verify")' class="row" data-enhance="false">
-            <AntiforgeryToken />
-            <button name="value" value="allow-again" type="submit" class="secondary" data-op="allow-again">Allow another attempt</button>
-            <button name="value" value="revoke" type="submit" class="secondary" data-op="revoke">Revoke ID Verified</button>
-        </form>
+                @* D191: only that a record is on file; the security and legal officer opens it with a recorded purpose. *@
+                <dt>Verified identity</dt><dd data-identity-on-file="@(account.IdentityOnFileSince is null ? "none" : "on-file")">@(account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file") @if (account.IdentityOnFileSince is not null) {<a href="/identity?account=@account.Id">Open (legal officer)</a>}</dd>
+            </dl>
+        </div>
+        <div class="ui-card">
+            <h2 class="ui-card-title">Account</h2>
+            <dl class="media-meta">
+                <dt>Status</dt><dd>@AccountLabels.Status(account.Status)</dd>
+                <dt>Plan</dt><dd data-plan="@account.Plan">@AccountLabels.Plan(account.Plan)@(account.Founder ? " · founding member" : "")</dd>
+                <dt>Home market</dt><dd data-home-market="@(account.HomeMarket ?? "none")">@(account.HomeMarket ?? "None")@(account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd>
+                <dt>Open cases</dt><dd>@account.OpenCases</dd>
+                <dt>Flags</dt><dd>@(account.Bot ? "Bot " : "")@(account.Employee ? "Staff-affiliated " : "")@(!account.Bot && !account.Employee ? "None" : "")</dd>
+                <dt>Related</dt><dd><a href="/accounts/@Id/reinstate" data-account-reinstatement>Reinstatement review</a> · <a href="/registry">Identifier review</a></dd>
+            </dl>
+        </div>
     </section>
+    @if (account.Sanctions.Count > 0)
+    {
+        <section class="ui-card"><h2 class="ui-card-title">Sanctions</h2><SanctionList Sanctions="account.Sanctions" ReturnUrl="@($"/accounts/{Id}")" /></section>
+    }
+    <div id="acct-inspection"><AccountInspection AccountId="Id" /></div>
+    @if(account.Realm=="members"){<DobCorrectionTools AccountId="Id" />}
 
-    <section class="card">
-        <h2>Age assurance (D127)</h2>
-        <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="row" data-enhance="false">
-            <AntiforgeryToken />
-            <button name="value" value="flag" type="submit" class="secondary" data-op="age-flag">Require an age check</button>
-            <button name="value" value="clear" type="submit" class="secondary" data-op="age-clear">Clear a flag set in error</button>
-            <button name="value" value="override" type="submit" class="secondary" data-op="adult-override">Record adult override</button>
-        </form>
-    </section>
-
-    <section class="card">
-        <h2>Home city (D150)</h2>
-        <p class="help">Lets the member move their home city into another market now, for a genuine move or a mistake.</p>
-        <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="row" data-enhance="false">
-            <AntiforgeryToken />
-            <input name="reason" placeholder="Reason" maxlength="1000" required />
-            <button type="submit" class="secondary" data-op="home-override">Lift the 30-day wait</button>
-        </form>
+    <section id="acct-verification" class="acct-grid">
+        <div class="ui-card">
+            <h2 class="ui-card-title">ID verification</h2>
+            <p class="acct-line" data-id-status="@account.IdStatus">@AccountLabels.Id(account.IdStatus)@(account.CanRequestIdVerification ? " · may start a check" : "")</p>
+            @if (verification is not null && verification.Attempts.Count > 0)
+            {
+                <ul class="ui-list" data-attempts="@verification.Attempts.Count">
+                    @foreach (var a in verification.Attempts)
+                    {
+                        <li><span>@AccountLabels.Attempt(a.State) <span class="ui-sub">Didit: @a.ProviderStatus · @(a.SelfService ? "self-service" : "allowed by an admin")@(a.Adult is { } adult ? adult ? " · adult" : " · under 18" : "")</span></span><span class="ui-help">@a.CreatedAt.ToString("d MMM yyyy")</span></li>
+                    }
+                </ul>
+            }
+            else if (verification is not null) { <p class="ui-help" data-attempts="0">No attempts</p> }
+            <form method="post" @formname="verify" @onsubmit='() => RunAsync("verify")' class="acct-buttons" data-enhance="true">
+                <AntiforgeryToken />
+                <button name="value" value="allow-again" type="submit" class="ui-button-ghost" data-op="allow-again">Allow another attempt</button>
+                <button name="value" value="revoke" type="submit" class="ui-button-ghost" data-op="revoke">Revoke ID Verified</button>
+            </form>
+        </div>
+        <div class="ui-card">
+            <h2 class="ui-card-title">Age assurance</h2>
+            <p class="acct-line">@AccountLabels.Age(account.AgeStatus)</p>
+            <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="acct-buttons" data-enhance="true">
+                <AntiforgeryToken />
+                <button name="value" value="flag" type="submit" class="ui-button-ghost" data-op="age-flag">Require an age check</button>
+                <button name="value" value="clear" type="submit" class="ui-button-ghost" data-op="age-clear">Clear a flag set in error</button>
+                <button name="value" value="override" type="submit" class="ui-button-ghost" data-op="adult-override">Record adult override</button>
+            </form>
+        </div>
     </section>
 
     @if (account.Realm == "members")
     {
-        <section class="card" data-location-review="@(account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
-            <h2>Location and arrival (D149, D150)</h2>
-            <p class="help">Outcomes only: Swoovr keeps no coordinates, IP addresses or places. A flag never suspends anyone.</p>
-            <p data-dob-check="@account.DobCheck">Date of birth: @(account.DobCheck switch { "correctionNeeded" => "the member has one correction to make", "manualReview" => "waiting for review in Date of birth", _ => account.DateOfBirthVerified ? "verified with the ID" : "not verified" })</p>
-            <p data-home-checks="@account.InconsistentHomeChecks">Home-location checks that disagreed in the last 30 days: @account.InconsistentHomeChecks@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged for review {flagged:d MMM yyyy}" : "")</p>
-            @if (account.HomeReviewFlaggedAt is not null)
-            {
-                <form method="post" @formname="home-review" @onsubmit='() => RunAsync("home-review")' class="row" data-enhance="false">
+        <section id="acct-location" class="ui-card" data-location-review="@(account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
+            <h2 class="ui-card-title">Location and arrival</h2>
+            <dl class="media-meta">
+                <dt>Home checks</dt><dd data-home-checks="@account.InconsistentHomeChecks">@account.InconsistentHomeChecks disagreed in the last 30 days@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged {flagged:d MMM yyyy}" : "")</dd>
+            </dl>
+            <div class="acct-forms">
+                <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="acct-inline" data-enhance="true">
                     <AntiforgeryToken />
-                    <input name="reason" placeholder="Reason" maxlength="1000" required />
-                    <button type="submit" class="secondary" data-op="home-review-clear">Clear the review</button>
+                    <label class="ui-field"><span>Lift the 30-day home-city wait</span><input name="reason" placeholder="Reason" maxlength="1000" required /></label>
+                    <button type="submit" class="ui-button-ghost" data-op="home-override">Lift wait</button>
                 </form>
-            }
-            <ul class="list" data-trips="@trips.Count">
-                @foreach (var t in trips)
+                @if (account.HomeReviewFlaggedAt is not null)
                 {
-                    <li data-trip="@t.Id" data-arrival="@t.ArrivalState">@(t.Market ?? "outside every market") · @t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")
-                        @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled"))
+                    <form method="post" @formname="home-review" @onsubmit='() => RunAsync("home-review")' class="acct-inline" data-enhance="true">
+                        <AntiforgeryToken />
+                        <label class="ui-field"><span>Clear the location review</span><input name="reason" placeholder="Reason" maxlength="1000" required /></label>
+                        <button type="submit" class="ui-button-ghost" data-op="home-review-clear">Clear review</button>
+                    </form>
+                }
+            </div>
+            @if (trips.Count > 0)
+            {
+                <h3 class="ui-card-title acct-sub">Trips</h3>
+                <ul class="ui-list" data-trips="@trips.Count">
+                    @foreach (var t in trips)
+                    {
+                        <li data-trip="@t.Id" data-arrival="@t.ArrivalState"><span><strong>@(t.Market ?? "Outside every market")</strong> <span class="ui-sub">@t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · arrival @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")</span></span>
+                            @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled"))
+                            {
+                                <form method="post" @formname="@($"arrival-{t.Id}")" @onsubmit='() => RunAsync("arrival", t.Id)' class="acct-inline" data-enhance="true">
+                                    <AntiforgeryToken />
+                                    <input name="reason" placeholder="Reason" maxlength="1000" required aria-label="Reason" />
+                                    <button type="submit" class="ui-button-ghost" data-op="confirm-arrival">Confirm arrival</button>
+                                </form>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else { <p class="ui-help" data-trips="0">No trips</p> }
+        </section>
+    }
+
+    <section id="acct-membership" class="ui-card">
+        <h2 class="ui-card-title">Complimentary access</h2>
+        @if (account.Entitlements.Count > 0)
+        {
+            <ul class="ui-list" data-entitlements="@account.Entitlements.Count">
+                @foreach (var e in account.Entitlements)
+                {
+                    <li data-entitlement="@e.Id" data-valid="@(e.Valid ? "true" : "false")"><span><strong>@AccountLabels.Plan(e.Tier)</strong> <span class="ui-sub">@AccountLabels.Source(e.Source) · until @(e.EndsAt?.ToString("d MMM yyyy") ?? "open") · @e.Reason@(e.RevokedAt is not null ? " · revoked" : "")</span></span>
+                        @if (e.RevokedAt is null && e.Source == "adminGrant")
                         {
-                            <form method="post" @formname="@($"arrival-{t.Id}")" @onsubmit='() => RunAsync("arrival", t.Id)' class="row" data-enhance="false">
+                            <form method="post" @formname="@($"grant-{e.Id}")" @onsubmit='() => RunAsync("grant-change", e.Id)' class="acct-inline" data-enhance="true">
                                 <AntiforgeryToken />
-                                <input name="reason" placeholder="Reason" maxlength="1000" required />
-                                <button type="submit" class="secondary" data-op="confirm-arrival">Confirm arrival</button>
+                                <input name="days" type="number" min="1" max="366" placeholder="Days" aria-label="Days from now" />
+                                <button name="value" value="extend" type="submit" class="ui-button-ghost" data-op="extend">Set end</button>
+                                <button name="value" value="revoke" type="submit" class="ui-button-ghost" data-op="revoke-grant">Revoke</button>
                             </form>
                         }
                     </li>
                 }
             </ul>
-        </section>
-    }
-
-    <section class="card">
-        <h2>Plus for testers (D151)</h2>
-        <p class="help">Complimentary: never charged. A lapsed or revoked grant falls back to Free.</p>
-        <ul class="list" data-entitlements="@account.Entitlements.Count">
-            @foreach (var e in account.Entitlements)
-            {
-                <li data-entitlement="@e.Id" data-valid="@(e.Valid ? "true" : "false")">@e.Tier (@e.Source) until @(e.EndsAt?.ToString("d MMM yyyy") ?? "open") · @e.Reason@(e.RevokedAt is not null ? " · revoked" : "")
-                    @if (e.RevokedAt is null && e.Source == "adminGrant")
-                    {
-                        <form method="post" @formname="@($"grant-{e.Id}")" @onsubmit='() => RunAsync("grant-change", e.Id)' class="row" data-enhance="false">
-                            <AntiforgeryToken />
-                            <input name="days" type="number" min="1" max="366" placeholder="Days from now" />
-                            <button name="value" value="extend" type="submit" class="secondary" data-op="extend">Set end</button>
-                            <button name="value" value="revoke" type="submit" class="secondary" data-op="revoke-grant">Revoke</button>
-                        </form>
-                    }
-                </li>
-            }
-        </ul>
-        <form method="post" @formname="grant" @onsubmit='() => RunAsync("grant")' class="row" data-enhance="false">
+        }
+        else { <p class="ui-help" data-entitlements="0">No grants</p> }
+        <form method="post" @formname="grant" @onsubmit='() => RunAsync("grant")' class="acct-grant" data-enhance="true">
             <AntiforgeryToken />
-            <select name="tier"><option value="plus">Plus</option><option value="premium">Premium</option></select>
-            <input name="days" type="number" min="1" max="366" value="90" />
-            <input name="reason" placeholder="Reason (for example beta tester)" maxlength="500" required />
+            <label class="ui-field"><span>Tier</span><select name="tier"><option value="plus">Plus</option><option value="premium">Premium</option></select></label>
+            <label class="ui-field"><span>Days</span><input name="days" type="number" min="1" max="366" value="90" /></label>
+            <label class="ui-field acct-grow"><span>Reason</span><input name="reason" placeholder="For example, beta tester" maxlength="500" required /></label>
             <button type="submit" data-op="grant">Grant</button>
         </form>
     </section>
 
-    <section class="card">
-        <h2>Staff badge (D134)</h2>
-        <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="row" data-enhance="false">
-            <AntiforgeryToken />
-            <button name="value" value="on" type="submit" class="secondary" data-op="staff-on">Set Staff badge</button>
-            <button name="value" value="off" type="submit" class="secondary" data-op="staff-off">Remove Staff badge</button>
-        </form>
-    </section>
-
-    <section class="card">
-        <h2>Act without a report (D133)</h2>
-        <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="stack" data-enhance="false">
-            <AntiforgeryToken />
-            <label>Action <select name="action"><option value="warn">Warn</option><option value="restrict">Restrict</option><option value="suspend">Suspend</option><option value="terminate">Terminate</option></select></label>
-            <label>Reason <textarea name="reason" maxlength="1000" rows="2"></textarea></label>
-            <label>Days <input name="days" type="number" min="1" max="90" /></label>
-            <label><input type="checkbox" name="hide" value="true" /> Out of discovery</label>
-            <label><input type="checkbox" name="norequests" value="true" /> No new requests</label>
-            <button type="submit" data-op="sanction">Apply</button>
-        </form>
-        <SanctionList Sanctions="account.Sanctions" ReturnUrl="@($"/accounts/{Id}")" />
+    <section id="acct-actions" class="acct-grid">
+        <div class="ui-card">
+            <h2 class="ui-card-title">Act without a report</h2>
+            <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="acct-form" data-enhance="true">
+                <AntiforgeryToken />
+                <fieldset class="ui-field"><legend>Action</legend>
+                    <div class="ui-choice ui-choice-4">
+                        @foreach (var (value, label) in new[] { ("warn", "Warn"), ("restrict", "Restrict"), ("suspend", "Suspend"), ("terminate", "Terminate") })
+                        {
+                            <label><input type="radio" name="action" value="@value" checked="@(value == "warn")" /><span>@label</span></label>
+                        }
+                    </div>
+                </fieldset>
+                <div class="acct-row">
+                    <label class="ui-field"><span>Days</span><input name="days" type="number" min="1" max="90" /></label>
+                    <label class="beta-check"><input type="checkbox" name="hide" value="true" /><span>Out of discovery</span></label>
+                    <label class="beta-check"><input type="checkbox" name="norequests" value="true" /><span>No new requests</span></label>
+                </div>
+                <label class="ui-field"><span>Reason</span><textarea name="reason" maxlength="1000" rows="2"></textarea></label>
+                <button type="submit" data-op="sanction">Apply</button>
+            </form>
+        </div>
+        <div class="ui-card">
+            <h2 class="ui-card-title">Staff badge</h2>
+            <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="acct-buttons" data-enhance="true">
+                <AntiforgeryToken />
+                <button name="value" value="on" type="submit" class="ui-button-ghost" data-op="staff-on">Set Staff badge</button>
+                <button name="value" value="off" type="submit" class="ui-button-ghost" data-op="staff-off">Remove Staff badge</button>
+            </form>
+        </div>
     </section>
 }
 @code {
     [Parameter] public Guid Id { get; set; }
     [CascadingParameter] private HttpContext? Context { get; set; }
     private AccountAdminSummary? account;
+    private RegisteredNamesView? registeredName;
     private AdminVerificationView? verification;
     private List<TripAdminView> trips = [];
     private string? message, loadError, resultCode;
@@ -164,6 +229,7 @@ else
         if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
         else if (account!.Realm == "members")
         {
+            registeredName=(await Admin.RegisteredNamesAsync(Id)).Value;
             verification = (await Admin.VerificationAsync(Id)).Value;
             trips = (await Admin.TripsAsync(Id)).Value ?? [];
         }
@@ -198,4 +264,5 @@ else
     }
 
     private static (int, string?) Of<T>(ApiResult<T> result) => (result.Status, result.Code);
+    private static string Initials(string name) => string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
 }

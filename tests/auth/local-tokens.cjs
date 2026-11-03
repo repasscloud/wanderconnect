@@ -4,6 +4,11 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { execFile } = require('node:child_process');
+const path=require('node:path'),ownedSupport=require('./owned-support.cjs');
+const owned=ownedSupport.loadManifest(process.env.SWOOVR_OWNED_RUN_MANIFEST);
+const ownedOverrides=['SWOOVR_TEST_WEB_BASE','SWOOVR_TEST_ADMIN_BASE','SWOOVR_TEST_ENV_PATH','SWOOVR_TEST_PG_CONTAINER','SWOOVR_TEST_PG_PORT','SWOOVR_TEST_ROOT_FIXTURE','SWOOVR_TEST_MEMBER_CLIENT','SWOOVR_TEST_STAFF_CLIENT'];
+if(ownedOverrides.some(key=>process.env[key]!==undefined)&&!owned)throw Error('Extended test overrides require a private owned-run manifest.');
+if(owned){for(const[key,value]of Object.entries({SWOOVR_TEST_API_BASE:owned.api,SWOOVR_TEST_APP_DATABASE:owned.database,SWOOVR_TEST_WEB_BASE:owned.web,SWOOVR_TEST_ADMIN_BASE:owned.admin,SWOOVR_TEST_ENV_PATH:owned.envPath,SWOOVR_TEST_PG_CONTAINER:owned.pgContainer,SWOOVR_TEST_PG_PORT:String(owned.pgPort),SWOOVR_TEST_ROOT_FIXTURE:owned.rootFixture,SWOOVR_TEST_MEMBER_CLIENT:owned.memberClient,SWOOVR_TEST_STAFF_CLIENT:owned.staffClient}))if(process.env[key]!==value)throw Error('Owned test overrides must match their paired manifest.');}
 
 // An isolated SSR runner may pair its owned loopback API with an owned throwaway database.
 // Require both overrides together; other suites retain the normal local stack unchanged.
@@ -11,23 +16,26 @@ const isolatedApi=process.env.SWOOVR_TEST_API_BASE,isolatedDatabase=process.env.
 if(Boolean(isolatedApi)!==Boolean(isolatedDatabase)||isolatedDatabase&&!/^swoovr_registry_ui_[0-9a-f]{32}$/.test(isolatedDatabase)
  ||isolatedApi&&!/^http:\/\/127\.0\.0\.1:[0-9]{1,5}$/.test(isolatedApi))throw new Error('Use paired owned loopback API and registry UI database test overrides.');
 const database=isolatedDatabase||'swoovr';
-const keycloak = 'http://localhost:8180', api = isolatedApi||'http://127.0.0.1:5080', web = 'http://localhost:5081', admin = 'http://localhost:5082';
+const keycloak = 'http://localhost:8180', api = isolatedApi||'http://127.0.0.1:5080', web = owned?.web||'http://localhost:5081', admin = owned?.admin||'http://localhost:5082';
+const memberClientId=owned?.memberClient||'swoovr-web',staffClientId=owned?.staffClient||'swoovr-admin-web';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const claims = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
 
 async function localEnv(key) {
-  const env = await fs.readFile('.local/docker.env', 'utf8');
-  return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
+  const env = await fs.readFile(owned?.envPath||'.local/docker.env', 'utf8');
+  return ownedSupport.parseEnv(env)[key];
 }
+async function realmApiFor(realm){if(owned)return ownedSupport.ownedRealm(owned,realm);const{localRealmApi}=await import('../../scripts/auth/provision.mjs');return localRealmApi({realm});}
+async function expectOwnedRegistration(email){if(owned)await ownedSupport.journal(owned,{kind:'expected',realm:'swoovr-members-dev',email,username:email,source:'browser-registration'});}
+async function claimOwnedRegistration(email){if(owned)await ownedSupport.claimRegistration(owned,email);}
 
 /** A fictional adult member with a verified email; the 18+ attestation is accepted at first sign-in. */
 async function createMember(label) {
-  const { localRealmApi } = await import('../../scripts/auth/provision.mjs');
-  const realmApi = await localRealmApi({ realm: 'swoovr-members-dev' });
-  const email = `fictional.${label}.${Date.now()}.${crypto.randomBytes(3).toString('hex')}@example.test`;
+  const realmApi = await realmApiFor('swoovr-members-dev');
+  const email = owned?ownedSupport.fixtureEmail(owned,label):`fictional.${label}.${Date.now()}.${crypto.randomBytes(3).toString('hex')}@example.test`;
   const password = 'Correct-horse-' + crypto.randomBytes(6).toString('hex');
   await realmApi('/users', 'POST', {
-    username: email, email, firstName: 'Fictional', enabled: true,
+    username: email, email, firstName: 'Fictional', lastName: 'Example', enabled: true,
     // Simulated for the local sandbox only; never evidence of real email ownership.
     emailVerified: true,
     credentials: [{ type: 'password', value: password, temporary: false }],
@@ -40,9 +48,8 @@ async function createMember(label) {
  * admin role still needs an invitation from an admin; this only creates the Keycloak user.
  */
 async function createStaff(label) {
-  const { localRealmApi } = await import('../../scripts/auth/provision.mjs');
-  const realmApi = await localRealmApi({ realm: 'swoovr-staff-dev' });
-  const email = `fictional.staff.${label}.${Date.now()}.${crypto.randomBytes(3).toString('hex')}@example.test`;
+  const realmApi = await realmApiFor('swoovr-staff-dev');
+  const email = owned?ownedSupport.fixtureEmail(owned,label,true):`fictional.staff.${label}.${Date.now()}.${crypto.randomBytes(3).toString('hex')}@example.test`;
   const password = 'Correct-horse-' + crypto.randomBytes(6).toString('hex');
   await realmApi('/users', 'POST', { username: email, email, firstName: 'Fictional', lastName: 'Staff', enabled: true, emailVerified: true,
     credentials: [{ type: 'password', value: password, temporary: false }] });
@@ -70,15 +77,24 @@ async function codeToken(browser, { realm, clientId, secretKey, redirect, fill }
   return token;
 }
 
-const memberToken = (browser, member) => codeToken(browser, {
-  realm: 'swoovr-members-dev', clientId: 'swoovr-web', secretKey: 'SWOOVR_MEMBERS_WEB_SECRET', redirect: web + '/signin-oidc',
+const memberToken = async (browser, member) => { const token=await codeToken(browser, {
+  realm: 'swoovr-members-dev', clientId: memberClientId, secretKey: 'SWOOVR_MEMBERS_WEB_SECRET', redirect: web + '/signin-oidc',
   fill: async page => {
     await page.fill('#username', member.email); await page.fill('#password', member.password); await page.click('#kc-login');
     // Admin-created users still get the realm's 18+ terms action on first sign-in; accepting it records the attestation.
     await page.waitForLoadState();
     if (page.url().includes('execution=TERMS_AND_CONDITIONS')) await page.click('[name=accept]');
   },
-});
+ });
+  if(member.confirmRegisteredNames!==false)await confirmFictionalRegisteredNames(token);
+  return token;
+};
+
+/** Explicit completion for owned fictional fixtures only, never a runtime auto-confirmation. */
+async function confirmFictionalRegisteredNames(token) {
+  const current=await call(token,'/api/me/registered-names');
+  if(current.status===200&&!current.body.confirmed)await call(token,'/api/me/registered-names',{method:'PUT',body:{firstName:'Fictional',lastName:'Example',mononym:false,expectedRevision:current.body.revision,confirm:true}});
+}
 
 /**
  * A member token through the app's own client (swoovr-mobile: public, code + PKCE, com.swoovr.app redirect), the token
@@ -108,23 +124,25 @@ async function appToken(browser, member) {
     grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: 'swoovr-mobile', code_verifier: verifier }) });
   const token = (await response.json()).access_token;
   if (!token) throw new Error('App token exchange failed');
+  if(member.confirmRegisteredNames!==false)await confirmFictionalRegisteredNames(token);
   return token;
 }
 
 /** A staff-realm token through the admin app's client (password only; OTP is optional for staff other than the root admin). */
 const staffToken = (browser, staff) => codeToken(browser, {
-  realm: 'swoovr-staff-dev', clientId: 'swoovr-admin-web', secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
+  realm: 'swoovr-staff-dev', clientId: staffClientId, secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
   fill: async page => { await page.fill('#username', staff.email); await page.fill('#password', staff.password); await page.click('#kc-login'); },
 });
 
 /** The local root admin (password + OTP). Needs `./scripts/docker-local.sh root-admin` and an enrolled TOTP. */
 async function rootAdminToken(browser) {
   const { totp } = await import('../../scripts/auth/totp.mjs');
-  const fixturePath = '.local/swoovr-root-admin.json';
+  const fixturePath = owned?.rootFixture||'.local/swoovr-root-admin.json';
   const fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'));
+  if(owned&&fixture.runId!==owned.runId)throw Error('Owned root fixture does not match this run.');
   if (!fixture.fictional || !fixture.totpSecret) throw new Error('Run tests/auth/root-admin.browser.cjs once to enrol the fictional root admin');
   return codeToken(browser, {
-    realm: 'swoovr-staff-dev', clientId: 'swoovr-admin-web', secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
+    realm: 'swoovr-staff-dev', clientId: staffClientId, secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
     fill: async page => fillRootAdmin(page, fixture, fixturePath, totp),
   });
 }
@@ -133,9 +151,10 @@ async function rootAdminToken(browser) {
 async function fillRootAdmin(page, fixture, fixturePath, totp) {
   if (!fixture) {
     ({ totp } = await import('../../scripts/auth/totp.mjs'));
-    fixturePath = '.local/swoovr-root-admin.json';
+    fixturePath = owned?.rootFixture||'.local/swoovr-root-admin.json';
     fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'));
   }
+  if(owned&&(fixturePath!==owned.rootFixture||fixture.runId!==owned.runId))throw Error('Root login must use this run\'s own private MFA fixture.');
   await page.fill('#username', fixture.username); await page.fill('#password', fixture.password); await page.click('#kc-login');
   await page.waitForSelector('#otp');
   // Keycloak refuses a code reused within its window, so wait for a fresh 30-second step.
@@ -151,7 +170,8 @@ async function fillRootAdmin(page, fixture, fixturePath, totp) {
  * matching. Pass options to vary them.
  */
 async function matchReady(token, { dateOfBirth = '1990-01-01', gender = 'woman', showMe = ['man', 'woman', 'non-binary', 'another'] } = {}) {
-  const age = await call(token, '/api/me/age', { method: 'PUT', body: { dateOfBirth } });
+  await confirmFictionalRegisteredNames(token);
+  const age = await call(token, '/api/me/age', { method: 'PUT', body: { dateOfBirth, confirmed: true } });
   const identity = await call(token, '/api/me/identity', { method: 'PUT', body: { gender, showGender: true, showOrientation: false, showAge: true, datingShowMe: showMe } });
   return [age.status, identity.status];
 }
@@ -169,7 +189,7 @@ async function elevate(token, capability, purpose = 'Fictional acceptance test')
 /** Runs an API operator command with the local database connection. */
 async function cli(...args) {
   const connection = `Host=127.0.0.1;Port=5433;Database=${database};Username=swoovr;Password=${await localEnv('SWOOVR_DB_PASSWORD')}`;
-  const dll = 'src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll';
+  const dll = owned?.apiDll||'src/Swoovr.Api/bin/Debug/net10.0/Swoovr.Api.dll';
   // `accounts purge` deletes Keycloak users through the API's deletion client (D169) and Didit sessions (D173), and keys
   // terminated-email holds from the founder secret as the hosts do (D171).
   const env = { ...process.env, ConnectionStrings__Swoovr: connection, DOTNET_ENVIRONMENT: 'Development',
@@ -182,13 +202,19 @@ async function cli(...args) {
     // D203: `accounts purge` deletes photo objects from the same R2 bucket the hosts use.
     Media__R2__Endpoint: await localEnv('SWOOVR_R2_ENDPOINT') ?? '', Media__R2__Bucket: await localEnv('SWOOVR_R2_BUCKET') ?? '',
     Media__R2__AccessKeyId: await localEnv('SWOOVR_R2_ACCESS_KEY_ID') ?? '', Media__R2__SecretAccessKey: await localEnv('SWOOVR_R2_SECRET_ACCESS_KEY') ?? '' };
-  return new Promise((resolve, reject) => execFile('dotnet', [dll, ...args], { env,
-  }, (error, stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve(stdout)));
+  return new Promise((resolve, reject) => execFile('dotnet', [dll, ...args], { env,cwd:owned?path.resolve(__dirname,'../../src/Swoovr.Api'):undefined,maxBuffer:8e6,
+  }, (error, stdout, stderr) => {
+    if(!error){resolve(stdout);return;}
+    if(!owned){reject(new Error(stderr||error.message));return;}
+    const message=ownedSupport.cliError(stderr);
+    fs.appendFile(path.resolve(__dirname,'../../.local/owned-browser-runs',owned.runId,'cli-errors.log'),stderr||error.message,{mode:0o600})
+      .finally(()=>reject(new Error(message))).catch(()=>{});
+  }));
 }
 
 /** Runs SQL in the local database container and returns trimmed rows. */
 function sql(query) {
-  return new Promise((resolve, reject) => execFile('docker', ['exec', 'swoovr-local-postgres-1', 'psql', '-U', 'swoovr', '-d', database, '-tAc', query],
+  return new Promise((resolve, reject) => execFile('docker', ['exec', owned?.pgContainer||'swoovr-local-postgres-1', 'psql',...(owned?['-p',String(owned.pgPort)]:[]), '-U', 'swoovr', '-d', database,...(owned?['-v','ON_ERROR_STOP=1']:[]), '-tAc', query],
     (error, stdout, stderr) => error ? reject(new Error(stderr)) : resolve(stdout.trim())));
 }
 
@@ -204,8 +230,7 @@ async function call(token, path, { method = 'GET', body, headers = {} } = {}) {
 
 /** The local members realm's admin API (management only, never sign-in evidence). */
 async function membersRealm() {
-  const { localRealmApi } = await import('../../scripts/auth/provision.mjs');
-  return localRealmApi({ realm: 'swoovr-members-dev' });
+  return realmApiFor('swoovr-members-dev');
 }
 
 /** Text bodies of the local mail sink's messages to one address, newest first. */
@@ -214,5 +239,5 @@ async function mailTo(address) {
   return Promise.all((list.messages ?? []).map(async m => (await (await fetch(`http://127.0.0.1:8025/api/v1/message/${m.ID}`)).json()).Text));
 }
 
-module.exports = { keycloak, api, web, admin, sleep, claims, localEnv, createMember, createStaff, memberToken, appToken, staffToken, rootAdminToken, fillRootAdmin,
+module.exports = { keycloak, api, web, admin, memberClientId,staffClientId,ownedRunId:owned?.runId,expectOwnedRegistration,claimOwnedRegistration,sleep, claims, localEnv, createMember, createStaff, memberToken, appToken, staffToken, rootAdminToken, fillRootAdmin,
   cli, sql, call, membersRealm, mailTo, matchReady, elevate };

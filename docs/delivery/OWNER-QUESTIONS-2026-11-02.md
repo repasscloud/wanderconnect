@@ -219,3 +219,20 @@ The fix for each of these is merged into main. Try it on your local stack (membe
 | #151 — Q109 Who I'd like to meet | Unsaved filters survive switching modes; Save is disabled while saving. |
 
 Also: **#137 — Q95 Admin email search.** You confirmed it works; it closes with the next recording PR. No action needed.
+
+## Overnight follow-ups — 3 November 2026
+
+These new Q records arose while implementing the owner answers. Answer using the GitHub issue ids below, as in the earlier sections; the builder continues independent work.
+
+### #170 — Q121 Android Firebase package
+
+- **170.1 Package choice.** A: register current `com.swoovr.app` in the existing Firebase project and replace the ignored local configuration. B: approve `com.swoovr.app.uat` for the test build and review callbacks/signing. *Suggested: A.*
+- **170.2 Corrected file.** Confirm `.local/firebase/google-services.json` is ready after A. Never paste credentials.
+
+### #172 — Q122 Safety industry forums (later)
+
+- **172.1 Timing.** A: research a concise shortlist before public-beta readiness; owner chooses memberships later. B: defer until after invited UAT. *Suggested: A.* No joining, payment or outreach.
+
+### #173 — Q123 Trusted-contact safety pages
+
+- **173.1 Guest exception.** A: explicitly allow existing capability-token/code-protected trusted-contact meeting-safety pages, keeping all expiry/consent/rate/privacy checks. B: keep an absolute six-page guest rule and explicitly remove/disable that sharing journey. *Suggested: A.* The current strict implementation follows D290 while this is OPEN.

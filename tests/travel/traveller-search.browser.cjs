@@ -228,7 +228,7 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     const webTrip = await trip('trb', ADELAIDE, plus(0), plus(2));
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.trb.email); await page.fill('#password', members.trb.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });
     assert.equal((await bff(`api/travel/search?trip=${webTrip.id}&mode=friends`)).status(), 200); pass();
     assert.equal((await bff('api/admin/accounts/' + ids.trb + '/trips')).status(), 404); pass(); // no admin routes on the BFF

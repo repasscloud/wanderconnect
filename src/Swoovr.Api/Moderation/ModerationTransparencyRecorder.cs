@@ -31,11 +31,11 @@ public sealed class ModerationTransparencyRecorder(SwoovrDbContext db,IHostEnvir
         var status=db.Entry(item).Property(i=>i.Status);
         if(item.Status is not(MediaStatus.Blocked or MediaStatus.Rejected)||status.OriginalValue==status.CurrentValue)return;
         if(db.Entry(item).State!=EntityState.Modified)throw new InvalidOperationException("Media reporting requires a new decision.");
-        if(await db.Set<ModerationTransparencyFact>().AnyAsync(f=>f.SourceKind=="media-decision"&&f.SourceId==item.Id,token))
-            throw new InvalidOperationException("Media refusal already has an immutable action receipt.");
         var human=item.ReviewedBy is not null;
-        var flagged=automatedInspection||human&&status.OriginalValue==MediaStatus.Uncertain&&item.Screener!=null&&item.ScreenedAt!=null;
         var actionAt=human?item.ReviewedAt??now:item.ScreenedAt??now;
+        if(await db.Set<ModerationTransparencyFact>().AnyAsync(f=>f.SourceKind=="media-decision"&&f.SourceId==item.Id&&f.ActionAt==actionAt,token))
+            throw new InvalidOperationException("Media refusal already has an immutable action receipt.");
+        var flagged=automatedInspection||human&&status.OriginalValue==MediaStatus.Uncertain&&item.Screener!=null&&item.ScreenedAt!=null;
         db.Set<ModerationTransparencyFact>().Add(new(){Id=Guid.NewGuid(),SourceKind="media-decision",SourceId=item.Id,SubjectAccountId=item.AccountId,SourceCaseId=item.CaseId,
             Action="content-removal",ActionAt=actionAt,RecordedAt=clock.GetUtcNow(),HomeCountryAtAction="unknown",CountryProvenance="unknown",
             ReviewedPolicyBasis="unknown",BasisReviewed=false,DetectionMechanism=flagged?"image-screening":"unknown",EnforcementMechanism=human?"human":"automated-screening",

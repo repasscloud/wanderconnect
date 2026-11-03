@@ -73,11 +73,16 @@ public static class BetaEnrolments
         var query=from e in db.BetaEnrolments.AsNoTracking()
             join p in db.MemberProfiles.AsNoTracking() on e.AccountId equals (Guid?)p.AccountId into profiles
             from p in profiles.DefaultIfEmpty()
-            select new {Row=e,Name=p==null?null:p.DisplayName};
+            join a in db.Accounts.AsNoTracking() on e.AccountId equals (Guid?)a.Id into accounts
+            from a in accounts.DefaultIfEmpty()
+            // D300: Support/Admin/Root may see confirmed registered names.
+            let confirmed=a!=null&&a.RegisteredNamesConfirmedAt!=null
+            select new {Row=e,Name=p==null?null:p.DisplayName,First=confirmed?a!.RegisteredFirstName:null,Last=confirmed?a!.RegisteredLastName:null};
         if(!string.IsNullOrEmpty(text))
         {
             var term=text.ToLowerInvariant();var referenceSearch=Guid.TryParse(text,out var reference);
             query=query.Where(x=>x.Row.Email.Contains(term)||x.Name!=null&&x.Name.ToLower().Contains(term)
+                ||x.First!=null&&x.First.ToLower().Contains(term)||x.Last!=null&&x.Last.ToLower().Contains(term)
                 ||referenceSearch&&(x.Row.Id==reference||x.Row.AccountId==reference));
         }
         if(state=="revoked")query=query.Where(x=>x.Row.RevokedAt!=null);
@@ -90,11 +95,11 @@ public static class BetaEnrolments
         {
             "oldest"=>query.OrderBy(x=>x.Row.CreatedAt).ThenBy(x=>x.Row.Id),
             "email"=>query.OrderBy(x=>x.Row.Email).ThenBy(x=>x.Row.Id),
-            "name"=>query.OrderBy(x=>x.Name==null||x.Name=="").ThenBy(x=>x.Name).ThenBy(x=>x.Row.Email).ThenBy(x=>x.Row.Id),
+            "name"=>query.OrderBy(x=>x.Last==null&&x.First==null).ThenBy(x=>x.Last).ThenBy(x=>x.First).ThenBy(x=>x.Row.Email).ThenBy(x=>x.Row.Id),
             _=>query.OrderByDescending(x=>x.Row.CreatedAt).ThenBy(x=>x.Row.Id),
         };
         var rows=await query.Skip((page-1)*size).Take(size).ToListAsync(token);
-        return new(rows.Select(x=>View(x.Row) with{MemberName=x.Name}).ToList(),total,page,size);
+        return new(rows.Select(x=>View(x.Row) with{MemberName=x.Name,FirstName=x.First,LastName=x.Last}).ToList(),total,page,size);
     }
 
     public static BetaEnrolmentView View(BetaEnrolment e) => new(e.Id, e.Email, e.CreatedAt,

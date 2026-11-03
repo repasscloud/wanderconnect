@@ -19,7 +19,7 @@ const { web, createMember, memberToken, cli, call, matchReady } = require('../au
     assert.equal((await call(peerToken,'/api/me/modes/friends',{method:'PUT',body:{enabled:true,visible:true}})).status,200);
     const page = await browser.newPage(); await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', viewer.email); await page.fill('#password', viewer.password); await page.click('#kc-login');
-    await page.waitForURL(web + '/account**');
+    await page.waitForURL(web + '/explore');
     let state = 'empty', intercepted = 0; const methods = [];
     page.on('request', request => { if (request.url().includes('/bff/')) methods.push(request.method()); });
     await page.route('**/bff/api/explore?**', async route => {

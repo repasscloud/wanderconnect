@@ -240,7 +240,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
       const page = await context.newPage();
       await page.goto(web + '/account/sign-in?intro=done');
       await page.fill('#username', member.email); await page.fill('#password', member.password);
-      await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+      await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
       return { context, page };
     };
     let { context, page } = await signIn(members.ada);

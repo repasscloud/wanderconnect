@@ -1,0 +1,36 @@
+@inject MemberClient Members
+<section class="card account-section" data-registered-names>
+    <h2>Your registered names</h2>
+    <p>Confirm or complete the names you registered with, including after Apple or Google sign-in. These are self-declared account names, separate from your public profile name and any verified ID record. A name change removes ID Verified and requires a fresh optional ID check.</p>
+    @if(view is not null)
+    {
+        <form class="stack" @onsubmit="SaveAsync" data-registered-names-form>
+            <label>First or only name<input autocomplete="given-name" maxlength="100" required @bind="first" /></label>
+            <label><input type="checkbox" @bind="mononym" /> I have one name</label>
+            <label>Last name<input autocomplete="family-name" maxlength="100" required="@(!mononym)" disabled="@mononym" @bind="last" /></label>
+            <label><input type="checkbox" required @bind="confirm" /> I confirm these are my registered names. If I am ID verified, changing them removes that badge until I submit ID again.</label>
+            <button type="submit" class="button" disabled="@(busy||!confirm)">Confirm registered names</button>
+        </form>
+    }
+    <p role="status" data-registered-names-result="@resultCode">@message</p>
+</section>
+@code {
+    [Parameter] public EventCallback Changed{get;set;}
+    private RegisteredNamesView? view;
+    private string? first,last,message,resultCode;
+    private bool mononym,confirm,busy;
+    protected override async Task OnInitializedAsync()
+    {
+        var result=await Members.RegisteredNamesAsync();view=result.Value;
+        if(view is not null){first=view.FirstName;last=view.LastName;mononym=view.Mononym;}
+        else message="We couldn't load your registered names. Try again.";
+    }
+    private async Task SaveAsync()
+    {
+        if(view is null)return;busy=true;
+        var result=await Members.SaveRegisteredNamesAsync(new(first,mononym?null:last,mononym,view.Revision,confirm));busy=false;
+        resultCode=result.Ok?"saved":result.Code;
+        message=result.Ok?"Registered names confirmed. Your chosen public name stays unchanged.":result.Status==409?"Your names changed in another session. Reload before confirming again.":"Enter your first and last names, or choose the one-name exception, and explicitly confirm.";
+        if(result.Ok){view=result.Value;confirm=false;await Changed.InvokeAsync();}
+    }
+}

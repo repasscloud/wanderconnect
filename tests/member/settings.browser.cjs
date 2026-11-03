@@ -11,7 +11,7 @@ module.exports=async({page,context,sql,ownedMedia,root})=>{
  await page.fill('#phone-number','0491 570 006');await page.locator('[data-phone-send] button[type=submit]').click();await page.locator('#phone-code').waitFor();
  let code;for(let i=0;i<30&&!code;i++){const list=await(await fetch('http://localhost:18025/api/v1/messages')).json();if(list.messages?.[0]){const mail=await(await fetch('http://localhost:18025/api/v1/message/'+list.messages[0].ID)).json();code=/Your Swoovr code is (\d{6})/.exec(mail.Text)?.[1]}if(!code)await sleep(200)}assert(code,'Owned simulated phone email');
  await page.fill('#phone-code',code);await page.locator('[data-phone-confirm] button').click();await page.locator('[data-phone=verified]').waitFor();
- await page.fill('#dob','1990-01-01');await page.locator('[data-age-form] button[type=submit]').click();await page.locator('[data-age-status=selfDeclaredAdult]').waitFor();
+ await page.fill('#dob','1990-01-01');await page.locator('[data-age-form] [type=checkbox]').check();await page.locator('[data-age-form] button[type=submit]').click();await page.locator('[data-dob-locked=saved]').waitFor();
  await page.goto(base+'/me/profile');await page.locator('[data-profile-editor=ready]').waitFor();await page.locator('#display-name').waitFor();
  assert((await page.locator('.member-settings').boundingBox()).width>700);
  await page.fill('#display-name','Fictional Member');await page.fill('#area','Adelaide CBD');await page.fill('#about','A fictional adult local testing account.');
@@ -51,7 +51,7 @@ module.exports=async({page,context,sql,ownedMedia,root})=>{
  await page.goto(base+'/me/photos');await page.locator('[data-photos="2"]').waitFor();assert.equal(await page.locator('[data-mode-photos]').count(),1);
  await page.locator(`[data-mode-photo="dating:${ids[1]}"]`).check();await page.locator('[data-mode-photos=dating][data-mode-photo-count="1"]').waitFor();
  await page.locator('[data-photo-mode=friends]').click();await page.locator('[data-mode-photos=friends][data-mode-photo-count="0"]').waitFor();await page.locator(`[data-mode-photo="friends:${ids[1]}"]`).check();await page.locator('[data-mode-photos=friends][data-mode-photo-count="1"]').waitFor();
- await page.locator('[data-photo-mode=dating]').click();await page.locator(`[data-mode-photo="dating:${ids[1]}"]`).uncheck();await page.locator('[data-mode-photos=dating][data-mode-photo-count="0"]').waitFor();await page.locator('[data-photo-mode=friends]').click();await page.locator('[data-mode-photos=friends][data-mode-photo-count="1"]').waitFor();await page.locator(`[data-photo="${ids[0]}"][data-photo-main=yes]`).waitFor();
+ await page.locator('[data-photo-mode=dating]').click();await page.locator(`[data-mode-photo="dating:${ids[1]}"]`).uncheck();await page.locator('[data-mode-photos=dating][data-mode-photo-count="0"]').waitFor();await page.locator('[data-photo-mode=friends]').click();await page.locator('[data-mode-photos=friends][data-mode-photo-count="1"]').waitFor();await page.locator(`[data-photo="${ids[0]}"]`).waitFor();await page.locator(`[data-mode-make-main="${ids[1]}"]`).click();await page.locator(`[data-mode-photos=friends] [data-assigned-photo="${ids[1]}"]`).getByText("Main photo",{exact:true}).waitFor();
  const out=path.join(root,'docs/delivery/evidence/2026-11-02-member-settings');await fs.mkdir(out,{recursive:true});
  for(const route of ['account','me/profile','me/matching','me/photos']){
   await page.goto(base+'/'+route);await page.waitForTimeout(700);
@@ -61,5 +61,5 @@ module.exports=async({page,context,sql,ownedMedia,root})=>{
    if((width===375&&theme==='dark')||(width===1440&&theme==='light'))await page.screenshot({path:path.join(out,route.replaceAll('/','-')+'-'+theme+'-'+width+'.png'),fullPage:true});
   }
  }
- console.log('PASS: phone refusal and simulated confirmation, age declaration, saved name/city, independent visibility, matching drafts/save and failed/delayed loads, Any/All and exclusions, Plus refusal, shared main and independent photo assignments; 32 responsive/theme combinations.');
+ console.log('PASS: phone refusal and simulated confirmation, age declaration, saved name/city, independent visibility, matching drafts/save and failed/delayed loads, Any/All and exclusions, Plus refusal, no inherited shared main, independent mode main and photo assignments; 32 responsive/theme combinations.');
 };

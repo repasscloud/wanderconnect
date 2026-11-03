@@ -139,7 +139,7 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     const me = await context.newPage();
     await me.goto(web + '/account/sign-in?intro=done');
     await me.fill('#username', member.email); await me.fill('#password', member.password);
-    await Promise.all([me.waitForURL(web + '/account'), me.click('#kc-login')]);
+    await Promise.all([me.waitForURL(web+'/explore'),me.click('#kc-login')]);await me.goto(web+'/account');
     await me.goto(web + '/me/safety');
     await me.waitForSelector('[data-safety-services="AU"]', { timeout: 20000 });
     assert.ok((await me.textContent('[data-safety-services]')).includes('000')); pass();

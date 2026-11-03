@@ -43,17 +43,19 @@ public static class ProfilePrivacy
         var chips = await (from i in db.MemberModeIntentions join o in db.ModeIntentions on i.IntentionId equals o.Id
                            where i.AccountId == account select new { i.ModeId, o.Label }).ToListAsync(cancellationToken);
         // D203: the photos shown, by id and SHA-256 of the stored image (the main photo in core, each mode's own in the mode).
+        var limit = (await Media.MediaEndpoints.LimitsAsync(db, [account], now, cancellationToken)).GetValueOrDefault(account, MediaPolicy.ModeLimit(PlanTier.Free));
         var photos = (await (from p in db.MediaPlacements join i in db.MediaItems on p.MediaId equals i.Id
-                             where p.AccountId == account && i.Status == MediaStatus.Passed && i.RemovedAt == null
-                             orderby p.Position select new { p.Scope, i.Id, i.Sha256 }).ToListAsync(cancellationToken))
-            .GroupBy(p => p.Scope).ToDictionary(g => g.Key, g => g.Select(p => new { p.Id, Sha256 = Convert.ToHexStringLower(p.Sha256) }).ToList());
+                             where p.AccountId == account && p.Scope != MediaPolicy.Main && i.Status == MediaStatus.Passed && i.RemovedAt == null
+                             orderby p.Position select new { p.Scope, i.Id, i.Sha256, p.IsMain }).ToListAsync(cancellationToken))
+            .GroupBy(p => p.Scope).ToDictionary(g => g.Key, g => g.Take(limit).Select(p => new { p.Id, Sha256 = Convert.ToHexStringLower(p.Sha256), p.IsMain }).ToList());
         var snapshots = new List<(string Mode, object Content)>
-            { (ProfileVersions.Core, new { profile.DisplayName, profile.Area, profile.About, MainPhoto = photos.GetValueOrDefault(MediaPolicy.Main)?.FirstOrDefault() }) };
+            { (ProfileVersions.Core, new { profile.DisplayName, profile.Area, profile.About }) };
         snapshots.AddRange(modes.Select(m => (m.ModeId, (object)new
         {
-            m.Enabled, m.Visible, ModeAbout = m.About, ShareCoreAbout = m.ShareCoreAbout == true,
+            m.Enabled, m.Visible, m.DisplayName, ShownName = ModePrivacy.DisplayName(m.DisplayName, profile.DisplayName), ModeAbout = m.About, ShareCoreAbout = m.ShareCoreAbout == true,
             ShownAbout = ModePrivacy.About(m.About, profile.About, m.ShareCoreAbout),
             Intentions = chips.Where(c => c.ModeId == m.ModeId).Select(c => c.Label).Order().ToList(),
+            MainPhoto = photos.GetValueOrDefault(m.ModeId)?.FirstOrDefault(p => p.IsMain),
             Photos = photos.GetValueOrDefault(m.ModeId) ?? [],
         })));
         var latest = (await db.ProfileVersions.Where(v => v.AccountId == account).ToListAsync(cancellationToken))

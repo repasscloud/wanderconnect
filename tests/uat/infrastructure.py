@@ -52,6 +52,16 @@ with tempfile.TemporaryDirectory(prefix='swoovr-infra-') as private:
         require(len({r['env'] for r in chosen})==len(chosen))
         require(len({r['name'] for r in chosen})==len(chosen))
     require(next(r for r in records if r['name']=='age-recovery')['actors']==['recovery'])
+    registration=[r for r in records if r['name']=='registration-authority']
+    require(registration==[
+        {'name':'registration-authority','env':'Registration__ProviderToken','actors':['api']},
+        {'name':'registration-authority','env':'SWOOVR_REGISTRATION_AUTHORITY_TOKEN','actors':['keycloak']},
+    ])
+    authority=services['variables']['registrationAuthorityUrl']
+    require('https://' in authority and '/api/registration/admission' in authority and 'apiHost' in authority)
+    keycloak=next(r for r in services['resources'] if r.get('name')=="[format('{0}-keycloak-app', parameters('prefix'))]")
+    keycloak_env=keycloak['properties']['parameters']['environmentVariables']['value']
+    require(next(e for e in keycloak_env if e['name']=='SWOOVR_REGISTRATION_AUTHORITY_URL')['value']=="[variables('registrationAuthorityUrl')]")
     require(len([r for r in records if 'vkey' in r])==10)
     require(all('value' not in r for r in records))
     require('cryptoVersions' in json.dumps(services['variables']['copy']))

@@ -43,7 +43,7 @@ public sealed class AppearancePage:ContentPage
         var row=new HorizontalStackLayout{Spacing=4,Children={new BoxView{Color=Color.FromArgb(palette.Bg),WidthRequest=32,HeightRequest=24},new BoxView{Color=Color.FromArgb(palette.Primary),WidthRequest=32,HeightRequest=24}}};
         return new VerticalStackLayout{Spacing=4,Children={Ui.Text(name,"FooterClaims"),row}};
     }
-    protected override async void OnAppearing(){base.OnAppearing();NativeAppearance.Changed+=Update;Update();await NativeAppearance.EnsureAccountAsync(MainPage.Auth);Update();}
+    protected override async void OnAppearing(){base.OnAppearing();if(!await Ui.SignedInAsync()){NativeAppearance.ShowGuestSurface();await Shell.Current.GoToAsync("//MainPage");return;}NativeAppearance.Changed+=Update;Update();await NativeAppearance.EnsureAccountAsync(MainPage.Auth);Update();}
     protected override void OnDisappearing(){NativeAppearance.Changed-=Update;base.OnDisappearing();}
     private static void Tint(RadioButton radio)
     {

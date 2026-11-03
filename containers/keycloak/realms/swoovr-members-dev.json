@@ -67,6 +67,84 @@
       "optionalClientScopes": [],
       "protocolMappers": [
         {
+          "name": "swoovr-email-clock-swoovr_email_request_binding",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_request_binding",
+            "claim.name": "swoovr_email_request_binding",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_requested_ms",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_requested_ms",
+            "claim.name": "swoovr_email_requested_ms",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_verified_binding",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_verified_binding",
+            "claim.name": "swoovr_email_verified_binding",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_verified_ms",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_verified_ms",
+            "claim.name": "swoovr_email_verified_ms",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_request_session_sha256",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_request_session_sha256",
+            "claim.name": "swoovr_email_request_session_sha256",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-mononym",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_mononym",
+            "claim.name": "swoovr_mononym",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
           "name": "swoovr-amr",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-amr-mapper",
@@ -149,6 +227,84 @@
       "optionalClientScopes": [],
       "protocolMappers": [
         {
+          "name": "swoovr-email-clock-swoovr_email_request_binding",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_request_binding",
+            "claim.name": "swoovr_email_request_binding",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_requested_ms",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_requested_ms",
+            "claim.name": "swoovr_email_requested_ms",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_verified_binding",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_verified_binding",
+            "claim.name": "swoovr_email_verified_binding",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_verified_ms",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_verified_ms",
+            "claim.name": "swoovr_email_verified_ms",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-email-clock-swoovr_email_request_session_sha256",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_email_request_session_sha256",
+            "claim.name": "swoovr_email_request_session_sha256",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "swoovr-mononym",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "swoovr_mononym",
+            "claim.name": "swoovr_mononym",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
           "name": "swoovr-amr",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-amr-mapper",
@@ -208,7 +364,7 @@
         "subComponents": {},
         "config": {
           "kc.user.profile.config": [
-            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"multivalued\":false,\"required\":{\"roles\":[\"user\"]},\"annotations\":{\"inputTypePlaceholder\":\"${swoovrPlaceholder.firstName}\"}},{\"name\":\"email\",\"displayName\":\"${email}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"multivalued\":false,\"required\":{\"roles\":[\"user\"]},\"annotations\":{\"inputTypePlaceholder\":\"${swoovrPlaceholder.username}\"}},{\"name\":\"terms_and_conditions\",\"displayName\":\"Adult attestation time\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{},\"multivalued\":false}],\"groups\":[],\"unmanagedAttributePolicy\":null}"
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":100},\"person-name-prohibited-characters\":{}},\"multivalued\":false,\"required\":{\"roles\":[\"user\"]},\"annotations\":{\"inputTypePlaceholder\":\"${swoovrPlaceholder.firstName}\"}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":100},\"person-name-prohibited-characters\":{}},\"multivalued\":false},{\"name\":\"swoovr_mononym\",\"displayName\":\"One-name declaration\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"multivalued\":false,\"required\":{\"roles\":[\"user\"]},\"annotations\":{\"inputTypePlaceholder\":\"${swoovrPlaceholder.username}\"}},{\"name\":\"swoovr_email_request_binding\",\"displayName\":\"Provider email verification evidence\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"max\":64}},\"multivalued\":false},{\"name\":\"swoovr_email_requested_ms\",\"displayName\":\"Provider email verification evidence\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"max\":64}},\"multivalued\":false},{\"name\":\"swoovr_email_verified_binding\",\"displayName\":\"Provider email verification evidence\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"max\":64}},\"multivalued\":false},{\"name\":\"swoovr_email_verified_ms\",\"displayName\":\"Provider email verification evidence\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"max\":64}},\"multivalued\":false},{\"name\":\"swoovr_email_request_session_sha256\",\"displayName\":\"Provider email verification evidence\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"max\":64}},\"multivalued\":false},{\"name\":\"terms_and_conditions\",\"displayName\":\"Adult attestation time\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{},\"multivalued\":false}],\"groups\":[],\"unmanagedAttributePolicy\":null}"
           ]
         }
       }
@@ -228,5 +384,9 @@
   "webAuthnPolicyPasswordlessRpId": "localhost",
   "webAuthnPolicyPasswordlessRpEntityName": "Swoovr",
   "webAuthnPolicyPasswordlessResidentKey": "required",
-  "webAuthnPolicyPasswordlessUserVerificationRequirement": "required"
+  "webAuthnPolicyPasswordlessUserVerificationRequirement": "required",
+  "eventsListeners": [
+    "jboss-logging",
+    "swoovr-contact-clocks"
+  ]
 }

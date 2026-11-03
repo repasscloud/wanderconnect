@@ -55,6 +55,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<HomeLocationCheck> HomeLocationChecks => Set<HomeLocationCheck>();
     public DbSet<DobReview> DobReviews => Set<DobReview>();
+    public DbSet<DobChangeGrant> DobChangeGrants => Set<DobChangeGrant>();
+    public DbSet<DobChangeHistory> DobChangeHistories => Set<DobChangeHistory>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MessageHide> MessageHides => Set<MessageHide>();
@@ -124,6 +126,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             account.Property(a => a.Issuer).HasMaxLength(512);
             account.Property(a => a.Subject).HasMaxLength(255);
             account.Property(a => a.Email).HasMaxLength(254);
+            account.Property(a => a.RegisteredFirstName).HasMaxLength(RegisteredNamePolicy.MaximumLength);
+            account.Property(a => a.RegisteredLastName).HasMaxLength(RegisteredNamePolicy.MaximumLength);
             account.Property(a => a.StatusReason).HasMaxLength(64);
             // The purge job finds due deletions and expired tombstones (D170).
             account.HasIndex(a => new { a.Status, a.DeletionDueAt });
@@ -420,6 +424,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             placement.HasKey(p => new { p.AccountId, p.Scope, p.Position });
             placement.Property(p => p.Scope).HasMaxLength(32);
+            placement.Property(p => p.IsMain).HasDefaultValue(false);
+            placement.HasIndex(p => new { p.AccountId, p.Scope }, "ix_media_placements_one_main").IsUnique().HasFilter("is_main = true");
             placement.HasOne<MediaItem>().WithMany().HasForeignKey(p => p.MediaId).OnDelete(DeleteBehavior.Cascade);
             placement.HasIndex(p => p.MediaId);
         });
@@ -532,6 +538,19 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             access.Property(a => a.Purpose).HasMaxLength(VerifiedIdentityPolicy.PurposeMax);
             access.HasIndex(a => new { a.AccountId, a.At });
         });
+        model.Entity<DobChangeGrant>(grant =>
+        {
+            grant.ToTable("dob_change_grants", "restricted",table=>table.HasCheckConstraint("ck_dob_grant_window","expires_at = created_at + interval '24 hours'"));
+            grant.Property(g => g.Reason).HasMaxLength(500);
+            grant.HasIndex(g => new { g.AccountId, g.CreatedAt });
+            grant.HasIndex(g=>g.AccountId).IsUnique().HasFilter("consumed_at IS NULL AND revoked_at IS NULL");
+        });
+        model.Entity<DobChangeHistory>(history =>
+        {
+            history.ToTable("dob_change_histories", "restricted");
+            history.HasIndex(h => new { h.AccountId, h.ChangedAt });
+            history.HasIndex(h => h.RetainUntil);
+        });
         model.Entity<PhoneCode>(code =>
         {
             code.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -601,6 +620,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         model.Entity<MemberMode>(setting =>
         {
             setting.HasKey(m => new { m.AccountId, m.ModeId });
+            setting.Property(m => m.DisplayName).HasMaxLength(ProfileTextPolicy.DisplayNameMax);
             setting.Property(m => m.About).HasMaxLength(ProfileTextPolicy.AboutMax);
             setting.Property(m => m.ModeId).HasMaxLength(32);
             setting.HasOne<Account>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -732,12 +752,14 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             review.HasOne<Account>().WithMany().HasForeignKey(r => r.AccountId).OnDelete(DeleteBehavior.Cascade);
             review.HasOne<IdVerificationAttempt>().WithMany().HasForeignKey(r => r.AttemptId).OnDelete(DeleteBehavior.Cascade);
             review.Property(r => r.Reason).HasMaxLength(32);
+            review.Property(r => r.ResolutionNote).HasMaxLength(1000);
             review.HasIndex(r => r.AccountId, "ix_dob_reviews_one_open").IsUnique().HasFilter("resolved_at IS NULL");
             review.HasIndex(r => r.CreatedAt);
         });
         // D143: one open conversation per pair; a block closes it and a later reconnection opens a new one.
         model.Entity<Conversation>(conversation =>
         {
+            conversation.Property(c => c.OriginModeId).HasMaxLength(32);
             conversation.Property(c => c.ClosedReason).HasMaxLength(16);
             conversation.HasOne<Account>().WithMany().HasForeignKey(c => c.PairLow).OnDelete(DeleteBehavior.Cascade);
             conversation.HasOne<Account>().WithMany().HasForeignKey(c => c.PairHigh).OnDelete(DeleteBehavior.Cascade);
@@ -1065,6 +1087,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             audit.HasIndex(a => new { a.ActorAccountId, a.Action, a.At });
         });
 
+        model.AddPhotoReviewWorkflows();
         foreach (var entity in model.Model.GetEntityTypes())
         {
             entity.SetTableName(Snake(entity.GetTableName()!));

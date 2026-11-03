@@ -1,21 +1,37 @@
 @page "/contact-history"
 @inject AdminClient Admin
 <PageTitle>Contact history — Swoovr admin</PageTitle>
-<h1>Contact history</h1>
-<p class="help">Admins only (D187, #87). Which accounts used a mobile number or email address, and when; never the stored values. Every search is logged. Numbers are reassigned and addresses shared: a match is a lead, never proof that two accounts are one person.</p>
+<header class="ui-page-head">
+    <h1>Contact history</h1>
+    <p>Previous use of an email address or mobile number.</p>
+</header>
+<section class="ui-card" aria-label="Search contact history">
+    <form method="post" @formname="search" @onsubmit="SearchAsync" class="ui-big-search" data-contact-form data-enhance="true">
+        <AntiforgeryToken />
+        <label class="ui-field ui-type"><span class="sr-only">Type</span><select name="type"><option value="mobile" selected="@(Field("type") != "email")">Mobile number</option><option value="email" selected="@(Field("type") == "email")">Email address</option></select></label>
+        <label class="ui-field beta-search"><span class="sr-only">Number or address</span><input name="value" type="search" placeholder="Search text…" value="@Field("value")" required autocomplete="off" /></label>
+        <button type="submit" data-contact-search>Search</button>
+    </form>
+</section>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<form method="post" @formname="search" @onsubmit="SearchAsync" class="row" data-contact-form data-enhance="false">
-    <AntiforgeryToken />
-    <select name="type"><option value="mobile">Mobile number</option><option value="email">Email address</option></select>
-    <input name="value" placeholder="0412 345 678 or name@example.test" required />
-    <button type="submit" data-contact-search>Search</button>
-</form>
 @if (result is not null)
 {
-    <p data-contact-current="@(result.CurrentAccountId?.ToString() ?? "none")">Current holder: @if (result.CurrentAccountId is { } current) { <a href="/accounts/@current">@current</a> } else { <span>none</span> }</p>
-    <ul class="list" data-contact-previous="@result.Previous.Count">
-        @foreach (var h in result.Previous) { <li><a href="/accounts/@h.AccountId">@h.AccountId</a> · @(h.ValidFrom?.ToString("d MMM yyyy") ?? "?") – @h.ValidUntil.ToString("d MMM yyyy") · @h.Reason</li> }
-    </ul>
+    <div class="acct-grid">
+        <section class="ui-card">
+            <div class="ui-card-row"><h2>Current holder</h2><span class="ui-pill" data-tone="quiet" title="Numbers are reassigned and addresses shared">Lead only</span></div>
+            <p data-contact-current="@(result.CurrentAccountId?.ToString() ?? "none")" class="ui-card-row">@if (result.CurrentAccountId is { } current) { <span class="beta-ref"><code>@current.ToString()[..8]</code><CopyButton Value="@current.ToString()" /></span><a class="ui-button-ghost" href="/accounts/@current">View account</a> } else { <span class="ui-help">No current holder</span> }</p>
+        </section>
+        <section class="ui-card">
+            <h2>Previous holders</h2>
+            @if (result.Previous.Count == 0) { <p class="ui-help" data-contact-previous="0">None recorded</p> }
+            else
+            {
+                <ol class="ui-timeline" data-contact-previous="@result.Previous.Count">
+                    @foreach (var h in result.Previous) { <li><strong>@(h.ValidFrom?.ToString("d MMM yyyy") ?? "Unknown") – @h.ValidUntil.ToString("d MMM yyyy")</strong><span class="ui-sub">@h.Reason · <a href="/accounts/@h.AccountId">@h.AccountId.ToString()[..8]</a></span></li> }
+                </ol>
+            }
+        </section>
+    </div>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }

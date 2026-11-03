@@ -22,6 +22,9 @@ COPY tests/Swoovr.Checks/ ./tests/Swoovr.Checks/
 RUN dotnet publish tests/Swoovr.Checks/Swoovr.Checks.csproj -c Release -a $TARGETARCH --self-contained false -o /checks -p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS runtime
+# System.Net.Security.Native loads this SONAME during Npgsql GSS probing (Q92).
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 # Keep baseline settings and publish manifests at the content root. Configure
 # private providers/connections through runtime secrets, never build arguments.

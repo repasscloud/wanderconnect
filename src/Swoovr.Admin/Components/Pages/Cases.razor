@@ -1,43 +1,86 @@
 @page "/cases"
 @inject AdminClient Admin
 <PageTitle>Queue — Swoovr admin</PageTitle>
-<h1>Queue</h1>
-<p class="page-description">Review reports, acknowledge urgent cases and record moderation decisions.</p>
-<nav class="filters" aria-label="Status">
-    <a href="/cases" aria-current="@(string.IsNullOrEmpty(Status) || Status == "open" ? "page" : null)">Open</a> <a href="/cases?status=reviewed" aria-current="@(Status == "reviewed" ? "page" : null)">Reviewed</a> <a href="/cases?status=closed" aria-current="@(Status == "closed" ? "page" : null)">Closed</a> <a href="/cases?status=all" aria-current="@(Status == "all" ? "page" : null)">All</a>
-</nav>
+<header class="ui-page-head">
+    <h1>Queue</h1>
+    <p>Reports and system flags waiting for a moderation decision.</p>
+</header>
 @if (refused is not null)
 {
     <p class="notice" role="alert">@refused <a href="/sign-in?reauth=true" data-enhance-nav="false">Sign in again</a></p>
 }
-else if (cases.Count == 0)
-{
-    <p data-cases="none">No cases in this view.</p>
-}
 else
 {
-    <div class="table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table data-cases="@cases.Count">
-        <thead><tr><th>Priority</th><th>Member</th><th>Reports</th><th>Queue</th><th>Status</th><th>Opened</th></tr></thead>
-        <tbody>
-            @foreach (var c in cases)
-            {
-                <tr data-case="@c.Id" data-priority="@c.Priority" data-queue="@c.Queue">
-                    <td><span class="status-badge" data-level="@c.Priority">@c.Priority</span>@(c.AwaitingAcknowledgement ? " · needs acknowledgement" : "")</td>
-                    <td><a href="/cases/@c.Id">@(c.SubjectName ?? "(no name)")</a></td>
-                    <td data-system-flag="@c.SystemFlag">@(c.SystemFlag == "returning-terminated" ? "No reports · same email as a terminated member who deleted their account" : c.Reports.ToString())</td><td>@c.Queue</td><td><span class="status-badge">@c.Status</span></td><td>@c.CreatedAt.ToString("d MMM HH:mm")</td>
-                </tr>
-            }
-        </tbody>
-    </table></div>
+    var open = all.Where(c => c.Status is "open" or "underReview").ToList();
+    var ack = all.Count(c => c.AwaitingAcknowledgement);
+    <div class="ui-stats ui-stats-4">
+        <div class="ui-stat"><strong>@open.Count</strong><span>Open cases</span></div>
+        <div class="ui-stat @(ack > 0 ? "is-alert" : null)"><strong>@ack</strong><span>Need acknowledgement</span></div>
+        <div class="ui-stat"><strong>@open.Count(c => c.Priority is "urgent" or "high")</strong><span>High or urgent</span></div>
+        <div class="ui-stat"><strong>@(open.Count == 0 ? "—" : Age(open.Min(c => c.CreatedAt)))</strong><span>Oldest open</span></div>
+    </div>
+    <nav class="ui-tabs" aria-label="Status">
+        @foreach (var (value, label) in new[] { ("open", "Open"), ("reviewed", "Reviewed"), ("closed", "Closed"), ("all", "All") })
+        {
+            <a href="@(value == "open" ? "/cases" : "/cases?status=" + value)" aria-current="@(View == value ? "page" : null)">@label @if (value == "open") {<span class="ui-tab-count">@open.Count</span>}</a>
+        }
+    </nav>
+    <section class="ui-card" aria-label="Filter cases">
+        <form method="get" action="/cases" class="media-filters" data-enhance="false">
+            @if (View != "open") { <input type="hidden" name="status" value="@View" /> }
+            <label class="ui-field beta-search"><span>Search</span><input name="q" type="search" value="@Query" maxlength="120" placeholder="Search text…" title="Member name or reference" /></label>
+            <label class="ui-field"><span>Priority</span><select name="priority"><option value="">All priorities</option>@foreach (var p in new[] { "urgent", "high", "normal" }) {<option value="@p" selected="@(Priority == p)">@PriorityLabel(p)</option>}</select></label>
+            <div class="beta-filter-actions"><a class="ui-button-ghost" href="@(View == "open" ? "/cases" : "/cases?status=" + View)">Clear</a><button type="submit">Apply filters</button></div>
+        </form>
+    </section>
+    <div class="ui-results-head"><p><strong>@Rows.Count</strong> case@(Rows.Count == 1 ? "" : "s")</p><p>Most urgent first</p></div>
+    @if (Rows.Count == 0)
+    {
+        <div class="ui-empty" data-cases="none"><strong>Queue is clear</strong>No cases in this view.</div>
+    }
+    else
+    {
+        <div class="table-scroll ui-table" role="region" aria-label="Cases" tabindex="0"><table data-cases="@Rows.Count">
+            <thead><tr><th scope="col">Priority</th><th scope="col">Member</th><th scope="col">Reports</th><th scope="col">Queue</th><th scope="col">Status</th><th scope="col">Opened</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+            <tbody>
+                @foreach (var c in Rows)
+                {
+                    <tr data-case="@c.Id" data-priority="@c.Priority" data-queue="@c.Queue" data-row-link>
+                        <td><span class="ui-pill" data-tone="@(c.Priority == "urgent" ? "reject" : c.Priority == "high" ? "escalate" : "quiet")">@PriorityLabel(c.Priority)</span>@if (c.AwaitingAcknowledgement) {<span class="ui-sub ui-strong">Needs acknowledgement</span>}</td>
+                        <td><a href="/cases/@c.Id" data-row-target><strong>@(c.SubjectName ?? "No display name")</strong></a><span class="ui-sub"><span class="beta-ref dob-inline-ref"><code>@c.SubjectAccountId.ToString()[..8]</code><CopyButton Value="@c.SubjectAccountId.ToString()" /></span></span></td>
+                        <td data-system-flag="@c.SystemFlag">@if (c.SystemFlag == "returning-terminated") {<span class="ui-pill" data-tone="escalate">System flag</span><span class="ui-sub">Same email as a terminated member who deleted their account</span>} else {@c.Reports}</td>
+                        <td>@(c.Queue == "admin" ? "Admin" : "Support")</td>
+                        <td><span class="ui-pill" data-tone="@(c.Status is "reviewed" or "closed" ? "approve" : "quiet")">@StatusLabel(c.Status)</span></td>
+                        <td>@Age(c.CreatedAt) ago<span class="ui-sub">@c.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span></td>
+                        <td class="ui-right"><a class="ui-button-ghost" href="/cases/@c.Id">Open</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table></div>
+    }
 }
 @code {
     [SupplyParameterFromQuery] public string? Status { get; set; }
-    private List<CaseSummaryView> cases = [];
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "priority")] public string? Priority { get; set; }
+    private List<CaseSummaryView> cases = [], all = [];
     private string? refused;
+    private string View => Status is "reviewed" or "closed" or "all" ? Status : "open";
+    private List<CaseSummaryView> Rows => cases
+        .Where(c => string.IsNullOrEmpty(Priority) || c.Priority == Priority)
+        .Where(c => string.IsNullOrWhiteSpace(Query) || (c.SubjectName ?? "").Contains(Query.Trim(), StringComparison.OrdinalIgnoreCase)
+            || c.SubjectAccountId.ToString().StartsWith(Query.Trim(), StringComparison.OrdinalIgnoreCase) || c.Id.ToString().StartsWith(Query.Trim(), StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.AwaitingAcknowledgement).ThenByDescending(c => Rank(c.Priority)).ThenBy(c => c.CreatedAt).ToList();
+    private static int Rank(string p) => p switch { "urgent" => 2, "high" => 1, _ => 0 };
+    private static string PriorityLabel(string p) => p switch { "urgent" => "Urgent", "high" => "High", _ => "Standard" };
+    private static string StatusLabel(string s) => s switch { "open" => "Open", "underReview" => "Under review", "reviewed" => "Reviewed", "closed" => "Closed", _ => s };
+    private static string Age(DateTimeOffset at) { var h = Math.Max(0, (DateTimeOffset.UtcNow - at).TotalHours); return h < 1 ? $"{(int)(h * 60)} min" : h < 48 ? $"{(int)h} h" : $"{(int)(h / 24)} days"; }
 
     protected override async Task OnInitializedAsync()
     {
         var result = await Admin.CasesAsync(null, Status);
-        if (result.Ok) cases = result.Value!; else refused = AdminText.Refusal(result.Status, result.Code);
+        if (!result.Ok) { refused = AdminText.Refusal(result.Status, result.Code); return; }
+        cases = result.Value!;
+        all = Status == "all" ? cases : (await Admin.CasesAsync(null, "all")).Value ?? cases;
     }
 }

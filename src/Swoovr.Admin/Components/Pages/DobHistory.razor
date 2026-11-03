@@ -1,0 +1,30 @@
+@page "/dob-history"
+@inject AdminClient Admin
+<PageTitle>Previous dates of birth — Swoovr admin</PageTitle>
+<h1>Previous dates of birth</h1>
+<p class="help">Legal only, with current identity access and a recorded purpose. Each opening is audited.</p>
+@if(message is not null){<p role="status" data-dob-history-result="@resultCode">@message</p>}
+<form method="post" @formname="dob-history" @onsubmit="OpenAsync" class="stack" data-enhance="true">
+    <AntiforgeryToken />
+    <label>Account id<input name="account" value="@Account" required /></label>
+    <label>Purpose<textarea name="purpose" maxlength="500" required></textarea></label>
+    <button type="submit">Open history</button>
+</form>
+@if(rows is not null)
+{
+    <ul class="list" data-dob-history="@rows.Count">@foreach(var row in rows){<li>@row.PreviousDateOfBirth.ToString("d MMM yyyy") · changed @row.ChangedAt.ToString("u")</li>}</ul>
+}
+@code{
+    [SupplyParameterFromQuery] public string? Account{get;set;}
+    [CascadingParameter] private HttpContext? Context{get;set;}
+    private List<DobHistoryView>? rows;
+    private string? message,resultCode;
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    private async Task OpenAsync()
+    {
+        rows=null;
+        if(!Guid.TryParse(Field("account"),out var id)){message="Enter an account id.";resultCode="invalid";return;}
+        var result=await Admin.DobHistoryAsync(id,Field("purpose"));rows=result.Value;
+        resultCode=result.Ok?"ok":result.Code??result.Status.ToString();message=result.Ok?"Opened and audited.":AdminText.Refusal(result.Status,result.Code);
+    }
+}

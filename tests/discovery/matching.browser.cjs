@@ -37,7 +37,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     await matchReady(tokens.bob, { gender: 'man', showMe: ['woman'], dateOfBirth: '1990-06-01' });
     await matchReady(tokens.cal, { gender: 'man', showMe: ['man'] });
     await matchReady(tokens.dex, { gender: 'non-binary', showMe: everyone });
-    await call(tokens.fay, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1992-02-02' } });
+    await call(tokens.fay, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1992-02-02', confirmed:true } });
     for (const n of ['gus', 'hal', 'ivy', 'tom', 'gle']) await matchReady(tokens[n]);
     await call(tokens.eve, '/api/me/identity', { method: 'PUT', body: { gender: 'woman', showGender: true, showOrientation: false, showAge: true, datingShowMe: everyone } });
     const code = r => [r.status, r.body?.code];
@@ -183,7 +183,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     const signIn = async (p, member) => {
       await p.goto(web + '/account/sign-in?intro=done');
       await p.fill('#username', member.email); await p.fill('#password', member.password);
-      await Promise.all([p.waitForURL(web + '/account'), p.click('#kc-login')]);
+      await Promise.all([p.waitForURL(web+'/explore'),p.click('#kc-login')]);await p.goto(web+'/account');
     };
     await signIn(page, members.fay);
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });

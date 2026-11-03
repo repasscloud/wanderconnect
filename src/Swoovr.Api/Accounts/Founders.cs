@@ -190,6 +190,8 @@ public sealed class Founders(IServiceProvider services, IConfiguration configura
 
             Keep this email. If you ever delete your Swoovr account and come back with the same email address, enter this code on the coupon code screen to restore your founding status.
 
+            To make recovery possible after account deletion, we keep the founder recovery-token record unless you choose "Also delete my founder recovery token" when deleting your account. You can later ask Swoovr Support to remove it at https://swoovr.com/support. Removing the record means founding status cannot be restored with this code.
+
             The code only works with this email address. If you change your email in Swoovr, we'll send you a new code and this one stops working.
 
             — Swoovr (RePass Cloud Pty Ltd)

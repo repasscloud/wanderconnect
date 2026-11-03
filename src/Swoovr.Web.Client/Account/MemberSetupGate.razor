@@ -1,0 +1,28 @@
+@inject MemberClient Members
+@if (!loaded) { <p role="status">Loading your account…</p> }
+else if(account is null) { <p role="status">We couldn't load your account. <a href="/account">Open your account</a> to check setup.</p> }
+else if(account.RegisteredNamesRequired)
+{
+    <section class="card account-section" data-setup-required><h1>Finish setting up your account</h1><p>Confirm your registered name.</p><a class="primary-button" href="/account">Continue setup</a></section>
+}
+else if(account.PolicyRequired)
+{
+    <section class="card account-section" data-policy-required><h1>Review the required policies</h1><a href="/account/policies">Review and choose whether to accept</a></section>
+}
+else if(account.PhoneRequired || account.DateOfBirth is null)
+{
+    <section class="card account-section" data-setup-required><h1>Finish setting up your account</h1><p>@(account.PhoneRequired ? "Verify your mobile number first." : "Confirm your date of birth.")</p><a class="primary-button" href="@(account.PhoneRequired ? "/account#setup-phone" : "/account#setup-age")">Continue setup</a></section>
+}
+else if(Page=="explore") { <Swoovr.Web.Client.Profiles.ExplorePanel /> }
+else if(Page=="connections") { <Swoovr.Web.Client.Connections.ConnectionsPanel /> }
+else if(Page=="chats") { <Swoovr.Web.Client.Messaging.ChatsPanel /> }
+@code {
+    [Parameter] public string Page { get; set; }="";
+    private bool loaded;private MemberAccount? account;
+    protected override async Task OnInitializedAsync()
+    {
+        try { account=(await Members.MeAsync()).Value; }
+        catch(Exception e) when(e is HttpRequestException or TaskCanceledException) { }
+        loaded=true;
+    }
+}

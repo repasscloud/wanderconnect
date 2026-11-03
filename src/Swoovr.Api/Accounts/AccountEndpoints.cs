@@ -36,7 +36,9 @@ public static class AccountEndpoints
             var state = current!.Account!.Status == AccountStatus.PendingDeletion ? "pendingDeletion" : current.Enforcement.State;
             var phone = await accounts.Db!.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken);
             return Results.Ok(View(current.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), state) with
-                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken) });
+                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, PhoneGateEnabled=accounts.PhoneRequired, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken),
+                    RegisteredNamesRequired=!RegisteredNamePolicy.Complete(current.Account),
+                    DateOfBirthCorrectionUntil=await DobChangeEndpoints.UntilAsync(accounts.Db!,current.Account.Id,clock.GetUtcNow(),cancellationToken) });
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -44,23 +46,59 @@ public static class AccountEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
             var (account, profile, db) = (current!.Account!, current.Profile!, accounts.Db!);
+            await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,account.Id,cancellationToken);
+            await db.Entry(account).ReloadAsync(cancellationToken);
+            await db.Entry(profile).ReloadAsync(cancellationToken);
+            if(account.Status!=AccountStatus.Active)return Problem(403,ProblemCodes.AccountLocked,"This account is locked.");
+            (current,denied)=await MemberAsync(user,accounts,cancellationToken);
+            if(denied is not null)return denied;
+            await using var preservation=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+            await using var transaction=await db.Database.BeginTransactionAsync(cancellationToken);
             var now = clock.GetUtcNow();
             // D139 (supersedes D69): a date of birth is required; an age alone or clearing it is refused.
             if (update.DateOfBirth is null)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.DateOfBirthRequired, "Enter your date of birth.");
-            // D158: a date of birth that ID verification matched can't change without support; any other change clears
-            // the verified mark (it no longer describes the date on file).
-            // D166: while a correction or a manual review is open, the date only changes through the one-time prompt.
+            // D166's provider-mismatch prompt remains independent of D299's Admin-authorised correction.
             if (!DobCorrectionPolicy.OrdinaryChangeAllowed(profile.DobCheck))
                 return profile.DobCheck == DobCheck.CorrectionNeeded
                     ? Problem(StatusCodes.Status409Conflict, ProblemCodes.DobCorrectionRequired, "Set your date of birth to the one on your ID to finish verification.")
                     : Problem(StatusCodes.Status409Conflict, ProblemCodes.DobUnderReview, "Swoovr is checking your date of birth. Contact support to change it.");
-            if (profile.DateOfBirthVerified && profile.DateOfBirth != update.DateOfBirth)
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.DateOfBirthLocked, "Your date of birth was verified with your ID. Contact Swoovr support to change it.");
-            if (profile.DateOfBirth != update.DateOfBirth) (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (false, null);
             var change = AgePolicy.Evaluate(profile.AgeStatus, update.DateOfBirth, update.Age, DateOnly.FromDateTime(now.UtcDateTime));
             if (change.Error != AgeChangeError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidAge, "That date of birth or age can't be used.");
+            if(profile.DateOfBirth==update.DateOfBirth)return Results.Ok(View(profile,Today(clock),await BadgeOrderAsync(db,cancellationToken)));
+            var grant=await db.DobChangeGrants.Where(g=>g.AccountId==account.Id&&g.ConsumedAt==null&&g.RevokedAt==null&&g.ExpiresAt>now&&g.CreatedAt<=now)
+                .OrderByDescending(g=>g.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+            if(profile.DateOfBirth is not null&&!DobChangePolicy.Live(grant,account.Id,now))
+                return Problem(409,ProblemCodes.DateOfBirthLocked,"Your saved date of birth is locked. Request a correction at https://swoovr.com/support.");
+            if(!DobChangePolicy.CanSave(profile.DateOfBirth,update.Confirmed,grant,account.Id,now))
+                return Problem(400,ProblemCodes.DobConfirmationRequired,"Confirm this date is correct before saving. It will then be locked.");
+            var keys=accounts.Services.GetRequiredService<Swoovr.Api.Verification.IdentityKeys>();
+            if(profile.DateOfBirth is not null&&keys.CurrentVersion is null)return Problem(503,ProblemCodes.NotConfigured,"Date correction is temporarily unavailable.");
+            var storedIdentity=profile.IdStatus==VerificationStatus.Verified?await db.VerifiedIdentities.FindAsync([account.Id],cancellationToken):null;
+            if(storedIdentity is not null&&(storedIdentity.Sealed.Length==0||!keys.Encryption.ContainsKey(storedIdentity.Sealed[0])))
+                return Problem(503,ProblemCodes.NotConfigured,"The stored identity comparison is temporarily unavailable.");
+            if(profile.DateOfBirth is not null&&!await DobChangeEndpoints.ConsumeAsync(db,grant!.Id,account.Id,now,cancellationToken))
+                return Problem(409,ProblemCodes.DateOfBirthLocked,"This correction is no longer available.");
+            DobChangeEndpoints.PreservePrevious(db,keys,profile,update.DateOfBirth.Value,grant?.Id,now);
+            if(profile.DateOfBirth is not null)Audit.Record(db,now,account.Id,"account","dob.correction-used","account",account.Id.ToString(),grant!.Id.ToString());
+            (profile.DateOfBirthVerified,profile.DateOfBirthVerifiedAt)=(false,null);
+            if(profile.IdStatus==VerificationStatus.Verified)
+            {
+                VerifiedIdentityFields? identity;
+                try{identity=await accounts.Services.GetRequiredService<Swoovr.Api.Verification.VerifiedIdentityStore>().OwnAsync(account.Id,cancellationToken);}
+                catch(Exception error)when(error is System.Security.Cryptography.CryptographicException or JsonException)
+                {return Problem(503,ProblemCodes.NotConfigured,"The stored identity comparison is temporarily unavailable.");}
+                var matched=IdVerificationPolicy.DateOfBirthMatches(update.DateOfBirth,identity?.DateOfBirth);
+                (profile.DateOfBirthVerified,profile.DateOfBirthVerifiedAt)=(matched,matched?now:null);
+                (profile.DobCheck,profile.DobCheckAt)=(matched?DobCheck.None:DobCheck.ManualReview,now);
+                Audit.Record(db,now,account.Id,"account",matched?"dob.verified":"dob.review-opened","account",account.Id.ToString(),"admin-authorised-correction");
+                if(!matched&&!await db.DobReviews.AnyAsync(r=>r.AccountId==account.Id&&r.ResolvedAt==null,cancellationToken))
+                {
+                    var attempt=await db.IdVerificationAttempts.Where(a=>a.AccountId==account.Id&&a.State==IdAttemptState.Approved).OrderByDescending(a=>a.CompletedAt).FirstOrDefaultAsync(cancellationToken);
+                    db.DobReviews.Add(new DobReview{Id=Guid.NewGuid(),AccountId=account.Id,AttemptId=attempt?.Id??Guid.Empty,Reason="admin-correction-mismatch",CreatedAt=now});
+                }
+            }
             profile.DateOfBirth = update.DateOfBirth;
             profile.DeclaredAge = update.DateOfBirth is null ? update.Age : null;
             profile.DeclaredOn = profile.DeclaredAge is null ? null : DateOnly.FromDateTime(now.UtcDateTime);
@@ -76,6 +114,7 @@ public static class AccountEndpoints
                 Audit.Record(db, now, null, "system", "account.locked", "account", account.Id.ToString(), "underage");
             }
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             return change.LocksAccount
                 ? Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountLocked, "This account is locked.")
                 : Results.Ok(View(profile, Today(clock), await BadgeOrderAsync(db, cancellationToken)));
@@ -144,7 +183,7 @@ public static class AccountEndpoints
     /// <paramref name="barredExempt"/> is passed: its account summary, notices and appeals.
     /// </remarks>
     public static async Task<(CurrentAccount? Current, IResult? Denied)> MemberAsync(ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken,
-        bool ageGateExempt = false, bool barredExempt = false, bool pendingDeletionExempt = false, bool phoneExempt = false,bool policyExempt=false)
+        bool ageGateExempt = false, bool barredExempt = false, bool pendingDeletionExempt = false, bool phoneExempt = false,bool policyExempt=false,bool registeredNamesExempt=false)
     {
         var current = await accounts.ResolveAsync(user, cancellationToken);
         if (current is null) return (null, Results.Unauthorized());
@@ -173,6 +212,8 @@ public static class AccountEndpoints
                 : Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountRestricted, "Your account is restricted."));
         if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
+        if(!barredExempt&&!registeredNamesExempt&&!RegisteredNamePolicy.Complete(current.Account))
+            return(null,Problem(403,ProblemCodes.RegisteredNamesRequired,"Confirm or complete your registered names under Me before continuing."));
         // D148: with the gate on, a verified mobile number comes first (the account summary, notices, appeals, deletion
         // and the phone routes stay open).
         if (accounts.PhoneRequired && !phoneExempt && !barredExempt && current.Facts.Realm == AccountRealm.Members

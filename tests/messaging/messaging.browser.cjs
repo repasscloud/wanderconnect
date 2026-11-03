@@ -261,7 +261,7 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.ana.email); await page.fill('#password', members.ana.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });
     assert.equal((await bff('api/conversations')).status(), 200); pass();
     assert.equal((await bff(`api/conversations/${ab}/messages`)).status(), 200); pass();

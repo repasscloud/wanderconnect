@@ -1,81 +1,111 @@
 @page "/access"
 @inject AdminClient Admin
 <PageTitle>Elevated access — Swoovr admin</PageTitle>
-<h1>Elevated access</h1>
-<p class="help">Policy §11, §15. Opening a verified identity and exporting evidence (security and legal officer) and terminating an account, reviewing/releasing identifiers and reinstating an account (admins) need time-limited access with a recorded purpose. Access lasts 60 minutes and can be renewed; it ends on its own. Every view, search, export and refused attempt on restricted pages is in the append-only access log.</p>
+<header class="ui-page-head">
+    <h1>Elevated access</h1>
+    <p>Time-limited access to sensitive actions, with a recorded purpose.</p>
+</header>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<h2>Your access</h2>
-@if (grants is null) { <p data-grants="refused">@loadError</p> }
-else if (grants.Count == 0) { <p data-grants="none">None yet.</p> }
-else
-{
-    <ul class="list" data-grants="@grants.Count">
-        @foreach (var g in grants)
+<div class="acct-grid">
+    <section class="ui-card" aria-labelledby="your-access">
+        <div class="ui-card-row"><h2 id="your-access">Your access</h2>@if (grants?.Any(g => g.Active) == true) {<span class="ui-pill" data-tone="reject">Active</span>} else {<span class="ui-pill" data-tone="quiet">None active</span>}</div>
+        @if (grants is null) { <p class="notice" data-grants="refused">@loadError</p> }
+        else if (grants.Count == 0) { <p class="ui-help" data-grants="none">No elevated access yet.</p> }
+        else
         {
-            <li data-grant="@g.Id" data-grant-capability="@g.Capability" data-grant-active="@(g.Active ? "yes" : "no")">
-                <strong>@g.Capability</strong> · @g.Purpose · @(g.Active ? $"until {g.ExpiresAt.ToLocalTime():HH:mm}" : g.RevokedAt is null ? "expired" : "revoked") @(g.Renewals > 0 ? $"· renewed {g.Renewals}×" : "")
-                @if (g.Active)
+            <ul class="ui-list" data-grants="@grants.Count">
+                @foreach (var g in grants.OrderByDescending(g => g.Active).ThenByDescending(g => g.ExpiresAt))
                 {
-                    <form method="post" @formname="@($"grant-{g.Id}")" @onsubmit="() => StepAsync(g.Id)" class="row" data-enhance="false">
-                        <AntiforgeryToken />
-                        <button name="step" value="renew" type="submit" class="secondary" data-renew="@g.Id">Renew 60 minutes</button>
-                        <button name="step" value="revoke" type="submit" class="quiet" data-revoke="@g.Id">End now</button>
-                    </form>
+                    var minutes = Math.Max(0, (int)Math.Ceiling((g.ExpiresAt - DateTimeOffset.UtcNow).TotalMinutes));
+                    <li data-grant="@g.Id" data-grant-capability="@g.Capability" data-grant-active="@(g.Active ? "yes" : "no")" class="@(g.Active ? null : "is-muted")">
+                        <span><strong>@CapabilityLabel(g.Capability)</strong><span class="ui-sub">@g.Purpose@(g.Renewals > 0 ? $" · renewed {g.Renewals}×" : "")</span></span>
+                        @if (g.Active)
+                        {
+                            <form method="post" @formname="@($"grant-{g.Id}")" @onsubmit="() => StepAsync(g.Id)" class="acct-inline" data-enhance="true">
+                                <AntiforgeryToken />
+                                <span class="ui-countdown" title="Until @g.ExpiresAt.ToUniversalTime().ToString("HH:mm") UTC">@minutes min</span>
+                                <button name="step" value="renew" type="submit" class="ui-button-ghost" data-renew="@g.Id">Renew 60 min</button>
+                                <button name="step" value="revoke" type="submit" class="ui-button-ghost" data-revoke="@g.Id">End now</button>
+                            </form>
+                        }
+                        else { <span class="ui-help">@(g.RevokedAt is null ? "Expired" : "Ended")</span> }
+                    </li>
                 }
-            </li>
+            </ul>
         }
-    </ul>
-}
-<form method="post" @formname="request" @onsubmit="RequestAsync" class="stack" data-request-access data-enhance="false">
-    <AntiforgeryToken />
-    <label>Capability<select name="capability"><option value="identity-open">Open a verified identity (legal)</option><option value="evidence-export">Export evidence (legal)</option><option value="termination">Terminate an account (admin)</option><option value="identifier-release">Review or release an identifier (admin)</option><option value="account-reinstatement">Reinstate an account (admin)</option></select></label>
-    <label>Purpose (recorded; up to 500 characters)<textarea name="purpose" maxlength="500" rows="2" required></textarea></label>
-    <button type="submit" data-request>Ask for 60 minutes</button>
-</form>
-<h2>Conflicts of interest</h2>
-<p class="help">Declare a member you know personally; you'll be kept out of their cases, holds and identity record.</p>
-<form method="post" @formname="exclude" @onsubmit="ExcludeAsync" class="row" data-enhance="false">
-    <AntiforgeryToken />
-    <input name="staff" placeholder="Staff account id (yours unless you're the root admin or legal)" />
-    <input name="subject" placeholder="Member account id" required />
-    <input name="reason" placeholder="Why" maxlength="500" required />
-    <button type="submit" class="secondary" data-exclude>Record</button>
-</form>
-@if (exclusions is { Count: > 0 }) { <ul class="list" data-exclusions="@exclusions.Count">@foreach (var e in exclusions) { <li><code>@e.StaffAccountId</code> excluded from <code>@e.SubjectAccountId</code> · @e.Reason</li> }</ul> }
-@if (approvals is not null)
-{
-    <h2>Bulk exports waiting for approval (@approvals.Count)</h2>
-    <ul class="list" data-approvals="@approvals.Count">
-        @foreach (var a in approvals)
-        {
-            <li data-approval="@a.Id">Hold <a href="/holds/@a.HoldId">@a.HoldId</a> · @a.Purpose · @(a.ApprovedAt is null ? "waiting" : "approved")
-                @if (a.ApprovedAt is null)
-                {
-                    <form method="post" @formname="@($"approve-{a.Id}")" @onsubmit="() => ApproveAsync(a.Id)" class="row" data-enhance="false">
-                        <AntiforgeryToken /><button type="submit" class="secondary" data-approve="@a.Id">Approve (not your own)</button>
-                    </form>
-                }
-            </li>
-        }
-    </ul>
-}
+    </section>
+    <section class="ui-card" aria-labelledby="request-access">
+        <h2 id="request-access" class="ui-card-row">Request 60 minutes</h2>
+        <form method="post" @formname="request" @onsubmit="RequestAsync" class="ui-form" data-request-access data-enhance="true">
+            <AntiforgeryToken />
+            <label class="ui-field"><span>Capability</span><select name="capability">@foreach (var (value, label, role) in Capabilities) {<option value="@value">@label (@role)</option>}</select></label>
+            <label class="ui-field"><span>Purpose</span><textarea name="purpose" maxlength="500" rows="2" required placeholder="Case or request reference and why"></textarea></label>
+            <div><button type="submit" data-request>Start 60 minutes</button></div>
+        </form>
+    </section>
+</div>
+<div class="acct-grid">
+    @if (approvals is not null)
+    {
+        <section class="ui-card" aria-labelledby="approvals-heading">
+            <div class="ui-card-row"><h2 id="approvals-heading">Exports waiting for approval</h2><span class="ui-tab-count">@approvals.Count(a => a.ApprovedAt is null)</span></div>
+            @if (approvals.Count == 0) { <p class="ui-help" data-approvals="0">Nothing waiting.</p> }
+            else
+            {
+                <ul class="ui-list" data-approvals="@approvals.Count">
+                    @foreach (var a in approvals)
+                    {
+                        <li data-approval="@a.Id"><span><strong>@a.Purpose</strong><span class="ui-sub">Hold <a href="/holds/@a.HoldId">@a.HoldId.ToString()[..8]</a> · @(a.ApprovedAt is null ? "waiting" : "approved")</span></span>
+                            @if (a.ApprovedAt is null)
+                            {
+                                <form method="post" @formname="@($"approve-{a.Id}")" @onsubmit="() => ApproveAsync(a.Id)" data-enhance="true">
+                                    <AntiforgeryToken /><button type="submit" class="ui-button-ghost" data-approve="@a.Id" title="You can't approve your own export">Approve</button>
+                                </form>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+    <section class="ui-card" aria-labelledby="conflicts-heading">
+        <h2 id="conflicts-heading" class="ui-card-row">Conflicts of interest</h2>
+        @if (exclusions is { Count: > 0 }) { <ul class="ui-list" data-exclusions="@exclusions.Count">@foreach (var e in exclusions) { <li><span><code class="ui-mono">@e.StaffAccountId.ToString()[..8]</code> excluded from <a href="/accounts/@e.SubjectAccountId"><code class="ui-mono">@e.SubjectAccountId.ToString()[..8]</code></a><span class="ui-sub">@e.Reason</span></span></li> }</ul> }
+        <form method="post" @formname="exclude" @onsubmit="ExcludeAsync" class="ui-form ui-form-compact" data-enhance="true">
+            <AntiforgeryToken />
+            <div class="ui-form-row">
+                <label class="ui-field"><span>Member account</span><input name="subject" placeholder="Account id" required /></label>
+                <label class="ui-field"><span>Staff account</span><input name="staff" placeholder="Yours unless root or legal" /></label>
+            </div>
+            <label class="ui-field"><span>Reason</span><input name="reason" placeholder="How you know them" maxlength="500" required /></label>
+            <div><button type="submit" class="ui-button-ghost" data-exclude>Declare conflict</button></div>
+        </form>
+    </section>
+</div>
 @if (log is not null)
 {
-    <h2>Access log</h2>
-    <p data-log-chain="@(log.Intact ? "intact" : "broken")">@(log.Intact ? "Chain intact." : "CHAIN BROKEN: report this as a security incident.")</p>
-    <div class="table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table data-log="@log.Entries.Count"><thead><tr><th>#</th><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Status</th></tr></thead><tbody>
-        @foreach (var e in log.Entries.AsEnumerable().Reverse().Take(100)) { <tr><td>@e.Sequence</td><td>@e.At.ToLocalTime().ToString("d MMM HH:mm:ss")</td><td><code>@(e.Actor?.ToString()[..8] ?? "—")</code></td><td>@e.Action</td><td>@e.Resource @e.ResourceId</td><td>@e.Status</td></tr> }
+    <div class="ui-results-head"><h2 class="ui-h2">Access log</h2><p data-log-chain="@(log.Intact ? "intact" : "broken")"><span class="ui-pill" data-tone="@(log.Intact ? "approve" : "reject")">@(log.Intact ? "Chain intact" : "CHAIN BROKEN — report a security incident")</span></p></div>
+    <div class="table-scroll ui-table" role="region" aria-label="Access log" tabindex="0"><table data-log="@log.Entries.Count"><thead><tr><th scope="col">#</th><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">What</th><th scope="col">Status</th></tr></thead><tbody>
+        @foreach (var e in log.Entries.AsEnumerable().Reverse().Take(LogAll ? 100 : 25)) { <tr><td class="ui-help">@e.Sequence</td><td>@e.At.ToUniversalTime().ToString("d MMM HH:mm:ss") UTC</td><td><code class="ui-mono">@(e.Actor?.ToString()[..8] ?? "—")</code></td><td>@e.Action</td><td>@e.Resource <code class="ui-mono">@(e.ResourceId is { Length: > 8 } rid ? rid[..8] : e.ResourceId)</code></td><td><span class="ui-pill" data-tone="@(e.Status >= 400 ? "reject" : "approve")">@(e.Status >= 400 ? "Refused" : "Allowed") · @e.Status</span></td></tr> }
     </tbody></table></div>
-    <h2>Revoke a staff member (root admin)</h2>
-    <form method="post" @formname="revoke-staff" @onsubmit="RevokeStaffAsync" class="row" data-enhance="false">
-        <AntiforgeryToken />
-        <input name="staffId" placeholder="Staff account id" required />
-        <input name="reason" placeholder="Why (left, role change…)" maxlength="500" required />
-        <button type="submit" class="secondary" data-revoke-staff>Remove roles, end access and sessions</button>
-    </form>
+    @if (!LogAll && log.Entries.Count > 25) { <nav class="ui-paging"><span class="ui-help">Latest 25 of @Math.Min(100, log.Entries.Count)</span><a class="ui-button-ghost" href="/access?log=all">Show all</a></nav> }
+    <section class="ui-card ui-section ui-danger" aria-labelledby="revoke-staff-heading">
+        <h2 id="revoke-staff-heading">Revoke a staff member <span class="ui-pill" data-tone="quiet">Root admin</span></h2>
+        <form method="post" @formname="revoke-staff" @onsubmit="RevokeStaffAsync" class="ui-form-row ui-form-row-3 ui-align-end" data-enhance="true">
+            <AntiforgeryToken />
+            <label class="ui-field"><span>Staff account</span><input name="staffId" placeholder="Account id" required /></label>
+            <label class="ui-field"><span>Reason</span><input name="reason" placeholder="Left, role change…" maxlength="500" required /></label>
+            <div><button type="submit" class="ui-button-ghost" data-revoke-staff>Remove roles and end sessions</button></div>
+        </form>
+    </section>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
+    private static readonly (string Value, string Label, string Role)[] Capabilities = [("profile-dob-open", "Open profile date of birth", "staff"), ("identity-open", "Open a verified identity", "legal"),
+        ("evidence-export", "Export evidence", "legal"), ("termination", "Terminate an account", "admin"), ("identifier-release", "Review or release an identifier", "admin"), ("account-reinstatement", "Reinstate an account", "admin")];
+    private static string CapabilityLabel(string value) => Capabilities.FirstOrDefault(c => c.Value == value).Label ?? value;
+    [SupplyParameterFromQuery(Name = "log")] public string? Log { get; set; }
+    private bool LogAll => Log == "all";
     private List<AccessGrantView>? grants;
     private List<StaffExclusionView>? exclusions;
     private List<ExportApprovalView>? approvals;

@@ -21,6 +21,14 @@ public sealed class Account
     public DateTimeOffset? EmailAcceptedAt { get; set; }
     /// <summary>D249: reviewed binding retired; suppress claim adoption until independent original-account recovery.</summary>
     public DateTimeOffset? EmailRetiredAt { get; set; }
+    /// <summary>D300 self-declared registered names; never the restricted document identity.</summary>
+    public string? RegisteredFirstName { get; set; }
+    public string? RegisteredLastName { get; set; }
+    public bool RegisteredMononym { get; set; }
+    public DateTimeOffset? RegisteredNamesConfirmedAt { get; set; }
+    public long RegisteredNamesRevision { get; set; }
+    /// <summary>Null until a current approved ID result can compare these exact declarations.</summary>
+    public bool? RegisteredNamesMatchId { get; set; }
     public AccountStatus Status { get; set; }
     /// <summary>A short machine reason such as "underage-dob"; never free text from a client.</summary>
     public string? StatusReason { get; set; }

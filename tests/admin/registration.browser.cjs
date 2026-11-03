@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+module.exports=async({page,base,sql,staffId})=>{
+ await page.goto(base+'/registration');
+ await page.waitForSelector('[data-registration-state]');
+ assert.equal(await page.locator('[data-registration-form]').count(),0,'ordinary Admin can read but cannot change registration');
+ await sql(`UPDATE accounts SET is_root_admin=true WHERE id='${staffId}'`);
+ await page.reload();await page.waitForSelector('[data-registration-form]');
+ const before=Number(await page.locator('input[name=revision]').inputValue());
+ await page.locator('input[name=public]').uncheck();await page.locator('input[name=beta]').check();
+ await page.locator('textarea[name=reason]').fill('Fictional controlled registration acceptance check.');await page.locator('input[name=confirm]').check();
+ await page.getByRole('button',{name:'Save availability',exact:true}).click();
+ await page.waitForSelector('[data-registration-result=saved]');
+ assert.equal(await page.locator('[data-registration-state]').getAttribute('data-registration-state'),'invite-only');
+ assert.equal(await sql('SELECT revision FROM registration_availability WHERE id=1'),String(before+1));
+ const audit=JSON.parse(await sql("SELECT detail FROM audit_entries WHERE action='registration.changed' ORDER BY at DESC LIMIT 1"));
+ assert.equal(audit.previous.PublicEnabled,true);assert.equal(audit.next.PublicEnabled,false);assert.equal(audit.reason,'Fictional controlled registration acceptance check.');
+ await sql('UPDATE registration_availability SET revision=revision+1 WHERE id=1');
+ await page.locator('input[name=public]').check();await page.locator('textarea[name=reason]').fill('Fictional stale form must not reopen registration.');await page.locator('input[name=confirm]').check();
+ await page.getByRole('button',{name:'Save availability',exact:true}).click();await page.waitForSelector('[data-registration-result="revision-conflict"]');
+ assert.equal(await sql('SELECT public_enabled FROM registration_availability WHERE id=1'),'f','stale policy form cannot reopen registration');
+ assert.equal(await sql("SELECT count(*) FROM audit_entries WHERE action='registration.changed'"),'1','stale change never creates success audit');
+ await sql(`UPDATE accounts SET is_root_admin=false WHERE id='${staffId}'`);
+ console.log('PASS registration controls: Admin read-only, Root confirmed reasoned CAS change, previous/new audit and stale-form refusal.');
+};

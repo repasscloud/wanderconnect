@@ -1,55 +1,73 @@
 @page "/beta"
 @inject AdminClient Admin
 <PageTitle>Beta enrolments — Swoovr admin</PageTitle>
-<h1>Beta enrolments</h1>
-<p class="help">Pre-authorise a verified email for the private beta. Joining the separate intake queue does not grant access. Enrolment, email invitation and staff-reported iOS distribution are separate records; none is proof of Apple eligibility or delivery.</p>
+<header class="ui-page-head">
+    <h1>Beta enrolments</h1>
+    <p>Pre-authorise emails for the private beta.</p>
+</header>
 @if (message is not null) { <p class="notice" role="status" data-beta-result="@resultCode">@message</p> }
 @if (loaded && authorised)
 {
-    <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="row" data-enhance="false" data-beta-add>
-        <AntiforgeryToken />
-        <label>Email to pre-authorise <input name="email" type="email" required maxlength="254" autocomplete="off" /></label>
-        <button type="submit">Add enrolment</button>
-    </form>
-    <p class="help">Adding an enrolment queues email only when invitation email is enabled. Provider acceptance is not delivery. Arrange any Apple private-distribution invitation separately.</p>
+    <section class="ui-card" aria-labelledby="beta-add-heading">
+        <h2 id="beta-add-heading">Add enrolment</h2>
+        <form method="post" @formname="beta-add" @onsubmit="AddAsync" class="beta-add" data-enhance="true" data-beta-add>
+            <AntiforgeryToken />
+            <label class="ui-field"><span>Email to pre-authorise</span><input name="email" type="email" required maxlength="254" autocomplete="off" placeholder="name@example.com" /></label>
+            <button type="submit">Add enrolment</button>
+        </form>
+    </section>
 }
-<form method="get" action="/beta" class="beta-filters" data-enhance="false" aria-label="Search enrolments">
-    <label>Search <input name="q" value="@Query" maxlength="254" placeholder="Email, linked member name or reference" /></label>
-    <label>Status <select name="state"><option value="">All statuses</option>@foreach(var state in new[]{"pending","activated","revoked"}){<option value="@state" selected="@(StateFilter==state)">@State(state)</option>}</select></label>
-    <label>Sort <select name="sort">@foreach(var sort in new[]{("newest","Newest first"),("oldest","Oldest first"),("email","Email"),("name","Linked member name")}){<option value="@sort.Item1" selected="@((Sort??"newest")==sort.Item1)">@sort.Item2</option>}</select></label>
-    <label>Created from (UTC) <input name="from" type="date" value="@Date(From)" /></label>
-    <label>Created to (UTC) <input name="to" type="date" value="@Date(To)" /></label>
-    <label>Per page <select name="size">@foreach(var size in new[]{25,50,100}){<option value="@size" selected="@(Size==size)">@size</option>}</select></label>
-    <button type="submit">Apply filters</button><a href="/beta">Clear filters</a>
-</form>
+<section class="ui-card" aria-labelledby="beta-filter-heading">
+    <h2 id="beta-filter-heading">Filter enrolments</h2>
+    <form method="get" action="/beta" class="beta-filters" data-enhance="false" aria-label="Search enrolments">
+        <label class="ui-field beta-search"><span>Search</span><input name="q" type="search" value="@Query" maxlength="254" placeholder="Search text…" title="Name, email or reference" /></label>
+        <label class="ui-field"><span>Status</span><select name="state"><option value="">All statuses</option>@foreach(var state in new[]{"pending","activated","revoked"}){<option value="@state" selected="@(StateFilter==state)">@State(state)</option>}</select></label>
+        <label class="ui-field"><span>Sort</span><select name="sort">@foreach(var sort in new[]{("newest","Newest first"),("oldest","Oldest first"),("email","Email"),("name","Last name")}){<option value="@sort.Item1" selected="@((Sort??"newest")==sort.Item1)">@sort.Item2</option>}</select></label>
+        <label class="ui-field"><span>Created from (UTC)</span><input name="from" type="date" value="@Date(From)" /></label>
+        <label class="ui-field"><span>Created to (UTC)</span><input name="to" type="date" value="@Date(To)" /></label>
+        <label class="ui-field"><span>Per page</span><select name="size">@foreach(var size in new[]{25,50,100}){<option value="@size" selected="@(Size==size)">@size</option>}</select></label>
+        <div class="beta-filter-actions"><a class="ui-button-ghost" href="/beta">Clear</a><button type="submit">Apply filters</button></div>
+    </form>
+    @if (ActiveFilters().Any())
+    {
+        <div class="beta-chips" aria-label="Active filters">Active filters:
+            @foreach (var (key, text) in ActiveFilters()) { <a class="beta-chip" href="@WithoutFilter(key)" aria-label="Remove filter @text">@text <span aria-hidden="true">×</span></a> }
+        </div>
+    }
+</section>
 @if(loaded&&authorised)
 {
-    <p data-beta-total="@total">@total matching enrolments · page @currentPage of @Pages. Names are shown only for a linked member profile.</p>
-    @if(rows.Count==0){<p data-beta-empty>No enrolments match these filters.</p>}
+    <div class="ui-results-head">
+        <p data-beta-total="@total"><strong>@total</strong> matching enrolments · page @currentPage of @Pages</p>
+    </div>
+    @if(rows.Count==0){<p class="ui-empty" data-beta-empty>No enrolments match these filters.</p>}
     else
     {
-        <div class="table-scroll" tabindex="0" role="region" aria-label="Beta enrolments table; scroll horizontally on narrow screens">
+        <div class="table-scroll beta-table-wrap" tabindex="0" role="region" aria-label="Beta enrolments table; scroll horizontally on narrow screens">
         <table data-beta-table data-beta-list="@rows.Count">
             <thead><tr><th scope="col">Member / email</th><th scope="col">Enrolment</th><th scope="col">Email invitation</th><th scope="col">iOS distribution</th><th scope="col">Actions</th></tr></thead>
             <tbody>@foreach(var row in rows)
             {
                 <tr data-beta-row="@row.Id" data-beta-state="@row.State">
-                    <td class="beta-identity"><strong data-beta-email>@row.Email</strong>@if(!string.IsNullOrEmpty(row.MemberName)){<p>@row.MemberName</p>}<p class="help"><small>Reference @row.Id</small></p></td>
-                    <td>@State(row.State)<p class="help">Created @row.CreatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</p>@if(row.ActivatedAt is{}activated){<p class="help">Activated @activated.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</p>}</td>
-                    <td><p data-beta-invitation="@row.InvitationState">@InvitationLabel(row.InvitationState)</p><p class="help">Attempts @row.InvitationAttempts. Acceptance is not delivery.</p></td>
-                    <td><p data-ios-record="@row.IosDistributionState">@IosLabel(row.IosDistributionState)</p><p class="help">@row.IosDistributionSource · revision @row.IosDistributionRevision</p>@if(row.IosDistributionChangedAt is{}changed){<p class="help">Updated @changed.ToString("u"); not Apple verification.</p>}</td>
-                    <td><details class="beta-actions"><summary>Manage enrolment</summary><div class="beta-action-forms">
-                        <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="false" class="stack" data-beta-ios="@row.Id">
+                    <td class="beta-identity">@if(FullName(row) is {} name){<strong class="beta-name" data-beta-name>@name</strong><span class="beta-email" data-beta-email>@row.Email</span>}else{<strong class="beta-email" data-beta-email>@row.Email</strong><span class="ui-sub">No registered name</span>}<span class="beta-ref"><code>@row.Id</code><button type="button" class="ui-copy" data-copy="@row.Id" aria-label="Copy reference @row.Id" title="Copy"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg></button></span></td>
+                    <td><span class="ui-pill" data-tone="@row.State">@State(row.State)</span><span class="ui-sub">Created @row.CreatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</span>@if(row.ActivatedAt is{}activated){<span class="ui-sub">Activated @activated.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</span>}</td>
+                    <td><span class="ui-pill" data-tone="quiet" data-beta-invitation="@row.InvitationState">@InvitationLabel(row.InvitationState)</span><span class="ui-sub">@row.InvitationAttempts @(row.InvitationAttempts==1?"attempt":"attempts")</span></td>
+                    <td><span class="ui-pill" data-tone="quiet" data-ios-record="@row.IosDistributionState">@IosLabel(row.IosDistributionState)</span><span class="ui-sub">Revision @row.IosDistributionRevision</span>@if(row.IosDistributionChangedAt is{}changed){<span class="ui-sub">Updated @changed.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</span>}</td>
+                    <td><details class="beta-actions"><summary>Manage</summary><div class="beta-action-forms">
+                        <form method="post" @formname="@($"beta-ios-{row.Id}")" @onsubmit="()=>RecordIosAsync(row.Id)" data-enhance="true" class="beta-action" data-beta-ios="@row.Id">
                             <AntiforgeryToken /><input type="hidden" name="iosRevision" value="@row.IosDistributionRevision" />
-                            <label>External iOS distribution state<select name="iosState">@foreach(var state in IosStates){<option value="@state" selected="@(state==row.IosDistributionState)">@IosLabel(state)</option>}</select></label>
-                            <label><input type="checkbox" name="confirmIos" value="yes" required /> I checked this in the external distribution service. Swoovr does not send or verify an Apple invitation.</label>
-                            <button type="submit" class="secondary">Record staff-reported state</button>
+                            <h3>iOS distribution</h3>
+                            <label class="ui-field"><span>External state</span><select name="iosState">@foreach(var state in IosStates){<option value="@state" selected="@(state==row.IosDistributionState)">@IosLabel(state)</option>}</select></label>
+                            <label class="beta-check"><input type="checkbox" name="confirmIos" value="yes" required /><span>Confirmed in the distribution service</span></label>
+                            <button type="submit" class="beta-action-button">Record staff-reported state</button>
                         </form>
                         @if(row.State!="revoked")
                         {
-                            <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="()=>RevokeAsync(row.Id)" data-enhance="false" class="stack">
-                                <AntiforgeryToken /><label><input type="checkbox" name="confirmRevoke" value="yes" required /> Revoke this beta enrolment</label>
-                                <button type="submit" class="secondary" data-beta-revoke="@row.Id">Confirm revocation</button>
+                            <form method="post" @formname="@($"beta-revoke-{row.Id}")" @onsubmit="()=>RevokeAsync(row.Id)" data-enhance="true" class="beta-action beta-action-danger">
+                                <AntiforgeryToken />
+                                <h3>Revoke enrolment</h3>
+                                <label class="beta-check"><input type="checkbox" name="confirmRevoke" value="yes" required /><span>Revoke beta access</span></label>
+                                <button type="submit" class="beta-action-button" data-beta-revoke="@row.Id">Confirm revocation</button>
                             </form>
                         }
                     </div></details></td>
@@ -57,7 +75,7 @@
             }</tbody>
         </table></div>
     }
-    <nav class="beta-paging" aria-label="Enrolment pages">@if(currentPage>1){<a href="@PageUrl(currentPage-1)">Previous page</a>}else{<span aria-disabled="true">Previous page</span>}@if(currentPage<Pages){<a href="@PageUrl(currentPage+1)">Next page</a>}else{<span aria-disabled="true">Next page</span>}</nav>
+    <nav class="ui-paging" aria-label="Enrolment pages"><span class="ui-help">Page @currentPage of @Pages</span><span class="ui-paging-links">@if(currentPage>1){<a class="ui-button-ghost" href="@PageUrl(currentPage-1)">Previous page</a>}else{<span class="ui-button-ghost" aria-disabled="true">Previous page</span>}@if(currentPage<Pages){<a class="ui-button-ghost" href="@PageUrl(currentPage+1)">Next page</a>}else{<span class="ui-button-ghost" aria-disabled="true">Next page</span>}</span></nav>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
@@ -78,6 +96,24 @@
         var parameters=new Dictionary<string,string?>{{"q",Query},{"state",StateFilter},{"sort",Sort},{"from",Date(From)},{"to",Date(To)},{"page",page.ToString()},{"size",Size.ToString()}};
         return "/beta?"+string.Join("&",parameters.Where(p=>!string.IsNullOrEmpty(p.Value)).Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value!)));
     }
+    private IEnumerable<(string Key,string Text)> ActiveFilters()
+    {
+        if(!string.IsNullOrWhiteSpace(Query)) yield return ("q",$"Search: “{Query}”");
+        if(!string.IsNullOrEmpty(StateFilter)) yield return ("state",$"Status: {State(StateFilter)}");
+        if(From is not null) yield return ("from",$"From {Date(From)}");
+        if(To is not null) yield return ("to",$"To {Date(To)}");
+    }
+    private string WithoutFilter(string key)
+    {
+        var parameters=new Dictionary<string,string?>{{"q",Query},{"state",StateFilter},{"sort",Sort},{"from",Date(From)},{"to",Date(To)},{"size",Size.ToString()}};
+        parameters[key]=null;
+        return "/beta?"+string.Join("&",parameters.Where(p=>!string.IsNullOrEmpty(p.Value)).Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value!)));
+    }
+    private static string? FullName(BetaEnrolmentView row)
+    {
+        var name=string.Join(" ",new[]{row.FirstName,row.LastName}.Where(n=>!string.IsNullOrWhiteSpace(n)));
+        return name.Length==0?null:name;
+    }
     private bool loaded, authorised;
     private string? message, resultCode;
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -95,25 +131,25 @@
         // Refusal remains server-authoritative even if someone handcrafts this form submission.
         var result = await Admin.AddBetaEnrolmentAsync(Field("email"));
         resultCode = result.Ok ? "added" : result.Code ?? result.Status.ToString();
-        message = result.Ok ? (result.Status == 201 ? result.Value?.InvitationState=="pending"?"Enrolment added. Invitation email queued; not sent or delivered yet.":"Enrolment added. No invitation email was sent." : "This address already has a live enrolment.") : AdminText.Refusal(result.Status, result.Code);
+        message = result.Ok ? (result.Status == 201 ? result.Value?.InvitationState=="pending"?"Enrolment added. Invitation email queued, not yet sent.":"Enrolment added." : "This address already has a live enrolment.") : AdminText.Refusal(result.Status, result.Code);
         await LoadAsync();
     }
-    private static string InvitationLabel(string state)=>state switch{"not-queued"=>"Not queued","pending"=>"Queued","dispatching"=>"Dispatch in progress","accepted"=>"Provider accepted","rejected"=>"Not accepted","unknown"=>"Outcome unknown; review required","cancelled"=>"Cancelled before dispatch","expired"=>"Queue expired",_=>"Unknown"};
+    private static string InvitationLabel(string state)=>state switch{"not-queued"=>"Not queued","pending"=>"Queued","dispatching"=>"Sending","accepted"=>"Provider accepted","rejected"=>"Not accepted","unknown"=>"Needs review","cancelled"=>"Cancelled","expired"=>"Queue expired",_=>"Unknown"};
     private static readonly string[] IosStates=["not-recorded","not-invited","invited","accepted","removed"];
-    private static string IosLabel(string state)=>state switch{"not-recorded"=>"Not recorded","not-invited"=>"Not invited (staff report)","invited"=>"Invitation issued (staff report)","accepted"=>"Accepted (staff report)","removed"=>"Removed (staff report)",_=>"Unknown"};
+    private static string IosLabel(string state)=>state switch{"not-recorded"=>"Not recorded","not-invited"=>"Not invited","invited"=>"Invited","accepted"=>"Accepted","removed"=>"Removed",_=>"Unknown"};
     private async Task RecordIosAsync(Guid id)
     {
-        if(Field("confirmIos")!="yes"||!long.TryParse(Field("iosRevision"),out var revision)){resultCode="confirmation-required";message="Confirm the external status before recording it.";return;}
+        if(Field("confirmIos")!="yes"||!long.TryParse(Field("iosRevision"),out var revision)){resultCode="confirmation-required";message="Tick the confirmation first.";return;}
         var result=await Admin.RecordIosDistributionAsync(id,new(Field("iosState"),revision,true));
         resultCode=result.Ok?"ios-recorded":result.Code??result.Status.ToString();
-        message=result.Ok?"Staff-reported iOS status recorded. No Apple invitation was sent or verified.":AdminText.Refusal(result.Status,result.Code);await LoadAsync();
+        message=result.Ok?"iOS status recorded.":AdminText.Refusal(result.Status,result.Code);await LoadAsync();
     }
     private async Task RevokeAsync(Guid id)
     {
-        if (Field("confirmRevoke") != "yes") { resultCode = "confirmation-required"; message = "Confirm revocation first."; return; }
+        if (Field("confirmRevoke") != "yes") { resultCode = "confirmation-required"; message = "Tick the confirmation first."; return; }
         var status = await Admin.RevokeBetaEnrolmentAsync(id);
         resultCode = status == 204 ? "revoked" : status.ToString();
-        message = status == 204 ? "Beta enrolment revoked. Remove any external iOS distribution invitation separately, then record its status." : AdminText.Refusal(status, null);
+        message = status == 204 ? "Enrolment revoked. Remove any iOS distribution invitation separately." : AdminText.Refusal(status, null);
         await LoadAsync();
     }
 }

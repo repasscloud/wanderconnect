@@ -24,10 +24,13 @@ public static class NativeAppearance
     public static event Action? Changed;
     public static void Initialize(Application application)
     {
-        app=application;Guest=ReadGuest();Apply(Guest);
+        app=application;Guest=AppearancePreferences.Default;Apply(Guest);
         application.RequestedThemeChanged+=(_,_)=>{if(!applying&&Current.Mode=="system"){Apply(Current);Changed?.Invoke();}};
         Connectivity.Current.ConnectivityChanged+=(_,_)=>MainThread.BeginInvokeOnMainThread(async()=>{await EnsureAccountAsync(MainPage.Auth);});
     }
+    private static bool guestSurface=true;
+    public static void ShowGuestSurface(){guestSurface=true;Apply(AppearancePreferences.Default);}
+    public static void ShowAccountSurface(){guestSurface=false;if(Coordinator is{}sync&&!sync.State.IsLoading)Apply(sync.State.Current);}
     private static AppearancePreference ReadGuest()
     {
         try{var text=Preferences.Default.Get(GuestKey,"");var value=text.Length is >0 and <4096?JsonSerializer.Deserialize<AppearancePreference>(text,JsonOptions):null;return AppearancePreferences.IsValid(value)?value!:AppearancePreferences.Default;}
@@ -66,7 +69,7 @@ public static class NativeAppearance
     }
     public static async Task RestoreAsync()
     {
-        var scope=await StoredOwnerAsync()??CachedOwner();if(scope is null){ForgetAccount();return;}
+        var scope=await StoredOwnerAsync();if(scope is null){ForgetAccount();return;}
         owner=scope;var cached=ReadCache(scope);var state=new AppearanceSyncState(Guest);state.BeginAccount(cached);
         if(!state.IsLoading)Apply(state.Current);
     }
@@ -125,7 +128,7 @@ public static class NativeAppearance
     {
         if(app is null)return;
         if(!MainThread.IsMainThread){MainThread.BeginInvokeOnMainThread(()=>Apply(preference));return;}
-        Current=AppearancePreferences.IsValid(preference)?preference:AppearancePreferences.Default;
+        Current=guestSurface?AppearancePreferences.Default:AppearancePreferences.IsValid(preference)?preference:AppearancePreferences.Default;
         if(applying)return;applying=true;
         try
         {

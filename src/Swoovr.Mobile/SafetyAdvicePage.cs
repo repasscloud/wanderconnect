@@ -17,7 +17,7 @@ public sealed class SafetyAdvicePage : ContentPage
         body.Children.Add(Ui.Text(SafetyAdvice.Responsibility));
         body.Children.Add(Ui.Button("Safety & Support", "AdviceSupport", () => Ui.PushAsync(new SafetyPage()), primary:false));
         body.Children.Add(Ui.Button("Optional meeting safety", "AdviceMeetingSafety", () => Ui.PushAsync(new MeetingSafetyPage()), primary:false));
-        body.Children.Add(Ui.Text("Advice version " + SafetyAdvice.Version + ". Draft legal documents remain drafts and are not in force.", "FooterClaims"));
+        body.Children.Add(Ui.Text("Advice version " + SafetyAdvice.Version + ".", "FooterClaims"));
         Content = new ScrollView { Content = body };
     }
 }

@@ -10,6 +10,9 @@
 else
 {
     var c = detail.Case;
+    <div class="@(c.Queue=="admin"?"requires-desktop":null)">
+    @if(c.Queue=="admin"){<section class="card desktop-required" data-desktop-required><h1>This page needs a larger screen</h1><p>Open this case on a desktop or tablet.</p><a href="/">Back to overview</a></section>}
+    <div data-workflow>
     <h1 data-case-detail="@c.Id">@(c.SubjectName ?? "(no name)")</h1>
     @if (detail.EvidencePurgedAt is { } expired) { <p class="notice" data-case-evidence-expired>Investigation content was disposed under its retention schedule on @expired.ToString("d MMM yyyy"). Remaining records are the restricted compliance summary. A disposed review cannot be reopened.</p> }
 
@@ -19,7 +22,7 @@ else
         <div><dt>Queue</dt><dd>@c.Queue@(detail.StaffAffiliatedSubject ? " (staff-affiliated)" : "")</dd></div>
         <div><dt>Member</dt><dd><a href="/accounts/@c.SubjectAccountId">Open account</a></dd></div>
     </dl>
-    <form method="post" @formname="step" @onsubmit="StepAsync" class="row" data-enhance="false">
+    <form method="post" @formname="step" @onsubmit="StepAsync" class="row" data-enhance="true">
         <AntiforgeryToken />
         @if (c.AwaitingAcknowledgement) { <button name="StepForm.Step" value="acknowledge" type="submit" data-step="acknowledge">Acknowledge urgent report</button> }
         @if (c.Status == "open") { <button name="StepForm.Step" value="review" type="submit" class="secondary" data-step="review">Start review</button> }
@@ -45,6 +48,7 @@ else
                 @if (r.Text is not null) { <blockquote>@r.Text</blockquote> }</li>
         }
     </ul>
+    <div class="phone-desktop-tools">
     <p><a href="/cases/@Id/text-review">Review automated text candidates</a></p>
     <p><a href="/cases/@Id/content">Review individual text removals and retained evidence</a></p>
     <h2>Evidence</h2>
@@ -54,7 +58,7 @@ else
     @if (ReportedPhotos.Count > 0)
     {
         @* #41: a chat photo the evidence names, for admins, with a recorded purpose; never a blocked one. *@
-        <form method="post" @formname="photo" @onsubmit="PhotoAsync" class="row" data-case-photo-form data-enhance="false">
+        <form method="post" @formname="photo" @onsubmit="PhotoAsync" class="row" data-case-photo-form data-enhance="true">
             <AntiforgeryToken />
             <select name="PhotoForm.MediaId">@foreach (var p in ReportedPhotos) { <option value="@p">@p</option> }</select>
             <input name="PhotoForm.Purpose" placeholder="Why you need to look" maxlength="500" required />
@@ -71,10 +75,11 @@ else
         </ul>
     }
 
+    </div>
     <h2>Action</h2>
     @if (c.Status != "closed")
     {
-        <form method="post" @formname="act" @onsubmit="ActAsync" class="stack card" data-action-form data-enhance="false">
+        <form method="post" @formname="act" @onsubmit="ActAsync" class="stack card" data-action-form data-enhance="true">
             <AntiforgeryToken />
             <label>Action
                 <select name="ActForm.Action">
@@ -103,14 +108,17 @@ else
         </form>
     }
     @* D189: an admin may preserve evidence at once; the security and legal officer confirms or releases the hold. *@
+    <div class="phone-desktop-tools">
     <h2>Preserve evidence</h2>
-    <form method="post" @formname="preserve" @onsubmit="PreserveAsync" class="row" data-preserve-form data-enhance="false">
+    <form method="post" @formname="preserve" @onsubmit="PreserveAsync" class="row" data-preserve-form data-enhance="true">
         <AntiforgeryToken />
         <input name="PreserveForm.Reason" placeholder="Why this needs preserving" maxlength="1000" required />
         <button type="submit" class="secondary" data-preserve>Place a provisional hold</button>
     </form>
+    </div>
     <h2>Actions recorded for this case</h2>
     <SanctionList Sanctions="detail.Sanctions" ReturnUrl="@($"/cases/{Id}")" />
+    </div></div>
 }
 @code {
     [Parameter] public Guid Id { get; set; }

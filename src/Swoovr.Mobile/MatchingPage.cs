@@ -28,7 +28,7 @@ public sealed class MatchingPage : ContentPage
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Who I'd like to meet", "PageTitle"));
 		var result = await Ui.Members!.ProfileOptionsAsync();
-		if ((options = result.Value) is null) { body.Children.Add(Ui.Barred(result.Code, "MatchingBarred") ?? Ui.Text("This page opens once your email is on the private beta list.", id: "MatchingRefused")); return; }
+		if ((options = result.Value) is null) { body.Children.Add(Ui.Barred(result.Code, "MatchingBarred") ?? Ui.Text("This page opens once your email is on the invitation list.", id: "MatchingRefused")); return; }
 		modes = (await Ui.Members.ModesAsync()).Value ?? [];
 		body.Children.Add(await IdentityCardAsync());
 		var filters = new VerticalStackLayout { Spacing = 8, AutomationId = "Filters" };

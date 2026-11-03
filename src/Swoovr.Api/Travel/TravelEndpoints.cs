@@ -132,9 +132,11 @@ public static class TravelEndpoints
             var p = page ?? 1;
             var shown = visits.Skip((p - 1) * PageSize).Take(PageSize + 1).ToList();
             var chips = await ChipsAsync(db, shown.Select(v => v.Person.Profile.AccountId).ToList(), selected.Id, cancellationToken);
+            var shownAccounts = shown.Select(v => v.Person.Profile.AccountId).ToList();
+            var aliases = await db.MemberModes.Where(m => m.ModeId == selected.Id && shownAccounts.Contains(m.AccountId)).ToDictionaryAsync(m => m.AccountId, m => m.DisplayName, cancellationToken);
             var order = await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken);
             return Results.Ok(new VisitorPage(selected.Id, market!.Name, shown.Take(PageSize).Select(v => new VisitorCard(v.Person.Profile.PublicId,
-                v.Person.Profile.DisplayName!, ProfileEndpoints.Badges(v.Person.Profile, order), chips.GetValueOrDefault(v.Person.Profile.AccountId, []),
+                ModePrivacy.DisplayName(aliases.GetValueOrDefault(v.Person.Profile.AccountId), v.Person.Profile.DisplayName)!, ProfileEndpoints.Badges(v.Person.Profile, order), chips.GetValueOrDefault(v.Person.Profile.AccountId, []),
                 Visit(v.Trip, v.City))).ToList(), p, shown.Count > PageSize));
         });
     }

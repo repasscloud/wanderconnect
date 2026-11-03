@@ -21,7 +21,7 @@ else
         @if(evidence.ReviewedAt is not null){<p>Recorded outcome: @evidence.Outcome · @evidence.ReviewedAt.Value.ToString("d MMM yyyy HH:mm")</p>}
         else
         {
-            <form method="post" @formname="text-review" @onsubmit="ReviewAsync" class="stack" data-text-review-form data-enhance="false">
+            <form method="post" @formname="text-review" @onsubmit="ReviewAsync" class="stack" data-text-review-form data-enhance="true">
                 <AntiforgeryToken />
                 <input type="hidden" name="ReviewForm.ReviewId" value="@evidence.Id" />
                 <label>Human review outcome<select name="ReviewForm.Outcome" required><option value="reviewed-no-action">No action after human review</option><option value="actioned">Existing action applies to this candidate</option></select></label>

@@ -61,7 +61,13 @@ public static class MessagingEndpoints
             var created = conversation is null;
             if (created)
             {
-                db.Conversations.Add(conversation = new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now });
+                // Select only an accepted pair mode. Older clients omit it: earliest accepted connection is deterministic.
+                var accepted = db.ConnectionRequests.Where(r => r.PairLow == low && r.PairHigh == high && r.Status == ConnectionRequestStatus.Accepted);
+                var origin = request.Mode is null
+                    ? await accepted.OrderBy(r => r.AnsweredAt).ThenBy(r => r.CreatedAt).ThenBy(r => r.Id).Select(r => r.ModeId).FirstOrDefaultAsync(cancellationToken)
+                    : await accepted.Where(r => r.ModeId == request.Mode).Select(r => r.ModeId).FirstOrDefaultAsync(cancellationToken);
+                if (origin is null) return NotAvailable();
+                db.Conversations.Add(conversation = new Conversation { Id = Guid.NewGuid(), PairLow = low, PairHigh = high, CreatedAt = now, OriginModeId = origin });
                 Audit.Record(db, now, me, "account", "conversation.started", "conversation", conversation.Id.ToString());
                 try { await db.SaveChangesAsync(cancellationToken); }
                 catch (DbUpdateException)
@@ -448,7 +454,8 @@ public static class MessagingEndpoints
         var other = await db.MemberProfiles.SingleOrDefaultAsync(p => p.AccountId == otherId, cancellationToken);
         // D170: after final deletion the other member has no profile; the conversation reads "Deleted member".
         if (other is null) return new(conversation.Id, new PersonSummary(Guid.Empty, "Deleted member", []), conversation.CreatedAt, conversation.LastMessageAt, false, conversation.ClosedAt is not null);
-        var person = new PersonSummary(other.PublicId, other.DisplayName, ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
+        var alias = conversation.OriginModeId is null ? null : await db.MemberModes.Where(m => m.AccountId == otherId && m.ModeId == conversation.OriginModeId).Select(m => m.DisplayName).SingleOrDefaultAsync(cancellationToken);
+        var person = new PersonSummary(other.PublicId, ModePrivacy.DisplayName(alias, other.DisplayName), ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
         var canSend = conversation.ClosedAt is null && await ConnectedAsync(db, me, otherId, cancellationToken)
             && await ParticipatesAsync(db, otherId, DateTimeOffset.UtcNow, cancellationToken);
         return new(conversation.Id, person, conversation.CreatedAt, conversation.LastMessageAt, canSend, conversation.ClosedAt is not null);

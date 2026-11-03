@@ -10,7 +10,7 @@ public sealed record ConnectionModeView(string Id, string Label, IReadOnlyList<I
 /// <summary>The member's own setting for one mode.</summary>
 /// <param name="About">D175: this mode's own about.</param>
 /// <param name="ShareCoreAbout">#91: without a mode about, the core about shows in this mode only when this is true (asked, never assumed).</param>
-public sealed record MyModeView(string Id, bool Enabled, bool Visible, IReadOnlyList<Guid> Intentions, string? About = null, bool ShareCoreAbout = false);
+public sealed record MyModeView(string Id, bool Enabled, bool Visible, IReadOnlyList<Guid> Intentions, string? About = null, bool ShareCoreAbout = false, string? DisplayName = null);
 
 /// <summary>The member's own profile: shared core fields plus every available mode's setting. HomeCity is private to the
 /// member (D110, D120); it decides which market they are local to. MarketInterest says whether they asked to hear when
@@ -21,8 +21,9 @@ public sealed record MyProfileView(Guid PublicId, string? DisplayName, string? A
 /// <summary>A full replacement of the core profile: leaving HomeCityId out clears the home city.</summary>
 public sealed record ProfileUpdate(string? DisplayName, string? Area, string? About, int? HomeCityId = null);
 /// <summary>A full replacement of one mode's settings. ShareCoreAbout (#91): null keeps the current answer; true lets the
-/// core about show here when this mode has no about of its own.</summary>
-public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>? Intentions, string? About = null, bool? ShareCoreAbout = null);
+/// core about show here when this mode has no about of its own. Q118 DisplayName: null/omitted keeps the override;
+/// an empty or whitespace string clears it to the main public name.</summary>
+public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>? Intentions, string? About = null, bool? ShareCoreAbout = null, string? DisplayName = null);
 
 /// <summary>One person in Explore for one mode, with the public badges the API decided (Q11). No age, email or account id.</summary>
 /// <remarks>Age, Gender and Pronouns only as the person allows (D138, D139); never the date of birth.</remarks>
@@ -42,7 +43,7 @@ public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> Peopl
 /// <param name="About">The person's about in this mode (their mode about, else their core about if they agreed to show it here, #91).</param>
 /// <param name="ConnectionId">The accepted connection in this mode, for disconnecting (D176); null otherwise.</param>
 public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions, string Connection, Guid? RequestId, bool CanRequest = true,
-    bool ArrivalRequired = false, string? About = null, Guid? ConnectionId = null, IReadOnlyList<PhotoView>? Photos = null);
+    bool ArrivalRequired = false, string? About = null, Guid? ConnectionId = null, IReadOnlyList<PhotoView>? Photos = null, string? DisplayName = null, PhotoView? MainPhoto = null);
 
 /// <summary>#91: one captured version of what others could see (Mode "core" or a mode id), as JSON.</summary>
 public sealed record ProfileVersionView(string Mode, DateTimeOffset CapturedAt, string ContentJson, string Sha256);

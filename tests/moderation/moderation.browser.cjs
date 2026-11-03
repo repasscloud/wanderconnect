@@ -140,7 +140,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
       const restrictedPage = await restrictedContext.newPage();
       await restrictedPage.goto(web + '/account/sign-in?intro=done');
       await restrictedPage.fill('#username', members.sub.email); await restrictedPage.fill('#password', members.sub.password);
-      await Promise.all([restrictedPage.waitForURL(web + '/account'), restrictedPage.click('#kc-login')]);
+      await Promise.all([restrictedPage.waitForURL(url=>url.href===web+'/explore'||url.href.startsWith(web+'/account/restricted')),restrictedPage.click('#kc-login')]);await restrictedPage.goto(web+'/account');
       await restrictedPage.waitForSelector('[data-restricted-screen=restricted]', { timeout: 20000 }); pass(); // on the account page
       for (const path of ['/explore', '/connections', '/travel', `/people/${pid.rep}`, '/me/matching']) {
         await restrictedPage.goto(web + path);
@@ -270,7 +270,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     const signIn = async (p, member) => {
       await p.goto(web + '/account/sign-in?intro=done');
       await p.fill('#username', member.email); await p.fill('#password', member.password);
-      await Promise.all([p.waitForURL(web + '/account'), p.click('#kc-login')]);
+      await Promise.all([p.waitForURL(web+'/explore'),p.click('#kc-login')]);await p.goto(web+'/account');
     };
     await signIn(page, members.urg);
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });

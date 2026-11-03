@@ -15,7 +15,7 @@ else
     <section class="card">
         <h2>Necessity review</h2>
         <p class="help">Record why continuing an active restriction remains justified. An inactive restriction cannot be reactivated here.</p>
-        <form method="post" @formname="review" @onsubmit="ReviewAsync" class="stack" data-registry-review data-enhance="false">
+        <form method="post" @formname="review" @onsubmit="ReviewAsync" class="stack" data-registry-review data-enhance="true">
             <AntiforgeryToken />
             <fieldset disabled="@(!access || !live)">
                 <label><input name="reviewed" type="checkbox" value="yes" required /> I reviewed the case and the continuing need for this restriction.</label>
@@ -27,7 +27,7 @@ else
     <section class="card">
         <h2>Revoke Identifier Restriction</h2>
         <p>Releasing this identifier does not restore the original account, release other identifiers or remove case history.</p>
-        <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="stack" data-registry-release data-enhance="false">
+        <form method="post" @formname="release" @onsubmit="ReleaseAsync" class="stack" data-registry-release data-enhance="true">
             <AntiforgeryToken />
             <fieldset disabled="@(!access || entry.Status!="active")">
                 <label><input name="caseReviewed" type="checkbox" value="yes" required /> I reviewed the associated case.</label>
@@ -43,7 +43,7 @@ else
             <h2>Retire the old verified mobile binding</h2>
             <p>After approving a recycled number, separately remove its verified binding from the original terminated account. This ends that account’s Keycloak sessions and preserves restricted contact history. The account ban, email and other credentials remain.</p>
             <p class="help">Review current ownership and the associated case first. No SMS is sent to the recycled number. Original-account recovery requires a separate review. Allow at least 30 seconds before a recovery sign-in.</p>
-            <form method="post" @formname="retireMobile" @onsubmit="RetireMobileAsync" class="stack" data-registry-retire-mobile data-enhance="false">
+            <form method="post" @formname="retireMobile" @onsubmit="RetireMobileAsync" class="stack" data-registry-retire-mobile data-enhance="true">
                 <AntiforgeryToken />
                 <fieldset disabled="@(!access || entry.Status!="revoked" || detail.History.Any(h=>h.Action=="mobile-binding-retired"))">
                     <label><input name="bindingReviewed" type="checkbox" value="yes" required /> I reviewed the case and sufficiently verified the circumstances and current ownership supporting retirement.</label>
@@ -69,7 +69,7 @@ else
                 else
                 {
                     <p>Refresh the confirmation state before deciding whether another review is needed. A pending or uncertain operation keeps the original subject blocked. A fresh review can resume only the same operation and exact binding.</p>
-                    <form method="post" @formname="reviewEmail" @onsubmit="ReviewEmailAsync" class="stack" data-registry-review-email data-enhance="false">
+                    <form method="post" @formname="reviewEmail" @onsubmit="ReviewEmailAsync" class="stack" data-registry-review-email data-enhance="true">
                         <AntiforgeryToken />
                         <fieldset disabled="@(!access||!emailEnabled||emailLoadError is not null||entry.Status!="revoked")" aria-labelledby="email-retirement-heading">
                             <label><input name="emailBindingReviewed" type="checkbox" value="yes" required /> I reviewed the case and sufficiently verified the current circumstances and ownership supporting this same retirement.</label>
@@ -82,7 +82,7 @@ else
             else
             {
                 @if(detail.History.Any(h=>h.Action=="email-retirement-requested")) { <p class="notice">Retirement history exists without a current operation. Review the case before any new action.</p> }
-                <form method="post" @formname="retireEmail" @onsubmit="RetireEmailAsync" class="stack" data-registry-retire-email data-enhance="false">
+                <form method="post" @formname="retireEmail" @onsubmit="RetireEmailAsync" class="stack" data-registry-retire-email data-enhance="true">
                     <AntiforgeryToken />
                     <fieldset disabled="@(!access||!emailEnabled||emailLoadError is not null||entry.Status!="revoked"||detail.History.Any(h=>h.Action=="email-retirement-requested"))" aria-labelledby="email-retirement-heading">
                         <label><input name="emailBindingReviewed" type="checkbox" value="yes" required /> I reviewed the case and sufficiently verified the circumstances and current ownership supporting retirement.</label>

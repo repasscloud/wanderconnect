@@ -103,6 +103,10 @@ public static class ProfileEndpoints
             if (setting is null) db.MemberModes.Add(setting = new MemberMode { AccountId = profile.AccountId, ModeId = modeId });
             // Each mode is independent: only this row and its intentions change (Q12 rule 2).
             // D175: this mode's own about (full replacement; blank shows the core about here).
+            var name = update.DisplayName is null ? setting.DisplayName : ProfileTextPolicy.Clean(update.DisplayName);
+            if (ProfileTextPolicy.Check(name, null, null) != ProfileTextError.None)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode’s name to {ProfileTextPolicy.DisplayNameMax} characters of plain text.");
+            setting.DisplayName = name;
             var about = ProfileTextPolicy.Clean(update.About);
             if (ProfileTextPolicy.Check(null, null, about) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode's about to {ProfileTextPolicy.AboutMax} characters of plain text.");
@@ -171,23 +175,24 @@ public static class ProfileEndpoints
             var shownAs = Public((await IdentitiesAsync(db, [person.Profile.AccountId], cancellationToken)).GetValueOrDefault(person.Profile.AccountId),
                 person.Profile.DateOfBirth is { } dob ? AgePolicy.YearsOn(dob, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)) : null, await GenderLabelsAsync(db, cancellationToken));
             var abouts = await db.MemberModes.Where(m => m.AccountId == person.Profile.AccountId && shownIds.Contains(m.ModeId))
-                .ToDictionaryAsync(m => m.ModeId, m => new { m.About, m.ShareCoreAbout }, cancellationToken);
+                .ToDictionaryAsync(m => m.ModeId, m => new { m.About, m.ShareCoreAbout, m.DisplayName }, cancellationToken);
             string? AboutIn(string modeId) => abouts.GetValueOrDefault(modeId) is { } a ? ModePrivacy.About(a.About, person.Profile.About, a.ShareCoreAbout) : null;
             // D203, #91: the main photo, and each shown mode's own photos (never another mode's).
             var photos = await Media.MediaEndpoints.PhotosAsync(db, accounts.Services.GetRequiredService<Media.MediaLinks>(), [person.Profile.AccountId], shownIds,
                 clock.GetUtcNow(), cancellationToken);
-            return Results.Ok(new PersonProfile(person.Profile.PublicId, person.Profile.DisplayName!, person.Profile.Area, AboutIn(shownIds[0]),
+            return Results.Ok(new PersonProfile(person.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(mode ?? shownIds[0])?.DisplayName, person.Profile.DisplayName)!, person.Profile.Area, AboutIn(mode ?? shownIds[0]),
                 shared.Where(m => shownIds.Contains(m.Id)).Select(m =>
                 {
                     var may = MarketAccess.MayRequest(reach.SameMarket && reach.MarketModes.Contains(m.Id), between.Any(r => r.Status == ConnectionRequestStatus.Accepted),
                         reach.VisitingModes.Contains(m.Id), travel.ArrivedTrips.ContainsKey(m.Id));
                     return ModeView(m, chips.GetValueOrDefault((person.Profile.AccountId, m.Id), []), viewer, between, may) with
-                        { ArrivalRequired = !may && travel.SearchModes.Contains(m.Id), About = AboutIn(m.Id),
+                        { ArrivalRequired = !may && travel.SearchModes.Contains(m.Id), About = AboutIn(m.Id), DisplayName = ModePrivacy.DisplayName(abouts.GetValueOrDefault(m.Id)?.DisplayName, person.Profile.DisplayName),
                           ConnectionId = between.FirstOrDefault(r => r.ModeId == m.Id && r.Status == ConnectionRequestStatus.Accepted)?.Id,
+                          MainPhoto = photos.Main.GetValueOrDefault((person.Profile.AccountId, m.Id)),
                           Photos = photos.Modes.GetValueOrDefault((person.Profile.AccountId, m.Id)) ?? [] };
                 }).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
-                photos.Main.GetValueOrDefault(person.Profile.AccountId)));
+                photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0]))));
         });
     }
 
@@ -244,8 +249,8 @@ public static class ProfileEndpoints
         var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
         var shownIds = shown.Select(c => c.Profile.AccountId).ToList();
         // D175: the card shows the person's about for this mode.
-        var abouts = await db.MemberModes.Where(m => m.ModeId == selected.Id && shownIds.Contains(m.AccountId) && (m.About != null || m.ShareCoreAbout == true))
-            .ToDictionaryAsync(m => m.AccountId, m => new { m.About, m.ShareCoreAbout }, cancellationToken);
+        var abouts = await db.MemberModes.Where(m => m.ModeId == selected.Id && shownIds.Contains(m.AccountId))
+            .ToDictionaryAsync(m => m.AccountId, m => new { m.About, m.ShareCoreAbout, m.DisplayName }, cancellationToken);
         var order = await BadgeOrderAsync(db, cancellationToken);
         var genders = await GenderLabelsAsync(db, cancellationToken);
         // D203: the main photo, else the first photo picked for this mode; approved photos only, as signed links.
@@ -255,15 +260,15 @@ public static class ProfileEndpoints
             var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
             var about = abouts.GetValueOrDefault(c.Profile.AccountId) is { } a ? ModePrivacy.About(a.About, c.Profile.About, a.ShareCoreAbout) : null;
             // #90: a rounded band between home cities, never a distance.
-            return new ProfileCard(c.Profile.PublicId, c.Profile.DisplayName!, c.Profile.Area, about,
+            return new ProfileCard(c.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(c.Profile.AccountId)?.DisplayName, c.Profile.DisplayName)!, c.Profile.Area, about,
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
                 LocationPrivacy.Band(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId])),
-                photos.Main?.GetValueOrDefault(c.Profile.AccountId) ?? photos.Modes?.GetValueOrDefault((c.Profile.AccountId, selected.Id))?.FirstOrDefault());
+                photos.Main?.GetValueOrDefault((c.Profile.AccountId, selected.Id)));
         }).ToList();
     }
 
     /// <summary>What a person allows others to see (D138, D139): age unless hidden, gender and pronouns unless hidden.</summary>
-    private static (int? Age, string? Gender, string? Pronouns) Public(MemberIdentity? identity, int? age, IReadOnlyDictionary<string, string> genders)
+    internal static (int? Age, string? Gender, string? Pronouns) Public(MemberIdentity? identity, int? age, IReadOnlyDictionary<string, string> genders)
     {
         if (identity is null) return (age, null, null);
         var gender = identity.ShowGender && identity.GenderId is { } g
@@ -271,7 +276,7 @@ public static class ProfileEndpoints
         return (identity.ShowAge ? age : null, gender, identity.ShowGender ? identity.Pronouns : null);
     }
 
-    private static async Task<Dictionary<string, string>> GenderLabelsAsync(SwoovrDbContext db, CancellationToken cancellationToken) =>
+    internal static async Task<Dictionary<string, string>> GenderLabelsAsync(SwoovrDbContext db, CancellationToken cancellationToken) =>
         await db.ProfileOptions.Where(o => o.Kind == "gender").ToDictionaryAsync(o => o.Id, o => o.Label, cancellationToken);
 
     private static async Task<Dictionary<Guid, MemberIdentity>> IdentitiesAsync(SwoovrDbContext db, List<Guid> accounts, CancellationToken cancellationToken) =>
@@ -375,7 +380,9 @@ public static class ProfileEndpoints
     /// </summary>
     public static IQueryable<Row> Candidates(SwoovrDbContext db, IConfiguration configuration, Guid viewer)
     {
-        var betaOn = configuration.GetValue("Beta:Enabled", true);
+        // Current persisted authority is composed into the same server-side candidate query.
+        // A missing singleton returns no candidates rather than reopening access from a static flag.
+        var authority=db.Database.SqlQueryRaw<Swoovr.Api.Accounts.RegistrationAuthority.Row>("SELECT beta_enabled AS \"BetaEnabled\",public_enabled AS \"PublicEnabled\",revision AS \"Revision\" FROM registration_availability WHERE id=1");
         AgeStatus[] adult = [AgeStatus.Attested, AgeStatus.SelfDeclaredAdult, AgeStatus.Verified, AgeStatus.AdultOverride];
         var now = DateTimeOffset.UtcNow;
         return from profile in db.MemberProfiles
@@ -387,8 +394,8 @@ public static class ProfileEndpoints
                      // D133, D160: restricted, suspended and terminated accounts are out of discovery while the sanction lasts.
                      && !db.Sanctions.Any(s => s.AccountId == profile.AccountId && s.LiftedAt == null && s.StartsAt <= now && (s.EndsAt == null || s.EndsAt > now)
                          && s.Kind != SanctionKind.Warning)
-               let beta = !betaOn || db.BetaEnrolments.Any(e => e.AccountId == account.Id && e.RevokedAt == null)
-               where beta
+               let beta = authority.Any(p=>p.PublicEnabled || !p.BetaEnabled) || db.BetaEnrolments.Any(e => e.AccountId == account.Id && e.RevokedAt == null)
+               where authority.Any() && beta
                select new Row { Profile = profile, Status = account.Status, BetaActive = beta };
     }
 
@@ -430,13 +437,13 @@ public static class ProfileEndpoints
                             select i).ToListAsync(cancellationToken);
         var home = profile.HomeGeoNameId is { } id ? await db.GeoCities.FindAsync([id], cancellationToken) : null;
         return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
-            ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList(), s.About, s.ShareCoreAbout == true)
+            ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList(), s.About, s.ShareCoreAbout == true, s.DisplayName)
             : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home),
             await db.MarketInterests.AnyAsync(i => i.AccountId == profile.AccountId, cancellationToken));
     }
 
     /// <summary>Labels of the available intentions each person chose, by (account, mode).</summary>
-    private static async Task<Dictionary<(Guid, string), IReadOnlyList<string>>> IntentionLabelsAsync(SwoovrDbContext db, List<Guid> people, string? modeId,
+    internal static async Task<Dictionary<(Guid, string), IReadOnlyList<string>>> IntentionLabelsAsync(SwoovrDbContext db, List<Guid> people, string? modeId,
         CancellationToken cancellationToken)
     {
         var rows = await (from chosen in db.MemberModeIntentions

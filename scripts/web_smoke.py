@@ -18,11 +18,9 @@ class Assets(HTMLParser):
 
 
 def check_web_assets(base):
-    with urllib.request.urlopen(base + 'settings/appearance', timeout=5) as response:
+    with urllib.request.urlopen(base, timeout=5) as response:
         html = response.read().decode()
-    assert 'data-appearance-settings' in html and 'Account sync is not connected' in html
-    for scheme in ['standard', 'lounge', 'pride', 'trans', 'union', 'violet', 'coral', 'eucalyptus']:
-        assert f'value="{scheme}"' in html
+    assert 'Your kind of connection' in html and 'data-appearance-settings' not in html
     assets = Assets()
     assets.feed(html)
     assert len(assets.paths) >= 7, 'Appearance asset links missing'

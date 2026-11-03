@@ -1,23 +1,44 @@
 @page "/support"
 @inject AdminClient Admin
 <PageTitle>Support lookup — Swoovr admin</PageTitle>
-<h1>Support lookup</h1>
-<p class="help">Support and admins (#50). Find the report behind a member's support reference (SW-XXXXXX). Admin-queue cases (staff-affiliated accounts, serious incidents) show to admins only. Every lookup is logged. Tell the member only what their own standing page says.</p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<form method="post" @formname="lookup" @onsubmit="LookupAsync" class="row" data-support-form data-enhance="false">
-    <AntiforgeryToken />
-    <input name="reference" placeholder="SW-ABC234" maxlength="16" required />
-    <button type="submit" data-support-search>Find</button>
-</form>
+<h1 class="ui-h1">Support lookup</h1>
+<p class="help ui-lede">Find a report using its support reference.</p>
+<section class="ui-card" aria-label="Find a report">
+    <form method="post" @formname="lookup" @onsubmit="LookupAsync" class="ui-big-search" data-support-form data-enhance="true">
+        <AntiforgeryToken />
+        <label class="ui-field beta-search"><span class="sr-only">Support reference</span><input name="reference" type="search" placeholder="SW-ABC234" maxlength="16" required autocomplete="off" class="ui-reference" value="@Field("reference")" /></label>
+        <button type="submit" data-support-search>Find</button>
+    </form>
+</section>
+@if (message is not null) { <div class="ui-empty" role="status" data-result="@resultCode"><strong>@(resultCode == "404" || resultCode == "not-found" ? "No report found" : "Lookup unavailable")</strong>@message</div> }
 @if (result is { } r)
 {
-    <dl class="facts" data-support-result="@r.Reference">
-        <div><dt>Reference</dt><dd>@r.Reference</dd></div>
-        <div><dt>Report</dt><dd>@r.ReportId · @r.Category@(r.Serious ? " · serious incident" : "") · @r.CreatedAt.ToString("d MMM yyyy HH:mm")</dd></div>
-        <div><dt>Case</dt><dd><a href="/cases/@r.CaseId" data-support-case="@r.CaseId">@r.CaseId</a> · @r.CaseStatus · @r.Queue queue · @r.Priority</dd></div>
-        <div><dt>Reported by</dt><dd><a href="/accounts/@r.ReporterAccountId">@r.ReporterAccountId</a> (<a href="/accounts/@r.ReporterAccountId/standing">their standing</a>)</dd></div>
-        <div><dt>About</dt><dd><a href="/accounts/@r.SubjectAccountId">@r.SubjectAccountId</a></dd></div>
-    </dl>
+    <div class="acct-grid" data-support-result="@r.Reference">
+        <section class="ui-card">
+            <div class="ui-card-row"><h2 class="ui-mono-title">@r.Reference</h2>@if (r.Serious) {<span class="ui-pill" data-tone="reject">Serious incident</span>}</div>
+            <dl class="media-meta">
+                <dt>Category</dt><dd>@r.Category</dd>
+                <dt>Reported</dt><dd>@r.CreatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</dd>
+                <dt>Report</dt><dd><span class="beta-ref"><code>@r.ReportId.ToString()[..8]</code><CopyButton Value="@r.ReportId.ToString()" /></span></dd>
+            </dl>
+        </section>
+        <section class="ui-card">
+            <div class="ui-card-row"><h2>Case</h2><span class="ui-pill" data-tone="@(r.Priority == "urgent" ? "reject" : r.Priority == "high" ? "escalate" : "quiet")">@r.Priority</span></div>
+            <dl class="media-meta">
+                <dt>Status</dt><dd>@r.CaseStatus</dd>
+                <dt>Queue</dt><dd>@r.Queue</dd>
+                <dt>Case</dt><dd><a href="/cases/@r.CaseId" data-support-case="@r.CaseId">Open case →</a></dd>
+            </dl>
+        </section>
+        <section class="ui-card">
+            <h2 class="ui-card-title">Reported by</h2>
+            <div class="ui-card-row"><span class="beta-ref"><code>@r.ReporterAccountId.ToString()[..8]</code><CopyButton Value="@r.ReporterAccountId.ToString()" /></span><span class="acct-buttons"><a class="ui-button-ghost" href="/accounts/@r.ReporterAccountId/standing">Standing</a><a class="ui-button-ghost" href="/accounts/@r.ReporterAccountId">View account</a></span></div>
+        </section>
+        <section class="ui-card">
+            <h2 class="ui-card-title">About</h2>
+            <div class="ui-card-row"><span class="beta-ref"><code>@r.SubjectAccountId.ToString()[..8]</code><CopyButton Value="@r.SubjectAccountId.ToString()" /></span><a class="ui-button-ghost" href="/accounts/@r.SubjectAccountId">View account</a></div>
+        </section>
+    </div>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
@@ -30,6 +51,6 @@
     {
         var found = await Admin.SupportLookupAsync(Field("reference").Trim());
         (result, resultCode) = (found.Value, found.Ok ? "ok" : found.Code ?? found.Status.ToString());
-        message = found.Ok ? null : found.Status == 404 ? "No report has that reference." : AdminText.Refusal(found.Status, found.Code);
+        message = found.Ok ? null : found.Status == 404 ? "Check the reference and try again." : AdminText.Refusal(found.Status, found.Code);
     }
 }

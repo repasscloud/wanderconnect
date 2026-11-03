@@ -4,7 +4,7 @@
 // (tests/auth/root-admin.browser.cjs) and a Debug build of the API for operator commands.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, membersRealm, mailTo, sleep } = require('./local-tokens.cjs');
+const { web, createMember, createStaff, staffToken, memberToken, rootAdminToken, cli, sql, call, claims, membersRealm, mailTo, sleep } = require('./local-tokens.cjs');
 
 (async () => {
   const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
@@ -28,8 +28,10 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // Own account and age entry: a date of birth is required (D139, superseding the 23 October age-alone option).
     let me = await call(aliceToken, '/api/me');
     assert.equal(me.status, 200); pass();
-    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], dateOfBirthVerified: false, accountState: 'active', dobCheck: 'none', phoneVerified: false, phoneRequired: false, emailChangeProblem: null, policyRequired: false, beta: undefined }); pass();
-    me = await call(aliceToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1990-05-01', age: 20 } });
+    assert.deepEqual({ ...me.body, beta: undefined }, { ageStatus: 'attested', age: null, dateOfBirth: null, declaredAge: null, badges: [], dateOfBirthVerified: false, accountState: 'active', dobCheck: 'none', phoneVerified: false, phoneRequired: false, emailChangeProblem: null, policyRequired: false, dateOfBirthCorrectionUntil: null, registeredNamesRequired: false, phoneGateEnabled: false, beta: undefined }); pass();
+    const unconfirmed=await call(aliceToken,'/api/me/age',{method:'PUT',body:{dateOfBirth:'1990-05-01'}});
+    assert.equal(unconfirmed.body.code,'dob-confirmation-required');pass();
+    me = await call(aliceToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1990-05-01', age: 20, confirmed: true } });
     assert.equal(me.status, 200); assert.equal(me.body.ageStatus, 'selfDeclaredAdult'); assert.equal(me.body.dateOfBirth, '1990-05-01'); assert.equal(me.body.declaredAge, null); pass();
     assert.equal(me.body.age, new Date().getUTCFullYear() - 1990 - (new Date().toISOString().slice(5, 10) < '05-01' ? 1 : 0)); pass();
     for (const body of [{ age: 30 }, {}, { age: -1 }, { age: 121 }]) {
@@ -83,11 +85,50 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal(list.body.find(i => i.id === created.body.id).state, 'revoked'); pass();
     assert.equal((await call(rootToken, '/api/admin/invitations/00000000-0000-0000-0000-000000000001', { method: 'DELETE' })).status, 404); pass();
 
+    // D299: a populated unverified date is locked; Admin grants, revocation and consumption remain server-owned.
+    const aliceId=await sql(`SELECT id FROM accounts WHERE subject='${sub}'`),dobGrantPath=`/api/admin/accounts/${aliceId}/dob-correction`;
+    const correctionBody={dateOfBirth:'1991-05-01',confirmed:true};
+    assert.equal((await call(aliceToken,'/api/me/age',{method:'PUT',body:correctionBody})).body.code,'date-of-birth-locked');pass();
+    assert.equal((await call(aliceToken,dobGrantPath,{method:'POST',body:{reason:'Fictional correction'}})).status,403);pass();
+    const revokedGrant=await call(rootToken,dobGrantPath,{method:'POST',body:{reason:'Fictional correction acceptance'}});
+    assert.equal(revokedGrant.status,200);assert.equal(Date.parse(revokedGrant.body.expiresAt)-Date.parse(revokedGrant.body.createdAt),86400000);pass();
+    assert.equal((await call(rootToken,dobGrantPath+'/'+revokedGrant.body.id+'/revoke',{method:'POST'})).status,200);pass();
+    assert.equal((await call(aliceToken,'/api/me/age',{method:'PUT',body:correctionBody})).body.code,'date-of-birth-locked');pass();
+    const availableGrant=await call(rootToken,dobGrantPath,{method:'POST',body:{reason:'Fictional confirmed correction acceptance'}});
+    assert.equal(availableGrant.status,200);pass();
+    assert.equal((await call(aliceToken,'/api/me/age',{method:'PUT',body:{dateOfBirth:'1991-05-01'}})).body.code,'dob-confirmation-required');pass();
+    assert.equal((await call(rootToken,dobGrantPath)).body.find(g=>g.id===availableGrant.body.id).consumedAt,null);pass();
+    assert.equal((await call(aliceToken,'/api/me/age',{method:'PUT',body:correctionBody})).status,200);pass();
+    assert.equal((await call(aliceToken,'/api/me/age',{method:'PUT',body:{dateOfBirth:'1992-05-01',confirmed:true}})).body.code,'date-of-birth-locked');pass();
+    assert.equal((await call(rootToken,`/api/admin/accounts/${aliceId}/dob-history`,{method:'POST',body:{purpose:'Fictional legal-role boundary'}})).status,403);pass();
+    assert.equal(await sql(`SELECT count(*) FROM restricted.dob_change_histories WHERE account_id='${aliceId}'`),'1');pass();
+    // D294: every staff role gets age assurance and separately elevated current profile DOB; Legal has no profile-preview authority.
+    const profileDobPath=`/api/admin/accounts/${aliceId}/date-of-birth`,previewPath=`/api/admin/accounts/${aliceId}/profile-preview`;
+    assert.equal((await call(rootToken,profileDobPath,{method:'POST',body:{purpose:'Fictional scoped DOB check'}})).status,403);pass();
+    assert.equal((await call(rootToken,'/api/admin/access/grants',{method:'POST',body:{capability:'profile-dob-open',purpose:'Fictional current profile date access'}})).status,201);pass();
+    const rootDob=await call(rootToken,profileDobPath,{method:'POST',body:{purpose:'Fictional scoped DOB check'}});
+    assert.equal(rootDob.status,200);assert.equal(rootDob.body.dateOfBirth,'1991-05-01');assert.equal(rootDob.body.firstName,undefined);pass();
+    assert.equal((await call(rootToken,`/api/admin/accounts/${aliceId}/identity`,{method:'POST',body:{purpose:'Fictional Legal boundary'}})).status,403);pass();
+    assert.equal((await call(aliceToken,previewPath)).status,403);pass();
+    for(const role of ['support','admin','legal']){
+      const staff=await createStaff('inspection-'+role);
+      assert.equal((await call(rootToken,'/api/admin/invitations',{method:'POST',body:{email:staff.email,role}})).status,201);pass();
+      const token=await staffToken(browser,staff);
+      const assurance=await call(token,`/api/admin/accounts/${aliceId}/assurance`);assert.equal(assurance.status,200);assert.equal(assurance.body.dateOfBirth,undefined);assert.equal(typeof assurance.body.age,'number');pass();
+      assert.equal((await call(token,previewPath)).status,role==='legal'?403:200);pass();
+      assert.equal((await call(token,`/api/admin/accounts/${aliceId}/profile-photos`)).status,role==='admin'?200:403);pass();
+      assert.equal((await call(token,profileDobPath,{method:'POST',body:{purpose:'Fictional role boundary'}})).status,403);pass();
+      assert.equal((await call(token,'/api/admin/access/grants',{method:'POST',body:{capability:'profile-dob-open',purpose:'Fictional staff profile date access'}})).status,201);pass();
+      assert.equal((await call(token,profileDobPath,{method:'POST',body:{purpose:'Fictional scoped profile check'}})).body.dateOfBirth,'1991-05-01');pass();
+      assert.equal((await call(token,dobGrantPath,{method:'POST',body:{reason:'Fictional correction role boundary'}})).status,role==='admin'?200:403);pass();
+      if(role==='admin'){const grants=await call(rootToken,dobGrantPath);const live=grants.body.find(g=>!g.revokedAt&&!g.consumedAt);assert.equal((await call(rootToken,dobGrantPath+'/'+live.id+'/revoke',{method:'POST'})).status,200);pass();}
+    }
+
     // Under-18 entry locks the account (D40); support/admin override lifts it.
     const bobToken = await memberToken(browser, bob);
     assert.equal((await call(bobToken, '/api/me')).status, 200); pass();
     const seventeen = new Date(Date.now() - 17.5 * 365.25 * 86400000).toISOString().slice(0, 10);
-    let locked = await call(bobToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: seventeen } });
+    let locked = await call(bobToken, '/api/me/age', { method: 'PUT', body: { dateOfBirth: seventeen, confirmed: true } });
     assert.equal(locked.status, 403); assert.equal(locked.body.code, 'account-locked'); pass();
     locked = await call(bobToken, '/api/me');
     assert.equal(locked.status, 403); assert.equal(locked.body.code, 'account-locked'); pass();
@@ -109,6 +150,13 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const carol = await createMember('carol');
     let carolToken = await memberToken(browser, carol);
     session = await call(carolToken, '/api/session');
+    assert.equal(session.status,403,'D295 refuses adoption of a new uninvited identity');pass();
+    // Adopt only in this disposable database, then exercise the existing-account beta gate.
+    if (!require('./local-tokens.cjs').ownedRunId) throw Error('This registration fixture requires the owned disposable runner');
+    await sql('UPDATE registration_availability SET public_enabled=true, revision=revision+1 WHERE id=1');
+    try { carolToken=await memberToken(browser,carol);assert.equal((await call(carolToken,'/api/session')).status,200); }
+    finally { await sql('UPDATE registration_availability SET public_enabled=false, revision=revision+1 WHERE id=1'); }
+    session=await call(carolToken,'/api/session');
     assert.deepEqual([session.status, session.body.memberArea, session.body.beta], [200, false, 'notEnrolled']); pass();
     me = await call(carolToken, '/api/me');
     assert.deepEqual([me.status, me.body.code], [403, 'beta-not-enrolled']); pass();
@@ -117,11 +165,11 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const webContext = await browser.newContext(); const webPage = await webContext.newPage();
     await webPage.goto(web + '/account/sign-in?intro=done');
     await webPage.fill('#username', carol.email); await webPage.fill('#password', carol.password);
-    await Promise.all([webPage.waitForURL(web + '/account'), webPage.click('#kc-login')]);
+    await Promise.all([webPage.waitForURL(web+'/explore'),webPage.click('#kc-login')]);await webPage.goto(web+'/account');
     await webPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
     assert.equal(await webPage.locator('[data-beta=notEnrolled]').count(), 1); pass();
     assert.equal(await webPage.locator('[data-beta] a').getAttribute('href'), 'https://swoovr.com/beta/'); pass();
-    assert.match(await webPage.locator('[data-beta]').innerText(), /private beta[\s\S]*not on the list yet/); pass();
+    assert.match(await webPage.locator('[data-beta]').innerText(), /invite-only[\s\S]*not on the list yet/); pass();
     assert.equal(await webPage.locator('[data-member-area=false]').count(), 1); pass();
     await webPage.screenshot({ path: '.local/auth-browser/beta-not-enrolled.png', fullPage: true });
     // Members cannot manage enrolments; admins can.
@@ -148,7 +196,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // Staff are not gated by the beta.
     assert.equal((await call(rootToken, '/api/session')).body.beta, 'notRequired'); pass();
     // The operator command loads a file of fictional addresses and reports counts only.
-    const output = await cli('beta', 'add', '--file', 'containers/postgres/beta-enrolment.fictional.txt');
+    const output = await cli('beta', 'add', '--file', require('node:path').resolve(__dirname,'../../containers/postgres/beta-enrolment.fictional.txt'));
     assert.match(output, /Beta enrolments: \d+ added, \d+ already enrolled, 0 invalid\./); assert.doesNotMatch(output, /@/); pass();
     await assert.rejects(cli('beta', 'add', 'not-an-email'), /./); pass();
     assert.equal(await sql(`SELECT count(*) FROM beta_enrolments WHERE email = 'fictional.tester.one@example.test' AND revoked_at IS NULL`), '1'); pass();
@@ -229,17 +277,19 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const ui = await browser.newContext(); const page = await ui.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', returning.email); await page.fill('#password', returning.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
     assert.equal(await page.locator('[data-badges=founder] [data-badge=founding]').count(), 1, 'founder badge drawn from the API'); pass();
     assert.ok(await page.evaluate(() => [...performance.getEntriesByType('resource')].some(r => r.name.includes('/_framework/') && r.name.endsWith('.wasm'))), 'runs as WebAssembly'); pass();
-    await page.fill('#dob', '1990-05-01'); await page.click('[data-age-form] [type=submit]');
-    await page.waitForSelector('[data-age-status=selfDeclaredAdult]');
-    assert.match(await page.locator('[data-age-form] [role=status]').innerText(), /Saved\. Your age shows as \d+\./); pass();
+    await page.fill('#dob', '1990-05-01');
+    assert.equal(await page.locator('[data-age-form] [type=submit]').isDisabled(),true);pass();
+    await page.locator('[data-age-form] [type=checkbox]').check();await page.click('[data-age-form] [type=submit]');
+    await page.waitForSelector('[data-dob-locked=saved]');
+    assert.match(await page.locator('[data-dob-locked=saved]').innerText(),/locked/);pass();
     // D139: the date of birth is required; there's no age-only field, and an empty date can't be saved.
     assert.equal(await page.locator('#age').count(), 0); pass();
-    await page.fill('#dob', '');
-    assert.equal(await page.locator('[data-age-form] [type=submit]').isDisabled(), true); pass();
+    assert.equal(await page.locator('#dob').count(),0);pass();
+    assert.equal(await page.getByRole('link',{name:'Request a date of birth correction',exact:true}).count(),1);pass();
     assert.equal(JSON.parse(await sql(`SELECT json_build_array(date_of_birth, declared_age)::text FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`))[0], '1990-05-01'); pass();
     await page.fill('#coupon', 'WELCOME10'); await page.click('[data-coupon-form] [type=submit]');
     await page.waitForSelector('[data-coupon-result=invalid]');
@@ -256,15 +306,15 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.doesNotMatch(visible, /eyJ[A-Za-z0-9_-]{10,}\./, 'no token in the page, storage or readable cookies'); pass();
     assert.equal((await fetch(web + '/bff/api/session', { headers: { 'X-Swoovr-Bff': '1' } })).status, 401, 'no session cookie, no access'); pass();
     // Under-18 entry in the WebAssembly page locks the account and shows the locked notice.
-    const young = await createMember('young'); await cli('beta', 'add', young.email);
+    const young = await createMember('young'); await cli('beta', 'add', young.email);await memberToken(browser,young);
     const youngPage = await (await browser.newContext()).newPage();
     await youngPage.goto(web + '/account/sign-in?intro=done');
     await youngPage.fill('#username', young.email); await youngPage.fill('#password', young.password); await youngPage.click('#kc-login');
     // First sign-in of an admin-created member stops at the 18+ terms action.
-    await youngPage.waitForURL(u => u.href.includes('TERMS_AND_CONDITIONS') || u.href === web + '/account');
+    await youngPage.waitForURL(u => u.href.includes('TERMS_AND_CONDITIONS') || u.href === web + '/explore');
     if (youngPage.url().includes('TERMS_AND_CONDITIONS')) await youngPage.click('[name=accept]');
-    await youngPage.waitForURL(web + '/account'); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
-    await youngPage.fill('#dob', new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10)); await youngPage.click('[data-age-form] [type=submit]');
+    await youngPage.waitForURL(web + '/explore');await youngPage.goto(web+'/account'); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
+    await youngPage.fill('#dob', new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10));await youngPage.locator('[data-age-form] [type=checkbox]').check(); await youngPage.click('[data-age-form] [type=submit]');
     await youngPage.waitForSelector('[data-account-locked=true]');
     assert.equal(await youngPage.locator('[data-age-form]').count(), 0); pass();
     await youngPage.reload(); await youngPage.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });

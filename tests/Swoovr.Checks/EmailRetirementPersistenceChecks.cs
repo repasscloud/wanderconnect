@@ -49,8 +49,9 @@ static class EmailRetirementPersistenceChecks
         var commands=new EmailRetirementCommands(keys);var fake=new Provider();
         var now=DateTimeOffset.UtcNow;var owner=Guid.NewGuid();var actor=Guid.NewGuid();var caseId=Guid.NewGuid();var subject=Guid.NewGuid();
         await using var db=new SwoovrDbContext(options);
+        await db.Database.ExecuteSqlRawAsync("UPDATE registration_availability SET beta_enabled=false,public_enabled=true,revision=revision+1 WHERE id=1");
         var account=new Account{Id=owner,Issuer=Provider.Issuer,Subject=subject.ToString(),Realm=AccountRealm.Members,Status=AccountStatus.Active,
-            EmailRetiredAt=now,Email=null,EmailAcceptedAt=now,SessionsRevokedAt=SessionRevocationPolicy.Cutoff(now),CreatedAt=now.AddYears(-1),LastSeenAt=now};
+            RegisteredFirstName="Fictional",RegisteredLastName="Example",RegisteredNamesConfirmedAt=now,EmailRetiredAt=now,Email=null,EmailAcceptedAt=now,SessionsRevokedAt=SessionRevocationPolicy.Cutoff(now),CreatedAt=now.AddYears(-1),LastSeenAt=now};
         db.Accounts.AddRange(account,new Account{Id=actor,Issuer="https://issuer.example.test/realms/staff",Subject="fictional-retirement-reviewer-"+actor,
             Realm=AccountRealm.Staff,IsRootAdmin=true,Status=AccountStatus.Active,CreatedAt=now,LastSeenAt=now});
         db.MemberProfiles.Add(new MemberProfile{AccountId=owner,PublicId=Guid.NewGuid(),DisplayName="Fictional Retired Tester",AgeStatus=AgeStatus.Attested,DateOfBirth=new DateOnly(1990,1,1)});

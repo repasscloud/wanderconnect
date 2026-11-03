@@ -3,7 +3,7 @@ namespace Swoovr.Client;
 /// <summary>#121: educational advice, never a legal-policy acceptance or proof of physical safety.</summary>
 public static class SafetyAdvice
 {
-    public const string Version = "2026-10-30.1";
+    public const string Version = Swoovr.Contracts.AdviceAcknowledgementView.CurrentRevision;
     public const string Title = "Before you connect or meet";
     public const string Link = "/safety/advice";
     public const string Introduction = "You choose who to connect with and when to meet. You can change your mind at any time.";

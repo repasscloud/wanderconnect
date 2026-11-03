@@ -74,7 +74,7 @@ public static class VerificationEndpoints
             }
             var attempt = new IdVerificationAttempt
             {
-                Id = Guid.NewGuid(), AccountId = profile.AccountId, SessionId = session.SessionId, WorkflowId = session.WorkflowId ?? provider.WorkflowId,
+                Id = Guid.NewGuid(), AccountId = profile.AccountId, RegisteredNamesRevision=current!.Account!.RegisteredNamesRevision, SessionId = session.SessionId, WorkflowId = session.WorkflowId ?? provider.WorkflowId,
                 State = state, ProviderStatus = Short(session.Status), Started = state is IdAttemptState.InProgress or IdAttemptState.InReview, SelfService = profile.CanRequestIdVerification,
                 Url = session.Url, CreatedAt = now, UpdatedAt = now,
             };
@@ -100,6 +100,14 @@ public static class VerificationEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true);
             if (denied is not null) return denied;
             var (db, profile, now) = (accounts.Db!, current!.Profile!, clock.GetUtcNow());
+            await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,profile.AccountId,cancellationToken);
+            await db.Entry(profile).ReloadAsync(cancellationToken);
+            await db.Entry(current.Account!).ReloadAsync(cancellationToken);
+            if(current.Account!.Status!=AccountStatus.Active)return Problem(403,ProblemCodes.AccountLocked,"This account is locked.");
+            (current,denied)=await MemberAsync(user,accounts,cancellationToken,ageGateExempt:true);
+            if(denied is not null)return denied;
+            await using var preservation=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
+            await using var transaction=await db.Database.BeginTransactionAsync(cancellationToken);
             if (profile.DobCheck != DobCheck.CorrectionNeeded)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.DobCorrectionNotOpen, "There's no date of birth to correct.");
             if (request.DateOfBirth is not { } corrected
@@ -110,8 +118,15 @@ public static class VerificationEndpoints
             var decision = attempt is null || !provider.Configured ? null : await provider.GetDecisionAsync(attempt.SessionId, cancellationToken);
             if (attempt is null || decision is null || decision.SessionId != attempt.SessionId || decision.VendorData != profile.AccountId.ToString())
                 return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.VerificationProviderFailed, "We couldn't check your ID just now. Try again shortly.");
+            var keys=accounts.Services.GetRequiredService<IdentityKeys>();
+            if(profile.DateOfBirth!=corrected&&profile.DateOfBirth is not null&&keys.CurrentVersion is null)
+                return Problem(503,ProblemCodes.NotConfigured,"Date correction is temporarily unavailable.");
+            DobChangeEndpoints.PreservePrevious(db,keys,profile,corrected,null,now);
             profile.DateOfBirth = corrected;
             profile.DeclaredAge = null;
+            var age=AgePolicy.Evaluate(profile.AgeStatus,corrected,null,DateOnly.FromDateTime(now.UtcDateTime));
+            if(profile.AgeStatus!=age.Status)(profile.AgeStatus,profile.AgeStatusAt)=(age.Status,now);
+            if(age.LocksAccount){current!.Account!.Status=AccountStatus.Locked;current.Account.StatusReason="underage";}
             var result = DobCorrectionPolicy.AfterCorrection(corrected, decision.DateOfBirth);
             (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (result == DobCorrectionResult.Verified, result == DobCorrectionResult.Verified ? now : null);
             (profile.DobCheck, profile.DobCheckAt) = (result == DobCorrectionResult.Verified ? DobCheck.None : DobCheck.ManualReview, now);
@@ -119,6 +134,8 @@ public static class VerificationEndpoints
                 profile.AccountId.ToString(), "correction");
             if (result == DobCorrectionResult.ManualReview) await OpenReviewAsync(db, profile.AccountId, attempt.Id, "still-different", now, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            if(age.LocksAccount)return Problem(403,ProblemCodes.AccountLocked,"This account is locked.");
             return Results.Ok(AccountEndpoints.View(profile, DateOnly.FromDateTime(now.UtcDateTime), await Profiles.ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
         });
 
@@ -162,6 +179,9 @@ public static class VerificationEndpoints
                         : "applied";
                 }
                 db.DiditWebhookEvents.Add(new DiditWebhookEvent { EventId = eventId, ReceivedAt = now, WebhookType = Short(type, 48), SessionId = session?.SessionId is { Length: <= 64 } s ? s : null, Outcome = outcome });
+                // Hold the account lease through the final save so a registered-name edit can't commit between the
+                // revision check in ApplyAsync and this save (the lease is reentrant inside ApplyAsync).
+                await using var lease = outcome == "applied" ? await AccountLifecycleLease.AcquireAsync(db, attempt!.AccountId, cancellationToken) : null;
                 if (outcome == "applied") await ApplyAsync(db, attempt!, session!, now, "webhook", cancellationToken, save: false, identities: identities);
                 else if (outcome != "ignored")
                     Audit.Record(db, now, null, "system", "verification.webhook-" + outcome, "id-verification", attempt?.Id.ToString());
@@ -182,9 +202,22 @@ public static class VerificationEndpoints
             var (_, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
             var db = accounts.Db!;
-            var rows = await (from r in db.DobReviews join p in db.MemberProfiles on r.AccountId equals p.AccountId
-                              where open == false || r.ResolvedAt == null orderby r.CreatedAt select new { r, p.DisplayName }).Take(200).ToListAsync(cancellationToken);
-            return Results.Ok(rows.Select(x => ReviewView(x.r, x.DisplayName)).ToList());
+            // D300: Admin may see confirmed registered names; the Didit session id lets staff compare in Didit (no dates are returned).
+            var query = from r in db.DobReviews join p in db.MemberProfiles on r.AccountId equals p.AccountId
+                              join a in db.Accounts on r.AccountId equals a.Id
+                              join t in db.IdVerificationAttempts on r.AttemptId equals t.Id into attempts from t in attempts.DefaultIfEmpty()
+                              join s in db.Accounts on r.ResolvedBy equals (Guid?)s.Id into resolvers from s in resolvers.DefaultIfEmpty()
+                              where open == false || r.ResolvedAt == null
+                              select new { r, p.DisplayName, First = a.RegisteredNamesConfirmedAt != null ? a.RegisteredFirstName : null,
+                                  Last = a.RegisteredNamesConfirmedAt != null ? a.RegisteredLastName : null, Session = t == null ? null : t.SessionId,
+                                  ResolverFirst = s == null ? null : s.RegisteredFirstName, ResolverLast = s == null ? null : s.RegisteredLastName, ResolverEmail = s == null ? null : s.Email };
+            // The open queue is oldest first; the full list (open=false) returns the newest 200 for history.
+            var rows = await (open == false ? query.OrderByDescending(x => x.r.CreatedAt) : query.OrderBy(x => x.r.CreatedAt)).Take(200).ToListAsync(cancellationToken);
+            return Results.Ok(rows.Select(x => ReviewView(x.r, x.DisplayName) with
+            {
+                FirstName = x.First, LastName = x.Last, DiditSessionId = string.IsNullOrEmpty(x.Session) ? null : x.Session,
+                ResolvedByName = x.r.ResolvedBy is null ? null : StaffName(x.ResolverFirst, x.ResolverLast, x.ResolverEmail),
+            }).ToList());
         });
         reviews.MapPost("/{reviewId:guid}/resolve", async (Guid reviewId, DobReviewDecision request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
             CancellationToken cancellationToken) =>
@@ -199,7 +232,7 @@ public static class VerificationEndpoints
             if (review is null) return Results.NotFound();
             if (review.ResolvedAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This review is already resolved.");
             var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == review.AccountId, cancellationToken);
-            (review.ResolvedAt, review.ResolvedBy, review.Outcome) = (now, current!.Account!.Id, outcome);
+            (review.ResolvedAt, review.ResolvedBy, review.Outcome, review.ResolutionNote) = (now, current!.Account!.Id, outcome, request.Reason.Trim());
             (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (outcome == DobReviewOutcome.Verified, outcome == DobReviewOutcome.Verified ? now : null);
             (profile.DobCheck, profile.DobCheckAt) = (DobCheck.None, now);
             Audit.Record(db, now, current.Account.Id, "account", "dob.review-resolved", "account", review.AccountId.ToString(), Wire(outcome));
@@ -274,7 +307,13 @@ public static class VerificationEndpoints
     }
 
     private static DobReviewView ReviewView(DobReview r, string? name) =>
-        new(r.Id, r.AccountId, name, r.Reason, r.CreatedAt, r.ResolvedAt, r.Outcome is { } o ? Wire(o) : null);
+        new(r.Id, r.AccountId, name, r.Reason, r.CreatedAt, r.ResolvedAt, r.Outcome is { } o ? Wire(o) : null, ResolutionNote: r.ResolutionNote);
+
+    private static string StaffName(string? first, string? last, string? email)
+    {
+        var name = string.Join(" ", new[] { first, last }.Where(n => !string.IsNullOrWhiteSpace(n)));
+        return name.Length > 0 ? name : email ?? "Staff member";
+    }
 
     private static string Short(string value, int max = 32) => value.Length <= max ? value : value[..max];
 
@@ -290,20 +329,45 @@ public static class VerificationEndpoints
     public static async Task ApplyAsync(SwoovrDbContext db, IdVerificationAttempt attempt, ProviderSession session, DateTimeOffset now, string source,
         CancellationToken cancellationToken, bool save = true, VerifiedIdentityStore? identities = null)
     {
-        if (IdVerificationPolicy.Next(attempt.State, session.Status) is not { } next) return;
+        // Reentrant: the webhook already holds this lease and keeps it until its own save (dedupe record included).
+        await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,attempt.AccountId,cancellationToken);
+        // A registered-name edit may have expired this attempt after the caller read it; decide on the committed state.
+        await db.Entry(attempt).ReloadAsync(cancellationToken);
         var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == attempt.AccountId, cancellationToken);
         var account = await db.Accounts.SingleAsync(a => a.Id == attempt.AccountId, cancellationToken);
-        (attempt.State, attempt.ProviderStatus, attempt.UpdatedAt) = (next, Short(session.Status), now);
-        // Expiry or abandonment alone isn't a real attempt (D129); progress or a decision is.
-        attempt.Started |= next is IdAttemptState.InProgress or IdAttemptState.InReview or IdAttemptState.Approved or IdAttemptState.Declined;
-        if (IdVerificationPolicy.Settled(next)) (attempt.CompletedAt, attempt.Url) = (now, null);
-        if (next == IdAttemptState.Approved) attempt.Adult = session.Adult;
+        await db.Entry(account).ReloadAsync(cancellationToken);await db.Entry(profile).ReloadAsync(cancellationToken);
+        var reported = IdVerificationPolicy.Next(attempt.State, session.Status);
+        if (reported is { } moved)
+        {
+            (attempt.State, attempt.ProviderStatus, attempt.UpdatedAt) = (moved, Short(session.Status), now);
+            // Expiry or abandonment alone isn't a real attempt (D129); progress or a decision is.
+            attempt.Started |= moved is IdAttemptState.InProgress or IdAttemptState.InReview or IdAttemptState.Approved or IdAttemptState.Declined;
+            if (IdVerificationPolicy.Settled(moved)) (attempt.CompletedAt, attempt.Url) = (now, null);
+            if (moved == IdAttemptState.Approved) attempt.Adult = session.Adult;
+        }
+        if(attempt.RegisteredNamesRevision!=account.RegisteredNamesRevision)
+        {
+            // Old declarations cannot restore a revoked badge. A confirmed underage result still protects safety, even
+            // when the name edit already expired the attempt and the ordinary state transition is refused.
+            if(IdVerificationPolicy.Map(session.Status)==IdAttemptState.Approved&&session.Adult==false&&profile.AgeStatus!=AgeStatus.Underage)
+            {
+                account.Status=AccountStatus.Locked;account.StatusReason="underage";
+                profile.AgeStatus=AgeStatus.Underage;profile.AgeStatusAt=now;profile.IdStatus=VerificationStatus.Rejected;profile.IdCheckedAt=now;
+                Audit.Record(db,now,null,"system","account.locked","account",account.Id.ToString(),"underage");
+            }
+            Audit.Record(db,now,null,"system","verification.stale-registered-names","id-verification",attempt.Id.ToString());
+            if(save)await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+        if (reported is not { } next) return;
         if (profile.IdStatus != VerificationStatus.Verified || next == IdAttemptState.Approved)
             (profile.IdStatus, profile.IdCheckedAt) = (IdVerificationPolicy.StatusFor(next), IdVerificationPolicy.Settled(next) ? now : profile.IdCheckedAt);
         if (IdVerificationPolicy.ReturnsAttempt(attempt)) profile.CanRequestIdVerification = true;
         Audit.Record(db, now, null, "system", "verification." + next.ToString().ToLowerInvariant(), "id-verification", attempt.Id.ToString(), source);
         if (next == IdAttemptState.Approved)
         {
+            account.RegisteredNamesMatchId=RegisteredNamePolicy.Complete(account)&&session.Identity is{}declaredDocument
+                ?RegisteredNamePolicy.Matches(new(account.RegisteredFirstName!,account.RegisteredLastName,account.RegisteredMononym),declaredDocument.FirstName,declaredDocument.LastName):null;
             var age = IdVerificationPolicy.AgeAfterApproval(profile.AgeStatus, session.Adult);
             if (age != profile.AgeStatus)
             {

@@ -57,7 +57,7 @@
         <ul class="chip-row" data-shared-modes="@string.Join(" ", person.Modes.Select(m => m.Id))">
             @foreach (var mode in person.Modes)
             {
-                <li><span class="chip">@mode.Label</span></li>
+                <li><span class="chip">@mode.Label</span> <span data-mode-public-name="@mode.Id">@mode.DisplayName</span></li>
                 @foreach (var intention in mode.Intentions) { <li><span class="chip is-on">@intention</span></li> }
             }
         </ul>
@@ -190,7 +190,8 @@
     private async Task MessageAsync()
     {
         busy = true;
-        var result = await Members.StartConversationAsync(Id);
+        var selected = person?.Modes.FirstOrDefault(m => m.Id == Mode && m.Connection == "connected") ?? person?.Modes.FirstOrDefault(m => m.Connection == "connected");
+        var result = selected is null ? await Members.StartConversationAsync(Id) : await Members.StartConversationInModeAsync(Id, selected.Id);
         busy = false;
         if (result.Value is { } conversation) Navigation.NavigateTo($"/chats/{conversation.Id}");
         else (connectStatus, connectMessage) = ("failed", "You can message people you're connected with.");

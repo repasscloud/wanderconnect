@@ -1,0 +1,47 @@
+@inject AdminClient Admin
+@if(allowed)
+{
+    <section class="ui-card" data-dob-correction-tools>
+        <h2 class="ui-card-title">Date of birth correction</h2>
+
+        @if(message is not null){<p role="status" data-dob-grant-result="@resultCode">@message</p>}
+        <form method="post" @formname="dob-grant" @onsubmit="GrantAsync" class="stack" data-enhance="true">
+            <AntiforgeryToken />
+            <label>Reason<textarea name="dobReason" maxlength="500" required></textarea></label>
+            <button type="submit">Allow one correction for 24 hours</button>
+        </form>
+        @foreach(var grant in grants)
+        {
+            <p>Created @grant.CreatedAt.ToString("u") · expires @grant.ExpiresAt.ToString("u") · @(grant.ConsumedAt is not null?"used":grant.RevokedAt is not null?"revoked":grant.ExpiresAt<=DateTimeOffset.UtcNow?"expired":"available")</p>
+            @if(grant.ConsumedAt is null&&grant.RevokedAt is null&&grant.ExpiresAt>DateTimeOffset.UtcNow)
+            {
+                <form method="post" @formname="@($"dob-revoke-{grant.Id}")" @onsubmit="()=>RevokeAsync(grant.Id)" data-enhance="true">
+                    <AntiforgeryToken /><button type="submit" class="secondary">Revoke correction</button>
+                </form>
+            }
+        }
+        <a href="/dob-history?account=@AccountId">Open previous date history (Legal only)</a>
+    </section>
+}
+@code{
+    [Parameter] public Guid AccountId{get;set;}
+    [CascadingParameter] private HttpContext? Context{get;set;}
+    private bool allowed;
+    private List<DobGrantView> grants=[];
+    private string? message,resultCode;
+    protected override async Task OnInitializedAsync()=>await LoadAsync();
+    private async Task LoadAsync(){var result=await Admin.DobGrantsAsync(AccountId);allowed=result.Ok;grants=result.Value??[];}
+    private async Task GrantAsync()
+    {
+        var reason=Context?.Request.HasFormContentType==true?Context.Request.Form["dobReason"].ToString():"";
+        var result=await Admin.GrantDobCorrectionAsync(AccountId,reason);
+        resultCode=result.Ok?"ok":result.Code??result.Status.ToString();message=result.Ok?"Correction allowed for 24 hours.":AdminText.Refusal(result.Status,result.Code);
+        await LoadAsync();
+    }
+    private async Task RevokeAsync(Guid id)
+    {
+        var result=await Admin.RevokeDobCorrectionAsync(AccountId,id);
+        resultCode=result.Ok?"ok":result.Code??result.Status.ToString();message=result.Ok?"Correction revoked.":AdminText.Refusal(result.Status,result.Code);
+        await LoadAsync();
+    }
+}

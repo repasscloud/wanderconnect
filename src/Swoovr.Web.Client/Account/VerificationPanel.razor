@@ -7,7 +7,7 @@
     <p class="breadcrumb"><a href="/account">Me</a> / ID verification</p>
     <h1>ID verification</h1>
     @if (!loaded) { <p role="status">Loading…</p> }
-    else if (view is null) { <p role="status" data-verification-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "ID verification opens once your email is on the private beta list." : "We couldn't load your ID verification.")</p> }
+    else if (view is null) { <p role="status" data-verification-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "ID verification opens once your email is on the invitation list." : "We couldn't load your ID verification.")</p> }
 </div>
 @if (view is not null)
 {

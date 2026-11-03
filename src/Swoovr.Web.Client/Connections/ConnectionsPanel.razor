@@ -5,7 +5,7 @@
 <div class="page-heading" data-connections="@(loaded ? (refused is null ? "ready" : "refused") : "loading")">
     <h1>Connections</h1>
     @if (!loaded) { <p role="status">Loading…</p> }
-    else if (refused is not null) { <p role="status" data-connections-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Connections open once your email is on the private beta list." : "We couldn't load your connections.")</p> }
+    else if (refused is not null) { <p role="status" data-connections-refused="@refused">@(refused == ProblemCodes.BetaNotEnrolled ? "Connections open once your email is on the invitation list." : "We couldn't load your connections.")</p> }
 </div>
 @if (loaded && refused is null)
 {

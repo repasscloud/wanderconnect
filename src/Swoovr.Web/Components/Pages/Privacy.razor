@@ -1,10 +1,9 @@
 @page "/privacy"
 @* #99, #22: the member-facing privacy notice, a DRAFT until legal review (#57). Text shared with the app (PrivacyNotice). *@
 @using Swoovr.Client
-<PageTitle>Privacy notice (draft) — Swoovr</PageTitle>
+<PageTitle>Privacy notice — Swoovr</PageTitle>
 <div class="reading-page">
     <div class="page-heading" data-privacy-notice>
-        <p class="notice" role="note" data-draft><strong>@PrivacyNotice.DraftLabel</strong></p>
         <h1>Privacy notice</h1>
         <p class="field-help">@PrivacyNotice.Version</p>
     </div>
@@ -21,5 +20,4 @@
             @if (s.Id == "choices") { <p><a href="/account/data">Your data and account</a></p> }
         </section>
     }
-    <p class="notice" role="note"><strong>@PrivacyNotice.DraftLabel</strong></p>
 </div>

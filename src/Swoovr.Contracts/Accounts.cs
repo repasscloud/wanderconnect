@@ -20,7 +20,7 @@ public sealed record MemberAccount(
     string DobCheck = "none",
     bool PhoneVerified = false,
     bool PhoneRequired = false,
-    string? EmailChangeProblem = null,bool PolicyRequired=false);
+    string? EmailChangeProblem = null,bool PolicyRequired=false,DateTimeOffset? DateOfBirthCorrectionUntil=null,bool RegisteredNamesRequired=false,bool PhoneGateEnabled=false);
 
 /// <summary>
 /// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion
@@ -52,11 +52,17 @@ public sealed record ExportTicket(string Path, DateTimeOffset ExpiresAt);
 public sealed record DobCorrectionRequest(DateOnly? DateOfBirth);
 
 /// <summary>Both optional; a date of birth, when given, decides the age (owner, 23 October 2026).</summary>
-public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age);
+public sealed record AgeUpdate(DateOnly? DateOfBirth, int? Age, bool Confirmed=false);
+
+public sealed record DobGrantRequest(string? Reason);
+public sealed record DobGrantView(Guid Id,Guid AccountId,DateTimeOffset CreatedAt,DateTimeOffset ExpiresAt,DateTimeOffset? ConsumedAt,DateTimeOffset? RevokedAt);
+public sealed record DobHistoryView(Guid Id,DateOnly PreviousDateOfBirth,DateTimeOffset ChangedAt);
 
 /// <summary>Problem codes the API returns in a problem response's "code" extension.</summary>
 public static class ProblemCodes
 {
+    public const string RegisteredNamesRequired="registered-names-required";
+    public const string DobConfirmationRequired="dob-confirmation-required";
     public const string RecordChanged="record-changed";
     public const string PolicyAcceptanceRequired="policy-acceptance-required";
     public const string IdentifierRestricted = "identifier-restricted";
@@ -246,7 +252,7 @@ public sealed record FounderTokenView(Guid Id, int Place, int SecretVersion, str
 
 public sealed record BetaEnrolmentRequest(string Email);
 public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt,
-    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded",string InvitationState="not-queued",int InvitationAttempts=0,DateTimeOffset? InvitationQueuedAt=null,DateTimeOffset? InvitationCompletedAt=null,string? MemberName=null);
+    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded",string InvitationState="not-queued",int InvitationAttempts=0,DateTimeOffset? InvitationQueuedAt=null,DateTimeOffset? InvitationCompletedAt=null,string? MemberName=null,string? FirstName=null,string? LastName=null);
 public sealed record BetaEnrolmentPage(IReadOnlyList<BetaEnrolmentView> Items,int Total,int Page,int Size);
 public sealed record IosDistributionUpdate(string State,long ExpectedRevision,bool Confirm);
 
@@ -255,7 +261,11 @@ public sealed record InvitationView(Guid Id, string Email, string Realm, string 
     DateTimeOffset ExpiresAt, string State);
 
 /// <summary>An account as staff see it in search results. No email, issuer or subject.</summary>
-public sealed record AccountView(Guid Id, string Realm, string Status, string? StatusReason, string? AgeStatus, DateTimeOffset CreatedAt);
+public sealed record AccountView(Guid Id, string Realm, string Status, string? StatusReason, string? AgeStatus, DateTimeOffset CreatedAt,string? RegisteredName=null);
+/// <summary>D307 staff account search result: registered names, age, home city, ID verified, email and verified mobile.</summary>
+public sealed record AccountSearchHit(Guid Id, string Kind, string? FirstName, string? LastName, int? Age, string? City, bool IdVerified,
+    string? Email, string? Phone, string Status, string? DisplayName);
+public sealed record AccountSearchResult(string Kind, IReadOnlyList<AccountSearchHit> Items, int Total);
 
 /// <summary>Admin requests for official bots and staff affiliation (Q11, D108).</summary>
 public sealed record BotClassificationRequest(bool Bot);

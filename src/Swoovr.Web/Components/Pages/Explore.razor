@@ -9,7 +9,7 @@
 else
 {
     @* Signed in: Interactive WebAssembly through /bff/, not prerendered (D59, D85). *@
-    <ExplorePanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    <Swoovr.Web.Client.Account.MemberSetupGate Page="explore" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
 @code {

@@ -61,9 +61,9 @@ static class BetaEnrolmentOperationsChecks
             var notifier=new Swoovr.Api.Notifications.Notifier(services,new NeverPush(),new Sink(),NullLogger<Swoovr.Api.Notifications.Notifier>.Instance);
             await notifier.NotifyAsync(member,NotificationKind.Message,staff,null,null,now,default,text:"Fictional message preview");
             check("revoked beta cannot create new message notification delivery",!await db.Notifications.AnyAsync(n=>n.AccountId==member&&n.Kind==NotificationKind.Message));
-            config["Beta:Enabled"]="false";
+            await db.Database.ExecuteSqlRawAsync("UPDATE registration_availability SET beta_enabled=false,public_enabled=true,revision=revision+1 WHERE id=1");
             check("public launch beta-off switch disables audience gate",await Swoovr.Api.Connections.BetaMessageAudience.AllowsAsync(services,member,default));
-            config["Beta:Enabled"]="true";
+            await db.Database.ExecuteSqlRawAsync("UPDATE registration_availability SET beta_enabled=true,public_enabled=false,revision=revision+1 WHERE id=1");
             await db.BetaEnrolments.Where(e=>e.Id==oldId).ExecuteUpdateAsync(set=>set.SetProperty(e=>e.RevokedAt,(DateTimeOffset?)null));
             var founders=new Founders(services,config,new Sink(),NullLogger<Founders>.Instance);var evidence=new EvidencePreservation(services,new EvidenceKeys(config,founders),new ContactHistoryKeys(config,founders));
             var expiry=new BetaEnrolmentRetention(db,evidence,TimeProvider.System);

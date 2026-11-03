@@ -39,7 +39,7 @@ public sealed class ProfilePage : ContentPage
 		if (catalogue.Value is null || own.Value is null)
 		{
 			body.Children.Add(Ui.Text(catalogue.Code == ProblemCodes.BetaNotEnrolled || own.Code == ProblemCodes.BetaNotEnrolled
-				? "Your profile opens once your email is on the private beta list." : "We couldn't load your profile.", id: "ProfileRefused"));
+				? "Your profile opens once your email is on the invitation list." : "We couldn't load your profile.", id: "ProfileRefused"));
 			return;
 		}
 		(modes, profile) = (catalogue.Value, own.Value);
@@ -67,6 +67,9 @@ public sealed class ProfilePage : ContentPage
 		var show = new Switch { IsToggled = setting.Visible, IsEnabled = setting.Enabled, AutomationId = $"Show_{mode.Id}" };
 		use.Toggled += async (_, e) => await SaveModeAsync(mode.Id, e.Value, setting.Visible || e.Value, setting.Intentions, setting.About);
 		show.Toggled += async (_, e) => await SaveModeAsync(mode.Id, setting.Enabled, e.Value, setting.Intentions, setting.About);
+		var modeName = Ui.Entry($"ModeName_{mode.Id}", "Uses your main public display name", 40);
+		modeName.Text = setting.DisplayName;
+		modeName.Unfocused += async (_, _) => { if ((modeName.Text ?? "") != (setting.DisplayName ?? "")) await SaveModeAsync(mode.Id, setting.Enabled, setting.Visible, setting.Intentions, setting.About, displayName: modeName.Text ?? ""); };
 		// D175: an about for this mode only. #91: the main about shows here only if the member says so.
 		var modeAbout = new Editor { Text = setting.About, Placeholder = setting.ShareCoreAbout ? "Uses your main about" : $"Empty: no about shows in {mode.Label}", MaxLength = 500,
 			AutoSize = EditorAutoSizeOption.TextChanges, AutomationId = $"ModeAbout_{mode.Id}" };
@@ -87,6 +90,7 @@ public sealed class ProfilePage : ContentPage
 			new HorizontalStackLayout { Spacing = 8, Children = { use, Ui.Text($"Use {mode.Label}") } },
 			new HorizontalStackLayout { Spacing = 8, Children = { show, Ui.Text($"Show my profile in {mode.Label}") } },
 			Ui.Text($"{picked} of {mode.MaxIntentions}", "FieldLabel", $"ChipCount_{mode.Id}"), chips,
+			Ui.Text($"Display name in {mode.Label} (optional)", "FieldLabel"), modeName,
 			Ui.Text($"About me in {mode.Label} (only shown in {mode.Label})", "FieldLabel"), modeAbout,
 			new HorizontalStackLayout { Spacing = 8, Children = { share, Ui.Text($"Show my main about in {mode.Label} when this is empty") } });
 	}
@@ -97,9 +101,9 @@ public sealed class ProfilePage : ContentPage
 		status.Text = result.Ok ? "Saved." : "Check the fields: no special characters, and keep within the lengths shown.";
 	}
 
-	private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about, bool? shareCoreAbout = null)
+	private async Task SaveModeAsync(string modeId, bool enabled, bool visible, IReadOnlyList<Guid> intentions, string? about, bool? shareCoreAbout = null, string? displayName = null)
 	{
-		var result = await Ui.Members!.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about, shareCoreAbout));
+		var result = await Ui.Members!.SaveModeAsync(modeId, new ModeUpdate(enabled, visible, intentions, about, shareCoreAbout, displayName));
 		if (result.Value is null) { status.Text = "That change wasn't saved. Try again."; return; }
 		await LoadAsync();
 	}

@@ -12,7 +12,7 @@
     else if (session is not null && BetaBlocked)
     {
         <h1>Almost there, @Name.</h1>
-        <p>You're signed in. The Swoovr app opens once your email is on the private beta list.</p>
+        <p>You're signed in. The Swoovr app opens once your email is on the invitation list.</p>
     }
     else
     {
@@ -23,7 +23,7 @@
 @if (loaded)
 {
     <EmailChangeNotice Problem="@session?.EmailChangeProblem" />
-    @if(session is not null){<Swoovr.Web.Client.Moderation.SafetyAdviceCard />}
+
     <section class="card account-session" aria-label="Your session">
         @if (session is null)
         {
@@ -35,7 +35,7 @@
             {
                 @* D77: same words whatever the reason, so the page never says whether an address was ever enrolled. *@
                 <div class="notice" role="status" data-beta="@session.Beta">
-                    <p><strong>Swoovr is in private beta.</strong> You're not on the list yet.</p>
+                    <p><strong>Swoovr is currently invite-only.</strong> You're not on the list yet.</p>
                     <p><a class="link" href="@AccountText.BetaUrl">Ask to join the beta on swoovr.com</a></p>
                 </div>
             }
@@ -48,6 +48,7 @@
             <p class="field-help">Confirming you're 18+ isn't age verification. ID checks come later.</p>
         }
     </section>
+    @if(me is{AccountState:"active"}){<RegisteredNamesPanel Changed="NamesChangedAsync" />}
     @if (locked)
     {
         <section class="card account-section" aria-label="Account locked" data-account-locked="true">
@@ -73,6 +74,10 @@
             <p><a class="button" href="/me/notices">Read the notice</a></p>
         </section>
     }
+    else if(me is{RegisteredNamesRequired:true})
+    {
+        <section class="card account-section" data-registered-name-gate><h2>Complete your registered names</h2><p>Confirm the names above before continuing. Your data, account notices and support remain available.</p></section>
+    }
     else if(me is {PolicyRequired:true})
     {
         <section class="card account-section" data-policy-gate><h2>Review the required policies</h2><p><a class="button" href="/account/policies">Review and choose whether to accept</a></p><p>Account data, notices, appeals and support remain available.</p></section>
@@ -81,7 +86,10 @@
     {
         <DobCorrectionPrompt Account="me" Changed="Corrected" />
         @* D148: the mobile number step (first when the gate is on). *@
-        <PhonePanel />
+        @if(me.PhoneRequired){<p data-setup-step="phone">Step 1 of 2 · Verify your mobile number</p>}
+        <div id="setup-phone"><PhonePanel Changed="PhoneChanged" /></div>
+        @if(!me.PhoneRequired && me.DateOfBirth is null){<p data-setup-step="age">@(me.PhoneGateEnabled ? "Step 2 of 2" : "Step 1 of 1") · Confirm your date of birth</p>}
+        @if(!me.PhoneRequired && !me.RegisteredNamesRequired && me.DateOfBirth is not null){<FirstUseSafetyAdvice />}
         @if (me.AgeStatus == "needsVerification")
         {
             @* D127: the rest of the app answers age-verification-required until the check passes or support resolves it. *@
@@ -108,7 +116,9 @@
             }
         </section>
 
-        <section class="card account-section" aria-labelledby="age-heading">
+        @if(!me.PhoneRequired)
+        {
+        <section id="setup-age" class="card account-section" aria-labelledby="age-heading">
             <h2 id="age-heading">Your age</h2>
             @* D139: a date of birth is required and never shown; your age shows unless you hide it (Me → Who I'd like to meet). *@
             <p class="field-help">We need your date of birth to show you in discovery. It's never shown; your age is, unless you hide it. Entering it isn't age verification.</p>
@@ -116,19 +126,28 @@
             {
                 <p class="field-help" data-dob-locked="@me.DobCheck">@(me.DobCheck == "correctionNeeded" ? "Set your date of birth in the prompt above to finish ID verification." : "Swoovr is checking your date of birth, so it can't be changed for now.")</p>
             }
+            else if(me.DateOfBirth is not null && !(me.DateOfBirthCorrectionUntil>DateTimeOffset.UtcNow))
+            {
+                <p data-dob-locked="saved">Saved date of birth: <strong>@me.DateOfBirth.Value.ToString("d MMMM yyyy")</strong>. This date is locked.</p>
+                @if(me.DateOfBirthVerified){<p class="field-help" data-dob-verified="true">Verified with your ID.</p>}
+                <a href="https://swoovr.com/support">Request a date of birth correction</a>
+            }
             else
             {
             <form class="stack" @onsubmit="SaveAgeAsync" data-age-form>
                 <div class="field"><label for="dob">Date of birth</label><input id="dob" type="date" required @bind="dateOfBirth" max="@Today" /></div>
-                @if (me.DateOfBirthVerified) { <p class="field-help" data-dob-verified="true">Verified with your ID. Contact Swoovr support to change it.</p> }
-                <button type="submit" class="button" disabled="@(busy || dateOfBirth is null)">Save</button>
+                @if(me.DateOfBirthCorrectionUntil is{}until){<p class="field-help">An Admin has allowed one correction until @until.ToString("u").</p>}
+                <label class="field-help"><input type="checkbox" @bind="dobConfirmed" required /> I confirm this date is correct. It will be locked after saving.</label>
+                <button type="submit" class="button" disabled="@(busy || dateOfBirth is null || !dobConfirmed)">Confirm and save</button>
                 <p role="status" aria-live="polite" class="field-help" data-age-status="@AgeStatus">@ageMessage</p>
             </form>
             }
         </section>
 
-        <section class="card account-section" aria-labelledby="coupon-heading">
-            <h2 id="coupon-heading">Coupon code</h2>
+        }
+
+        <section id="membership-billing" class="card account-section" aria-labelledby="coupon-heading">
+            <h2 id="coupon-heading">Membership &amp; billing</h2><h3>Coupon code</h3>
             <p class="field-help">Founding members: if you've returned to Swoovr, enter the founder code we emailed you to restore your founding status.</p>
             <form class="stack" @onsubmit="RedeemAsync" data-coupon-form>
                 <div class="field"><label for="coupon">Code</label><input id="coupon" type="text" autocomplete="off" spellcheck="false" @bind="coupon" @bind:event="oninput" placeholder="FOUNDER-…" /></div>
@@ -141,7 +160,7 @@
 @code {
     [Parameter, EditorRequired] public string Name { get; set; } = "";
 
-    private bool loaded, busy, locked;
+    private bool loaded, busy, locked, dobConfirmed;
     private SessionSummary? session;
     private MemberAccount? me;
     private DateOnly? dateOfBirth;
@@ -149,6 +168,8 @@
     private bool BetaBlocked => AccountText.BetaBlocked(session);
     private string AgeStatus => me?.AgeStatus ?? "";
     private static string Today => DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+    private async Task PhoneChanged(PhoneView view) { Show(await Members.MeAsync()); }
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,18 +189,22 @@
         if (result.Value is not { } account) return;
         me = account;
         dateOfBirth = account.DateOfBirth;
+        dobConfirmed=false;
     }
 
     private async Task SaveAgeAsync()
     {
         busy = true;
-        var result = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, null));
+        var result = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, null, dobConfirmed));
         busy = false;
         if (result.Code is ProblemCodes.InvalidAge or ProblemCodes.DateOfBirthRequired) { ageMessage = AccountText.InvalidAge; return; }
-        if (result.Code == ProblemCodes.DateOfBirthLocked) { ageMessage = "Your age was confirmed by ID verification. Contact Swoovr support to change it."; return; }
+        if (result.Code == ProblemCodes.DateOfBirthLocked) { ageMessage = "Your saved date of birth is locked. Request a correction at https://swoovr.com/support."; return; }
+        if(result.Code==ProblemCodes.DobConfirmationRequired){ageMessage="Confirm the date is correct before saving.";return;}
         Show(result);
         ageMessage = locked ? null : AccountText.AgeSaved(me);
     }
+
+    private async Task NamesChangedAsync()=>Show(await Members.MeAsync());
 
     private void Corrected(MemberAccount updated) => (me, dateOfBirth, ageMessage) = (updated, updated.DateOfBirth,
         updated.DateOfBirthVerified ? "Thanks. Your date of birth now matches your ID." : "Thanks. It still differs from your ID, so Swoovr's team will check it.");

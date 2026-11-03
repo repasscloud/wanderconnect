@@ -86,6 +86,7 @@ public sealed class StaffConflictHistory(SwoovrDbContext db, EvidencePreservatio
         || await db.EvidenceItems.AnyAsync(e => e.AccountId == member, token)
         || await db.LeCasePeople.AnyAsync(p => p.AccountId == member, token)
         || await db.VerifiedIdentities.AnyAsync(i => i.AccountId == member, token)
+        || await db.DobChangeHistories.AnyAsync(i=>i.AccountId==member,token)
         || await db.ContactHistories.AnyAsync(h => h.AccountId == member, token)
         || await db.IdentityAccesses.AnyAsync(a => a.AccountId == member, token)
         // Undeciphered legacy membership cannot establish that a subject is absent.

@@ -11,6 +11,9 @@ FROM source AS web-publish
 RUN dotnet publish src/Swoovr.Web -c Release -o /publish -p:NuGetAudit=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS runtime
+# System.Net.Security.Native loads this SONAME during Npgsql GSS probing (Q92).
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 USER $APP_UID

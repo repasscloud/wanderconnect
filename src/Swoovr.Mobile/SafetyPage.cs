@@ -88,7 +88,7 @@ public sealed class SafetyPage : ContentPage
 			rows.Add(Ui.Text(SafetyText.External, "FooterClaims"));
 		}
 		cards.Add(Ui.Card([.. rows]));
-		cards.Add(Ui.Card(Ui.Text(SafetyText.SwoovrActions, "SectionHeading"), Ui.Text(SafetyText.SwoovrHelp, "FooterClaims", "SwoovrActions")));
+		if (await Ui.SignedInAsync()) cards.Add(Ui.Card(Ui.Text(SafetyText.SwoovrActions, "SectionHeading"), Ui.Text(SafetyText.SwoovrHelp, "FooterClaims", "SwoovrActions")));
 		return cards;
 	}
 
@@ -99,11 +99,11 @@ public sealed class SafetyPage : ContentPage
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Safety", "PageTitle", "SafetyTitle"));
         body.Children.Add(Ui.Button("Connection and meeting advice","SafetyAdviceOpen",()=>Ui.PushAsync(new SafetyAdvicePage()),primary:false));
-        body.Children.Add(Ui.Button("Terms of use (draft)","SafetyTerms",()=>Ui.PushAsync(new PublicPolicyPage("terms")),primary:false));
-        body.Children.Add(Ui.Button("Community guidelines (draft)","SafetyCommunity",()=>Ui.PushAsync(new PublicPolicyPage("community")),primary:false));
+        body.Children.Add(Ui.Button("Terms of use","SafetyTerms",()=>Ui.PushAsync(new PublicPolicyPage("terms")),primary:false));
+        body.Children.Add(Ui.Button("Community guidelines","SafetyCommunity",()=>Ui.PushAsync(new PublicPolicyPage("community")),primary:false));
 		foreach (var card in await SafetyCardsAsync()) body.Children.Add(card);
 		// Signed out (or no account yet), the contacts above still show; reporting needs a signed-in member.
-		if (!await Ui.SignedInAsync()) { body.Children.Add(Ui.Text("Sign in on the Me tab to report a serious safety incident.", id: "SafetySignedOut")); return; }
+		if (!await Ui.SignedInAsync()) return;
 		if(meetingContext is not null)body.Children.Add(Ui.Text("This report includes your meeting times, venue or area and check-in status for staff review. Private feedback and trusted-contact details are excluded.","FooterClaims"));
         if (subjectType is not null && subjectId is not null) body.Children.Add(await FormAsync());
 		body.Children.Add(Ui.Button("I’m meeting someone","MeetingSafetyOpen",()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));

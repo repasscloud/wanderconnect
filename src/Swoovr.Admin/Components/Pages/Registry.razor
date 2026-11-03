@@ -1,35 +1,48 @@
 @page "/registry"
 @inject AdminClient Admin
 <PageTitle>Identifier review — Swoovr admin</PageTitle>
-<h1>Identifier review</h1>
-<p class="help">Restricted staff records. A match does not establish who owns an address or number now. Review the associated case and verify the circumstances before releasing a restriction. Identifier release and account reinstatement are separate actions.</p>
+<header class="ui-page-head">
+    <h1>Identifier review</h1>
+    <p>Restricted email addresses and mobile numbers from terminated accounts.</p>
+</header>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-<p><a href="/access">Elevated access</a> · <a href="/sign-in?reauth=true&amp;returnUrl=/registry" data-enhance-nav="false">Sign in again</a></p>
-<section class="card">
-    <h2>Find an identifier</h2>
-    @if (grant is null) { <p class="help" data-lookup-access="required">Ask for identifier-release access with a recorded purpose before searching.</p> }
-    else { <p class="help" data-lookup-purpose>Recorded access purpose: @grant.Purpose</p> }
-    <form method="post" @formname="lookup" @onsubmit="LookupAsync" class="stack" data-registry-lookup data-enhance="false">
+@if (grant is null)
+{
+    <div class="ui-locked" data-lookup-access="required">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <strong>Elevated access required to search</strong>
+        <span class="acct-buttons"><a class="ui-button-ghost" href="/access">Request access</a><a class="ui-button-ghost" href="/sign-in?reauth=true&amp;returnUrl=/registry" data-enhance-nav="false">Sign in again</a></span>
+    </div>
+}
+else
+{
+    <div class="media-safety is-acknowledged ui-banner" data-lookup-purpose><span class="media-safety-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></span><span>Elevated access · <strong>@grant.Purpose</strong></span><a class="ui-button-ghost" href="/access">Manage</a></div>
+}
+<section class="ui-card" aria-label="Find an identifier">
+    <h2 class="ui-card-title">Find an identifier</h2>
+    <form method="post" @formname="lookup" @onsubmit="LookupAsync" data-registry-lookup data-enhance="true">
         <AntiforgeryToken />
-        <fieldset disabled="@(grant is null)">
-            <label>Identifier type<select name="type"><option value="email">Email</option><option value="mobile">Mobile number</option></select></label>
-            <label>Identifier from the support review<input name="value" maxlength="254" autocomplete="off" spellcheck="false" required /></label>
+        <fieldset disabled="@(grant is null)" class="ui-big-search ui-fieldset-plain">
+            <label class="ui-field ui-type"><span class="sr-only">Identifier type</span><select name="type"><option value="email">Email</option><option value="mobile">Mobile number</option></select></label>
+            <label class="ui-field beta-search"><span class="sr-only">Identifier from the support review</span><input name="value" type="search" maxlength="254" autocomplete="off" spellcheck="false" required placeholder="Search text…" /></label>
             <button type="submit" data-registry-search>Search</button>
         </fieldset>
     </form>
-    @if (found is not null) { <section data-registry-search-results><h3>Search results</h3><RegistryEntries Rows="@found" /></section> }
+    @if (found is not null) { <section data-registry-search-results class="ui-results-block"><RegistryEntries Rows="@found" /></section> }
 </section>
-<section class="card">
-    <h2>Review queue</h2>
-    <form method="get" action="/registry" class="row" data-enhance="false">
-        <label>Show<select name="due"><option value="true" selected="@OnlyDue">Due for necessity review</option><option value="false" selected="@(!OnlyDue)">All restrictions</option></select></label>
-        <label>Case id (optional)<input name="caseId" value="@CaseId" /></label>
-        <button type="submit" class="secondary">Apply</button>
-    </form>
-    @if (loadError is not null) { <p role="status" data-registry-load="refused">@loadError</p> }
-    else { <RegistryEntries Rows="@rows" /> }
-    @if (next is {} cursor) { <a href="@NextLink(cursor)" data-registry-next>Next page</a> }
-</section>
+<nav class="ui-tabs" aria-label="Restrictions">
+    <a href="/registry@(CaseId is { } c1 ? "?caseId=" + c1 : "")" aria-current="@(OnlyDue ? "page" : null)">Due for necessity review</a>
+    <a href="/registry?due=false@(CaseId is { } c2 ? "&caseId=" + c2 : "")" aria-current="@(!OnlyDue ? "page" : null)">All restrictions</a>
+</nav>
+<form method="get" action="/registry" class="ui-inline-filter" data-enhance="false">
+    <input type="hidden" name="due" value="@(OnlyDue ? "true" : "false")" />
+    <label class="ui-field"><span>Case id</span><input name="caseId" value="@CaseId" placeholder="Optional" /></label>
+    <button type="submit" class="ui-button-ghost">Apply</button>
+    @if (CaseId is not null) { <a class="ui-button-ghost" href="/registry?due=@(OnlyDue ? "true" : "false")">Clear</a> }
+</form>
+@if (loadError is not null) { <p class="notice" role="status" data-registry-load="refused">@loadError</p> }
+else { <RegistryEntries Rows="@rows" /> }
+@if (next is {} cursor) { <nav class="ui-paging"><span></span><a class="ui-button-ghost" href="@NextLink(cursor)" data-registry-next>Next page</a></nav> }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
     [SupplyParameterFromQuery] public Guid? CaseId { get; set; }
@@ -53,7 +66,7 @@
         if(grant is null){resultCode="elevated-access-required";message=AdminText.Refusal(403,resultCode);return;}
         var result=await Admin.RegistryLookupAsync(new IdentifierLookup(Field("type"),Field("value"),grant.Purpose));
         found=result.Value;resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
-        message=result.Ok?"Search completed. Contact values are not echoed in these results.":RegistryText.Refusal(result.Status,result.Code);
+        message=result.Ok?null:RegistryText.Refusal(result.Status,result.Code);
     }
     private string NextLink(Guid cursor)=>"/registry?due="+(OnlyDue?"true":"false")+"&after="+cursor+(CaseId is{}review?"&caseId="+review:"");
 }

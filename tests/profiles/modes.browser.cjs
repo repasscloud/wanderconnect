@@ -4,7 +4,7 @@
 // build for operator commands. Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -150,7 +150,10 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     await sql(`UPDATE member_profiles SET bot = true WHERE public_id = '${benCard.id}'`);
     assert.ok(!ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
     await sql(`UPDATE member_profiles SET bot = false WHERE public_id = '${benCard.id}'`);
-    await call(tokens.ben, '/api/me/age', { method: 'PUT', body: { dateOfBirth: new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10) } }); // fictional under-18 date locks the account (D40)
+    const correction=await call(await rootAdminToken(browser),`/api/admin/accounts/${benAccount}/dob-correction`,{method:'POST',body:{reason:'Fictional underage correction acceptance'}});
+    assert.equal(correction.status,200);pass();
+    const underage=await call(tokens.ben, '/api/me/age', { method: 'PUT', body: { dateOfBirth: new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10), confirmed:true } }); // authorised correction still enforces D40
+    assert.equal(underage.body.code,'account-locked');pass();
     assert.ok(!ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass();
     assert.equal((await call(tokens.ben, '/api/explore?mode=dating')).body.code, 'account-locked'); pass();
 
@@ -166,7 +169,7 @@ const { web, createMember, memberToken, cli, sql, call, claims, matchReady } = r
     page.on('request', r => { if (r.url().includes(':5080')) apiCalls.push(r.url()); });
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', ana.email); await page.fill('#password', ana.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.goto(web + '/me/profile');
     await page.waitForSelector('[data-profile-editor=ready]', { timeout: 20000 });
     assert.equal(await page.inputValue('#display-name'), 'Fictional Ana'); pass();

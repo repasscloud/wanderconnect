@@ -33,10 +33,23 @@ public sealed class ContactHistoryKeys(IConfiguration configuration, Founders fo
     }
 
     /// <summary>A history record of a previous value, or null (and nothing kept) when no keys are configured.</summary>
-    public ContactHistory? Record(Guid accountId, ContactType type, string previous, DateTimeOffset? validFrom, DateTimeOffset now, Guid? changedBy, string reason) =>
+    public ContactHistory? Record(Guid accountId, ContactType type, string previous, DateTimeOffset? validFrom, DateTimeOffset now, Guid? changedBy, string reason,ContactChangeEvidence? evidence=null) =>
         CurrentVersion is { } version && Lookup is { } lookup
-            ? ContactHistoryPolicy.Record(accountId, type, previous, validFrom, now, changedBy, reason, version, Encryption[version], lookup)
+            ? ContactHistoryPolicy.Record(accountId, type, previous, validFrom, now, changedBy, reason, version, Encryption[version], lookup,evidence)
             : null;
+    public byte[]? SealRequest(ContactChangeEvidence receipt)=>CurrentVersion is{}version&&receipt.Valid
+        ?ContactHistoryPolicy.Encrypt(version,Encryption[version],System.Text.Json.JsonSerializer.Serialize(receipt)):null;
+    public ContactChangeEvidence? OpenRequest(byte[]? sealedReceipt)
+    {
+        if(sealedReceipt is null||sealedReceipt.Length<29||sealedReceipt.Length>4096)return null;
+        try
+        {
+            var receipt=System.Text.Json.JsonSerializer.Deserialize<ContactChangeEvidence>(ContactHistoryPolicy.Decrypt(Encryption,sealedReceipt));
+            return receipt is{Valid:true}?receipt:null;
+        }
+        catch(Exception failure)when(failure is System.Text.Json.JsonException or CryptographicException or KeyNotFoundException){return null;}
+    }
+
 }
 
 /// <summary>

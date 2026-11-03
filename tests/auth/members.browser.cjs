@@ -1,13 +1,14 @@
 // Optional real Keycloak acceptance for the members realm (design D31-D41).
-// Needs the local stack (./scripts/docker-local.sh up), the API on 127.0.0.1:5080 and the
-// web host on http://localhost:5081 configured for Keycloak. Accounts are fictional adults
+// Needs the local stack (./scripts/docker-local.sh up), the paired API/database selected by
+// local-tokens.cjs and the web host on http://localhost:5081 configured for Keycloak. Accounts are fictional adults
 // at example.test; every email is caught by the local mail sink, nothing is delivered.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
 const { assertSwoovrType } = require('../ui-fonts.cjs');
-const web = 'http://localhost:5081', api = 'http://127.0.0.1:5080', keycloak = 'http://localhost:8180', mailSink = 'http://localhost:8025';
+const { web, api, keycloak, cli, call, localEnv, memberClientId, ownedRunId, expectOwnedRegistration, claimOwnedRegistration } = require('./local-tokens.cjs');
+const mailSink = 'http://localhost:8025';
 const realm = 'swoovr-members-dev';
 const output = process.env.SWOOVR_BROWSER_OUTPUT || '.local/auth-browser';
 for (const url of [web, api, keycloak, mailSink]) if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw Error('Auth checks require loopback hosts');
@@ -30,20 +31,20 @@ async function mailCount(to) {
   const list = await (await fetch(mailSink + '/api/v1/messages')).json();
   return list.messages.filter(m => m.To.some(t => t.Address === to)).length;
 }
-async function secret() {
-  const env = await fs.readFile('.local/docker.env', 'utf8');
-  return env.split('\n').find(line => line.startsWith('SWOOVR_MEMBERS_WEB_SECRET='))?.split('=')[1];
-}
+
 
 (async () => {
   await fs.mkdir(output, { recursive: true, mode: 0o700 });
   const edge = await require('./managed-edge.cjs').managedEdge(chromium), browser = edge.browser;
   const shot = (page, name) => page.screenshot({ path: `${output}/${name}.png`, fullPage: true });
+  const themeFailures=[];
+  const themeCheck=async check=>{try{await check();pass();}catch(error){themeFailures.push(error);console.error("FAIL theme (#143): "+error.message);}};
   let passed = 0; const pass = () => passed++;
   try {
-    const email = `fictional.adult.${Date.now()}@example.test`, password = 'Correct-horse-' + crypto.randomBytes(4).toString('hex');
+    const email = `fictional.adult.${ownedRunId?ownedRunId+".":""}${Date.now()}@example.test`, password = 'Correct-horse-' + crypto.randomBytes(4).toString('hex');
+    await expectOwnedRegistration(email);
     // Private beta (D62): the fictional address is pre-authorised before it registers.
-    await require('./local-tokens.cjs').cli('beta', 'add', email);
+    await cli('beta', 'add', email);
     const context = await browser.newContext({ colorScheme: 'light', viewport: { width: 1280, height: 1000 } });
     const page = await context.newPage();
 
@@ -74,10 +75,10 @@ async function secret() {
     assert.equal(await page.locator('[data-scheme], input[name=scheme]').count(), 0); pass();
     await assertSwoovrType(page, 'Keycloak sign-in'); pass();
     // The prototype's white sign-in screen is the Standard surface token (#FFFFFF light, #161616 dark).
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)'); pass();
+    await themeCheck(async()=>assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 255, 255)'));
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.waitForFunction(() => document.documentElement.classList.contains('pf-v5-theme-dark'));
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(22, 22, 22)'); pass();
+    await themeCheck(async()=>assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(22, 22, 22)'));
     await assertSwoovrType(page, 'Keycloak sign-in dark'); pass();
     await shot(page, 'sign-in-dark');
     await page.emulateMedia({ colorScheme: 'light' });
@@ -87,12 +88,12 @@ async function secret() {
     await calm.close();
 
     // Registration (D40): blocked without the 18+ checkbox; email-first; then password.
-    await page.goto(web + '/account/create');
+    await page.goto(web + '/account/create?invited=true');
     await page.waitForSelector('#kc-register-form');
     await assertSwoovrType(page, 'Keycloak registration'); pass();
     const entering = () => page.evaluate(() => document.documentElement.classList.contains('sw-enter'));
     assert.equal(await entering(), true, 'a new screen staggers in'); pass();
-    await page.fill('#email', email); await page.fill('#firstName', 'Ana');
+    await page.fill('#email', email); await page.fill('#firstName', 'Ana');if(await page.locator('#lastName').count())await page.fill('#lastName','Example');else{const failure=Error('Installed registration lacks the required surname field (#162 provider rollout)');themeFailures.push(failure);console.error('FAIL installed provider: '+failure.message);}
     // The page keeps "Create account" disabled until the box is ticked (prototype); the realm must still
     // refuse a submission that bypasses the page, so submit the form directly.
     assert.equal(await page.locator('#kc-register').isDisabled(), true); pass();
@@ -107,9 +108,16 @@ async function secret() {
     await Promise.all([page.waitForNavigation(), page.click('#kc-register-form [type=submit]')]);
     await page.goto(await mailLink(email, started));
     await page.fill('#password-new', password); await page.fill('#password-confirm', password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('[type=submit]')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('[type=submit]')]);await page.goto(web+'/account');
     await accountReady(page);
-    assert.match(await page.locator('h1').innerText(), /You're in, Ana\./); pass();
+    await claimOwnedRegistration(email);
+    await page.waitForSelector('[data-registered-name-gate]');
+    assert.equal(await page.locator('[data-registered-names-form] input[autocomplete="given-name"]').inputValue(),'Ana','validated provider name starts as an unconfirmed suggestion');pass();
+    await page.locator('[data-registered-names-form] input[autocomplete="family-name"]').fill('Example');
+    await page.locator('[data-registered-names-form] input[type=checkbox]').last().check();
+    await page.locator('[data-registered-names-form] button').click();await page.waitForSelector('[data-registered-names-result=saved]');
+    await page.waitForSelector('[data-registered-name-gate]',{state:'detached'});pass();
+    assert.match(await page.locator('h1').innerText(), /Your account, Ana\./); pass();
     assert.equal(await page.locator('[data-adult-attested]').getAttribute('data-adult-attested'), 'true'); pass();
     assert.equal(await page.locator('[data-member-area]').getAttribute('data-member-area'), 'true'); pass();
     assert.equal(await page.locator('[data-session-method]').getAttribute('data-session-method'), 'unknown', 'email-first registration session has no method evidence'); pass();
@@ -122,15 +130,16 @@ async function secret() {
     // Sign out is a POST with antiforgery; a cross-site GET does nothing.
     assert.ok([404, 405].includes((await page.request.get(web + '/account/sign-out', { maxRedirects: 0 })).status())); pass();
     await page.goto(web + '/account'); await accountReady(page);
-    assert.match(await page.locator('h1').innerText(), /You're in, Ana\./, 'GET must not sign out'); pass();
+    assert.match(await page.locator('h1').innerText(), /Your account, Ana\./, 'GET must not sign out'); pass();
     await Promise.all([page.waitForURL(web + '/'), page.click('text=Sign out')]);
     await page.goto(web + '/account');
-    assert.match(await page.locator('h1').innerText(), /Sign in to Swoovr\./); pass();
+    assert.equal(page.url(),web+'/','guest account navigation returns to the home preview');pass();
+    assert.equal(await page.locator('a[href="/account/sign-in"]').count()>0,true);pass();
 
     // Password sign-in through the web app carries method evidence.
     await page.goto(web + '/account/sign-in');
     await page.fill('#username', email); await page.fill('#password', password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     assert.equal(await page.locator('[data-session-method]').getAttribute('data-session-method'), 'emailPassword'); pass();
 
     // API (D35): real token accepted; tampered, unsigned, cross-realm and missing tokens rejected.
@@ -141,15 +150,15 @@ async function secret() {
     const direct = await context.newPage();
     direct.on('request', r => { if (r.url().startsWith(redirect)) code = new URL(r.url()).searchParams.get('code'); });
     await direct.route(redirect + '**', route => route.fulfill({ body: 'captured' }));
-    await direct.goto(`${keycloak}/realms/${realm}/protocol/openid-connect/auth?client_id=swoovr-web&response_type=code&scope=openid&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=t&nonce=t`);
+    await direct.goto(`${keycloak}/realms/${realm}/protocol/openid-connect/auth?client_id=${encodeURIComponent(memberClientId)}&response_type=code&scope=openid&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=t&nonce=t`);
     for (let i = 0; i < 50 && !code; i++) await sleep(100);
-    const tokenResponse = await (await fetch(`${keycloak}/realms/${realm}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: 'swoovr-web', client_secret: await secret(), code_verifier: verifier }) })).json();
+    const tokenResponse = await (await fetch(`${keycloak}/realms/${realm}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: memberClientId, client_secret: await localEnv('SWOOVR_MEMBERS_WEB_SECRET'), code_verifier: verifier }) })).json();
     await direct.close();
     const token = tokenResponse.access_token;
-    const call = value => fetch(api + '/api/session', { headers: value ? { Authorization: 'Bearer ' + value } : {} });
-    const ok = await call(token);
+    const sessionCall = value => call(value, '/api/session');
+    const ok = await sessionCall(token);
     assert.equal(ok.status, 200); pass();
-    const summary = await ok.json();
+    const summary = ok.body;
     assert.deepEqual(summary, { realm: 'members', method: 'emailPassword', multiFactor: false, emailVerified: true, adultAttested: true, memberArea: true, adminArea: false, supportArea: false, beta: 'enrolled', emailChangeProblem: null }, JSON.stringify({ summary, amr: claims(token).amr })); pass();
     const [header, payload, signature] = token.split('.');
     const forged = body => b64(JSON.stringify(body));
@@ -162,14 +171,16 @@ async function secret() {
       ['signature removed', `${header}.${payload}.`],
       ['alg none', `${b64(JSON.stringify({ alg: 'none', typ: 'JWT' }))}.${payload}.`],
       ['malformed', 'not.a.token'],
-    ]) { assert.equal((await call(value)).status, 401, name); pass(); }
+    ]) { assert.equal((await sessionCall(value)).status, 401, name); pass(); }
+
+    console.log('PASS: all seven API authentication negative cases returned401');
 
     // Lockout (D37): 3 failures lock for 15 minutes; a completed reset unlocks immediately.
     const attempt = async (value) => {
       const p = await browser.newPage();
       await p.goto(web + '/account/sign-in'); await p.fill('#username', email); await p.fill('#password', value);
       await Promise.all([p.waitForLoadState('load'), p.click('#kc-login')]); await sleep(400);
-      const signedIn = p.url() === web + '/account'; await p.close(); return signedIn;
+      const signedIn = p.url() === web + '/explore'; await p.close(); return signedIn;
     };
     for (let i = 1; i <= 3; i++) assert.equal(await attempt('Wrong-password-' + i), false);
     assert.equal(await attempt(password), false, 'correct password refused while locked'); pass();
@@ -192,9 +203,9 @@ async function secret() {
     const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
     await passkeyPage.goto(web + '/account/sign-in');
     await passkeyPage.fill('#username', email); await passkeyPage.fill('#password', newPassword);
-    await Promise.all([passkeyPage.waitForURL(web + '/account'), passkeyPage.click('#kc-login')]);
+    await Promise.all([passkeyPage.waitForURL(web+'/explore'),passkeyPage.click('#kc-login')]);await passkeyPage.goto(web+'/account');
     await passkeyPage.route(redirect + '**', route => route.fulfill({ body: 'registered' }));
-    await passkeyPage.goto(`${keycloak}/realms/${realm}/protocol/openid-connect/auth?client_id=swoovr-web&response_type=code&scope=openid&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=p&nonce=p&kc_action=webauthn-register-passwordless`);
+    await passkeyPage.goto(`${keycloak}/realms/${realm}/protocol/openid-connect/auth?client_id=${encodeURIComponent(memberClientId)}&response_type=code&scope=openid&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=p&nonce=p&kc_action=webauthn-register-passwordless`);
     // #63: page.route never sees a redirect's follow-up request, so Keycloak's 302 reaches the web host, which can't finish
     // this hand-made sign-in (state "p") and, since f4f6239, sends it to /account?signin=retry. Either landing means
     // Keycloak finished the registration; the stored credential below is what this step checks.
@@ -204,12 +215,12 @@ async function secret() {
     await passkeyPage.unroute(redirect + '**');
     await passkeyContext.clearCookies();
     await passkeyPage.goto(web + '/account/sign-in');
-    if (!passkeyPage.url().startsWith(web + '/account')) {
+    if (!passkeyPage.url().startsWith(web + '/explore')) {
       await sleep(1500);
       if (passkeyPage.url().startsWith(keycloak)) await passkeyPage.click('#authenticateWebAuthnButton');
     }
-    await passkeyPage.waitForURL(web + '/account'); await accountReady(passkeyPage);
-    assert.match(await passkeyPage.locator('h1').innerText(), /You're in, Ana\./); pass();
+    await passkeyPage.waitForURL(web+'/explore');await passkeyPage.goto(web+'/account');await accountReady(passkeyPage);
+    assert.match(await passkeyPage.locator('h1').innerText(), /Your account, Ana\./); pass();
     await shot(passkeyPage, 'account-passkey');
     await passkeyContext.close();
 
@@ -228,6 +239,7 @@ async function secret() {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 320)); pass();
     await shot(page, 'account-320');
     await context.close();
+    if(themeFailures.length)throw new AggregateError(themeFailures,'Installed Keycloak presentation/profile assertions failed (#143/#162); independent authentication checks completed');
     console.log(`PASS: ${passed} members-realm checks in actual Edge against local Keycloak 26.8.1: launch splash once per session (reduced-motion cross-fade) then Keycloak, prototype sign-in screens light/dark with Helvetica Neue computed on every text element and arrival stagger rules, 18+ blocking registration, email-first verification, server-side web session, password and passkey sign-in, API token validation negatives, 3-failure lockout cleared by reset, invitation-only venues/staff realms, 320px account page.`);
   } finally { await edge.close(); }
 })().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

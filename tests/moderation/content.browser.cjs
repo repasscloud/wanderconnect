@@ -39,7 +39,8 @@ async function listen(token){
 async function login(page,base,user,destination){
  await page.goto(base+(base===web?'/account/sign-in?intro=done':'/sign-in'));
  await page.fill('#username',user.email);await page.fill('#password',user.password);
- await Promise.all([page.waitForURL(base+(destination|| (base===web?'/account':'/'))),page.click('#kc-login')]);
+ await Promise.all([page.waitForURL(base+(destination|| (base===web?'/explore':'/'))),page.click('#kc-login')]);
+ if(base===web&&!destination)await page.goto(web+'/account');
 }
 (async()=>{
  const edge=await managedEdge(chromium),browser=edge.browser;

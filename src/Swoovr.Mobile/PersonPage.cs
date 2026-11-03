@@ -105,7 +105,8 @@ public sealed class PersonPage : ContentPage
 			// D143: one conversation per connected pair, across modes.
 			rows.Add(Ui.Button($"Message {person.DisplayName}", "MessagePerson", async () =>
 			{
-				var conversation = await Ui.Members!.StartConversationAsync(id);
+				var selected = person.Modes.FirstOrDefault(m => m.Id == mode && m.Connection == "connected") ?? person.Modes.First(m => m.Connection == "connected");
+				var conversation = await Ui.Members!.StartConversationInModeAsync(id, selected.Id);
 				if (conversation.Value is { } open) await Ui.PushAsync(new ConversationPage(open.Id));
 				else status.Text = "You can message people you're connected with.";
 			}));

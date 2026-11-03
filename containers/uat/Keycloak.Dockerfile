@@ -20,6 +20,7 @@ RUN set -eu; \
     javac --release 21 -classpath '/build/main:/keycloak-libs/*' -d /build/tests $(find provider/test/java -name '*.java' | sort); \
     java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.RetirementPolicyChecks; \
     java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.MailerSendChecks; \
+    java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.RegistrationAdmissionChecks; \
     jar --create --file /output/swoovr-contact-policy.jar -C /build/main .
 
 FROM keycloak-base AS keycloak-build

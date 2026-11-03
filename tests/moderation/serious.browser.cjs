@@ -202,7 +202,7 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.web.email); await page.fill('#password', members.web.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     const withRep = await connect('web', 'rep');
     await send('rep', withRep.conversation, 'Fictional message Web will report');
     await page.goto(web + `/people/${pid.rep}?mode=friends`);

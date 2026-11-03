@@ -133,7 +133,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', vic.email); await page.fill('#password', vic.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.goto(web + '/explore');
     await page.waitForSelector('[data-explore-state=ready]', { timeout: 20000 });
     const tileBadges = key => page.locator(`.profile-tile:has(a[href^="/people/${pid[key]}"]) [data-badge]`).evaluateAll(els => els.map(e => e.dataset.badge));

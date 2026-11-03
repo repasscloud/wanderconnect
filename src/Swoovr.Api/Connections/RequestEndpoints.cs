@@ -284,7 +284,8 @@ public static class RequestEndpoints
     {
         var otherId = request.FromAccountId == me ? request.ToAccountId : request.FromAccountId;
         var other = await db.MemberProfiles.SingleAsync(p => p.AccountId == otherId, cancellationToken);
-        var person = new PersonSummary(other.PublicId, other.DisplayName, ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
+        var alias = await db.MemberModes.Where(m => m.AccountId == other.AccountId && m.ModeId == request.ModeId).Select(m => m.DisplayName).SingleOrDefaultAsync(cancellationToken);
+        var person = new PersonSummary(other.PublicId, ModePrivacy.DisplayName(alias, other.DisplayName), ProfileEndpoints.Badges(other, await ProfileEndpoints.BadgeOrderAsync(db, cancellationToken)));
         var visit = request.TripId is { } tripId ? await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                                                          where t.Id == tripId select Travel.TravelEndpoints.Visit(t, c)).SingleOrDefaultAsync(cancellationToken) : null;
         return new(request.Id, request.ModeId, request.FromAccountId == me ? "sent" : "received", Wire(request.Status), person, request.CreatedAt, visit);

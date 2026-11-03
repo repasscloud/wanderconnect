@@ -3,15 +3,15 @@ namespace Swoovr.Client;
 /// <summary>
 /// The member-facing privacy notice (#99, #22; policy §1–§16, procedure §10), shared by the web page and the app so both say
 /// the same thing. It is the APP privacy policy (APP 1.3–1.4, including the APP 1.7–1.9 automated-decision disclosures that
-/// commence on 10 December 2026) and the general collection notice (APP 5). It is a DRAFT until legal review (#57): every
+/// commence on 10 December 2026) and the general collection notice (APP 5). D288/D290 approve these operative readers; every
 /// rendering shows <see cref="DraftLabel"/>. Wording follows the decisions it describes (D138, D167, D170–D173, D186–D191,
 /// D195, D199, D203–D205, D216, D217, D263, D266, D268, D269, D272, D275, D277); change them together. Provider countries in
 /// "overseas" must match the executed provider agreements before publication.
 /// </summary>
 public static class PrivacyNotice
 {
-    public const string DraftLabel = "DRAFT — release candidate for legal review, not in force. It describes how Swoovr handles information today; it becomes our privacy policy only once our lawyers approve it and we publish it without this label.";
-    public const string Version = "Draft 0.17, 2 November 2026";
+    public const string DraftLabel = "Privacy notice — approved 2 November 2026.";
+    public const string Version = "0.17, 2 November 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -112,7 +112,7 @@ public static class PrivacyNotice
             "We use essential cookies and device storage only: to keep you signed in securely, to protect forms and sign-in from misuse, to keep trusted-contact access working for a limited time, and to remember your appearance choices. We don't use advertising or cross-site tracking cookies. Blocking essential cookies will stop sign-in from working.",
         ]),
         new("policy-records", "Policy versions and safety updates", [
-            "The proposed terms and community guidelines are drafts and are not in force. Reading them or signing in does not record acceptance. When an approved version is explicitly required, we record your deliberate acceptance with its version, content digest and server time. Ordinary acceptance records are erased during final account deletion; independently preserved evidence follows its own review and legal-hold rules.",
+            "The terms and community guidelines are the operative versions approved for Swoovr. Reading them or signing in does not record acceptance. When an approved version is explicitly required, we record your deliberate acceptance with its version, content digest and server time. Ordinary acceptance records are erased during final account deletion; independently preserved evidence follows its own review and legal-hold rules.",
             "Explicitly published safety updates can appear in your notification centre. The ordinary delivery queue and minimal per-member receipt expire after 60 days, unless preservation requires longer, including when the profile has already been deleted. We keep a version disposition without member or operator identifiers to prevent accidental reuse. These notices do not send email or push. Reading educational safety advice does not create a new acknowledgement or consent record.",
         ]),
         new("appearance", "Your appearance preferences", [
@@ -131,7 +131,7 @@ public static class PrivacyNotice
         ]),
         new("moderation-reporting", "Moderation reporting records", [
             "We keep minimal restricted records of moderation decisions for annual reporting, including the action, its reviewed policy basis and how it was detected and enforced. For account terminations, we record whether your declared home country at the time was Australia, another country or unknown. This is not verified residence. These reporting records contain no message text, contact values or staff free-text explanation.",
-            "The draft reporting schedule keeps these linked records for 36 months, with longer preservation where a hold or retained evidence requires it. We also keep anonymous daily processing totals for 36 months and internal annual aggregates afterwards. Aggregates hide small numeric groups, disclose unknown coverage and do not establish classifier accuracy or completed staff training.",
+            "The reporting schedule keeps these linked records for 36 months, with longer preservation where a hold or retained evidence requires it. We also keep anonymous daily processing totals for 36 months and internal annual aggregates afterwards. Aggregates hide small numeric groups, disclose unknown coverage and do not establish classifier accuracy or completed staff training.",
         ]),
         new("moderated-content", "Text removed after moderation", [
             "Authorised staff can remove an individual profile-text field or a reported text message. Account standing records the action; a removed message is shown as removed by Swoovr rather than as a message the sender unsent.",
@@ -154,9 +154,9 @@ public static class PrivacyNotice
             "When you ask to delete your account, it is hidden at once. You can cancel within 30 days of the request until final deletion starts (or ask for deletion straight away); then we erase your profile, messages you sent, identity record and the rest of your personal information, and ask Didit to delete your verification sessions.",
             "We normally keep a minimal record that the account existed for 2 years. If the other person keeps their own messages, a minimal reference remains so their history still works; your old sign-in mapping is removed.",
             "Closed police-case records follow a seven-year retention period. Backups expire on daily 30-day, weekly 4-week and monthly 12-month schedules, and a restored backup must re-apply completed deletions and legal holds before anyone can use it.",
-            "If your account was terminated, we normally keep its identity record and contact history for 2 years. Active email/mobile restrictions follow the separate review process above. Our draft schedule proposes keeping revoked or expired identifier history for at least 24 months after its latest ending or review, with longer preservation where legally required. This draft schedule still needs legal review.",
+            "If your account was terminated, we normally keep its identity record and contact history for 2 years. Active email/mobile restrictions follow the separate review process above. Our retention schedule keeps revoked or expired identifier history for at least 24 months after its latest ending or review, with longer preservation where legally required. This schedule has been approved.",
             "After identifier fingerprints and their history are lawfully disposed, we may keep a minimal record of the decision while the original account ban or preservation duties continue. That record still links to its case and account; it contains no contact fingerprint and is not used to match an address or number. New staff reviews have their own retention period.",
-            "Safety-review evidence is retained for at least 12 months after the latest completed review or referral; our draft serious-incident schedule uses 24 months. Minimal review and compliance records normally remain for 24 months. Open reviews and active or overlapping legal holds postpone disposal. Released copies follow the applicable review or police-record schedule; unknown provenance requires restricted review before disposal.",
+            "Safety-review evidence is retained for at least 12 months after the latest completed review or referral; our serious-incident schedule uses 24 months. Minimal review and compliance records normally remain for 24 months. Open reviews and active or overlapping legal holds postpone disposal. Released copies follow the applicable review or police-record schedule; unknown provenance requires restricted review before disposal.",
             "When information is no longer needed for a permitted purpose, we securely delete or de-identify it.",
         ]),
         new("founders", "Founding members' recovery token", [

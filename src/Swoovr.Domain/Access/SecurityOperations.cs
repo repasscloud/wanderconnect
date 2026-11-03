@@ -78,6 +78,6 @@ public static class SecurityOperationsPolicy
     public static byte[]? Reseal(byte[] sealedValue, IReadOnlyDictionary<byte, byte[]> keys, byte target)
     {
         if (sealedValue.Length == 0 || sealedValue[0] == target) return null;
-        return ContactHistoryPolicy.Encrypt(target, keys[target], ContactHistoryPolicy.Decrypt(keys, sealedValue));
+        return ContactHistoryPolicy.Encrypt(target, keys[target], ContactHistoryPolicy.DecryptRaw(keys, sealedValue));
     }
 }

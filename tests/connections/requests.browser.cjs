@@ -173,7 +173,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     const signIn = async (p, member) => {
       await p.goto(web + '/account/sign-in?intro=done');
       await p.fill('#username', member.email); await p.fill('#password', member.password);
-      await Promise.all([p.waitForURL(web + '/account'), p.click('#kc-login')]);
+      await Promise.all([p.waitForURL(web+'/explore'),p.click('#kc-login')]);await p.goto(web+'/account');
     };
     await signIn(page, members.ann);
     const bff = (path, options = {}) => page.request.fetch(web + '/bff/' + path, { ...options, headers: { 'X-Swoovr-Bff': '1', ...(options.headers ?? {}) } });

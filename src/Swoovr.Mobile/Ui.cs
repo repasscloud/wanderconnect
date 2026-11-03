@@ -136,7 +136,15 @@ internal static class Ui
 		return card;
 	}
 
-	public static Task PushAsync(Page page) => Shell.Current.Navigation.PushAsync(page);
+	public static async Task PushAsync(Page page)
+    {
+        if (page is not (PublicPolicyPage or PrivacyPage or SafetyAdvicePage or SafetyPage) && !await SignedInAsync())
+        {
+            await Shell.Current.GoToAsync("//MainPage");
+            return;
+        }
+        await Shell.Current.Navigation.PushAsync(page);
+    }
 
 	/// <summary>
 	/// One fresh device location for an explicit check (D149 confirm-arrival, D150 home check): permission is asked for

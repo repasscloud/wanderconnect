@@ -18,6 +18,7 @@ public static class MediaEndpoints
 {
     public static void Map(WebApplication app)
     {
+        PhotoReviewWorkflows.Map(app);
         var api = app.MapGroup("/api").RequireAuthorization();
         api.MapPost("/me/photos", async (HttpRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -50,6 +51,12 @@ public static class MediaEndpoints
             await file.CopyToAsync(buffer, cancellationToken);
             await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
             if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return Results.Forbid();
+            await using var libraryLease = await AccountLifecycleLease.AcquireMediaAsync(db, me, cancellationToken);
+            // Recheck under the same media authority used by removal/placement; parallel uploads cannot exceed the library.
+            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == null && i.RemovedAt == null && i.Status != MediaStatus.Removed, cancellationToken) >= MediaPolicy.MaxKept)
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoLimit, $"You can keep up to {MediaPolicy.MaxKept} photos. Delete one first.");
+            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == null && i.CreatedAt > now - TimeSpan.FromHours(1), cancellationToken) >= MediaPolicy.UploadsPerHour)
+                return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.UploadLimit, "You've uploaded a lot of photos in the last hour. Try again later.");
             var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), replaces, now, cancellationToken);
             return error switch
             {
@@ -86,18 +93,23 @@ public static class MediaEndpoints
             var (db, me, now) = (accounts.Db!, current!.Profile!.AccountId, clock.GetUtcNow());
             var modes = await db.ConnectionModes.Where(m => m.Available).Select(m => m.Id).ToListAsync(cancellationToken);
             var ids = update.MediaIds ?? [];
-            var max = update.Scope == MediaPolicy.Main ? 1 : MediaPolicy.MaxPerMode;
-            if (update.Scope is null || !MediaPolicy.ValidScope(update.Scope, modes) || ids.Count > max || ids.Distinct().Count() != ids.Count)
-                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, update.Scope == MediaPolicy.Main ? "Pick one main photo." : $"Pick up to {MediaPolicy.MaxPerMode} photos for a mode.");
+            if (update.Scope is null || !MediaPolicy.ValidScope(update.Scope, modes) || ids.Distinct().Count() != ids.Count)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, "Choose one mode and distinct photos from your library.");
             await using var mediaLease = await AccountLifecycleLease.AcquireMediaAsync(db, me, cancellationToken);
+            var max = MediaPolicy.ModeLimit(await Moderation.Entitlements.TierAsync(db, current.Profile!, now, cancellationToken));
+            var stored = await db.MediaPlacements.Where(p => p.AccountId == me && p.Scope == update.Scope).Select(p => p.MediaId).ToListAsync(cancellationToken);
+            if (!MediaPolicy.PlacementAllowed(ids, stored, max) || update.MainMediaId is { } main && !ids.Contains(main))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, $"Choose up to {max} photos, including an optional main from that gallery. Existing excess photos can be reordered or removed.");
             var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null).Select(i => i.Id).ToListAsync(cancellationToken);
             if (approved.Count != ids.Count)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoNotApproved, "Only your approved photos can be shown.");
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             await db.MediaPlacements.Where(p => p.AccountId == me && p.Scope == update.Scope).ExecuteDeleteAsync(cancellationToken);
-            db.MediaPlacements.AddRange(ids.Select((id, i) => new MediaPlacement { AccountId = me, Scope = update.Scope, Position = i, MediaId = id }));
+            db.MediaPlacements.AddRange(ids.Select((id, i) => new MediaPlacement { AccountId = me, Scope = update.Scope, Position = i, MediaId = id, IsMain = update.MainMediaId == id }));
             Audit.Record(db, now, me, "account", "media.placed", "connection-mode", update.Scope, $"photos:{ids.Count}");
             await db.SaveChangesAsync(cancellationToken);
             await Profiles.ProfilePrivacy.CaptureAsync(db, me, now, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             return Results.Ok(await OwnAsync(db, accounts.Services.GetRequiredService<MediaLinks>(), me, now, cancellationToken));
         });
 
@@ -116,37 +128,48 @@ public static class MediaEndpoints
         });
 
         var admin = app.MapGroup("/api/admin/media").RequireAuthorization();
-        admin.MapGet("/review", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,HttpContext context, CancellationToken cancellationToken) =>
+        admin.MapGet("/review", async (int? page, string? reason, string? kind, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, HttpContext context, CancellationToken cancellationToken) =>
         {
-            context.Response.Headers.CacheControl="no-store";
-            var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
+            context.Response.Headers.CacheControl = "no-store";
+            var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;
-            var (db, now) = (accounts.Db!, clock.GetUtcNow());
-            var items = await db.MediaItems.Where(i => i.Status == MediaStatus.Uncertain && i.RemovedAt == null).OrderBy(i => i.CreatedAt).Take(100).ToListAsync(cancellationToken);
-            var pending = await db.MediaItems.Where(i => i.Status == MediaStatus.Pending && i.RemovedAt == null).Select(i => i.CreatedAt).ToListAsync(cancellationToken);
-            var since=now.AddDays(-30);var codes=MediaReviewReasons.All.Select(r=>r.Code).ToArray();
-            var counts=await db.AuditEntries.Where(a=>a.At>=since&&a.Action=="media.reviewed"&&a.Detail!=null&&codes.Contains(a.Detail))
-                .GroupBy(a=>a.Detail!).Select(g=>new{Code=g.Key,Count=g.Count()}).ToDictionaryAsync(x=>x.Code,x=>x.Count,cancellationToken);
-            return Results.Ok(new MediaReviewQueue(items.Select(i => new MediaReviewItem(i.Id, i.AccountId, i.CreatedAt, SignalReason(i.Signals), Signals(i.Signals),
-                i.Screener ?? "", i.KnownContentChecked, i.Purpose)).ToList(), pending.Count, pending.Count(c => c < now - TimeSpan.FromHours(1)),MediaReviewReasons.All.Select(ReasonView).ToArray(),counts,since));
+            if (page is < 1 or > 100000 || reason?.Length > 64 || kind is not (null or "profile" or "attachment")) return Problem(400, "invalid-review-filter", "Choose a valid review filter and page.");
+            var (db, now, actor) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
+            var eligible = PhotoReviewWorkflows.Eligible(db, actor, current.Allows(AccountRole.Admin));
+            var query = eligible.Where(i => i.Status == MediaStatus.Uncertain && i.RemovedAt == null);
+            if (kind is not null) query = kind == "attachment" ? query.Where(i => i.Purpose == "attachment") : query.Where(i => i.Purpose == null);
+            if (reason is not null) query = query.Where(i => i.Signals != null && i.Signals.Contains("\"reason\":\"" + reason + "\""));
+            var p = page ?? 1; var total = await query.CountAsync(cancellationToken);
+            var items = await query.OrderBy(i => i.CreatedAt).ThenBy(i => i.Id).Skip((p - 1) * 25).Take(25).ToListAsync(cancellationToken);
+            var pending = eligible.Where(i => i.Status == MediaStatus.Pending && i.RemovedAt == null);
+            var since = now.AddDays(-30); var ids = eligible.Select(i => i.Id);
+            var counts = await db.Set<MediaDecisionRecord>().Where(d => d.At >= since && ids.Contains(d.MediaId) && d.Decision != "escalate").GroupBy(d => d.Code).Select(g => new { Code = g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Code, g => g.Count, cancellationToken);
+            return Results.Ok(new MediaReviewQueue(items.Select(i => new MediaReviewItem(i.Id, i.AccountId, i.CreatedAt, SignalReason(i.Signals), Signals(i.Signals), i.Screener ?? "unknown", i.KnownContentChecked, i.Purpose)).ToList(),
+                await pending.CountAsync(cancellationToken), await pending.CountAsync(i => i.CreatedAt < now.AddHours(-1), cancellationToken), MediaReviewReasons.All.Select(ReasonView).ToList(), counts, since, p, total, 25,
+                await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, cancellationToken), PhotoReviewPolicy.NoticeVersion, PhotoReviewPolicy.Notice));
         });
         admin.MapPost("/{id:guid}/view", async (Guid id, MediaViewRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
+            var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, actor) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
+            if (await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, cancellationToken) is null) return PhotoReviewWorkflows.AckRequired();
             if (request.Purpose?.Trim() is not { Length: > 0 and <= MediaPolicy.PurposeMax } purpose)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Say why you need to look at this photo.");
             // Only uncertain photos can be looked at; a blocked one reads as not found (procedure §4).
-            var item = await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.Status == MediaStatus.Uncertain && i.RemovedAt == null, cancellationToken);
+            var item = await PhotoReviewWorkflows.Eligible(db, actor, current.Allows(AccountRole.Admin)).SingleOrDefaultAsync(i => i.Id == id && i.Status == MediaStatus.Uncertain && i.RemovedAt == null, cancellationToken);
             if (item is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't waiting for review.");
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, item.AccountId, cancellationToken);
+            if (!await PhotoReviewWorkflows.Eligible(db, actor, current.Allows(AccountRole.Admin)).AnyAsync(i => i.Id == id, cancellationToken))
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't waiting for review.");
+            now = clock.GetUtcNow();
             if (await StaffAccessEndpoints.ExcludedAsync(db, actor, [item.AccountId], cancellationToken)) return StaffAccessEndpoints.Conflict();
-            if (accounts.Services.GetRequiredService<MediaLinks>().For(item.Id, "review", now) is not { } link)
+            if (await PhotoReviewWorkflows.ReviewLinkAsync(db, accounts.Services.GetRequiredService<MediaLinks>(), actor, item.Id, "review", now, cancellationToken) is not { } link)
                 return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photo links aren't configured.");
             db.MediaReviewViews.Add(new MediaReviewView { MediaId = item.Id, ActorAccountId = actor, Purpose = purpose, At = now });
             Audit.Record(db, now, actor, "account", "media.viewed", "media", item.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(new MediaReviewLink(item.Id, link, now + MediaPolicy.LinkLifetime));
+            return Results.Ok(link);
         });
         // #41: a reported chat photo, for an admin working the case: only a photo the case's evidence names, never a blocked
         // one, with a recorded purpose (media_review_views, the audit and the sensitive-access log), conflict rules applied.
@@ -173,16 +196,22 @@ public static class MediaEndpoints
         });
         admin.MapPost("/{id:guid}/decision", async (Guid id, MediaDecision request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await AdminOnlyAsync(user, accounts, cancellationToken);
+            var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
             if (denied is not null) return denied;
             var (db, now, actor) = (accounts.Db!, clock.GetUtcNow(), current!.Account!.Id);
+            if (await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, cancellationToken) is null) return PhotoReviewWorkflows.AckRequired();
             var review=MediaReviewReasons.Create(request.Decision,request.ReasonCode,request.Reason);
             if(review is null)return Problem(StatusCodes.Status400BadRequest,ProblemCodes.InvalidDecision,"Choose a matching reason. Other rejection needs notes; approval notes are not supported.");
             // Uncertain photos are decided here; an approved photo can still be taken down (reject) or escalated.
-            var item = await db.MediaItems.SingleOrDefaultAsync(i => i.Id == id && i.RemovedAt == null
+            var item = await PhotoReviewWorkflows.Eligible(db, actor, current.Allows(AccountRole.Admin)).SingleOrDefaultAsync(i => i.Id == id && i.RemovedAt == null
                 && (i.Status == MediaStatus.Uncertain || i.Status == MediaStatus.Passed && request.Decision != "approve"), cancellationToken);
             if (item is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't waiting for a decision.");
             if (await StaffAccessEndpoints.ExcludedAsync(db, actor, [item.AccountId], cancellationToken)) return StaffAccessEndpoints.Conflict();
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, item.AccountId, cancellationToken);
+            if (!await PhotoReviewWorkflows.Eligible(db, actor, current.Allows(AccountRole.Admin)).AnyAsync(i => i.Id == id, cancellationToken))
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't waiting for a decision.");
+            now = clock.GetUtcNow();
+            if (await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, cancellationToken) is null) return PhotoReviewWorkflows.AckRequired();
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
             var applied = request.Decision switch
@@ -208,7 +237,7 @@ public static class MediaEndpoints
     {
         "APPROVED_STANDARD"=>"Meets current photo rules","APPROVED_NON_EXPLICIT"=>"Non-explicit image permitted by current rules",
         "APPROVED_AFTER_REVIEW"=>"Acceptable after manual review","APPROVED_FALSE_POSITIVE"=>"Automated flag cleared after review",
-        "REJECT_EXPLICIT_BETA"=>"Explicit content is not permitted in beta","REJECT_IMPERSONATION"=>"Impersonation or unauthorised image use",
+        "REJECT_EXPLICIT_BETA"=>"Explicit content","REJECT_IMPERSONATION"=>"Impersonation or unauthorised image use",
         "REJECT_PRIVACY"=>"Prohibited personal or location information","REJECT_VIOLENCE"=>"Graphic violence or disturbing content",
         "REJECT_HATE"=>"Hate or prohibited extremist imagery","REJECT_SPAM"=>"Spam or prohibited promotion","REJECT_IMAGE_QUALITY"=>"Technical or image-quality requirements",
         "REJECT_OTHER"=>"Other violation — notes required","ESCALATE_CHILD_SAFETY"=>"Child-safety concern — specialist review",
@@ -246,26 +275,38 @@ public static class MediaEndpoints
         var places = await db.MediaPlacements.Where(p => p.AccountId == me).OrderBy(p => p.Position).ToListAsync(cancellationToken);
         var modes = places.Where(p => p.Scope != MediaPolicy.Main).GroupBy(p => p.Scope)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(p => p.MediaId).ToList());
-        return new(items.Select(i => View(i, places.Where(p => p.MediaId == i.Id).Select(p => p.Scope).ToList(), links.For(i.Id, "member", now))).ToList(),
-            places.FirstOrDefault(p => p.Scope == MediaPolicy.Main)?.MediaId, modes, MediaPolicy.MaxPerMode, MediaPolicy.MaxKept);
+        var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == me, cancellationToken);
+        var tier = await Moderation.Entitlements.TierAsync(db, profile, now, cancellationToken);
+        var mains = places.Where(p => p.Scope != MediaPolicy.Main && p.IsMain).GroupBy(p => p.Scope).ToDictionary(g => g.Key, g => g.First().MediaId);
+        return new(items.Select(i => View(i, places.Where(p => p.MediaId == i.Id && p.Scope != MediaPolicy.Main).Select(p => p.Scope).ToList(), links.For(i.Id, "member", now))).ToList(),
+            null, modes, MediaPolicy.ModeLimit(tier), MediaPolicy.MaxKept, mains, Wire(tier));
     }
 
     /// <summary>
     /// Approved photos of people the viewer is already allowed to see: each account's main photo and its photos for the
     /// given modes. Placements only ever point at approved photos, and the status is checked again here.
     /// </summary>
-    public static async Task<(Dictionary<Guid, PhotoView> Main, Dictionary<(Guid, string), List<PhotoView>> Modes)> PhotosAsync(SwoovrDbContext db, MediaLinks links,
+    public static async Task<(Dictionary<(Guid, string), PhotoView> Main, Dictionary<(Guid, string), List<PhotoView>> Modes)> PhotosAsync(SwoovrDbContext db, MediaLinks links,
         IReadOnlyCollection<Guid> accounts, IReadOnlyCollection<string> modes, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var rows = await (from p in db.MediaPlacements join i in db.MediaItems on p.MediaId equals i.Id
-                          where accounts.Contains(p.AccountId) && (p.Scope == MediaPolicy.Main || modes.Contains(p.Scope))
+                          where accounts.Contains(p.AccountId) && modes.Contains(p.Scope)
                                 && i.Status == MediaStatus.Passed && i.RemovedAt == null
-                          orderby p.Position select new { p.AccountId, p.Scope, p.MediaId }).ToListAsync(cancellationToken);
+                          orderby p.Position select new { p.AccountId, p.Scope, p.MediaId, p.IsMain, p.Position }).ToListAsync(cancellationToken);
+        var limits = await LimitsAsync(db, accounts, now, cancellationToken);
+        var visible = rows.GroupBy(r => (r.AccountId, r.Scope)).SelectMany(g => g.Take(limits.GetValueOrDefault(g.Key.AccountId, MediaPolicy.ModeLimit(PlanTier.Free)))).ToList();
         PhotoView? View(Guid id) => links.For(id, "member", now) is { } link ? new PhotoView(id, link) : null;
-        var main = rows.Where(r => r.Scope == MediaPolicy.Main).Select(r => (r.AccountId, View(r.MediaId))).Where(r => r.Item2 is not null)
-            .GroupBy(r => r.AccountId).ToDictionary(g => g.Key, g => g.First().Item2!);
-        var perMode = rows.Where(r => r.Scope != MediaPolicy.Main).GroupBy(r => (r.AccountId, r.Scope))
-            .ToDictionary(g => g.Key, g => g.Select(r => View(r.MediaId)).OfType<PhotoView>().ToList());
+        var main = visible.Where(r => r.IsMain).GroupBy(r => (r.AccountId, r.Scope))
+            .Select(g => (g.Key, Photo: View(g.First().MediaId))).Where(r => r.Photo is not null).ToDictionary(r => r.Key, r => r.Photo!);
+        var perMode = visible.GroupBy(r => (r.AccountId, r.Scope)).ToDictionary(g => g.Key, g => g.Select(r => View(r.MediaId)).OfType<PhotoView>().ToList());
         return (main, perMode);
+    }
+
+    /// <summary>Tier limits are resolved once per batch from the existing entitlement policy, including founder rights.</summary>
+    public static async Task<Dictionary<Guid, int>> LimitsAsync(SwoovrDbContext db, IReadOnlyCollection<Guid> accounts, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var profiles = await db.MemberProfiles.Where(p => accounts.Contains(p.AccountId)).ToListAsync(cancellationToken);
+        var grants = await db.Entitlements.Where(e => accounts.Contains(e.AccountId) && e.RevokedAt == null).ToListAsync(cancellationToken);
+        return profiles.ToDictionary(p => p.AccountId, p => MediaPolicy.ModeLimit(EntitlementPolicy.Effective(grants.Where(e => e.AccountId == p.AccountId), p.FoundingMember, p.FounderEntitlementFrom, now)));
     }
 }

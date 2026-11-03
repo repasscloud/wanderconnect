@@ -1,9 +1,8 @@
 @page "/community-guidelines"
 @using Swoovr.Client
-<PageTitle>Community guidelines (draft) — Swoovr</PageTitle>
+<PageTitle>Community guidelines — Swoovr</PageTitle>
 <div class="reading-page" data-public-policy="community" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status">
     <div class="page-heading">
-        <p class="notice" role="note" data-draft><strong>@PublicPolicyDrafts.DraftLabel</strong></p>
         <h1>@Document.Title</h1>
         <p class="field-help">@PublicPolicyDrafts.Version</p>
     </div>
@@ -12,9 +11,8 @@
         @foreach (var paragraph in Document.Paragraphs) { <p>@paragraph</p> }
     </section>
     <nav class="card account-section" aria-label="Related policies">
-        <a href="/terms">Terms of use (draft)</a> · <a href="/community-guidelines">Community guidelines (draft)</a> · <a href="/privacy">Privacy notice (draft)</a> · <a href="/safety">Safety &amp; Support</a>
+        <a href="/terms">Terms of use</a> · <a href="/community-guidelines">Community guidelines</a> · <a href="/privacy">Privacy notice</a> · <a href="/safety">Safety &amp; Support</a>
     </nav>
     <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
-    <p class="notice" role="note"><strong>@PublicPolicyDrafts.DraftLabel</strong></p>
 </div>
 @code { private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Community; }

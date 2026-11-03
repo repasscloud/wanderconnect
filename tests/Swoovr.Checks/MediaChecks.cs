@@ -17,6 +17,24 @@ static class MediaChecks
         ScreeningResponse Clean(string? known = "no-known-match", EngineState knownState = EngineState.Completed, IReadOnlyList<NudityDetection>? detections = null, bool nsfw = false) =>
             new(null, EngineState.Completed, detections ?? [], EngineState.Completed, nsfw, knownState, known);
 
+        // D293/Q108: main counts within each mode's tier allowance; downgrade retains stored tail.
+        Expect(MediaPolicy.MaxKept == 60, "shared library allows sixty unique stored objects");
+        Expect(MediaPolicy.ModeLimit(PlanTier.Free) == 8 && MediaPolicy.ModeLimit(PlanTier.Plus) == 16 && MediaPolicy.ModeLimit(PlanTier.Premium) == 24, "tier mode totals include main");
+        Expect(!MediaPolicy.ValidScope("main", ConnectionModeIds.All), "global main cannot be assigned");
+        var gallery = Enumerable.Range(0, 24).Select(_ => Guid.NewGuid()).ToList();
+        Expect(MediaPolicy.PlacementAllowed(gallery.Take(8).ToList(), [], 8), "free may assign eight");
+        Expect(!MediaPolicy.PlacementAllowed(gallery.Take(9).ToList(), [], 8), "free refuses ninth new assignment");
+        Expect(MediaPolicy.PlacementAllowed(gallery.AsEnumerable().Reverse().ToList(), gallery, 8), "downgrade can reorder retained tail without deleting");
+        Expect(!MediaPolicy.PlacementAllowed([.. gallery.Take(23), Guid.NewGuid()], gallery, 8), "downgrade cannot add beyond allowance");
+
+        var noticeAt = DateTimeOffset.Parse("2026-11-02T10:00:00Z");
+        Expect(PhotoReviewPolicy.Acknowledged(noticeAt, noticeAt.AddHours(4).AddTicks(-1)), "review acknowledgement lasts less than four hours");
+        Expect(!PhotoReviewPolicy.Acknowledged(noticeAt, noticeAt.AddHours(4)) && !PhotoReviewPolicy.Acknowledged(noticeAt.AddSeconds(1), noticeAt), "expired or future acknowledgement fails closed");
+        Expect(PhotoReviewPolicy.Appealable("reject", "REJECT_PRIVACY", noticeAt, noticeAt.AddDays(29)), "ordinary rejection within thirty days appealable");
+        Expect(!PhotoReviewPolicy.Appealable("reject", "REJECT_PRIVACY", noticeAt, noticeAt.AddDays(30)), "appeal closes at thirty days");
+        Expect(!PhotoReviewPolicy.Appealable("escalate", "ESCALATE_CHILD_SAFETY", noticeAt, noticeAt), "specialist decision never appealable");
+        Expect(!PhotoReviewPolicy.MemberReason("REJECT_OTHER").Contains("notes", StringComparison.OrdinalIgnoreCase), "member reason never uses reviewer notes");
+
         // Decisions.
         Expect(MediaScreeningPolicy.Decide(Clean(), true).Verdict == ScreeningVerdict.Passed, "clean passes");
         Expect(MediaScreeningPolicy.Decide(Clean("csam"), true).Verdict == ScreeningVerdict.Blocked, "csam blocks");

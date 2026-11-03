@@ -87,6 +87,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
       assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: staff[n].email, role } })).status, 201);
     const st = {};
     for (const n of Object.keys(staff)) { st[n] = await staffToken(browser, staff[n]); await call(st[n], '/api/session'); }
+    assert.equal((await call(st.adm, '/api/admin/media/safety-ack', { method: 'POST', body: { version: '2026-11-02', confirmed: true } })).status, 200);
 
     // ---- Starters: only chips both picked in a mode they're connected in, at most three.
     let r = await call(tk.ana, `/api/conversations/${ab}/starters`);
@@ -135,7 +136,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     assert.ok(await waitFor(async () => (await call(tk.ben, '/api/me/notifications')).body.items.some(i => i.kind === 'message' && i.link === `/chats/${ab}`), 10000)); pass();
     // Never a profile photo.
     assert.ok(!(await call(tk.ana, '/api/me/photos')).body.photos.some(p => p.id === firstMedia)); pass();
-    assert.deepEqual(code(await call(tk.ana, '/api/me/photos/placement', { method: 'PUT', body: { scope: 'main', mediaIds: [firstMedia] } })), [409, 'photo-not-approved']); pass();
+    assert.deepEqual(code(await call(tk.ana, '/api/me/photos/placement', { method: 'PUT', body: { scope: 'friends', mediaIds: [firstMedia], mainMediaId: firstMedia } })), [409, 'photo-not-approved']); pass();
     assert.deepEqual(code(await call(tk.ana, `/api/me/photos/${firstMedia}`, { method: 'DELETE' })), [404, 'unknown-photo']); pass();
     assert.deepEqual(code(await call(tk.cam, `/api/conversations/${ab}/messages`)), [404, 'not-available']); pass();
 
@@ -272,7 +273,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     const benPage = await context.newPage();
     await benPage.goto(web + '/account/sign-in?intro=done');
     await benPage.fill('#username', members.ben.email); await benPage.fill('#password', members.ben.password);
-    await Promise.all([benPage.waitForURL(web + '/account'), benPage.click('#kc-login')]);
+    await Promise.all([benPage.waitForURL(web + '/explore'), benPage.click('#kc-login')]);
     await benPage.goto(web + `/chats/${ab}`);
     await benPage.waitForSelector(`[data-chat-photo="${firstMedia}"]`, { timeout: 20000 }); pass();
     assert.ok(await benPage.$eval(`[data-chat-photo="${firstMedia}"]`, img => img.complete && img.naturalWidth > 0)); pass();
@@ -282,7 +283,7 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 500;
     const anaPage = await anaContext.newPage();
     await anaPage.goto(web + '/account/sign-in?intro=done');
     await anaPage.fill('#username', members.ana.email); await anaPage.fill('#password', members.ana.password);
-    await Promise.all([anaPage.waitForURL(web + '/account'), anaPage.click('#kc-login')]);
+    await Promise.all([anaPage.waitForURL(web + '/explore'), anaPage.click('#kc-login')]);
     await anaPage.goto(web + `/chats/${ae}`);
     await anaPage.waitForSelector('[data-conversation="ready"]', { timeout: 20000 });
     // Force approval/live-event before the older upload response to cover response/event reordering.

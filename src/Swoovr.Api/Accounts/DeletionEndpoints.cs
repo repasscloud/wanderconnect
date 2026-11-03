@@ -135,7 +135,9 @@ public static class DeletionEndpoints
                     contentType = bytes is null ? null : item.ContentType, sha256 = bytes is null ? null : Convert.ToHexStringLower(item.Sha256),
                     dataBase64 = bytes is null ? null : Convert.ToBase64String(bytes) });
             }
-            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos, chatPhotos, await accounts.Services.GetRequiredService<Safety.MeetingSafetyStore>().ExportAsync(account.Id,cancellationToken));
+            var document = await DataExportBuilder.BuildAsync(db, account, now, cancellationToken, await identities.OwnAsync(account.Id, cancellationToken), photos, chatPhotos, await accounts.Services.GetRequiredService<Safety.MeetingSafetyStore>().ExportAsync(account.Id,cancellationToken),
+                await DobChangeEndpoints.HistoryAsync(db,accounts.Services.GetRequiredService<Verification.IdentityKeys>(),account.Id,cancellationToken),
+                await ContactChangeExport.OwnAsync(db,accounts.Services.GetRequiredService<ContactHistoryKeys>(),account.Id,cancellationToken));
             return Results.File(JsonSerializer.SerializeToUtf8Bytes(document, ExportJson), "application/json",
                 $"swoovr-data-{now:yyyy-MM-dd}.json");
         });

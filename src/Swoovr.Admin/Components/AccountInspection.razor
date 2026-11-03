@@ -1,0 +1,93 @@
+@inject AdminClient Admin
+@if(assurance is not null)
+{
+    <section class="ui-card" data-account-inspection>
+        <h2 class="ui-card-title">Profile and cases</h2>
+        <dl class="media-meta">
+            <div><dt>Calculated age</dt><dd data-calculated-age>@(assurance.Age?.ToString()??"Not provided")</dd></div>
+            <div><dt>Date of birth assurance</dt><dd>@(!assurance.DateOfBirthPresent?"No date saved":assurance.DateOfBirthVerified?"Matches verified identity":"Saved, not verified")</dd></div>
+        </dl>
+        <details><summary>Open current date of birth</summary>
+            <p class="ui-help"><a href="/access">Request elevated access</a> first.</p>
+            <form method="post" @formname="profile-dob-open" @onsubmit="OpenDobAsync" class="stack" data-enhance="true">
+                <AntiforgeryToken /><label>Purpose<textarea name="profileDobPurpose" maxlength="500" required></textarea></label><button type="submit">Open date of birth</button>
+            </form>
+            @if(dob is not null){<p data-profile-dob>@(dob.DateOfBirth?.ToString("d MMMM yyyy")??"No date saved")</p>}
+        </details>
+        @if(message is not null){<p role="status" data-inspection-result="@resultCode">@message</p>}
+        @if(preview is not null)
+        {
+            <h3>Public profile by mode</h3>
+            @foreach(var mode in preview.Modes)
+            {
+                <details data-mode-preview="@mode.Id"><summary>@mode.Label · @(mode.Enabled?"Enabled":"Disabled") · @(mode.Visible?"Visible":"Hidden")</summary>
+                    @if(mode.PublicProfile is{}card)
+                    {
+                        <h3>@card.DisplayName</h3><p>@card.Area</p><p>@card.About</p>
+                        @if(card.Age is{}age){<p>Age @age</p>}<p>@card.Gender @card.Pronouns</p>
+                        <p>@string.Join(" · ",card.Intentions)</p>
+                        <p>@string.Join(" · ",card.Badges.Select(b=>AccountText.BadgeLabel(b.Badge)))</p>
+                        @if(card.Photo is{}main){<p>Main photo</p><img src="@Proxy(main.Link)" alt="Main public photo for this mode" width="160" />}
+                        @foreach(var photo in mode.Photos){<img src="@Proxy(photo.Link)" alt="Public photo for this mode" width="160" />}
+                    }
+                    else{<p>No public preview.</p>}
+                </details>
+            }
+            <h3>Cases and conversation evidence</h3>
+            <ul class="list">@foreach(var item in preview.Cases){<li><a href="/cases/@item.Id">Open case · @item.Status</a></li>}</ul>
+            @if(preview.CanInspectPrivatePhotos)
+            {
+                <details><summary>Restricted profile photo inventory</summary>
+                    <p class="ui-help"><a href="/media">Acknowledge the media safety notice</a> first.</p>
+                    @foreach(var photo in photos)
+                    {
+                        <div class="review-item" data-profile-photo="@photo.Id"><p>@PhotoState(photo.State) · @photo.CreatedAt.ToString("d MMM yyyy") · @(photo.Scopes.Count==0?"Unassigned":string.Join(" · ",photo.Scopes.Select(ScopeLabel)))</p>
+                            @if(photo.MainScopes is{Count:>0}mainScopes){<p>Main photo in @string.Join(" · ",mainScopes.Select(ScopeLabel))</p>}
+                            <form method="post" @formname="@($"profile-photo-{photo.Id}")" @onsubmit="()=>OpenPhotoAsync(photo.Id,false)" class="stack" data-enhance="true">
+                                <AntiforgeryToken /><label>Viewing purpose<textarea name="photoPurpose" maxlength="500" required></textarea></label><button type="submit">Open blurred preview</button>
+                            </form>
+                            @if(viewed==photo.Id&&photoLink is not null)
+                            {
+                                <div class="media-review @(revealed?"is-revealed":null)"><img src="@Proxy(photoLink)" alt="Restricted profile photo" width="320" /></div>
+                                @if(!revealed){<form method="post" @formname="@($"profile-photo-reveal-{photo.Id}")" @onsubmit="()=>OpenPhotoAsync(photo.Id,true)" data-enhance="true"><AntiforgeryToken /><input type="hidden" name="photoPurpose" value="@viewPurpose" /><button type="submit">Reveal photo</button></form>}
+                                <a href="/accounts/@AccountId">Conceal photo</a>
+                            }
+                        </div>
+                    }
+                </details>
+            }
+            @if(history is not null)
+            {
+                <h3>Account action history</h3>
+                <ol class="list">@foreach(var item in history.Items){<li><time datetime="@item.At.ToString("O")">@item.At.ToString("d MMM yyyy HH:mm") UTC</time> · @ActionLabel(item.Action)</li>}</ol>
+                @if(history.NextCursor is{}next){<a href="/accounts/@AccountId?historyBefore=@next">Earlier actions</a>}
+                @if(HistoryBefore is not null){<a href="/accounts/@AccountId">Latest actions</a>}
+            }
+        }
+    </section>
+}
+@code{
+    [Parameter] public Guid AccountId{get;set;}
+    [SupplyParameterFromQuery(Name="historyBefore")] public long? HistoryBefore{get;set;}
+    [CascadingParameter] private HttpContext? Context{get;set;}
+    private StaffAgeAssurance? assurance;private StaffDateOfBirth? dob;private StaffProfilePreview? preview;private StaffActionPage? history;
+    private List<StaffProfilePhoto> photos=[];private string? message,resultCode,photoLink,viewPurpose;private Guid? viewed;private bool revealed;
+    protected override async Task OnInitializedAsync()
+    {
+        assurance=(await Admin.AssuranceAsync(AccountId)).Value;
+        preview=(await Admin.ProfilePreviewAsync(AccountId)).Value;
+        if(preview is not null){history=(await Admin.AccountHistoryAsync(AccountId,HistoryBefore)).Value;if(preview.CanInspectPrivatePhotos)photos=(await Admin.ProfilePhotosAsync(AccountId)).Value??[];}
+    }
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    private async Task OpenDobAsync(){var result=await Admin.ProfileDobAsync(AccountId,Field("profileDobPurpose"));dob=result.Value;resultCode=result.Ok?"ok":result.Code??result.Status.ToString();message=result.Ok?"Date opened and access recorded.":HoldText.Refusal(result.Status,result.Code);}
+    private async Task OpenPhotoAsync(Guid id,bool reveal)
+    {
+        var purpose=Field("photoPurpose");var result=await Admin.InspectProfilePhotoAsync(AccountId,id,purpose);resultCode=result.Ok?"ok":result.Code??result.Status.ToString();
+        message=result.Ok?reveal?"Photo revealed and access recorded.":"Blurred preview opened and access recorded.":result.Code=="media-safety-ack-required"?"Open Photo review and acknowledge the current safety notice before viewing restricted photos.":AdminText.Refusal(result.Status,result.Code);
+        if(result.Ok){viewed=id;photoLink=result.Value!.Link;viewPurpose=purpose;revealed=reveal;}
+    }
+    private static string Proxy(string link)=>"/media/"+link.Split('/').Last();
+    private string ScopeLabel(string scope)=>preview?.Modes.FirstOrDefault(m=>m.Id==scope)?.Label??"Shared photo (legacy)";
+    private static string PhotoState(string state)=>state switch{"passed"=>"Approved","pending"=>"Screening pending","uncertain"=>"Needs review","rejected"=>"Rejected",_=>"Unavailable"};
+    private static string ActionLabel(string action)=>action switch{"age.updated"=>"Date of birth saved","profile.updated"=>"Profile updated","home-market.override"=>"Home move wait lifted","staff.affiliated"=>"Staff badge enabled","staff.revoked"=>"Staff badge removed","moderation.warn"=>"Warning issued","moderation.restrict"=>"Account restricted","moderation.suspend"=>"Account suspended","moderation.terminate"=>"Account terminated","entitlement.granted"=>"Complimentary membership granted","dob.correction-granted"=>"Date correction allowed","dob.correction-revoked"=>"Date correction revoked","dob.correction-used"=>"Date correction used",_=>"Account action"};
+}

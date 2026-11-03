@@ -6,7 +6,9 @@
 <#import "social-providers.ftl" as identityProviders>
 <#import "passkeys.ftl" as passkeys>
 <#assign resetConfirmation = layout.isResetConfirmation()>
-<@layout.registrationLayout displayMessage=(!resetConfirmation && !messagesPerField.existsError('username','password')) displayInfo=(!resetConfirmation && realm.password && realm.registrationAllowed && !registrationDisabled??); section>
+<#-- No attribute means no reviewed render hook: fail closed for the creation link. -->
+<#assign registrationAvailable = (swoovrRegistrationAvailable!false)>
+<@layout.registrationLayout displayMessage=(!resetConfirmation && !messagesPerField.existsError('username','password')) displayInfo=(!resetConfirmation && realm.password && realm.registrationAllowed && registrationAvailable && !registrationDisabled??); section>
 <!-- template: login.ftl -->
 
     <#if section = "header">
@@ -57,7 +59,7 @@
             <@identityProviders.show social=social/>
         </#if>
     <#elseif section = "info" >
-        <#if realm.password && realm.registrationAllowed && !registrationDisabled??>
+        <#if realm.password && realm.registrationAllowed && registrationAvailable && !registrationDisabled??>
             <div id="kc-registration-container">
                 <p id="kc-registration" class="sw-switch">${msg("noAccount")} <a href="${url.registrationUrl}">${msg("doRegister")}</a></p>
             </div>

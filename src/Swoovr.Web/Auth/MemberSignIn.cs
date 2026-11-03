@@ -81,15 +81,20 @@ public static class MemberSignIn
 
     public static void UseAccountEntry(this WebApplication app)
     {
-        var configured = IsConfigured(app.Configuration);
         app.Use(async (context, next) =>
         {
-            if (configured && HttpMethods.IsGet(context.Request.Method)
-                && string.Equals(context.Request.Path.Value?.TrimEnd('/'), "/account", StringComparison.OrdinalIgnoreCase)
-                && context.User.Identity?.IsAuthenticated != true && context.Request.Query["signin"] != "retry")
+            var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
+            var publicPage = path is "" or "/terms" or "/community-guidelines" or "/privacy" or "/safety/advice" or "/safety";
+            // Protocol operations and static assets are not navigable guest pages. BFF retains its own 401/CSRF gate.
+            var protocol = path is "/account/sign-in" or "/account/create" or "/account/sign-out"
+                or "/signin-oidc" or "/signout-callback-oidc" or "/signout-oidc"
+                or "/health/live" or "/health/ready";
+            var resource = context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is not null
+                || context.Request.Path.StartsWithSegments("/bff");
+            if (context.User.Identity?.IsAuthenticated != true && !publicPage && !protocol && !resource)
             {
                 context.Response.Headers.CacheControl = "no-store";
-                context.Response.Redirect("/account/sign-in");
+                context.Response.Redirect("/");
                 return;
             }
             await next(context);
@@ -101,7 +106,7 @@ public static class MemberSignIn
         var configured = IsConfigured(app.Configuration);
         app.MapGet("/account/sign-in", (HttpContext context) =>
         {
-            if (!configured) return Results.Redirect("/account");
+            if (!configured) return Results.Redirect("/");
             // Launch splash (docs/design/reference/UI-STYLE.md): the first sign-in visit of a browser
             // session plays it here, before the hand-off, because Keycloak pages can't run it between
             // redirects. The page returns with intro=done; the cookie stops replays on later visits.
@@ -119,13 +124,29 @@ public static class MemberSignIn
                     return Results.Stream(launch.CreateReadStream(), "text/html; charset=utf-8");
                 }
             }
-            return Results.Challenge(new AuthenticationProperties { RedirectUri = "/account" }, [OpenIdConnectDefaults.AuthenticationScheme]);
+            return Results.Challenge(new AuthenticationProperties { RedirectUri = "/explore" }, [OpenIdConnectDefaults.AuthenticationScheme]);
         });
-        app.MapGet("/account/create", (HttpContext context) =>
+        app.MapGet("/account/create", async (HttpContext context,IHttpClientFactory clients) =>
         {
-            if (!configured) return Results.Redirect("/account");
-            var properties = new AuthenticationProperties { RedirectUri = "/account" };
-            // Keycloak's registration endpoint shares the authorization request (prompt=create).
+            if (!configured) return Results.Redirect("/");
+            context.Response.Headers.CacheControl="no-store";
+            Swoovr.Contracts.RegistrationAvailabilityView? availability=null;
+            try
+            {
+                using var deadline=CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);deadline.CancelAfter(TimeSpan.FromSeconds(5));
+                using var response=await clients.CreateClient(Bff.ApiClient).GetAsync("api/registration",deadline.Token);
+                if(response.IsSuccessStatusCode)availability=await response.Content.ReadFromJsonAsync<Swoovr.Contracts.RegistrationAvailabilityView>(deadline.Token);
+            }
+            catch(Exception failure)when(failure is HttpRequestException or OperationCanceledException or JsonException){ }
+            if(availability is not{Revision:>=0}||!availability.PublicEnabled&&!(availability.BetaEnabled&&context.Request.Query["invited"]=="true"))
+            {
+                var invited=availability is{BetaEnabled:true}?"<p><a href=\"/account/create?invited=true\" data-enhance-nav=\"false\">I have a beta invitation</a></p>":"";
+                return Results.Content("""
+                    <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Swoovr is currently invite-only</title><link rel="stylesheet" href="/themes.css"></head>
+                    <body><main><h1>Swoovr is currently invite-only</h1><p>We're not accepting public registrations just yet. If you'd like early access, you can register your interest in our beta.</p><p><a href="https://swoovr.com/beta">Join the beta waitlist</a></p>
+                    """+invited+"<p><a href=\"/account/sign-in\">Sign in to an existing account</a></p></main></body></html>","text/html",statusCode:availability is null?503:200);
+            }
+            var properties = new AuthenticationProperties { RedirectUri = "/explore" };
             properties.Parameters["prompt"] = "create";
             return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
         });
@@ -133,7 +154,7 @@ public static class MemberSignIn
         // member in again (prompt=login: password, passkey or a linked Apple/Google identity) and returns to a local page.
         app.MapGet("/account/reauthenticate", (string? returnUrl) =>
         {
-            if (!configured) return Results.Redirect("/account");
+            if (!configured) return Results.Redirect("/");
             var target = returnUrl is { Length: > 1 } url && url[0] == '/' && url[1] != '/' && url[1] != '\\' ? url : "/account";
             var properties = new AuthenticationProperties { RedirectUri = target };
             properties.Parameters["prompt"] = "login";

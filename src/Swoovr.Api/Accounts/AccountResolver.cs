@@ -71,8 +71,6 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
     public bool PolicyVersionSelected=>!string.IsNullOrWhiteSpace(configuration["Policies:RequiredVersion"]);
     public bool PhoneRequired => configuration.GetValue("Phone:Required", true);
     private bool LocalPasswordStaff => environment.IsDevelopment() && configuration.GetValue("Staff:LocalPasswords", false);
-    /// <summary>The private beta gate is on unless Beta:Enabled is false (D62; turned off at public launch).</summary>
-    private bool BetaEnabled => configuration.GetValue("Beta:Enabled", true);
     private static readonly TimeSpan SeenInterval = TimeSpan.FromMinutes(5);
     public SwoovrDbContext? Db { get; } = services.GetService<SwoovrDbContext>();
     /// <summary>The request's services, for endpoints that need a scoped service only on some paths.</summary>
@@ -87,7 +85,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         var email = facts.EmailVerified ? EmailAddress.Normalise(user.FindFirstValue("email")) : null;
         if (Db is null)
             return new(facts, result, email, null, [], null,
-                BetaAccessPolicy.Evaluate(BetaEnabled, persistence: false, facts.Realm, Guid.Empty, facts.EmailVerified, email, []));
+                BetaAccessPolicy.Evaluate(true, persistence: false, facts.Realm, Guid.Empty, facts.EmailVerified, email, []));
 
         var issuer = user.FindFirstValue("iss")!;
         var emailAcceptedClock = EmailClaimPolicy.AcceptanceClock(user.FindFirstValue("iat"),now);
@@ -152,9 +150,11 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         }
         var emailChanged = email is not null && account.Email is not null && account.Email != email;
         // D187 (policy §4): a verified email that changed (in Keycloak) goes to the encrypted contact history.
-        if (emailChanged && services.GetRequiredService<ContactHistoryKeys>().Record(account.Id, ContactType.Email, account.Email!, null, now, account.Id, "changed") is { } previous)
+        if (emailChanged && services.GetRequiredService<ContactHistoryKeys>().Record(account.Id, ContactType.Email, account.Email!, null, now, account.Id, "changed",
+            ContactChangeEvidenceFactory.Capture(account.Id,facts,result,user,services.GetRequiredService<ContactHistoryKeys>(),now,"validated-email-claim",activated:now)) is { } previous)
             Db.ContactHistories.Add(previous);
         var previousEmail = emailChanged ? account.Email : null;
+        if(emailChanged)Audit.Record(Db,now,account.Id,"account","email.change-activated","account",account.Id.ToString(),"validated-claim-observed");
         if (email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
         {
             if (email is not null && account.Email != email) account.EmailAcceptedAt = emailAcceptedClock;
@@ -184,6 +184,12 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         // External mail must not hold the global preservation barrier.
         if (emailChanged && profile is { FoundingMember: true })
             await services.GetRequiredService<Founders>().ReissueForEmailChangeAsync(account,profile,now,cancellationToken);
+        // Trusted Keycloak token claims are initial suggestions only. Explicit application confirmation wins forever.
+        if(facts.Realm==AccountRealm.Members&&account.RegisteredNamesConfirmedAt is null)
+        {
+            RegisteredNamesService.SuggestFromTrustedClaims(account,user);
+            await Db.SaveChangesAsync(cancellationToken);
+        }
         var roles = await Db.RoleGrants.Where(r => r.AccountId == account.Id).ToListAsync(cancellationToken);
         var beta = await BetaAsync(account, facts, email, now, cancellationToken);
         return new(facts, result, email, account, roles, profile, beta) { LocalPasswordStaff = LocalPasswordStaff, EmailChangeProblem = emailChangeProblem };
@@ -200,6 +206,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         if (email is not null) await CheckEmailAsync(email,issuer,facts.Subject,null,now,token);
         // Keep the committed quota attempt, but never commit a partial account/profile registration.
         await using var transaction = await Db.Database.BeginTransactionAsync(token);
+        await RegistrationAuthority.RequireAdoptionAsync(Db,email,token);
         var account = await CreateAsync(issuer,facts,email,now,emailAcceptedClock,token,id);
         if (account.Id != id) throw new DbUpdateConcurrencyException("Registration changed. Retry.");
         await CreateProfileAsync(id,facts,email,now,token);
@@ -221,7 +228,10 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
     /// </summary>
     private async Task<BetaAccess> BetaAsync(Account account, ValidatedSessionFacts facts, string? email, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        if (facts.Realm != AccountRealm.Members || !BetaEnabled) return BetaAccess.NotRequired;
+        if (facts.Realm != AccountRealm.Members) return BetaAccess.NotRequired;
+        var availability=await RegistrationAuthority.ReadAsync(Db!,cancellationToken);
+        if(availability is null)return BetaAccess.Unavailable;
+        if(!availability.BetaEnabled)return BetaAccess.NotRequired;
         var candidates = await Db!.BetaEnrolments
             .Where(e => e.RevokedAt == null && (e.AccountId == account.Id || e.AccountId == null && email != null && e.Email == email))
             .ToListAsync(cancellationToken);
@@ -239,7 +249,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
                 Db.ChangeTracker.Clear();
             }
         }
-        return access;
+        return availability.PublicEnabled?BetaAccess.NotRequired:access;
     }
 
     private async Task<Account> CreateAsync(string issuer, ValidatedSessionFacts facts, string? email, DateTimeOffset now, DateTimeOffset emailAcceptedClock, CancellationToken cancellationToken, Guid? proposedId = null)

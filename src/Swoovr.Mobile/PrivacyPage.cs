@@ -12,14 +12,12 @@ public sealed class PrivacyPage : ContentPage
 	{
 		Title = "Privacy notice";
 		var body = new VerticalStackLayout { Padding = new Thickness(24, 30), Spacing = 16 };
-		body.Children.Add(Ui.Text(PrivacyNotice.DraftLabel, "FieldLabel", "PrivacyDraft"));
 		body.Children.Add(Ui.Text("Privacy notice", "PageTitle"));
 		body.Children.Add(Ui.Text(PrivacyNotice.Version, "FooterClaims"));
 		foreach (var section in PrivacyNotice.Sections)
 			body.Children.Add(Ui.Card([Ui.Text(section.Title, "SectionHeading", $"Privacy_{section.Id}"), .. section.Paragraphs.Select(p => (View)Ui.Text(p))]));
         body.Children.Add(Ui.Button("Contact Support", "PrivacySupportWeb", () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)), primary: false));
         body.Children.Add(Ui.Button("Email Support", "PrivacySupportEmail", () => Launcher.Default.OpenAsync(new Uri("mailto:" + StandingText.SupportEmail)), primary: false));
-		body.Children.Add(Ui.Text(PrivacyNotice.DraftLabel, "FieldLabel"));
 		Content = new ScrollView { Content = body };
 	}
 }

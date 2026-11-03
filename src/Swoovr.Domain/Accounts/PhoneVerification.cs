@@ -23,6 +23,8 @@ public sealed class PhoneCode
     public string Number { get; set; } = "";
     public byte[] CodeHash { get; set; } = [];
     public byte[] IpHash { get; set; } = [];
+    /// <summary>Q87: bounded encrypted request security evidence, removed with the one-day code row.</summary>
+    public byte[]? RequestEvidence { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public int FailedAttempts { get; set; }

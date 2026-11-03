@@ -90,7 +90,7 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                 {
                     case "case": if (!Guid.TryParse(copy.RecordId, out var id) || !Member("subjectAccountId")) return; cases.Add(id); break;
                     case "report": if (!Case("caseId") || !Member("reporterAccountId") || !Member("subjectAccountId")) return; break;
-                    case "appearance":case "beta-enrolment":case "beta-journey":case "policy-acceptance":case "policy-notice":if(!Member("accountId"))return;break;
+                    case "safety-advice-acknowledgement":case "appearance":case "beta-enrolment":case "beta-journey":case "policy-acceptance":case "policy-notice":if(!Member("accountId"))return;break;
                     case "moderation-transparency": if(!Member("subjectAccountId")||!Case("sourceCaseId"))return;break;
                     case "text-harm-review":
                         if(!Case("caseId")||!Member("subjectAccountId")||!root.TryGetProperty("relatedAccountIds",out var related)||related.ValueKind!=JsonValueKind.Array)return;
@@ -102,6 +102,21 @@ public sealed class SafetyRetention(SwoovrDbContext db, EvidencePreservation evi
                         if (sourceReport is null) return; // Missing participant provenance requires independent review.
                         accounts.UnionWith([sourceReport.ReporterAccountId, sourceReport.SubjectAccountId]);
                         break;
+                    case "media":
+                    {
+                        // These two sealed application records carry their own member provenance after source deletion.
+                        // Do not accept other historical/future media schemas or disagreeing outer/inner ownership.
+                        if (copy.Source is not ("media_decision_records" or "media_appeals")
+                            || copy.AccountId is not { } mediaOwner || mediaOwner == Guid.Empty
+                            || !Guid.TryParse(copy.RecordId, out var recordId) || recordId == Guid.Empty
+                            || !root.TryGetProperty("id", out var recordField) || !recordField.TryGetGuid(out var sealedId) || sealedId != recordId
+                            || !root.TryGetProperty("accountId", out var ownerField) || !ownerField.TryGetGuid(out var sealedOwner) || sealedOwner != mediaOwner
+                            || !root.TryGetProperty("mediaId", out var mediaField) || !mediaField.TryGetGuid(out var mediaId) || mediaId == Guid.Empty) return;
+                        if (copy.Source == "media_appeals" && (!root.TryGetProperty("decisionId", out var decisionField)
+                            || !decisionField.TryGetGuid(out var decisionId) || decisionId == Guid.Empty)) return;
+                        accounts.Add(mediaOwner);
+                        break;
+                    }
                     case "sanction": if (!Case("caseId")) return; break;
                     case "conversation": if (!Member("pairLow") || !Member("pairHigh")) return; break;
                     case "request": if (!Member("fromAccountId") || !Member("toAccountId")) return; break;

@@ -1,6 +1,8 @@
 # UAT infrastructure preparation
 
-D283 DEFAULT implements the reversible Australia East choice in D221/Q90 (#124), still awaiting the owner hosting answer. These Bicep files have been compiled locally, not provisioned, Azure-validated or cost-approved. The owner creates/selects the subscription. No Actions are enabled.
+CONFIRMED D291 (owner #124, 2 November 2026) approves Australia East, Container Apps, separate application/Keycloak databases and logins, the proposed resource names/tags and backup schedule. Earlier references to an unanswered hosting proposal below are historical. Subscription creation and initial deployment remain with the owner; these files do not provision resources by themselves.
+
+D283 implements the Australia East topology now CONFIRMED by D291/Q90 (#124). These Bicep files have been compiled locally, not provisioned, Azure-validated or cost-approved. The owner creates/selects the subscription. No Actions are enabled.
 
 `infra/uat/foundation.bicep` prepares a Consumption Container Apps environment, VNet, delegated private PostgreSQL subnet/DNS, private Key Vault and backup Blob endpoints/DNS, authenticated ACR, infrastructure logs and dedicated managed identities. `services.bicep` prepares PostgreSQL17 and staged applications/jobs. All service, job, secret-grant, invitation and schedule switches default off. PostgreSQL creation still occurs in the services stage; inspect/approve an Azure what-if before deployment. ACR uses the documented2025-06-01-preview contract to explicitly disable anonymous pulls and select ordinary AcrPull role semantics. This is a deployment dependency, not a general preview upgrade policy.
 
@@ -25,3 +27,14 @@ python3 tests/uat/app_images.py
 ```
 
 These compile every module and exercise security/parameter contracts and isolated published hosts. They are not Azure deployment/what-if, DNS/TLS, real provider, Entra or end-to-end hosted acceptance. No browser suite is required by these non-UI templates; the published artifact fixture separately checks SSR/static resources and command readiness.
+
+
+## Q112 registration-admission preparation
+
+The provider guard needs one shared operational credential. `secret-bindings.json` now prepares the Key Vault name `${prefix}-registration-authority` for only the existing API and Keycloak managed identities. The API receives `Registration__ProviderToken`; Keycloak receives the same secret as `SWOOVR_REGISTRATION_AUTHORITY_TOKEN`. Web, Admin, screening, bootstrap, backup and operator identities receive no additional read grant. No credential value is stored in the repository or parameters example.
+
+Keycloak's nonsecret `SWOOVR_REGISTRATION_AUTHORITY_URL` is derived as `https://${prefix}-api.${environmentDefaultDomain}/api/registration/admission`, using the API's Azure-managed HTTPS hostname already accepted by its hosted configuration. There is no user-supplied admission origin, HTTP fallback, token literal or additional resource. The local preflight validates the DNS inputs and exact two-actor shared-secret binding metadata. The compiled infrastructure contract test checks the Keycloak environment wiring and both secret references.
+
+This is deployment preparation under D291, not configured integration. The owner/operator still supplies an appropriately random shared token (the guard accepts 32–512 characters) to the existing vault, checks both managed identity bindings and TLS/reachability, and proves denial/admission with fictional identities on the hosted stack. A deployed Keycloak guard without a reachable configured API fails closed for new registration; preparing these files does not open registrations or affect the owner's existing services. Deploy switches remain off by default. Key Vault provisioning, writing secret values, role grants, deployment and hosted admission acceptance were not executed here.
+
+Local evidence: `python3 tests/uat/preflight.py` passes 35 synthetic parameter/binding acceptance/refusal checks. Compiled infrastructure validation uses `python3 tests/uat/infrastructure.py --bicep /path/to/verified/bicep`; its current result is recorded in the coordinating delivery log. No .NET build, browser or cloud access is needed for the Python shape checks.

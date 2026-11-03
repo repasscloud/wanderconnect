@@ -212,6 +212,13 @@ public sealed class Notifier(IServiceProvider services, IPushSender push, IEmail
             else
             {
                 var name = actor is { } who ? await db.MemberProfiles.Where(p => p.AccountId == who).Select(p => p.DisplayName).SingleOrDefaultAsync(cancellationToken) : null;
+                var nameMode = mode ?? (kind == NotificationKind.Message && subject is { } conversationId
+                    ? await db.Conversations.Where(c => c.Id == conversationId).Select(c => c.OriginModeId).SingleOrDefaultAsync(cancellationToken) : null);
+                if (actor is { } named && nameMode is not null)
+                {
+                    var alias = await db.MemberModes.Where(m => m.AccountId == named && m.ModeId == nameMode).Select(m => m.DisplayName).SingleOrDefaultAsync(cancellationToken);
+                    name = ModePrivacy.DisplayName(alias, name);
+                }
                 var label = mode is null ? null : await db.ConnectionModes.Where(m => m.Id == mode).Select(m => m.Label).SingleOrDefaultAsync(cancellationToken);
                 var place = kind == NotificationKind.Travel && subject is { } trip ? await NotificationLinks.PlaceAsync(db, trip, cancellationToken) : null;
                 var (title, body) = NotificationPolicy.Push(kind, settings.PrivatePreviews, name, label, text, place);

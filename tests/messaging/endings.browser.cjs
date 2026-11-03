@@ -88,7 +88,7 @@ const neutral = 'A conversation has ended on Swoovr.';
     await call(tk.dee, '/api/me/notification-settings', { method: 'PUT', body: { privatePreviews: false } });
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } }); const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done'); await page.fill('#username', members.dee.email); await page.fill('#password', members.dee.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.goto(web + `/chats/${ad}`); await page.waitForSelector('[data-live="on"]');
     assert.equal((await end('ana', ad, 'thanks')).status, 200); pass();
     const list = await messages('dee', ad);

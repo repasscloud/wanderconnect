@@ -41,7 +41,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', member.email); await page.fill('#password', member.password);
-    await Promise.all([page.waitForURL(web + '/account'), page.click('#kc-login')]);
+    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.waitForSelector('[data-privacy-link]');
     assert.equal(await page.getAttribute('[data-privacy-link]', 'href'), '/privacy'); pass();
     await page.goto(web + '/account/data');

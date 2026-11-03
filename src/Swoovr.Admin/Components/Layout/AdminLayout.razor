@@ -9,14 +9,28 @@
 <header class="admin-header">
 <button type="button" class="quiet menu-toggle" data-drawer-open aria-controls="navigation-drawer" aria-expanded="false" aria-label="Open navigation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16 M4 12h16 M4 18h16" /></svg></button>
 <div class="page-context"><span>Staff workspace</span><strong>@Section</strong></div>
-<details class="staff-menu"><summary><span class="staff-avatar" aria-hidden="true">S</span><span class="staff-name">@StaffName</span><span aria-hidden="true">⌄</span></summary>
+<div class="header-tools">
+<button type="button" class="jump-button" data-palette-open aria-label="Jump to a page or search accounts" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><span class="jump-label">Jump to…</span><kbd>⌘K</kbd></button>
+<button type="button" class="theme-button" data-theme-toggle aria-label="Toggle light or dark theme">Theme</button>
+<details class="staff-menu"><summary><span class="staff-avatar" aria-hidden="true">@Initials</span><span class="staff-name">@StaffName</span><span aria-hidden="true">⌄</span></summary>
 <div class="account-actions"><p>Staff account</p><a href="/sign-in?reauth=true" data-enhance-nav="false">Sign in again</a><form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form></div></details>
+</div>
 </header>
-<main id="main-content" tabindex="-1" class="admin-main">@Body</main>
+<main id="main-content" tabindex="-1" class="admin-main @(DesktopOnly ? "requires-desktop" : "") @(LimitedPhone ? "phone-summary" : "")">
+@if (DesktopOnly)
+{
+    <section class="card desktop-required" data-desktop-required><h1>This page needs a larger screen</h1><p>Open this workflow on a desktop or tablet.</p><a href="/">Back to overview</a></section>
+}
+<div data-workflow>@Body</div></main>
 </div></div>
 <dialog id="navigation-drawer" aria-label="Navigation"><AdminNavigation Drawer="true" /></dialog>
 @code {
 private string Path => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+// D302: viewport rules are presentation only; API roles/elevation remain authoritative.
+private bool DesktopOnly => new[] { "/media", "/registry", "/holds", "/law-enforcement", "/disclosures", "/identity", "/access", "/security" }.Any(route => Path == route || Path.StartsWith(route + "/", StringComparison.Ordinal))
+    || Path.EndsWith("/content", StringComparison.Ordinal) || Path.EndsWith("/text-review", StringComparison.Ordinal) || Path.EndsWith("/reinstate", StringComparison.Ordinal);
+private bool LimitedPhone => Path == "/beta" || Path.StartsWith("/accounts/", StringComparison.Ordinal);
+private string Initials => string.Concat(StaffName.Split(new[] { ' ', '.', '@', '-', '_' }, StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
 private string StaffName => Context.HttpContext?.User.Identity?.Name is { Length: > 0 } name ? name : "Staff account";
 private string Section => Path.Split('/').ElementAtOrDefault(1) switch {
 "cases" or "appeals" or "media" or "dob-reviews" => "Moderation",

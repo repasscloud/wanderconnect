@@ -1,0 +1,16 @@
+@inject AdminClient Admin
+<header class="ui-page-head">
+    <h1>@Title</h1>
+    <p>Uploads flagged by screening or held for manual review.</p>
+</header>
+<nav class="ui-tabs" aria-label="Media review sections">
+    <a href="/media" aria-current="@(Active=="queue"?"page":null)">Queue @if(workload is{}w){<span class="ui-tab-count">@w.ManualReview</span>}</a>
+    <a href="/media/appeals" aria-current="@(Active=="appeals"?"page":null)">Appeals @if(workload is{Appeals:>0}a){<span class="ui-tab-count">@a.Appeals</span>}</a>
+    <a href="/media/history" aria-current="@(Active=="history"?"page":null)">History</a>
+</nav>
+@code {
+    [Parameter, EditorRequired] public string Active { get; set; } = "queue";
+    [Parameter] public string Title { get; set; } = "Media review";
+    private PhotoWorkload? workload;
+    protected override async Task OnInitializedAsync() => workload = (await Admin.PhotoWorkloadAsync()).Value;
+}

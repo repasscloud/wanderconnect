@@ -11,6 +11,25 @@ for field,value in [('images',{}),('images',{'api':'latest'}),('cryptoVersions',
     try:m.validate(changed)
     except (ValueError,TypeError):checks+=1
     else:raise AssertionError('Unsafe metadata accepted: '+field)
+assert m.registration_admission_url(values)=='https://swoovr-uat-api.fictional.australiaeast.azurecontainerapps.io/api/registration/admission';checks+=1
+custom=copy.deepcopy(values);custom['prefix']='fictional-test';assert m.registration_admission_url(custom)=='https://fictional-test-api.fictional.australiaeast.azurecontainerapps.io/api/registration/admission';checks+=1
+for prefix in ['https://evil.test','user@api','api/path','../api','api:443','api?x','api#fragment','-api','api-','a'*60]:
+    changed=copy.deepcopy(values);changed['prefix']=prefix
+    try:m.validate(changed)
+    except ValueError:checks+=1
+    else:raise AssertionError('Unsafe registration authority prefix accepted.')
+import json
+bindings=json.loads((root/'infra/uat/secret-bindings.json').read_text())
+m.validate_registration_bindings(bindings);checks+=1
+for mutation in ['missing-api','missing-keycloak','different-secret','extra-reader']:
+    changed=copy.deepcopy(bindings)
+    if mutation=='missing-api':changed=[r for r in changed if r['env']!='Registration__ProviderToken']
+    if mutation=='missing-keycloak':changed=[r for r in changed if r['env']!='SWOOVR_REGISTRATION_AUTHORITY_TOKEN']
+    if mutation=='different-secret':next(r for r in changed if r['env']=='SWOOVR_REGISTRATION_AUTHORITY_TOKEN')['name']='different-token'
+    if mutation=='extra-reader':next(r for r in changed if r['env']=='SWOOVR_REGISTRATION_AUTHORITY_TOKEN')['actors'].append('web')
+    try:m.validate_registration_bindings(changed)
+    except ValueError:checks+=1
+    else:raise AssertionError('Unsafe registration authority binding accepted: '+mutation)
 valid=copy.deepcopy(values);valid['deployServing']=True;assert m.validate(valid)==valid;checks+=1
 valid['bindPublicHostnames']=True
 try:m.validate(valid)

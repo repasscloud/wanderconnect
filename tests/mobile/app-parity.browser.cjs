@@ -29,7 +29,7 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
       if (n === 'out' || n === 'bot') continue;
       for (const mode of ['dating', 'friends']) await call(tokens[n], `/api/me/modes/${mode}`, { method: 'PUT', body: { enabled: true, visible: true } });
       if (n === 'dex') continue; // no date of birth
-      if (n === 'eve') { await call(tokens.eve, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1991-03-03' } }); continue; } // no Dating details
+      if (n === 'eve') { await call(tokens.eve, '/api/me/age', { method: 'PUT', body: { dateOfBirth: '1991-03-03', confirmed:true } }); continue; } // no Dating details
       await matchReady(tokens[n]);
     }
 

@@ -31,7 +31,7 @@ public static class PhoneEndpoints
         });
 
         me.MapPost("", async (PhoneStart request, ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, PhoneKeys keys,
-            HttpContext context, IConfiguration configuration, TimeProvider clock, CancellationToken cancellationToken) =>
+            HttpContext context, IConfiguration configuration, ContactHistoryKeys history,TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
             if (denied is not null) return denied;
@@ -44,6 +44,8 @@ public static class PhoneEndpoints
             if (await db.MemberPhones.AnyAsync(p => p.AccountId == account.Id && p.Number != number, cancellationToken)
                 && !AccountDeletionPolicy.Fresh(current.Facts.AuthenticatedAt, now, TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Accounts:ReauthSeconds", 300), 30, 900))))
                 return Problem(StatusCodes.Status403Forbidden, ProblemCodes.StaleSession, "Sign in again to change your number.");
+            if(await db.MemberPhones.AnyAsync(p=>p.AccountId==account.Id&&p.Number!=number,cancellationToken)
+                &&(history.CurrentVersion is null||history.Lookup is null))return Problem(503,ProblemCodes.NotConfigured,"Contact change security evidence is unavailable. Try again later.");
             var address = PhoneVerificationPolicy.AddressHash(key, ClientAddress(context, configuration));
             var hour = now.AddHours(-1);
             var facts = new PhoneSendFacts(
@@ -69,6 +71,7 @@ public static class PhoneEndpoints
             {
                 Id = Guid.NewGuid(), AccountId = account.Id, Number = number, CodeHash = PhoneVerificationPolicy.Hash(key, account.Id, number, code),
                 IpHash = address, CreatedAt = now, ExpiresAt = now + PhoneVerificationPolicy.CodeLifetime,
+                RequestEvidence=history.SealRequest(ContactChangeEvidenceFactory.Capture(current,user,history,now,"phone-code",requested:now)),
             };
             db.PhoneCodes.Add(row);
             Audit.Record(db, now, account.Id, "account", "phone.code-sent", "phone-code", row.Id.ToString(), sender.Kind);
@@ -114,8 +117,12 @@ public static class PhoneEndpoints
             // D184: verifying a new number replaces (and releases) the old one; the log says it changed, never which number.
             var change = phone is null ? "first" : "changed";
             var replaced = phone?.Number is { } old && old != number ? old : null;
-            // D187 (policy §4): the previous number goes to the encrypted contact history.
-            if (phone is not null && phone.Number != number && history.Record(account.Id, ContactType.Mobile, phone.Number, phone.VerifiedAt, now, account.Id, "changed") is { } previous)
+            var requestEvidence=history.OpenRequest(latest!.RequestEvidence);
+            if(replaced is not null&&(requestEvidence is null||requestEvidence.RequesterAccountId!=account.Id||requestEvidence.RequestedAt!=latest.CreatedAt))
+                return Problem(503,ProblemCodes.NotConfigured,"Ask for a new code before changing this number; the request security evidence is unavailable.");
+            var changeEvidence=requestEvidence is null?null:requestEvidence with{VerifiedAt=now,ActivatedAt=now,ObservedAt=now,ActivationSessionHmac=ContactChangeEvidenceFactory.Session(user,history.Lookup)};
+            // D187 (policy §4): previous value and bounded security evidence share encryption and retention.
+            if (phone is not null && phone.Number != number && history.Record(account.Id, ContactType.Mobile, phone.Number, phone.VerifiedAt, now, account.Id, "changed",changeEvidence) is { } previous)
                 db.ContactHistories.Add(previous);
             if (phone is null) db.MemberPhones.Add(phone = new MemberPhone { AccountId = account.Id });
             (phone.Number, phone.VerifiedAt) = (number, now);

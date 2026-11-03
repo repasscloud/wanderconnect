@@ -24,6 +24,8 @@ public sealed class DobReview
     public DateTimeOffset? ResolvedAt { get; set; }
     public Guid? ResolvedBy { get; set; }
     public DobReviewOutcome? Outcome { get; set; }
+    /// <summary>Staff reason recorded with the outcome (no dates). Null for reviews resolved before it was kept.</summary>
+    public string? ResolutionNote { get; set; }
 }
 
 public enum DobCorrectionResult { Verified, ManualReview }

@@ -1,6 +1,6 @@
 @inject NavigationManager Navigation
 <aside class="admin-sidebar" aria-label="Application navigation">
-<a class="admin-brand" href="/"><span class="brand-mark" aria-hidden="true">S</span><span>Swoovr<small>Administration</small></span></a>
+<a class="admin-brand" href="/" aria-label="swoovr administration home"><span class="brand-mark"><svg viewBox="140 30 420 356" aria-hidden="true" class="brand-bird"><path fill="currentColor" fill-rule="evenodd" transform="translate(145 35.03125) scale(1.067708)" d="M139 0C153.755264 7.892353 168.569412 15.313709 182.947464 22.516602C252.37085 57.295238 311.627411 86.980667 305 140C304.202057 150.107193 301.06955 159.719162 296.279846 168.835938C297.106506 168.971268 298.010498 169.491089 298.900879 170.167953C327.374664 144.083389 345.228699 148.062378 367 154C373 156 378 156 384 156C355 164 350 185 339 207C310 270 226 282 97 324C153.7 289.85 197.8 257.1 233.4 227.7C236.604 225.054 238.45 222.35 239.85 218.65C260.85 163.15 218.0 80.86 139 0ZM77 137C120 159 205 163 226 192C259.219879 239.585236 132.02446 263.793365 32.588951 282.71817C21.274101 284.871643 10.3187 286.956696 0 289C79 260 166 226 180 207C188.996353 193.205597 164.180161 181.929153 134.46019 168.424454C114.626785 159.41217 92.609497 149.407547 77 137Z"/></svg></span><span class="brand-word">swoovr<small>Administration</small></span></a>
 @if (Drawer) { <button type="button" class="quiet drawer-close" data-drawer-close>Close navigation <span aria-hidden="true">×</span></button> }
 <nav aria-label="Admin">
 <div class="nav-group"><p class="nav-heading">Workspace</p>
@@ -9,10 +9,11 @@
 <div class="nav-group"><p class="nav-heading">Moderation</p>
 <a href="/cases" class="@(IsActive("/cases") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/cases") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M8 8h8 M8 12h8 M8 16h4" /></svg><span>Queue</span></a>
 <a href="/appeals" class="@(IsActive("/appeals") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/appeals") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16 M6 10v9 M12 10v9 M18 10v9 M3 21h18 M12 3l9 5H3z" /></svg><span>Appeals</span></a>
-<a href="/media" class="@(IsActive("/media") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/media") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z M3 16l5-5 4 4 3-3 6 6 M8 7h.01" /></svg><span>Photos</span></a>
+<a href="/media" class="@(IsActive("/media") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/media") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z M3 16l5-5 4 4 3-3 6 6 M8 7h.01" /></svg><span>Media</span></a>
 <a href="/dob-reviews" class="@(IsActive("/dob-reviews") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/dob-reviews") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h3" /></svg><span>Date of birth</span></a>
 </div>
 <div class="nav-group"><p class="nav-heading">Members</p>
+<a href="/registration" class="@(IsActive("/registration") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/registration") ? "page" : null)"><span>Registration settings</span></a>
 <a href="/accounts" class="@(IsActive("/accounts") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/accounts") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8a4 4 0 0 0 0-8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4" /></svg><span>Accounts</span></a>
 <a href="/beta" class="@(IsActive("/beta") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/beta") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M8 12l3 3 5-6" /></svg><span>Beta enrolments</span></a>
 <a href="/support" class="@(IsActive("/support") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/support") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-5-5 M10 3a7 7 0 1 0 0 14a7 7 0 0 0 0-14" /></svg><span>Support lookup</span></a>
@@ -32,7 +33,6 @@
 <a href="/code-reports" class="@(IsActive("/code-reports") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/code-reports") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z M8 16v-3 M12 16V9 M16 16v-5" /></svg><span>Annual report data</span></a>
 </div>
 </nav>
-<p class="sidebar-note">Staff workspace<br />Access is limited to your role.</p>
 </aside>
 @code {
 [Parameter] public bool Drawer { get; set; }

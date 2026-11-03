@@ -10,10 +10,12 @@ public static class BetaMessageAudience
 {
     public static async Task<bool> AllowsAsync(IServiceProvider services,Guid recipient,CancellationToken token)
     {
-        if(!services.GetRequiredService<IConfiguration>().GetValue("Beta:Enabled",true))return true;
         var db=services.GetRequiredService<SwoovrDbContext>();
+        var policy=await Swoovr.Api.Accounts.RegistrationAuthority.ReadAsync(db,token);
+        if(policy is null)return false;
+        var betaOnly=policy.BetaEnabled&&!policy.PublicEnabled;
         return await db.Accounts.AsNoTracking().AnyAsync(a=>a.Id==recipient&&a.Realm==AccountRealm.Members&&a.Status==AccountStatus.Active
-            &&db.BetaEnrolments.Any(e=>e.RevokedAt==null&&(e.AccountId==recipient||e.AccountId==null&&a.Email!=null&&a.EmailRetiredAt==null&&e.Email==a.Email)),token);
+            &&(!betaOnly||db.BetaEnrolments.Any(e=>e.RevokedAt==null&&(e.AccountId==recipient||e.AccountId==null&&a.Email!=null&&a.EmailRetiredAt==null&&e.Email==a.Email))),token);
     }
     public static async Task SendAsync(IServiceProvider services,Guid recipient,MessageView message,CancellationToken token)
     {

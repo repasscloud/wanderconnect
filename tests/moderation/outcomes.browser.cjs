@@ -21,7 +21,7 @@ const title='There is an update to a report you submitted. Open Notices and repo
   phase='routine-web-report';
   const context=await browser.newContext({viewport:{width:390,height:844}});contexts.push(context);const page=await context.newPage();
   await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',members.reporter.email);await page.fill('#password',members.reporter.password);
-  await Promise.all([page.waitForURL(web+'/account'),page.click('#kc-login')]);await page.goto(web+'/people/'+pids.subject);
+  await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');await page.goto(web+'/people/'+pids.subject);
   await page.click('[data-report-open]');await page.selectOption('#report-category','harassment');await page.fill('#report-text','Fictional private report note');await page.click('[data-report-form] button[type=submit]');await page.waitForSelector('[data-report="sent"]');
   check(await page.locator('[data-report-support]').count()===1,'routine report always offers support and complaints');
   const support=page.locator('[data-report-support]');check((await support.innerText()).includes('how your report was handled'),'handling complaint explained');check((await support.innerText()).includes('Online Dating Code'),'Code concerns explained without claiming signatory status');
@@ -62,7 +62,7 @@ const title='There is an update to a report you submitted. Open Notices and repo
    check(await sql(`SELECT count(*) FROM blocks WHERE blocker_account_id='${ids.other}' AND blocked_account_id='${ids.subject}'`)==='0','failed baseline leaves no optional block');
   }finally{await sql(`ALTER TABLE report_outcome_states DROP CONSTRAINT ${guard}`);}
   const otherContext=await browser.newContext({viewport:{width:390,height:844}});contexts.push(otherContext);const otherPage=await otherContext.newPage();
-  await otherPage.goto(web+'/account/sign-in?intro=done');await otherPage.fill('#username',members.other.email);await otherPage.fill('#password',members.other.password);await Promise.all([otherPage.waitForURL(web+'/account'),otherPage.click('#kc-login')]);
+  await otherPage.goto(web+'/account/sign-in?intro=done');await otherPage.fill('#username',members.other.email);await otherPage.fill('#password',members.other.password);await Promise.all([otherPage.waitForURL(web+'/explore'),otherPage.click('#kc-login')]);await otherPage.goto(web+'/account');
   await otherPage.goto(web+'/people/'+pids.subject);await otherPage.click('[data-report-open]');await otherPage.selectOption('#report-category','harassment');await otherPage.locator('[data-report-form] input[type=checkbox]').check();await otherPage.click('[data-report-form] button[type=submit]');await otherPage.waitForSelector('[data-person="blocked"]');
   check(await otherPage.locator('[data-report-support]').count()===1,'report-and-block retains support after source profile disappears');
   check(await sql(`SELECT count(*) FROM reports WHERE reporter_account_id='${ids.other}'`)==='1','normal retry creates source and baseline');

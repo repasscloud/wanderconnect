@@ -15,16 +15,18 @@ public static class DataExportBuilder
     private const string DeletedMember = "Deleted member";
 
     public static async Task<object> BuildAsync(SwoovrDbContext db, Account account, DateTimeOffset now, CancellationToken cancellationToken,
-        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null, object? meetingSafety = null)
+        VerifiedIdentityFields? verifiedIdentity = null, IReadOnlyList<object>? photos = null, IReadOnlyList<object>? chatPhotos = null, object? meetingSafety = null,
+        IReadOnlyList<Swoovr.Contracts.DobHistoryView>? dateOfBirthHistory=null,IReadOnlyList<object>? contactChangeEvidence=null)
     {
         var id = account.Id;
+        var adviceAcknowledgement = await AdviceAcknowledgements.ReadAsync(db,id,cancellationToken);
         var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
         var identity = await db.MemberIdentities.FindAsync([id], cancellationToken);
         var home = profile?.HomeGeoNameId is { } homeId ? await db.GeoCities.FindAsync([homeId], cancellationToken) : null;
         var chips = await (from c in db.MemberModeIntentions join i in db.ModeIntentions on c.IntentionId equals i.Id
                            where c.AccountId == id select new { c.ModeId, i.Label }).ToListAsync(cancellationToken);
         var modes = (await db.MemberModes.Where(m => m.AccountId == id).ToListAsync(cancellationToken))
-            .Select(m => new { mode = m.ModeId, m.Enabled, m.Visible, intentions = chips.Where(c => c.ModeId == m.ModeId).Select(c => c.Label).ToList(), m.UpdatedAt });
+            .Select(m => new { mode = m.ModeId, m.Enabled, m.Visible, m.DisplayName, intentions = chips.Where(c => c.ModeId == m.ModeId).Select(c => c.Label).ToList(), m.UpdatedAt });
         var filters = (await db.ModeFilters.Where(f => f.AccountId == id).ToListAsync(cancellationToken))
             .Select(f => new { mode = f.ModeId, f.MinAge, f.MaxAge, f.RequiredChips, f.RequiredMatch, f.ExcludedChips, f.IdVerifiedOnly, f.Visitors, f.MaxDistanceKm, f.Sort });
         var trips = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
@@ -32,9 +34,13 @@ public static class DataExportBuilder
                            select new { city = c.Name, country = c.CountryName, t.Arrival, t.Departure, t.Visible, t.CancelledAt, t.ArrivedAt, t.CreatedAt }).ToListAsync(cancellationToken);
 
         var names = await NamesAsync(db, id, cancellationToken);
-        string Name(Guid other) => names.GetValueOrDefault(other) ?? DeletedMember;
+        var namedAccounts = names.Keys.ToList();
+        var modeNames = await db.MemberModes.Where(m => namedAccounts.Contains(m.AccountId)).ToListAsync(cancellationToken);
+        string Name(Guid other, string? mode = null) => names.TryGetValue(other, out var publicName)
+            ? ModePrivacy.DisplayName(modeNames.FirstOrDefault(m => m.AccountId == other && m.ModeId == mode)?.DisplayName, publicName) ?? DeletedMember
+            : DeletedMember;
         var requests = (await db.ConnectionRequests.Where(r => r.FromAccountId == id || r.ToAccountId == id).OrderBy(r => r.CreatedAt).ToListAsync(cancellationToken))
-            .Select(r => new { direction = r.FromAccountId == id ? "sent" : "received", with = Name(r.FromAccountId == id ? r.ToAccountId : r.FromAccountId),
+            .Select(r => new { direction = r.FromAccountId == id ? "sent" : "received", with = Name(r.FromAccountId == id ? r.ToAccountId : r.FromAccountId, r.ModeId),
                 mode = r.ModeId, r.Status, r.CreatedAt, r.AnsweredAt });
         var blocks = (await db.Blocks.Where(b => b.BlockerAccountId == id).ToListAsync(cancellationToken)).Select(b => new { person = Name(b.BlockedAccountId) });
 
@@ -47,7 +53,7 @@ public static class DataExportBuilder
         var media = await db.MediaItems.Where(i => mediaIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, cancellationToken);
         var chats = conversations.Select(c => new
         {
-            with = Name(c.PairLow == id ? c.PairHigh : c.PairLow), c.CreatedAt, c.ClosedAt,
+            with = Name(c.PairLow == id ? c.PairHigh : c.PairLow, c.OriginModeId), c.OriginModeId, c.CreatedAt, c.ClosedAt,
             messages = messages[c.Id].Where(m => AttachmentPolicy.Listed(m, id, m.MediaId is { } x && media.TryGetValue(x, out var i) ? i.Status : null,
                     m.MediaId is { } y && media.TryGetValue(y, out var j) && j.RemovedAt is not null))
                 .Select(m => new
@@ -71,6 +77,9 @@ public static class DataExportBuilder
 
         return new
         {
+            adviceAcknowledgement,
+            registeredNames = RegisteredNamesService.View(account),
+            contactChangeEvidence=contactChangeEvidence??[],
             format = "swoovr-data-export/1",
             exportedAt = now,
             account = new { email = account.Email, createdAt = account.CreatedAt, status = account.Status, deletionDueAt = account.DeletionDueAt },
@@ -96,9 +105,12 @@ public static class DataExportBuilder
             idVerification = verification, entitlements,
             // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
             photos = photos ?? [],
+            photoDecisions = await db.Set<MediaDecisionRecord>().Where(d => d.AccountId == id).Select(d => new { d.Id, d.MediaId, Decision = d.Decision == "reject" || d.Decision == "escalate" ? "not-approved" : d.Decision, d.At }).ToListAsync(cancellationToken),
+            photoAppeals = await db.Set<MediaAppeal>().Where(a => a.AccountId == id).Select(a => new { a.Id, a.DecisionId, a.MediaId, a.Text, a.SubmittedAt, a.Outcome, a.DecidedAt }).ToListAsync(cancellationToken),
             // #41: the photos the member sent in chat, with the image for approved ones (photos others sent are listed in the chats only).
             chatPhotos = chatPhotos ?? [],
             // D191: the member's own verified identity record, as kept (Q78: the export includes it).
+            dateOfBirthHistory=dateOfBirthHistory??[],
             verifiedIdentity = verifiedIdentity is null ? null : new
             {
                 verifiedIdentity.FirstName, verifiedIdentity.LastName, verifiedIdentity.DateOfBirth, verifiedIdentity.DocumentType,

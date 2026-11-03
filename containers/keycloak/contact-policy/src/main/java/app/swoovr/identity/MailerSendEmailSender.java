@@ -53,7 +53,7 @@ public final class MailerSendEmailSender implements EmailSenderProvider {
     @Override public void close(){} // Factory owns and closes the shared client.
 
     /** Completes only when the bounded body ends, so the outer deadline covers body reads as well as headers. */
-    private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {
+    static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {
         private final CompletableFuture<byte[]> result=new CompletableFuture<>();
         private final ByteArrayOutputStream bytes=new ByteArrayOutputStream();private Flow.Subscription subscription;
         @Override public CompletionStage<byte[]> getBody(){return result;}
