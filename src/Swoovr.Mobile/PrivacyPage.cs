@@ -10,9 +10,9 @@ public sealed class PrivacyPage : ContentPage
 {
 	public PrivacyPage()
 	{
-		Title = "Privacy notice";
+		Title = "Privacy Notice";
 		var body = new VerticalStackLayout { Padding = new Thickness(24, 30), Spacing = 16 };
-		body.Children.Add(Ui.Text("Privacy notice", "PageTitle"));
+		body.Children.Add(Ui.Text("Privacy Notice", "PageTitle"));
 		body.Children.Add(Ui.Text(PrivacyNotice.Version, "FooterClaims"));
 		foreach (var section in PrivacyNotice.Sections)
 			body.Children.Add(Ui.Card([Ui.Text(section.Title, "SectionHeading", $"Privacy_{section.Id}"), .. section.Paragraphs.Select(p => (View)Ui.Text(p))]));

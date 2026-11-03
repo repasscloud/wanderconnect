@@ -14,10 +14,10 @@ public static partial class PolicyReading
 
     public static readonly IReadOnlyList<Related> Pages =
     [
-        new("/terms", "Terms of use", "The agreement between you and Swoovr."),
-        new("/community-guidelines", "Community guidelines", "How everyone on Swoovr is expected to behave."),
-        new("/privacy", "Privacy notice", "What we collect, why, and your choices."),
-        new("/safety/advice", "Safety advice", "Before you connect with or meet someone."),
+        new("/terms", "Terms of Use", "The agreement between you and Swoovr."),
+        new("/community-guidelines", "Community Guidelines", "How everyone on Swoovr is expected to behave."),
+        new("/privacy", "Privacy Notice", "What we collect, why, and your choices."),
+        new("/safety/advice", "Safety Advice", "Before you connect with or meet someone."),
         new("/safety", "Safety & Support", "Help and contacts in your country."),
     ];
 

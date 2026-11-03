@@ -99,8 +99,8 @@ public sealed class SafetyPage : ContentPage
 		body.Children.Clear();
 		body.Children.Add(Ui.Text("Safety", "PageTitle", "SafetyTitle"));
         body.Children.Add(Ui.Button("Connection and meeting advice","SafetyAdviceOpen",()=>Ui.PushAsync(new SafetyAdvicePage()),primary:false));
-        body.Children.Add(Ui.Button("Terms of use","SafetyTerms",()=>Ui.PushAsync(new PublicPolicyPage("terms")),primary:false));
-        body.Children.Add(Ui.Button("Community guidelines","SafetyCommunity",()=>Ui.PushAsync(new PublicPolicyPage("community")),primary:false));
+        body.Children.Add(Ui.Button("Terms of Use","SafetyTerms",()=>Ui.PushAsync(new PublicPolicyPage("terms")),primary:false));
+        body.Children.Add(Ui.Button("Community Guidelines","SafetyCommunity",()=>Ui.PushAsync(new PublicPolicyPage("community")),primary:false));
 		foreach (var card in await SafetyCardsAsync()) body.Children.Add(card);
 		// Signed out (or no account yet), the contacts above still show; reporting needs a signed-in member.
 		if (!await Ui.SignedInAsync()) return;

@@ -19,8 +19,8 @@ public sealed class PolicyAcceptancePage:ContentPage
         if(state.Accepted){body.Children.Add(Ui.Text("Your explicit acceptance is recorded.",id:"PolicyAccepted"));return;}
         var document=(await Ui.Members.ApprovedPoliciesAsync(state.RequiredVersion)).Value;
         if(document is null){body.Children.Add(Ui.Text("The approved source is unavailable; acceptance is disabled."));return;}
-        body.Children.Add(Ui.Text("Terms of use","SectionHeading"));body.Children.Add(Ui.Text(document.Terms));
-        body.Children.Add(Ui.Text("Community guidelines","SectionHeading"));body.Children.Add(Ui.Text(document.CommunityGuidelines));
+        body.Children.Add(Ui.Text("Terms of Use","SectionHeading"));body.Children.Add(Ui.Text(document.Terms));
+        body.Children.Add(Ui.Text("Community Guidelines","SectionHeading"));body.Children.Add(Ui.Text(document.CommunityGuidelines));
         var confirmation=new CheckBox{IsChecked=false,AutomationId="PolicyConfirmation"};
         SemanticProperties.SetDescription(confirmation,"I have read and explicitly accept approved version "+state.RequiredVersion);
         body.Children.Add(Ui.Text("I have read and explicitly accept approved version "+state.RequiredVersion));body.Children.Add(confirmation);

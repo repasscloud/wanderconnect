@@ -16,7 +16,7 @@ public sealed class PublicPolicyPage : ContentPage
         foreach(var rule in document.Rules)body.Children.Add(Ui.Text("• "+rule));
         foreach(var paragraph in document.Paragraphs)body.Children.Add(Ui.Text(paragraph));
         body.Children.Add(Ui.Button("Contact Support","PolicySupport",()=>Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)),primary:false));
-        body.Children.Add(Ui.Button("Privacy notice","PolicyPrivacy",()=>Ui.PushAsync(new PrivacyPage()),primary:false));
+        body.Children.Add(Ui.Button("Privacy Notice","PolicyPrivacy",()=>Ui.PushAsync(new PrivacyPage()),primary:false));
         Content=new ScrollView { Content=body };
     }
 }
