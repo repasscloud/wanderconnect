@@ -1,16 +1,17 @@
-namespace Swoovr.Client;
+namespace Swoovr.Contracts;
 
-/// <summary>CONFIRMED D288/D290 operative reader; reading is not a consent record. Text generated from
-/// docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md by swoovr-legal-docs scripts/sync-policy-drafts.py; edit the
-/// Markdown and regenerate rather than editing this text.</summary>
-public static class PublicPolicyDrafts
+/// <summary>The approved, in-force terms of use and community guidelines (legal approval D288, operative D290, owner
+/// 4 November 2026: these are the policies, not drafts). Text mirrors docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES.md;
+/// change both together and update <see cref="SourceSha256"/>. Reading a page is not an acceptance record.</summary>
+public static class PublicPolicies
 {
     public const string Version = "2026-11-02-0.2";
     public const string Status = "approved";
-    public const string Source = "docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md";
-    public const string SourceSha256 = "8c2a55247543aa711d239e21d200dbbe9dd0020afeb1964f8a1d787523b4a1e9";
+    public static readonly DateTimeOffset EffectiveAt = new(2026, 11, 2, 0, 0, 0, TimeSpan.FromHours(10.5));
+    public const string Source = "docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES.md";
+    public const string SourceSha256 = "72accb8d75d5501b3a4ff1ce021430b528ca28f6efd4d0f7bbb7b0199d71ab70";
     public const bool IsApproved = true;
-    public const string DraftLabel = "Reading this page does not record acceptance of these terms.";
+    public const string ReadingNote = "Reading this page does not record acceptance of these terms.";
     public sealed record Document(string Id, string Title, IReadOnlyList<string> Paragraphs, IReadOnlyList<string> Rules);
     public static readonly Document Terms = new("terms", "Terms of use", [
         "1. About these terms. These terms are an agreement between you and RePass Cloud Pty Ltd (ABN 74 642 243 801, ACN 642 243 801) of Findon, South Australia 5023, the company that operates Swoovr (\"Swoovr\", \"we\", \"us\"). They apply to the Swoovr website, apps and services. The community guidelines and the privacy notice form part of how Swoovr works; please read them too. If you don't agree to these terms, don't use Swoovr.",
@@ -45,5 +46,8 @@ public static class PublicPolicyDrafts
         "No commercial use. Don't advertise, recruit or sell to members, or use Swoovr for multi-level marketing, without our written permission.",
         "Meet safely and honestly. Don't pressure anyone to meet, change plans or go somewhere private, don't encourage dangerous behaviour, and treat people respectfully if you decide not to continue."
     ]);
+    /// <summary>Plain text served by the API for the approved version: one paragraph per block, rules after the opening paragraph.</summary>
+    public static string Text(Document document) => string.Join("\n\n",
+        document.Paragraphs.Take(1).Concat(document.Rules).Concat(document.Paragraphs.Skip(1)));
     public static Document? Find(string? id) => id switch { "terms" => Terms, "community" => Community, _ => null };
 }

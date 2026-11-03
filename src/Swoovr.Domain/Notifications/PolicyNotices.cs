@@ -33,8 +33,8 @@ public static class PolicyNoticePolicy
         && char.IsAsciiLetterOrDigit(version[0]) && version.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-');
     public static bool ValidTitle(string? title) => title is { Length: >= 1 and <= 120 }
         && !string.IsNullOrWhiteSpace(title) && !title.Any(char.IsControl);
-    // Only currently available educational safety sources. Privacy, terms and community guidelines are DRAFT:
-    // never add them here merely to enable a broadcast. Legal review and actual publication are separate prerequisites.
+    // Notice links are limited to the safety sources. The approved terms, guidelines and privacy notice (D288/D290) change
+    // through a new approved version and its own significant-change notice, not through this broadcast path.
     public static bool AllowedLink(string? link) => link is "/safety" or "/safety/advice";
     public static string Dedupe(Guid publication) => "policy-notice:" + publication.ToString("N");
     public static bool CanPublish(PolicyNoticePublication row, bool sourceIsPublished) => sourceIsPublished

@@ -15,7 +15,7 @@ public static class ProviderSetup
 {
     public static IServiceCollection AddSwoovrProviders(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton(new Policies.ApprovedPolicyCatalogue());
+        services.AddSingleton(Policies.ApprovedPolicyCatalogue.Current());
         var didit = new DiditOptions(configuration["Didit:ApiKey"], configuration["Didit:WorkflowId"],
             configuration["Didit:WebhookSecret"], new Uri(configuration["Didit:BaseUrl"] ?? "https://verification.didit.me/"));
         services.AddSingleton(didit);

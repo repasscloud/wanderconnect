@@ -1,11 +1,11 @@
 @page "/community-guidelines"
 <PageTitle>Community guidelines — Swoovr</PageTitle>
 <PolicyReader Title="@Document.Title" Eyebrow="Community" Current="/community-guidelines"
-              Lede="@Document.Paragraphs.FirstOrDefault()" Meta="@PolicyReading.Describe(PublicPolicyDrafts.Version)" Sections="@Sections"
-              Note="@PublicPolicyDrafts.DraftLabel"
-              data-public-policy="community" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status" />
+              Lede="@Document.Paragraphs.FirstOrDefault()" Meta="@PolicyReading.Describe(PublicPolicies.Version)" Sections="@Sections"
+              Note="@PublicPolicies.ReadingNote"
+              data-public-policy="community" data-policy-version="@PublicPolicies.Version" data-policy-status="@PublicPolicies.Status" />
 @code {
-    private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Community;
+    private static PublicPolicies.Document Document => PublicPolicies.Community;
     // Section headings are presentation labels only (DEFAULT, owner review 4 November 2026); the approved wording is unchanged.
     private static readonly IReadOnlyList<PolicyReading.Section> Sections =
     [

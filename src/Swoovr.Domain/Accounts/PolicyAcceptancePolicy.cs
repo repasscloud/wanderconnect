@@ -6,7 +6,7 @@ public sealed record PublicPolicyVersion(string Id, PublicPolicyStatus Status, D
 public enum PolicyRequirementState { ExistingAccessUnchanged, Required, ConfigurationInvalid }
 public sealed record PolicyRequirement(PolicyRequirementState State,string? Version);
 
-/// <summary>Preparation only: no approved entries or activation are supplied in this slice.</summary>
+/// <summary>Resolves the configured required version against the approved catalogue; unknown or unapproved selections fail.</summary>
 public static class PolicyAcceptancePolicy
 {
     public static PolicyRequirement Resolve(string? configuredApprovedVersion,IReadOnlyList<PublicPolicyVersion> catalogue,DateTimeOffset now)

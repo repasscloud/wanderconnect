@@ -1,4 +1,4 @@
-// Real owned API/Web/CLI with fictional adults. Draft reading is not acceptance; no legal source is activated.
+// Real owned API/Web/CLI with fictional adults. The approved policies (D288/D290/D310) are in force; reading is not acceptance.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const {chromium}=require(process.env.SWOOVR_PLAYWRIGHT_PATH||'playwright');
 const {managedEdge}=require('../auth/managed-edge.cjs');
@@ -11,22 +11,23 @@ try{
  const root=await rootAdminToken(browser);await call(root,'/api/session');const operator=await sql(`SELECT id FROM accounts WHERE realm='Staff' AND subject='${claims(root).sub}'`);
  const context=await browser.newContext({viewport:{width:390,height:844}});contexts.push(context);const page=await context.newPage();
  for(const [route,id]of [['/terms','terms'],['/community-guidelines','community']]){
-  await page.goto(web+route);await page.waitForSelector('[data-public-policy]');check(await page.locator('[data-public-policy]').getAttribute('data-policy-status')==='draft','public policy is explicitly draft');
-  check((await page.locator('body').innerText()).includes('Not in force')&&(await page.locator('body').innerText()).includes('does not accept'),'draft reader records no consent claim');
-  check(await page.locator('input[type=checkbox]').count()===0,'draft reader has no acceptance checkbox');
-  for(const width of [390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'draft reader fits narrow viewport');}
-  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(folder,id+'-draft-390.png'),fullPage:true});
+  await page.goto(web+route);await page.waitForSelector('[data-public-policy]');check(await page.locator('[data-public-policy]').getAttribute('data-policy-status')==='approved','public policy is approved and in force');
+  check(!/draft|not in force/i.test(await page.locator('body').innerText())&&(await page.locator('body').innerText()).includes('does not record acceptance'),'approved reader, no draft label, no consent claim');
+  check(await page.locator('input[type=checkbox]').count()===0,'reader has no acceptance checkbox');
+  for(const width of [390,320]){await page.setViewportSize({width,height:844});check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'reader fits narrow viewport');}
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(folder,id+'-390.png'),fullPage:true});
  }
  await page.goto(web+'/safety/advice');check((await page.locator('body').innerText()).includes('Responsibility for harmful behaviour lies with the person who causes it'),'advice avoids blaming the person harmed');
  check((await page.locator('body').innerText()).includes('does not monitor emergencies'),'advice makes emergency limits explicit');
  await page.goto(web+'/safety');check(await page.locator('a[href="/terms"]').count()>0&&await page.locator('a[href="/community-guidelines"]').count()>0,'public support links both policies');
  await page.goto(web+'/policies/fictional-unknown');check(await page.locator('[data-approved-policy-unavailable]').count()===1,'no fake approved source is rendered');
  const members={},tokens={};for(const name of ['first','second']){members[name]=await createMember('policy-'+name);await cli('beta','add',members[name].email);tokens[name]=await memberToken(browser,members[name]);check((await call(tokens[name],'/api/me')).status===200,'fictional member initialized');}
- check((await call(tokens.first,'/api/me/policies')).body.requiredVersion===null,'real API has no approved legal requirement');
- check((await call(tokens.first,'/api/me/policies/accept',{method:'POST',body:{version:'draft-2026-10-30-0.1',confirm:true}})).status===400,'draft acceptance refused by real API');
- check(await sql('SELECT count(*) FROM policy_acceptances')==='0','no implicit or draft acceptance rows');
+ check((await call(tokens.first,'/api/me/policies')).body.requiredVersion===null,'no acceptance requirement configured locally');
+ check((await call(tokens.first,'/api/policies/2026-11-02-0.2')).status===200,'approved version served by the API catalogue');
+ check((await call(tokens.first,'/api/me/policies/accept',{method:'POST',body:{version:'draft-2026-10-30-0.1',confirm:true}})).status===400,'unknown version acceptance refused by real API');
+ check(await sql('SELECT count(*) FROM policy_acceptances')==='0','no implicit acceptance rows');
  await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',members.first.email);await page.fill('#password',members.first.password);await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');await page.waitForSelector('[data-account-panel=ready]');
- check(await page.locator('[data-safety-advice]').count()===1,'first-use Me prominently shows advice before profile setup');check(await page.locator('a[href="/terms"]').count()>0&&await page.locator('a[href="/community-guidelines"]').count()>0,'Me links draft policies');
+ check(await page.locator('[data-safety-advice]').count()===1,'first-use Me prominently shows advice before profile setup');check(await page.locator('a[href="/terms"]').count()>0&&await page.locator('a[href="/community-guidelines"]').count()>0,'Me links the policies');
  await page.screenshot({path:path.join(folder,'first-use-advice-390.png'),fullPage:true});
  await page.goto(web+'/account/policies');await page.waitForSelector('[data-policy-none]');check(await page.locator('input[type=checkbox]').count()===0,'no checkbox when no approved requirement exists');
  check((await matchReady(tokens.first)).every(s=>s===200),'fictional adult setup accepted');await call(tokens.first,'/api/me/profile',{method:'PUT',body:{displayName:'Fictional policy tester',homeCityId:2078025}});
@@ -44,6 +45,6 @@ try{
  const foreign=(await call(tokens.second,'/api/me/notifications')).body.items.find(n=>n.kind==='policyChange');check(foreign&&foreign.id!==centre[0].id,'each member has an independent own notice');
  check((await call(tokens.second,`/api/me/notifications/${centre[0].id}/read`,{method:'POST'})).status===404,'other member cannot mark source notice read');
  await page.goto(web+'/me/notifications');await page.waitForSelector('[data-notifications=ready]');check((await page.locator('body').innerText()).includes('Fictional test safety update'),'actual Web centre renders public source title');check(await page.locator('a[href="/safety/advice"]').count()>0,'Web policy notice links advice');await page.screenshot({path:path.join(folder,'policy-notice-centre-390.png'),fullPage:true});
- check(await sql('SELECT count(*) FROM policy_acceptances')==='0','reading advice and policy notices never accepts a draft');
- console.log(`PASS: public drafts safety advice and policy notices (${checks} checks; owned real API/Web/CLI, fictional data, no approved legal activation/external delivery).`);
+ check(await sql('SELECT count(*) FROM policy_acceptances')==='0','reading advice and policy notices never records acceptance');
+ console.log(`PASS: approved policies, safety advice and policy notices (${checks} checks; owned real API/Web/CLI, fictional data, no external delivery).`);
 }finally{for(const context of contexts)await context.close();await edge.close();}})().catch(e=>{console.error(e.message);process.exitCode=1;});

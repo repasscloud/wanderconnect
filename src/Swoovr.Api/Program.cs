@@ -38,7 +38,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 var app = builder.Build();
 HostRuntime.Use(app,HostKind.Api);
-if(app.Services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>().Resolve(app.Configuration["Policies:RequiredVersion"],DateTimeOffset.UtcNow).State==Swoovr.Domain.PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("No matching effective approved policy exists; drafts cannot be activated.");
+if(app.Services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>().Resolve(app.Configuration["Policies:RequiredVersion"],DateTimeOffset.UtcNow).State==Swoovr.Domain.PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("No matching effective approved policy exists for Policies:RequiredVersion.");
 // Fail at startup/command bootstrap if configured push is unsafe or incomplete.
 app.Services.GetRequiredService<Swoovr.Infrastructure.Messaging.IPushSender>();
 Swoovr.Api.Moderation.ModerationTransparencyRecorder.Dataset(app.Environment,app.Configuration);

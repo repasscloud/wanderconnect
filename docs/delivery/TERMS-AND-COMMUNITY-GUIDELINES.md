@@ -1,10 +1,10 @@
-# Swoovr terms of use and community guidelines — draft
+# Swoovr terms of use and community guidelines
 
-Status: **DRAFT 0.2 — release candidate for Australian legal review, 2 November 2026** (version `draft-2026-11-02-0.2`). For issue [113](https://github.com/repasscloud/wanderconnect/issues/113); supersedes DRAFT 0.1 (30 October 2026). Not published terms, an executed agreement or legal approval. Australian legal review ([57](https://github.com/repasscloud/wanderconnect/issues/57)) is required before publication or acceptance. CONFIRMED foundations: adults only, all-mode safety rules, D135 appeals, D214 support channels and D215 Code intention. This document does not establish Code signatory status or verified compliance.
+Status: **APPROVED and in force — version `2026-11-02-0.2`, effective 2 November 2026.** Legal approval recorded as D288 ([legal approval record](LEGAL-APPROVAL-2026-11-02.md)); operative public readers D290; owner, 4 November 2026: these are the policies in force (D310). For issue [113](https://github.com/repasscloud/wanderconnect/issues/113); supersedes the 30 October 2026 version 0.1. CONFIRMED foundations: adults only, all-mode safety rules, D135 appeals, D214 support channels and D215 Code intention. This document does not establish Code signatory status or verified compliance.
 
-The member-facing text below is reproduced word for word in `Swoovr.Client.PublicPolicyDrafts` (one paragraph per numbered section, prefixed with its number and heading; one rule per guideline bullet; links as plain text). Change both together and update `SourceSha256`.
+The member-facing text below is reproduced word for word in `Swoovr.Contracts.PublicPolicies` (one paragraph per numbered section, prefixed with its number and heading; one rule per guideline bullet; links as plain text). Change both together and update `SourceSha256`.
 
-## Proposed member-facing terms
+## Member-facing terms
 
 ### 1. About these terms
 
@@ -83,11 +83,11 @@ Report concerns using Swoovr's controls; you do not need to confront the person 
 
 ## Publication and acceptance handoff
 
-DEFAULT: separate accessible public terms and guidelines pages, reachable from sign-up, Me and Safety & Support. Present approved version IDs and effective dates; record the exact accepted terms version, account and server timestamp (D269). Preserve access to earlier versions and significant-change notices; obtain renewed acceptance when section 12 or legal review requires it. This draft creates no pages beyond the existing D269 draft readers, no acceptance records and no notification behaviour.
+DEFAULT: separate accessible public terms and guidelines pages, reachable from sign-up, Me and Safety & Support. Present approved version IDs and effective dates; record the exact accepted terms version, account and server timestamp (D269). Preserve access to earlier versions and significant-change notices; obtain renewed acceptance when section 12 or legal review requires it. The public readers at /terms and /community-guidelines show this approved version, and the API catalogue serves it at /api/policies/2026-11-02-0.2 (D310). Requiring members to record acceptance is a separate configuration step (Policies:RequiredVersion).
 
-## Legal sign-off checklist (issue 57)
+## Legal sign-off checklist (issue 57) — completed, D288
 
-The text above has been drafted to avoid terms likely to be unfair under the Australian Consumer Law unfair contract terms regime: no broad liability exclusions, no consumer indemnity, no unilateral variation without notice and an exit with refund, no termination for convenience without notice and refund, and an express consumer-guarantee statement. Counsel must still confirm:
+The text above was written to avoid terms likely to be unfair under the Australian Consumer Law unfair contract terms regime: no broad liability exclusions, no consumer indemnity, no unilateral variation without notice and an exit with refund, no termination for convenience without notice and refund, and an express consumer-guarantee statement. Legal review covered (approved 2 November 2026, D288):
 
 1. Operator particulars: CONFIRMED by the owner on 2 November 2026 (RePass Cloud Pty Ltd, ABN 74 642 243 801, ACN 642 243 801, Findon SA 5023, <hello@repasscloud.com>).
 2. Governing law and forum: CONFIRMED by the owner on 2 November 2026: South Australia, subject to mandatory local law (ACL, GDPR, CCPA and similar). Counsel to confirm the wording for members outside Australia.
@@ -96,7 +96,7 @@ The text above has been drafted to avoid terms likely to be unfair under the Aus
 5. Enforcement, suspension and appeal wording (sections 8–9) against D133, D135, D160 and the moderator playbook.
 6. Change notice period (section 12): 14 days is a DEFAULT.
 7. Eligibility (section 2): whether to add a criminal-history condition. Not included, because Swoovr cannot verify it and spent-conviction laws apply; owner decision required.
-8. Consistency with privacy notice Draft 0.17, the retention schedule and the private-content/app-store review.
+8. Consistency with privacy notice version 0.17, the retention schedule and the private-content/app-store review.
 9. Venue partner and staff agreements referred to in section 2 must exist before venue or staff accounts are offered.
 
 Accessibility and real acceptance-flow evidence remain required under 113/121/48.

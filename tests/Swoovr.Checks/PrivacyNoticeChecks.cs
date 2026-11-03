@@ -1,7 +1,7 @@
 using Swoovr.Client;
 
 /// <summary>
-/// The privacy notice draft (#99, #22): it is labelled DRAFT and covers every disclosure the owner asked for — the identity
+/// The approved privacy notice (#99, #22; D288/D290/D310): it carries its approval label and covers every disclosure the owner asked for — the identity
 /// record and what's never kept, ban matching, 2 years after termination, contact history, unsent-message retention,
 /// evidence holds and the founder token — with numbers that match the decisions they describe.
 /// </summary>
@@ -14,7 +14,7 @@ static class PrivacyNoticeChecks
         string Text(string id) => string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == id).Paragraphs);
         var all = string.Join(" ", PrivacyNotice.Sections.SelectMany(s => s.Paragraphs));
 
-        Expect(!PrivacyNotice.DraftLabel.Contains("DRAFT") && PrivacyNotice.DraftLabel.Contains("Privacy notice"), "D290 operative notice without draft label");
+        Expect(!PrivacyNotice.StatusLabel.Contains("DRAFT", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("approved"), "approved notice label");
         Expect(PrivacyNotice.Sections.Select(s => s.Id).Distinct().Count() == PrivacyNotice.Sections.Count, "unique section ids");
         Expect(Text("identity").Contains("legal first and last name") && Text("identity").Contains("issuing country") && Text("identity").Contains("expiry date"), "the identity record's fields (D191)");
         Expect(Text("identity").Contains("never keep your document number, address, document images, selfie, liveness or biometric data"), "what's never kept");
@@ -48,6 +48,6 @@ static class PrivacyNoticeChecks
             && Text("international").Contains("Biometric Information Privacy Act"), "CCPA disclosures, US state appeals and biometric retention policy");
         Expect(Text("choices").Contains("access") && Text("choices").Contains("correct") && Text("choices").Contains("30 days"), "access, correction and complaint handling (APP 1.4(d)–(e))");
         Expect(Text("sharing").Contains("Didit") && Text("sharing").Contains("Twilio") && Text("sharing").Contains("MailerSend"), "service providers named");
-        Console.WriteLine($"PASS: privacy notice draft ({checks}).");
+        Console.WriteLine($"PASS: approved privacy notice ({checks}).");
     }
 }

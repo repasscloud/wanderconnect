@@ -1,6 +1,6 @@
 # Retention schedule
 
-Status: **Release candidate for legal review, 2 November 2026.** Owner decision D216 (issue [118](https://github.com/repasscloud/wanderconnect/issues/118)) approved the framework in principle. This schedule records CONFIRMED owner instructions and explicitly labelled DEFAULT implementation choices; DEFAULT periods are proposals until Australian legal review ([57](https://github.com/repasscloud/wanderconnect/issues/57)) approves them. Swoovr intends to sign the Online Dating Industry Code (D215); neither signatory status nor verified compliance is claimed. The member-facing summary is the [privacy notice](../../src/Swoovr.Client/PrivacyNotice.cs) (Draft 0.17); keep both consistent.
+Status: **Approved, 2 November 2026 (legal approval D288; D310).** Owner decision D216 (issue [118](https://github.com/repasscloud/wanderconnect/issues/118)) approved the framework in principle. This schedule records CONFIRMED owner instructions and explicitly labelled DEFAULT implementation choices; DEFAULT periods are proposals until Australian legal review ([57](https://github.com/repasscloud/wanderconnect/issues/57)) approves them. Swoovr intends to sign the Online Dating Industry Code (D215); neither signatory status nor verified compliance is claimed. The member-facing summary is the [privacy notice](../../src/Swoovr.Client/PrivacyNotice.cs) (Draft 0.17); keep both consistent.
 
 ## Principles
 
@@ -88,7 +88,7 @@ These notes record how the schedule was implemented. The table above is authorit
 - **D261** added encrypted, isolated backup generation and quarantined paired recovery.
 - **D262** set audit and residual operational metadata retention. Query events do not record result sets, so prefixes are conservatively pinned while potentially relevant source records remain; not every unrelated row expires at exactly 24 months. Old grant purposes expire 24 months after final expiry or revocation once retained access-log and email-retirement references permit.
 - **D268** set annual reporting receipts. Country is member-declared at the time of action, never verified residence. A year outside the complete retained window cannot be recomputed manually. See [annual data](MODERATION-ANNUAL-DATA.md).
-- **D269** set policy acceptance and safety notice retention. Reading a draft creates no acceptance. See [scope](PUBLIC-POLICIES-AND-SAFETY-ADVICE.md).
+- **D269** set policy acceptance and safety notice retention. Reading a policy page creates no acceptance. See [scope](PUBLIC-POLICIES-AND-SAFETY-ADVICE.md).
 - **D272** set beta journey observations: no event body, trait, mode, location, counterpart, IP or device field exists; own exports include only the caller's daily metadata; collection can be disabled without disabling expiry.
 - **D275** set beta enrolment and invitation retention; no duplicate address or body outbox exists.
 - **D277** set appearance preference retention; the appearance-change audit omits the chosen scheme and mode.

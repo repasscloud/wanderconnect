@@ -1,10 +1,10 @@
 # Public policies, acceptance preparation and safety updates
 
-D269 DEFAULT under D215/D220/D264, issues113/121. Legal57 remains OPEN. The supplied terms/community text is DRAFT, pending legal review, not in force. No signatory status, verified Code compliance or legal approval is created.
+D269 DEFAULT under D215/D220/D264, issues113/121. Legal57 remains OPEN. **Superseded by D288/D290/D310: the terms/community text is legally approved and in force (version 2026-11-02-0.2, effective 2 November 2026).** No signatory status or verified Code compliance is created.
 
 ## Public readers and first use
 
-`/terms` and `/community-guidelines` render the complete D264 draft, linked from Me, Safety & Support and the registration theme source. Shared Client content preserves its source Markdown hash; web/native readers explicitly say reading does not accept or activate it. The registration checkbox remains the confirmed adult attestation. Its old agreement sentence is replaced in the theme source; no existing sign-in/age/email clock is backfilled as legal acceptance.
+`/terms` and `/community-guidelines` render the complete approved text, linked from Me, Safety & Support and the registration theme source. Shared Client content preserves its source Markdown hash; web/native readers explicitly say reading does not accept or activate it. The registration checkbox remains the confirmed adult attestation. Its old agreement sentence is replaced in the theme source; no existing sign-in/age/email clock is backfilled as legal acceptance.
 
 `/safety/advice` and its offline native reader share connection and meeting advice. Me shows it before setup, Profile retains it, and meeting safety gives advice before planning. It includes consent, boundaries, public meeting places, independent travel, trusted contacts, appropriate help and clear limits on badges/alerts/emergency monitoring, without blaming a person harmed. No advice acknowledgement/dismissal analytics or forced consent checkbox is added.
 
@@ -12,7 +12,7 @@ The shared running local Keycloak still mounts MAIN's theme. Registration source
 
 ## Approved versions and explicit acceptance
 
-The API-owned `ApprovedPolicyCatalogue` starts empty. Only a reviewed code change can supply approved text, immutable version/digest and effective time. Setting `Policies:RequiredVersion` cannot approve a draft: unknown/unapproved/non-effective selections fail API startup. With no selection, existing account/beta/adult/age/phone gates remain unchanged; no acceptance record is fabricated.
+The API-owned `ApprovedPolicyCatalogue` holds the approved version 2026-11-02-0.2 (D310), supplied by reviewed code with its immutable digest and effective time. Setting `Policies:RequiredVersion` can only select a catalogued version: unknown/unapproved/non-effective selections fail API startup. With no selection, existing account/beta/adult/age/phone gates remain unchanged; no acceptance record is fabricated.
 
 Stable endpoints: GET `/api/policies/{version}` exposes only effective approved public text; GET `/api/me/policies` returns the authenticated member's requirement/status; POST `/api/me/policies/accept` accepts only `{version, confirm:true}` for the exact selected version. Account, digest, status and time are server-owned. Replays preserve the original timestamp; new versions append. Reads/writes use no-store. The web/native review step links/renders the exact approved source, leaves consent unchecked and records it only on explicit submit. No real approved entry is installed; approved-mode tests inject fictional text in the owned service fixture.
 
@@ -20,7 +20,7 @@ Member access is checked server-side. Required policy review does not remove an 
 
 ## Centre-only safety publications
 
-`PolicyNotices:Enabled` defaults false. Notice sources are currently `/safety` and `/safety/advice`; privacy/terms/community drafts are refused. Adding a legal-policy broadcast source requires legal approval and a reviewed allowlist change. Publication is a separate operator action, never startup/login/page reading. The CLI retains its existing database-operator trust boundary; a current named root account supplies audit provenance, not a new SSO session.
+`PolicyNotices:Enabled` defaults false. Notice sources are currently `/safety` and `/safety/advice`; legal-policy pages are not broadcast sources; a policy change ships as a new approved version with its own notice through a reviewed allowlist change. Publication is a separate operator action, never startup/login/page reading. The CLI retains its existing database-operator trust boundary; a current named root account supplies audit provenance, not a new SSO session.
 
 With the normal operator environment/secrets and an actual current root staff account ID:
 

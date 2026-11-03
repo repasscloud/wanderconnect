@@ -4,8 +4,8 @@
 **Applies to:** Swoovr iOS, Android, web, API, administration, contractors, support, hosting and external processors\
 **Scope:** All four connection modes and Travel, public profiles, private content, messages, identity verification and moderation\
 **Classification:** Internal — Restricted\
-**Version:** Draft 1.1 — 2 November 2026 (supersedes Draft 1.0 of 27 October 2026)\
-**Status:** Proposed mandatory policy (D185). Australian legal review required before production ([57](https://github.com/repasscloud/wanderconnect/issues/57)).
+**Version:** 1.1 — approved 2 November 2026 (supersedes 1.0 of 27 October 2026)\
+**Status:** Approved mandatory policy (D185; legal approval D288, 2 November 2026; D310). Operational readiness evidence is tracked separately ([57](https://github.com/repasscloud/wanderconnect/issues/57)).
 
 ## Purpose and precedence
 
@@ -17,7 +17,7 @@ The policy distinguishes three categories of information, which have different a
 2. what it needs to prevent repeat abuse; and
 3. what it must preserve when a serious incident is reported.
 
-Where an owner decision, the [retention schedule](RETENTION-SCHEDULE.md) or the [police-contact procedure](POLICE-CONTACT-PROCEDURE.md) sets a more specific rule or period, that rule governs. Member-facing commitments are in the privacy notice (`Swoovr.Client.PrivacyNotice`) and the [terms and community guidelines](TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md); this policy must never permit something those documents tell members we don't do.
+Where an owner decision, the [retention schedule](RETENTION-SCHEDULE.md) or the [police-contact procedure](POLICE-CONTACT-PROCEDURE.md) sets a more specific rule or period, that rule governs. Member-facing commitments are in the privacy notice (`Swoovr.Client.PrivacyNotice`) and the [terms and community guidelines](TERMS-AND-COMMUNITY-GUIDELINES.md); this policy must never permit something those documents tell members we don't do.
 
 ## 1. Core principles
 
@@ -177,7 +177,7 @@ Screening never refuses a photo or restricts an account automatically; a person 
 
 Known-CSAM matching cannot detect newly created abusive material, and automated nudity classification cannot reliably determine a person's age or consent.
 
-Australia's Online Safety Act industry codes and standards, including the Relevant Electronic Services Standard that eSafety applies to dating services, impose requirements about child sexual exploitation material and other harmful content. The [compliance register](CODE-COMPLIANCE-REGISTER-DRAFT.md) tracks Swoovr's assessment.
+Australia's Online Safety Act industry codes and standards, including the Relevant Electronic Services Standard that eSafety applies to dating services, impose requirements about child sexual exploitation material and other harmful content. The [compliance register](CODE-COMPLIANCE-REGISTER.md) tracks Swoovr's assessment.
 
 Identity selfies, document images and biometric evidence never enter this pipeline or third-party content-moderation services; they stay with Didit.
 
@@ -500,7 +500,7 @@ Keys are managed in Azure Key Vault or Managed HSM with managed identities and n
 
 ## 17. Minimum launch requirements
 
-Before public launch, each item needs dated evidence in the [compliance register](CODE-COMPLIANCE-REGISTER-DRAFT.md):
+Before public launch, each item needs dated evidence in the [compliance register](CODE-COMPLIANCE-REGISTER.md):
 
 1. Verified identity storage with field-level protection and restricted access.
 2. Didit deletion and retention integration.
@@ -530,7 +530,7 @@ Swoovr assesses the following before public launch:
 - [Project Arachnid](https://www.protectchildren.ca/en/programs-and-initiatives/project-arachnid/): industry integration terms and operational requirements.
 - [Azure Database for PostgreSQL data encryption](https://learn.microsoft.com/en-us/azure/postgresql/security/security-data-encryption): storage and customer-managed key options.
 - The Australian Consumer Law, including unfair contract terms, for member-facing terms.
-- The privacy, platform and biometric laws of each market before Swoovr is offered there: see the market entry table in the [compliance register](CODE-COMPLIANCE-REGISTER-DRAFT.md).
+- The privacy, platform and biometric laws of each market before Swoovr is offered there: see the market entry table in the [compliance register](CODE-COMPLIANCE-REGISTER.md).
 
 ## Policy commitments
 

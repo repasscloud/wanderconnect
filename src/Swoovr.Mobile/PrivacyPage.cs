@@ -3,8 +3,8 @@ using Swoovr.Client;
 namespace Swoovr.Mobile;
 
 /// <summary>
-/// The privacy notice (#99, #22), the same text as the web's /privacy (PrivacyNotice), labelled DRAFT until legal review
-/// (#57). Reached from Me, Your data and account, and the deletion screen. Needs no sign-in or network.
+/// The privacy notice (#99, #22), the same text as the web's /privacy (PrivacyNotice), approved and in force
+/// (D288/D290/D310). Reached from Me, Your data and account, and the deletion screen. Needs no sign-in or network.
 /// </summary>
 public sealed class PrivacyPage : ContentPage
 {

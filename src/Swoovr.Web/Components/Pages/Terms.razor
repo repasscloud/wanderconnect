@@ -2,10 +2,10 @@
 <PageTitle>Terms of use — Swoovr</PageTitle>
 <PolicyReader Title="@Document.Title" Eyebrow="Legal" Current="/terms" NumberLabel="Clause"
               Lede="The agreement between you and RePass Cloud Pty Ltd for using the Swoovr website, apps and services."
-              Meta="@PolicyReading.Describe(PublicPolicyDrafts.Version)" Sections="@Sections" Note="@PublicPolicyDrafts.DraftLabel"
-              data-public-policy="terms" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status" />
+              Meta="@PolicyReading.Describe(PublicPolicies.Version)" Sections="@Sections" Note="@PublicPolicies.ReadingNote"
+              data-public-policy="terms" data-policy-version="@PublicPolicies.Version" data-policy-status="@PublicPolicies.Status" />
 @code {
-    private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Terms;
+    private static PublicPolicies.Document Document => PublicPolicies.Terms;
     private static readonly IReadOnlyList<PolicyReading.Section> Sections =
         Document.Paragraphs.Select((p, i) => PolicyReading.Numbered("terms", p, i + 1)).ToList();
 }

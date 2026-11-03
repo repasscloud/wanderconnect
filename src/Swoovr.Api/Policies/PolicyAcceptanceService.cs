@@ -10,7 +10,7 @@ public sealed class PolicyAcceptanceService(SwoovrDbContext db,ApprovedPolicyCat
     public PolicyRequirement Requirement()
     {
         var result=catalogue.Resolve(configuration["Policies:RequiredVersion"],clock.GetUtcNow());
-        if(result.State==PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("Selected approved policy is unavailable; drafts cannot be activated.");
+        if(result.State==PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("Selected approved policy is unavailable.");
         return result;
     }
     public async Task<MemberPolicyView> StateAsync(Guid account,CancellationToken token)

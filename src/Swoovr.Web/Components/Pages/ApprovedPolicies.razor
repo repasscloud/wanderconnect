@@ -3,7 +3,7 @@
 @inject IHttpClientFactory Clients
 <PageTitle>Approved policy version — Swoovr</PageTitle>
 <div class="column"><div class="page-heading"><h1>Approved policy version</h1></div>
-@if(document is null){<p data-approved-policy-unavailable>No effective approved policy version is published at this address. Public drafts are not in force.</p><a href="/terms">Terms of use</a>}
+@if(document is null){<p data-approved-policy-unavailable>No approved policy version is published at this address. The terms of use and community guidelines in force are always at /terms and /community-guidelines.</p><a href="/terms">Terms of use</a>}
 else
 {
     <p data-approved-policy-version>Version @document.Version · effective @document.EffectiveAt.ToString("yyyy-MM-dd")</p>
