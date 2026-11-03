@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 module.exports=async({page,base,sql})=>{
  const requests=[];page.on('request',request=>{if(request.isNavigationRequest())requests.push({method:request.method(),url:request.url()});});
- const refresh=async()=>{await page.reload();await page.getByRole('heading',{name:'Photo review',exact:true}).waitFor();assert.equal(requests.filter(r=>r.method==='POST').length,0,'enhanced SSR does not retain document POST history');};
+ const refresh=async()=>{await page.reload();await page.getByRole('heading',{name:'Media review',exact:true}).waitFor();assert.equal(requests.filter(r=>r.method==='POST').length,0,'enhanced SSR does not retain document POST history');};
  await page.goto(base+'/media');assert.equal(await page.locator('[data-media-item]').count(),3);
  await page.locator('input[name=confirmed]').check();await page.getByRole('button',{name:'Acknowledge for four hours'}).click();
  await page.getByText(/^Acknowledged until .* UTC\.$/).waitFor();

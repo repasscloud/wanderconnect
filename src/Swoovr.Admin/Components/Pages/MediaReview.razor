@@ -1,55 +1,143 @@
 @page "/media"
 @inject AdminClient Admin
 @inject NavigationManager Navigation
-<PageTitle>Photo review — Swoovr admin</PageTitle>
-<h1>Photo review</h1>
-<p class="help">Routine photo review for Support and Admin. Specialist evidence uses its restricted workflow.</p>
-@if(message is not null){<p class="notice" role="status" data-result="@resultCode">@message</p>}
-<nav class="row"><a href="/media/history">Decision history</a><a href="/media/appeals">Photo appeals</a><a href="/media/history?decision=reject">Rejected photos</a></nav>
-@if(queue is null){<p data-media-queue="refused">@loadError</p>}
+<PageTitle>Media review — Swoovr admin</PageTitle>
+<MediaTabs Active="queue" />
+@if(message is not null && Selected is null){<p class="notice" role="status" data-result="@resultCode">@message</p>}
+@if(queue is null){<p class="ui-empty" data-media-queue="refused">@loadError</p>}
 else
 {
-    <section class="notice photo-safety" aria-labelledby="photo-safety-heading">
-        <h2 id="photo-safety-heading">Before reviewing images</h2><p>@queue.SafetyNotice</p>
-        @if(queue.AcknowledgedUntil is null)
-        {
-            <form method="post" @formname="photo-safety-ack" @onsubmit="AcknowledgeAsync" data-enhance="true"><AntiforgeryToken />
-                <label><input type="checkbox" name="confirmed" required /> I understand and will follow this safety procedure.</label>
-                <button type="submit">Acknowledge for four hours</button>
-            </form>
-        }
-        else { <p class="help">Acknowledged until @queue.AcknowledgedUntil?.ToUniversalTime().ToString("HH:mm") UTC.</p> }
-    </section>
-    <p class="help" data-media-pending="@queue.Pending">Manual review: @queue.Total · Pending screening: @queue.Pending (@queue.PendingOverAnHour over an hour)</p>
-    <form method="get" class="row"><label>Photo type<select name="kind"><option value="">All</option><option value="profile" selected="@(Kind=="profile")">Profile</option><option value="attachment" selected="@(Kind=="attachment")">Chat attachment</option></select></label><label>Screening reason<input name="reason" value="@Reason" maxlength="64" /></label><button type="submit" class="secondary">Filter</button></form>
-    @if(queue.Items.Count==0){<p data-media-queue="none">No photos waiting for review.</p>}
+    @if(queue.AcknowledgedUntil is null)
+    {
+        <section class="media-safety" aria-labelledby="photo-safety-heading">
+            <span class="media-safety-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg></span>
+            <div>
+                <h2 id="photo-safety-heading">Safety notice</h2>
+                <p>@queue.SafetyNotice</p>
+                <form method="post" @formname="photo-safety-ack" @onsubmit="AcknowledgeAsync" data-enhance="true" class="media-safety-form"><AntiforgeryToken />
+                    <label class="beta-check"><input type="checkbox" name="confirmed" required /><span>I understand</span></label>
+                    <button type="submit" class="ui-button-sm">Acknowledge for four hours</button>
+                </form>
+            </div>
+        </section>
+    }
     else
     {
-        <div class="table-wrap"><table data-media-queue="@queue.Items.Count"><thead><tr><th scope="col">Photo</th><th scope="col">Type</th><th scope="col">Uploaded</th><th scope="col">Screening</th><th scope="col">Action</th></tr></thead><tbody>
+        <details class="media-safety is-acknowledged">
+            <summary><span class="media-safety-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5 9-10"/></svg></span><span>Acknowledged until @queue.AcknowledgedUntil?.ToUniversalTime().ToString("HH:mm") UTC.</span><span class="media-safety-more">View notice</span></summary>
+            <p>@queue.SafetyNotice</p>
+        </details>
+    }
+    <div class="ui-stats">
+        <div class="ui-stat"><strong>@queue.Total</strong><span>Manual review</span></div>
+        <div class="ui-stat" data-media-pending="@queue.Pending"><strong>@queue.Pending</strong><span>Pending screening</span></div>
+        <div class="ui-stat"><strong>@queue.PendingOverAnHour</strong><span>Pending over an hour</span></div>
+    </div>
+    <section class="ui-card" aria-label="Filter media">
+        <form method="get" action="/media" class="media-filters" data-enhance="false">
+            <label class="ui-field"><span>Type</span><select name="kind"><option value="">All types</option><option value="profile" selected="@(Kind=="profile")">Profile photo</option><option value="attachment" selected="@(Kind=="attachment")">Chat attachment</option></select></label>
+            <label class="ui-field"><span>Screening signal</span><input name="reason" value="@Reason" maxlength="64" placeholder="Signal…" /></label>
+            <div class="beta-filter-actions"><a class="ui-button-ghost" href="/media">Clear</a><button type="submit">Apply filters</button></div>
+        </form>
+    </section>
+    <div class="ui-results-head"><p><strong>@queue.Total</strong> waiting for review</p></div>
+    @if(queue.Items.Count==0){<div class="ui-empty" data-media-queue="none"><strong>Queue is clear</strong>Nothing is waiting for review.</div>}
+    else
+    {
+        <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Media waiting for review">
+        <table data-media-queue="@queue.Items.Count"><thead><tr><th scope="col">Media</th><th scope="col">Signal</th><th scope="col">Type</th><th scope="col">Uploaded</th><th scope="col">Screening</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead><tbody>
         @foreach(var item in queue.Items)
         {
-            <tr data-media-item="@item.Id"><td>@item.Reason</td><td>@(item.Purpose=="attachment"?"Chat":"Profile")</td><td>@item.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</td><td>@item.Screener · @(item.KnownContentChecked?"Known-content checked":"Known-content not run")</td><td><a class="button secondary" href="@QueueUrl(Page,item.Id)" data-review-open="@item.Id">Review</a></td></tr>
+            <tr data-media-item="@item.Id" data-row-link>
+                <td><div class="media-cell"><span class="media-thumb" aria-hidden="true">@Icon</span><div><span class="beta-ref"><code>@Short(item.Id)</code><CopyButton Value="@item.Id.ToString()" /></span><a class="ui-sub" href="/accounts/@item.AccountId">Account</a></div></div></td>
+                <td><span class="ui-pill" data-tone="quiet">@item.Reason</span></td>
+                <td>@MediaText.Kind(item.Purpose)</td>
+                <td>@item.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC<span class="ui-sub">@Ago(item.CreatedAt)</span></td>
+                <td>@(item.KnownContentChecked?"Known-content checked":"Known-content not run")<span class="ui-sub">@item.Screener</span></td>
+                <td class="ui-right"><a class="ui-button-ghost" href="@QueueUrl(Page,item.Id)" data-review-open="@item.Id">Review</a></td>
+            </tr>
         }
         </tbody></table></div>
-        <nav class="row" aria-label="Photo review pages">@if(Page>1){<a href="@QueueUrl(Page-1)">Previous</a>}<span>Page @queue.Page · @queue.Total photos</span>@if(Page*queue.PageSize<queue.Total){<a href="@QueueUrl(Page+1)">Next</a>}</nav>
+        <nav class="ui-paging" aria-label="Media review pages"><span class="ui-help">Page @queue.Page of @Pages</span><span class="ui-paging-links">@if(Page>1){<a class="ui-button-ghost" href="@QueueUrl(Page-1)">Previous</a>}else{<span class="ui-button-ghost" aria-disabled="true">Previous</span>}@if(Page*queue.PageSize<queue.Total){<a class="ui-button-ghost" href="@QueueUrl(Page+1)">Next</a>}else{<span class="ui-button-ghost" aria-disabled="true">Next</span>}</span></nav>
     }
-    @if(queue.Items.FirstOrDefault(i=>i.Id==Focus) is{}selected)
+    @if(Selected is {} selected)
     {
-        <dialog open class="photo-review-dialog" data-photo-dialog aria-labelledby="focused-photo-heading">
-            <div class="row"><h2 id="focused-photo-heading">Review photo</h2><a href="@QueueUrl(Page)" data-photo-close>Close review</a></div>
-            <p class="help">@selected.Reason · <a href="/accounts/@selected.AccountId">Account</a></p>
-            @if(queue.AcknowledgedUntil is null){<p role="status">Acknowledge the safety notice before revealing or deciding this photo.</p>}
+        var index = queue.Items.ToList().IndexOf(selected);
+        var previous = index > 0 ? queue.Items[index-1] : null;
+        var next = index < queue.Items.Count-1 ? queue.Items[index+1] : null;
+        var posted = queue.Reasons?.FirstOrDefault(r=>r.Code==Field("reasonCode"));
+        <dialog open class="media-dialog" data-photo-dialog aria-labelledby="focused-photo-heading">
+            <header class="media-dialog-head">
+                <div><h2 id="focused-photo-heading">Review media</h2><p class="ui-sub">@(index+1) of @queue.Items.Count · @MediaText.Kind(selected.Purpose)</p></div>
+                <nav class="media-dialog-nav" aria-label="Review navigation">
+                    @if(previous is not null){<a class="ui-icon-button" href="@QueueUrl(Page,previous.Id)" data-review-prev aria-label="Previous">@Chevron("M15 6l-6 6 6 6")</a>}else{<span class="ui-icon-button" aria-disabled="true">@Chevron("M15 6l-6 6 6 6")</span>}
+                    @if(next is not null){<a class="ui-icon-button" href="@QueueUrl(Page,next.Id)" data-review-next aria-label="Next">@Chevron("M9 6l6 6-6 6")</a>}else{<span class="ui-icon-button" aria-disabled="true">@Chevron("M9 6l6 6-6 6")</span>}
+                    <a class="ui-icon-button" href="@QueueUrl(Page)" data-photo-close aria-label="Close review">@Chevron("M6 6l12 12M18 6L6 18")</a>
+                </nav>
+            </header>
+            @if(queue.AcknowledgedUntil is null)
+            {
+                <div class="media-locked" role="status">
+                    <strong>Acknowledge the safety notice first</strong>
+                    <p>@queue.SafetyNotice</p>
+                    <form method="post" @formname="photo-safety-ack-dialog" @onsubmit="AcknowledgeAsync" data-enhance="true" class="media-safety-form"><AntiforgeryToken />
+                        <label class="beta-check"><input type="checkbox" name="confirmed" required /><span>I understand</span></label>
+                        <button type="submit" class="ui-button-sm">Acknowledge for four hours</button>
+                    </form>
+                </div>
+            }
             else
             {
-                @if(revealed&&link is not null){<div class="media-review is-revealed"><img src="/media/@link" alt="Photo under review" data-media-image="@selected.Id" /></div>}
-                else {<div class="photo-concealed" role="status">Photo concealed.</div>}
-                <form method="post" @formname="@($"toggle-{selected.Id}")" @onsubmit="()=>ToggleAsync(selected.Id)" data-enhance="true"><AntiforgeryToken /><input type="hidden" name="conceal" value="@(revealed?"true":"false")" /><button type="submit" class="secondary" data-reveal="@selected.Id">@(revealed?"Conceal photo":"Reveal photo")</button></form>
-                <form method="post" @formname="@($"decide-{selected.Id}")" @onsubmit="()=>DecideAsync(selected.Id)" class="stack" data-enhance="true">
-                    <AntiforgeryToken />
-                    <label>Decision and reason<select name="reasonCode" required data-photo-decision><option value="">Choose a decision</option>@foreach(var reason in queue.Reasons?.Where(r=>r.Selectable)??[]){<option value="@reason.Code" selected="@(Field("reasonCode")==reason.Code)">@(reason.Decision=="approve"?"Approve":reason.Decision=="reject"?"Reject":"Escalate") — @reason.Label</option>}</select></label>
-                    <label>Rejection or escalation notes (required for Other; never enter approval notes)<textarea name="reason" maxlength="500">@Field("reason")</textarea></label>
-                    <button type="submit" data-photo-decide>Save decision and continue</button>
-                </form>
+                <div class="media-dialog-body">
+                    <div class="media-stage">
+                        <form method="post" @formname="@($"toggle-{selected.Id}")" @onsubmit="()=>ToggleAsync(selected.Id)" data-enhance="true" class="media-frame"><AntiforgeryToken /><input type="hidden" name="conceal" value="@(revealed?"true":"false")" />
+                            @if(revealed&&link is not null)
+                            {
+                                <img src="/media/@link" alt="Media under review" data-media-image="@selected.Id" />
+                                <button type="submit" class="media-frame-tool" data-reveal="@selected.Id" aria-label="Conceal photo">@EyeOff Conceal</button>
+                            }
+                            else
+                            {
+                                <div class="media-veil" role="status">@EyeOff<span>Concealed</span><button type="submit" class="ui-button-sm" data-reveal="@selected.Id" aria-label="Reveal photo">Reveal</button><kbd>V</kbd></div>
+                            }
+                        </form>
+                    </div>
+                    <form method="post" @formname="@($"decide-{selected.Id}")" @onsubmit="()=>DecideAsync(selected.Id)" class="media-side" data-enhance="true" data-decide-form>
+                        <AntiforgeryToken />
+                        <dl class="media-meta">
+                            <dt>Signal</dt><dd><span class="ui-pill" data-tone="quiet">@selected.Reason</span></dd>
+                            <dt>Uploaded</dt><dd>@selected.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</dd>
+                            <dt>Screening</dt><dd>@(selected.KnownContentChecked?"Known-content checked":"Known-content not run")</dd>
+                            <dt>Member</dt><dd><a href="/accounts/@selected.AccountId">View account</a></dd>
+                            <dt>Reference</dt><dd><span class="beta-ref"><code>@Short(selected.Id)</code><CopyButton Value="@selected.Id.ToString()" /></span></dd>
+                        </dl>
+                        <div class="ui-field"><span>Decision</span>
+                            <div class="media-decide" role="group" aria-label="Decision" data-decide-buttons>
+                                @foreach(var (decision,label,key) in new[]{("approve","Approve","A"),("reject","Reject","R"),("escalate","Escalate","E")})
+                                {
+                                    <button type="button" data-decide="@decision" aria-pressed="@((posted?.Decision==decision).ToString().ToLowerInvariant())">@label<kbd>@key</kbd></button>
+                                }
+                            </div>
+                        </div>
+                        <label class="ui-field"><span>Reason</span>
+                            <select name="reasonCode" required data-photo-decision>
+                                <option value="">Choose a reason</option>
+                                @foreach(var group in (queue.Reasons?.Where(r=>r.Selectable)??[]).GroupBy(r=>r.Decision))
+                                {
+                                    <optgroup label="@(group.Key=="approve"?"Approve":group.Key=="reject"?"Reject":"Escalate")">
+                                        @foreach(var reason in group){<option value="@reason.Code" data-decision="@reason.Decision" data-notes="@(reason.RequiresNotes?"required":null)" selected="@(Field("reasonCode")==reason.Code)">@MediaText.Reason(reason.Code)</option>}
+                                    </optgroup>
+                                }
+                            </select>
+                        </label>
+                        <label class="ui-field" data-notes-field hidden="@((posted is null || posted.Decision=="approve") && string.IsNullOrWhiteSpace(Field("reason")))"><span>Notes <em data-notes-hint>@(posted?.RequiresNotes==true?"(required)":"(optional)")</em></span><textarea name="reason" maxlength="500" placeholder="Context for the record">@Field("reason")</textarea></label>
+                        @if(message is not null){<p class="media-error" role="status" data-result="@resultCode">@message</p>}
+                        <div class="media-side-actions">
+                            @if(next is not null){<a class="ui-button-ghost" href="@QueueUrl(Page,next.Id)">Skip</a>}else{<span></span>}
+                            <button type="submit" data-photo-decide>Save and next</button>
+                        </div>
+                    </form>
+                </div>
             }
         </dialog>
     }
@@ -63,27 +151,35 @@ else
     private MediaReviewQueue? queue;
     private string? message,loadError,resultCode,link;
     private bool revealed;
+    private MediaReviewItem? Selected => queue?.Items.FirstOrDefault(i=>i.Id==Focus);
+    private int Pages => queue is null ? 1 : Math.Max(1,1+(queue.Total-1)/Math.Max(1,queue.PageSize));
+    private static string Short(Guid id) => id.ToString()[..8];
+    private static string Ago(DateTimeOffset at){var m=(int)Math.Max(0,(DateTimeOffset.UtcNow-at).TotalMinutes);return m<60?$"{m} min ago":m<2880?$"{m/60} h ago":$"{m/1440} days ago";}
+    private static RenderFragment Chevron(string path) => @<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="@path"/></svg>;
+    private static readonly RenderFragment EyeOff = @<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.8 9.8 0 0 1 12 5c5 0 9 4.5 10 7-.4 1-1.3 2.4-2.6 3.7M6.6 6.6C4.5 8 3 10.1 2 12c1 2.5 5 7 10 7 1.7 0 3.3-.5 4.6-1.3"/></svg>;
+    private static readonly RenderFragment Icon = @<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>;
     protected override async Task OnInitializedAsync(){if(Page<1)Page=1;await LoadAsync();}
     private string QueueUrl(int page,Guid? focus=null)=>$"/media?page={page}"+(Kind is null?"":"&kind="+Uri.EscapeDataString(Kind))+(Reason is null?"":"&reason="+Uri.EscapeDataString(Reason))+(focus is null?"":"&review="+focus);
     private async Task LoadAsync(){var result=await Admin.MediaReviewPageAsync(Page,Kind,Reason);queue=result.Value;if(!result.Ok)loadError=AdminText.Refusal(result.Status,result.Code);}
     private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
-    private async Task AcknowledgeAsync(){var status=await Admin.AcknowledgePhotoSafetyAsync(queue?.NoticeVersion??"",Field("confirmed")=="on");message=status<300?"Safety notice acknowledged.":"Confirm the current safety notice.";await LoadAsync();}
+    private async Task AcknowledgeAsync(){var status=await Admin.AcknowledgePhotoSafetyAsync(queue?.NoticeVersion??"",Field("confirmed")=="on");message=status<300?null:"Tick “I understand” first.";await LoadAsync();}
     private async Task ToggleAsync(Guid id)
     {
         // SSR posts have no retained component state: an explicit posted conceal flag is read, never inferred from session.
-        if(Field("conceal")=="true"){link=null;revealed=false;message="Photo concealed.";await LoadAsync();return;}
+        if(Field("conceal")=="true"){link=null;revealed=false;await LoadAsync();return;}
         var result=await Admin.ViewMediaAsync(id,"Routine photo review reveal");
-        if(result.Ok){link=result.Value!.Link.Split('/').Last();revealed=true;resultCode="ok";message="Photo revealed.";}
+        if(result.Ok){link=result.Value!.Link.Split('/').Last();revealed=true;resultCode="ok";}
         else{link=null;revealed=false;message=AdminText.Refusal(result.Status,result.Code);}
         await LoadAsync();
     }
     private async Task DecideAsync(Guid id)
     {
         var reason=queue?.Reasons?.SingleOrDefault(r=>r.Selectable&&r.Code==Field("reasonCode"));
-        if(reason is null){message="Choose a decision and reason.";return;}
+        if(reason is null){resultCode="reason-missing";message="Choose a decision and reason.";return;}
         var notes=Field("reason");
-        if(reason.RequiresNotes&&string.IsNullOrWhiteSpace(notes)){resultCode="reason-required";message="Other rejection requires notes.";return;}
-        if(reason.Decision=="approve"&&!string.IsNullOrWhiteSpace(notes)){message="Approval uses a code only. Remove the notes.";return;}
+        if(reason.RequiresNotes&&string.IsNullOrWhiteSpace(notes)){resultCode="reason-required";message="Notes are required for Other.";return;}
+        // D297: approvals are code-only and submitted notes are never silently discarded.
+        if(reason.Decision=="approve"&&!string.IsNullOrWhiteSpace(notes)){resultCode="approval-notes";message="Approval uses a reason only. Clear the notes.";return;}
         var result=await Admin.DecideMediaAsync(id,new MediaDecision(reason.Decision,reason.Decision=="approve"?null:notes,reason.Code));
         link=null;revealed=false;resultCode=result.Ok?"ok":result.Code;
         if(result.Ok){var next=queue?.Items.FirstOrDefault(i=>i.Id!=id);Navigation.NavigateTo(QueueUrl(Page,next?.Id));}

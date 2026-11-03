@@ -5,11 +5,11 @@ module.exports = async ({page, base, out}) => {
  const shot=async options=>{await page.evaluate(async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))});await page.waitForTimeout(150);return page.screenshot(options);};
  const check=(value,message)=>{assert(value,message);checks++;};
  const overflow=()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
- check(await page.locator('#sidebar-home .admin-sidebar nav a').count()===18,'every original destination plus overview/disclosures');
+ check(await page.locator('#sidebar-home .admin-sidebar nav a').count()===19,'every original destination plus overview, disclosures and registration settings');
  check(await page.locator('#sidebar-home .nav-link[aria-current=page]').getAttribute('href')==='/cases','queue active indicator');
  check(await page.locator('table tbody tr').count()===14,'dense fictional queue rendered');
  for(const width of [1440,1100,390]){
-  await page.setViewportSize({width,height:900});check(await overflow(),'page reflow '+width);
+  await page.setViewportSize({width,height:900});check(await overflow(),'page reflow '+width+' '+await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).slice(0,5).map(e=>e.tagName+'.'+e.className).join(' | ')));
   if(width===390)await page.waitForSelector('#navigation-drawer .admin-sidebar',{state:'attached'});
   if(width>800)check(await page.locator('#sidebar-home .admin-sidebar').isVisible(),'persistent desktop sidebar');
   if(width===1100)await shot({path:out+'/after-queue-1100.png',fullPage:true});
@@ -45,8 +45,8 @@ module.exports = async ({page, base, out}) => {
  check(await page.locator('[data-sanction-kind=warning]').count()===1,'reasoned warning records through unchanged form');
  await page.setViewportSize({width:390,height:844});check(await overflow(),'complex case form reflow');
  await shot({path:out+'/after-case-390.png',fullPage:true});
- await page.goto(base+'/access');await page.waitForSelector('[data-request-access]');
- await page.setViewportSize({width:1440,height:1000});await shot({path:out+'/after-access-1440.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto(base+'/access');await page.waitForSelector('[data-request-access]');await shot({path:out+'/after-access-1440.png',fullPage:true});
  const form=page.locator('[data-request-access]');
  await form.locator('select[name=capability]').selectOption('termination');
  await form.locator('textarea[name=purpose]').fill('Fictional layout acceptance review of time-limited access.');

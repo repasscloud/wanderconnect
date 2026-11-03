@@ -13,7 +13,7 @@ const {admin,call,createStaff,staffToken,rootAdminToken,mailTo,sql,sleep}=requir
   const page=await edge.browser.newPage();await page.goto(admin+'/sign-in');await page.fill('#username',operator.email);await page.fill('#password',operator.password);await page.click('#kc-login');await page.waitForURL(admin+'/**');await page.goto(admin+'/beta');
   const email='fictional.beta-invitation.'+Date.now()+'@example.test';
   await page.fill('[data-beta-add] input[name=email]',email);await page.click('[data-beta-add] button');
-  await page.waitForSelector('[data-beta-result=added]');assert.match(await page.locator('[data-beta-result]').innerText(),/queued; not sent or delivered/);checks++;
+  await page.waitForSelector('[data-beta-result=added]');assert.match(await page.locator('[data-beta-result]').innerText(),/queued, not yet sent/);checks++;
   let entry;for(let n=0;n<100;n++){entry=(await call(token,'/api/admin/beta')).body.find(e=>e.email===email);if(entry?.invitationState==='accepted')break;await sleep(250);}
   assert.equal(entry?.invitationState,'accepted');assert.equal(entry.invitationAttempts,1);assert.ok(entry.invitationCompletedAt);checks++;
   const mail=await mailTo(email);assert.equal(mail.length,1);assert.ok(mail[0].includes('http://localhost:5081/account'));assert.ok(!mail[0].includes('TestFlight'));checks++;

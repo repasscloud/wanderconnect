@@ -103,7 +103,8 @@ public sealed record VerifiedIdentityView(Guid AccountId, string? FirstName, str
     DateOnly? ExpiryDate, string? Method, DateTimeOffset VerifiedAt, string SessionId, DateTimeOffset? RetainUntil);
 
 /// <summary>D166: a manual date-of-birth review in the admin queue. Never either date: the admin reads the document's in Didit's console.</summary>
-public sealed record DobReviewView(Guid Id, Guid AccountId, string? DisplayName, string Reason, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome);
+public sealed record DobReviewView(Guid Id, Guid AccountId, string? DisplayName, string Reason, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome,
+    string? FirstName = null, string? LastName = null, string? DiditSessionId = null, string? ResolutionNote = null, string? ResolvedByName = null);
 /// <summary>"verified" (the date on file matches the ID) or "notVerified", with a reason (audited, never shown publicly).</summary>
 public sealed record DobReviewDecision(string? Outcome, string? Reason);
 /// <summary>D150: an admin clears the home-location review flag after looking, with a reason (audited, never shown publicly).</summary>

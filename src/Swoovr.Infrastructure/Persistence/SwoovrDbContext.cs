@@ -752,6 +752,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             review.HasOne<Account>().WithMany().HasForeignKey(r => r.AccountId).OnDelete(DeleteBehavior.Cascade);
             review.HasOne<IdVerificationAttempt>().WithMany().HasForeignKey(r => r.AttemptId).OnDelete(DeleteBehavior.Cascade);
             review.Property(r => r.Reason).HasMaxLength(32);
+            review.Property(r => r.ResolutionNote).HasMaxLength(1000);
             review.HasIndex(r => r.AccountId, "ix_dob_reviews_one_open").IsUnique().HasFilter("resolved_at IS NULL");
             review.HasIndex(r => r.CreatedAt);
         });

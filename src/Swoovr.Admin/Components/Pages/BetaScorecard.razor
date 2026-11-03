@@ -1,25 +1,45 @@
 @page "/beta-scorecard"
 @inject AdminClient Admin
 <PageTitle>Beta scorecard — Swoovr admin</PageTitle>
-<h1>Beta scorecard</h1>
-<p>Internal beta operations. These are retained source subsets and observed lower bounds, not population totals, statistically reliable outcomes or findings about individual members.</p>
-<form method="get" class="row"><label>Completed UTC week<select name="weeksAgo">@for(var n=1;n<=12;n++){<option value="@n" selected="@(n==SelectedWeek)">@n week(s) ago</option>}</select></label><button type="submit">Load scorecard</button></form>
-@if(report is null){<p role="status" data-beta-unavailable>Scorecard unavailable for this role or week.</p>}
+<header class="ui-page-head">
+    <h1>Beta scorecard</h1>
+    <p>Internal beta operations, from retained source data.</p>
+</header>
+<div class="ui-toolbar">
+    <nav class="ui-segmented" aria-label="Completed UTC week">
+        @for (var n = 1; n <= 4; n++) { <a href="/beta-scorecard?weeksAgo=@n" aria-current="@(n == SelectedWeek ? "page" : null)">@(n == 1 ? "Last week" : $"{n} weeks ago")</a> }
+    </nav>
+    <form method="get" class="ui-inline-select" data-enhance="false">
+        <label class="ui-field"><span class="sr-only">Completed UTC week</span><select name="weeksAgo">@for (var n = 1; n <= 12; n++) {<option value="@n" selected="@(n == SelectedWeek)">@n week@(n == 1 ? "" : "s") ago</option>}</select></label>
+        <button type="submit" class="ui-button-ghost">Load</button>
+    </form>
+</div>
+@if (report is null) { <div class="ui-empty" role="status" data-beta-unavailable><strong>Scorecard unavailable</strong>Not available for this role or week.</div> }
 else
 {
     <section data-beta-scorecard>
-        <p>@report.FromInclusive.ToString("yyyy-MM-dd") to @report.UntilExclusive.ToString("yyyy-MM-dd") exclusive, UTC.</p>
-        <p data-beta-scope>Dataset: @report.Dataset. Collection: @report.Collection. Coverage: @report.Coverage.</p>
-        <p>Unavailable and suppressed values are not zero. A reciprocal send is not evidence of delivery, satisfaction, chemistry or safety.</p>
-        <ul class="list">@foreach(var metric in report.Metrics)
-        {
-            <li data-beta-metric="@metric.Key" data-beta-status="@metric.Status"><h2>@metric.Key</h2><p>@metric.Definition</p>
-                <p>Status: @metric.Status</p>
-                @if(metric.Numerator is{}numerator){<p>Count / numerator: @numerator. @if(metric.Denominator is{}denominator){<span>Denominator: @denominator.</span>} @if(metric.Percentage is{}percentage){<span>@percentage.ToString("0.0")%</span>}</p>}
-                else{<p>Numeric result unavailable.</p>}
-            </li>
-        }</ul>
-        <h2>Limits</h2><ul>@foreach(var limit in report.Limitations){<li>@limit</li>}</ul>
+        <div class="ui-results-head">
+            <p><strong>@report.FromInclusive.ToString("d MMM yyyy")</strong> – @report.UntilExclusive.AddDays(-1).ToString("d MMM yyyy") UTC</p>
+            <p data-beta-scope class="acct-badges"><span class="ui-pill" data-tone="quiet">@report.Dataset</span><span class="ui-pill" data-tone="quiet">@report.Collection</span><span class="ui-pill" data-tone="@(report.Coverage.Contains("partial", StringComparison.OrdinalIgnoreCase) ? "escalate" : "quiet")">Coverage: @report.Coverage</span></p>
+        </div>
+        <div class="ui-metrics">
+            @foreach (var metric in report.Metrics)
+            {
+                var ratio = metric.Numerator is { } n && metric.Denominator is { } d && d > 0 ? (double)n / d : (double?)null;
+                <article class="ui-card ui-metric" data-beta-metric="@metric.Key" data-beta-status="@metric.Status">
+                    <div class="ui-card-row"><h2>@Title(metric.Key)</h2><span class="ui-pill" data-tone="@(metric.Numerator is null ? "quiet" : "approve")">@StatusLabel(metric.Status)</span></div>
+                    <p class="ui-metric-value">@if (metric.Percentage is { } pct) {@pct.ToString("0.0")<small>%</small>} else if (metric.Numerator is { } count) {@count} else {<span>—</span>}
+                        @if (metric.Numerator is { } num && metric.Denominator is { } den) {<small class="ui-metric-ratio">@num / @den</small>}</p>
+                    @if (ratio is { } r) { <div class="ui-bar"><i style="width:@((Math.Clamp(r, 0, 1) * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div> }
+                    <p class="ui-help">@metric.Definition</p>
+                    <code class="ui-mono ui-help">@metric.Key</code>
+                </article>
+            }
+        </div>
+        <details class="ui-card ui-disclosure ui-section">
+            <summary><strong>Limits</strong></summary>
+            <ul class="ui-limits"><li>Unavailable and suppressed values are not zero.</li>@foreach (var limit in report.Limitations) {<li>@limit</li>}</ul>
+        </details>
     </section>
 }
 @code{
@@ -27,4 +47,6 @@ else
     private int SelectedWeek=>Week??1;
     private BetaScorecardResult? report;
     protected override async Task OnInitializedAsync(){report=(await Admin.BetaScorecardAsync(SelectedWeek)).Value;}
+    private static string Title(string key) { var t = key.Replace('-', ' '); return t.Length == 0 ? t : char.ToUpperInvariant(t[0]) + t[1..]; }
+    private static string StatusLabel(string status) => status switch { "observed-lower-bound" => "Lower bound", "retained-source-count" => "Source count", "retained-source-ratio" => "Source ratio", "suppressed-small-cells" => "Suppressed", "not-recorded" => "Not recorded", "unavailable" => "Unavailable", _ => Title(status) };
 }

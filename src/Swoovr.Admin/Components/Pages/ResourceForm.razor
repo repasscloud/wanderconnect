@@ -1,25 +1,34 @@
 @* One Safety & Support contact's fields (issue 103), for editing or adding. *@
-<form method="post" @formname="@FormName" @onsubmit="OnSubmit" class="stack" data-resource-form="@(Resource?.Id.ToString() ?? "new")" data-enhance="true">
+<form method="post" @formname="@FormName" @onsubmit="OnSubmit" class="ui-form" data-resource-form="@(Resource?.Id.ToString() ?? "new")" data-enhance="true">
     <AntiforgeryToken />
-    <label>Category<select name="category">
-        @foreach (var c in Categories) { <option value="@c" selected="@(Resource?.Category == c)">@c</option> }
-    </select></label>
-    <label>Name<input name="name" value="@Resource?.Name" maxlength="100" required /></label>
-    <label>Description<input name="description" value="@Resource?.Description" maxlength="300" required /></label>
-    <label>Phone (digits)<input name="phone" value="@Resource?.Phone" maxlength="20" /></label>
-    <label>Phone as written<input name="phoneDisplay" value="@Resource?.PhoneDisplay" maxlength="20" /></label>
-    <label>Website (https)<input name="website" value="@Resource?.WebsiteUrl" maxlength="300" /></label>
-    <label>Official source (https)<input name="source" value="@Resource?.SourceUrl" maxlength="300" required /></label>
-    <label>Region (optional)<input name="region" value="@Resource?.Region" maxlength="10" /></label>
-    <label>Language<input name="language" value="@(Resource?.Language ?? "en-" + Country)" maxlength="8" /></label>
-    <label>Order<input type="number" name="order" value="@(Resource?.Order ?? 100)" min="0" max="1000" /></label>
-    <label>Verified on<input type="date" name="verified" value="@Resource?.LastVerifiedOn?.ToString("yyyy-MM-dd")" /></label>
-    <label>Review due<input type="date" name="reviewDue" value="@Resource?.ReviewDueOn?.ToString("yyyy-MM-dd")" /></label>
-    <label><input type="checkbox" name="enabled" value="true" checked="@(Resource?.Enabled ?? true)" /> Shown to members</label>
-    <button type="submit" class="secondary" data-save-resource="@(Resource?.Id.ToString() ?? "new")">@(Resource is null ? "Add contact" : "Save contact")</button>
+    <div class="ui-form-row ui-form-row-3">
+        <label class="ui-field"><span>Category</span><select name="category">
+            @foreach (var c in Categories) { <option value="@c" selected="@(Resource?.Category == c)">@Label(c)</option> }
+        </select></label>
+        <label class="ui-field"><span>Name</span><input name="name" value="@Resource?.Name" maxlength="100" required /></label>
+        <label class="ui-field"><span>Order</span><input type="number" name="order" value="@(Resource?.Order ?? 100)" min="0" max="1000" /></label>
+    </div>
+    <label class="ui-field"><span>Description</span><input name="description" value="@Resource?.Description" maxlength="300" required /></label>
+    <div class="ui-form-row ui-form-row-3">
+        <label class="ui-field"><span>Phone (digits)</span><input name="phone" value="@Resource?.Phone" maxlength="20" /></label>
+        <label class="ui-field"><span>Phone as written</span><input name="phoneDisplay" value="@Resource?.PhoneDisplay" maxlength="20" /></label>
+        <label class="ui-field"><span>Website</span><input name="website" value="@Resource?.WebsiteUrl" maxlength="300" placeholder="https://" /></label>
+    </div>
+    <div class="ui-form-row ui-form-row-3">
+        <label class="ui-field"><span>Official source</span><input name="source" value="@Resource?.SourceUrl" maxlength="300" required placeholder="https://" /></label>
+        <label class="ui-field"><span>Region</span><input name="region" value="@Resource?.Region" maxlength="10" placeholder="Optional" /></label>
+        <label class="ui-field"><span>Language</span><input name="language" value="@(Resource?.Language ?? "en-" + Country)" maxlength="8" /></label>
+    </div>
+    <div class="ui-form-row ui-form-row-3 ui-align-end">
+        <label class="ui-field"><span>Verified on</span><input type="date" name="verified" value="@Resource?.LastVerifiedOn?.ToString("yyyy-MM-dd")" /></label>
+        <label class="ui-field"><span>Review due</span><input type="date" name="reviewDue" value="@Resource?.ReviewDueOn?.ToString("yyyy-MM-dd")" /></label>
+        <label class="beta-check"><input type="checkbox" name="enabled" value="true" checked="@(Resource?.Enabled ?? true)" /><span>Shown to members</span></label>
+    </div>
+    <div><button type="submit" class="@(Resource is null ? null : "ui-button-ghost")" data-save-resource="@(Resource?.Id.ToString() ?? "new")">@(Resource is null ? "Add contact" : "Save contact")</button></div>
 </form>
 @code {
     private static readonly string[] Categories = ["emergency", "police-non-emergency", "crisis", "sexual-violence", "domestic-violence", "online-safety", "child-exploitation", "other"];
+    private static string Label(string c) => c switch { "emergency" => "Emergency", "police-non-emergency" => "Police (non-emergency)", "crisis" => "Crisis support", "sexual-violence" => "Sexual violence", "domestic-violence" => "Domestic violence", "online-safety" => "Online safety", "child-exploitation" => "Child exploitation", _ => "Other" };
     [Parameter] public SafetyResourceAdminView? Resource { get; set; }
     [Parameter, EditorRequired] public string Country { get; set; } = "";
     [Parameter, EditorRequired] public string FormName { get; set; } = "";

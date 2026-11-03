@@ -1,48 +1,71 @@
 @page "/security"
 @inject AdminClient Admin
 <PageTitle>Security incidents — Swoovr admin</PageTitle>
-<h1>Security incidents</h1>
-<AdminGuidance><p class="help">Policy §12 and the <strong>breach-response runbook</strong> (docs/delivery/BREACH-RESPONSE-RUNBOOK.md). Contain first, then assess: if it may be an eligible data breach under the Notifiable Data Breaches scheme, start the assessment now and finish it within 30 days. Sev1 critical · Sev2 high · Sev3 medium · Sev4 low.</p></AdminGuidance>
-<p class="row"><a href="/security">Open</a> · <a href="/security?status=closed">Closed</a></p>
+<header class="ui-page-head ui-page-head-actions">
+    <div><h1>Security incidents</h1><p>Contain first, then assess within 30 days whether it is an eligible data breach.</p></div>
+    <div class="acct-buttons"><a class="ui-button-primary" href="#open-incident">Open an incident</a></div>
+</header>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-@if (incidents is null) { <p data-incidents="refused">@loadError</p> }
-else if (incidents.Count == 0) { <p data-incidents="none">No incidents.</p> }
+@if (incidents is not null && Status != "closed")
+{
+    <div class="ui-stats ui-stats-4">
+        <div class="ui-stat"><strong>@incidents.Count</strong><span>Open</span></div>
+        <div class="ui-stat @(incidents.Any(x => x.Severity is "sev1") ? "is-alert" : null)"><strong>@incidents.Count(x => x.Severity is "sev1" or "sev2")</strong><span>Sev1–2 open</span></div>
+        <div class="ui-stat"><strong>@incidents.Count(x => x.AssessedAt is null)</strong><span>Assessment pending</span></div>
+        <div class="ui-stat @(incidents.Any(x => x.AssessmentOverdue) ? "is-alert" : null)"><strong>@incidents.Count(x => x.AssessmentOverdue)</strong><span>Assessment overdue</span></div>
+    </div>
+}
+<nav class="ui-tabs" aria-label="Incident status">
+    <a href="/security" aria-current="@(Status != "closed" ? "page" : null)">Open</a>
+    <a href="/security?status=closed" aria-current="@(Status == "closed" ? "page" : null)">Closed</a>
+</nav>
+@if (incidents is null) { <p class="notice" data-incidents="refused">@loadError</p> }
+else if (incidents.Count == 0) { <div class="ui-empty" data-incidents="none"><strong>No incidents</strong>Nothing in this view.</div> }
 else
 {
-    <ul class="list" data-incidents="@incidents.Count">
+    <div class="ui-stack" data-incidents="@incidents.Count">
         @foreach (var i in incidents)
         {
-            <li data-incident="@i.Id" data-incident-kind="@i.Kind" data-incident-status="@i.Status">
-                <strong>@i.Severity</strong> · @i.Kind · @i.Status · detected @i.DetectedAt.ToLocalTime().ToString("d MMM HH:mm")
-                · assessment @(i.AssessedAt is null ? $"due {i.AssessmentDue.ToLocalTime():d MMM}" : i.Notifiable == true ? "NOTIFIABLE" : "not notifiable")
-                @if (i.AssessmentOverdue) { <strong data-assessment-overdue> overdue</strong> }
-                <div class="help">@i.SeverityMeaning</div>
-                <blockquote>@i.Summary</blockquote>
-                @if (i.Status != "closed")
+            var days = (int)Math.Ceiling((i.AssessmentDue - DateTimeOffset.UtcNow).TotalDays);
+            <article class="ui-card" data-incident="@i.Id" data-incident-kind="@i.Kind" data-incident-status="@i.Status">
+                <div class="ui-card-row">
+                    <div class="acct-badges"><span class="ui-pill" data-tone="@(i.Severity == "sev1" ? "reject" : i.Severity == "sev2" ? "escalate" : "quiet")" title="@i.SeverityMeaning">@SeverityLabel(i.Severity)</span><strong>@i.Kind</strong><span class="ui-pill" data-tone="@(i.Status == "closed" ? "approve" : "quiet")">@Cap(i.Status)</span></div>
+                    <span class="ui-help">Detected @i.DetectedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span>
+                </div>
+                <p class="ui-summary">@i.Summary</p>
+                <div class="ui-card-row ui-card-foot">
+                    <span class="ui-help">Assessment: @if (i.AssessedAt is not null) {<strong class="ui-strong-inline">@(i.Notifiable == true ? "Eligible data breach — notify OAIC and people affected" : "Not an eligible data breach")</strong>} else if (i.AssessmentOverdue) {<strong data-assessment-overdue class="ui-pill" data-tone="reject">Overdue</strong>} else {<span><span class="ui-countdown">@days days</span> left</span>}</span>
+                    @if (i.Status != "closed")
+                    {
+                        <form method="post" @formname="@($"step-{i.Id}")" @onsubmit="() => StepAsync(i.Id)" class="acct-buttons" data-enhance="true">
+                            <AntiforgeryToken />
+                            @if (i.Status == "open") { <button name="step" value="contain" type="submit" class="ui-button-ghost" data-contain="@i.Id">Mark contained</button> }
+                            <button name="step" value="close" type="submit" class="ui-button-ghost" data-close-incident="@i.Id">Close</button>
+                        </form>
+                    }
+                </div>
+                @if (i.Status != "closed" && i.AssessedAt is null)
                 {
-                    <form method="post" @formname="@($"assess-{i.Id}")" @onsubmit="() => AssessAsync(i.Id)" class="row" data-enhance="true">
+                    <form method="post" @formname="@($"assess-{i.Id}")" @onsubmit="() => AssessAsync(i.Id)" class="ui-assess" data-enhance="true">
                         <AntiforgeryToken />
-                        <select name="notifiable"><option value="false">Not an eligible data breach</option><option value="true">Eligible data breach (notify OAIC and people affected)</option></select>
-                        <input name="reason" placeholder="Why" maxlength="2000" required />
-                        <button type="submit" class="secondary" data-assess="@i.Id">Record assessment</button>
-                    </form>
-                    <form method="post" @formname="@($"step-{i.Id}")" @onsubmit="() => StepAsync(i.Id)" class="row" data-enhance="true">
-                        <AntiforgeryToken />
-                        @if (i.Status == "open") { <button name="step" value="contain" type="submit" class="secondary" data-contain="@i.Id">Contained</button> }
-                        <button name="step" value="close" type="submit" class="quiet" data-close-incident="@i.Id">Close</button>
+                        <label class="ui-field"><span>Assessment</span><select name="notifiable"><option value="false">Not an eligible data breach</option><option value="true">Eligible data breach (notify OAIC and people affected)</option></select></label>
+                        <label class="ui-field"><span>Reason</span><input name="reason" placeholder="Why" maxlength="2000" required /></label>
+                        <div><button type="submit" class="ui-button-ghost" data-assess="@i.Id">Record assessment</button></div>
                     </form>
                 }
-            </li>
+            </article>
         }
-    </ul>
+    </div>
 }
-<h2>Open an incident</h2>
-<form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-incident data-enhance="true">
-    <AntiforgeryToken />
-    <label>Severity<select name="severity"><option value="sev1">Sev1 critical</option><option value="sev2">Sev2 high</option><option value="sev3" selected>Sev3 medium</option><option value="sev4">Sev4 low</option></select></label>
-    <label>What happened (ids, not member content)<textarea name="summary" rows="3" maxlength="2000" required></textarea></label>
-    <button type="submit" data-open>Open incident</button>
-</form>
+<section class="ui-card ui-section" id="open-incident" aria-labelledby="open-incident-heading">
+    <h2 id="open-incident-heading">Open an incident</h2>
+    <form method="post" @formname="open" @onsubmit="OpenAsync" class="ui-form" data-open-incident data-enhance="true">
+        <AntiforgeryToken />
+        <label class="ui-field ui-narrow"><span>Severity</span><select name="severity"><option value="sev1">Sev1 critical</option><option value="sev2">Sev2 high</option><option value="sev3" selected>Sev3 medium</option><option value="sev4">Sev4 low</option></select></label>
+        <label class="ui-field"><span>What happened</span><textarea name="summary" rows="3" maxlength="2000" required placeholder="Ids, not member content"></textarea></label>
+        <div><button type="submit" data-open>Open incident</button></div>
+    </form>
+</section>
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
     [SupplyParameterFromQuery] public string? Status { get; set; }
@@ -57,6 +80,9 @@ else
         incidents = result.Value;
         if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
     }
+
+    private static string SeverityLabel(string s) => s switch { "sev1" => "Sev1 critical", "sev2" => "Sev2 high", "sev3" => "Sev3 medium", "sev4" => "Sev4 low", _ => s };
+    private static string Cap(string t) => t.Length == 0 ? t : char.ToUpperInvariant(t[0]) + t[1..];
 
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
 

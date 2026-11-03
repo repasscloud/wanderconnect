@@ -218,6 +218,39 @@ public static class AdminEndpoints
                 x.p is null ? null : Wire(x.p.AgeStatus), x.a.CreatedAt,x.a.RegisteredNamesConfirmedAt is null?null:string.Join(" ",new[]{x.a.RegisteredFirstName,x.a.RegisteredLastName}.Where(n=>!string.IsNullOrWhiteSpace(n))))).ToList());
         });
 
+        // D307 (Q110): search by mobile (optional +, spaces ignored), email (lower-cased) or registered first/last name, where
+        // `%` is the only wildcard and other pattern characters are literal. Empty or wildcard-only searches are refused.
+        // Same Support permission as the exact email lookup; audited with the kind and result count, never the value.
+        admin.MapGet("/accounts/search", async (string? q, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await StaffAsync(user, accounts, AccountRole.Support, cancellationToken);
+            if (denied is not null) return denied;
+            var query = AccountSearch.Parse(q);
+            if (query is null) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Enter a mobile number, email address or name.");
+            var db = accounts.Db!;
+            var source = from a in db.Accounts
+                         join p in db.MemberProfiles on a.Id equals p.AccountId into profiles from p in profiles.DefaultIfEmpty()
+                         join m in db.MemberPhones on a.Id equals m.AccountId into phones from m in phones.DefaultIfEmpty()
+                         select new { a, p, m };
+            source = query.Kind switch
+            {
+                "phone" => source.Where(x => x.m != null && x.m.Number == query.Value),
+                "email" => source.Where(x => x.a.Email == query.Value),
+                _ => source.Where(x => (x.a.RegisteredFirstName != null && EF.Functions.ILike(x.a.RegisteredFirstName, query.Value, "\\"))
+                    || (x.a.RegisteredLastName != null && EF.Functions.ILike(x.a.RegisteredLastName, query.Value, "\\"))),
+            };
+            var total = await source.CountAsync(cancellationToken);
+            var rows = await source.OrderBy(x => x.a.RegisteredLastName).ThenBy(x => x.a.RegisteredFirstName).ThenBy(x => x.a.Id).Take(50).ToListAsync(cancellationToken);
+            var cityIds = rows.Where(x => x.p?.HomeGeoNameId != null).Select(x => x.p!.HomeGeoNameId!.Value).Distinct().ToList();
+            var cities = await db.GeoCities.Where(c => cityIds.Contains(c.GeoNameId)).ToDictionaryAsync(c => c.GeoNameId, c => c.Name, cancellationToken);
+            var now = clock.GetUtcNow(); var today = DateOnly.FromDateTime(now.UtcDateTime);
+            Audit.Record(db, now, current!.Account!.Id, "account", "account.searched", null, null, $"kind:{query.Kind} results:{total}");
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new AccountSearchResult(query.Kind, rows.Select(x => new AccountSearchHit(x.a.Id, Wire(x.a.Realm), x.a.RegisteredFirstName, x.a.RegisteredLastName,
+                x.p is null ? null : AgePolicy.CurrentAge(x.p, today), x.p?.HomeGeoNameId is { } city ? cities.GetValueOrDefault(city) : null,
+                x.p?.IdStatus == VerificationStatus.Verified, x.a.Email, x.m?.Number, Wire(x.a.Status), x.p?.DisplayName)).ToList(), total));
+        });
+
         // D40: support or an admin can confirm a member is an adult. This also lifts an
         // under-18 lock, so it needs a sign-in within the last 15 minutes.
         admin.MapPost("/accounts/{id:guid}/adult-override", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>

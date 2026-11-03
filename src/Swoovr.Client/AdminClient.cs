@@ -107,6 +107,10 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<AppealView>> DecideAppealAsync(Guid id, string outcome, CancellationToken cancellationToken = default) =>
         SendAsync<AppealView>(HttpMethod.Post, $"api/admin/appeals/{id}/decide", new AppealDecision(outcome), cancellationToken);
 
+    /// <summary>D307 account search: mobile, email or registered name (`%` wildcard).</summary>
+    public Task<ApiResult<AccountSearchResult>> SearchAccountsAsync(string query, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountSearchResult>(HttpMethod.Get, "api/admin/accounts/search?q=" + Uri.EscapeDataString(query), null, cancellationToken);
+
     public Task<ApiResult<List<AccountView>>> FindAccountsAsync(string email, CancellationToken cancellationToken = default) =>
         SendAsync<List<AccountView>>(HttpMethod.Get, "api/admin/accounts?email=" + Uri.EscapeDataString(email), null, cancellationToken);
 
@@ -165,8 +169,11 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<SupportLookupView>> SupportLookupAsync(string reference, CancellationToken cancellationToken = default) =>
         SendAsync<SupportLookupView>(HttpMethod.Get, $"api/admin/support/{Uri.EscapeDataString(reference)}", null, cancellationToken);
 
-    public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(CancellationToken cancellationToken = default) =>
-        SendAsync<List<DobReviewView>>(HttpMethod.Get, "api/admin/dob-reviews", null, cancellationToken);
+    public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(CancellationToken cancellationToken = default) => DobReviewsAsync(true, cancellationToken);
+
+    /// <summary>open=false also returns resolved reviews (newest 200 overall).</summary>
+    public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(bool open, CancellationToken cancellationToken = default) =>
+        SendAsync<List<DobReviewView>>(HttpMethod.Get, open ? "api/admin/dob-reviews" : "api/admin/dob-reviews?open=false", null, cancellationToken);
 
     public Task<ApiResult<DobReviewView>> ResolveDobReviewAsync(Guid id, string outcome, string reason, CancellationToken cancellationToken = default) =>
         SendAsync<DobReviewView>(HttpMethod.Post, $"api/admin/dob-reviews/{id}/resolve", new DobReviewDecision(outcome, reason), cancellationToken);

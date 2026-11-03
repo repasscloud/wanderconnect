@@ -40,6 +40,7 @@ FallbackKeyChecks.Run();
 ApiContractChecks.Run();
 AccessPolicyChecks.Run();
 AccountPolicyChecks.Run();
+AccountSearchChecks.Run();
 RegistrationPolicyChecks.Run();
 RegisteredNameChecks.Run();
 ContactChangeEvidenceChecks.Run();

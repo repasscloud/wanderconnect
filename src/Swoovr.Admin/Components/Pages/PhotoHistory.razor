@@ -1,26 +1,51 @@
 @page "/media/history"
 @inject AdminClient Admin
-<PageTitle>Photo decision history — Swoovr admin</PageTitle>
-<h1>Photo decision history</h1><p class="help">Prior coded decisions remain in history. Reconsideration requires a different Admin, a recorded reason and fresh screening. Specialist media is excluded.</p>
-<p><a href="/media">Review queue</a> · <a href="/media/appeals">Photo appeals</a></p>
-@if(message is not null){<p role="status">@message</p>}
-<form method="get" class="row"><label>Decision<select name="decision"><option value="">All routine</option><option value="reject" selected="@(Decision=="reject")">Rejected</option><option value="approve" selected="@(Decision=="approve")">Approved</option></select></label><button type="submit">Filter</button></form>
-@if(history is null){<p>History is unavailable for this staff session.</p>}
+<PageTitle>Media history — Swoovr admin</PageTitle>
+<MediaTabs Active="history" />
+@if(message is not null){<p class="notice" role="status">@message</p>}
+<div class="ui-results-head">
+    <nav class="ui-segmented" aria-label="Decision filter">
+        @foreach(var (value,label) in new[]{("","All"),("approve","Approved"),("reject","Rejected")})
+        {
+            <a href="@(value==""?"/media/history":"/media/history?decision="+value)" aria-current="@(((Decision??"")==value)?"page":null)">@label</a>
+        }
+    </nav>
+    @if(history is not null){<p><strong>@history.Total</strong> decision@(history.Total==1?"":"s")</p>}
+</div>
+@if(history is null){<div class="ui-empty"><strong>History unavailable</strong>This staff session cannot read media history.</div>}
+else if(history.Items.Count==0){<div class="ui-empty"><strong>No decisions</strong>Nothing matches this filter.</div>}
 else
 {
-    <div class="table-wrap"><table><thead><tr><th scope="col">When</th><th scope="col">Photo</th><th scope="col">Decision</th><th scope="col">Reason code</th><th scope="col">Action</th></tr></thead><tbody>@foreach(var row in history.Items)
+    <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Media decision history">
+    <table><thead><tr><th scope="col">When</th><th scope="col">Media</th><th scope="col">Decision</th><th scope="col">Reason</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead><tbody>@foreach(var row in history.Items)
     {
-        <tr><td>@row.At.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</td><td><a href="/accounts/@row.AccountId">Account</a> · @row.MediaId</td><td>@row.Decision</td><td>@row.Code</td><td>@if(row.Decision=="reject")
-        {<form method="post" @formname="@($"reconsider-{row.Id}")" @onsubmit="()=>ReconsiderAsync(row.MediaId)" data-enhance="true"><AntiforgeryToken /><label>Reconsideration reason<textarea name="reason" maxlength="500" required></textarea></label><button type="submit" class="secondary">Re-screen for reconsideration</button></form>}</td></tr>
+        <tr>
+            <td>@row.At.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</td>
+            <td><span class="beta-ref"><code>@row.MediaId.ToString()[..8]</code><CopyButton Value="@row.MediaId.ToString()" /></span><a class="ui-sub" href="/accounts/@row.AccountId">Account</a></td>
+            <td><span class="ui-pill" data-tone="@MediaText.Tone(row.Decision)">@MediaText.Decision(row.Decision)</span></td>
+            <td>@MediaText.Reason(row.Code)</td>
+            <td class="ui-right">@if(row.Decision=="reject")
+            {
+                <details class="beta-actions media-reconsider"><summary>Reconsider</summary><div class="beta-action-forms">
+                    <form method="post" @formname="@($"reconsider-{row.Id}")" @onsubmit="()=>ReconsiderAsync(row.MediaId)" data-enhance="true" class="beta-action">
+                        <AntiforgeryToken />
+                        <h3>Reconsider rejection</h3>
+                        <label class="ui-field"><span>Reason</span><textarea name="reason" maxlength="500" required placeholder="Why this is being reconsidered"></textarea></label>
+                        <button type="submit" class="beta-action-button">Re-screen</button>
+                    </form>
+                </div></details>
+            }</td>
+        </tr>
     }</tbody></table></div>
-    <nav class="row" aria-label="Photo history pages">@if(Page>1){<a href="@Url(Page-1)">Previous</a>}<span>Page @history.Page · @history.Total decisions</span>@if(Page*history.PageSize<history.Total){<a href="@Url(Page+1)">Next</a>}</nav>
+    <nav class="ui-paging" aria-label="History pages"><span class="ui-help">Page @history.Page of @Pages</span><span class="ui-paging-links">@if(Page>1){<a class="ui-button-ghost" href="@Url(Page-1)">Previous</a>}else{<span class="ui-button-ghost" aria-disabled="true">Previous</span>}@if(Page*history.PageSize<history.Total){<a class="ui-button-ghost" href="@Url(Page+1)">Next</a>}else{<span class="ui-button-ghost" aria-disabled="true">Next</span>}</span></nav>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
     [SupplyParameterFromQuery(Name="page")] public int Page { get; set; }=1;
     [SupplyParameterFromQuery(Name="decision")] public string? Decision { get; set; }
     private PhotoDecisionPage? history;private string? message;
+    private int Pages=>history is null?1:Math.Max(1,1+(history.Total-1)/Math.Max(1,history.PageSize));
     protected override async Task OnInitializedAsync(){Page=Math.Max(1,Page);history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
     private string Url(int page)=>$"/media/history?page={page}"+(Decision is null?"":"&decision="+Uri.EscapeDataString(Decision));
-    private async Task ReconsiderAsync(Guid id){var reason=Context?.Request.Form["reason"].ToString()??"";var status=await Admin.ReconsiderPhotoAsync(id,reason);message=status<300?"Reconsidered after fresh screening. Prior decisions remain in history.":status==403?"A different Admin and current safety acknowledgement are required.":"The retained photo could not be cleared. It stays rejected; review the current state.";history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
+    private async Task ReconsiderAsync(Guid id){var reason=Context?.Request.Form["reason"].ToString()??"";var status=await Admin.ReconsiderPhotoAsync(id,reason);message=status<300?"Sent for re-screening.":status==403?"Another Admin must reconsider this, with a current safety acknowledgement.":"Re-screening did not clear this media. It stays rejected.";history=(await Admin.PhotoHistoryAsync(Page,Decision)).Value;}
 }

@@ -2,52 +2,82 @@
 @page "/safety/{Code}"
 @inject AdminClient Admin
 <PageTitle>Safety resources — Swoovr admin</PageTitle>
-<h1>Safety &amp; Support resources</h1>
-<p class="help">The outside contacts members see on Safety &amp; Support, by country (issue 103). Only official sources, checked before they're marked verified. A country is launch-ready only with a verified emergency number and every contact and the pack reviewed in date. Every change is kept as a revision.</p>
+@if (country is not null) { <p class="ui-back"><a href="/safety">← All countries</a></p> }
+<header class="ui-page-head">
+    <h1>@(country is null ? "Safety & support resources" : country.Name)</h1>
+    <p>@(country is null ? "Country helplines and safety packs shown to members." : $"{country.Code} · version {country.Version} · updated {country.UpdatedAt.ToUniversalTime():d MMM yyyy}")</p>
+</header>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-@if (countries is null) { <p data-safety-admin="refused">@loadError</p> }
+@if (countries is null) { <p class="notice" data-safety-admin="refused">@loadError</p> }
+else if (country is null)
+{
+    <div class="ui-stats">
+        <div class="ui-stat"><strong>@countries.Count(c => c.Readiness == "ready")</strong><span>Ready</span></div>
+        <div class="ui-stat @(countries.Any(c => c.ReviewDueOn is { } d && d <= Today) ? "is-alert" : null)"><strong>@countries.Count(c => c.ReviewDueOn is { } d && d <= Today)</strong><span>Review due</span></div>
+        <div class="ui-stat"><strong>@countries.Count(c => c.Readiness != "ready")</strong><span>Not ready</span></div>
+    </div>
+    <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Countries">
+    <table data-safety-countries="@countries.Count"><thead><tr><th scope="col">Country</th><th scope="col">Readiness</th><th scope="col">Contacts</th><th scope="col">Pack reviewed</th><th scope="col">Next review</th><th scope="col">Owner</th><th scope="col"><span class="sr-only">Edit</span></th></tr></thead>
+    <tbody>
+    @foreach (var c in countries)
+    {
+        <tr data-safety-country="@c.Code" data-readiness="@c.Readiness" data-row-link>
+            <td><a href="/safety/@c.Code" data-row-target><strong>@c.Name</strong></a><span class="ui-sub"><code class="ui-mono">@c.Code</code> · @(c.Enabled ? "offered" : "hidden")</span></td>
+            <td><span class="ui-pill" data-tone="@(c.Readiness == "ready" ? "approve" : c.Readiness == "demo" ? "escalate" : "quiet")">@ReadinessLabel(c.Readiness)</span>@if (c.LaunchProblems.Count > 0) {<span class="ui-sub" data-launch-problems="@c.Code" title="@string.Join(", ", c.LaunchProblems)">@c.LaunchProblems.Count launch issue@(c.LaunchProblems.Count == 1 ? "" : "s")</span>}</td>
+            <td>@c.Resources</td>
+            <td>@(c.LastReviewedOn?.ToString("d MMM yyyy") ?? "—")</td>
+            <td>@if (c.ReviewDueOn is { } due && due <= Today) {<span class="ui-pill" data-tone="reject">Due</span>} else {@(c.ReviewDueOn?.ToString("d MMM yyyy") ?? "—")}</td>
+            <td>@(c.Owner ?? "—")</td>
+            <td class="ui-right"><a class="ui-button-ghost" href="/safety/@c.Code">Edit</a></td>
+        </tr>
+    }
+    </tbody></table></div>
+}
 else
 {
-    <ul class="list" data-safety-countries="@countries.Count">
-        @foreach (var c in countries)
-        {
-            <li data-safety-country="@c.Code" data-readiness="@c.Readiness"><a href="/safety/@c.Code">@c.Name (@c.Code)</a> · @c.Readiness · @(c.Enabled ? "offered" : "hidden") · @c.Resources contacts · v@(c.Version)
-                @if (c.LaunchProblems.Count > 0) { <div class="help" data-launch-problems="@c.Code">Not launch-ready: @string.Join(", ", c.LaunchProblems)</div> }</li>
-        }
-    </ul>
-}
-@if (country is not null)
-{
-    <h2>@country.Name</h2>
-    <form method="post" @formname="country" @onsubmit="SaveCountryAsync" class="stack" data-country-edit="@country.Code" data-enhance="true">
-        <AntiforgeryToken />
-        <label>Name<input name="name" value="@country.Name" maxlength="100" required /></label>
-        <label><input type="checkbox" name="enabled" value="true" checked="@country.Enabled" /> Offered in the country list</label>
-        <label>Readiness<select name="readiness" data-readiness-select>
-            @foreach (var r in new[] { "not-ready", "ready", "demo" }) { <option value="@r" selected="@(country.Readiness == r)">@r</option> }
-        </select></label>
-        <label>Pack last reviewed<input type="date" name="reviewed" value="@country.LastReviewedOn?.ToString("yyyy-MM-dd")" /></label>
-        <label>Next review due<input type="date" name="due" value="@country.ReviewDueOn?.ToString("yyyy-MM-dd")" /></label>
-        <label>Owner<input name="owner" value="@country.Owner" maxlength="100" /></label>
-        <label>Notes<textarea name="notes" maxlength="500">@country.Notes</textarea></label>
-        <button type="submit" data-save-country>Save country</button>
-    </form>
-    <h3>Contacts</h3>
-    <ul class="list" data-safety-resources="@resources.Count">
+    @if (country.LaunchProblems.Count > 0)
+    {
+        <div class="media-safety ui-problems" data-launch-problems="@country.Code"><div><h2>Not launch-ready</h2><ul>@foreach (var p in country.LaunchProblems) {<li>@p</li>}</ul></div></div>
+    }
+    <section class="ui-card">
+        <h2 class="ui-card-title">Country</h2>
+        <form method="post" @formname="country" @onsubmit="SaveCountryAsync" class="ui-form" data-country-edit="@country.Code" data-enhance="true">
+            <AntiforgeryToken />
+            <div class="ui-form-row ui-form-row-3">
+                <label class="ui-field"><span>Name</span><input name="name" value="@country.Name" maxlength="100" required /></label>
+                <label class="ui-field"><span>Readiness</span><select name="readiness" data-readiness-select>
+                    @foreach (var r in new[] { "not-ready", "ready", "demo" }) { <option value="@r" selected="@(country.Readiness == r)">@ReadinessLabel(r)</option> }
+                </select></label>
+                <label class="ui-field"><span>Owner</span><input name="owner" value="@country.Owner" maxlength="100" /></label>
+            </div>
+            <div class="ui-form-row ui-form-row-3 ui-align-end">
+                <label class="ui-field"><span>Pack last reviewed</span><input type="date" name="reviewed" value="@country.LastReviewedOn?.ToString("yyyy-MM-dd")" /></label>
+                <label class="ui-field"><span>Next review due</span><input type="date" name="due" value="@country.ReviewDueOn?.ToString("yyyy-MM-dd")" /></label>
+                <label class="beta-check"><input type="checkbox" name="enabled" value="true" checked="@country.Enabled" /><span>Offered in the country list</span></label>
+            </div>
+            <label class="ui-field"><span>Notes</span><textarea name="notes" maxlength="500">@country.Notes</textarea></label>
+            <div><button type="submit" data-save-country>Save country</button></div>
+        </form>
+    </section>
+    <div class="ui-results-head"><h2 class="ui-h2">Contacts</h2><p><strong>@resources.Count</strong> contact@(resources.Count == 1 ? "" : "s")</p></div>
+    <div class="ui-stack" data-safety-resources="@resources.Count">
         @foreach (var r in resources)
         {
-            <li data-safety-resource="@r.Id" data-enabled="@(r.Enabled ? "yes" : "no")">
-                <strong>@r.Name</strong> · @r.Category · order @r.Order · @(r.Enabled ? "shown" : "hidden") · verified @(r.LastVerifiedOn?.ToString("d MMM yyyy") ?? "never")
+            <details class="ui-card ui-disclosure" data-safety-resource="@r.Id" data-enabled="@(r.Enabled ? "yes" : "no")">
+                <summary><span><strong>@r.Name</strong><span class="ui-sub">@r.Category · @(r.PhoneDisplay ?? r.Phone ?? r.WebsiteUrl ?? "")</span></span><span class="acct-badges"><span class="ui-pill" data-tone="@(r.Enabled ? "approve" : "quiet")">@(r.Enabled ? "Shown" : "Hidden")</span><span class="ui-pill" data-tone="@(r.LastVerifiedOn is null ? "reject" : "quiet")">@(r.LastVerifiedOn is { } v ? "Verified " + v.ToString("d MMM yyyy") : "Not verified")</span><span class="ui-button-ghost ui-edit">Edit</span></span></summary>
                 <ResourceForm Resource="r" Country="@country.Code" FormName="@($"resource-{r.Id}")" OnSubmit="() => SaveResourceAsync(r.Id)" />
-            </li>
+            </details>
         }
-    </ul>
-    <h3>Add a contact</h3>
-    <ResourceForm Country="@country.Code" FormName="new-resource" OnSubmit="() => SaveResourceAsync(null)" />
-    <h3>Revisions</h3>
-    <ul class="list" data-safety-revisions="@revisions.Count">
-        @foreach (var v in revisions.Take(30)) { <li data-revision="@v.Id">@v.At.ToLocalTime().ToString("d MMM HH:mm") · @v.Action · @(v.ResourceId?.ToString() ?? v.Country) · by @(v.Actor?.ToString() ?? "seed")</li> }
-    </ul>
+    </div>
+    <section class="ui-card ui-section"><h2>Add a contact</h2><ResourceForm Country="@country.Code" FormName="new-resource" OnSubmit="() => SaveResourceAsync(null)" /></section>
+    @if (revisions.Count > 0)
+    {
+        <section class="ui-card ui-section"><h2>Revisions</h2>
+            <ol class="ui-timeline" data-safety-revisions="@revisions.Count">
+                @foreach (var v in revisions.Take(30)) { <li data-revision="@v.Id"><strong>@v.Action</strong><span class="ui-sub">@v.At.ToUniversalTime().ToString("d MMM HH:mm") UTC · @(v.ResourceId?.ToString()[..8] ?? v.Country) · @(v.Actor?.ToString()[..8] ?? "seed")</span></li> }
+            </ol>
+        </section>
+    }
 }
 @code {
     [Parameter] public string? Code { get; set; }
@@ -71,6 +101,9 @@ else
         revisions = (await Admin.SafetyRevisionsAsync(country.Code)).Value ?? [];
     }
 
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private static string ReadinessLabel(string r) => r switch { "ready" => "Ready", "demo" => "Demo", _ => "Not ready" };
+
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
     private DateOnly? Date(string name) => DateOnly.TryParse(Field(name), out var d) ? d : null;
     private static string? Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
@@ -80,7 +113,7 @@ else
         var result = await Admin.SaveSafetyCountryAsync(Code!, new SafetyCountryUpdate(Field("name"), Field("enabled") == "true", Field("readiness"), Date("reviewed"), Date("due"),
             Blank(Field("owner")), Blank(Field("notes"))));
         (resultCode, message) = result.Ok ? ("ok", "Saved.") : (result.Code ?? result.Status.ToString(),
-            result.Status == 409 ? "Not launch-ready yet: it needs a verified emergency number, every contact verified and reviews in date." : AdminText.Refusal(result.Status, result.Code));
+            result.Status == 409 ? "Not launch-ready yet. See the launch issues above." : AdminText.Refusal(result.Status, result.Code));
         await LoadAsync();
     }
 

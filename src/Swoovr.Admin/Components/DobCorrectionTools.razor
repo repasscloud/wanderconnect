@@ -1,9 +1,9 @@
 @inject AdminClient Admin
 @if(allowed)
 {
-    <section class="card" data-dob-correction-tools>
-        <h2>Date of birth correction</h2>
-        <p class="help">Admin or root only. Allow one confirmed member correction for 24 hours. Support cannot grant it. Do not include dates in the reason.</p>
+    <section class="ui-card" data-dob-correction-tools>
+        <h2 class="ui-card-title">Date of birth correction</h2>
+
         @if(message is not null){<p role="status" data-dob-grant-result="@resultCode">@message</p>}
         <form method="post" @formname="dob-grant" @onsubmit="GrantAsync" class="stack" data-enhance="true">
             <AntiforgeryToken />

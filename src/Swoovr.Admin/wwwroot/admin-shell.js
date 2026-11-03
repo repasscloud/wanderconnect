@@ -49,3 +49,15 @@
     if (event.key === 'Escape') document.querySelector('.staff-menu[open]')?.removeAttribute('open');
   });
 })();
+
+// Copy-to-clipboard for reference buttons (data-copy). Progressive enhancement only.
+document.addEventListener('click', async event => {
+  const button = event.target.closest?.('button[data-copy]');
+  if (!button) return;
+  try {
+    await navigator.clipboard.writeText(button.dataset.copy);
+    button.setAttribute('data-copied', '');
+    button.title = 'Copied';
+    setTimeout(() => { button.removeAttribute('data-copied'); button.title = 'Copy'; }, 1500);
+  } catch { button.title = 'Copy failed'; }
+});

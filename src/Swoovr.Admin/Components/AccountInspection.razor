@@ -1,15 +1,14 @@
 @inject AdminClient Admin
 @if(assurance is not null)
 {
-    <section class="card" data-account-inspection>
-        <h2>Age and profile inspection</h2>
-        <dl class="facts">
+    <section class="ui-card" data-account-inspection>
+        <h2 class="ui-card-title">Profile and cases</h2>
+        <dl class="media-meta">
             <div><dt>Calculated age</dt><dd data-calculated-age>@(assurance.Age?.ToString()??"Not provided")</dd></div>
             <div><dt>Date of birth assurance</dt><dd>@(!assurance.DateOfBirthPresent?"No date saved":assurance.DateOfBirthVerified?"Matches verified identity":"Saved, not verified")</dd></div>
         </dl>
         <details><summary>Open current date of birth</summary>
-            <p class="help">Requires current staff elevation and a recorded purpose. This opens the profile date only.</p>
-            <p><a href="/access">Request current profile date access</a></p>
+            <p class="ui-help"><a href="/access">Request elevated access</a> first.</p>
             <form method="post" @formname="profile-dob-open" @onsubmit="OpenDobAsync" class="stack" data-enhance="true">
                 <AntiforgeryToken /><label>Purpose<textarea name="profileDobPurpose" maxlength="500" required></textarea></label><button type="submit">Open date of birth</button>
             </form>
@@ -19,7 +18,6 @@
         @if(preview is not null)
         {
             <h3>Public profile by mode</h3>
-            <p class="help">Read-only public presentation. Previewing records no profile visit and starts no member session. Hidden or disabled modes have no public preview.</p>
             @foreach(var mode in preview.Modes)
             {
                 <details data-mode-preview="@mode.Id"><summary>@mode.Label · @(mode.Enabled?"Enabled":"Disabled") · @(mode.Visible?"Visible":"Hidden")</summary>
@@ -36,13 +34,11 @@
                 </details>
             }
             <h3>Cases and conversation evidence</h3>
-            <p class="help">Conversation evidence opens only through an authorised report or case.</p>
             <ul class="list">@foreach(var item in preview.Cases){<li><a href="/cases/@item.Id">Open case · @item.Status</a></li>}</ul>
             @if(preview.CanInspectPrivatePhotos)
             {
                 <details><summary>Restricted profile photo inventory</summary>
-                    <p class="help">Admin only. Hidden, unassigned, pending and rejected profile photos require an audited purpose. Images open blurred. Removed objects may be unavailable. Chat photos and specialist-blocked media are excluded.</p>
-                    <p><a href="/media">Read and acknowledge the current photo review safety notice before opening restricted photos</a></p>
+                    <p class="ui-help"><a href="/media">Acknowledge the media safety notice</a> first.</p>
                     @foreach(var photo in photos)
                     {
                         <div class="review-item" data-profile-photo="@photo.Id"><p>@PhotoState(photo.State) · @photo.CreatedAt.ToString("d MMM yyyy") · @(photo.Scopes.Count==0?"Unassigned":string.Join(" · ",photo.Scopes.Select(ScopeLabel)))</p>
@@ -63,7 +59,6 @@
             @if(history is not null)
             {
                 <h3>Account action history</h3>
-                <p class="help">Account-management events only. Sensitive legal records and case evidence stay in their authorised workflows.</p>
                 <ol class="list">@foreach(var item in history.Items){<li><time datetime="@item.At.ToString("O")">@item.At.ToString("d MMM yyyy HH:mm") UTC</time> · @ActionLabel(item.Action)</li>}</ol>
                 @if(history.NextCursor is{}next){<a href="/accounts/@AccountId?historyBefore=@next">Earlier actions</a>}
                 @if(HistoryBefore is not null){<a href="/accounts/@AccountId">Latest actions</a>}

@@ -199,9 +199,22 @@ public static class VerificationEndpoints
             var (_, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
             var db = accounts.Db!;
-            var rows = await (from r in db.DobReviews join p in db.MemberProfiles on r.AccountId equals p.AccountId
-                              where open == false || r.ResolvedAt == null orderby r.CreatedAt select new { r, p.DisplayName }).Take(200).ToListAsync(cancellationToken);
-            return Results.Ok(rows.Select(x => ReviewView(x.r, x.DisplayName)).ToList());
+            // D300: Admin may see confirmed registered names; the Didit session id lets staff compare in Didit (no dates are returned).
+            var query = from r in db.DobReviews join p in db.MemberProfiles on r.AccountId equals p.AccountId
+                              join a in db.Accounts on r.AccountId equals a.Id
+                              join t in db.IdVerificationAttempts on r.AttemptId equals t.Id into attempts from t in attempts.DefaultIfEmpty()
+                              join s in db.Accounts on r.ResolvedBy equals (Guid?)s.Id into resolvers from s in resolvers.DefaultIfEmpty()
+                              where open == false || r.ResolvedAt == null
+                              select new { r, p.DisplayName, First = a.RegisteredNamesConfirmedAt != null ? a.RegisteredFirstName : null,
+                                  Last = a.RegisteredNamesConfirmedAt != null ? a.RegisteredLastName : null, Session = t == null ? null : t.SessionId,
+                                  ResolverFirst = s == null ? null : s.RegisteredFirstName, ResolverLast = s == null ? null : s.RegisteredLastName, ResolverEmail = s == null ? null : s.Email };
+            // The open queue is oldest first; the full list (open=false) returns the newest 200 for history.
+            var rows = await (open == false ? query.OrderByDescending(x => x.r.CreatedAt) : query.OrderBy(x => x.r.CreatedAt)).Take(200).ToListAsync(cancellationToken);
+            return Results.Ok(rows.Select(x => ReviewView(x.r, x.DisplayName) with
+            {
+                FirstName = x.First, LastName = x.Last, DiditSessionId = string.IsNullOrEmpty(x.Session) ? null : x.Session,
+                ResolvedByName = x.r.ResolvedBy is null ? null : StaffName(x.ResolverFirst, x.ResolverLast, x.ResolverEmail),
+            }).ToList());
         });
         reviews.MapPost("/{reviewId:guid}/resolve", async (Guid reviewId, DobReviewDecision request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
             CancellationToken cancellationToken) =>
@@ -216,7 +229,7 @@ public static class VerificationEndpoints
             if (review is null) return Results.NotFound();
             if (review.ResolvedAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This review is already resolved.");
             var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == review.AccountId, cancellationToken);
-            (review.ResolvedAt, review.ResolvedBy, review.Outcome) = (now, current!.Account!.Id, outcome);
+            (review.ResolvedAt, review.ResolvedBy, review.Outcome, review.ResolutionNote) = (now, current!.Account!.Id, outcome, request.Reason.Trim());
             (profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt) = (outcome == DobReviewOutcome.Verified, outcome == DobReviewOutcome.Verified ? now : null);
             (profile.DobCheck, profile.DobCheckAt) = (DobCheck.None, now);
             Audit.Record(db, now, current.Account.Id, "account", "dob.review-resolved", "account", review.AccountId.ToString(), Wire(outcome));
@@ -291,7 +304,13 @@ public static class VerificationEndpoints
     }
 
     private static DobReviewView ReviewView(DobReview r, string? name) =>
-        new(r.Id, r.AccountId, name, r.Reason, r.CreatedAt, r.ResolvedAt, r.Outcome is { } o ? Wire(o) : null);
+        new(r.Id, r.AccountId, name, r.Reason, r.CreatedAt, r.ResolvedAt, r.Outcome is { } o ? Wire(o) : null, ResolutionNote: r.ResolutionNote);
+
+    private static string StaffName(string? first, string? last, string? email)
+    {
+        var name = string.Join(" ", new[] { first, last }.Where(n => !string.IsNullOrWhiteSpace(n)));
+        return name.Length > 0 ? name : email ?? "Staff member";
+    }
 
     private static string Short(string value, int max = 32) => value.Length <= max ? value : value[..max];
 

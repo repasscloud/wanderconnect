@@ -1,72 +1,91 @@
 @page "/law-enforcement"
 @inject AdminClient Admin
 <PageTitle>Law enforcement — Swoovr admin</PageTitle>
-<h1>Law-enforcement cases</h1>
-<AdminGuidance><p class="help">Restricted (police-contact procedure §2–§14). Record every material approach by an authority here. Verify the requester through contact details you find yourself, never only those in the request. Preservation and disclosure are separate decisions; neither follows from a request. Response targets: critical 1 hour, urgent 4 hours, standard acknowledgement 2 business days, updates every 5 business days — statutory deadlines override them. They are targets, not promises to disclose.</p></AdminGuidance>
-<p class="row"><a href="/law-enforcement" data-filter="open">Open</a> · <a href="/law-enforcement?status=closed" data-filter="closed">Closed</a> · <a href="/law-enforcement/transparency">Transparency and audit</a> · <a href="/holds">Legal holds</a></p>
+<header class="ui-page-head ui-page-head-actions">
+    <div><h1>Law enforcement</h1><p>Preservation, disclosure and assistance requests from police and agencies.</p></div>
+    <div class="acct-buttons"><a class="ui-button-ghost" href="/law-enforcement/transparency">Transparency and audit</a><a class="ui-button-ghost" href="/holds">Legal holds</a>@if (Status != "closed") {<a class="ui-button-primary" href="#open-case">Open a case</a>}</div>
+</header>
 @if (overview is not null)
 {
-    <ul class="tiles" data-le-overview>
-        <li><strong data-le-open>@overview.Open</strong> open cases</li>
-        <li><strong data-le-overdue>@overview.Overdue</strong> overdue responses or updates</li>
-        <li><strong data-le-reconsider>@overview.ReconsiderationsDue</strong> notification reconsiderations due</li>
-        <li><strong data-le-retro>@overview.RetrospectivesDue</strong> emergency approvals awaiting review</li>
-    </ul>
+    <div class="ui-stats ui-stats-4" data-le-overview>
+        <div class="ui-stat"><strong data-le-open>@overview.Open</strong><span>Open cases</span></div>
+        <div class="ui-stat @(overview.Overdue > 0 ? "is-alert" : null)"><strong data-le-overdue>@overview.Overdue</strong><span>Overdue responses or updates</span></div>
+        <div class="ui-stat"><strong data-le-reconsider>@overview.ReconsiderationsDue</strong><span>Notification reconsiderations due</span></div>
+        <div class="ui-stat"><strong data-le-retro>@overview.RetrospectivesDue</strong><span>Emergency approvals to review</span></div>
+    </div>
 }
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (opened is { } o) { <a href="/law-enforcement/@o" data-opened="@o">Open it</a> }</p> }
-@if (cases is null) { <p data-le-cases="refused">@loadError</p> }
-else if (cases.Count == 0) { <p data-le-cases="none">No cases.</p> }
+<nav class="ui-tabs" aria-label="Case status">
+    <a href="/law-enforcement" data-filter="open" aria-current="@(Status != "closed" ? "page" : null)">Open</a>
+    <a href="/law-enforcement?status=closed" data-filter="closed" aria-current="@(Status == "closed" ? "page" : null)">Closed</a>
+</nav>
+@if (cases is null) { <p class="notice" data-le-cases="refused">@loadError</p> }
+else if (cases.Count == 0) { <div class="ui-empty" data-le-cases="none"><strong>No cases</strong>New requests appear here.</div> }
 else
 {
-    <ul class="list" data-le-cases="@cases.Count">
-        @foreach (var c in cases)
-        {
-            <li data-le-case="@c.Id" data-le-timer="@c.Timer">
-                <a href="/law-enforcement/@c.Id">@c.Reference</a> · @c.Urgency · @c.Agency (@c.AgencyCountry)
-                · @(c.Verified ? "verified" : "not verified") · @c.OpenRequests open request(s) · @c.Holds hold(s)
-                @if (c.Privileged) { <strong> · privileged</strong> } @if (c.Confidential) { <strong> · confidential</strong> }
-                @if (c.Due is { } due) { <span> · @LeText.Timer(c.Timer) @due.ToLocalTime().ToString("d MMM HH:mm")</span> }
-            </li>
-        }
-    </ul>
+    <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Law-enforcement cases">
+    <table data-le-cases="@cases.Count"><thead><tr><th scope="col">Case</th><th scope="col">Agency</th><th scope="col">Urgency</th><th scope="col">Verification</th><th scope="col">Requests</th><th scope="col">Next deadline</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+    <tbody>
+    @foreach (var c in cases)
+    {
+        <tr data-le-case="@c.Id" data-le-timer="@c.Timer" data-row-link>
+            <td><a href="/law-enforcement/@c.Id" data-row-target><strong class="ui-mono">@c.Reference</strong></a><span class="ui-sub">Received @c.ReceivedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span>@if (c.Privileged || c.Confidential) {<span class="ui-sub ui-strong">@(c.Privileged ? "Privileged" : "")@(c.Privileged && c.Confidential ? " · " : "")@(c.Confidential ? "Confidential" : "")</span>}</td>
+            <td>@c.Agency<span class="ui-sub">@c.AgencyCountry</span></td>
+            <td><span class="ui-pill" data-tone="@(c.Urgency == "critical" ? "reject" : c.Urgency == "urgent" ? "escalate" : "quiet")">@Cap(c.Urgency)</span></td>
+            <td><span class="ui-pill" data-tone="@(c.Verified ? "approve" : "quiet")">@(c.Verified ? "Verified" : "Not verified")</span></td>
+            <td>@c.OpenRequests open<span class="ui-sub">@c.Holds hold@(c.Holds == 1 ? "" : "s")</span></td>
+            <td>@if (c.Due is { } due) {<span class="@(c.Timer.EndsWith("overdue") ? "ui-pill" : null)" data-tone="reject">@LeText.Timer(c.Timer)</span><span class="ui-sub">@due.ToUniversalTime().ToString("d MMM HH:mm") UTC</span>} else {<span class="ui-help">—</span>}</td>
+            <td class="ui-right"><a class="ui-button-ghost" href="/law-enforcement/@c.Id">Open</a></td>
+        </tr>
+    }
+    </tbody></table></div>
 }
 @if (Status != "closed")
 {
-    <h2>Open a case</h2>
-    <form method="post" @formname="open" @onsubmit="OpenAsync" class="stack" data-open-case data-enhance="true">
-        <AntiforgeryToken />
-        <div class="row">
-            <label>Channel<select name="channel"><option value="email">Email (lawenforcement@swoovr.app)</option><option value="phone">Phone</option><option value="letter">Letter</option><option value="portal">Portal</option><option value="in-person">In person</option></select></label>
-            <label>Urgency<select name="urgency"><option value="standard">Standard</option><option value="urgent">Urgent</option><option value="critical">Critical (immediate danger)</option></select></label>
-            <label>Received<input name="received" type="datetime-local" /></label>
-            <label>Statutory deadline<input name="statutory" type="datetime-local" /></label>
-        </div>
-        <fieldset><legend>Requesting authority (as given; never used to verify)</legend>
-            <div class="row">
-                <label>Agency<input name="agency" maxlength="200" required /></label>
-                <label>Country<input name="country" maxlength="2" value="AU" /></label>
-                <label>Agency reference<input name="agencyReference" maxlength="200" /></label>
-            </div>
-            <div class="row">
-                <label>Officer<input name="officer" maxlength="200" required /></label>
-                <label>Rank or role<input name="rank" maxlength="200" /></label>
-                <label>Service number<input name="service" maxlength="200" /></label>
-                <label>Email<input name="email" maxlength="200" /></label>
-                <label>Phone<input name="phone" maxlength="200" /></label>
-            </div>
-        </fieldset>
-        <fieldset><legend>First request</legend>
-            <label>Kind<select name="kind"><option value="preservation">Preservation</option><option value="disclosure">Disclosure</option><option value="emergency-disclosure">Emergency disclosure</option><option value="assistance">Assistance</option><option value="other">Other</option></select></label>
-            <label>What is asked (scope, period, purpose, asserted authority)<textarea name="description" maxlength="2000" rows="3" required></textarea></label>
-            <div class="row"><label>From<input name="from" type="date" /></label><label>Until<input name="until" type="date" /></label></div>
-        </fieldset>
-        <label>Subject member account ids (one per line, up to 20)<textarea name="subjects" rows="2"></textarea></label>
-        <div class="row">
-            <label><input type="checkbox" name="privileged" value="true" /> Legally privileged</label>
-            <label><input type="checkbox" name="confidential" value="true" /> Confidential (left out of transparency counts)</label>
-        </div>
-        <button type="submit" data-open>Open case</button>
-    </form>
+    <section class="ui-card ui-section" id="open-case" aria-labelledby="open-case-heading">
+        <h2 id="open-case-heading">Open a case</h2>
+        <form method="post" @formname="open" @onsubmit="OpenAsync" class="ui-form" data-open-case data-enhance="true">
+            <AntiforgeryToken />
+            <fieldset class="ui-group"><legend>Request</legend>
+                <div class="ui-form-row ui-form-row-4">
+                    <label class="ui-field"><span>Channel</span><select name="channel"><option value="email">Email (lawenforcement@swoovr.app)</option><option value="phone">Phone</option><option value="letter">Letter</option><option value="portal">Portal</option><option value="in-person">In person</option></select></label>
+                    <label class="ui-field"><span>Urgency</span><select name="urgency"><option value="standard">Standard</option><option value="urgent">Urgent</option><option value="critical">Critical (immediate danger)</option></select></label>
+                    <label class="ui-field"><span>Received</span><input name="received" type="datetime-local" /></label>
+                    <label class="ui-field"><span>Statutory deadline</span><input name="statutory" type="datetime-local" /></label>
+                </div>
+                <div class="ui-form-row ui-form-row-3">
+                    <label class="ui-field"><span>Kind</span><select name="kind"><option value="preservation">Preservation</option><option value="disclosure">Disclosure</option><option value="emergency-disclosure">Emergency disclosure</option><option value="assistance">Assistance</option><option value="other">Other</option></select></label>
+                    <label class="ui-field"><span>From</span><input name="from" type="date" /></label>
+                    <label class="ui-field"><span>Until</span><input name="until" type="date" /></label>
+                </div>
+                <label class="ui-field"><span>What is asked</span><textarea name="description" maxlength="2000" rows="3" required placeholder="Scope, period, purpose, asserted authority"></textarea></label>
+            </fieldset>
+            <fieldset class="ui-group"><legend>Requesting authority, as given</legend>
+                <div class="ui-form-row ui-form-row-3">
+                    <label class="ui-field"><span>Agency</span><input name="agency" maxlength="200" required /></label>
+                    <label class="ui-field"><span>Country</span><input name="country" maxlength="2" value="AU" /></label>
+                    <label class="ui-field"><span>Agency reference</span><input name="agencyReference" maxlength="200" /></label>
+                </div>
+                <div class="ui-form-row ui-form-row-3">
+                    <label class="ui-field"><span>Officer</span><input name="officer" maxlength="200" required /></label>
+                    <label class="ui-field"><span>Rank or role</span><input name="rank" maxlength="200" /></label>
+                    <label class="ui-field"><span>Service number</span><input name="service" maxlength="200" /></label>
+                </div>
+                <div class="ui-form-row">
+                    <label class="ui-field"><span>Email</span><input name="email" maxlength="200" /></label>
+                    <label class="ui-field"><span>Phone</span><input name="phone" maxlength="200" /></label>
+                </div>
+            </fieldset>
+            <fieldset class="ui-group"><legend>Subjects</legend>
+                <label class="ui-field"><span>Member accounts</span><textarea name="subjects" rows="2" placeholder="One account id per line, up to 20"></textarea></label>
+                <div class="acct-row">
+                    <label class="beta-check"><input type="checkbox" name="privileged" value="true" /><span>Legally privileged</span></label>
+                    <label class="beta-check"><input type="checkbox" name="confidential" value="true" /><span>Confidential (left out of transparency counts)</span></label>
+                </div>
+            </fieldset>
+            <div><button type="submit" data-open>Open case</button></div>
+        </form>
+    </section>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
@@ -89,6 +108,8 @@ else
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
 
     internal static DateTimeOffset? Moment(string text) => DateTime.TryParse(text, out var d) ? new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Local)) : null;
+
+    private static string Cap(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
     private static string? Optional(string text) => string.IsNullOrWhiteSpace(text) ? null : text;
 

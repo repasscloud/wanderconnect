@@ -1,19 +1,37 @@
 @page "/disclosures"
 @inject AdminClient Admin
 <PageTitle>Disclosure register — Swoovr admin</PageTitle>
-<p class="breadcrumb"><a href="/holds">Legal holds</a> / Disclosures</p>
-<h1>Disclosure register</h1>
-<AdminGuidance><p class="help">Every law-enforcement disclosure (APP 6.5 records): who asked, the legal basis, how the request was verified, and the hold it came from. Police get only what a hold preserved and an export contained, never open access to the platform.</p></AdminGuidance>
-@if (rows is null) { <p data-disclosures="refused">@loadError</p> }
-else if (rows.Count == 0) { <p data-disclosures="none">No disclosures recorded.</p> }
+<p class="ui-back"><a href="/holds">← Legal holds</a></p>
+<header class="ui-page-head ui-page-head-actions">
+    <div><h1>Disclosure register</h1><p>Every disclosure to law enforcement, with its basis, verification and source hold.</p></div>
+    @if (rows is { Count: > 0 }) {<div class="acct-buttons"><button type="button" class="ui-button-ghost" data-export-csv="disclosure-table" data-export-name="disclosure-register.csv">Export CSV</button></div>}
+</header>
+@if (rows is not null)
+{
+    <section class="ui-card" aria-label="Filter disclosures">
+        <form method="get" action="/disclosures" class="media-filters" data-enhance="false">
+            <label class="ui-field beta-search"><span>Search</span><input name="q" type="search" value="@Query" placeholder="Search text…" title="Officer, reference or basis" /></label>
+            <label class="ui-field"><span>Agency</span><select name="agency"><option value="">All agencies</option>@foreach (var a in rows.Select(r => r.Agency).Distinct().Order()) {<option value="@a" selected="@(Agency == a)">@a</option>}</select></label>
+            <div class="beta-filter-actions"><a class="ui-button-ghost" href="/disclosures">Clear</a><button type="submit">Apply filters</button></div>
+        </form>
+    </section>
+}
+@if (rows is null) { <p class="notice" data-disclosures="refused">@loadError</p> }
+else if (Filtered.Count == 0) { <div class="ui-empty" data-disclosures="none"><strong>No disclosures</strong>@(rows.Count == 0 ? "Disclosures are recorded here when made." : "Nothing matches these filters.")</div> }
 else
 {
-    <div class="table-scroll" role="region" aria-label="Scrollable data table" tabindex="0"><table data-disclosures="@rows.Count"><thead><tr><th>Date</th><th>Agency</th><th>Officer</th><th>Reference</th><th>Basis</th><th>Verified</th><th>Hold</th></tr></thead><tbody>
-        @foreach (var d in rows) { <tr><td>@d.DisclosedAt.ToString("d MMM yyyy HH:mm")</td><td>@d.Agency</td><td>@d.Officer</td><td>@d.Reference</td><td>@d.LegalBasis</td><td>@d.VerifiedHow</td><td><a href="/holds/@d.HoldId">open</a></td></tr> }
+    <div class="ui-results-head"><p><strong>@Filtered.Count</strong> disclosure@(Filtered.Count == 1 ? "" : "s")</p><p>Newest first</p></div>
+    <div class="table-scroll ui-table" role="region" aria-label="Disclosures" tabindex="0"><table id="disclosure-table" data-disclosures="@Filtered.Count"><thead><tr><th scope="col">Date</th><th scope="col">Agency</th><th scope="col">Officer</th><th scope="col">Reference</th><th scope="col">Basis</th><th scope="col">Verified by</th><th scope="col">Hold</th></tr></thead><tbody>
+        @foreach (var d in Filtered) { <tr><td>@d.DisclosedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</td><td><strong>@d.Agency</strong></td><td>@d.Officer</td><td><code class="ui-mono">@d.Reference</code></td><td>@d.LegalBasis</td><td>@d.VerifiedHow</td><td><a href="/holds/@d.HoldId">@d.HoldId.ToString()[..8] →</a></td></tr> }
     </tbody></table></div>
 }
 @code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery] public string? Agency { get; set; }
     private List<DisclosureView>? rows;
+    private List<DisclosureView> Filtered => (rows ?? []).Where(d => string.IsNullOrEmpty(Agency) || d.Agency == Agency)
+        .Where(d => string.IsNullOrWhiteSpace(Query) || new[] { d.Officer, d.Reference, d.LegalBasis, d.Agency, d.VerifiedHow }.Any(v => v.Contains(Query.Trim(), StringComparison.OrdinalIgnoreCase)))
+        .OrderByDescending(d => d.DisclosedAt).ToList();
     private string? loadError;
 
     protected override async Task OnInitializedAsync()

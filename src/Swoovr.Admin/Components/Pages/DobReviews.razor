@@ -1,48 +1,181 @@
 @page "/dob-reviews"
+@using System.Text.RegularExpressions
 @inject AdminClient Admin
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
 <PageTitle>Date of birth reviews — Swoovr admin</PageTitle>
-<h1>Date of birth reviews</h1>
-<p class="help">An ID check passed but the member's date of birth still differs from the document's after their one correction, or Didit gave no date. Compare them in Didit's console (kept 30 days): Dates are not displayed in this queue. The member keeps ID Verified either way; only the date-of-birth mark waits. A mismatch alone isn't fraud.</p>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
-@if (reviews.Count == 0) { <p data-dob-reviews="none">No reviews waiting.</p> }
+<header class="ui-page-head">
+    <h1>Date of birth reviews</h1>
+    <p>ID checks where the member's date of birth couldn't be confirmed automatically.</p>
+</header>
+<nav class="ui-tabs" aria-label="Date of birth sections">
+    <a href="/dob-reviews" aria-current="@(Resolved?null:"page")">Waiting <span class="ui-tab-count">@waiting.Count</span></a>
+    <a href="/dob-reviews?view=resolved" aria-current="@(Resolved?"page":null)">Resolved <span class="ui-tab-count">@resolved.Count</span></a>
+</nav>
+@if (message is not null && Selected is null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (!Resolved)
+{
+    <div class="ui-stats">
+        <div class="ui-stat"><strong>@waiting.Count</strong><span>Waiting</span></div>
+        <div class="ui-stat"><strong>@(waiting.Count == 0 ? "—" : Ago(waiting[0].CreatedAt))</strong><span>Oldest waiting</span></div>
+        <div class="ui-stat"><strong>@resolved.Count(r => r.ResolvedAt > DateTimeOffset.UtcNow.AddDays(-30))</strong><span>Resolved, last 30 days</span></div>
+    </div>
+    <section class="ui-card" aria-label="Filter reviews">
+        <form method="get" action="/dob-reviews" class="media-filters" data-enhance="false">
+            <label class="ui-field beta-search"><span>Search</span><input name="q" type="search" value="@Query" maxlength="254" placeholder="Search text…" title="Member name or reference" /></label>
+            <label class="ui-field"><span>Why</span><select name="why"><option value="">All</option>@foreach (var (value, label) in Whys){<option value="@value" selected="@(Why == value)">@label</option>}</select></label>
+            <div class="beta-filter-actions"><a class="ui-button-ghost" href="/dob-reviews">Clear</a><button type="submit">Apply filters</button></div>
+        </form>
+    </section>
+    <div class="ui-results-head"><p><strong>@Filtered.Count</strong> waiting</p><p>Oldest first</p></div>
+    @if (Filtered.Count == 0) { <div class="ui-empty" data-dob-reviews="none"><strong>Nothing waiting</strong>New date of birth reviews appear here.</div> }
+    else
+    {
+        <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Date of birth reviews waiting">
+        <table data-dob-reviews="@Filtered.Count"><thead><tr><th scope="col">Member</th><th scope="col">Why</th><th scope="col">Waiting since</th><th scope="col">Didit</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead><tbody>
+        @foreach (var r in Filtered)
+        {
+            <tr data-dob-review="@r.Id" data-row-link>
+                <td><strong>@Name(r)</strong><span class="ui-sub"><a href="/accounts/@r.AccountId">Account</a> · <span class="beta-ref dob-inline-ref"><code>@r.AccountId.ToString()[..8]</code><CopyButton Value="@r.AccountId.ToString()" /></span></span></td>
+                <td><span class="ui-pill" data-tone="quiet">@WhyLabel(r.Reason)</span></td>
+                <td>@r.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC<span class="ui-sub">@Ago(r.CreatedAt) ago</span></td>
+                <td>@DiditLink(r)</td>
+                <td class="ui-right"><a class="ui-button-ghost" href="@Url(r.Id)" data-review-open="@r.Id">Review</a></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+}
 else
 {
-    <ul class="list" data-dob-reviews="@reviews.Count">
-        @foreach (var r in reviews)
+    <div class="ui-results-head">
+        <nav class="ui-segmented" aria-label="Outcome filter">
+            @foreach (var (value, label) in new[] { ("", "All"), ("verified", "Verified"), ("notVerified", "Left unverified") })
+            {
+                <a href="@("/dob-reviews?view=resolved" + (value == "" ? "" : "&outcome=" + value))" aria-current="@((Outcome ?? "") == value ? "page" : null)">@label</a>
+            }
+        </nav>
+        <p><strong>@ResolvedFiltered.Count</strong> resolved</p>
+    </div>
+    @if (ResolvedFiltered.Count == 0) { <div class="ui-empty"><strong>No resolved reviews</strong>Nothing matches this filter.</div> }
+    else
+    {
+        <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Resolved date of birth reviews">
+        <table><thead><tr><th scope="col">Member</th><th scope="col">Why</th><th scope="col">Outcome</th><th scope="col">Reason</th><th scope="col">Resolved</th></tr></thead><tbody>
+        @foreach (var r in ResolvedFiltered)
         {
-            <li data-dob-review="@r.Id">
-                <a href="/accounts/@r.AccountId">@(r.DisplayName ?? "account")</a> · @(r.Reason == "no-document-date" ? "Didit gave no date" : "still different after the correction") · @r.CreatedAt.ToString("d MMM HH:mm")
-                <form method="post" @formname="@($"resolve-{r.Id}")" @onsubmit="() => ResolveAsync(r.Id)" class="row" data-enhance="true">
-                    <AntiforgeryToken />
-                    <input name="reason" placeholder="Reason" maxlength="1000" required />
-                    <button name="outcome" value="verified" type="submit" data-resolve="verified">Date of birth matches the ID</button>
-                    <button name="outcome" value="notVerified" type="submit" class="secondary" data-resolve="notVerified">Leave it unverified</button>
-                </form>
-            </li>
+            <tr data-dob-resolved="@r.Id">
+                <td><strong>@Name(r)</strong><span class="ui-sub"><a href="/accounts/@r.AccountId">Account</a> · <span class="beta-ref dob-inline-ref"><code>@r.AccountId.ToString()[..8]</code><CopyButton Value="@r.AccountId.ToString()" /></span></span></td>
+                <td>@WhyLabel(r.Reason)</td>
+                <td><span class="ui-pill" data-tone="@(r.Outcome == "verified" ? "approve" : "quiet")">@(r.Outcome == "verified" ? "Verified" : "Left unverified")</span></td>
+                <td class="dob-note">@(r.ResolutionNote ?? "—")</td>
+                <td>@r.ResolvedAt?.ToUniversalTime().ToString("d MMM HH:mm") UTC<span class="ui-sub">@r.ResolvedByName</span></td>
+            </tr>
         }
-    </ul>
+        </tbody></table></div>
+    }
+}
+@if (Selected is { } selected)
+{
+    var index = Filtered.IndexOf(selected);
+    var previous = index > 0 ? Filtered[index - 1] : null;
+    var next = index >= 0 && index < Filtered.Count - 1 ? Filtered[index + 1] : null;
+    <dialog open class="media-dialog dob-dialog" data-review-dialog aria-labelledby="dob-heading">
+        <header class="media-dialog-head">
+            <div><h2 id="dob-heading">@Name(selected)</h2><p class="ui-sub">@(index + 1) of @Filtered.Count · @WhyLabel(selected.Reason)</p></div>
+            <nav class="media-dialog-nav" aria-label="Review navigation">
+                @if (previous is not null) { <a class="ui-icon-button" href="@Url(previous.Id)" data-review-prev aria-label="Previous">@Chevron("M15 6l-6 6 6 6")</a> } else { <span class="ui-icon-button" aria-disabled="true">@Chevron("M15 6l-6 6 6 6")</span> }
+                @if (next is not null) { <a class="ui-icon-button" href="@Url(next.Id)" data-review-next aria-label="Next">@Chevron("M9 6l6 6-6 6")</a> } else { <span class="ui-icon-button" aria-disabled="true">@Chevron("M9 6l6 6-6 6")</span> }
+                <a class="ui-icon-button" href="@Url(null)" data-photo-close aria-label="Close review">@Chevron("M6 6l12 12M18 6L6 18")</a>
+            </nav>
+        </header>
+        <form method="post" @formname="@($"resolve-{selected.Id}")" @onsubmit="() => ResolveAsync(selected.Id)" class="media-side dob-form" data-enhance="true" data-dob-form>
+            <AntiforgeryToken />
+            <dl class="media-meta">
+                <dt>Why</dt><dd>@(selected.Reason == "no-document-date" ? "Didit returned no date from the document" : "Member corrected their date; it still differs from the ID")</dd>
+                <dt>Opened</dt><dd>@selected.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC · @Ago(selected.CreatedAt) ago</dd>
+                <dt>ID Verified</dt><dd><span class="ui-pill" data-tone="approve">Kept</span></dd>
+                <dt>Member</dt><dd><a href="/accounts/@selected.AccountId">View account</a></dd>
+                @if (selected.DiditSessionId is { } session && SessionUrl(session) is null) { <dt>Didit session</dt><dd><span class="beta-ref"><code>@session</code><CopyButton Value="@session" /></span></dd> }
+            </dl>
+            @if (selected.DiditSessionId is { } s && SessionUrl(s) is { } url) { <a class="ui-button-ghost dob-didit" href="@url" target="_blank" rel="noopener noreferrer" data-didit-open>Compare in Didit @External<kbd>D</kbd></a> }
+            <fieldset class="ui-field"><legend>Outcome</legend>
+                <div class="media-decide dob-decide" role="radiogroup">
+                    <label><input type="radio" name="outcome" value="verified" required checked="@(Field("outcome") == "verified")" data-resolve="verified" /><span>Matches ID<kbd>M</kbd></span></label>
+                    <label><input type="radio" name="outcome" value="notVerified" required checked="@(Field("outcome") == "notVerified")" data-resolve="notVerified" /><span>Leave unverified<kbd>U</kbd></span></label>
+                </div>
+            </fieldset>
+            <label class="ui-field"><span>Reason</span><textarea name="reason" maxlength="1000" required placeholder="Recorded with the outcome — no dates">@Field("reason")</textarea></label>
+            @if (message is not null) { <p class="media-error" role="status" data-result="@resultCode">@message</p> }
+            <div class="media-side-actions">
+                @if (next is not null) { <a class="ui-button-ghost" href="@Url(next.Id)">Skip</a> } else { <span></span> }
+                <span class="dob-save"><kbd>⌘ Enter</kbd><button type="submit" data-dob-save>Save and next</button></span>
+            </div>
+        </form>
+    </dialog>
 }
 @code {
     [CascadingParameter] private HttpContext? Context { get; set; }
-    private List<DobReviewView> reviews = [];
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "why")] public string? Why { get; set; }
+    [SupplyParameterFromQuery(Name = "outcome")] public string? Outcome { get; set; }
+    [SupplyParameterFromQuery(Name = "review")] public Guid? Focus { get; set; }
+    private List<DobReviewView> waiting = [], resolved = [];
     private string? message, resultCode;
+    private bool Resolved => View == "resolved";
+    private static readonly (string, string)[] Whys = [("still-different", "Still different after correction"), ("no-document-date", "No date from Didit")];
+    private static string WhyLabel(string reason) => reason == "no-document-date" ? "No date from Didit" : "Still different after correction";
+    private static readonly Regex DatePattern = new(@"\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}\b|\b(19|20)\d{2}-\d{1,2}-\d{1,2}\b", RegexOptions.Compiled);
+
+    private List<DobReviewView> Filtered => waiting.Where(r => (string.IsNullOrEmpty(Why) || r.Reason == Why) && Matches(r)).ToList();
+    private List<DobReviewView> ResolvedFiltered => resolved.Where(r => string.IsNullOrEmpty(Outcome) || r.Outcome == Outcome).OrderByDescending(r => r.ResolvedAt).ToList();
+    private DobReviewView? Selected => Resolved ? null : Filtered.FirstOrDefault(r => r.Id == Focus);
+    private bool Matches(DobReviewView r)
+    {
+        var q = Query?.Trim();
+        if (string.IsNullOrEmpty(q)) return true;
+        return Name(r).Contains(q, StringComparison.OrdinalIgnoreCase) || r.AccountId.ToString().StartsWith(q, StringComparison.OrdinalIgnoreCase) || r.Id.ToString().StartsWith(q, StringComparison.OrdinalIgnoreCase);
+    }
+    private static string Name(DobReviewView r)
+    {
+        var name = string.Join(" ", new[] { r.FirstName, r.LastName }.Where(n => !string.IsNullOrWhiteSpace(n)));
+        return name.Length > 0 ? name : r.DisplayName ?? "Member";
+    }
+    private static string Ago(DateTimeOffset at) { var h = Math.Max(0, (DateTimeOffset.UtcNow - at).TotalHours); return h < 1 ? $"{(int)(h * 60)} min" : h < 48 ? $"{(int)h} h" : $"{(int)(h / 24)} days"; }
+    private string Url(Guid? focus) => "/dob-reviews" + Qs(("q", Query), ("why", Why), ("review", focus?.ToString()));
+    private static string Qs(params (string Key, string? Value)[] parts) { var q = string.Join("&", parts.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key + "=" + Uri.EscapeDataString(p.Value!))); return q.Length == 0 ? "" : "?" + q; }
+    /// <summary>Optional `Didit:SessionUrl` template with `{0}` for the session id; without it the id is shown for copying.</summary>
+    private string? SessionUrl(string session) => Configuration["Didit:SessionUrl"] is { Length: > 0 } template && template.Contains("{0}") ? string.Format(template, Uri.EscapeDataString(session)) : null;
+    private RenderFragment DiditLink(DobReviewView r) => r.DiditSessionId is not { } s ? @<span class="ui-sub">—</span>
+        : SessionUrl(s) is { } url ? @<a href="@url" target="_blank" rel="noopener noreferrer">Open session @External</a>
+        : @<span class="beta-ref"><code>@s[..Math.Min(8, s.Length)]</code><CopyButton Value="@s" /></span>;
+    private static RenderFragment Chevron(string path) => @<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="@path"/></svg>;
+    private static readonly RenderFragment External = @<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
-        var result = await Admin.DobReviewsAsync();
-        reviews = result.Value ?? [];
-        if (!result.Ok) message = AdminText.Refusal(result.Status, result.Code);
+        var open = await Admin.DobReviewsAsync(open: true);
+        waiting = open.Value ?? [];
+        resolved = (await Admin.DobReviewsAsync(open: false)).Value?.Where(r => r.ResolvedAt is not null).ToList() ?? [];
+        if (!open.Ok) message = AdminText.Refusal(open.Status, open.Code);
     }
 
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
 
     private async Task ResolveAsync(Guid id)
     {
-        var result = await Admin.ResolveDobReviewAsync(id, Field("outcome"), Field("reason"));
+        var outcome = Field("outcome"); var reason = Field("reason").Trim();
+        if (outcome is not ("verified" or "notVerified")) { resultCode = "outcome-required"; message = "Choose Matches ID or Leave unverified."; return; }
+        if (reason.Length == 0) { resultCode = "reason-required"; message = "Add a reason."; return; }
+        if (DatePattern.IsMatch(reason)) { resultCode = "reason-date"; message = "Leave dates out of the reason."; return; }
+        var next = Filtered.SkipWhile(r => r.Id != id).Skip(1).FirstOrDefault() ?? Filtered.FirstOrDefault(r => r.Id != id);
+        var result = await Admin.ResolveDobReviewAsync(id, outcome, reason);
         resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
-        message = result.Ok ? "Resolved." : AdminText.Refusal(result.Status, result.Code);
+        if (result.Ok) { Navigation.NavigateTo(Url(next?.Id)); return; }
+        message = AdminText.Refusal(result.Status, result.Code);
         await LoadAsync();
     }
 }

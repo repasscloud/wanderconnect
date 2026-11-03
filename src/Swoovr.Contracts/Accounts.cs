@@ -252,7 +252,7 @@ public sealed record FounderTokenView(Guid Id, int Place, int SecretVersion, str
 
 public sealed record BetaEnrolmentRequest(string Email);
 public sealed record BetaEnrolmentView(Guid Id, string Email, DateTimeOffset CreatedAt, string State, DateTimeOffset? ActivatedAt,
-    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded",string InvitationState="not-queued",int InvitationAttempts=0,DateTimeOffset? InvitationQueuedAt=null,DateTimeOffset? InvitationCompletedAt=null,string? MemberName=null);
+    string IosDistributionState="not-recorded",long IosDistributionRevision=0,DateTimeOffset? IosDistributionChangedAt=null,string IosDistributionSource="not-recorded",string InvitationState="not-queued",int InvitationAttempts=0,DateTimeOffset? InvitationQueuedAt=null,DateTimeOffset? InvitationCompletedAt=null,string? MemberName=null,string? FirstName=null,string? LastName=null);
 public sealed record BetaEnrolmentPage(IReadOnlyList<BetaEnrolmentView> Items,int Total,int Page,int Size);
 public sealed record IosDistributionUpdate(string State,long ExpectedRevision,bool Confirm);
 
@@ -262,6 +262,10 @@ public sealed record InvitationView(Guid Id, string Email, string Realm, string 
 
 /// <summary>An account as staff see it in search results. No email, issuer or subject.</summary>
 public sealed record AccountView(Guid Id, string Realm, string Status, string? StatusReason, string? AgeStatus, DateTimeOffset CreatedAt,string? RegisteredName=null);
+/// <summary>D307 staff account search result: registered names, age, home city, ID verified, email and verified mobile.</summary>
+public sealed record AccountSearchHit(Guid Id, string Kind, string? FirstName, string? LastName, int? Age, string? City, bool IdVerified,
+    string? Email, string? Phone, string Status, string? DisplayName);
+public sealed record AccountSearchResult(string Kind, IReadOnlyList<AccountSearchHit> Items, int Total);
 
 /// <summary>Admin requests for official bots and staff affiliation (Q11, D108).</summary>
 public sealed record BotClassificationRequest(bool Bot);

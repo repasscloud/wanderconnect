@@ -1,34 +1,75 @@
 @page "/accounts"
 @inject AdminClient Admin
 <PageTitle>Accounts — Swoovr admin</PageTitle>
-<h1>Accounts</h1>
-<form method="get" action="/accounts" class="row" data-enhance="false">
-    <label>Exact email <input name="email" type="email" value="@Email" required /></label>
-    <button type="submit">Find</button>
-</form>
-@if (!string.IsNullOrWhiteSpace(Email))
+<header class="ui-page-head">
+    <h1>Accounts</h1>
+    <p>Find a member by mobile, email, first name or last name.</p>
+</header>
+<section class="ui-card" aria-label="Search accounts">
+    <form method="get" action="/accounts" class="ui-big-search" data-enhance="false" data-account-search>
+        <label class="ui-field beta-search"><span class="sr-only">Search</span><input name="q" type="search" value="@Text" maxlength="120" placeholder="Search text…" autocomplete="off" required data-kind-input /></label>
+        <button type="submit">Search</button>
+    </form>
+    <div class="ui-kinds" data-kind-chips>
+        @foreach (var (kind, label) in new[] { ("phone", "Mobile"), ("email", "Email"), ("name", "Name") })
+        {
+            <span class="ui-chip" data-kind="@kind" aria-current="@(Kind == kind ? "true" : null)">@label</span>
+        }
+        <span class="ui-help" data-kind-hint>@Hint(Kind)</span>
+    </div>
+</section>
+@if (string.IsNullOrWhiteSpace(Text))
 {
-    @if (loadError is not null) { <p role="alert" data-accounts="refused">@loadError</p> }
-    else if (results.Count == 0) { <p data-accounts="none">No account with that email.</p> }
+    <section class="ui-card">
+        <h2 class="ui-card-title">Examples</h2>
+        <ul class="ui-list">
+            <li><span><code class="ui-wild">0491 570 115</code> · <code class="ui-wild">+61491570115</code></span><span class="ui-help">Mobile · spaces and + optional</span></li>
+            <li><span><code class="ui-wild">Name@Example.com</code></span><span class="ui-help">Email · matched in lower case</span></li>
+            <li><span><code class="ui-wild">Wynyard%</code> · <code class="ui-wild">%wynyard%</code></span><span class="ui-help">Name · % matches anything</span></li>
+        </ul>
+    </section>
+}
+else if (loadError is not null) { <p class="notice" role="alert" data-accounts="refused">@loadError</p> }
+else if (result is not null)
+{
+    <div class="ui-results-head"><p><strong>@result.Total</strong> match@(result.Total == 1 ? "" : "es") for <code class="ui-wild">@Text</code>@if (result.Total > result.Items.Count) {<span> · showing the first @result.Items.Count</span>}</p><p>Searches are recorded</p></div>
+    @if (result.Items.Count == 0) { <div class="ui-empty" data-accounts="none"><strong>No matches</strong>Try a wildcard, for example Name%.</div> }
     else
     {
-        <ul class="list" data-accounts="@results.Count">
-            @foreach (var a in results) { <li><a href="/accounts/@a.Id" data-account-link="@a.Id">@(a.RegisteredName??a.Realm+" account")</a> · @a.Status · created @a.CreatedAt.ToString("d MMM yyyy")</li> }
-        </ul>
+        <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Matching accounts">
+        <table data-accounts="@result.Items.Count"><thead><tr><th scope="col">First name</th><th scope="col">Last name</th><th scope="col">Age</th><th scope="col">City</th><th scope="col">ID verified</th><th scope="col">Email</th><th scope="col">Mobile</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+        <tbody>
+        @foreach (var a in result.Items)
+        {
+            <tr data-row-link data-account-row="@a.Id">
+                <td><a href="/accounts/@a.Id" data-account-link="@a.Id" data-row-target><strong>@(a.FirstName ?? a.DisplayName ?? "—")</strong></a>@if (a.Status != "active") {<span class="ui-sub">@StatusLabel(a.Status)</span>}</td>
+                <td><strong>@(a.LastName ?? "—")</strong></td>
+                <td>@(a.Age?.ToString() ?? "—")</td>
+                <td>@(a.City ?? "—")</td>
+                <td><span class="ui-pill" data-tone="@(a.IdVerified ? "approve" : "quiet")">@(a.IdVerified ? "Verified" : "Not verified")</span></td>
+                <td>@(a.Email ?? "—")</td>
+                <td><code class="ui-mono">@(a.Phone ?? "—")</code></td>
+                <td class="ui-right"><a class="ui-button-ghost" href="/accounts/@a.Id">Open</a></td>
+            </tr>
+        }
+        </tbody></table></div>
     }
 }
 @code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
     [SupplyParameterFromQuery] public string? Email { get; set; }
-    private List<AccountView> results = [];
+    private AccountSearchResult? result;
     private string? loadError;
+    private string? Text => !string.IsNullOrWhiteSpace(Query) ? Query : Email;
+    private string? Kind => result?.Kind ?? (string.IsNullOrWhiteSpace(Text) ? null : Text.Contains('@') ? "email" : Text.Trim().All(c => char.IsAsciiDigit(c) || c is ' ' or '+' or '-' or '(' or ')' or '.') ? "phone" : "name");
+    private static string Hint(string? kind) => kind switch { "phone" => "Spaces removed · + optional", "email" => "Lower-cased before search", "name" => "First or last name · use % as a wildcard", _ => "Type to detect the search type" };
+    private static string StatusLabel(string s) => s switch { "suspended" => "Suspended", "terminated" => "Terminated", "pendingDeletion" => "Deletion pending", "deleted" => "Deleted", "restricted" => "Restricted", _ => s };
 
     protected override async Task OnInitializedAsync()
     {
-        if (!string.IsNullOrWhiteSpace(Email))
-        {
-            var response = await Admin.FindAccountsAsync(Email);
-            if (response.Ok) results = response.Value!;
-            else loadError = AdminText.Refusal(response.Status, response.Code);
-        }
+        if (string.IsNullOrWhiteSpace(Text)) return;
+        var response = await Admin.SearchAccountsAsync(Text.Trim());
+        if (response.Ok) result = response.Value;
+        else loadError = response.Status == 400 ? "Enter a mobile number, email address or name. A search can't be only %." : AdminText.Refusal(response.Status, response.Code);
     }
 }
