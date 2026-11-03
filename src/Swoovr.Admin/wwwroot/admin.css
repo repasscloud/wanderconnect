@@ -437,8 +437,8 @@ tr[data-row-link]:hover td { background: color-mix(in srgb, var(--soft) 60%, tra
 @media (max-width: 900px) { .ui-stats-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ui-big-search { display: flex; gap: 10px; align-items: stretch; margin: 0; }
 .ui-big-search .ui-field { flex: 1; }
-.ui-big-search input, .ui-big-search > button { height: 48px; min-height: 48px; font-size: 1rem; }
-.ui-big-search > button { padding: 0 20px; border-radius: 8px; }
+/* The button matches the 40px search field next to it. */
+.ui-big-search > button { box-sizing: border-box; height: 40px; min-height: 40px; padding: 0 18px; border-radius: 8px; font-size: .875rem; }
 .ui-kinds { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
 .ui-kinds .ui-help { margin: 0 0 0 4px; }
 .ui-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--soft); font-size: .75rem; font-weight: 600; }

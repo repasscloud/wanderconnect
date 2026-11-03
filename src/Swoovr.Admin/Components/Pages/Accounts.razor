@@ -62,7 +62,7 @@ else if (result is not null)
     private string? loadError;
     private string? Text => !string.IsNullOrWhiteSpace(Query) ? Query : Email;
     private string? Kind => result?.Kind ?? (string.IsNullOrWhiteSpace(Text) ? null : Text.Contains('@') ? "email" : Text.Trim().All(c => char.IsAsciiDigit(c) || c is ' ' or '+' or '-' or '(' or ')' or '.') ? "phone" : "name");
-    private static string Hint(string? kind) => kind switch { "phone" => "Spaces removed · + optional", "email" => "Lower-cased before search", "name" => "First or last name · use % as a wildcard", _ => "Type to detect the search type" };
+    private static string Hint(string? kind) => kind switch { "phone" => "Spaces removed · + optional", "email" => "Lower-cased before search", "name" => "First or last name · use % as a wildcard", _ => "" };
     private static string StatusLabel(string s) => s switch { "suspended" => "Suspended", "terminated" => "Terminated", "pendingDeletion" => "Deletion pending", "deleted" => "Deleted", "restricted" => "Restricted", _ => s };
 
     protected override async Task OnInitializedAsync()
