@@ -23,7 +23,8 @@
                     <ol>
                         @foreach (var s in Sections)
                         {
-                            <li><a href="#@s.Id">@if (s.Number is not null) { <span class="policy-toc-num" aria-hidden="true">@s.Number</span> }<span>@s.Title</span></a></li>
+                            @* Page path + fragment: the document's <base href="/"> would turn a bare "#id" into "/#id". *@
+                            <li><a href="@($"{Current}#{s.Id}")">@if (s.Number is not null) { <span class="policy-toc-num" aria-hidden="true">@s.Number</span> }<span>@s.Title</span></a></li>
                         }
                     </ol>
                 </details>
