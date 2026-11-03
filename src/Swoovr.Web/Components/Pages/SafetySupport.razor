@@ -7,27 +7,38 @@
 @inject IConfiguration Configuration
 @inject IHostEnvironment Environment
 <PageTitle>Safety & Support — Swoovr</PageTitle>
-<div class="reading-page">
-    <div class="page-heading" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
+<article class="policy safety-page">
+    <header class="policy-hero" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
+        <p class="eyebrow">Safety</p>
         <h1>@SafetyText.Title</h1>
-        <p>Help outside Swoovr in your country, resources.</p>
-    </div>
-    <form method="get" action="/safety" class="card account-section stack" data-country-form data-enhance="false">
-        <div class="field"><label for="safety-country">Country</label>
-            <select id="safety-country" name="country" data-country-select>
-                @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
-                @foreach (var option in pack?.Countries ?? [])
+        <p class="policy-lede">Emergency numbers and support services in your country. These services are outside Swoovr.</p>
+    </header>
+    <div class="safety-body">
+        <form method="get" action="/safety" class="card safety-country" data-country-form data-enhance="false">
+            <div class="field"><label for="safety-country">Country</label>
+                <select id="safety-country" name="country" data-country-select>
+                    @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
+                    @foreach (var option in pack?.Countries ?? [])
+                    {
+                        <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
+                    }
+                </select></div>
+            <p class="field-help" data-country-hint="@source">@SafetyText.Hint(source)</p>
+            <button type="submit" class="button button-secondary">Show contacts</button>
+        </form>
+        @if (unavailable) { <p role="status" class="card" data-safety-unavailable>Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now.</p> }
+        <SafetyResources Pack="pack" ShowMemberActions="@(HttpContext.User.Identity?.IsAuthenticated == true)" />
+        <nav class="policy-related" aria-labelledby="safety-related-title">
+            <h2 id="safety-related-title">Related pages</h2>
+            <ul>
+                @foreach (var link in PolicyReading.Pages.Where(p => p.Href != "/safety"))
                 {
-                    <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
+                    <li><a class="policy-card" href="@link.Href"><span class="policy-card-title">@link.Title</span><span class="policy-card-text">@link.Description</span><Icon Name="arrow-right" Size="18" /></a></li>
                 }
-            </select></div>
-        <p class="field-help" data-country-hint="@source">@SafetyText.Hint(source)</p>
-        <button type="submit" class="button button-secondary">Show contacts</button>
-    </form>
-    @if (unavailable) { <p role="status" data-safety-unavailable>Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now.</p> }
-    <nav class="card account-section" aria-label="Safety policies"><a href="/safety/advice">Connection and meeting advice</a> · <a href="/terms">Terms of use</a> · <a href="/community-guidelines">Community guidelines</a></nav>
-<SafetyResources Pack="pack" ShowMemberActions="@(HttpContext.User.Identity?.IsAuthenticated == true)" />
-</div>
+            </ul>
+        </nav>
+    </div>
+</article>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     [SupplyParameterFromQuery] public string? Country { get; set; }

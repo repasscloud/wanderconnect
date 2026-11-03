@@ -1,23 +1,19 @@
 @page "/privacy"
-@* #99, #22: the member-facing privacy notice, a DRAFT until legal review (#57). Text shared with the app (PrivacyNotice). *@
-@using Swoovr.Client
+@* #99, #22: the member-facing privacy notice (D288/D290 operative reader). Text shared with the app (PrivacyNotice). *@
 <PageTitle>Privacy notice — Swoovr</PageTitle>
-<div class="reading-page">
-    <div class="page-heading" data-privacy-notice>
-        <h1>Privacy notice</h1>
-        <p class="field-help">@PrivacyNotice.Version</p>
-    </div>
-    <nav aria-label="Sections" class="card account-section">
-        <ul>@foreach (var s in PrivacyNotice.Sections) { <li><a href="#@s.Id">@s.Title</a></li> }</ul>
-    </nav>
-    @foreach (var s in PrivacyNotice.Sections)
+<PolicyReader Title="Privacy notice" Eyebrow="Legal" Current="/privacy"
+              Lede="How Swoovr collects, uses, shares and protects your information, and the choices you have."
+              Meta="@PolicyReading.Describe(PrivacyNotice.Version)" Sections="@Sections" SectionAttribute="data-privacy-section"
+              HeadingAttributes="@Heading" SectionExtra="@Extra" />
+@code {
+    private static readonly IReadOnlyDictionary<string, object> Heading = new Dictionary<string, object> { ["data-privacy-notice"] = true };
+    private static readonly IReadOnlyList<PolicyReading.Section> Sections =
+        PrivacyNotice.Sections.Select((s, i) => new PolicyReading.Section(
+            s.Id, (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), s.Title, s.Paragraphs, [])).ToList();
+    private static RenderFragment? Extra(string id) => id switch
     {
-        <section class="card account-section" id="@s.Id" data-privacy-section="@s.Id">
-            <h2>@s.Title</h2>
-            @foreach (var p in s.Paragraphs) { <p>@p</p> }
-            @if (s.Id == "contact") { <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p> }
-            @if (s.Id == "law-enforcement") { <p><a href="/law-enforcement">Information for law enforcement</a></p> }
-            @if (s.Id == "choices") { <p><a href="/account/data">Your data and account</a></p> }
-        </section>
-    }
-</div>
+        "law-enforcement" => @<a class="policy-callout-link" href="/law-enforcement">Information for law enforcement<Icon Name="arrow-right" Size="18" /></a>,
+        "choices" => @<a class="policy-callout-link" href="/account/data">Your data and account<Icon Name="arrow-right" Size="18" /></a>,
+        _ => null,
+    };
+}

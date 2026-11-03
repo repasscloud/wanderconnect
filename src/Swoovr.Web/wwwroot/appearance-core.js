@@ -32,7 +32,18 @@
     try { storage.setItem(key, JSON.stringify({ version: 2, ...normalize(value) })); return true; }
     catch { return false; }
   }
-  const api = { defaults, key, normalize, resolve, load, save };
+  // Signed-out reading pages (owner, 4 November 2026): Standard only, with a remembered light/dark/system mode.
+  const guestModeKey = 'swoovr.reading-mode.v1';
+  function guestMode(storage) {
+    try { const value = storage.getItem(guestModeKey); return modes.has(value) ? value : defaults.mode; }
+    catch { return defaults.mode; }
+  }
+  function saveGuestMode(storage, mode) {
+    try { storage.setItem(guestModeKey, modes.has(mode) ? mode : defaults.mode); return true; }
+    catch { return false; }
+  }
+  function signedOut(storage) { return { scheme: defaults.scheme, mode: guestMode(storage) }; }
+  const api = { defaults, key, guestModeKey, normalize, resolve, load, save, guestMode, saveGuestMode, signedOut };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.SwoovrAppearance = api;
 })(globalThis);

@@ -1,18 +1,16 @@
 @page "/community-guidelines"
-@using Swoovr.Client
 <PageTitle>Community guidelines — Swoovr</PageTitle>
-<div class="reading-page" data-public-policy="community" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status">
-    <div class="page-heading">
-        <h1>@Document.Title</h1>
-        <p class="field-help">@PublicPolicyDrafts.Version</p>
-    </div>
-    <section class="card account-section" aria-label="@Document.Title">
-        @if (Document.Rules.Count > 0) { <ul>@foreach (var rule in Document.Rules) { <li>@rule</li> }</ul> }
-        @foreach (var paragraph in Document.Paragraphs) { <p>@paragraph</p> }
-    </section>
-    <nav class="card account-section" aria-label="Related policies">
-        <a href="/terms">Terms of use</a> · <a href="/community-guidelines">Community guidelines</a> · <a href="/privacy">Privacy notice</a> · <a href="/safety">Safety &amp; Support</a>
-    </nav>
-    <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
-</div>
-@code { private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Community; }
+<PolicyReader Title="@Document.Title" Eyebrow="Community" Current="/community-guidelines"
+              Lede="@Document.Paragraphs.FirstOrDefault()" Meta="@PolicyReading.Describe(PublicPolicyDrafts.Version)" Sections="@Sections"
+              Note="@PublicPolicyDrafts.DraftLabel"
+              data-public-policy="community" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status" />
+@code {
+    private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Community;
+    // Section headings are presentation labels only (DEFAULT, owner review 4 November 2026); the approved wording is unchanged.
+    private static readonly IReadOnlyList<PolicyReading.Section> Sections =
+    [
+        new("standards", "1", "Our standards", [], Document.Rules),
+        .. Document.Paragraphs.Skip(1).Select((p, i) => new PolicyReading.Section(
+            $"guidance-{i + 2}", (i + 2).ToString(System.Globalization.CultureInfo.InvariantCulture), i == 0 ? "Reporting concerns" : "More guidance", [p], [])),
+    ];
+}
