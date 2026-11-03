@@ -2379,8 +2379,10 @@ Processing complete, investigation/decisions OPEN. Q110–Q120 follow actual pri
 
 ### Q110 — Extend Admin account lookup with phone search and permission-scoped account browsing
 
+Owner answer recorded 3 November 2026 — **CONFIRMED D307** ([source](https://github.com/repasscloud/wanderconnect/issues/155#issuecomment-6596651120)): search by mobile (optional +, spaces stripped), lowercased email, or registered first/last name with `%` wildcards; results show first name, last name, age, city, ID verified, email and phone; includes lawful third-party investigations. Permissions/audit/paging are DEFAULT; browse-all was not requested. Recording is not completion of the code.
+
 - Issue: [#155](https://github.com/repasscloud/wanderconnect/issues/155); [intake item 18](ISSUE-INTAKE.md#intake-18).
-- Status: OPEN investigation / feedback; intake processing complete. Priority: High — account lookup is central to support and investigation; bulk personal-data access needs explicit scoping.
+- Status: ANSWERED (D307), implementation pending; intake processing complete. Priority: High — account lookup is central to support and investigation; bulk personal-data access needs explicit scoping.
 - Earliest blocker/consequence: acceptance of this proposed Admin / account search slice; independent intake work continues. No deployment or provider change authorised.
 - Scope: Entire item 18; registered-name search also depends on Q117.
 - Source-supported finding: Accounts.razor uses an exact-email GET form and a basic result list. AdminEndpoints.cs normalises the verified email, left-joins profiles, returns at most 10 matches and audits a result count. It has no phone lookup or browse/filter contract. PR #152 merged the refusal/no-match correction; the owner confirmed lookup works on #137. This is an extension, not a recurrence of Q95.
@@ -2587,8 +2589,10 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 
 ### Q121 — Firebase Android package mismatch
 
+Owner answer recorded 3 November 2026 — **CONFIRMED D306** ([source](https://github.com/repasscloud/wanderconnect/issues/170#issuecomment-6596650785)): two projects; UAT/local = `swoovr-uat` + `com.swoovr.app.uat` (`-uat` files), production = `swoovr-prod` + `com.swoovr.app`. Files ready in `.local/firebase/`. Recording is not completion of the code.
+
 - Issue: [#170](https://github.com/repasscloud/wanderconnect/issues/170); follows Q83/#127 and D305.
-- Status: OPEN / decision-needed. Supplied local Firebase client targets `com.swoovr.app.uat`; current MAUI app and owner answer use `com.swoovr.app`. Project/service-account ids match; no key material published.
+- Status: ANSWERED (D306), implementation pending. Supplied local Firebase client targets `com.swoovr.app.uat`; current MAUI app and owner answer use `com.swoovr.app`. Project/service-account ids match; no key material published.
 - 170.1 A: register current `com.swoovr.app` in Firebase and replace local config (**Suggested**). B: explicitly approve different provider-test package and review callback/signing implications.
 - 170.2 Confirm corrected file ready at `.local/firebase/google-services.json` after A. Never paste keys.
 - No private file was changed because the consistency check failed first. Physical-device/APNs acceptance stays OPEN. Independent work continues.
@@ -2606,7 +2610,9 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 
 ### Q123 — Guest allowlist and trusted-contact safety capability pages
 
+Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://github.com/repasscloud/wanderconnect/issues/173#issuecomment-6596651502)): signed-out/signed-in `/safety` versions; "I'm meeting someone" members only; guest incident reports go to https://swoovr.com/support; trusted-contact links open while unexpired/unrevoked, valid 72 hours from generation (sole guest exception). Recording is not completion of the code.
+
 - Issue: [#173](https://github.com/repasscloud/wanderconnect/issues/173); conflict between latest CONFIRMED D290/Q99 and earlier D263 non-member trusted-contact readers.
-- Status: OPEN / decision-needed; blocks acceptance of shared-plan contact responses/readers, not ordinary member-route protection.
+- Status: ANSWERED (D308), implementation pending; previously blocks acceptance of shared-plan contact responses/readers, not ordinary member-route protection.
 - 173.1 A: narrowly allow existing token/code-protected contact/meeting workflows with all consent/expiry/rate/privacy controls (**Suggested**). B: keep the absolute six-page guest rule and explicitly remove/disable that non-member sharing journey.
 - The current implementation follows the latest strict six-page instruction, so contact/meeting capability pages redirect home. These rendered pages are not honestly classifiable as static/authentication protocol resources. No anonymous exception or feature removal is inferred; independent work continues.
