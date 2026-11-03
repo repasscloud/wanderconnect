@@ -94,7 +94,7 @@ document.addEventListener('input', event => {
   const input = event.target.closest?.('[data-kind-input]'); if (!input) return;
   const v = input.value.trim();
   const kind = !v ? '' : v.includes('@') ? 'email' : /^[\d\s+().-]+$/.test(v) && /\d/.test(v) ? 'phone' : 'name';
-  const hints = { phone: 'Spaces removed · + optional', email: 'Lower-cased before search', name: 'First or last name · use % as a wildcard', '': 'Type to detect the search type' };
+  const hints = { phone: 'Spaces removed · + optional', email: 'Lower-cased before search', name: 'First or last name · use % as a wildcard', '': '' };
   document.querySelectorAll('[data-kind-chips] [data-kind]').forEach(c => c.toggleAttribute('aria-current', c.dataset.kind === kind));
   const hint = document.querySelector('[data-kind-hint]'); if (hint) hint.textContent = hints[kind];
 });

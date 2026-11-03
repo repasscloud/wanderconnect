@@ -1,9 +1,8 @@
 @page "/security"
 @inject AdminClient Admin
 <PageTitle>Security incidents — Swoovr admin</PageTitle>
-<header class="ui-page-head ui-page-head-actions">
-    <div><h1>Security incidents</h1><p>Contain first, then assess within 30 days whether it is an eligible data breach.</p></div>
-    <div class="acct-buttons"><a class="ui-button-primary" href="#open-incident">Open an incident</a></div>
+<header class="ui-page-head">
+    <h1>Security incidents</h1><p>Contain first, then assess within 30 days whether it is an eligible data breach.</p>
 </header>
 @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
 @if (incidents is not null && Status != "closed")
