@@ -45,6 +45,11 @@ static class RegisteredNamesPersistenceChecks
             profile.DisplayName=null;await db.SaveChangesAsync();
             var mononym=await RegisteredNamesService.SaveAsync(db,id,new("Ari",null,true,1,true),now,default);
             check("explicit mononym clears declared surname and initializes unset public name only from first",mononym.Value is{Mononym:true,LastName:null}&&profile.DisplayName=="Ari");
+            var inFlight=new IdVerificationAttempt{Id=Guid.NewGuid(),AccountId=id,SessionId=Guid.NewGuid().ToString(),State=IdAttemptState.InProgress,RegisteredNamesRevision=account.RegisteredNamesRevision,CreatedAt=now,UpdatedAt=now};db.IdVerificationAttempts.Add(inFlight);await db.SaveChangesAsync();
+            var renamed=await RegisteredNamesService.SaveAsync(db,id,new("Ari","Example",false,account.RegisteredNamesRevision,true),now,default);
+            check("name edit expires the in-flight ID attempt",renamed.Error is null&&inFlight.State==IdAttemptState.Expired);
+            await VerificationEndpoints.ApplyAsync(db,inFlight,new(inFlight.SessionId,"Approved",id.ToString(),null,false,DateOfBirth:new(2012,1,1)),now,"test",default);
+            check("confirmed underage result on a name-expired attempt still locks the account",account.Status==AccountStatus.Locked&&account.StatusReason=="underage"&&profile.AgeStatus==AgeStatus.Underage&&profile.IdStatus!=VerificationStatus.Verified&&inFlight.State==IdAttemptState.Expired);
             AccountDeletionPolicy.Tombstone(account,now);
             check("deletion tombstone removes registered names and ID comparison",account.RegisteredFirstName is null&&account.RegisteredLastName is null&&account.RegisteredNamesConfirmedAt is null&&account.RegisteredNamesMatchId is null);
         }

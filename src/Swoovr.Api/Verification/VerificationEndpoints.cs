@@ -179,6 +179,9 @@ public static class VerificationEndpoints
                         : "applied";
                 }
                 db.DiditWebhookEvents.Add(new DiditWebhookEvent { EventId = eventId, ReceivedAt = now, WebhookType = Short(type, 48), SessionId = session?.SessionId is { Length: <= 64 } s ? s : null, Outcome = outcome });
+                // Hold the account lease through the final save so a registered-name edit can't commit between the
+                // revision check in ApplyAsync and this save (the lease is reentrant inside ApplyAsync).
+                await using var lease = outcome == "applied" ? await AccountLifecycleLease.AcquireAsync(db, attempt!.AccountId, cancellationToken) : null;
                 if (outcome == "applied") await ApplyAsync(db, attempt!, session!, now, "webhook", cancellationToken, save: false, identities: identities);
                 else if (outcome != "ignored")
                     Audit.Record(db, now, null, "system", "verification.webhook-" + outcome, "id-verification", attempt?.Id.ToString());
@@ -326,28 +329,37 @@ public static class VerificationEndpoints
     public static async Task ApplyAsync(SwoovrDbContext db, IdVerificationAttempt attempt, ProviderSession session, DateTimeOffset now, string source,
         CancellationToken cancellationToken, bool save = true, VerifiedIdentityStore? identities = null)
     {
+        // Reentrant: the webhook already holds this lease and keeps it until its own save (dedupe record included).
         await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,attempt.AccountId,cancellationToken);
-        if (IdVerificationPolicy.Next(attempt.State, session.Status) is not { } next) return;
+        // A registered-name edit may have expired this attempt after the caller read it; decide on the committed state.
+        await db.Entry(attempt).ReloadAsync(cancellationToken);
         var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == attempt.AccountId, cancellationToken);
         var account = await db.Accounts.SingleAsync(a => a.Id == attempt.AccountId, cancellationToken);
         await db.Entry(account).ReloadAsync(cancellationToken);await db.Entry(profile).ReloadAsync(cancellationToken);
-        (attempt.State, attempt.ProviderStatus, attempt.UpdatedAt) = (next, Short(session.Status), now);
-        // Expiry or abandonment alone isn't a real attempt (D129); progress or a decision is.
-        attempt.Started |= next is IdAttemptState.InProgress or IdAttemptState.InReview or IdAttemptState.Approved or IdAttemptState.Declined;
-        if (IdVerificationPolicy.Settled(next)) (attempt.CompletedAt, attempt.Url) = (now, null);
-        if (next == IdAttemptState.Approved) attempt.Adult = session.Adult;
+        var reported = IdVerificationPolicy.Next(attempt.State, session.Status);
+        if (reported is { } moved)
+        {
+            (attempt.State, attempt.ProviderStatus, attempt.UpdatedAt) = (moved, Short(session.Status), now);
+            // Expiry or abandonment alone isn't a real attempt (D129); progress or a decision is.
+            attempt.Started |= moved is IdAttemptState.InProgress or IdAttemptState.InReview or IdAttemptState.Approved or IdAttemptState.Declined;
+            if (IdVerificationPolicy.Settled(moved)) (attempt.CompletedAt, attempt.Url) = (now, null);
+            if (moved == IdAttemptState.Approved) attempt.Adult = session.Adult;
+        }
         if(attempt.RegisteredNamesRevision!=account.RegisteredNamesRevision)
         {
-            // Old declarations cannot restore a revoked badge. A confirmed underage result still protects safety.
-            if(next==IdAttemptState.Approved&&session.Adult==false)
+            // Old declarations cannot restore a revoked badge. A confirmed underage result still protects safety, even
+            // when the name edit already expired the attempt and the ordinary state transition is refused.
+            if(IdVerificationPolicy.Map(session.Status)==IdAttemptState.Approved&&session.Adult==false&&profile.AgeStatus!=AgeStatus.Underage)
             {
                 account.Status=AccountStatus.Locked;account.StatusReason="underage";
-                profile.AgeStatus=AgeStatus.Underage;profile.AgeStatusAt=now;profile.IdStatus=VerificationStatus.Rejected;
+                profile.AgeStatus=AgeStatus.Underage;profile.AgeStatusAt=now;profile.IdStatus=VerificationStatus.Rejected;profile.IdCheckedAt=now;
+                Audit.Record(db,now,null,"system","account.locked","account",account.Id.ToString(),"underage");
             }
             Audit.Record(db,now,null,"system","verification.stale-registered-names","id-verification",attempt.Id.ToString());
             if(save)await db.SaveChangesAsync(cancellationToken);
             return;
         }
+        if (reported is not { } next) return;
         if (profile.IdStatus != VerificationStatus.Verified || next == IdAttemptState.Approved)
             (profile.IdStatus, profile.IdCheckedAt) = (IdVerificationPolicy.StatusFor(next), IdVerificationPolicy.Settled(next) ? now : profile.IdCheckedAt);
         if (IdVerificationPolicy.ReturnsAttempt(attempt)) profile.CanRequestIdVerification = true;
