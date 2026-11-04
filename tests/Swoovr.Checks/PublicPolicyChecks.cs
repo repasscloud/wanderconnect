@@ -22,7 +22,10 @@ static class PublicPolicyChecks
         Need(PublicPolicies.Community.Rules.Any(p=>p.Contains("non-consensual intimate images")),"image abuse prohibition retained");
         Need(PublicPolicies.Find("unknown")==null,"no arbitrary policy lookup");
         Need(File.ReadAllText("containers/keycloak/themes/swoovr/login/register-commons.ftl").Contains("sw-terms-link")&&File.ReadAllText("containers/keycloak/themes/swoovr/login/register-commons.ftl").Contains("sw-community-link"),"registration source links both policies");
-        Need(!File.ReadAllText("containers/keycloak/themes/swoovr/login/messages/messages_en.properties").Contains("By continuing you agree"),"adult attestation is not inferred legal assent");
+        // issue 179/D312 (owner wording): creating an account agrees to the Terms of Use and acknowledges the Privacy Notice and
+        // Community Guidelines; the 18+ checkbox stays a separate blocking attestation.
+        var messages=File.ReadAllText("containers/keycloak/themes/swoovr/login/messages/messages_en.properties");
+        Need(messages.Contains("swoovrAgreementBefore=By creating an account, you agree to our")&&messages.Contains("swoovrAgreementMiddle=and acknowledge our")&&messages.Contains("acceptTerms=I''m 18 or over")&&messages.Contains("swoovrAdultsOnly=Swoovr is exclusively for adults aged 18 and over."),"owner sign-up agreement wording and separate 18+ attestation");
         var now=DateTimeOffset.UtcNow;
         PublicPolicyVersion[] approved=[new(PublicPolicies.Version,PublicPolicyStatus.Approved,PublicPolicies.EffectiveAt,PublicPolicies.SourceSha256)];
         Need(PolicyAcceptancePolicy.Resolve(null,approved,now).State==PolicyRequirementState.ExistingAccessUnchanged,"no configured requirement preserves existing access");

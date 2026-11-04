@@ -115,12 +115,14 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     await page.goto(web + '/safety');
     await page.waitForSelector('[data-safety-page="AU"]'); pass();
     assert.equal(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'fallback'); pass();
-    assert.ok((await page.textContent('#danger-heading')).includes('000')); pass();
+    assert.ok((await page.textContent('[data-safety-services]')).includes('000') && (await page.textContent('#emergency-title')).includes('Emergency assistance'), 'emergency assistance first'); pass();
     assert.equal(await page.getAttribute('[data-call="000"]', 'href'), 'tel:000', 'a deliberate tap, nothing dials by itself'); pass();
-    assert.ok(await page.locator('[data-swoovr-actions]').count() === 1 && (await page.textContent('[data-swoovr-actions]')).includes('serious safety incident'), "Swoovr's own actions apart"); pass();
+    assert.ok(await page.locator('[data-swoovr-guest-actions] [data-serious-entry]').count() === 1 && await page.getAttribute('[data-swoovr-guest-actions] [data-serious-entry]', 'href') === 'https://swoovr.com/support' && await page.locator('[data-swoovr-actions]').count() === 0, "Swoovr reporting apart; guests go to support (D308)"); pass();
+    assert.equal(await page.locator('[data-safety-reviewed], .safety-v2 >> text=Checked by Swoovr').count(), 0, 'no internal review dates (issue 181)'); pass();
     assert.equal(await page.locator('label[for="safety-country"]').count(), 1, 'the selector is labelled'); pass();
-    await page.selectOption('[data-country-select]', 'NZ');
-    await Promise.all([page.waitForURL(/country=NZ/), page.click('[data-country-form] button')]);
+    // issue 181: choosing a country updates the page by itself; there is no "Show contacts" button.
+    assert.equal(await page.locator('[data-country-form] button:visible').count(), 0, 'no confirmation button'); pass();
+    await Promise.all([page.waitForURL(/country=NZ/), page.selectOption('[data-country-select]', 'NZ')]);
     await page.waitForSelector('[data-safety-page="NZ"]');
     assert.equal(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'manual'); pass();
     assert.ok(await page.locator('[data-safety-warning]').count() === 1, 'not-ready packs warn'); pass();

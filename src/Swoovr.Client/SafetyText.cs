@@ -10,7 +10,8 @@ namespace Swoovr.Client;
 public static partial class SafetyText
 {
     public const string Title = "Safety & Support";
-    public const string External = "These are outside services, not Swoovr. Opening one doesn't send them anything about you or your reports.";
+    // issue 181 §7: accurate and said once; opening a website is an ordinary browser request, so no absolute privacy claim.
+    public const string External = "These organisations operate independently of Swoovr. Contacting them through their websites or telephone services is subject to their respective privacy policies.";
     public const string Neutral = "If you're in immediate danger, contact your local emergency services now. We don't have checked contacts for this country yet, so we won't guess a number. Choose a country below to see the contacts we have.";
     public const string StaleWarning = "These contacts haven't been fully checked by Swoovr or are due for review. Check the number or website before relying on it.";
     public const string DemoWarning = "Demonstration only: these contacts are examples and not checked for use.";
@@ -40,7 +41,7 @@ public static partial class SafetyText
 
     public static string Hint(string source) => source switch
     {
-        "manual" => "Country selected manually.",
+        "manual" => "",
         "cloudflare" => "Country based on your network — change it if it's wrong (a VPN can change it).",
         "fallback" => "Country set for this service — change it if it's wrong.",
         _ => "We couldn't tell your country. Choose one.",

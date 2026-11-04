@@ -140,11 +140,8 @@ public static class MemberSignIn
             catch(Exception failure)when(failure is HttpRequestException or OperationCanceledException or JsonException){ }
             if(availability is not{Revision:>=0}||!availability.PublicEnabled&&!(availability.BetaEnabled&&context.Request.Query["invited"]=="true"))
             {
-                var invited=availability is{BetaEnabled:true}?"<p><a href=\"/account/create?invited=true\" data-enhance-nav=\"false\">I have a beta invitation</a></p>":"";
-                return Results.Content("""
-                    <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Swoovr is currently invite-only</title><link rel="stylesheet" href="/themes.css"></head>
-                    <body><main><h1>Swoovr is currently invite-only</h1><p>We're not accepting public registrations just yet. If you'd like early access, you can register your interest in our beta.</p><p><a href="https://swoovr.com/beta">Join the beta waitlist</a></p>
-                    """+invited+"<p><a href=\"/account/sign-in\">Sign in to an existing account</a></p></main></body></html>","text/html",statusCode:availability is null?503:200);
+                // issue 178: same Swoovr layout and components as the rest of the site.
+                return Results.Content(InviteOnlyPage.Html(availability is{BetaEnabled:true},SwoovrBuild.Display),"text/html",statusCode:availability is null?503:200);
             }
             var properties = new AuthenticationProperties { RedirectUri = "/explore" };
             properties.Parameters["prompt"] = "create";

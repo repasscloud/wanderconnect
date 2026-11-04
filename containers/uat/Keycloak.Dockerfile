@@ -33,8 +33,7 @@ COPY --chown=1000:0 containers/keycloak/themes/swoovr/ /opt/keycloak/themes/swoo
 # Keycloak checks provider mtimes at optimized startup; normalize before build.
 RUN sed -i -e 's|^swoovrPrivacyUrl=.*|swoovrPrivacyUrl=https://uat.swoovr.app/privacy|' \
     -e 's|^swoovrTermsUrl=.*|swoovrTermsUrl=https://uat.swoovr.app/terms|' \
-    -e 's|^swoovrCommunityUrl=.*|swoovrCommunityUrl=https://uat.swoovr.app/community-guidelines|' \
-    -e 's|^swoovrVersion=.*|swoovrVersion=v0.1.0-uat|' /opt/keycloak/themes/swoovr/login/theme.properties \
+    -e 's|^swoovrCommunityUrl=.*|swoovrCommunityUrl=https://uat.swoovr.app/community-guidelines|' /opt/keycloak/themes/swoovr/login/theme.properties \
     && touch -m --date=@1743465600 /opt/keycloak/providers/swoovr-contact-policy.jar \
     && /opt/keycloak/bin/kc.sh build --spi-email-sender--provider=swoovr-mailersend
 

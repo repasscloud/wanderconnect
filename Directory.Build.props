@@ -4,5 +4,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
+    <!-- #177: the one Swoovr version for every app, the API and the Keycloak theme (scripts/check_version.py). -->
+    <SwoovrVersion>1.0.0</SwoovrVersion>
+    <Version>$(SwoovrVersion)</Version>
   </PropertyGroup>
 </Project>

@@ -31,7 +31,10 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         properties=docker('run','--platform',args.platform,'--name',name,'--network','none','--entrypoint','/bin/bash',args.image,'-c','cat /opt/keycloak/themes/swoovr/login/theme.properties').stdout
         assert 'localhost:5081' not in properties;checks+=1
         for field,path in [('swoovrPrivacyUrl','privacy'),('swoovrTermsUrl','terms'),('swoovrCommunityUrl','community-guidelines')]:assert field+'=https://uat.swoovr.app/'+path in properties;checks+=1
-        assert 'swoovrVersion=v0.1.0-uat' in properties;checks+=1
+        # issue 177: the image shows the single Swoovr version from Directory.Build.props, never a per-component label.
+        import re as _re
+        version=_re.search(r'<SwoovrVersion>([^<]+)</SwoovrVersion>',open('Directory.Build.props').read()).group(1)
+        assert 'swoovrVersion='+version+'\n' in properties+'\n' and '-uat' not in properties.split('swoovrVersion=')[1].split('\n')[0];checks+=1
         docker('rm','-f',name);created.remove(name)
         docker('network','create','--internal',network)
         password=secrets.token_urlsafe(32);admin_password=secrets.token_urlsafe(32)

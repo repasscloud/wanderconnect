@@ -22,7 +22,7 @@
             }
         </ul>
         <p class="field-help">@SafetyText.External</p>
-        @if (Pack.ReviewedOn is { } reviewed) { <p class="field-help" data-safety-reviewed="@reviewed.ToString("yyyy-MM-dd")">Checked by Swoovr on @reviewed.ToString("d MMMM yyyy").</p> }
+        @* issue 181 §8: review dates stay internal (Admin → Safety resources); members never see them. *@
     }
 </section>
 @if (ShowMemberActions)

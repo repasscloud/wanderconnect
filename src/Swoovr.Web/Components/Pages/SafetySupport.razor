@@ -1,42 +1,110 @@
 @page "/safety"
-@* Country-aware Safety & Support (issue 103, D204), public and reachable signed out (Static SSR, so it works without
-   WebAssembly). The country is the visitor's choice for this browsing session (a session cookie), else Cloudflare's
-   network country when this host is behind Cloudflare and says so (D153), else this deployment's fallback (AU locally).
-   Nothing is stored about the visitor; the choice never changes a profile, home city, Travel or Explore. *@
+@* Country-aware Safety & Support (issue 103, D204; redesign issue 181), public and reachable signed out (Static SSR, so it works
+   without WebAssembly). Emergency assistance first; external services in the main column; country, reporting to Swoovr
+   and safety resources in the side column. The country is the visitor's choice for this browsing session (a session
+   cookie; Q130), else Cloudflare's network country when this host is behind Cloudflare and says so (D153), else this
+   deployment's fallback. An IP-based guess never replaces a manual choice. Nothing is stored about the visitor. *@
 @inject IHttpClientFactory Clients
 @inject IConfiguration Configuration
 @inject IHostEnvironment Environment
 <PageTitle>Safety & Support — Swoovr</PageTitle>
-<article class="policy safety-page">
-    <header class="policy-hero" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
-        <p class="eyebrow">Safety</p>
+<article class="safety-v2">
+    <header class="safety-hero" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
         <h1>@SafetyText.Title</h1>
-        <p class="policy-lede">Emergency numbers and support services in your country. These services are outside Swoovr.</p>
+        <p class="policy-lede">Find emergency assistance, support services and resources to help you stay safe.</p>
     </header>
-    <div class="safety-body">
-        <form method="get" action="/safety" class="card safety-country" data-country-form data-enhance="false">
-            <div class="field"><label for="safety-country">Country</label>
-                <select id="safety-country" name="country" data-country-select>
-                    @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
-                    @foreach (var option in pack?.Countries ?? [])
-                    {
-                        <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
-                    }
-                </select></div>
-            <p class="field-help" data-country-hint="@source">@SafetyText.Hint(source)</p>
-            <button type="submit" class="button button-secondary">Show contacts</button>
-        </form>
-        @if (unavailable) { <p role="status" class="card" data-safety-unavailable>Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now.</p> }
-        <SafetyResources Pack="pack" ShowMemberActions="@(HttpContext.User.Identity?.IsAuthenticated == true)" />
-        <nav class="policy-related" aria-labelledby="safety-related-title">
-            <h2 id="safety-related-title">Related pages</h2>
-            <ul>
-                @foreach (var link in PolicyReading.Pages.Where(p => p.Href != "/safety"))
+    <div class="safety-grid">
+        <div class="safety-primary">
+            <section class="card safety-emergency" aria-labelledby="emergency-title" data-safety-services="@(pack?.Country ?? "none")"
+                     data-safety-readiness="@(pack?.Readiness ?? "unknown")" data-safety-stale="@(pack?.Stale == true ? "yes" : "no")">
+                <h2 id="emergency-title" class="safety-card-title"><Icon Name="phone" Size="20" />Emergency assistance</h2>
+                @if (pack is not null && SafetyText.Warning(pack) is { } warning) { <p class="safety-warning" role="note" data-safety-warning>@warning</p> }
+                @if (unavailable)
                 {
-                    <li><a class="policy-card" href="@link.Href"><span class="policy-card-title">@link.Title</span><span class="policy-card-text">@link.Description</span><Icon Name="arrow-right" Size="18" /></a></li>
+                    <p class="safety-emergency-fallback" role="status" data-safety-unavailable>Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now.</p>
                 }
-            </ul>
-        </nav>
+                else if (Emergency.Count == 0)
+                {
+                    <p class="safety-emergency-fallback" data-safety-neutral>@SafetyText.Neutral</p>
+                }
+                else
+                {
+                    <ul class="safety-emergency-list">
+                        @foreach (var r in Emergency)
+                        {
+                            <li class="safety-emergency-row" data-service="@r.Name" data-category="@r.Category" data-safety-resource>
+                                <div>
+                                    @if ((r.PhoneDisplay ?? r.Phone) is { } shown) { <p class="safety-emergency-number">@shown</p> }
+                                    <p class="safety-emergency-name">@r.Name</p>
+                                    <p class="safety-emergency-text">@r.Description</p>
+                                </div>
+                                @if (r.Phone is not null)
+                                {
+                                    <a class="safety-call-emergency" href="tel:@r.Phone" data-call="@r.Phone" aria-label="Call @(r.PhoneDisplay ?? r.Phone), @r.Name">Call @(r.PhoneDisplay ?? r.Phone)</a>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+            @if (Services.Count > 0)
+            {
+                <section class="card safety-directory" aria-labelledby="services-title">
+                    <h2 id="services-title" class="safety-card-title">Support services</h2>
+                    <p class="safety-card-lede">Independent organisations offering specialist assistance.</p>
+                    @if (Grouped)
+                    {
+                        @foreach (var group in Services.GroupBy(r => r.Category))
+                        {
+                            <h3 class="safety-group-title">@SafetyText.Category(group.Key)</h3>
+                            @ServiceList(group)
+                        }
+                    }
+                    else
+                    {
+                        @ServiceList(Services)
+                    }
+                    <div class="safety-external" data-safety-external>
+                        <h3>External support services</h3>
+                        <p>These organisations operate independently of Swoovr. Contacting them through their websites or telephone services is subject to their respective privacy policies.</p>
+                    </div>
+                </section>
+            }
+        </div>
+        <aside class="safety-secondary" aria-label="Country, reporting and resources">
+            <form method="get" action="/safety" class="card safety-country-card" data-country-form data-enhance="false">
+                <h2 class="safety-card-title"><Icon Name="globe" Size="20" />Your location</h2>
+                <div class="field"><label for="safety-country">Country or region</label>
+                    <select id="safety-country" name="country" data-country-select>
+                        @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
+                        @foreach (var option in pack?.Countries ?? [])
+                        {
+                            <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
+                        }
+                    </select></div>
+                @* The hint explains automatic or missing choices; a manual choice needs no explanation (issue 181). *@
+                <p class="safety-hint" data-country-hint="@source">@(source == "manual" ? "" : SafetyText.Hint(source))</p>
+                @* safety-country.js submits on change; without script the button updates the page. *@
+                <noscript><button type="submit" class="button button-secondary button-small">Update</button></noscript>
+            </form>
+            <section class="card safety-report" aria-labelledby="report-title" @attributes="ReportAttributes">
+                <h2 id="report-title" class="safety-card-title"><Icon Name="shield" Size="20" />Report a safety concern</h2>
+                <p>Report harassment, threats, abusive behaviour or other safety concerns involving Swoovr members.</p>
+                @* D308: members use the in-app serious-incident report; signed-out visitors go to Swoovr support (Q128: Zammad later). *@
+                <a class="primary-button" href="@(SignedIn ? "/me/safety#serious" : StandingText.SupportUrl)" data-serious-entry rel="@(SignedIn ? null : "noopener")">Report to Swoovr</a>
+                <p class="safety-hint">For immediate danger, contact your local emergency services.</p>
+            </section>
+            <nav class="card safety-resources-card" aria-labelledby="resources-title">
+                <h2 id="resources-title" class="safety-card-title"><Icon Name="book" Size="20" />Safety resources</h2>
+                <ul class="safety-links">
+                    @if (SignedIn) { <li><a href="/me/meeting-safety">I'm meeting someone<Icon Name="arrow-right" Size="18" /></a></li> }
+                    <li><a href="/safety/advice">Safety Advice<Icon Name="arrow-right" Size="18" /></a></li>
+                    <li><a href="/community-guidelines">Community Guidelines<Icon Name="arrow-right" Size="18" /></a></li>
+                    <li><a href="@(SignedIn ? "/me/standing" : "/privacy#security")">Privacy &amp; account safety<Icon Name="arrow-right" Size="18" /></a></li>
+                    <li><a href="/community-guidelines#guidance-2">Reporting and blocking<Icon Name="arrow-right" Size="18" /></a></li>
+                </ul>
+            </nav>
+        </aside>
     </div>
 </article>
 @code {
@@ -46,10 +114,35 @@
     private SafetyPack? pack;
     private string source = "unknown";
     private bool unavailable;
+    private bool SignedIn => HttpContext.User.Identity?.IsAuthenticated == true;
+    private IReadOnlyDictionary<string, object> ReportAttributes => new Dictionary<string, object> { [SignedIn ? "data-swoovr-actions" : "data-swoovr-guest-actions"] = true };
+    private IReadOnlyList<SafetyResourceView> Emergency => pack?.Resources.Where(r => r.Category == "emergency").OrderBy(r => r.Order).ToList() ?? [];
+    private IReadOnlyList<SafetyResourceView> Services => pack?.Resources.Where(r => r.Category != "emergency").OrderBy(r => r.Order).ToList() ?? [];
+    // Category headings only when there are enough services to need them (issue 181 §5).
+    private bool Grouped => Services.Count > 6 && Services.Select(r => r.Category).Distinct().Count() > 1;
+
+    private static RenderFragment ServiceList(IEnumerable<SafetyResourceView> services) =>
+        @<ul class="safety-services">
+            @foreach (var r in services)
+            {
+                <li class="safety-service" data-service="@r.Name" data-category="@r.Category" data-safety-resource>
+                    <div class="safety-service-text">
+                        <p class="safety-service-name">@r.Name</p>
+                        <p class="safety-service-category">@SafetyText.Category(r.Category)</p>
+                        <p class="safety-service-desc">@r.Description</p>
+                        @if ((r.PhoneDisplay ?? r.Phone) is { } number) { <p class="safety-service-phone">@number</p> }
+                    </div>
+                    <div class="safety-service-actions">
+                        @if (r.Phone is not null) { <a class="button button-secondary button-small" href="tel:@r.Phone" data-call="@r.Phone" aria-label="Call @r.Name on @(r.PhoneDisplay ?? r.Phone)">Call</a> }
+                        @if (r.WebsiteUrl is not null) { <a class="button button-secondary button-small" href="@r.WebsiteUrl" target="_blank" rel="noopener" data-website="@r.Name" aria-label="Visit @r.Name website (opens in a new tab)">Visit website</a> }
+                    </div>
+                </li>
+            }
+        </ul>;
 
     protected override async Task OnInitializedAsync()
     {
-        // A manual choice lasts for the browsing session; a new choice replaces it.
+        // A manual choice lasts for the browsing session (Q130); a new choice replaces it.
         var manual = SafetyText.Manual(Country);
         if (manual is not null)
             HttpContext.Response.Cookies.Append(Cookie, manual, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = HttpContext.Request.IsHttps, IsEssential = true });

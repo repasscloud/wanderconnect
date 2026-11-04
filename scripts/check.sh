@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 python3 scripts/check_naming.py
 python3 -m unittest discover -s tests/backups -p 'test_*.py'
 python3 scripts/check_design.py --check
+python3 scripts/check_version.py
 python3 scripts/keycloak_realms.py
 node --test tests/auth/owned-runner.test.cjs tests/local-platform/*.test.mjs tests/auth-harness/*.test.mjs tests/appearance/*.test.cjs tests/meeting/*.test.cjs
 dotnet restore Swoovr.Local.sln --ignore-failed-sources -p:NuGetAudit=false

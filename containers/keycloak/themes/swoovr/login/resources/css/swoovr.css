@@ -233,6 +233,10 @@ html.pf-v5-theme-dark .pf-v5-c-login__main a.sw-btn-apple { background: #FFFFFF;
 
 /* ---------- 18+ checkbox: 24px, radius 7, ink when checked ---------- */
 .sw-check-group { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.sw-check-mononym { margin: 2px 0 6px; }
+#kc-registration-terms-text p { margin: 0 0 6px; }
+#kc-registration-terms-text a { color: var(--sw-text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--sw-checkbox); text-underline-offset: 3px; }
+#kc-registration-terms-text a:hover, #kc-registration-terms-text a:focus-visible { text-decoration-color: currentColor; }
 .sw-check { position: relative; display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--sw-text); cursor: pointer; user-select: none; }
 .sw-check input { position: absolute; z-index: 1; width: 24px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
 .sw-box {
@@ -260,8 +264,7 @@ html.pf-v5-theme-dark .pf-v5-c-login__main a.sw-btn-apple { background: #FFFFFF;
 
 /* ---------- Footer: claims line and version, at the bottom ---------- */
 .sw-foot { margin-top: 32px; padding-bottom: 6px; text-align: center; }
-.sw-claims { margin: 0; font-size: 11px; line-height: 1.6; color: var(--sw-muted); }
-.sw-ver { margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; line-height: 1.6; letter-spacing: .2px; color: var(--sw-version); }
+.sw-ver { margin: 0; font-size: 12px; line-height: 1.6; color: var(--sw-muted); }
 
 /* ---------- Arrival: each element fades in rising 18px, 70ms apart (prototype `.in`) ---------- */
 html.sw-enter :is(.sw-brand, .sw-back, .sw-dot, #kc-page-title, .sw-sub, .pf-v5-c-alert,

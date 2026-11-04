@@ -71,7 +71,7 @@ async function mailCount(to) {
     // Theme (D41): Standard only, device light/dark, claims line, no scheme picker.
     await page.goto(web + '/account/sign-in');
     await page.waitForURL(url => url.origin === keycloak);
-    assert.match(await page.locator('.sw-claims').innerText(), /In development · Starting in Adelaide · Adults 18\+/); pass();
+    assert.match(await page.locator('.sw-ver').innerText(), /^Version \d+\.\d+\.\d+$/); assert.doesNotMatch(await page.locator('body').innerText(), /in development|Starting in Adelaide/i); pass();
     assert.equal(await page.locator('[data-scheme], input[name=scheme]').count(), 0); pass();
     await assertSwoovrType(page, 'Keycloak sign-in'); pass();
     // The prototype's white sign-in screen is the Standard surface token (#FFFFFF light, #161616 dark).
