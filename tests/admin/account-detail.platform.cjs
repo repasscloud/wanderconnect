@@ -133,6 +133,14 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   ok(await sup.locator('span[data-enforce-action=suspend][aria-disabled=true]').count() === 1, 'Support cannot suspend');
   await sup.goto(`${A}/accounts/${test}/access`);
   ok(await sup.locator('[data-op=lock]').count() === 0, 'Support cannot lock');
+  // Sign out ends the Keycloak session too: "Sign in again" is a button and always asks for the password again (issue 199).
+  await admin.goto(`${A}/accounts/${sam}`);
+  await Promise.all([admin.waitForURL(/\/signed-out/), admin.locator('form[action="/sign-out"]').evaluate(f => f.requestSubmit())]);
+  ok(await admin.locator('a.ui-button-primary[data-sign-in-again]').count() === 1, 'signed-out page shows Sign in again as a button');
+  await Promise.all([admin.waitForLoadState('networkidle'), admin.click('[data-sign-in-again]')]);
+  ok(admin.url().includes(':8180/') && await admin.locator('#password').count() === 1, 'Sign in again asks for the password: ' + admin.url().slice(0, 40));
+  await admin.goto(`${A}/accounts/${sam}`); await admin.waitForLoadState('networkidle');
+  ok(admin.url().includes(':8180/'), 'the old admin session no longer opens staff pages');
   console.log('TOTAL', n);
   await b.close();
 })().catch(e => { console.error('FAIL', e.message); process.exit(1); });

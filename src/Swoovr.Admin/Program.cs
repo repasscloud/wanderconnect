@@ -86,8 +86,14 @@ app.MapGet("/sign-in", (bool? reauth, string? returnUrl) =>
     if (reauth == true) properties.Items["reauth"] = "1";
     return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
 }).AllowAnonymous();
+// Sign out ends the Keycloak session as well as this app's cookie and server-side ticket, so the next sign-in always starts
+// from the password (and code) again. Keycloak logout runs first so it can still read the id_token hint from the ticket.
 app.MapPost("/sign-out", async (HttpContext context) =>
 {
+    context.Response.Headers.CacheControl = "no-store";
+    if (context.User.Identity?.IsAuthenticated == true)
+        return Results.SignOut(new AuthenticationProperties { RedirectUri = "/signed-out" },
+            [OpenIdConnectDefaults.AuthenticationScheme, CookieAuthenticationDefaults.AuthenticationScheme]);
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Redirect("/signed-out");
 }).AllowAnonymous();
@@ -103,8 +109,8 @@ app.MapGet("/signed-out", (HttpContext context) =>
         <meta name="robots" content="noindex, nofollow"><title>Signed out — Swoovr admin</title>
         <link rel="stylesheet" href="/themes.css"><link rel="stylesheet" href="/admin.css"></head>
         <body><main class="signed-out-page"><p class="admin-brand">Swoovr · Staff workspace</p>
-        <h1>You're signed out.</h1><p>Your local staff session has ended. Sign in to continue.</p>
-        <a href="/sign-in" data-enhance-nav="false">Sign in again</a>
+        <h1>You're signed out.</h1><p>Your staff session has ended on this device.</p>
+        <p><a class="ui-button-primary" href="/sign-in?reauth=true" data-enhance-nav="false" data-sign-in-again>Sign in again</a></p>
         <footer class="admin-version"><small data-app-version="{{Swoovr.Contracts.AppVersion.Current.ProductVersion}}">{{Swoovr.Contracts.AppVersion.Current.DisplayVersion}}</small></footer></main></body></html>
         """, "text/html");
 }).AllowAnonymous();
