@@ -35,3 +35,4 @@ New data (migration `AccountDetailControls`, tables and nullable or defaulted co
 - Warning acknowledgement status in the enforcement history; a list of active sessions.
 - Staff edits of email, mobile and names beyond the existing member and name-review flows (issue 190 §9).
 - Native app locked-screen check on a device (shared text is wired, not run on a simulator).
+- Deferred by the owner (focus is the admin and member web apps): the native restriction banner and tailored member wording when a paused feature is used, in [#197](https://github.com/repasscloud/wanderconnect/issues/197).
