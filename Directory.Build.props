@@ -4,8 +4,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
-    <!-- #177: the one Swoovr version for every app, the API and the Keycloak theme (scripts/check_version.py). -->
-    <SwoovrVersion>1.0.0</SwoovrVersion>
+    <!--
+      Q129 / D320: the one canonical Swoovr product version, Major.Minor.Build (X.Y.Z), for every project: API, web,
+      admin, mobile (iOS/Android) and the Keycloak theme. Swoovr.Contracts.AppVersion reads it back from the compiled
+      assembly; nothing else may hard-code a product version (scripts/check_version.py).
+      - Major and Minor change only by an intentional release decision: scripts/release_version.py bump major|minor
+        (which resets the lower parts).
+      - Build is allocated per production release from git tags (vX.Y.Z) by scripts/release_version.py and passed as
+        -p:SwoovrVersionBuild=Z; untagged development/UAT builds use the committed default below and never advance it.
+      - SwoovrNativeBuild is the separate, monotonically increasing Apple/Google store build number, never shown as the
+        product version. CI passes -p:SwoovrNativeBuild=N.
+      The commit (SourceRevisionId) is embedded for diagnostics only and is never shown in public footers.
+    -->
+    <SwoovrVersionMajor>1</SwoovrVersionMajor>
+    <SwoovrVersionMinor>0</SwoovrVersionMinor>
+    <SwoovrVersionBuild Condition="'$(SwoovrVersionBuild)' == ''">0</SwoovrVersionBuild>
+    <SwoovrNativeBuild Condition="'$(SwoovrNativeBuild)' == ''">1</SwoovrNativeBuild>
+    <SwoovrVersion>$(SwoovrVersionMajor).$(SwoovrVersionMinor).$(SwoovrVersionBuild)</SwoovrVersion>
     <Version>$(SwoovrVersion)</Version>
   </PropertyGroup>
 </Project>

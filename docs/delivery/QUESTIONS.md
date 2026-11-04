@@ -2652,7 +2652,7 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 ### Q129 — Version number in the public footer
 
 - Own issue: [#189](https://github.com/repasscloud/wanderconnect/issues/189) (decision-needed).
-- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619038197). Status: OPEN (decision-needed). Conflicts with the 4 November chat request to keep the version under the footer links.
+- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619038197). Status: ANSWERED B (D320), owner 4 November 2026: version visible everywhere, centralised Major.Minor.Build versioning. Conflicts with the 4 November chat request to keep the version under the footer links.
 - A: remove from signed-out pages; keep for members and on the sign-in page. B (current): keep everywhere.
 - Built meanwhile: B.
 

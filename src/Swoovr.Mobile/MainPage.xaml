@@ -2,6 +2,7 @@
 <!-- The signed-in account screen: the same API answers as the web account page (session, beta notice, badges, age, coupon). -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:contracts="clr-namespace:Swoovr.Contracts;assembly=Swoovr.Contracts"
              x:Class="Swoovr.Mobile.MainPage" Title="Swoovr">
     <ScrollView>
         <VerticalStackLayout Padding="24,30" Spacing="16">
@@ -18,6 +19,8 @@
                 <Button Text="Safety &amp; Support" Clicked="OnSafety" Style="{StaticResource SecondaryButton}" />
                 <Button x:Name="SignInButton" Text="Sign in" AutomationId="SignIn" Style="{StaticResource PrimaryButton}" Clicked="OnSignIn" />
                 <Label Text="You sign in on Swoovr's sign-in page in your phone's browser. Swoovr never sees your password." Style="{StaticResource FooterClaims}" />
+                <!-- Q129 / D320: the compiled product version, shown offline; never the store build number. -->
+                <Label Text="{x:Static contracts:AppVersion.CurrentDisplayVersion}" AutomationId="AppVersion" Style="{StaticResource FooterClaims}" HorizontalOptions="Center" />
             </VerticalStackLayout>
 
             <VerticalStackLayout x:Name="AccountPanel" Spacing="16" IsVisible="False">
@@ -124,6 +127,7 @@
                             <Button Text="Terms of Use" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />
                             <Button Text="Community Guidelines" AutomationId="MeCommunity" Style="{StaticResource SecondaryButton}" Clicked="OnCommunity" />
                             <Button Text="Privacy Notice" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
+                            <Label Text="{x:Static contracts:AppVersion.CurrentDisplayVersion}" AutomationId="MeAppVersion" Style="{StaticResource FooterClaims}" HorizontalOptions="Center" />
                         </VerticalStackLayout>
                     </Border>
 

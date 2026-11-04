@@ -40,7 +40,7 @@ public static class InviteOnlyPage
             <p class="invite-only-switch">Already have an account? <a href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
             </section>
             </main>
-            <footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> <a href="https://swoovr.com/support">Support</a> <button type="button" class="footer-link-button" data-privacy-open>Your Privacy Choices</button></nav><small class="app-version">Version {{WebUtility.HtmlEncode(version)}}</small></footer>
+            <footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> <a href="https://swoovr.com/support">Support</a> <button type="button" class="footer-link-button" data-privacy-open>Your Privacy Choices</button></nav><small class="app-version">{{WebUtility.HtmlEncode(version)}}</small></footer>
             </div>
             {{PrivacyChoicesMarkup.Html(measurementId)}}
             <script src="/reading-mode.js"></script><script src="/privacy-choices.js"></script>
