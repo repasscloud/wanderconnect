@@ -127,7 +127,7 @@ else
     private string ReauthHref()
     {
         var handler = Context?.Request.HasFormContentType == true ? Context.Request.Form["_handler"].ToString() : "";
-        var back = $"/accounts/{Id}/{Current}" + (System.Text.RegularExpressions.Regex.IsMatch(handler, "^[a-z0-9-]{1,80}$") ? $"?resume={handler}" : "");
+        var back = $"/accounts/{Id}/{Current}" + (System.Text.RegularExpressions.Regex.IsMatch(handler, "^[A-Za-z0-9-]{1,80}$") ? $"?resume={handler}" : "");
         return "/sign-in?reauth=true&returnUrl=" + Uri.EscapeDataString(back);
     }
 
