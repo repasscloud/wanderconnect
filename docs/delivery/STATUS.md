@@ -1,5 +1,9 @@
 # Current Swoovr delivery status
 
+## Account detail and Trust & Safety role — 4 November 2026
+
+D322 adds the owner's Trust & Safety role and role boundaries; D323 rebuilds the admin account detail page from the approved mockup (routed tabs, role-aware controls, verification overrides, set reasons, sign-in locks enforced by the API, locked member screen). Q131 (#192) and Q132 (#194) are open. Details and remaining work: [ACCOUNT-DETAIL.md](ACCOUNT-DETAIL.md), tracking #191.
+
 ## Legal approval — 2 November 2026
 
 CONFIRMED D288: owner-supplied legal/privacy/terms revisions are approved by legal per the owner. [Exact approved snapshot and issue mapping](LEGAL-APPROVAL-2026-11-02.md). D290/D310: the terms of use, community guidelines and privacy notice are in force — no draft labels anywhere, and the API catalogue serves the approved version 2026-11-02-0.2. Requiring member acceptance (Policies:RequiredVersion), deployment and operational/security/app-store acceptance are separate. Validation is recorded in VALIDATION.md.

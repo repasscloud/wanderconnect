@@ -10,6 +10,10 @@ CONFIRMED: **Keycloak is the authentication backend**. Owner corrected the earli
 | Venue partner | Dedicated email/password or email magic link | CONFIRMED; no social sign-in |
 | Admin | Dedicated email/password or email magic link | CONFIRMED; no social sign-in |
 | Support | Dedicated email/password or email magic link | CONFIRMED; no social sign-in |
+| Trust & Safety | Dedicated email/password or email magic link | CONFIRMED (D322); no social sign-in |
+| Legal | Dedicated email/password or email magic link | CONFIRMED (D189, D322); no social sign-in |
+
+CONFIRMED (D322, owner 4 November 2026): **Support** handles routine member services and minor enforcement, including restrictions up to 30 days. **Trust & Safety** has all Support capabilities plus specialist investigations, protective interventions and independent enforcement up to 90 days. **Admin** has all Support capabilities plus platform administration, staff management, final permanent termination decisions and appeals. **Legal** has independent authority over legal compliance, evidence preservation, law enforcement requests, disclosures and legal holds. Roles are server-side application records; see [account detail](../delivery/ACCOUNT-DETAIL.md).
 
 CONFIRMED: MFA is optional. Offer enrolment, recovery and clear session management; do not turn this into a mandatory-MFA requirement without an owner decision. Other sign-in providers and passkeys remain OPEN, not initial promises.
 

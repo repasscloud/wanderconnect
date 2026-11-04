@@ -2662,3 +2662,16 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - The approved notice lists essential cookies/device storage "only" for sign-in, form protection, trusted-contact access and appearance choices.
 - A: remember the country for one year once "your Safety & Support country" is added to the notice through the legal process. B (**Suggested for now**): keep the browsing-session cookie until then.
 - Built meanwhile: B.
+
+### Q131 — Staff roles in Keycloak as well as the API?
+
+- Issue: [#192](https://github.com/repasscloud/wanderconnect/issues/192). Status: OPEN, asked 4 November 2026; tracking [#191](https://github.com/repasscloud/wanderconnect/issues/191).
+- The owner asked for the Trust & Safety role to "exist in Keycloak etc too". The current design keeps roles in the API only; Keycloak has no realm roles and no role is read from a token.
+- A (**Suggested**): API-only roles, plus local fictional staff sign-ins per role. B: also mirror realm roles in the staff realm for display only. C: Keycloak roles become authoritative (reverses the design).
+- Built meanwhile: A (D324).
+
+### Q132 — Restriction: full bar or selected capabilities?
+
+- Issue: [#194](https://github.com/repasscloud/wanderconnect/issues/194). Status: OPEN, asked 4 November 2026; tracking [#191](https://github.com/repasscloud/wanderconnect/issues/191).
+- D160 (Q55) bars restricted members from the whole app; issue 190 §12 asks for restrictions that limit only chosen capabilities.
+- A (**built meanwhile**): keep D160; the admin form records the chosen limits. B: enforce only the ticked capabilities, with suspension as the full bar.

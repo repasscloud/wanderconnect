@@ -323,19 +323,17 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     assert.equal(await adminPage.locator('[data-case-status]').getAttribute('data-case-status'), 'reviewed'); pass();
     assert.ok((await call(tokens.urg, '/api/me/notices')).body.some(n => n.kind === 'warning')); pass();
     if (output) await adminPage.screenshot({ path: output + '/admin-case.png', fullPage: true });
-    await adminPage.goto(admin + `/accounts/${ids.plus}`);
+    await adminPage.goto(admin + `/accounts/${ids.plus}/membership`);
     await adminPage.waitForSelector(`[data-account="${ids.plus}"]`);
-    await adminPage.fill('form:has([data-op=grant]) input[name=reason]', 'Fictional beta tester');
-    await adminPage.click('[data-op=grant]');
-    await adminPage.waitForSelector('[data-result="403"]'); pass(); // support can't grant Plus
+    assert.ok(await adminPage.locator('[data-op=grant]').isDisabled()); pass(); // support can't grant Plus (D323; the API refuses too, above)
     await adminContext.close();
     // The root admin grants Plus from the account page.
     const rootContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const rootPage = await rootContext.newPage();
-    await rootPage.goto(admin + `/accounts/${ids.plus}`);
+    await rootPage.goto(admin + `/accounts/${ids.plus}/membership`);
     await fillRootAdmin(rootPage);
     await rootPage.waitForSelector(`[data-account="${ids.plus}"]`, { timeout: 20000 });
-    await rootPage.fill('form:has([data-op=grant]) input[name=reason]', 'Fictional beta tester');
+    await rootPage.selectOption('form:has([data-op=grant]) select[name=reasonCode]', 'beta-tester');
     await rootPage.click('[data-op=grant]');
     await rootPage.waitForSelector('[data-result=ok]'); pass();
     assert.equal(await rootPage.locator('[data-plan]').getAttribute('data-plan'), 'plus'); pass();
