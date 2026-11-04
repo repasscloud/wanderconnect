@@ -2675,3 +2675,15 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - Issue: [#194](https://github.com/repasscloud/wanderconnect/issues/194). Status: ANSWERED B (D325, supersedes D160), owner 4 November 2026; tracking [#191](https://github.com/repasscloud/wanderconnect/issues/191).
 - D160 (Q55) bars restricted members from the whole app; issue 190 §12 asks for restrictions that limit only chosen capabilities.
 - A: keep D160. B (**chosen and built**): enforce only the ticked capabilities, with suspension as the full bar.
+
+### Q133 — How do staff reach sensitive support queues from Admin?
+
+- Issue: [#204](https://github.com/repasscloud/wanderconnect/issues/204). Status: OPEN; PR [#203](https://github.com/repasscloud/wanderconnect/pull/203).
+- Sensitive helpdesk queues (Legal, Restricted T&S, Privacy, Security) require elevation, a recent sign-in and a pinned TLS client certificate per staff account (DEFAULT). The Admin host presents none, so those queues are unreachable (not leaked) in Admin.
+- A: per-staff certificates for the Admin host. B: drop the certificate rule; role + elevation + fresh direct sign-in. C (recommended): B now, desktop/managed-device check once Swoovr has attestation.
+
+### Q134 — Show emailed messages from a member's address inside the app?
+
+- Issue: [#205](https://github.com/repasscloud/wanderconnect/issues/205). Status: OPEN; PR [#203](https://github.com/repasscloud/wanderconnect/pull/203).
+- Email senders can be forged. DEFAULT (built): emailed customer messages and email-opened tickets aren't shown to members/guests; staff see them labelled "sender not verified".
+- A (recommended now): keep. B: show them marked "received by email". C: show only when SPF/DKIM/DMARC aligns with the verified address (needs the real mailbox).
