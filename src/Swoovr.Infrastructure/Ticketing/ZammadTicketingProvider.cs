@@ -8,13 +8,14 @@ namespace Swoovr.Infrastructure.Ticketing;
 
 /// <summary>Bounded Zammad 7.2.2 transport. No error bodies or customer text are included in exceptions/logs.
 /// Each instance is bound to a resolved actor credential; redirects must be disabled by the composition root.</summary>
-public sealed class ZammadTicketingProvider : ITicketingProvider
+public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvider
 {
     private readonly HttpClient http;
     private readonly Uri root;
     private readonly string token;
+    private readonly long? from;
 
-    public ZammadTicketingProvider(HttpClient http, Uri baseUrl, string token)
+    public ZammadTicketingProvider(HttpClient http, Uri baseUrl, string token, long? from = null)
     {
         if (baseUrl.Scheme != "https" && !(baseUrl.Scheme == "http" && (baseUrl.IsLoopback || baseUrl.Host == "swoovr-zammad")))
             throw new ArgumentException("Zammad requires HTTPS outside the explicit local network.");
@@ -24,6 +25,7 @@ public sealed class ZammadTicketingProvider : ITicketingProvider
         this.http = http;
         this.root = new Uri(baseUrl.AbsoluteUri.TrimEnd('/') + "/api/v1/");
         this.token = token;
+        this.from = from is null ? null : Id(from.Value);
         http.Timeout = TimeSpan.FromSeconds(20);
         http.MaxResponseContentBufferSize = 4 * 1024 * 1024;
     }
@@ -60,9 +62,10 @@ public sealed class ZammadTicketingProvider : ITicketingProvider
     public async Task<SupportTicket> CreateTicketAsync(SupportTicketDraft draft, CancellationToken ct)
     {
         ValidateText(draft.Title, 200); ValidateText(draft.Body, 16000);
+        if(draft.Source is not("member" or "staff" or "guest"))throw new ArgumentException("Invalid source.");
         if (!Guid.TryParse(draft.OperationReference, out _)) throw new ArgumentException("Invalid operation reference.");
         return ReadWrite(Ticket, await Send(HttpMethod.Post, "tickets", new { title = draft.Title, customer_id = Id(draft.CustomerId), group_id = Id(draft.GroupId),
-            swoovr_operation = draft.OperationReference, article = new { body = draft.Body, type = "note", content_type = "text/plain", @internal = false, sender = "Customer" } }, ct));
+            swoovr_operation = draft.OperationReference, swoovr_source=draft.Source, article = new { body = draft.Body, type = "note", content_type = "text/plain", @internal = false, sender = "Customer" } }, ct));
     }
 
     public async Task<SupportTicket> ChangeTicketAsync(long id, SupportTicketChange change, CancellationToken ct)
@@ -92,6 +95,7 @@ public sealed class ZammadTicketingProvider : ITicketingProvider
         bool write = method != HttpMethod.Get;
         using var request = new HttpRequestMessage(method, new Uri(root, path));
         request.Headers.Authorization = new AuthenticationHeaderValue("Token", "token=" + token);
+        if(from is long actor) request.Headers.TryAddWithoutValidation("From",actor.ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (payload is not null) request.Content = JsonContent.Create(payload);
         try
@@ -120,10 +124,27 @@ public sealed class ZammadTicketingProvider : ITicketingProvider
     private static string Text(JsonElement e, string name) => e.GetProperty(name).GetString() ?? throw new TicketingProviderException("provider-schema");
     private static SupportCustomer Customer(JsonElement e) => Read(() => new SupportCustomer(e.GetProperty("id").GetInt64(), Text(e, "login"), e.TryGetProperty("email", out var email) && email.ValueKind == JsonValueKind.String ? email.GetString() : null, e.GetProperty("active").GetBoolean()));
     private static SupportTicket Ticket(JsonElement e) => Read(() => new SupportTicket(e.GetProperty("id").GetInt64(), Text(e, "number"), Text(e, "title"), e.GetProperty("customer_id").GetInt64(),
-        e.GetProperty("group_id").GetInt64(), e.GetProperty("owner_id").GetInt64(), e.GetProperty("state_id").GetInt64(), e.GetProperty("priority_id").GetInt64(), e.GetProperty("updated_at").GetDateTimeOffset(), e.TryGetProperty("swoovr_operation", out var operation) && operation.ValueKind == JsonValueKind.String ? operation.GetString() : null));
+        e.GetProperty("group_id").GetInt64(), e.GetProperty("owner_id").GetInt64(), e.GetProperty("state_id").GetInt64(), e.GetProperty("priority_id").GetInt64(), e.GetProperty("updated_at").GetDateTimeOffset(), e.TryGetProperty("swoovr_operation", out var operation) && operation.ValueKind == JsonValueKind.String ? operation.GetString() : null) { Classification = new[]{"swoovr_category","swoovr_subcategory","swoovr_sensitivity","swoovr_resolution","swoovr_source"}.Where(k=>e.TryGetProperty(k,out var v)&&v.ValueKind==JsonValueKind.String).ToDictionary(k=>k,k=>e.GetProperty(k).GetString()!) });
     private static SupportArticle Article(JsonElement e) => Read(() => new SupportArticle(e.GetProperty("id").GetInt64(), e.GetProperty("ticket_id").GetInt64(), Text(e, "body"), Text(e, "content_type"),
         e.GetProperty("internal").GetBoolean(), Text(e, "sender"), e.GetProperty("created_at").GetDateTimeOffset(), e.GetProperty("attachments").EnumerateArray().Select(a => new SupportAttachment(a.GetProperty("id").GetInt64(), Text(a,"filename"),
-            a.GetProperty("preferences").TryGetProperty("Content-Type", out var type) ? type.GetString() ?? "application/octet-stream" : "application/octet-stream", a.GetProperty("size").GetInt64())).ToArray()));
+            AttachmentType(a), AttachmentSize(a))).ToArray()) {AuthorId=e.TryGetProperty("created_by_id",out var author)?author.GetInt64():null,OperationReference=ArticleOperation(e)});
+    private static string? ArticleOperation(JsonElement e)
+    {
+        // Customer articles deliberately discard arbitrary preferences in 7.2.2. Message-ID is a verified persisted field.
+        if(e.TryGetProperty("message_id",out var message)&&message.ValueKind==JsonValueKind.String&&message.GetString() is {} id&&
+            id.StartsWith("swoovr-operation-",StringComparison.Ordinal)&&id.EndsWith("@swoovr.invalid",StringComparison.Ordinal)&&id.Length==68&&Guid.TryParseExact(id[17..53],"D",out var operation))return operation.ToString("D");
+        return e.TryGetProperty("preferences",out var preferences)&&preferences.ValueKind==JsonValueKind.Object&&preferences.TryGetProperty("swoovr_operation",out var marker)&&marker.ValueKind==JsonValueKind.String?marker.GetString():null;
+    }
+    private static string AttachmentType(JsonElement a)
+    {
+        var preferences=a.GetProperty("preferences");
+        return preferences.TryGetProperty("Mime-Type",out var type)||preferences.TryGetProperty("Content-Type",out type)?type.GetString()??"application/octet-stream":"application/octet-stream";
+    }
+    private static long AttachmentSize(JsonElement a)
+    {
+        var value=a.GetProperty("size");
+        return value.ValueKind==JsonValueKind.Number?value.GetInt64():long.Parse(value.GetString()!,System.Globalization.CultureInfo.InvariantCulture);
+    }
     private static T ReadWrite<T>(Func<JsonElement, T> parse, JsonElement value)
     {
         try { return parse(value); }

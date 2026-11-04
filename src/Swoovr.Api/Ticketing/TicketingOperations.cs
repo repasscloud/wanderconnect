@@ -28,6 +28,7 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
         if (row.ProviderUserId is long mapped)
         {
             // Numeric mapping is identity; a changed/matching address never relinks a customer.
+            if(identityProvider is ITicketingWorkspaceProvider workspace) TicketingActorFactory.ValidateCustomer(await workspace.UserAsync(mapped,ct),accountId);
             var updated = await identityProvider.UpdateCustomerAsync(mapped, verifiedEmail, true, ct);
             if (updated.Id != mapped || updated.Login != TicketingPolicy.MemberLogin(accountId)) throw new TicketingProviderException("provider-identity-mismatch");
             return mapped;
@@ -43,6 +44,7 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
                 customer = await identityProvider.CreateCustomerAsync(login, verifiedEmail, ct);
             }
             if (customer.Login != login || !customer.Active) throw new TicketingProviderException("provider-identity-mismatch");
+            if(identityProvider is ITicketingWorkspaceProvider currentProvider) TicketingActorFactory.ValidateCustomer(await currentProvider.UserAsync(customer.Id,ct),accountId);
             if (customer.Email != verifiedEmail) customer = await identityProvider.UpdateCustomerAsync(customer.Id, verifiedEmail, true, ct);
             row.ProviderUserId = customer.Id;
             row.State = TicketingOperationState.Applied;
@@ -104,6 +106,38 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
             operation.UpdatedAt = clock.GetUtcNow();
             await SaveOutcomeAsync();
             throw;
+        }
+    }
+
+    /// <summary>Composable idempotent lifecycle reconciliation. Never creates a customer or changes its numeric mapping.
+    /// Account deletion/lock suppresses provider delivery before a later worker retry; a cancelled deletion restores only the same canonical customer.</summary>
+    public async Task<long?> SyncLifecycleAsync(Guid accountId,CancellationToken ct)
+    {
+        await using var lease=await AccountLifecycleLease.AcquireAsync(db,accountId,ct);
+        var row=await db.Set<TicketingIdentity>().SingleOrDefaultAsync(i=>i.AccountId==accountId,ct);
+        if(row?.ProviderUserId is not long id)return null;
+        var account=await db.Accounts.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==accountId&&a.Realm==AccountRealm.Members,ct);
+        var active=account?.Status==AccountStatus.Active;
+        var email=active?account!.Email:null;
+        if(identityProvider is ITicketingWorkspaceProvider workspace)
+        {
+            var user=await workspace.UserAsync(id,ct);
+            TicketingActorFactory.ValidateCustomer(user,accountId,requireActive:false);
+            if(active&&!user.Active&&row.DeactivatedAt is null)throw new TicketingAccessException(403,"ticket-customer-inactive");
+            if(row.State==TicketingOperationState.Applied&&user.Active==active&&user.Email==email&&(row.DeactivatedAt is null)==active)return id;
+        }
+        if(!active)row.DeactivatedAt??=clock.GetUtcNow();
+        row.State=TicketingOperationState.Pending;row.UpdatedAt=clock.GetUtcNow();await db.SaveChangesAsync(ct);
+        try
+        {
+            var customer=await identityProvider.UpdateCustomerAsync(id,email,active,ct);
+            if(customer.Id!=id||customer.Login!=TicketingPolicy.MemberLogin(accountId)||customer.Active!=active)throw new TicketingProviderException("provider-identity-mismatch",true);
+            row.State=TicketingOperationState.Applied;if(active)row.DeactivatedAt=null;
+            row.UpdatedAt=clock.GetUtcNow();await SaveOutcomeAsync();return id;
+        }
+        catch(TicketingProviderException error)
+        {
+            row.State=error.Uncertain?TicketingOperationState.Uncertain:TicketingOperationState.Rejected;row.UpdatedAt=clock.GetUtcNow();await SaveOutcomeAsync();throw;
         }
     }
 

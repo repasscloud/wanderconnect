@@ -4,11 +4,15 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
+if(args is ["--ticketing-lifecycle-live",var lifecyclePath]){await TicketingLifecycleLiveChecks.Run(lifecyclePath);return;}
+
+if(args is ["--ticketing-client-live",var path]){await TicketingClientLiveChecks.Run(path);return;}
+
 if(args is ["--ticketing-persistence-checks"]){await PersistenceChecks.Run(ticketingOnly:true);return;}
 
 if(args is ["--zammad-live", var privateDirectory]){await ZammadLiveChecks.Run(privateDirectory);return;}
 
-if(args is ["--ticketing-checks"]){TicketingChecks.Run();TicketingWebhookChecks.Run();await ZammadTransportChecks.Run();return;}
+if(args is ["--ticketing-checks"]){TicketingRuntimeChecks.Run();TicketingChecks.Run();TicketingWebhookChecks.Run();await ZammadTransportChecks.Run();return;}
 
 if(args is ["--media-checks"]){MediaChecks.Run();return;}
 if(args is ["--device-client-checks"]){await DeviceClientChecks.Run();return;}
@@ -28,7 +32,7 @@ if(args is ["--contact-provider-probe"])
 
 if(args is ["--policy-checks"]){PublicPolicyChecks.Run();PolicyNoticeChecks.Run();await PersistenceChecks.Run(policiesOnly:true);return;}
 
-TicketingChecks.Run();
+TicketingRuntimeChecks.Run();TicketingChecks.Run();
 TicketingWebhookChecks.Run();
 await ZammadTransportChecks.Run();
 HostingPolicyChecks.Run();

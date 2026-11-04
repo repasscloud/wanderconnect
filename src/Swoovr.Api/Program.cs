@@ -10,10 +10,13 @@ using Swoovr.Infrastructure.Persistence;
 if (args.Length > 0 && !args[0].StartsWith('-')) return await Cli.RunAsync(args);
 var builder = WebApplication.CreateBuilder(args);
 HostRuntime.Configure(builder,HostKind.Api);
+if(builder.Configuration["Ticketing:ConfigurationFile"] is {Length:>0} ticketingConfiguration) builder.Configuration.AddJsonFile(ticketingConfiguration,optional:false,reloadOnChange:false);
+Swoovr.Api.Ticketing.TicketingHosting.Configure(builder);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
 builder.Services.AddScoped<AccountResolver>();
+builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingActorFactory>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Founders>();
 // D147, D169: Didit and the members realm's deletion client, from configuration only (locally .local/docker.env).
@@ -69,6 +72,7 @@ if (persistence && app.Environment.IsDevelopment())
     await Swoovr.Api.Notifications.PushDeviceMaintenance.ProtectLegacyAsync(db, scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>(), CancellationToken.None);
 }
 app.Use(async(context,next)=>{if(context.Request.Path.StartsWithSegments("/api/safety/meeting-contact")||context.Request.Path.StartsWithSegments("/api/me/meeting-safety")){context.Response.Headers.CacheControl="no-store";context.Response.Headers["Referrer-Policy"]="no-referrer";context.Response.Headers["X-Robots-Tag"]="noindex, nofollow, noarchive";}await next();});
+Swoovr.Api.Ticketing.TicketingHosting.Use(app);
 app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<IdentifierCheckMiddleware>();
@@ -112,6 +116,7 @@ Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 if(persistence){Swoovr.Api.Policies.PolicyEndpoints.Map(app);Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Ticketing.TicketingWebhookEndpoints.Map(app);
+Swoovr.Api.Ticketing.TicketingEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);

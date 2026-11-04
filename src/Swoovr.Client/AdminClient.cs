@@ -7,7 +7,7 @@ namespace Swoovr.Client;
 /// The protected admin API routes (D136), used server-side by Swoovr.Admin with the signed-in staff member's token.
 /// Never given to the member WebAssembly client or the member BFF. Every rule is the API's; this only carries requests.
 /// </summary>
-public sealed class AdminClient(HttpClient transport)
+public sealed partial class AdminClient(HttpClient transport)
 {
     public Task<ApiResult<RegisteredNamesView>> RegisteredNamesAsync(Guid id,CancellationToken token=default)=>SendAsync<RegisteredNamesView>(HttpMethod.Get,$"api/admin/accounts/{id}/registered-names",null,token);
     public Task<ApiResult<StaffAgeAssurance>> AssuranceAsync(Guid id,CancellationToken token=default)=>SendAsync<StaffAgeAssurance>(HttpMethod.Get,$"api/admin/accounts/{id}/assurance",null,token);

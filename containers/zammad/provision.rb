@@ -13,7 +13,7 @@ names = [
 ]
 groups = names.to_h do |name|
   group = Group.find_or_initialize_by(name: name)
-  group.assign_attributes(active: true, created_by_id: actor, updated_by_id: actor)
+  group.assign_attributes(active: true, follow_up_possible: 'yes', created_by_id: actor, updated_by_id: actor)
   group.save!
   [name, group.id]
 end
@@ -74,6 +74,15 @@ notification.save!
     position: 1000, created_by_id: actor, updated_by_id: actor)
 end
 ObjectManager::Attribute.migration_execute if ObjectManager::Attribute.pending_migration?
+# DEFAULT ordinary correspondence templates. Operators may author further permission-scoped templates.
+text = TextModule.find_or_initialize_by(name: 'Swoovr support acknowledgement')
+text.assign_attributes(content: 'Thank you for contacting Swoovr support. We will review your request.', active: true,
+  created_by_id: actor, updated_by_id: actor)
+text.save!
+macro = Macro.find_or_initialize_by(name: 'Swoovr close ticket')
+macro.assign_attributes(perform: {'ticket.state_id' => {'value' => Ticket::State.find_by!(name: 'closed').id}},
+  active: true, ux_flow_next_up: 'none', created_by_id: actor, updated_by_id: actor)
+macro.save!
 # Webhook/trigger kept inactive until the secured API is composed and tested. No false delivery claim.
 webhook = Webhook.find_or_initialize_by(name: 'Swoovr events')
 webhook.assign_attributes(endpoint: 'http://swoovr-platform:5080/api/integrations/zammad/events',

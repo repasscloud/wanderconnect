@@ -51,7 +51,7 @@ def initialize(path=ENV):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'provision', 'reset'])
+    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'provision', 'runtime', 'reset'])
     parser.add_argument('--delete-local-data', action='store_true')
     result = parser.parse_args(args)
     if result.action == 'reset' and not result.delete_local_data:
@@ -63,6 +63,24 @@ def compose(*args):
     return subprocess.run(['docker', 'compose', '--project-name', 'swoovr-zammad',
         '--env-file', str(ENV), '-f', str(ROOT / 'containers/zammad/compose.upstream.yaml'),
         '-f', str(ROOT / 'containers/zammad/compose.local.yaml'), *args], check=True)
+
+
+def provision_runtime(staff, config, output=None, reconcile=False):
+    import json
+    target = output or ENV.parent
+    subprocess.run(['docker', 'cp', str(ROOT / 'containers/zammad/runtime-staff.rb'), 'swoovr-zammad-zammad-railsserver-1:/tmp/swoovr-runtime-staff.rb'], check=True, stdout=subprocess.DEVNULL)
+    result = subprocess.run(['docker', 'exec', '-i', 'swoovr-zammad-zammad-railsserver-1', 'bundle', 'exec', 'rails', 'runner', '/tmp/swoovr-runtime-staff.rb'], input=json.dumps({'staff': staff, 'reconcile': reconcile}), capture_output=True, text=True)
+    if result.returncode:
+        private_write(target / 'runtime-provision-error.log', result.stdout + result.stderr)
+        raise RuntimeError('Runtime staff provisioning failed; inspect private diagnostics.')
+    prefix = 'SWOOVR_RUNTIME_STAFF='
+    rows = json.loads(next(line[len(prefix):] for line in result.stdout.splitlines() if line.startswith(prefix)))
+    settings = {'Ticketing': {'Zammad': {'BaseUrl': 'http://swoovr-zammad/', 'IdentityToken': config['identity_token'], 'Staff': rows}}}
+    private_write(target / 'api.json', json.dumps(settings))
+    lines = ['Ticketing__Zammad__BaseUrl=http://swoovr-zammad/', 'Ticketing__Zammad__IdentityToken=' + config['identity_token']]
+    lines.extend('Ticketing__Zammad__Staff__' + key + '__Token=' + row['Token'] for key, row in rows.items())
+    private_write(target / 'api.env', '\n'.join(lines) + '\n')
+    return settings
 
 
 def main():
@@ -106,6 +124,14 @@ def main():
         target = ENV.parent / 'provisioned.json'
         private_write(target, json.dumps(data))
         print('Provisioned Zammad ' + data['version'] + '; groups: ' + str(len(data['groups'])))
+    elif args.action == 'runtime':
+        import json
+        config = json.loads((ENV.parent / 'provisioned.json').read_text())
+        result = subprocess.run(['docker', 'exec', 'swoovr-platform-postgres-1', 'psql', '-p', '5433', '-U', 'swoovr', '-d', 'swoovr', '-At', '-v', 'ON_ERROR_STOP=1', '-c',
+            "SELECT coalesce(json_agg(s), '[]'::json) FROM (SELECT a.id, array_remove(array_agg(DISTINCT r.role),NULL) || CASE WHEN a.is_root_admin THEN ARRAY['Admin'] ELSE ARRAY[]::text[] END roles FROM accounts a LEFT JOIN role_grants r ON r.account_id=a.id WHERE a.realm='Staff' AND a.status='Active' GROUP BY a.id,a.is_root_admin) s"], capture_output=True, text=True, check=True)
+        staff = json.loads(result.stdout)
+        provision_runtime(staff, config, reconcile=True)
+        print('Provisioned per-staff runtime credentials and private API configuration.')
     elif args.action == 'down':
         compose('down')
     elif args.action == 'status':

@@ -3,11 +3,18 @@ namespace Swoovr.Domain;
 // Conversations, group/assignment/state and article bodies are projections fetched from the provider, never EF entities.
 public sealed record SupportCustomer(long Id, string Login, string? Email, bool Active);
 public sealed record SupportTicket(long Id, string Number, string Title, long CustomerId, long GroupId, long OwnerId,
-    long StateId, long PriorityId, DateTimeOffset UpdatedAt, string? OperationReference = null);
+    long StateId, long PriorityId, DateTimeOffset UpdatedAt, string? OperationReference = null)
+{
+    public IReadOnlyDictionary<string,string> Classification { get; init; } = new Dictionary<string,string>();
+}
 public sealed record SupportAttachment(long Id, string Filename, string ContentType, long Size);
 public sealed record SupportArticle(long Id, long TicketId, string Body, string ContentType, bool Internal, string Sender,
-    DateTimeOffset CreatedAt, IReadOnlyList<SupportAttachment> Attachments);
-public sealed record SupportTicketDraft(string Title, string Body, long CustomerId, long GroupId, string OperationReference);
+    DateTimeOffset CreatedAt, IReadOnlyList<SupportAttachment> Attachments)
+{
+    public string? OperationReference { get; init; }
+    public long? AuthorId { get; init; }
+}
+public sealed record SupportTicketDraft(string Title, string Body, long CustomerId, long GroupId, string OperationReference,string Source="member");
 public sealed record SupportTicketChange(long? GroupId = null, long? OwnerId = null, long? StateId = null, long? PriorityId = null);
 
 /// <summary>Implemented with a credential whose provider permissions match the resolved actor; never a universal agent token.</summary>

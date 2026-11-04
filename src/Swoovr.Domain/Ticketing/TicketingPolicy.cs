@@ -11,6 +11,8 @@ public static class TicketingPolicy
 
     public static string MemberLogin(Guid memberId) => $"swoovr-{memberId:D}";
 
+    public static bool CanTransfer(AccountRole role,string group) => CanAccessGroup(role,group) || group == "Trust & Safety — Restricted" && role is AccountRole.Support or AccountRole.Admin;
+
     public static bool CanAccessGroup(AccountRole role, string group) => group switch
     {
         "Legal & Law Enforcement" => role == AccountRole.Legal,

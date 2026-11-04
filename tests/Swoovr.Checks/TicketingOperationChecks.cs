@@ -56,6 +56,20 @@ internal static class TicketingOperationChecks
         }
         var tickets = await Task.WhenAll(CreateConcurrent(),CreateConcurrent());
         check("concurrent identical ticket operation writes once", tickets.All(ticket=>ticket.Id==99) && concurrentProvider.TicketCreates==1);
+        await using(var lifecycle=new SwoovrDbContext(options))
+        {
+            var now=DateTimeOffset.UtcNow;
+            lifecycle.Add(new Account{Id=account,Issuer="https://fictional-lifecycle.invalid",Subject=account.ToString(),Realm=AccountRealm.Members,Email="changed@example.test",Status=AccountStatus.PendingDeletion,CreatedAt=now,LastSeenAt=now});
+            await lifecycle.SaveChangesAsync();
+            var service=new TicketingOperations(lifecycle,fake,fake,TimeProvider.System);
+            await service.SyncLifecycleAsync(account,default);
+            check("inactive account deactivates original provider customer and clears delivery address",fake.Customer is{Active:false,Email:null}&&await lifecycle.Set<TicketingIdentity>().AnyAsync(i=>i.AccountId==account&&i.DeactivatedAt!=null));
+            var owner=await lifecycle.Accounts.SingleAsync(a=>a.Id==account);owner.Status=AccountStatus.Active;await lifecycle.SaveChangesAsync();
+            var recovered=await service.SyncLifecycleAsync(account,default);
+            check("account lifecycle recovery restores same canonical numeric mapping without creation",recovered==42&&fake.Customer is{Active:true,Email:"changed@example.test"}&&fake.CustomerCreates==1);
+            lifecycle.Remove(owner);await lifecycle.SaveChangesAsync();
+        }
+
     }
 
     private sealed class Provider(long customerId = 42) : ITicketingProvider
