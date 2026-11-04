@@ -1,5 +1,9 @@
 # Current Swoovr delivery status
 
+## Zammad integration foundations — 4 November 2026
+
+Implementation is in progress under the authorised handoff. A real local Zammad 7.2.2 stack, repeatable thirteen-group provisioning, bounded typed adapter, minimal durable integration state, conservative uncertain-write orchestration and secured ids-only webhook intake are present. Provider/customer/private-note/transfer and signed-webhook acceptance have local evidence. **The complete integration is not implemented:** member Web/MAUI and Admin journeys, guest backend grants, full staff capabilities, appeal links, notification processing/reconciliation and full email/restore acceptance remain pending. The normal provisioned webhook/trigger stays inactive. [Coverage and continuation ledger](zammad/IMPLEMENTATION.md), [API boundary](zammad/API.md), [local setup](../../containers/zammad/README.md). No merge/deployment or public website is claimed.
+
 ## Account detail and Trust & Safety role — 4 November 2026
 
 D322 adds the owner's Trust & Safety role and role boundaries; D323 rebuilds the admin account detail page from the approved mockup (routed tabs, role-aware controls, verification overrides, set reasons, sign-in locks enforced by the API, locked member screen). Q131 A (#192, D324: roles stay API records) and Q132 B (#194, D325: restrictions limit only what they name; supersedes D160) are answered and built. Details and remaining work: [ACCOUNT-DETAIL.md](ACCOUNT-DETAIL.md), tracking #191.

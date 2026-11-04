@@ -64,3 +64,8 @@ Application email remains an Infrastructure adapter composed by API/operator com
 Private member appearance uses existing Domain/Infrastructure persistence and API-owned authorization/revision/lifecycle checks. The typed client/portable cache remain client-safe. See [APPEARANCE-ACCOUNT-CONTRACT.md](APPEARANCE-ACCOUNT-CONTRACT.md), D277; actual UI/storage wiring is the next appearance slice.
 
 D279 compiles the same server-only `src/Hosting` source into Api, Web and Admin. It owns hosted configuration/proxy/security-header composition, with no extra project or UI dependency on API/Infrastructure/Domain. The API separately owns database/schema/restore readiness; portals make a bounded health request to the API. See [hosted configuration](../delivery/HOSTED-CONFIGURATION-AND-HEALTH.md). Existing typed clients and authentication ownership are unchanged.
+
+
+### Ticketing integration foundations (DEFAULT, 4 November 2026)
+
+Zammad owns correspondence, queues, state and assignment; Swoovr retains authoritative reports/cases/evidence/enforcement/appeal outcomes. The existing Domain owns `ITicketingProvider` and safe projections; Infrastructure owns the typed Zammad HTTP adapter and EF mappings; API owns durable customer/write orchestration and signed webhook intake. Integration state stores identifiers, request/body digests and recovery clocks, never a second conversation store. Existing report references are unchanged. No project is added. [Current coverage and remaining work](../delivery/zammad/IMPLEMENTATION.md) distinguish these foundations from unimplemented member/guest/staff client workflows. The external provider's `/api/v1` never changes Swoovr's stable date-versioned routes.

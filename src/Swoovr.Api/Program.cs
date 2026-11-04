@@ -111,6 +111,7 @@ Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 if(persistence){Swoovr.Api.Policies.PolicyEndpoints.Map(app);Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
+Swoovr.Api.Ticketing.TicketingWebhookEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);
