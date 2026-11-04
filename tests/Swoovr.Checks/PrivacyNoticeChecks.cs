@@ -14,7 +14,11 @@ static class PrivacyNoticeChecks
         string Text(string id) => string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == id).Paragraphs);
         var all = string.Join(" ", PrivacyNotice.Sections.SelectMany(s => s.Paragraphs));
 
-        Expect(!PrivacyNotice.StatusLabel.Contains("DRAFT", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("approved"), "approved notice label");
+        Expect(!PrivacyNotice.StatusLabel.Contains("draft", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("version 0.18") && PrivacyNotice.Version.StartsWith("0.18"), "notice label names its version, never draft");
+        // Issue 186 (Q130 A): the persistent Safety & Support country is disclosed with its limits.
+        var device = string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == "device").Paragraphs);
+        Expect(device.Contains("up to 12 months") && device.Contains("not used to determine your physical location") && device.Contains("personalise advertising") && device.Contains("change your country selection"), "country preference disclosed with its limits");
+        Expect(string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == "collect").Paragraphs).Contains("manually selected Safety & Support country"), "country preference listed under what we collect");
         Expect(PrivacyNotice.Sections.Select(s => s.Id).Distinct().Count() == PrivacyNotice.Sections.Count, "unique section ids");
         Expect(Text("identity").Contains("legal first and last name") && Text("identity").Contains("issuing country") && Text("identity").Contains("expiry date"), "the identity record's fields (D191)");
         Expect(Text("identity").Contains("never keep your document number, address, document images, selfie, liveness or biometric data"), "what's never kept");
@@ -48,6 +52,6 @@ static class PrivacyNoticeChecks
             && Text("international").Contains("Biometric Information Privacy Act"), "CCPA disclosures, US state appeals and biometric retention policy");
         Expect(Text("choices").Contains("access") && Text("choices").Contains("correct") && Text("choices").Contains("30 days"), "access, correction and complaint handling (APP 1.4(d)–(e))");
         Expect(Text("sharing").Contains("Didit") && Text("sharing").Contains("Twilio") && Text("sharing").Contains("MailerSend"), "service providers named");
-        Console.WriteLine($"PASS: approved privacy notice ({checks}).");
+        Console.WriteLine($"PASS: privacy notice version 0.18 ({checks}).");
     }
 }

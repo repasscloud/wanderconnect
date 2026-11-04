@@ -124,7 +124,15 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     assert.equal(await page.locator('[data-country-form] button:visible').count(), 0, 'no confirmation button'); pass();
     await Promise.all([page.waitForURL(/country=NZ/), page.selectOption('[data-country-select]', 'NZ')]);
     const remembered = (await phone.cookies()).find(c => c.name === 'swoovr.safety-country');
-    assert.ok(remembered && remembered.value === 'NZ' && remembered.httpOnly && remembered.expires * 1000 > Date.now() + 300 * 86400000, 'manual country remembered for a year (Q130 A)'); pass();
+    assert.ok(remembered && remembered.value === 'NZ' && remembered.httpOnly && remembered.path === '/safety' && remembered.expires * 1000 > Date.now() + 300 * 86400000 && remembered.expires * 1000 <= Date.now() + 366 * 86400000, 'manual country remembered for at most 12 months, scoped to /safety (issue 186)'); pass();
+    // Issue 186: a later visit restores it; a new choice replaces it; clearing it falls back; automatic countries are never saved.
+    await page.goto(web + '/safety'); await page.waitForSelector('[data-safety-page="NZ"]'); pass();
+    await Promise.all([page.waitForURL(/country=AU/), page.selectOption('[data-country-select]', 'AU')]);
+    assert.equal((await phone.cookies()).find(c => c.name === 'swoovr.safety-country')?.value, 'AU', 'a new choice replaces the saved one'); pass();
+    await phone.clearCookies(); await page.goto(web + '/safety');
+    assert.notEqual(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'manual', 'cleared preference falls back'); pass();
+    assert.equal((await phone.cookies()).some(c => c.name === 'swoovr.safety-country'), false, 'an automatic country is never saved as a choice'); pass();
+    await Promise.all([page.waitForURL(/country=NZ/), page.selectOption('[data-country-select]', 'NZ')]);
     await page.waitForSelector('[data-safety-page="NZ"]');
     assert.equal(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'manual'); pass();
     assert.ok(await page.locator('[data-safety-warning]').count() === 1, 'not-ready packs warn'); pass();

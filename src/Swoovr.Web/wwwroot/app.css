@@ -554,7 +554,9 @@ body:has(.public-layout) { padding-bottom: 0; }
 .home-heading { width: 100%; max-width: 440px; }
 .home-heading h1 { font: 700 clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem)/1.02 var(--font); letter-spacing: -1.2px; max-width: none; margin-bottom: 16px; }
 .home-lede { font: 400 1.0625rem/1.55 var(--font); color: var(--muted); margin-bottom: 0; }
-.home-actions { max-width: none; }
+/* Issue 187: Sign in and Create account are the same size, side by side, never oversized. */
+.home-actions { max-width: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.home .home-actions .primary-button, .home .home-actions .button { width: 100%; max-width: none; min-height: 48px; margin: 0; padding: 0 16px; font-size: .9375rem; }
 @media (min-width: 900px) {
   .home { max-width: 1040px; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); align-items: center; gap: 80px; min-height: calc(100svh - 260px); padding-block: 24px; }
   .home .welcome-context { justify-self: end; width: 100%; }

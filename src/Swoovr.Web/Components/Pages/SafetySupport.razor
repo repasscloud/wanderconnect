@@ -145,7 +145,7 @@
         // Q130 A: a manual choice is remembered for one year; a new choice replaces it. Only the country code is stored.
         var manual = SafetyText.Manual(Country);
         if (manual is not null)
-            HttpContext.Response.Cookies.Append(Cookie, manual, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = HttpContext.Request.IsHttps, IsEssential = true, MaxAge = TimeSpan.FromDays(365) });
+            HttpContext.Response.Cookies.Append(Cookie, manual, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = HttpContext.Request.IsHttps, IsEssential = true, MaxAge = TimeSpan.FromDays(365), Path = "/safety" });
         manual ??= SafetyText.Manual(HttpContext.Request.Cookies[Cookie]);
         var trusted = !Environment.IsDevelopment() && Configuration.GetValue("Location:CloudflareHeaders", false);
         var (fallbackCountry, fallbackSource) = SafetyText.Default(HttpContext.Request.Headers["CF-IPCountry"], trusted, Configuration["Safety:FallbackCountry"]);
