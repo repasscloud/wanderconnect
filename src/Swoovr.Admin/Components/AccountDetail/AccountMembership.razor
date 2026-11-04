@@ -1,0 +1,75 @@
+@inject AdminClient Admin
+@* issue 190 §8: complimentary access with set reasons. A grant never changes or cancels a paid subscription; the entitlement
+   service applies the highest valid tier (D151). *@
+@{ var active = Account.Entitlements.FirstOrDefault(e => e.Valid && e.Source == "adminGrant"); }
+<div class="ad-strip ad-strip-3">
+    <div class="ad-stat"><span>Effective plan</span><b data-plan="@Account.Plan">@AccountLabels.Plan(Account.Plan)</b><small>@(active is not null ? $"Complimentary until {active.EndsAt:d MMM yyyy}" : Account.Founder ? "Founding member" : "No complimentary access")</small></div>
+    <div class="ad-stat"><span>Paid subscription</span><b>@(Account.Entitlements.Any(e => e.Valid && e.Source == "subscription") ? "Active" : "None")</b><small>Not changed by complimentary access</small></div>
+    <div class="ad-stat"><span>Precedence</span><b>Highest tier applies</b><small>Paid billing continues unchanged</small></div>
+</div>
+<section class="ui-card">
+    <div class="ui-card-head"><h2>Grant complimentary access</h2>@if (Permissions?.Membership != true) {<RoleNote />}</div>
+    <form method="post" @formname="grant" @onsubmit="GrantAsync" class="ad-form-row" data-enhance="true">
+        <AntiforgeryToken />
+        <fieldset disabled="@(Permissions?.Membership != true)" class="ad-fieldset">
+            <label class="ui-field"><span>Tier</span><select name="tier"><option value="plus">Plus</option><option value="premium">Premium</option></select></label>
+            <label class="ui-field"><span>Duration</span><select name="days"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="180">180 days</option><option value="365">1 year</option></select></label>
+            <ReasonField Reasons="AccountReasons.GrantComp" />
+            <label class="ui-field ad-grow"><span>Internal note</span><input name="note" maxlength="500" placeholder="Optional" /></label>
+            <button type="submit" data-op="grant">Grant</button>
+        </fieldset>
+    </form>
+</section>
+<h2 class="ad-h2">Grants</h2>
+@if (Account.Entitlements.Count == 0) { <p class="ui-help" data-entitlements="0">No grants.</p> }
+else
+{
+    <div class="ui-table table-scroll" role="region" aria-label="Grants" tabindex="0">
+        <table data-entitlements="@Account.Entitlements.Count">
+            <thead><tr><th scope="col">Tier</th><th scope="col">Source</th><th scope="col">From</th><th scope="col">Until</th><th scope="col">Reason</th><th scope="col">State</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                @foreach (var e in Account.Entitlements)
+                {
+                    <tr data-entitlement="@e.Id" data-valid="@(e.Valid ? "true" : "false")">
+                        <td><strong>@AccountLabels.Plan(e.Tier)</strong></td><td>@AccountLabels.Source(e.Source)</td><td>@e.StartsAt.ToString("d MMM yyyy")</td><td>@(e.EndsAt?.ToString("d MMM yyyy") ?? "Open")</td>
+                        <td>@e.Reason@if (e.Note is not null) {<span class="ui-sub">@e.Note</span>}</td>
+                        <td>@if (e.RevokedAt is not null) {<span class="ui-pill" data-tone="quiet">Revoked @(e.RevokedReason is null ? "" : "· " + AccountLabels.Reason(e.RevokedReason))</span>} else if (e.Valid) {<span class="ui-pill" data-tone="approve">Active</span>} else {<span class="ui-pill" data-tone="quiet">Ended</span>}</td>
+                        <td class="ad-right">@if (e.RevokedAt is null && e.Valid && e.Source == "adminGrant" && Permissions?.Membership == true) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"revoke-{e.Id}")" data-op="revoke-grant">Revoke…</button>}</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+@foreach (var e in Account.Entitlements.Where(e => e.RevokedAt is null && e.Valid && e.Source == "adminGrant"))
+{
+    <ConfirmDialog Id="@($"revoke-{e.Id}")" FormName="@($"revoke-{e.Id}")" Title="@($"Revoke {AccountLabels.Plan(e.Tier)} grant")" Confirm="Revoke" OnSubmit="() => RevokeAsync(e.Id)">
+        <ReasonField Reasons="AccountReasons.RevokeComp" />
+        <p class="ui-help">The member keeps any paid subscription. The grant stays in history.</p>
+    </ConfirmDialog>
+}
+@code {
+    [Parameter, EditorRequired] public AccountAdminSummary Account { get; set; } = null!;
+    [Parameter] public AccountPermissionsView? Permissions { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public Action<(int Status, string? Code, string Done)>? Report { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task GrantAsync()
+    {
+        var days = int.TryParse(Field("days"), out var d) ? d : 90;
+        // The set reason's label is the grant's reason (staff read it in history); the code list keeps it to approved reasons.
+        var reason = AccountReasons.Valid(AccountReasons.GrantComp, Field("reasonCode")) ? AccountReasons.Label(Field("reasonCode")) : "";
+        var note = Field("note").Trim();
+        var result = await Admin.GrantAsync(Account.Id, new EntitlementGrant(Field("tier"), null, DateTimeOffset.UtcNow.AddDays(days), reason, note.Length == 0 ? null : note));
+        Report?.Invoke((result.Status, result.Code, $"{AccountLabels.Plan(Field("tier"))} granted for {days} days."));
+        await Changed.InvokeAsync();
+    }
+    private async Task RevokeAsync(Guid grant)
+    {
+        var result = await Admin.RevokeGrantAsync(grant, Field("reasonCode"));
+        Report?.Invoke((result.Status, result.Code, "Grant revoked."));
+        await Changed.InvokeAsync();
+    }
+}

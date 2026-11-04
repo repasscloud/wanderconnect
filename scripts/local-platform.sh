@@ -201,6 +201,10 @@ case "$command" in
     subject=$(cat "$state/admin-subject")
     [[ "$subject" =~ ^[a-f0-9-]{36}$ ]]
     dc exec -T api dotnet Swoovr.Api.dll root-admin grant "$subject"
+    while IFS=$'\t' read -r staff_subject staff_role; do
+      [[ "$staff_subject" =~ ^[a-f0-9-]{36}$ && "$staff_role" =~ ^(support|trust-safety)$ ]] || continue
+      dc exec -T api dotnet Swoovr.Api.dll staff-role grant "$staff_subject" "$staff_role" >/dev/null
+    done < "$state/staff-roles.tsv"
     tool smoke
     date -u +%FT%TZ > "$state/initialized"
     record
@@ -212,6 +216,7 @@ Private credentials: .local/platform/docker.env (not printed).
 Fictional members: fictional.alex@example.test, fictional.sam@example.test
 Use SWOOVR_LOCAL_MEMBER_PASSWORD; complete age, phone and profile gates in the UI.
 Admin: SWOOVR_LOCAL_ADMIN_EMAIL / SWOOVR_LOCAL_ADMIN_PASSWORD.
+Staff roles: fictional.trust@example.test (Trust & Safety), fictional.support@example.test (Support); SWOOVR_LOCAL_ADMIN_PASSWORD, no second factor.
 Second factor: ./scripts/local-platform.sh admin-code
 Docker IDs and Linux PIDs: .local/platform/containers.tsv
 Stop/keep data: ./scripts/local-platform.sh down

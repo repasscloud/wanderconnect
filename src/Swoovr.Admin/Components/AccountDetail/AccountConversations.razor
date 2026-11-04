@@ -1,0 +1,31 @@
+@inject AdminClient Admin
+@* issue 190 §11: conversations are opened through a case, never browsed. Each case page holds the conversation evidence, its
+   preservation and the existing role and conflict checks. Selecting message ranges for a referral is tracked in issue 191. *@
+<div class="requires-desktop">
+    <section class="ui-card desktop-required" data-desktop-required><h2>Open on a desktop</h2><p>Conversation evidence needs a larger screen.</p></section>
+    <div data-workflow>
+        @if (preview is null) { <p class="notice" data-conversations="unavailable">@(error ?? "Not available to your role.")</p> }
+        else if (preview.Cases.Count == 0) { <div class="ad-empty" data-conversations="0"><strong>No cases</strong><span>Conversations open from a case about this member.</span></div> }
+        else
+        {
+            <div class="ui-table table-scroll" role="region" aria-label="Cases" tabindex="0">
+                <table data-conversations="@preview.Cases.Count">
+                    <thead><tr><th scope="col">Case</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Open</span></th></tr></thead>
+                    <tbody>@foreach (var c in preview.Cases){<tr><td><code class="ui-reference">@c.Id.ToString()[..8]</code></td><td><span class="ui-pill" data-tone="@(c.Status is "Closed" or "closed" ? "quiet" : "escalate")">@c.Status</span></td><td class="ad-right"><a class="ui-button-ghost" href="/cases/@c.Id">Open case and evidence</a></td></tr>}</tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public Guid AccountId { get; set; }
+    [Parameter] public AccountPermissionsView? Permissions { get; set; }
+    private StaffProfilePreview? preview;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.ProfilePreviewAsync(AccountId);
+        preview = result.Value;
+        if (!result.Ok) error = AdminText.Refusal(result.Status, result.Code);
+    }
+}

@@ -53,7 +53,7 @@ async function realmApi(realm) {
   const values = await env();
   return localRealmApi({ realm, read: async () => Object.entries(values).map(([k,v]) => `${k}=${v}`).join('\n') });
 }
-async function ensureUser(realm, email, password, root = false) {
+async function ensureUser(realm, email, password, root = false, firstName = null) {
   const api = await realmApi(realm);
   const definition = await api('');
   if (definition.attributes?.['swoovr.environment'] !== 'local-development-only') throw Error('Not a local development realm.');
@@ -62,7 +62,7 @@ async function ensureUser(realm, email, password, root = false) {
   const key = realm + ':' + email;
   if (users.length > 1 || users[0] && owned[key] !== users[0].id || !users.length && owned[key]) throw Error('Refusing an unmanaged or stale seed identity; inspect/reset the managed sandbox.');
   if (!users.length) await api('/users', 'POST', {
-    username: email, email, firstName: root ? 'Local Admin' : 'Fictional', lastName: 'Adult',
+    username: email, email, firstName: firstName ?? (root ? 'Local Admin' : 'Fictional'), lastName: firstName ? 'Staff' : 'Adult',
     enabled: true, emailVerified: true, // Explicit LOCAL simulation only.
     requiredActions: root ? ['CONFIGURE_TOTP'] : ['TERMS_AND_CONDITIONS'],
     credentials: [{ type: 'password', value: password, temporary: false }],
@@ -180,6 +180,15 @@ async function bootstrap() {
   const firstStart = await readFile('.local/initialized', 'utf8').then(() => false).catch(e => { if (e.code !== 'ENOENT') throw e; return true; });
   if (firstStart) for (const email of ['fictional.alex@example.test', 'fictional.sam@example.test'])
     await ensureUser('swoovr-members-dev', email, values.SWOOVR_LOCAL_MEMBER_PASSWORD);
+  // D322: fictional staff for each non-root role; the shell grants the roles through the API CLI after this first sign-in.
+  const roles = [];
+  for (const [email, role, name] of [['fictional.trust@example.test', 'trust-safety', 'Trust & Safety'], ['fictional.support@example.test', 'support', 'Support']]) {
+    const staff = await ensureUser('swoovr-staff-dev', email, values.SWOOVR_LOCAL_ADMIN_PASSWORD, false, name);
+    await session(await login({ realm: 'swoovr-staff-dev', client: 'swoovr-admin-web', secret: values.SWOOVR_STAFF_WEB_SECRET,
+      redirect: 'http://localhost:5082/signin-oidc', email, password: values.SWOOVR_LOCAL_ADMIN_PASSWORD, fixture: {} }));
+    roles.push(staff.id + '\t' + role);
+  }
+  await writeFile('.local/staff-roles.tsv', roles.join('\n') + '\n', { mode: 0o600 });
   console.log('Managed fictional identities prepared; email ownership is simulated, member gates remain enabled.');
 }
 async function smoke() {

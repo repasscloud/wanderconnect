@@ -41,7 +41,7 @@ public static class ContentRemovalPolicy
     };
     // DEFAULT under D133: ordinary support queue/non-affiliated content; admins also handle admin/affiliated cases.
     public static bool Allows(AccountRole role,CaseQueue queue,bool affiliated,bool conflicted)=>!conflicted
-        &&(role==AccountRole.Admin||role==AccountRole.Support&&queue==CaseQueue.Support&&!affiliated);
+        &&(role==AccountRole.Admin||role is AccountRole.Support or AccountRole.TrustSafety&&queue==CaseQueue.Support&&!affiliated);
     public static bool ReportContainsMessage(string kind,string snapshot,Guid message)
     {
         if(kind is not("message" or "conversation"))return false;

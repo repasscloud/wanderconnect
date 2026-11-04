@@ -1,268 +1,150 @@
 @page "/accounts/{Id:guid}"
+@page "/accounts/{Id:guid}/{Section}"
 @inject AdminClient Admin
-<PageTitle>Account — Swoovr admin</PageTitle>
+@* issue 190 (D323): one account, nine routed sections. Every tab is its own address, so direct links, refresh and back all work
+   (the old in-page #fragment links resolved against <base href="/"> and sent staff to the home page). The API authorises
+   every read and action; the permissions view only decides which controls are enabled. *@
+<PageTitle>@(account is null ? "Account" : Name) — Swoovr admin</PageTitle>
 <p class="ui-back"><a href="/accounts">← Accounts</a></p>
 @if (account is null)
 {
-    <h1 data-account="@account?.Id">Account</h1>
+    <h1 data-account="missing">Account</h1>
     <p class="notice" data-account="missing">@(loadError ?? "Not found.")</p>
+}
+else if (!Sections.Any(s => s.Key == Current))
+{
+    <h1 data-account="@account.Id">@Name</h1>
+    <p class="notice" data-account-section="unknown">That section doesn't exist. <a href="/accounts/@Id">Open the overview</a>.</p>
 }
 else
 {
-    var name = registeredName is { Confirmed: true } ? string.Join(" ", new[] { registeredName.FirstName, registeredName.LastName }.Where(n => !string.IsNullOrWhiteSpace(n))) : account.DisplayName ?? "No display name";
-    <header class="acct-head">
-        <span class="acct-avatar" aria-hidden="true">@Initials(name)</span>
+    var state = StateOf();
+    var activeSanction = account.Sanctions.FirstOrDefault(s => s.Live && s.Kind != "warning");
+    <header class="acct-head" data-account-detail="@Current">
+        <span class="acct-avatar" aria-hidden="true">@Initials(Name)</span>
         <div class="acct-title">
-            <h1 data-account="@account.Id">@name</h1>
+            <h1 data-account="@account.Id">@Name</h1>
             <div class="acct-badges">
-                <span class="ui-pill" data-tone="@(account.Status == "active" ? "approve" : "reject")">@AccountLabels.Status(account.Status)</span>
+                <span class="ui-pill" data-tone="@state.Tone" data-account-state="@state.Code">@state.Label</span>
                 <span class="ui-pill" data-tone="@(account.IdStatus == "verified" ? "approve" : "quiet")">@AccountLabels.Id(account.IdStatus)</span>
+                @if (verification is not null) {<span class="ui-pill" data-tone="@(verification.PhotoStatus == "verified" ? "approve" : "quiet")">@(verification.PhotoStatus == "verified" ? "Photo Verified" : "Photo not verified")</span>}
                 <span class="ui-pill" data-tone="quiet">@AccountLabels.Plan(account.Plan)@(account.Founder ? " · founder" : "")</span>
                 @if (account.Realm != "members") {<span class="ui-pill" data-tone="quiet">@AccountLabels.Realm(account.Realm)</span>}
                 @if (account.Bot) {<span class="ui-pill" data-tone="quiet">Bot</span>}
-                @if (account.Employee) {<span class="ui-pill" data-tone="quiet">Staff-affiliated</span>}
-                @if (account.OpenCases > 0) {<a class="ui-pill" data-tone="escalate" href="#acct-inspection">@account.OpenCases open case@(account.OpenCases == 1 ? "" : "s")</a>}
+                @if (account.Employee) {<span class="ui-pill" data-tone="quiet">Staff</span>}
             </div>
             <span class="beta-ref"><code>@account.Id</code><CopyButton Value="@account.Id.ToString()" /></span>
         </div>
         <div class="acct-actions">
             <a class="ui-button-ghost" href="/accounts/@account.Id/standing" data-standing-link>What the member sees</a>
-            <a class="ui-button-ghost" href="#acct-actions">Take action</a>
+            <a class="ui-button-primary" href="/accounts/@account.Id/enforcement" data-take-action>Take action</a>
         </div>
     </header>
-    @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id" data-enhance-nav="false">Sign in again</a> }</p> }
-    <nav class="acct-sections" aria-label="Account sections">
-        <a href="#acct-overview">Overview</a><a href="#acct-inspection">Profile &amp; cases</a><a href="#acct-verification">Verification</a>
-        @if (account.Realm == "members") {<a href="#acct-location">Location</a>}<a href="#acct-membership">Membership</a><a href="#acct-actions">Actions</a>
-    </nav>
-
-    <section id="acct-overview" class="acct-grid">
-        <div class="ui-card">
-            <h2 class="ui-card-title">Identity and age</h2>
-            <dl class="media-meta">
-                <dt>Age</dt><dd><strong>@(account.Age?.ToString() ?? "Not provided")</strong></dd>
-                <dt>Age assurance</dt><dd data-age-status="@account.AgeStatus">@AccountLabels.Age(account.AgeStatus)</dd>
-                <dt>Date of birth</dt><dd data-dob-check="@account.DobCheck">@(account.DateOfBirthVerified ? "Verified by ID" : account.DobCheck switch { "correctionNeeded" => "Correction requested", "manualReview" => "Waiting for review", _ => "Not verified" })</dd>
-                @if (registeredName is { } registered)
-                {
-                    <dt>Registered name</dt><dd data-registered-identity>@registered.FirstName @registered.LastName <span class="ui-sub">@(registered.Confirmed ? "Confirmed by the member" : "Awaiting confirmation") · @(registered.MatchesId is null ? "No ID comparison" : registered.MatchesId == true ? "Matches ID" : "Differs from ID")</span></dd>
-                }
-                @* D191: only that a record is on file; the security and legal officer opens it with a recorded purpose. *@
-                <dt>Verified identity</dt><dd data-identity-on-file="@(account.IdentityOnFileSince is null ? "none" : "on-file")">@(account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file") @if (account.IdentityOnFileSince is not null) {<a href="/identity?account=@account.Id">Open (legal officer)</a>}</dd>
-            </dl>
-        </div>
-        <div class="ui-card">
-            <h2 class="ui-card-title">Account</h2>
-            <dl class="media-meta">
-                <dt>Status</dt><dd>@AccountLabels.Status(account.Status)</dd>
-                <dt>Plan</dt><dd data-plan="@account.Plan">@AccountLabels.Plan(account.Plan)@(account.Founder ? " · founding member" : "")</dd>
-                <dt>Home market</dt><dd data-home-market="@(account.HomeMarket ?? "none")">@(account.HomeMarket ?? "None")@(account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd>
-                <dt>Open cases</dt><dd>@account.OpenCases</dd>
-                <dt>Flags</dt><dd>@(account.Bot ? "Bot " : "")@(account.Employee ? "Staff-affiliated " : "")@(!account.Bot && !account.Employee ? "None" : "")</dd>
-                <dt>Related</dt><dd><a href="/accounts/@Id/reinstate" data-account-reinstatement>Reinstatement review</a> · <a href="/registry">Identifier review</a></dd>
-            </dl>
-        </div>
-    </section>
-    @if (account.Sanctions.Count > 0)
-    {
-        <section class="ui-card"><h2 class="ui-card-title">Sanctions</h2><SanctionList Sanctions="account.Sanctions" ReturnUrl="@($"/accounts/{Id}")" /></section>
-    }
-    <div id="acct-inspection"><AccountInspection AccountId="Id" /></div>
-    @if(account.Realm=="members"){<DobCorrectionTools AccountId="Id" />}
-
-    <section id="acct-verification" class="acct-grid">
-        <div class="ui-card">
-            <h2 class="ui-card-title">ID verification</h2>
-            <p class="acct-line" data-id-status="@account.IdStatus">@AccountLabels.Id(account.IdStatus)@(account.CanRequestIdVerification ? " · may start a check" : "")</p>
-            @if (verification is not null && verification.Attempts.Count > 0)
-            {
-                <ul class="ui-list" data-attempts="@verification.Attempts.Count">
-                    @foreach (var a in verification.Attempts)
-                    {
-                        <li><span>@AccountLabels.Attempt(a.State) <span class="ui-sub">Didit: @a.ProviderStatus · @(a.SelfService ? "self-service" : "allowed by an admin")@(a.Adult is { } adult ? adult ? " · adult" : " · under 18" : "")</span></span><span class="ui-help">@a.CreatedAt.ToString("d MMM yyyy")</span></li>
-                    }
-                </ul>
-            }
-            else if (verification is not null) { <p class="ui-help" data-attempts="0">No attempts</p> }
-            <form method="post" @formname="verify" @onsubmit='() => RunAsync("verify")' class="acct-buttons" data-enhance="true">
-                <AntiforgeryToken />
-                <button name="value" value="allow-again" type="submit" class="ui-button-ghost" data-op="allow-again">Allow another attempt</button>
-                <button name="value" value="revoke" type="submit" class="ui-button-ghost" data-op="revoke">Revoke ID Verified</button>
-            </form>
-        </div>
-        <div class="ui-card">
-            <h2 class="ui-card-title">Age assurance</h2>
-            <p class="acct-line">@AccountLabels.Age(account.AgeStatus)</p>
-            <form method="post" @formname="age" @onsubmit='() => RunAsync("age")' class="acct-buttons" data-enhance="true">
-                <AntiforgeryToken />
-                <button name="value" value="flag" type="submit" class="ui-button-ghost" data-op="age-flag">Require an age check</button>
-                <button name="value" value="clear" type="submit" class="ui-button-ghost" data-op="age-clear">Clear a flag set in error</button>
-                <button name="value" value="override" type="submit" class="ui-button-ghost" data-op="adult-override">Record adult override</button>
-            </form>
-        </div>
-    </section>
-
     @if (account.Realm == "members")
     {
-        <section id="acct-location" class="ui-card" data-location-review="@(account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
-            <h2 class="ui-card-title">Location and arrival</h2>
-            <dl class="media-meta">
-                <dt>Home checks</dt><dd data-home-checks="@account.InconsistentHomeChecks">@account.InconsistentHomeChecks disagreed in the last 30 days@(account.HomeReviewFlaggedAt is { } flagged ? $" · flagged {flagged:d MMM yyyy}" : "")</dd>
-            </dl>
-            <div class="acct-forms">
-                <form method="post" @formname="home" @onsubmit='() => RunAsync("home")' class="acct-inline" data-enhance="true">
-                    <AntiforgeryToken />
-                    <label class="ui-field"><span>Lift the 30-day home-city wait</span><input name="reason" placeholder="Reason" maxlength="1000" required /></label>
-                    <button type="submit" class="ui-button-ghost" data-op="home-override">Lift wait</button>
-                </form>
-                @if (account.HomeReviewFlaggedAt is not null)
-                {
-                    <form method="post" @formname="home-review" @onsubmit='() => RunAsync("home-review")' class="acct-inline" data-enhance="true">
-                        <AntiforgeryToken />
-                        <label class="ui-field"><span>Clear the location review</span><input name="reason" placeholder="Reason" maxlength="1000" required /></label>
-                        <button type="submit" class="ui-button-ghost" data-op="home-review-clear">Clear review</button>
-                    </form>
-                }
-            </div>
-            @if (trips.Count > 0)
-            {
-                <h3 class="ui-card-title acct-sub">Trips</h3>
-                <ul class="ui-list" data-trips="@trips.Count">
-                    @foreach (var t in trips)
-                    {
-                        <li data-trip="@t.Id" data-arrival="@t.ArrivalState"><span><strong>@(t.Market ?? "Outside every market")</strong> <span class="ui-sub">@t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · arrival @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")</span></span>
-                            @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled"))
-                            {
-                                <form method="post" @formname="@($"arrival-{t.Id}")" @onsubmit='() => RunAsync("arrival", t.Id)' class="acct-inline" data-enhance="true">
-                                    <AntiforgeryToken />
-                                    <input name="reason" placeholder="Reason" maxlength="1000" required aria-label="Reason" />
-                                    <button type="submit" class="ui-button-ghost" data-op="confirm-arrival">Confirm arrival</button>
-                                </form>
-                            }
-                        </li>
-                    }
-                </ul>
-            }
-            else { <p class="ui-help" data-trips="0">No trips</p> }
-        </section>
+        <div class="ad-strip">
+            <a class="ad-stat" href="/accounts/@Id/access" data-strip="account"><span>Account</span><b>@state.Label</b><small>@state.Detail</small></a>
+            <a class="ad-stat" href="/accounts/@Id/verification" data-strip="verification"><span>Verification</span><b>@VerificationSummary()</b><small>@AccountLabels.Age(account.AgeStatus)</small></a>
+            <a class="ad-stat" href="/accounts/@Id/membership" data-strip="membership"><span>Membership</span><b>@AccountLabels.Plan(account.Plan)</b><small>@PlanDetail()</small></a>
+            <a class="ad-stat" href="/accounts/@Id/enforcement" data-strip="enforcement"><span>Enforcement</span><b>@(activeSanction is null ? "No active sanction" : AccountLabels.Sanction(activeSanction.Kind))</b><small>@account.Sanctions.Count on record · @account.OpenCases open case@(account.OpenCases == 1 ? "" : "s")</small></a>
+        </div>
     }
-
-    <section id="acct-membership" class="ui-card">
-        <h2 class="ui-card-title">Complimentary access</h2>
-        @if (account.Entitlements.Count > 0)
+    @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id/@Current" data-enhance-nav="false">Sign in again</a> }</p> }
+    <nav class="ad-tabs" aria-label="Account sections">
+        @foreach (var tab in Sections.Where(s => !s.MembersOnly || account.Realm == "members"))
         {
-            <ul class="ui-list" data-entitlements="@account.Entitlements.Count">
-                @foreach (var e in account.Entitlements)
-                {
-                    <li data-entitlement="@e.Id" data-valid="@(e.Valid ? "true" : "false")"><span><strong>@AccountLabels.Plan(e.Tier)</strong> <span class="ui-sub">@AccountLabels.Source(e.Source) · until @(e.EndsAt?.ToString("d MMM yyyy") ?? "open") · @e.Reason@(e.RevokedAt is not null ? " · revoked" : "")</span></span>
-                        @if (e.RevokedAt is null && e.Source == "adminGrant")
-                        {
-                            <form method="post" @formname="@($"grant-{e.Id}")" @onsubmit='() => RunAsync("grant-change", e.Id)' class="acct-inline" data-enhance="true">
-                                <AntiforgeryToken />
-                                <input name="days" type="number" min="1" max="366" placeholder="Days" aria-label="Days from now" />
-                                <button name="value" value="extend" type="submit" class="ui-button-ghost" data-op="extend">Set end</button>
-                                <button name="value" value="revoke" type="submit" class="ui-button-ghost" data-op="revoke-grant">Revoke</button>
-                            </form>
-                        }
-                    </li>
-                }
-            </ul>
+            <a href="@Href(tab.Key)" aria-current="@(tab.Key == Current ? "page" : null)" data-section="@tab.Key">@tab.Label@if (tab.Key == "enforcement" && activeSanction is not null) {<span class="ad-count">1</span>}</a>
         }
-        else { <p class="ui-help" data-entitlements="0">No grants</p> }
-        <form method="post" @formname="grant" @onsubmit='() => RunAsync("grant")' class="acct-grant" data-enhance="true">
-            <AntiforgeryToken />
-            <label class="ui-field"><span>Tier</span><select name="tier"><option value="plus">Plus</option><option value="premium">Premium</option></select></label>
-            <label class="ui-field"><span>Days</span><input name="days" type="number" min="1" max="366" value="90" /></label>
-            <label class="ui-field acct-grow"><span>Reason</span><input name="reason" placeholder="For example, beta tester" maxlength="500" required /></label>
-            <button type="submit" data-op="grant">Grant</button>
-        </form>
-    </section>
-
-    <section id="acct-actions" class="acct-grid">
-        <div class="ui-card">
-            <h2 class="ui-card-title">Act without a report</h2>
-            <form method="post" @formname="sanction" @onsubmit='() => RunAsync("sanction")' class="acct-form" data-enhance="true">
-                <AntiforgeryToken />
-                <fieldset class="ui-field"><legend>Action</legend>
-                    <div class="ui-choice ui-choice-4">
-                        @foreach (var (value, label) in new[] { ("warn", "Warn"), ("restrict", "Restrict"), ("suspend", "Suspend"), ("terminate", "Terminate") })
-                        {
-                            <label><input type="radio" name="action" value="@value" checked="@(value == "warn")" /><span>@label</span></label>
-                        }
-                    </div>
-                </fieldset>
-                <div class="acct-row">
-                    <label class="ui-field"><span>Days</span><input name="days" type="number" min="1" max="90" /></label>
-                    <label class="beta-check"><input type="checkbox" name="hide" value="true" /><span>Out of discovery</span></label>
-                    <label class="beta-check"><input type="checkbox" name="norequests" value="true" /><span>No new requests</span></label>
-                </div>
-                <label class="ui-field"><span>Reason</span><textarea name="reason" maxlength="1000" rows="2"></textarea></label>
-                <button type="submit" data-op="sanction">Apply</button>
-            </form>
-        </div>
-        <div class="ui-card">
-            <h2 class="ui-card-title">Staff badge</h2>
-            <form method="post" @formname="staff" @onsubmit='() => RunAsync("staff")' class="acct-buttons" data-enhance="true">
-                <AntiforgeryToken />
-                <button name="value" value="on" type="submit" class="ui-button-ghost" data-op="staff-on">Set Staff badge</button>
-                <button name="value" value="off" type="submit" class="ui-button-ghost" data-op="staff-off">Remove Staff badge</button>
-            </form>
-        </div>
+    </nav>
+    <section data-account-panel="@Current">
+        @switch (Current)
+        {
+            case "overview": <AccountOverview Account="account" Contact="contact" Permissions="permissions" Changed="ReloadAsync" Report="Report" />; break;
+            case "profiles": <AccountProfiles AccountId="Id" />; break;
+            case "verification": <AccountVerification Account="account" Verification="verification" Permissions="permissions" Changed="ReloadAsync" Report="Report" />; break;
+            case "media": <AccountMedia AccountId="Id" Report="Report" />; break;
+            case "conversations": <AccountConversations AccountId="Id" Permissions="permissions" />; break;
+            case "membership": <AccountMembership Account="account" Permissions="permissions" Changed="ReloadAsync" Report="Report" />; break;
+            case "enforcement": <AccountEnforcement Account="account" Permissions="permissions" Changed="ReloadAsync" Report="Report" />; break;
+            case "access": <AccountAccess Account="account" Locks="locks" Permissions="permissions" Changed="ReloadAsync" Report="Report" />; break;
+            case "audit": <AccountAudit AccountId="Id" />; break;
+        }
     </section>
 }
 @code {
     [Parameter] public Guid Id { get; set; }
-    [CascadingParameter] private HttpContext? Context { get; set; }
+    [Parameter] public string? Section { get; set; }
+    private string Current => (Section ?? "overview").ToLowerInvariant();
+    private static readonly (string Key, string Label, bool MembersOnly)[] Sections =
+    [
+        ("overview", "Overview", false), ("profiles", "Profiles", true), ("verification", "Verification", true), ("media", "Media", true),
+        ("conversations", "Conversations", true), ("membership", "Membership", true), ("enforcement", "Enforcement", true),
+        ("access", "Sign-in & access", true), ("audit", "Audit", false),
+    ];
     private AccountAdminSummary? account;
+    private AccountPermissionsView? permissions;
+    private AccountContactView? contact;
+    private VerificationStateView? verification;
+    private List<AccountLockView> locks = [];
     private RegisteredNamesView? registeredName;
-    private AdminVerificationView? verification;
-    private List<TripAdminView> trips = [];
     private string? message, loadError, resultCode;
     private bool reauth;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    // Loaded on every request, POST included: static rendering dispatches a submit only to a form it renders.
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
 
-    private async Task LoadAsync()
+    private async Task ReloadAsync()
     {
         var result = await Admin.AccountAsync(Id);
         account = result.Value;
-        if (!result.Ok) loadError = AdminText.Refusal(result.Status, result.Code);
-        else if (account!.Realm == "members")
+        if (!result.Ok) { loadError = AdminText.Refusal(result.Status, result.Code); return; }
+        permissions = (await Admin.AccountPermissionsAsync(Id)).Value;
+        contact = (await Admin.AccountContactAsync(Id)).Value;
+        if (account!.Realm == "members")
         {
-            registeredName=(await Admin.RegisteredNamesAsync(Id)).Value;
-            verification = (await Admin.VerificationAsync(Id)).Value;
-            trips = (await Admin.TripsAsync(Id)).Value ?? [];
+            registeredName = (await Admin.RegisteredNamesAsync(Id)).Value;
+            verification = (await Admin.VerificationStateAsync(Id)).Value;
+            locks = (await Admin.AccountLocksAsync(Id)).Value ?? [];
         }
     }
 
-    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
-    private int? Number(string name) => int.TryParse(Field(name), out var n) ? n : null;
-
-    private async Task RunAsync(string op, Guid? item = null)
+    /// <summary>Children report an action's outcome here, so every tab shows results (and "Sign in again") the same way.</summary>
+    private void Report((int Status, string? Code, string Done) outcome)
     {
-        var value = Field("value");
-        var (status, code) = op switch
-        {
-            "verify" => Of(await Admin.VerificationActionAsync(Id, value)),
-            "age" when value == "override" => (await Admin.AdultOverrideAsync(Id), null),
-            "age" => Of(await Admin.AgeAssuranceAsync(Id, value == "flag")),
-            "home" => Of(await Admin.HomeMoveOverrideAsync(Id, Field("reason"))),
-            "home-review" => Of(await Admin.ClearHomeReviewAsync(Id, Field("reason"))),
-            "arrival" => (await Admin.ConfirmArrivalAsync(item!.Value, Field("reason")), null),
-            "grant" => Of(await Admin.GrantAsync(Id, new EntitlementGrant(Field("tier"), null, DateTimeOffset.UtcNow.AddDays(Number("days") ?? 0), Field("reason")))),
-            "grant-change" when value == "revoke" => Of(await Admin.RevokeGrantAsync(item!.Value)),
-            "grant-change" => Of(await Admin.ChangeGrantAsync(item!.Value, new EntitlementChange(null, DateTimeOffset.UtcNow.AddDays(Number("days") ?? 0), null))),
-            "staff" => (await Admin.StaffAffiliationAsync(Id, value == "on"), null),
-            "sanction" => Of(await Admin.SanctionAccountAsync(Id, new ModerationActionRequest(Field("action"), Field("reason"), Number("days"),
-                Field("hide") == "true", Field("norequests") == "true", false))),
-            _ => (400, null),
-        };
-        var ok = status is >= 200 and < 300;
-        (resultCode, reauth) = (ok ? "ok" : code ?? status.ToString(), status == 401 || code == "stale-session");
-        message = ok ? "Done." : AdminText.Refusal(status, code);
-        await LoadAsync();
+        var ok = outcome.Status is >= 200 and < 300;
+        (resultCode, reauth) = (ok ? "ok" : outcome.Code ?? outcome.Status.ToString(), outcome.Status == 401 || outcome.Code == "stale-session");
+        message = ok ? outcome.Done : AdminText.Refusal(outcome.Status, outcome.Code);
     }
 
-    private static (int, string?) Of<T>(ApiResult<T> result) => (result.Status, result.Code);
+    private string Name => registeredName is { Confirmed: true } r
+        ? string.Join(" ", new[] { r.FirstName, r.LastName }.Where(n => !string.IsNullOrWhiteSpace(n)))
+        : account?.DisplayName ?? "No display name";
+
+    private (string Code, string Label, string Tone, string Detail) StateOf()
+    {
+        var held = locks.FirstOrDefault(l => l.Active);
+        if (held is not null) return ("locked", "Sign-in locked", "reject", AccountLabels.Reason(held.ReasonCode));
+        var live = account!.Sanctions.Where(s => s.Live && s.Kind != "warning").ToList();
+        if (live.FirstOrDefault(s => s.Kind == "termination") is { }) return ("terminated", "Terminated", "reject", "Permanent");
+        if (live.FirstOrDefault(s => s.Kind == "suspension") is { } suspended) return ("suspended", "Suspended", "reject", suspended.EndsAt is { } e ? $"Until {e:d MMM yyyy}" : "Until review");
+        if (live.FirstOrDefault(s => s.Kind == "restriction") is { } restricted) return ("restricted", "Restricted", "escalate", restricted.EndsAt is { } e ? $"Until {e:d MMM yyyy}" : "Until review");
+        return account.Status == "active" ? ("active", "Active", "approve", "Sign-in allowed") : (account.Status, AccountLabels.Status(account.Status), "reject", "");
+    }
+
+    private string VerificationSummary()
+    {
+        var parts = new List<string>();
+        if (account!.IdStatus == "verified") parts.Add("ID Verified");
+        if (verification?.PhotoStatus == "verified") parts.Add("Photo Verified");
+        return parts.Count == 0 ? "None" : string.Join(" · ", parts);
+    }
+
+    private string PlanDetail()
+    {
+        var grant = account!.Entitlements.FirstOrDefault(e => e.Valid && e.Source == "adminGrant");
+        return grant is not null ? $"Complimentary until {grant.EndsAt:d MMM yyyy}" : account.Founder ? "Founding member" : "No complimentary access";
+    }
+
+    private string Href(string key) => key == "overview" ? $"/accounts/{Id}" : $"/accounts/{Id}/{key}";
     private static string Initials(string name) => string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
 }

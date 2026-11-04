@@ -1,0 +1,7 @@
+@* A set-reason dropdown (D323): the API accepts only these codes. *@
+<label class="ui-field"><span>@Label</span><select name="@Name" required data-reason-field="@Name">@foreach (var r in Reasons){<option value="@r.Code">@r.Label</option>}</select></label>
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<AccountReasons.Reason> Reasons { get; set; } = [];
+    [Parameter] public string Name { get; set; } = "reasonCode";
+    [Parameter] public string Label { get; set; } = "Reason";
+}

@@ -1,3 +1,5 @@
+using Swoovr.Contracts;
+
 namespace Swoovr.Admin;
 
 /// <summary>Readable staff labels for account wire values (#156); data attributes keep the raw values.</summary>
@@ -28,6 +30,9 @@ public static class AccountLabels
         "created" => "Created", "inProgress" => "In progress", "inReview" => "In review", "approved" => "Approved", "declined" => "Declined",
         "abandoned" => "Abandoned", "expired" => "Expired", _ => Title(state),
     };
+    public static string Sanction(string kind) => kind switch { "warning" => "Warning", "restriction" => "Restricted", "suspension" => "Suspended", "termination" => "Terminated", _ => Title(kind) };
+    public static string Reason(string? code) => AccountReasons.Label(code);
+    public static string Role(string? role) => role switch { "admin" => "Admin", "trustSafety" => "Trust & Safety", "support" => "Support", "legal" => "Legal", null => "", _ => Title(role) };
     private static string Title(string value)
     {
         if (string.IsNullOrEmpty(value)) return value;

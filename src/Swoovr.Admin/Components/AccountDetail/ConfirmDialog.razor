@@ -1,0 +1,18 @@
+@* A confirmation dialog around one ordinary POST form (opened by a [data-dialog-open] button; account-detail.js). *@
+<dialog id="@Id" class="ad-dialog" aria-labelledby="@(Id)-title">
+    <form method="post" @formname="@FormName" @onsubmit="OnSubmit" class="ad-dialog-panel">
+        <AntiforgeryToken />
+        <header><h2 id="@(Id)-title">@Title</h2><button type="button" class="ad-icon" data-dialog-close aria-label="Close">×</button></header>
+        <div class="ad-dialog-body">@ChildContent</div>
+        <footer><button type="button" class="ui-button-ghost" data-dialog-close>Cancel</button><button type="submit" data-confirm="@FormName" disabled="@StartDisabled">@Confirm</button></footer>
+    </form>
+</dialog>
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public string FormName { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string Confirm { get; set; } = "Confirm";
+    [Parameter] public bool StartDisabled { get; set; }
+    [Parameter] public EventCallback OnSubmit { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

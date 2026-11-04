@@ -20,7 +20,8 @@ public sealed record MemberAccount(
     string DobCheck = "none",
     bool PhoneVerified = false,
     bool PhoneRequired = false,
-    string? EmailChangeProblem = null,bool PolicyRequired=false,DateTimeOffset? DateOfBirthCorrectionUntil=null,bool RegisteredNamesRequired=false,bool PhoneGateEnabled=false);
+    string? EmailChangeProblem = null,bool PolicyRequired=false,DateTimeOffset? DateOfBirthCorrectionUntil=null,bool RegisteredNamesRequired=false,bool PhoneGateEnabled=false,
+    string? StatusReference = null);
 
 /// <summary>
 /// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion
@@ -271,7 +272,7 @@ public sealed record AccountSearchResult(string Kind, IReadOnlyList<AccountSearc
 public sealed record BotClassificationRequest(bool Bot);
 public sealed record BotModesRequest(IReadOnlyList<string>? Modes);
 public sealed record BotModesView(IReadOnlyList<string> Modes);
-public sealed record StaffAffiliationRequest(bool Active);
+public sealed record StaffAffiliationRequest(bool Active, string? ReasonCode = null);
 
 /// <summary>Admin view and replacement of one market (D125, D146): status planned, beta, active or suspended; one or more
 /// areas (a GeoNames city and a radius); the modes it offers. HomeMembers counts members, never names them.</summary>

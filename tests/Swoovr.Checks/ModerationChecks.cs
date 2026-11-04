@@ -10,7 +10,7 @@ static class ModerationChecks
     {
         var checks = 0;
         void Expect(bool condition, string what) { if (!condition) throw new Exception("Moderation check failed: " + what); checks++; }
-        var (admin, support) = (AccountRole.Admin, AccountRole.Support);
+        var (admin, support, ts) = (AccountRole.Admin, AccountRole.Support, AccountRole.TrustSafety);
         var day = TimeSpan.FromDays(1);
 
         // Roles (D133): support reviews, dismisses, warns and restricts; only admins suspend, terminate and revoke affiliation.
@@ -30,8 +30,20 @@ static class ModerationChecks
         Expect(ModerationPolicy.Check(ModerationAction.Warn, admin, true, false, reason: "r") == ModerationRefusal.None, "admins work staff cases");
         Expect(ModerationPolicy.Check(ModerationAction.Warn, admin, true, true, reason: "r") == ModerationRefusal.OwnAccount, "never one's own member account");
         Expect(ModerationPolicy.Check(ModerationAction.Acknowledge, admin, false, true) == ModerationRefusal.OwnAccount, "not even acknowledging");
+        // D322: Trust & Safety has every Support capability and enforces independently for up to 90 days; it can't terminate,
+        // revoke affiliation or work staff-affiliated cases. Legal takes no member sanctions here.
+        Expect(ModerationPolicy.Check(ModerationAction.Restrict, ts, false, false, 90 * day, "r") == ModerationRefusal.None, "T&S restricts 90 days");
+        Expect(ModerationPolicy.Check(ModerationAction.Restrict, ts, false, false, 91 * day, "r") == ModerationRefusal.TooLong, "T&S restriction over 90 days");
+        Expect(ModerationPolicy.Check(ModerationAction.Suspend, ts, false, false, 90 * day, "r") == ModerationRefusal.None, "T&S suspends 90 days");
+        Expect(ModerationPolicy.Check(ModerationAction.Terminate, ts, false, false, null, "r") == ModerationRefusal.NotPermitted, "T&S can't terminate");
+        Expect(ModerationPolicy.Check(ModerationAction.RevokeStaffAffiliation, ts, false, false) == ModerationRefusal.NotPermitted, "T&S can't revoke affiliation");
+        Expect(ModerationPolicy.Check(ModerationAction.Warn, ts, true, false, reason: "r") == ModerationRefusal.StaffAffiliatedCase, "T&S can't act on staff");
+        Expect(ModerationPolicy.Check(ModerationAction.Warn, AccountRole.Legal, false, false, reason: "r") == ModerationRefusal.NotPermitted, "Legal takes no sanctions");
+        Expect(ModerationPolicy.MaxRestrictionFor(support) == 30 * day && ModerationPolicy.MaxRestrictionFor(ts) == 90 * day && ModerationPolicy.MaxRestrictionFor(admin) == 90 * day, "restriction ceilings by role");
+        Expect(ModerationPolicy.MayApply(ts, SanctionKind.Suspension) && !ModerationPolicy.MayApply(support, SanctionKind.Suspension) && !ModerationPolicy.MayApply(ts, SanctionKind.Termination), "who may apply what");
         // Limits and reasons.
-        Expect(ModerationPolicy.Check(ModerationAction.Restrict, admin, false, false, 31 * day, "r") == ModerationRefusal.TooLong, "restriction over 30 days");
+        Expect(ModerationPolicy.Check(ModerationAction.Restrict, support, false, false, 31 * day, "r") == ModerationRefusal.TooLong, "support restriction over 30 days");
+        Expect(ModerationPolicy.Check(ModerationAction.Restrict, admin, false, false, 91 * day, "r") == ModerationRefusal.TooLong, "restriction over 90 days");
         Expect(ModerationPolicy.Check(ModerationAction.Suspend, admin, false, false, 91 * day, "r") == ModerationRefusal.TooLong, "suspension over 90 days");
         Expect(ModerationPolicy.Check(ModerationAction.Restrict, admin, false, false, null, "r") == ModerationRefusal.TooLong, "restriction without a length");
         Expect(ModerationPolicy.Check(ModerationAction.Restrict, admin, false, false, TimeSpan.Zero, "r") == ModerationRefusal.TooLong, "zero days");
@@ -44,6 +56,10 @@ static class ModerationChecks
         Expect(ModerationPolicy.Check(ModerationAction.Lift, support, false, false, reason: "r", lifting: byAdmin) == ModerationRefusal.AdminSanction, "support can't override admin");
         Expect(ModerationPolicy.Check(ModerationAction.Lift, support, false, false, reason: "r", lifting: bySupport) == ModerationRefusal.None, "support lifts its own kind");
         Expect(ModerationPolicy.Check(ModerationAction.Lift, admin, false, false, reason: "r", lifting: byAdmin) == ModerationRefusal.None, "admins lift anything");
+        var byTs = new Sanction { Kind = SanctionKind.Suspension, CreatedByRole = ts };
+        Expect(ModerationPolicy.Check(ModerationAction.Lift, support, false, false, reason: "r", lifting: byTs) == ModerationRefusal.AdminSanction, "support can't override T&S");
+        Expect(ModerationPolicy.Check(ModerationAction.Lift, ts, false, false, reason: "r", lifting: byTs) == ModerationRefusal.None, "T&S lifts its own suspension");
+        Expect(ModerationPolicy.Check(ModerationAction.Lift, ts, false, false, reason: "r", lifting: byAdmin) == ModerationRefusal.AdminSanction, "T&S can't override admin");
 
         // D136: local password staff only when the API allows it; never for the root admin's rule or venues.
         var supportByPassword = new AccessSession(AccountRole.Support, AccountRealm.Staff, SignInMethod.EmailPassword, false, true, true, true, false, new HashSet<Guid>());
@@ -82,10 +98,12 @@ static class ModerationChecks
         Expect(!ModerationPolicy.MayAppeal(sanction, member, true, now), "one appeal per action");
         Expect(!ModerationPolicy.MayAppeal(sanction, Guid.NewGuid(), false, now), "only the member");
         Expect(!ModerationPolicy.MayAppeal(sanction, member, false, now.AddDays(28)), "not after 30 days");
-        Expect(ModerationPolicy.MayDecideAppeal(sanction, decider, support, false, false) == ModerationRefusal.NotPermitted, "not by the original decider");
-        Expect(ModerationPolicy.MayDecideAppeal(sanction, Guid.NewGuid(), support, false, false) == ModerationRefusal.None, "another support member");
-        Expect(ModerationPolicy.MayDecideAppeal(sanction, Guid.NewGuid(), support, true, false) == ModerationRefusal.StaffAffiliatedCase, "admins only for staff");
-        Expect(ModerationPolicy.MayDecideAppeal(new Sanction { CreatedBy = decider, CreatedByRole = admin }, Guid.NewGuid(), support, false, false) == ModerationRefusal.AdminSanction, "support can't overturn an admin");
+        // D322: appeals are an Admin decision, by someone other than the original decider.
+        var adminDecider = Guid.NewGuid();
+        Expect(ModerationPolicy.MayDecideAppeal(new Sanction { CreatedBy = adminDecider, CreatedByRole = admin }, adminDecider, admin, false, false) == ModerationRefusal.NotPermitted, "not by the original decider");
+        Expect(ModerationPolicy.MayDecideAppeal(sanction, Guid.NewGuid(), admin, false, false) == ModerationRefusal.None, "an admin decides");
+        Expect(ModerationPolicy.MayDecideAppeal(sanction, Guid.NewGuid(), support, false, false) == ModerationRefusal.NotPermitted, "support doesn't decide appeals");
+        Expect(ModerationPolicy.MayDecideAppeal(sanction, Guid.NewGuid(), ts, false, false) == ModerationRefusal.NotPermitted, "T&S doesn't decide appeals");
         Expect(ModerationPolicy.MayDecideAppeal(sanction, Guid.NewGuid(), admin, false, true) == ModerationRefusal.OwnAccount, "never one's own account");
 
         // Reports (D131).

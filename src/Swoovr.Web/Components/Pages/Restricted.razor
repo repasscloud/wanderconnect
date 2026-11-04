@@ -6,10 +6,20 @@
         <h1>@Title</h1>
         <p>@Body</p>
     </div>
+    @if (Kind == "locked")
+    {
+        <section class="card account-section" data-locked-reference="@(Reference ?? "")">
+            @if (Reference is not null) { <p>Your reference: <strong>@Reference</strong></p> }
+            <p class="account-actions"><a class="primary-link" href="https://swoovr.com/support">Contact support</a> <a class="button button-secondary" href="/account">Your account</a></p>
+        </section>
+    }
+    else
+    {
     <section class="card account-section">
         <p>Read the notice to see why@(Kind == "terminated" ? "" : " and how long it lasts"). You can appeal within 30 days.</p>
         <p class="account-actions"><a class="primary-link" href="/me/notices">Read the notice</a> <a class="button button-secondary" href="/me/standing" data-restricted-standing>Account standing</a> <a class="button button-secondary" href="/account">Your account</a></p>
     </section>
+    }
     <form method="post" action="/account/sign-out" class="account-sign-out">
         <AntiforgeryToken />
         <button type="submit" class="quiet-button">Sign out</button>
@@ -17,10 +27,14 @@
 </div>
 @code {
     [SupplyParameterFromQuery] public string? State { get; set; }
-    private string Kind => State is "suspended" or "terminated" ? State : "restricted";
-    private string Title => Kind switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", _ => "Your account is restricted" };
+    [SupplyParameterFromQuery(Name = "ref")] public string? Ref { get; set; }
+    private string Kind => State is "suspended" or "terminated" or "locked" ? State : "restricted";
+    // Only a well-formed public reference is shown; the address is never trusted for anything else.
+    private string? Reference => System.Text.RegularExpressions.Regex.IsMatch(Ref ?? "", "^SW-[A-HJ-NP-Z2-9]{6}$") ? Ref : null;
+    private string Title => Kind switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", "locked" => "Your account is temporarily locked", _ => "Your account is restricted" };
     private string Body => Kind switch
     {
+        "locked" => "Access to this account is paused while we look into it. Contact support and quote your reference.",
         "terminated" => "You can't use Swoovr with this account any more.",
         _ => "You can't use Swoovr until this is lifted. Nothing you had is lost.",
     };

@@ -212,6 +212,74 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("accounts");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.AccountLock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("CaseReference")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("case_reference");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CreatedByRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("created_by_role");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("removed_at");
+
+                    b.Property<Guid?>("RemovedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("removed_by");
+
+                    b.Property<string>("RemovedReason")
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("removed_reason");
+
+                    b.HasKey("Id")
+                        .HasName("pk_account_locks");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_account_locks_account_id_created_at");
+
+                    b.ToTable("account_locks");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Appeal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1859,6 +1927,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("granted_by");
 
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1872,6 +1945,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("RevokedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("revoked_by");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("revoked_reason");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -4523,6 +4601,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("id_checked_at");
 
+                    b.Property<bool>("IdManual")
+                        .HasColumnType("boolean")
+                        .HasColumnName("id_manual");
+
                     b.Property<string>("IdStatus")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -4532,6 +4614,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("PhotoCheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("photo_checked_at");
+
+                    b.Property<bool>("PhotoManual")
+                        .HasColumnType("boolean")
+                        .HasColumnName("photo_manual");
 
                     b.Property<string>("PhotoStatus")
                         .IsRequired()
@@ -6912,6 +6998,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("hide_from_discovery");
 
+                    b.Property<string>("InternalNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("internal_note");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -6939,6 +7030,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("reason");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("reason_code");
 
                     b.Property<DateTimeOffset>("StartsAt")
                         .HasColumnType("timestamp with time zone")
@@ -7617,6 +7713,61 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.VerificationOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("boolean")
+                        .HasColumnName("applied");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Badge")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("badge");
+
+                    b.Property<Guid>("By")
+                        .HasColumnType("uuid")
+                        .HasColumnName("by");
+
+                    b.Property<string>("ByRole")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("by_role");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("reason_code");
+
+                    b.HasKey("Id")
+                        .HasName("pk_verification_overrides");
+
+                    b.HasIndex("AccountId", "At")
+                        .HasDatabaseName("ix_verification_overrides_account_id_at");
+
+                    b.ToTable("verification_overrides");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.VerifiedIdentity", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -7681,6 +7832,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_verified_identities_retain_until");
 
                     b.ToTable("verified_identities", "restricted");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.AccountLock", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_locks_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Appeal", b =>
@@ -8710,6 +8871,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ItineraryId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_trips_itineraries_itinerary_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.VerificationOverride", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_verification_overrides_accounts_account_id");
                 });
 #pragma warning restore 612, 618
         }

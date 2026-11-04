@@ -1,0 +1,133 @@
+@inject AdminClient Admin
+@* issue 190 §2, §9: identity, contact, location and registration. Sensitive values are masked by the API; the date of birth opens
+   with a recorded purpose, which also takes the time-limited "profile-dob-open" access (60 minutes) in the same step. *@
+<div class="acct-grid">
+    <div class="ui-card">
+        <h2 class="ui-card-title">Identity</h2>
+        <dl class="ad-dl">
+            <div><dt>Registered name</dt><dd data-registered-identity>@(names is { } n ? $"{n.FirstName} {n.LastName}".Trim() : "Not provided") @if (names is not null) {<span class="ui-sub">@(names.Confirmed ? "Confirmed by the member" : "Awaiting confirmation") · @(names.MatchesId is null ? "No ID comparison" : names.MatchesId == true ? "Matches ID" : "Differs from ID")</span>}</dd><dd class="ad-act"><a class="ui-button-ghost" href="/name-reviews">Name changes</a></dd></div>
+            <div><dt>Date of birth</dt>
+                <dd data-dob-check="@Account.DobCheck">
+                    @if (dob is not null) {<span data-profile-dob>@(dob.DateOfBirth?.ToString("d MMMM yyyy") ?? "No date saved")</span>}
+                    else {<span class="ad-masked" aria-label="Hidden">•• ••• ••••</span>}
+                    <span class="ad-tag">@(Account.DateOfBirthVerified ? "Verified by ID" : Account.DobCheck switch { "correctionNeeded" => "Correction requested", "manualReview" => "Waiting for review", _ => "Saved, not verified" })</span>
+                </dd>
+                <dd class="ad-act">@if (dob is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-open">Open…</button>}</dd></div>
+            <div><dt>Age</dt><dd>@(Account.Age?.ToString() ?? "Not provided") · @AccountLabels.Age(Account.AgeStatus)</dd><dd></dd></div>
+            <div><dt>Display name</dt><dd>@(Account.DisplayName ?? "None")</dd><dd class="ad-act"><a class="ui-button-ghost" href="/accounts/@Account.Id/profiles">Profiles</a></dd></div>
+            <div><dt>Verified identity</dt><dd data-identity-on-file="@(Account.IdentityOnFileSince is null ? "none" : "on-file")">@(Account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(Account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file")</dd>
+                <dd class="ad-act">@if (Account.IdentityOnFileSince is not null) {<a class="ui-button-ghost" href="/identity?account=@Account.Id">Open (Legal)</a>}</dd></div>
+        </dl>
+        @if (Account.Realm == "members" && Permissions?.Verify == true) { <DobCorrectionTools AccountId="Account.Id" /> }
+    </div>
+    <div class="ui-card">
+        <h2 class="ui-card-title">Contact &amp; sign-in</h2>
+        <dl class="ad-dl">
+            <div><dt>Email</dt><dd data-contact-email>@(Contact?.EmailMasked ?? "None") @if (Contact?.EmailMasked is not null) {<span class="ad-tag">Verified</span>}</dd><dd></dd></div>
+            <div><dt>Mobile</dt><dd data-contact-mobile>@(Contact?.MobileMasked ?? "None") @if (Contact?.MobileVerifiedAt is { } at) {<span class="ad-tag">Verified @at.ToString("d MMM yyyy")</span>}</dd><dd></dd></div>
+            <div><dt>Joined</dt><dd>@(Contact?.CreatedAt.ToString("d MMM yyyy") ?? "—")</dd><dd></dd></div>
+            <div><dt>Last active</dt><dd>@(Contact?.LastSeenAt.ToString("d MMM yyyy HH:mm") ?? "—") UTC</dd><dd class="ad-act"><a class="ui-button-ghost" href="/accounts/@Account.Id/access">Sign-in &amp; access</a></dd></div>
+        </dl>
+    </div>
+    @if (Account.Realm == "members")
+    {
+        <div class="ui-card" data-location-review="@(Account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
+            <h2 class="ui-card-title">Location</h2>
+            <dl class="ad-dl">
+                <div><dt>Home market</dt><dd data-home-market="@(Account.HomeMarket ?? "none")">@(Account.HomeMarket ?? "None")@(Account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd>
+                    <dd class="ad-act">@if (Account.HomeMarketMovedAt is not null) { if (Permissions?.EditLocation == true) {<button type="button" class="ui-button-ghost" data-dialog-open="home-wait" data-op="home-override">Lift wait…</button>} else {<RoleNote />} }</dd></div>
+                <div><dt>Home checks</dt><dd data-home-checks="@Account.InconsistentHomeChecks">@Account.InconsistentHomeChecks disagreed in the last 30 days@(Account.HomeReviewFlaggedAt is { } flagged ? $" · flagged {flagged:d MMM yyyy}" : "")</dd>
+                    <dd class="ad-act">@if (Account.HomeReviewFlaggedAt is not null) {<button type="button" class="ui-button-ghost" data-dialog-open="home-review" data-op="home-review-clear">Clear review…</button>}</dd></div>
+                <div><dt>Trips</dt><dd data-trips="@trips.Count">@(trips.Count == 0 ? "None" : $"{trips.Count} trip{(trips.Count == 1 ? "" : "s")}")</dd><dd></dd></div>
+            </dl>
+            @if (trips.Count > 0)
+            {
+                <ul class="ui-list ad-trips">
+                    @foreach (var t in trips)
+                    {
+                        <li data-trip="@t.Id" data-arrival="@t.ArrivalState"><span><strong>@(t.Market ?? "Outside every market")</strong> <span class="ui-sub">@t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · arrival @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")</span></span>
+                            @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled")) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"arrival-{t.Id}")" data-op="confirm-arrival">Confirm arrival…</button>}
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+    <div class="ui-card">
+        <h2 class="ui-card-title">Registration</h2>
+        <dl class="ad-dl">
+            <div><dt>Account type</dt><dd>@AccountLabels.Realm(Account.Realm)@(Account.Founder ? " · founding member" : "")</dd><dd></dd></div>
+            <div><dt>Open cases</dt><dd>@Account.OpenCases</dd><dd class="ad-act"><a class="ui-button-ghost" href="/accounts/@Account.Id/conversations">Cases</a></dd></div>
+            <div><dt>Related</dt><dd><a href="/accounts/@Account.Id/reinstate" data-account-reinstatement>Reinstatement review</a> · <a href="/registry">Identifier review</a></dd><dd></dd></div>
+        </dl>
+    </div>
+</div>
+
+<ConfirmDialog Id="dob-open" FormName="dob-open" Title="Open date of birth" Confirm="Open" OnSubmit="OpenDobAsync">
+    <label class="ui-field"><span>Purpose</span><select name="purpose" required>@foreach (var p in Purposes){<option>@p</option>}</select></label>
+    <NoteField Name="detail" Label="Details" Required="true" Max="300" />
+    <p class="ui-help">Access lasts 60 minutes and is recorded against your name.</p>
+</ConfirmDialog>
+<ConfirmDialog Id="home-wait" FormName="home-wait" Title="Lift the 30-day home-city wait" Confirm="Lift wait" OnSubmit='() => RunAsync("home")'>
+    <label class="ui-field"><span>Reason</span><select name="reason" required><option>Moved for work, confirmed</option><option>Relocation evidence reviewed</option><option>Staff error</option></select></label>
+</ConfirmDialog>
+<ConfirmDialog Id="home-review" FormName="home-review" Title="Clear the location review" Confirm="Clear review" OnSubmit='() => RunAsync("home-review")'>
+    <label class="ui-field"><span>Reason</span><select name="reason" required><option>Checks explained by travel</option><option>Home city confirmed</option><option>Flagged in error</option></select></label>
+</ConfirmDialog>
+@foreach (var t in trips.Where(t => t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled")))
+{
+    <ConfirmDialog Id="@($"arrival-{t.Id}")" FormName="@($"arrival-{t.Id}")" Title="Confirm arrival" Confirm="Confirm arrival" OnSubmit='() => RunAsync("arrival", t.Id)'>
+        <label class="ui-field"><span>Reason</span><select name="reason" required><option>Arrival confirmed with the member</option><option>Travel evidence reviewed</option></select></label>
+    </ConfirmDialog>
+}
+@code {
+    [Parameter, EditorRequired] public AccountAdminSummary Account { get; set; } = null!;
+    [Parameter] public AccountContactView? Contact { get; set; }
+    [Parameter] public AccountPermissionsView? Permissions { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private static readonly string[] Purposes = ["Member support request", "Investigate a report", "Age or identity review", "Respond to a lawful request"];
+    private RegisteredNamesView? names;
+    private StaffDateOfBirth? dob;
+    private List<TripAdminView> trips = [];
+    [Parameter] public Action<(int Status, string? Code, string Done)>? Report { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        names = (await Admin.RegisteredNamesAsync(Account.Id)).Value;
+        if (Account.Realm == "members") trips = (await Admin.TripsAsync(Account.Id)).Value ?? [];
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task OpenDobAsync()
+    {
+        var purpose = $"{Field("purpose")}: {Field("detail").Trim()}";
+        // issue 190 §2: take the access (if not already held) and open the date in one step; both are recorded server-side.
+        var grants = (await Admin.GrantsAsync()).Value ?? [];
+        if (!grants.Any(g => g.Active && g.Capability == "profile-dob-open"))
+        {
+            var grant = await Admin.RequestGrantAsync(new AccessGrantRequest("profile-dob-open", purpose));
+            if (!grant.Ok) { Report?.Invoke((grant.Status, grant.Code, "")); return; }
+        }
+        var result = await Admin.ProfileDobAsync(Account.Id, purpose);
+        dob = result.Value;
+        Report?.Invoke((result.Status, result.Code, "Date of birth opened. Access is recorded."));
+    }
+
+    private async Task RunAsync(string op, Guid? item = null)
+    {
+        var reason = Field("reason");
+        var (status, code) = op switch
+        {
+            "home" => Of(await Admin.HomeMoveOverrideAsync(Account.Id, reason)),
+            "home-review" => Of(await Admin.ClearHomeReviewAsync(Account.Id, reason)),
+            "arrival" => (await Admin.ConfirmArrivalAsync(item!.Value, reason), null),
+            _ => (400, null),
+        };
+        Report?.Invoke((status, code, "Saved."));
+        await Changed.InvokeAsync();
+        if (Account.Realm == "members") trips = (await Admin.TripsAsync(Account.Id)).Value ?? [];
+    }
+    private static (int, string?) Of<T>(ApiResult<T> result) => (result.Status, result.Code);
+}

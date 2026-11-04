@@ -100,7 +100,7 @@ public partial class MainPage : ContentPage
 		// D160: anything but active shows only the restricted card; notices and appeals stay open.
 		var restricted = account is not null && MemberText.RestrictedTitle(account.AccountState) is not null;
 		RestrictedCard.IsVisible = restricted;
-		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBodyFor(account?.AccountState));
+		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBodyFor(account?.AccountState, account?.StatusReference));
 		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;

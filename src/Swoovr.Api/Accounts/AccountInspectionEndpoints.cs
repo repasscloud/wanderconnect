@@ -12,7 +12,10 @@ namespace Swoovr.Api.Accounts;
 /// <summary>D294: scoped staff inspection, never member impersonation, visits, chat browsing or Legal identity decryption.</summary>
 public static class AccountInspectionEndpoints
 {
-    public static readonly string[] HistoryActions=["age.updated","profile.updated","home-market.override","staff.affiliated","staff.revoked","moderation.warn","moderation.restrict","moderation.suspend","moderation.terminate","entitlement.granted","dob.correction-granted","dob.correction-revoked","dob.correction-used"];
+    public static readonly string[] HistoryActions=["age.updated","profile.updated","home-market.override","staff.affiliated","staff.revoked","moderation.warn","moderation.restrict","moderation.suspend","moderation.terminate","entitlement.granted","dob.correction-granted","dob.correction-revoked","dob.correction-used",
+        // #190 (D323): account detail actions.
+        "entitlement.revoked","profile-dob.opened","account.locked","account.unlocked","sessions.revoked",
+        "verification.photoVerified.applied","verification.photoVerified.revoked","verification.idVerified.applied","verification.idVerified.revoked"];
     public static void Map(WebApplication app)
     {
         var group=app.MapGroup("/api/admin/accounts/{id:guid}").RequireAuthorization();

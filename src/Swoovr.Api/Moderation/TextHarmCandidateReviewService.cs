@@ -89,7 +89,7 @@ public sealed class TextHarmCandidateReviewService(SwoovrDbContext db,EvidenceKe
         await db.Entry(item).ReloadAsync(token);
         var staff=await db.Accounts.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==actor&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,token);
         var role=staff?.IsRootAdmin==true||await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Admin,token)?AccountRole.Admin:
-            await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Support,token)?AccountRole.Support:AccountRole.Unknown;
+            await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.TrustSafety,token)?AccountRole.TrustSafety:await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Support,token)?AccountRole.Support:AccountRole.Unknown;
         var affiliated=await db.MemberProfiles.AnyAsync(p=>p.AccountId==subject&&p.Employee,token);
         var people=await SafetyRetention.CaseAccountsAsync(db,id,token);
         if(staff is null||!ContentRemovalPolicy.Allows(role,item.Queue,affiliated,await StaffAccessEndpoints.ExcludedAsync(db,actor,people,token)))

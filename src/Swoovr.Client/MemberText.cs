@@ -30,6 +30,7 @@ public static class MemberText
         "active" => null,
         "suspended" => "Your account is suspended",
         "terminated" => "Your account has been closed",
+        "locked" => "Your account is temporarily locked",
         "pendingDeletion" => "Your account is being deleted",
         _ => "Your account is restricted",
     };
@@ -63,9 +64,15 @@ public static class MemberText
     public const string RestrictedBody = "You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.";
 
     /// <summary>D170: a pending deletion says how to change your mind instead of pointing at a notice.</summary>
-    public static string RestrictedBodyFor(string? accountState) => accountState == "pendingDeletion"
-        ? "You can still change your mind: open Your data and account to cancel."
-        : RestrictedBody;
+    public static string RestrictedBodyFor(string? accountState, string? reference = null) => accountState switch
+    {
+        "pendingDeletion" => "You can still change your mind: open Your data and account to cancel.",
+        "locked" => LockedBody + (reference is null ? "" : " Your reference: " + reference + "."),
+        _ => RestrictedBody,
+    };
+
+    /// <summary>#190 §10 (D323): a staff sign-in lock. No internal reason is ever shown.</summary>
+    public const string LockedBody = "Access to this account is paused while we look into it. Contact support at swoovr.com/support and quote your reference.";
 
     /// <summary>Why Explore shows no one for a mode (D125, D139, D157); null when the API answered with people.</summary>
     public static string? ExploreNotice(string? code, string modeLabel) => code switch

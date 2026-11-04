@@ -58,11 +58,13 @@ public static class AdminText
         (403, "elevated-access-required") => "This needs time-limited access with a recorded purpose. Ask for it under Elevated access, then repeat it.",
         (403, "conflict-of-interest") => "A conflict of interest keeps you away from this member's records.",
         (409, "bulk-export-approval-required") => "A bulk export needs another officer's approval (Elevated access). Then export again.",
-        (403, "moderation-not-permitted") => "Your role can't do this here (staff-affiliated case, your own account, or an admin's action).",
+        (403, "moderation-not-permitted") => "Your role can't do this here (staff-affiliated case, your own account, or a higher role's action).",
+        (403, "media-safety-ack-required") => "Acknowledge the current media safety notice under Media first, then open the photo again.",
+        (403, "account-locked") => "This account is locked.",
         (403, _) => "Your role can't do this.",
         (404, _) => "Not found, or not available to your role.",
         (409, _) => "That doesn't apply right now.",
-        (400, _) => "Check the form: a reason is needed, restrictions last up to 30 days and suspensions up to 90.",
+        (400, _) => "Check the form: choose a listed reason. Support restricts for up to 30 days; Trust & Safety and Admin for up to 90.",
         _ => $"The API answered {status}.",
     };
 }

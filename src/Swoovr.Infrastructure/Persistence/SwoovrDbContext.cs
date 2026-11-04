@@ -31,6 +31,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<BanCaseNote> BanCaseNotes => Set<BanCaseNote>();
     public DbSet<BanCheckAttempt> BanCheckAttempts => Set<BanCheckAttempt>();
     public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
+    public DbSet<AccountLock> AccountLocks => Set<AccountLock>();
+    public DbSet<VerificationOverride> VerificationOverrides => Set<VerificationOverride>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
@@ -570,6 +572,23 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             hold.HasKey(h => h.PhoneHash);
             hold.HasIndex(h => h.ExpiresAt);
         });
+        // #190, D323: sign-in locks and verification overrides are append-only history for the account detail page.
+        model.Entity<AccountLock>(item =>
+        {
+            item.HasOne<Account>().WithMany().HasForeignKey(l => l.AccountId).OnDelete(DeleteBehavior.Cascade);
+            item.Property(l => l.ReasonCode).HasMaxLength(48);
+            item.Property(l => l.CaseReference).HasMaxLength(AccountLockPolicy.ReferenceMax);
+            item.Property(l => l.Note).HasMaxLength(AccountLockPolicy.NoteMax);
+            item.Property(l => l.RemovedReason).HasMaxLength(48);
+            item.HasIndex(l => new { l.AccountId, l.CreatedAt });
+        });
+        model.Entity<VerificationOverride>(item =>
+        {
+            item.HasOne<Account>().WithMany().HasForeignKey(o => o.AccountId).OnDelete(DeleteBehavior.Cascade);
+            item.Property(o => o.ReasonCode).HasMaxLength(48);
+            item.Property(o => o.Note).HasMaxLength(1000);
+            item.HasIndex(o => new { o.AccountId, o.At });
+        });
         model.Entity<RoleGrant>(grant =>
         {
             grant.HasOne<Account>().WithMany().HasForeignKey(g => g.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -885,6 +904,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             sanction.HasOne<Account>().WithMany().HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Cascade);
             sanction.HasOne<ModerationCase>().WithMany().HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.SetNull);
             sanction.Property(s => s.Reason).HasMaxLength(ModerationPolicy.ReasonMax);
+            sanction.Property(s => s.ReasonCode).HasMaxLength(48);
+            sanction.Property(s => s.InternalNote).HasMaxLength(ModerationPolicy.ReasonMax);
             sanction.HasIndex(s => new { s.AccountId, s.LiftedAt });
             sanction.ToTable(t => t.HasCheckConstraint("ck_sanctions_dates", "ends_at IS NULL OR ends_at > starts_at"));
         });
@@ -912,6 +933,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         {
             entitlement.HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.Cascade);
             entitlement.Property(e => e.Reason).HasMaxLength(EntitlementPolicy.ReasonMax);
+            entitlement.Property(e => e.Note).HasMaxLength(500);
+            entitlement.Property(e => e.RevokedReason).HasMaxLength(48);
             entitlement.HasIndex(e => new { e.AccountId, e.RevokedAt });
             entitlement.ToTable(t => t.HasCheckConstraint("ck_entitlements_dates", "ends_at IS NULL OR ends_at > starts_at"));
         });

@@ -1,0 +1,135 @@
+@inject AdminClient Admin
+@* issue 190 §12 (D322): Warn, Restrict, Suspend, Terminate within the caller's role. Support warns and restricts for up to 30
+   days; Trust & Safety also suspends, and restricts or suspends for up to 90; only Admin terminates. The API enforces
+   all of it (ModerationPolicy). The reason is a set code; the message is what the member reads; the note stays internal. *@
+@{ var p = Permissions; var allowed = Allowed(Action); }
+<div class="requires-desktop">
+    <section class="ui-card desktop-required" data-desktop-required><h2>Open on a desktop</h2><p>Enforcement needs a larger screen.</p></section>
+    <section class="ui-card" data-workflow>
+        <div class="ui-card-head"><h2>New action</h2>@if (p is null || !p.Warn) {<RoleNote Text="Your role can't apply sanctions" />}</div>
+        <nav class="ad-choice" aria-label="Action">
+            @foreach (var (key, label) in Kinds)
+            {
+                if (Allowed(key)) {<a href="/accounts/@Account.Id/enforcement?action=@key" aria-current="@(key == Action ? "true" : null)" data-enforce-action="@key">@label</a>}
+                else {<span aria-disabled="true" data-enforce-action="@key" title="Not available to your role">@label</span>}
+            }
+        </nav>
+        <form method="post" @formname="sanction" @onsubmit="ApplyAsync" class="acct-form" data-confirm="@ConfirmText()" data-confirm-typed="@(Action == "terminate" ? "TERMINATE" : null)">
+            <AntiforgeryToken />
+            <input type="hidden" name="action" value="@Action" />
+            <fieldset class="ad-fieldset ad-fieldset-grid" disabled="@(!allowed)">
+                <ReasonField Reasons="AccountReasons.ForAction(Action)" />
+                @if (Action is "restrict" or "suspend")
+                {
+                    <label class="ui-field"><span>Duration</span><select name="days">@foreach (var d in Durations()){<option value="@d" selected="@(d == 7)">@d days</option>}</select></label>
+                }
+                @if (Action == "terminate")
+                {
+                    <label class="ui-field"><span>Termination access purpose</span><select name="grantPurpose"><option>Final termination decision</option><option>Legal requirement</option></select></label>
+                }
+            </fieldset>
+            @if (Action == "restrict")
+            {
+                <fieldset class="ui-field ad-caps" disabled="@(!allowed)"><legend>Recorded limits</legend>
+                    <label class="beta-check"><input type="checkbox" name="hide" value="true" checked /><span>Out of discovery</span></label>
+                    <label class="beta-check"><input type="checkbox" name="norequests" value="true" checked /><span>No new requests</span></label>
+                    <label class="beta-check"><input type="checkbox" name="nomessages" value="true" /><span>No messages</span></label>
+                </fieldset>
+            }
+            <label class="ui-field"><span>Message to the member</span><textarea name="reason" maxlength="1000" rows="3" required disabled="@(!allowed)">@DefaultMessage()</textarea></label>
+            <label class="ui-field"><span>Internal note</span><input name="note" maxlength="1000" placeholder="Optional · never shown to the member" disabled="@(!allowed)" /></label>
+            <div><button type="submit" data-op="sanction" disabled="@(!allowed)">@ButtonText()</button></div>
+        </form>
+    </section>
+</div>
+<h2 class="ad-h2">Enforcement history</h2>
+@if (Account.Sanctions.Count == 0) { <p class="ui-help" data-sanctions="0">No actions on record.</p> }
+else
+{
+    <div class="ui-table table-scroll" role="region" aria-label="Enforcement history" tabindex="0">
+        <table data-sanctions="@Account.Sanctions.Count">
+            <thead><tr><th scope="col">Action</th><th scope="col">Reason</th><th scope="col">Case</th><th scope="col">By</th><th scope="col">Created</th><th scope="col">Until</th><th scope="col">State</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                @foreach (var s in Account.Sanctions)
+                {
+                    <tr data-sanction="@s.Id" data-live="@(s.Live ? "true" : "false")">
+                        <td><span class="ui-pill" data-tone="@(s.Live ? (s.Kind == "warning" ? "pending" : "reject") : "quiet")">@AccountLabels.Sanction(s.Kind)</span></td>
+                        <td>@(s.ReasonCode is null ? "—" : AccountLabels.Reason(s.ReasonCode))<span class="ui-sub">@s.Reason</span>@if (s.InternalNote is not null) {<span class="ui-sub">Note: @s.InternalNote</span>}</td>
+                        <td>@if (s.CaseId is { } c) {<a href="/cases/@c">Case</a>} else {<span class="ui-sub">Direct</span>}</td>
+                        <td>@AccountLabels.Role(s.CreatedByRole)</td>
+                        <td>@s.StartsAt.ToString("d MMM yyyy")</td>
+                        <td>@(s.Kind == "termination" ? "Permanent" : s.EndsAt?.ToString("d MMM yyyy") ?? "—")</td>
+                        <td>@(s.LiftedAt is { } l ? $"Lifted {l:d MMM yyyy}" : s.Live ? "Active" : "Ended")</td>
+                        <td class="ad-right">@if (s.Live && s.Kind != "termination" && CanLift(s)) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"lift-{s.Id}")" data-op="lift">Lift…</button>}
+                            else if (s.Live && s.Kind == "termination") {<a class="ui-button-ghost" href="/accounts/@Account.Id/reinstate">Reinstatement</a>}</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+@foreach (var s in Account.Sanctions.Where(s => s.Live && s.Kind != "termination" && CanLift(s)))
+{
+    <ConfirmDialog Id="@($"lift-{s.Id}")" FormName="@($"lift-{s.Id}")" Title="@($"Lift {AccountLabels.Sanction(s.Kind).ToLowerInvariant()}")" Confirm="Lift" OnSubmit="() => LiftAsync(s.Id)">
+        <ReasonField Reasons="AccountReasons.Lift" />
+        <p class="ui-help">The member is told it was lifted.</p>
+    </ConfirmDialog>
+}
+@code {
+    [Parameter, EditorRequired] public AccountAdminSummary Account { get; set; } = null!;
+    [Parameter] public AccountPermissionsView? Permissions { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public Action<(int Status, string? Code, string Done)>? Report { get; set; }
+    [SupplyParameterFromQuery(Name = "action")] public string? Requested { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private static readonly (string Key, string Label)[] Kinds = [("warn", "Warn"), ("restrict", "Restrict"), ("suspend", "Suspend"), ("terminate", "Terminate")];
+    private static readonly Dictionary<string, int> Rank = new() { ["support"] = 1, ["trustSafety"] = 2, ["admin"] = 3 };
+
+    private string Action => Kinds.Any(k => k.Key == Requested) && Allowed(Requested!) ? Requested! : Kinds.Select(k => k.Key).FirstOrDefault(Allowed) ?? "warn";
+    private bool Allowed(string kind) => Permissions is { } p && kind switch { "warn" => p.Warn, "restrict" => p.Restrict, "suspend" => p.Suspend, "terminate" => p.Terminate, _ => false };
+    private IEnumerable<int> Durations() => (Action == "restrict" ? new[] { 3, 7, 14, 30, 60, 90 } : new[] { 7, 14, 30, 60, 90 })
+        .Where(d => Action != "restrict" || d <= (Permissions?.MaxRestrictionDays ?? 0));
+    private bool CanLift(SanctionView s) => Permissions is { } p && Rank.GetValueOrDefault(p.Role) >= Rank.GetValueOrDefault(s.CreatedByRole) && (s.Kind != "suspension" || p.Suspend);
+    private string ButtonText() => Action switch { "restrict" => "Apply restriction", "suspend" => "Suspend account", "terminate" => "Terminate account", _ => "Issue warning" };
+    private string ConfirmText() => Action switch
+    {
+        "restrict" => "Restrict this account? The member is barred from the app until it ends.",
+        "suspend" => "Suspend this account? The member is signed out of normal use until it ends.",
+        "terminate" => "Terminate this account permanently? Type TERMINATE to confirm.",
+        _ => "Issue this warning? The member sees it at their next visit.",
+    };
+    private string DefaultMessage() => Action switch
+    {
+        "restrict" => "Some features are limited on your account while we review recent activity.",
+        "suspend" => "Your account is suspended for breaching our Community Guidelines. You can appeal within 30 days.",
+        "terminate" => "Your account has been closed for breaching our Terms of Use. You can appeal within 30 days.",
+        _ => "We removed content that breaks our Community Guidelines. Further breaches may limit or close your account.",
+    };
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task ApplyAsync()
+    {
+        var action = Field("action");
+        if (action == "terminate")
+        {
+            // #88: termination needs live "termination" access; take it here with the recorded purpose if not held.
+            var grants = (await Admin.GrantsAsync()).Value ?? [];
+            if (!grants.Any(g => g.Active && g.Capability == "termination"))
+            {
+                var grant = await Admin.RequestGrantAsync(new AccessGrantRequest("termination", Field("grantPurpose")));
+                if (!grant.Ok) { Report?.Invoke((grant.Status, grant.Code, "")); return; }
+            }
+        }
+        var note = Field("note").Trim();
+        var result = await Admin.SanctionAccountAsync(Account.Id, new ModerationActionRequest(action, Field("reason"), int.TryParse(Field("days"), out var d) ? d : null,
+            Field("hide") == "true", Field("norequests") == "true", Field("nomessages") == "true", null, Field("reasonCode"), note.Length == 0 ? null : note));
+        Report?.Invoke((result.Status, result.Code, action switch { "restrict" => "Restriction applied.", "suspend" => "Account suspended.", "terminate" => "Account terminated.", _ => "Warning issued." }));
+        await Changed.InvokeAsync();
+    }
+    private async Task LiftAsync(Guid sanction)
+    {
+        var result = await Admin.LiftAsync(sanction, Field("reasonCode"));
+        Report?.Invoke((result.Status, result.Code, "Lifted."));
+        await Changed.InvokeAsync();
+    }
+}

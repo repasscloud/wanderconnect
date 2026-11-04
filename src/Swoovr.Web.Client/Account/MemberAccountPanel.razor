@@ -46,9 +46,18 @@ else
     {
         @* D160: restricted, suspended or terminated: nothing else in the app until it's lifted; notices and appeals stay open. *@
         <section class="settings-card" aria-label="Account restricted" data-restricted-screen="@me.AccountState">
-            <h2>@(me.AccountState switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", _ => "Your account is restricted" })</h2>
-            <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
-            <p><a class="button button-small" href="/me/notices">Read the notice</a></p>
+            <h2>@(MemberText.RestrictedTitle(me.AccountState))</h2>
+            @if (me.AccountState == "locked")
+            {
+                <p>@MemberText.LockedBody</p>
+                @if (me.StatusReference is { } reference) { <p data-locked-reference="@reference">Your reference: <strong>@reference</strong></p> }
+                <p><a class="button button-small" href="https://swoovr.com/support">Contact support</a></p>
+            }
+            else
+            {
+                <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
+                <p><a class="button button-small" href="/me/notices">Read the notice</a></p>
+            }
         </section>
     }
     else if (me is not null)
