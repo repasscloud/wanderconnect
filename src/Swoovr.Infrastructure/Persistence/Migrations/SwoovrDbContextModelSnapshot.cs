@@ -7025,6 +7025,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("no_new_requests");
 
+                    b.Property<bool>("NoPhotoUploads")
+                        .HasColumnType("boolean")
+                        .HasColumnName("no_photo_uploads");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(1000)

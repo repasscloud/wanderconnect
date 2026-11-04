@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Authentication;
 namespace Swoovr.Web.Auth;
 
 /// <summary>
-/// Owner answer to Q55 (D160): a restricted (or suspended or terminated) member can't use the app and sees the restricted
+/// D325 (Q132 B, supersedes D160): a suspended or terminated member can't use the app (a restriction only pauses the features it names,
+/// and a sign-in lock shows its own screen) and sees the restricted
 /// screen until the action is lifted. Before rendering a signed-in page this asks the API for the member's account state
 /// (`/api/me`, which stays open to barred members) and redirects to /account/restricted. The API refuses every other
 /// member route on its own; this only decides what the browser shows. The account page, notices (to read and appeal), notifications, account standing (#49, #50),
@@ -25,7 +26,8 @@ public static class RestrictionGate
             return;
         }
         var (state, phoneRequired, reference) = await StateAsync(context, token);
-        if (state is "restricted" or "suspended" or "terminated") { context.Response.Redirect("/account/restricted?state=" + state); return; }
+        // D325 (Q132 B): only suspension and termination take over the app; a restriction limits named features in place.
+        if (state is "suspended" or "terminated") { context.Response.Redirect("/account/restricted?state=" + state); return; }
         // issue 190 §10 (D323): a sign-in lock shows its own screen with the member's public reference.
         if (state == "locked") { context.Response.Redirect("/account/restricted?state=locked" + (reference is { } r ? "&ref=" + Uri.EscapeDataString(r) : "")); return; }
         // D170: while deletion is pending only the deletion screen (under /account) is open.

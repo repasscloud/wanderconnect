@@ -113,6 +113,8 @@ public sealed class Sanction
     public bool HideFromDiscovery { get; set; }
     public bool NoNewRequests { get; set; }
     public bool NoMessages { get; set; }
+    /// <summary>Q132 B (D325): no new profile or chat photos while the restriction lasts.</summary>
+    public bool NoPhotoUploads { get; set; }
     /// <summary>A staff-written reason, shown in the admin app and in the member's notice; never in the audit log.</summary>
     public string Reason { get; set; } = "";
     public DateTimeOffset StartsAt { get; set; }
@@ -245,28 +247,40 @@ public static class ModerationPolicy
 
 /// <summary>What the account's live sanctions mean right now (D133); expired or lifted ones count for nothing.</summary>
 /// <remarks>
-/// Owner answer to Q55 (D160): a restricted member can't do anything in the app either; restrictions are a safety
-/// concern. Restricted, suspended and terminated accounts are all barred (only their account, notices and appeals stay
-/// open, and the app shows the restricted screen); the targeted options on a restriction are kept as a record only.
+/// Owner answer to Q132 B (D325, supersedes D160): a restriction limits only what it names (out of discovery, no new
+/// requests, no messages, no photo uploads) and the member keeps using everything else; a restriction that names nothing
+/// limits all four. Suspension and termination still bar the member: only their account, notices and appeals stay open.
 /// </remarks>
-public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFromDiscovery, bool NoNewRequests, bool NoMessages, bool Restricted = false)
+public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFromDiscovery, bool NoNewRequests, bool NoMessages, bool Restricted = false,
+    bool NoPhotoUploads = false, DateTimeOffset? RestrictedUntil = null)
 {
     public static readonly Enforcement None = new(false, false, false, false, false);
-    /// <summary>Restricted, suspended or terminated: no normal member functions.</summary>
-    public bool Barred => Suspended || Terminated || Restricted;
+    /// <summary>Suspended or terminated: no normal member functions (D325).</summary>
+    public bool Barred => Suspended || Terminated;
     /// <summary>The account state members and the web host see: active, restricted, suspended or terminated.</summary>
     public string State => Terminated ? "terminated" : Suspended ? "suspended" : Restricted ? "restricted" : "active";
+    /// <summary>Wire codes of what a live restriction limits, for the member's notice (D325).</summary>
+    public IReadOnlyList<string> Limits => Barred || !Restricted ? [] :
+        new[] { HiddenFromDiscovery ? "discovery" : null, NoNewRequests ? "requests" : null, NoMessages ? "messages" : null, NoPhotoUploads ? "photos" : null }
+            .OfType<string>().ToList();
 
     public static bool Live(Sanction s, DateTimeOffset now) => s.LiftedAt is null && s.StartsAt <= now && (s.EndsAt is null || s.EndsAt > now);
+
+    /// <summary>D325: what one restriction limits; naming nothing means all four.</summary>
+    public static (bool Discovery, bool Requests, bool Messages, bool Photos) Scope(Sanction s) =>
+        s.HideFromDiscovery || s.NoNewRequests || s.NoMessages || s.NoPhotoUploads
+            ? (s.HideFromDiscovery, s.NoNewRequests, s.NoMessages, s.NoPhotoUploads) : (true, true, true, true);
 
     public static Enforcement For(IEnumerable<Sanction> sanctions, DateTimeOffset now)
     {
         var live = sanctions.Where(s => Live(s, now)).ToList();
         var terminated = live.Any(s => s.Kind == SanctionKind.Termination);
         var suspended = live.Any(s => s.Kind == SanctionKind.Suspension);
-        var restricted = live.Any(s => s.Kind == SanctionKind.Restriction);
-        var barred = terminated || suspended || restricted;
-        return new(suspended, terminated, barred, barred, barred, restricted);
+        var restrictions = live.Where(s => s.Kind == SanctionKind.Restriction).Select(s => (Sanction: s, Scope: Scope(s))).ToList();
+        var barred = terminated || suspended;
+        return new(suspended, terminated, barred || restrictions.Any(r => r.Scope.Discovery), barred || restrictions.Any(r => r.Scope.Requests),
+            barred || restrictions.Any(r => r.Scope.Messages), restrictions.Count > 0, barred || restrictions.Any(r => r.Scope.Photos),
+            restrictions.Count > 0 ? restrictions.Max(r => r.Sanction.EndsAt) : null);
     }
 }
 

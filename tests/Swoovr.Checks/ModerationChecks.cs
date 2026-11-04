@@ -77,12 +77,15 @@ static class ModerationChecks
             new() { Kind = kind, StartsAt = now.AddDays(-1), EndsAt = days is { } d ? now.AddDays(-1 + d) : null, HideFromDiscovery = hide, NoNewRequests = noRequests, LiftedAt = lifted };
         Expect(Enforcement.For([], now) == Enforcement.None, "nothing");
         Expect(Enforcement.For([S(SanctionKind.Warning, null)], now) == Enforcement.None, "a warning restricts nothing");
-        // Q55 (D160): any restriction bars the member, whatever options were ticked.
+        // Q132 B (D325, supersedes D160): a restriction limits only what it names; naming nothing limits all four; never a bar.
         var restricted = Enforcement.For([S(SanctionKind.Restriction, 7, noRequests: true)], now);
-        Expect(restricted.Barred && restricted.Restricted && restricted.HiddenFromDiscovery && restricted.NoNewRequests && restricted.NoMessages, "a restriction bars everything");
+        Expect(!restricted.Barred && restricted.Restricted && restricted.NoNewRequests && !restricted.HiddenFromDiscovery && !restricted.NoMessages && !restricted.NoPhotoUploads, "a restriction limits only what it names");
+        Expect(restricted.Limits.SequenceEqual(["requests"]) && restricted.RestrictedUntil == now.AddDays(6), "named limits and end for the member");
+        var everything = Enforcement.For([S(SanctionKind.Restriction, 7)], now);
+        Expect(!everything.Barred && everything.HiddenFromDiscovery && everything.NoNewRequests && everything.NoMessages && everything.NoPhotoUploads, "naming nothing limits all four");
         Expect(restricted.State == "restricted" && Enforcement.None.State == "active", "restricted state");
         Expect(Enforcement.For([S(SanctionKind.Restriction, 7), S(SanctionKind.Suspension, 7)], now).State == "suspended", "suspension outranks restriction");
-        Expect(!Enforcement.For([S(SanctionKind.Restriction, 1)], now).Barred, "an expired restriction lifts by itself");
+        Expect(!Enforcement.For([S(SanctionKind.Restriction, 1)], now).Restricted, "an expired restriction lifts by itself");
         var suspended = Enforcement.For([S(SanctionKind.Suspension, 30)], now);
         Expect(suspended.Barred && suspended.HiddenFromDiscovery && suspended.NoNewRequests && suspended.NoMessages, "a suspension bars everything");
         Expect(Enforcement.For([S(SanctionKind.Termination, null)], now).Terminated, "termination is permanent");

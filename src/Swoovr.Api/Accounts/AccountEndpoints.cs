@@ -45,7 +45,9 @@ public static class AccountEndpoints
                 { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, PhoneGateEnabled=accounts.PhoneRequired, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken),
                     RegisteredNamesRequired=!RegisteredNamePolicy.Complete(current.Account),
                     DateOfBirthCorrectionUntil=await DobChangeEndpoints.UntilAsync(accounts.Db!,current.Account.Id,clock.GetUtcNow(),cancellationToken),
-                    StatusReference = state == "locked" ? lockReference : null });
+                    StatusReference = state == "locked" ? lockReference : null,
+                    RestrictionLimits = state == "restricted" ? current.Enforcement.Limits : null,
+                    RestrictedUntil = state == "restricted" ? current.Enforcement.RestrictedUntil : null });
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -224,11 +226,10 @@ public static class AccountEndpoints
         // Sanctions are read on every request, so an action applies at once to every client and live session (D133).
         var sanctions = await accounts.Db!.Sanctions.Where(s => s.AccountId == current.Account.Id && s.LiftedAt == null).ToListAsync(cancellationToken);
         var enforcement = Enforcement.For(sanctions, DateTimeOffset.UtcNow);
-        // D160: restricted members are barred too, with their own code so clients show the restricted screen.
+        // D325 (Q132 B, supersedes D160): suspension and termination bar the member; a restriction limits only what it names,
+        // checked by each feature (discovery, requests, messages, photo uploads).
         if (enforcement.Barred && !barredExempt)
-            return (null, enforcement.Terminated || enforcement.Suspended
-                ? Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended, enforcement.Terminated ? "This account has been closed." : "This account is suspended.")
-                : Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountRestricted, "Your account is restricted."));
+            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended, enforcement.Terminated ? "This account has been closed." : "This account is suspended."));
         if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
         if(!barredExempt&&!registeredNamesExempt&&!RegisteredNamePolicy.Complete(current.Account))

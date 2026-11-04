@@ -785,6 +785,7 @@ public static class ModerationEndpoints
                 HideFromDiscovery = kind == SanctionKind.Restriction && request.HideFromDiscovery,
                 NoNewRequests = kind == SanctionKind.Restriction && request.NoNewRequests,
                 NoMessages = kind == SanctionKind.Restriction && request.NoMessages,
+                NoPhotoUploads = kind == SanctionKind.Restriction && request.NoPhotoUploads,
                 CreatedBy = current.Account.Id, CreatedByRole = current.StaffRole,
                 ReasonCode = request.ReasonCode, InternalNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
             };
@@ -817,7 +818,7 @@ public static class ModerationEndpoints
     }
 
     private static SanctionView View(Sanction s, DateTimeOffset now) => new(s.Id, s.AccountId, s.CaseId, Wire(s.Kind), s.Reason, s.StartsAt, s.EndsAt,
-        s.HideFromDiscovery, s.NoNewRequests, s.NoMessages, s.CreatedBy, Wire(s.CreatedByRole), s.LiftedAt, Enforcement.Live(s, now), s.ReasonCode, s.InternalNote);
+        s.HideFromDiscovery, s.NoNewRequests, s.NoMessages, s.CreatedBy, Wire(s.CreatedByRole), s.LiftedAt, Enforcement.Live(s, now), s.ReasonCode, s.InternalNote, s.NoPhotoUploads);
 
     private static async Task<List<CaseSummaryView>> SummariesAsync(SwoovrDbContext db, List<ModerationCase> cases, CancellationToken cancellationToken)
     {

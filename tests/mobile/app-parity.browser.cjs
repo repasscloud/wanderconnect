@@ -65,21 +65,26 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     { assert.deepEqual(code(await call(tokens.chk, path)), [403, 'age-verification-required'], path); pass(); }
     assert.deepEqual([(await call(tokens.chk, '/api/me')).body.ageStatus, (await call(tokens.chk, '/api/me/verification')).status], ['needsVerification', 200]); pass();
 
-    // Restricted and suspended (D160): every member route barred; /me says the state; notices stay open.
+    // D325 (Q132 B): a restriction limits only what it names (here new requests); suspension bars every member route.
     const sanction = (who, body) => call(root, `/api/admin/accounts/${ids[who]}/sanctions`, { method: 'POST', body: { hideFromDiscovery: false, noNewRequests: false, noMessages: false, ...body } });
     assert.equal((await sanction('res', { action: 'restrict', reason: 'Fictional restriction for the app suite.', days: 2, noNewRequests: true })).status, 200); pass();
     assert.equal((await sanction('sus', { action: 'suspend', reason: 'Fictional suspension for the app suite.', days: 2 })).status, 200); pass();
-    for (const [who, expected] of [['res', 'account-restricted'], ['sus', 'account-suspended']]) {
+    for (const path of ['/api/explore?mode=friends', '/api/connections', '/api/requests?box=received', '/api/me/trips'])
+    { assert.ok((await call(tokens.res, path)).status < 300, 'res' + path); pass(); }
+    assert.deepEqual(code(await call(tokens.res, '/api/requests', { method: 'POST', body: { to: pid.ana, mode: 'friends' } })), [403, 'restricted']); pass();
+    assert.deepEqual((await call(tokens.res, '/api/me')).body.restrictionLimits, ['requests']); pass();
+    for (const [who, expected] of [['sus', 'account-suspended']]) {
       for (const path of ['/api/explore?mode=friends', `/api/profiles/${pid.ana}`, '/api/connections', '/api/requests?box=received', '/api/me/trips', '/api/me/identity'])
       { assert.deepEqual(code(await call(tokens[who], path)), [403, expected], who + path); pass(); }
       assert.deepEqual(code(await call(tokens[who], '/api/requests', { method: 'POST', body: { to: pid.ana, mode: 'friends' } })), [403, expected]); pass();
       assert.equal((await call(tokens[who], '/api/me/notices')).status, 200); pass();
-      assert.equal((await call(tokens[who], '/api/me')).body.accountState, who === 'res' ? 'restricted' : 'suspended'); pass();
+      assert.equal((await call(tokens[who], '/api/me')).body.accountState, 'suspended'); pass();
     }
-    // A barred member is out of others' discovery and profiles.
+    assert.equal((await call(tokens.res, '/api/me')).body.accountState, 'restricted'); pass();
+    // A suspended member is out of others' discovery and profiles; a requests-only restriction leaves discovery alone (D325).
     people = (await call(tokens.ana, '/api/explore?mode=friends')).body.people.map(p => p.id);
-    assert.ok(!people.includes(pid.res) && !people.includes(pid.sus)); pass();
-    assert.deepEqual(code(await call(tokens.ana, `/api/profiles/${pid.res}`)), [404, 'unknown-mode']); pass();
+    assert.ok(people.includes(pid.res) && !people.includes(pid.sus)); pass();
+    assert.deepEqual(code(await call(tokens.ana, `/api/profiles/${pid.sus}`)), [404, 'unknown-mode']); pass();
 
     // Person pages: other markets, unknown and malformed ids, no date of birth all read the same (the profile route's 404 unknown-mode).
     for (const id of [pid.cal, pid.dex, '00000000-0000-0000-0000-000000000000', ids.bob /* an account id, not a public id */])

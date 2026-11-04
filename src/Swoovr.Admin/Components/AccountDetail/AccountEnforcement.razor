@@ -30,10 +30,11 @@
             </fieldset>
             @if (Action == "restrict")
             {
-                <fieldset class="ui-field ad-caps" disabled="@(!allowed)"><legend>Recorded limits</legend>
+                <fieldset class="ui-field ad-caps" disabled="@(!allowed)"><legend>Limits <em>(nothing ticked limits all four)</em></legend>
                     <label class="beta-check"><input type="checkbox" name="hide" value="true" checked /><span>Out of discovery</span></label>
                     <label class="beta-check"><input type="checkbox" name="norequests" value="true" checked /><span>No new requests</span></label>
                     <label class="beta-check"><input type="checkbox" name="nomessages" value="true" /><span>No messages</span></label>
+                    <label class="beta-check"><input type="checkbox" name="nophotos" value="true" /><span>No photo uploads</span></label>
                 </fieldset>
             }
             <label class="ui-field"><span>Message to the member</span><textarea name="reason" maxlength="1000" rows="3" required disabled="@(!allowed)">@DefaultMessage()</textarea></label>
@@ -54,7 +55,7 @@ else
                 {
                     <tr data-sanction="@s.Id" data-live="@(s.Live ? "true" : "false")">
                         <td><span class="ui-pill" data-tone="@(s.Live ? (s.Kind == "warning" ? "pending" : "reject") : "quiet")">@AccountLabels.Sanction(s.Kind)</span></td>
-                        <td>@(s.ReasonCode is null ? "—" : AccountLabels.Reason(s.ReasonCode))<span class="ui-sub">@s.Reason</span>@if (s.InternalNote is not null) {<span class="ui-sub">Note: @s.InternalNote</span>}</td>
+                        <td>@(s.ReasonCode is null ? "—" : AccountLabels.Reason(s.ReasonCode))<span class="ui-sub">@s.Reason</span>@if (s.Kind == "restriction") {<span class="ui-sub">Limits: @Limits(s)</span>}@if (s.InternalNote is not null) {<span class="ui-sub">Note: @s.InternalNote</span>}</td>
                         <td>@if (s.CaseId is { } c) {<a href="/cases/@c">Case</a>} else {<span class="ui-sub">Direct</span>}</td>
                         <td>@AccountLabels.Role(s.CreatedByRole)</td>
                         <td>@s.StartsAt.ToString("d MMM yyyy")</td>
@@ -90,10 +91,15 @@ else
     private IEnumerable<int> Durations() => (Action == "restrict" ? new[] { 3, 7, 14, 30, 60, 90 } : new[] { 7, 14, 30, 60, 90 })
         .Where(d => Action != "restrict" || d <= (Permissions?.MaxRestrictionDays ?? 0));
     private bool CanLift(SanctionView s) => Permissions is { } p && Rank.GetValueOrDefault(p.Role) >= Rank.GetValueOrDefault(s.CreatedByRole) && (s.Kind != "suspension" || p.Suspend);
+    private static string Limits(SanctionView s)
+    {
+        var l = new[] { s.HideFromDiscovery ? "discovery" : null, s.NoNewRequests ? "requests" : null, s.NoMessages ? "messages" : null, s.NoPhotoUploads ? "photos" : null }.OfType<string>().ToList();
+        return l.Count == 0 ? "all" : string.Join(", ", l);
+    }
     private string ButtonText() => Action switch { "restrict" => "Apply restriction", "suspend" => "Suspend account", "terminate" => "Terminate account", _ => "Issue warning" };
     private string ConfirmText() => Action switch
     {
-        "restrict" => "Restrict this account? The member is barred from the app until it ends.",
+        "restrict" => "Restrict this account? Only the ticked features are paused until it ends.",
         "suspend" => "Suspend this account? The member is signed out of normal use until it ends.",
         "terminate" => "Terminate this account permanently? Type TERMINATE to confirm.",
         _ => "Issue this warning? The member sees it at their next visit.",
@@ -122,7 +128,7 @@ else
         }
         var note = Field("note").Trim();
         var result = await Admin.SanctionAccountAsync(Account.Id, new ModerationActionRequest(action, Field("reason"), int.TryParse(Field("days"), out var d) ? d : null,
-            Field("hide") == "true", Field("norequests") == "true", Field("nomessages") == "true", null, Field("reasonCode"), note.Length == 0 ? null : note));
+            Field("hide") == "true", Field("norequests") == "true", Field("nomessages") == "true", null, Field("reasonCode"), note.Length == 0 ? null : note, Field("nophotos") == "true"));
         Report?.Invoke((result.Status, result.Code, action switch { "restrict" => "Restriction applied.", "suspend" => "Account suspended.", "terminate" => "Account terminated.", _ => "Warning issued." }));
         await Changed.InvokeAsync();
     }

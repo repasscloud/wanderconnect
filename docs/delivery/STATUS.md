@@ -2,7 +2,7 @@
 
 ## Account detail and Trust & Safety role — 4 November 2026
 
-D322 adds the owner's Trust & Safety role and role boundaries; D323 rebuilds the admin account detail page from the approved mockup (routed tabs, role-aware controls, verification overrides, set reasons, sign-in locks enforced by the API, locked member screen). Q131 (#192) and Q132 (#194) are open. Details and remaining work: [ACCOUNT-DETAIL.md](ACCOUNT-DETAIL.md), tracking #191.
+D322 adds the owner's Trust & Safety role and role boundaries; D323 rebuilds the admin account detail page from the approved mockup (routed tabs, role-aware controls, verification overrides, set reasons, sign-in locks enforced by the API, locked member screen). Q131 A (#192, D324: roles stay API records) and Q132 B (#194, D325: restrictions limit only what they name; supersedes D160) are answered and built. Details and remaining work: [ACCOUNT-DETAIL.md](ACCOUNT-DETAIL.md), tracking #191.
 
 ## Legal approval — 2 November 2026
 

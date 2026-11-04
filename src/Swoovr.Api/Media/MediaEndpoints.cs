@@ -24,6 +24,8 @@ public static class MediaEndpoints
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
+            // D325: a restriction that names photo uploads stops new profile photos.
+            if (current!.Enforcement.NoPhotoUploads) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't add photos right now.");
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
             if (!request.HasFormContentType) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "Send the photo as a file.");

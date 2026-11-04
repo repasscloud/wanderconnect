@@ -55,7 +55,7 @@ public sealed record CaseReportView(Guid Id, Guid ReporterAccountId, string Subj
 public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapshot, DateTimeOffset CapturedAt);
 public sealed record SanctionView(Guid Id, Guid AccountId, Guid? CaseId, string Kind, string Reason, DateTimeOffset StartsAt, DateTimeOffset? EndsAt,
     bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, Guid CreatedBy, string CreatedByRole, DateTimeOffset? LiftedAt, bool Live,
-    string? ReasonCode = null, string? InternalNote = null);
+    string? ReasonCode = null, string? InternalNote = null, bool NoPhotoUploads = false);
 public sealed record CaseDetailView(CaseSummaryView Case, bool StaffAffiliatedSubject, IReadOnlyList<CaseReportView> Reports,
     IReadOnlyList<CaseEvidenceView> Evidence, IReadOnlyList<SanctionView> Sanctions, DateTimeOffset? EvidencePurgedAt = null);
 
@@ -64,7 +64,7 @@ public sealed record CaseDetailView(CaseSummaryView Case, bool StaffAffiliatedSu
 /// dismiss), days for a restriction (up to 30) or suspension (up to 90), and what a restriction covers.
 /// </summary>
 public sealed record ModerationActionRequest(string Action, string? Reason, int? Days, bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, ModerationReportingChoice? Reporting=null,
-    string? ReasonCode=null, string? Note=null);
+    string? ReasonCode=null, string? Note=null, bool NoPhotoUploads=false);
 public sealed record LiftRequest(string? Reason);
 /// <summary>"uphold" or "overturn" (D135).</summary>
 public sealed record AppealDecision(string Outcome);

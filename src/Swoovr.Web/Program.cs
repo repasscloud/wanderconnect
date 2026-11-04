@@ -52,7 +52,7 @@ app.Use(async(context,next)=>{if(context.User.Identity?.IsAuthenticated==true)co
 MeetingSafetyPages.UsePrivacy(app);
 app.UseRateLimiter();
 app.UseAntiforgery();
-// D160: restricted, suspended and terminated members see the restricted screen instead of member pages.
+// D325: suspended and terminated members (and locked accounts) see their screen instead of member pages; restrictions do not.
 app.UseRestrictionGate();
 app.UseAccountEntry();
 

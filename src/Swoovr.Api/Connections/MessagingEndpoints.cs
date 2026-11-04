@@ -49,6 +49,8 @@ public static class MessagingEndpoints
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
+            // D325: a restriction that names messages stops the member writing; everything else stays open.
+            if (current!.Enforcement.NoMessages) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send messages right now.");
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
             await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
             await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
@@ -123,6 +125,8 @@ public static class MessagingEndpoints
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
+            // D325: a restriction that names messages stops the member writing; everything else stays open.
+            if (current!.Enforcement.NoMessages) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send messages right now.");
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
             await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
             if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return NotAvailable();
@@ -210,6 +214,9 @@ public static class MessagingEndpoints
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
+            // D325: a restriction that names messages stops the member writing; everything else stays open.
+            if (current!.Enforcement.NoMessages) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send messages right now.");
+            if (current!.Enforcement.NoPhotoUploads) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send photos right now.");
             var (db, me, now) = (accounts.Db!, current!.Account!.Id, clock.GetUtcNow());
             // Read the bounded request body before locking the conversation; closing/blocking must not wait for an upload stream.
             if (await OpenAsync(db, id, me, cancellationToken) is null) return NotAvailable();
@@ -428,10 +435,12 @@ public static class MessagingEndpoints
             && !await db.Blocks.AnyAsync(b => (b.BlockerAccountId == me && b.BlockedAccountId == other) || (b.BlockerAccountId == other && b.BlockedAccountId == me), cancellationToken);
     }
 
-    /// <summary>Rule 15, D160: the other member's account is active and not restricted, suspended or terminated.</summary>
+    /// <summary>Rule 15, D325: the other member's account is active, not suspended or terminated, and not restricted from messages.</summary>
     private static async Task<bool> ParticipatesAsync(SwoovrDbContext db, Guid other, DateTimeOffset now, CancellationToken cancellationToken) =>
         await db.Accounts.AnyAsync(a => a.Id == other && a.Status == AccountStatus.Active, cancellationToken)
-        && !await db.Sanctions.AnyAsync(s => s.AccountId == other && s.LiftedAt == null && s.StartsAt <= now && (s.EndsAt == null || s.EndsAt > now) && s.Kind != SanctionKind.Warning, cancellationToken);
+        && !await db.Sanctions.AnyAsync(s => s.AccountId == other && s.LiftedAt == null && s.StartsAt <= now && (s.EndsAt == null || s.EndsAt > now)
+            && (s.Kind == SanctionKind.Suspension || s.Kind == SanctionKind.Termination
+                || s.Kind == SanctionKind.Restriction && (s.NoMessages || !s.HideFromDiscovery && !s.NoNewRequests && !s.NoPhotoUploads)), cancellationToken);
 
     /// <summary>
     /// D60, D149: true while the sender's only connections with the other member came from the sender's own visit and

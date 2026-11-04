@@ -257,10 +257,10 @@ public sealed class Notifier(IServiceProvider services, IPushSender push, IEmail
     private static Task<bool> ActiveAsync(SwoovrDbContext db, Guid account, CancellationToken cancellationToken) =>
         db.Accounts.AnyAsync(a => a.Id == account && a.Status == AccountStatus.Active, cancellationToken);
 
-    /// <summary>Restricted, suspended or terminated right now (D160); a warning bars nothing.</summary>
+    /// <summary>Suspended or terminated right now (D325); warnings and restrictions bar nothing here.</summary>
     public static Task<bool> BarredAsync(SwoovrDbContext db, Guid account, DateTimeOffset now, CancellationToken cancellationToken) =>
         db.Sanctions.AnyAsync(s => s.AccountId == account && s.LiftedAt == null && s.StartsAt <= now && (s.EndsAt == null || s.EndsAt > now)
-            && s.Kind != SanctionKind.Warning, cancellationToken);
+            && (s.Kind == SanctionKind.Suspension || s.Kind == SanctionKind.Termination), cancellationToken);
 
     /// <summary>The person who caused it is active, not barred, has a profile, and neither of them blocked the other.</summary>
     public static async Task<bool> AllowedAsync(SwoovrDbContext db, Guid recipient, Guid actor, DateTimeOffset now, CancellationToken cancellationToken) =>

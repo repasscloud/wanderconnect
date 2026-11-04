@@ -1,6 +1,6 @@
 # Admin account detail and staff roles
 
-Issue [#190](https://github.com/repasscloud/wanderconnect/issues/190) (requirements), tracking [#191](https://github.com/repasscloud/wanderconnect/issues/191). Decisions D322 (roles, CONFIRMED), D323 (structure, DEFAULT) and D324 (Q131 meanwhile, DEFAULT). Open questions: Q131 [#192](https://github.com/repasscloud/wanderconnect/issues/192) and Q132 [#194](https://github.com/repasscloud/wanderconnect/issues/194). The owner-approved mockup is local only (`.local/mockups/account-detail-190.html`, fictional data).
+Issue [#190](https://github.com/repasscloud/wanderconnect/issues/190) (requirements), tracking [#191](https://github.com/repasscloud/wanderconnect/issues/191). Decisions D322 (roles, CONFIRMED), D323 (structure, DEFAULT), D324 (Q131 A, CONFIRMED) and D325 (Q132 B, CONFIRMED). Answered: Q131 A [#192](https://github.com/repasscloud/wanderconnect/issues/192) (D324) and Q132 B [#194](https://github.com/repasscloud/wanderconnect/issues/194) (D325, supersedes D160). The owner-approved mockup is local only (`.local/mockups/account-detail-190.html`, fictional data).
 
 ## Roles (D322)
 
@@ -21,6 +21,7 @@ Issue [#190](https://github.com/repasscloud/wanderconnect/issues/190) (requireme
 - **Verification:** ID Verified and Photo Verified with source (provider, or Staff override marked Manual), apply or revoke with set reasons (`POST /verification-override`, Admin, fresh sign-in), override history, Didit attempts, age assurance, and the Staff badge as a switch with a set reason.
 - **Media:** one always-rendered inventory form carries the viewing purpose, so blurred preview and reveal work on the first submit (issue 190 §5: the old reveal form existed only after an earlier POST, so static rendering never dispatched it). The API still requires the media safety acknowledgement and records each view.
 - **Membership:** effective plan, paid subscription untouched, set grant and revoke reasons, optional internal note.
+- **Restrictions (D325):** limit only the ticked features (discovery, new requests, messages, photo uploads; nothing ticked means all four). Each feature refuses with 403 `restricted`; the member keeps the rest of the app and sees what is paused on their account page.
 - **Enforcement:** actions limited by role, set reason code, member message, internal note, duration capped by role. Termination takes its `termination` access inline and needs typed confirmation. History shows reason, case, role, dates and state; lifting needs a set reason.
 - **Sign-in & access:** lock with a set reason, optional `SW-` reference (a new one otherwise), expiry and internal note. The API member gate refuses every protected request while a lock is active (`403 account-locked` with `reference`), whatever session or token the member holds, and the lock ends the member's Keycloak sessions. `/api/me` reports `accountState: "locked"` and `statusReference`; the web shows "Your account is temporarily locked" with the reference and support link, and the app uses the same shared text. Locks are never deleted.
 - **Conversations:** cases for this member, each opening the existing case page with its evidence and access checks.
@@ -33,5 +34,4 @@ New data (migration `AccountDetailControls`, tables and nullable or defaulted co
 - Selecting message ranges or whole threads into an evidence package and referring it to Trust & Safety or Legal (issue 190 §11). Today, conversations open through their case.
 - Warning acknowledgement status in the enforcement history; a list of active sessions.
 - Staff edits of email, mobile and names beyond the existing member and name-review flows (issue 190 §9).
-- Restrictions that limit only selected capabilities (Q132; D160 still bars the whole app).
 - Native app locked-screen check on a device (shared text is wired, not run on a simulator).
