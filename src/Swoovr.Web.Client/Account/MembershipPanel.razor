@@ -1,0 +1,60 @@
+@* issue 180: Membership & billing as its own page. The plan comes from the entitlement service (D151); founder codes are
+   redeemed here (D65). Paid plans and billing appear here once a payment provider is live (D61). *@
+@inject MemberClient Members
+<div class="settings-page-head" data-membership-panel="@(loaded ? "ready" : "loading")">
+    <h1>Membership &amp; billing</h1>
+    <p>Your plan, codes and payments.</p>
+</div>
+<section class="settings-card" aria-labelledby="plan-title" data-plan="@(plan?.Tier ?? "unknown")">
+    <div class="settings-card-head"><h2 id="plan-title">Current plan</h2></div>
+    <div class="settings-row">
+        <div class="settings-row-text">
+            <p class="settings-row-label">Plan</p>
+            @if (!loaded) { <p class="settings-row-value" role="status">Loading…</p> }
+            else if (plan is null) { <p class="settings-row-value">We couldn't load your plan. Try again later.</p> }
+            else
+            {
+                <p class="settings-row-value">@TierLabel(plan.Tier)@if (plan.Complimentary) { <span class="settings-tag">Complimentary</span> }</p>
+                @if (plan.EndsAt is { } ends) { <p class="settings-row-help">Until @ends.ToString("d MMMM yyyy")</p> }
+            }
+        </div>
+    </div>
+</section>
+<section class="settings-card" aria-labelledby="coupon-heading" id="coupon-code">
+    <div class="settings-card-head">
+        <h2 id="coupon-heading">Coupon code</h2>
+        <p>Founding members returning to Swoovr can restore their founding status with the code we emailed them.</p>
+    </div>
+    <form class="settings-form" @onsubmit="RedeemAsync" data-coupon-form>
+        <div class="field"><label for="coupon">Code</label><input id="coupon" type="text" autocomplete="off" spellcheck="false" @bind="coupon" @bind:event="oninput" placeholder="FOUNDER-…" /></div>
+        <button type="submit" class="button button-small" disabled="@(busy || string.IsNullOrWhiteSpace(coupon))">Apply code</button>
+        <p role="status" aria-live="polite" class="settings-status" data-coupon-result="@couponResult">@couponMessage</p>
+    </form>
+</section>
+@code {
+    private bool loaded, busy;
+    private PlanView? plan;
+    private string? coupon, couponMessage, couponResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { plan = (await Members.PlanAsync()).Value; }
+        catch (HttpRequestException) { }
+        loaded = true;
+    }
+
+    private static string TierLabel(string tier) => tier switch { "plus" => "Swoovr Plus", "premium" => "Swoovr Premium", "free" => "Swoovr Free", _ => tier };
+
+    private async Task RedeemAsync()
+    {
+        busy = true;
+        var result = await Members.RedeemAsync(coupon ?? "");
+        busy = false;
+        (couponResult, couponMessage) = AccountText.Coupon(result);
+        if (result.Value is not null)
+        {
+            coupon = null;
+            try { plan = (await Members.PlanAsync()).Value ?? plan; } catch (HttpRequestException) { }
+        }
+    }
+}

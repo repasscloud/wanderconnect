@@ -41,7 +41,7 @@ public static partial class SafetyText
 
     public static string Hint(string source) => source switch
     {
-        "manual" => "",
+        "manual" => "Country selected manually.",
         "cloudflare" => "Country based on your network — change it if it's wrong (a VPN can change it).",
         "fallback" => "Country set for this service — change it if it's wrong.",
         _ => "We couldn't tell your country. Choose one.",

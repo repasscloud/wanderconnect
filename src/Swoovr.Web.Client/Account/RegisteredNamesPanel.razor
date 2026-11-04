@@ -1,36 +1,51 @@
+@* issue 180: the registered name as a settings row. Confirmed names are read-only with "Manage"; the form appears only
+   when the member chooses to change them, or while names still need confirming (D300). The ID Verified rule on a change is
+   Q125 (the current rule is stated plainly until the owner decides). *@
 @inject MemberClient Members
-<section class="card account-section" data-registered-names>
-    <h2>Your registered names</h2>
-    <p>Confirm or complete the names you registered with, including after Apple or Google sign-in. These are self-declared account names, separate from your public profile name and any verified ID record. A name change removes ID Verified and requires a fresh optional ID check.</p>
-    @if(view is not null)
-    {
-        <form class="stack" @onsubmit="SaveAsync" data-registered-names-form>
-            <label>First or only name<input autocomplete="given-name" maxlength="100" required @bind="first" /></label>
-            <label><input type="checkbox" @bind="mononym" /> I have one name</label>
-            <label>Last name<input autocomplete="family-name" maxlength="100" required="@(!mononym)" disabled="@mononym" @bind="last" /></label>
-            <label><input type="checkbox" required @bind="confirm" /> I confirm these are my registered names. If I am ID verified, changing them removes that badge until I submit ID again.</label>
-            <button type="submit" class="button" disabled="@(busy||!confirm)">Confirm registered names</button>
-        </form>
-    }
-    <p role="status" data-registered-names-result="@resultCode">@message</p>
-</section>
+<div class="settings-row" data-registered-names="@(view is null ? "loading" : editing ? "editing" : "confirmed")">
+    <div class="settings-row-text">
+        <p class="settings-row-label">Registered name</p>
+        @if (view is null) { <p class="settings-row-value" role="status">@(message ?? "Loading…")</p> }
+        else if (!editing) { <p class="settings-row-value" data-registered-name-value>@DisplayName</p> }
+        else { <p class="settings-row-help">Your registered name is used for account security and identity verification. It isn't shown on your public profile.</p> }
+    </div>
+    @if (view is not null && !editing) { <button type="button" class="settings-row-action" @onclick="() => editing = true" data-registered-names-manage>Manage</button> }
+</div>
+@if (view is not null && editing)
+{
+    <form class="settings-form" @onsubmit="SaveAsync" data-registered-names-form>
+        <div class="field"><label for="registered-first">First or only name</label><input id="registered-first" autocomplete="given-name" maxlength="100" required @bind="first" /></div>
+        <label class="settings-check"><input type="checkbox" @bind="mononym" /> I have one name</label>
+        <div class="field"><label for="registered-last">Last name</label><input id="registered-last" autocomplete="family-name" maxlength="100" required="@(!mononym)" disabled="@mononym" @bind="last" /></div>
+        <label class="settings-check"><input type="checkbox" required @bind="confirm" /> I confirm these are my registered names.</label>
+        <p class="settings-row-help">If you're ID verified, changing your name removes the ID Verified badge until you verify again.</p>
+        <div class="settings-actions">
+            <button type="submit" class="button button-small" disabled="@(busy||!confirm)">Save name</button>
+            @if (view.Confirmed) { <button type="button" class="button button-secondary button-small" @onclick="Cancel">Cancel</button> }
+        </div>
+    </form>
+}
+<p role="status" class="settings-status" data-registered-names-result="@resultCode">@message</p>
 @code {
     [Parameter] public EventCallback Changed{get;set;}
     private RegisteredNamesView? view;
     private string? first,last,message,resultCode;
-    private bool mononym,confirm,busy;
+    private bool mononym,confirm,busy,editing;
+    private string DisplayName => view is null ? "" : view.Mononym || string.IsNullOrWhiteSpace(view.LastName) ? view.FirstName ?? "" : $"{view.FirstName} {view.LastName}";
     protected override async Task OnInitializedAsync()
     {
         var result=await Members.RegisteredNamesAsync();view=result.Value;
-        if(view is not null){first=view.FirstName;last=view.LastName;mononym=view.Mononym;}
-        else message="We couldn't load your registered names. Try again.";
+        if(view is not null){Reset();editing=!view.Confirmed;}
+        else message="We couldn't load your registered name. Try again.";
     }
+    private void Reset(){if(view is null)return;first=view.FirstName;last=view.LastName;mononym=view.Mononym;confirm=false;}
+    private void Cancel(){Reset();editing=false;message=null;resultCode=null;}
     private async Task SaveAsync()
     {
         if(view is null)return;busy=true;
         var result=await Members.SaveRegisteredNamesAsync(new(first,mononym?null:last,mononym,view.Revision,confirm));busy=false;
         resultCode=result.Ok?"saved":result.Code;
-        message=result.Ok?"Registered names confirmed. Your chosen public name stays unchanged.":result.Status==409?"Your names changed in another session. Reload before confirming again.":"Enter your first and last names, or choose the one-name exception, and explicitly confirm.";
-        if(result.Ok){view=result.Value;confirm=false;await Changed.InvokeAsync();}
+        message=result.Ok?"Registered name saved. Your public profile name hasn't changed.":result.Status==409?"Your name changed in another session. Reload before saving again.":"Enter your first and last names, or choose \"I have one name\".";
+        if(result.Ok){view=result.Value;Reset();editing=false;await Changed.InvokeAsync();}
     }
 }

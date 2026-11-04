@@ -45,6 +45,26 @@
         <p role="status" aria-live="polite" class="field-help" data-verification-message="@messageCode">@message</p>
     </section>
 }
+@if (account is not null)
+{
+    @* issue 180: badges sit with verification (moved from Account settings). *@
+    <section class="card account-section" aria-labelledby="badges-heading">
+        <h2 id="badges-heading">Your badges</h2>
+        @if (account.Badges.Count == 0)
+        {
+            <p class="field-help" data-badges="none">No badges yet. Each badge shows one check, such as a photo or ID check.</p>
+        }
+        else
+        {
+            <ul class="badge-list" data-badges="@string.Join(" ", account.Badges.Select(b => b.Badge))">
+                @foreach (var badge in account.Badges)
+                {
+                    <li><Badge Kind="@AccountText.BadgeKind(badge.Badge)" Size="20" /> @AccountText.BadgeLabel(badge.Badge)@(badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : "")</li>
+                }
+            </ul>
+        }
+    </section>
+}
 @code {
     private bool loaded, busy;
     private IdVerificationView? view;

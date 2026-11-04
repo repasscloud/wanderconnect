@@ -1,5 +1,6 @@
 @page "/me/matching"
 <PageTitle>Who I'd like to meet — Swoovr</PageTitle>
+<SettingsShell Current="matching">
 <div class="member-settings">
 @if (!signedIn)
 {
@@ -11,6 +12,7 @@ else
     <MatchingPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

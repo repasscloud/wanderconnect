@@ -1,5 +1,6 @@
 @page "/me/profile"
 <PageTitle>Your profile — Swoovr</PageTitle>
+<SettingsShell Current="profile">
 <div class="member-settings">
 @if (!signedIn)
 {
@@ -11,6 +12,7 @@ else
     <ProfileEditor @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

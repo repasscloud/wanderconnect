@@ -18,7 +18,7 @@
             @if (pack?.Country is null) { <option value="">Choose a country</option> }
             @foreach (var option in pack?.Countries ?? []) { <option value="@option.Code">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option> }
         </select></div>
-    <p class="field-help" data-country-hint="@source">@SafetyText.Hint(source)</p>
+    <p class="field-help" data-country-hint="@source">@(source == "manual" ? "" : SafetyText.Hint(source))</p>
 </div>
 @if (packLoaded) { <SafetyResources Pack="pack" /> }
 @if (done)

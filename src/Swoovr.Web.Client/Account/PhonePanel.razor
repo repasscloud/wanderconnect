@@ -1,40 +1,55 @@
-@* Mobile number verification (D148, D181), Interactive WebAssembly through /bff/. Send a code, then confirm it. While
-   the sender is simulated (D174) the panel says so: nothing is texted and the code goes to the local mail sink. *@
+@* Mobile number (D148, D181; issue 180 layout), Interactive WebAssembly through /bff/. A verified number is a read-only row
+   with "Change"; the send/confirm steps appear only when the member chooses to change it (or before it's verified).
+   Changing a verified number needs a fresh sign-in (API, #87 policy §4/§15); this offers "Sign in again" when asked. *@
 @inject MemberClient Members
-<section class="card account-section" aria-labelledby="phone-heading" data-phone="@(view is null ? "loading" : view.Verified ? "verified" : view.PendingNumber is not null ? "pending" : "none")"
-         data-phone-required="@(view?.Required == true ? "true" : "false")">
-    <h2 id="phone-heading">Mobile number</h2>
-    @if (view is null) { <p role="status">Loading…</p> }
-    else
+<div class="settings-phone" aria-labelledby="phone-heading" data-phone="@(view is null ? "loading" : view.Verified ? "verified" : view.PendingNumber is not null ? "pending" : "none")"
+     data-phone-required="@(view?.Required == true ? "true" : "false")">
+    <div class="settings-row">
+        <div class="settings-row-text">
+            <p class="settings-row-label" id="phone-heading">Mobile number</p>
+            @if (view is null) { <p class="settings-row-value" role="status">Loading…</p> }
+            else if (view.Verified) { <p class="settings-row-value" data-phone-number="@view.Number">@view.Number <span class="settings-tag">Verified</span></p> }
+            else { <p class="settings-row-value settings-muted">Not verified</p> }
+        </div>
+        @if (view is { Verified: true } && !changing) { <button type="button" class="settings-row-action" @onclick="() => changing = true" data-phone-change>Change</button> }
+    </div>
+    @if (view is not null && (changing || !view.Verified))
     {
-        <p class="field-help">@MemberText.PhoneIntro</p>
-        @if (view.Sender == "simulated") { <p class="field-help" data-phone-simulated="true">@MemberText.PhoneSimulated</p> }
         @if (view.Required) { <p class="notice" role="status">Verify your mobile number to keep using Swoovr.</p> }
-        @if (view.Verified) { <p data-phone-number="@view.Number">Verified: @view.Number</p> }
-        <form class="stack" @onsubmit="SendAsync" data-phone-send>
-            <div class="field"><label for="phone-number">@(view.Verified ? "Change number" : "Mobile number")</label>
+        <p class="settings-row-help">@MemberText.PhoneIntro</p>
+        <form class="settings-form" @onsubmit="SendAsync" data-phone-send>
+            <div class="field"><label for="phone-number">@(view.Verified ? "New mobile number" : "Mobile number")</label>
                 <input id="phone-number" type="tel" autocomplete="tel" inputmode="tel" maxlength="32" @bind="number" @bind:event="oninput" placeholder="0412 345 678" /></div>
-            <button type="submit" class="button button-secondary" disabled="@(busy || string.IsNullOrWhiteSpace(number))">Send code</button>
+            <div class="settings-actions">
+                <button type="submit" class="button button-small" disabled="@(busy || string.IsNullOrWhiteSpace(number))">Send code</button>
+                @if (view.Verified) { <button type="button" class="button button-secondary button-small" @onclick="Cancel">Cancel</button> }
+            </div>
         </form>
         @if (view.PendingNumber is not null)
         {
-            <form class="stack" @onsubmit="ConfirmAsync" data-phone-confirm>
+            <form class="settings-form" @onsubmit="ConfirmAsync" data-phone-confirm>
                 <div class="field"><label for="phone-code">Code sent to @view.PendingNumber</label>
                     <input id="phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" @bind="code" @bind:event="oninput" /></div>
-                <button type="submit" class="button" disabled="@(busy || code?.Length != 6)">Confirm</button>
+                <button type="submit" class="button button-small" disabled="@(busy || code?.Length != 6)">Confirm</button>
             </form>
         }
-        <p role="status" aria-live="polite" class="field-help" data-phone-result="@result">@message</p>
     }
-</section>
+    @if (result == ProblemCodes.StaleSession)
+    {
+        <p class="settings-status" role="status" data-phone-result="@result">For your security, sign in again before changing your number. <a href="/account/reauthenticate?returnUrl=%2Faccount%23contact" data-enhance-nav="false">Sign in again</a></p>
+    }
+    else { <p role="status" aria-live="polite" class="settings-status" data-phone-result="@result">@message</p> }
+</div>
 @code {
     [Parameter] public EventCallback<PhoneView> Changed { get; set; }
     private PhoneView? view;
-    private bool busy;
+    private bool busy, changing;
     private string? number, code, message, result;
     private string? sentTo;
 
     protected override async Task OnInitializedAsync() => view = (await Members.PhoneAsync()).Value;
+
+    private void Cancel() => (changing, number, code, message, result) = (false, null, null, null, null);
 
     private async Task SendAsync()
     {
@@ -52,7 +67,7 @@
         busy = false;
         if (confirmed.Value is { } updated)
         {
-            (view, code, number, result, message) = (updated, null, null, "verified", "Your mobile number is verified.");
+            (view, code, number, changing, result, message) = (updated, null, null, false, "verified", "Your mobile number is verified.");
             await Changed.InvokeAsync(updated);
             return;
         }

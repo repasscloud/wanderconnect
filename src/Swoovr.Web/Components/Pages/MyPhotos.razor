@@ -1,5 +1,6 @@
 @page "/me/photos"
 <PageTitle>Your photos — Swoovr</PageTitle>
+<SettingsShell Current="photos">
 <div class="collection-page member-settings">
 @if (!signedIn)
 {
@@ -11,6 +12,7 @@ else
     <PhotosPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

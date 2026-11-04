@@ -2,6 +2,7 @@
 @inject IHttpContextAccessor Http
 @inject IConfiguration Configuration
 <PageTitle>Appearance — Swoovr</PageTitle>
+<SettingsShell Current="appearance">
 <div class="page-heading">
     <p class="breadcrumb"><a href="/">Me</a> / Settings</p>
     <h1>Make yourself at home.</h1>
@@ -66,6 +67,7 @@ else
     </aside>
 </form>
 }
+</SettingsShell>
 @code {
     private string? owner=>Swoovr.Web.Auth.AppearancePageIdentity.Scope(Http.HttpContext?.User,Configuration);
     private static readonly (string Id, string Name, string Group)[] Schemes = [

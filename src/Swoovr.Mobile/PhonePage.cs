@@ -34,7 +34,6 @@ public sealed class PhonePage : ContentPage
 		var result = await Ui.Members!.PhoneAsync();
 		if (result.Value is not { } view) { body.Children.Add(Ui.Barred(result.Code, "PhoneBarred") ?? Ui.Text("This isn't available right now.", id: "PhoneRefused")); return; }
 		var rows = new List<View> { Ui.Text(MemberText.PhoneIntro, "FooterClaims") };
-		if (view.Sender == "simulated") rows.Add(Ui.Text(MemberText.PhoneSimulated, "FieldLabel", "PhoneSimulated"));
 		if (view.Verified) rows.Add(Ui.Text("Verified: " + view.Number, id: "PhoneVerified"));
 		rows.Add(Ui.Text(view.Verified ? "Change number" : "Mobile number", "FieldLabel"));
 		rows.Add(Ui.Detach(number));

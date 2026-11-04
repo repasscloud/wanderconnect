@@ -1,5 +1,6 @@
 @page "/me/notifications"
 <PageTitle>Notifications — Swoovr</PageTitle>
+<SettingsShell Current="notifications">
 <div class="reading-page">
 @if (!signedIn)
 {
@@ -11,6 +12,7 @@ else
     <NotificationsPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

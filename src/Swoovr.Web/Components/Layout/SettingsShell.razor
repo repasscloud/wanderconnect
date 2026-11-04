@@ -1,0 +1,35 @@
+@* issue 180: every Me / settings page shares one shell: a 240px sidebar on desktop (owner's order, current page
+   highlighted, no collapsible label) and a "Settings" menu above the page on phones. Each entry is its own page. *@
+<div class="settings-shell" data-settings-shell="@Current">
+    <nav class="settings-nav" aria-label="Settings">
+        <details data-settings-menu open>
+            <summary><span class="settings-menu-label">Settings</span><span class="settings-menu-current">@CurrentLabel</span></summary>
+            <ul>
+                @foreach (var item in Items)
+                {
+                    <li><a href="@item.Href" aria-current="@(item.Key == Current ? "page" : null)" data-settings-link="@item.Key"><Icon Name="@item.Icon" Size="20" /><span>@item.Label</span></a></li>
+                }
+            </ul>
+        </details>
+    </nav>
+    <div class="settings-main">@ChildContent</div>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Current { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    public sealed record Item(string Key, string Label, string Href, string Icon);
+    public static readonly IReadOnlyList<Item> Items =
+    [
+        new("profile", "Profile", "/me/profile", "user"),
+        new("photos", "Photos", "/me/photos", "image"),
+        new("matching", "Who I'd like to meet", "/me/matching", "users"),
+        new("verification", "Verification", "/me/verification", "shield"),
+        new("privacy", "Privacy & safety", "/me/standing", "lock"),
+        new("notifications", "Notifications", "/me/notifications", "bell"),
+        new("appearance", "Appearance", "/settings/appearance", "palette"),
+        new("membership", "Membership & billing", "/account/membership", "card"),
+        new("account", "Account settings", "/account", "settings"),
+    ];
+    private string CurrentLabel => Items.FirstOrDefault(i => i.Key == Current)?.Label ?? "Settings";
+}

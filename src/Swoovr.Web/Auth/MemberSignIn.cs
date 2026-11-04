@@ -16,6 +16,14 @@ namespace Swoovr.Web.Auth;
 public static class MemberSignIn
 {
     public const string Cookie = "swoovr.member";
+    private const string KeycloakActionItem = "swoovr.kc_action";
+    /// <summary>Allow-listed Keycloak application-initiated actions (issue 180, Q126 A).</summary>
+    public static readonly IReadOnlyDictionary<string, string> KeycloakActions = new Dictionary<string, string>
+    {
+        ["password"] = "UPDATE_PASSWORD",
+        ["passkey"] = "webauthn-register-passwordless",
+        // "email" (UPDATE_EMAIL) is added once the realm enables update-email (Q126).
+    };
     /// <summary>Session cookie marking that this browser session has seen the launch splash.</summary>
     public const string IntroCookie = "swoovr.intro";
     public static bool IsConfigured(IConfiguration configuration) =>
@@ -66,6 +74,14 @@ public static class MemberSignIn
             {
                 context.Response.Redirect("/account?signin=retry");
                 context.HandleResponse();
+                return Task.CompletedTask;
+            };
+            // issue 180 (Q126 A): Security & access opens Keycloak's own secure steps (application-initiated actions). Only
+            // the allow-listed actions set by /account/action/{kind} are forwarded; nothing comes from the query string.
+            options.Events.OnRedirectToIdentityProvider = context =>
+            {
+                if (context.Properties.Items.TryGetValue(KeycloakActionItem, out var action) && action is not null && KeycloakActions.Values.Contains(action))
+                    context.ProtocolMessage.SetParameter("kc_action", action);
                 return Task.CompletedTask;
             };
             options.Scope.Clear();
@@ -156,6 +172,16 @@ public static class MemberSignIn
             var properties = new AuthenticationProperties { RedirectUri = target };
             properties.Parameters["prompt"] = "login";
             properties.Parameters["max_age"] = "0";
+            return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
+        });
+        // issue 180: Keycloak-hosted security steps for a signed-in member, then back to Account settings. Keycloak itself
+        // re-checks the member's sign-in before any change; the web app never sees passwords or credentials.
+        app.MapGet("/account/action/{kind}", (string kind, HttpContext context) =>
+        {
+            if (!configured || context.User.Identity?.IsAuthenticated != true || !KeycloakActions.TryGetValue(kind, out var action))
+                return Results.Redirect("/account");
+            var properties = new AuthenticationProperties { RedirectUri = "/account?updated=" + kind + "#security" };
+            properties.Items[KeycloakActionItem] = action;
             return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
         });
         // POST with antiforgery: a cross-site link or image cannot sign someone out.
