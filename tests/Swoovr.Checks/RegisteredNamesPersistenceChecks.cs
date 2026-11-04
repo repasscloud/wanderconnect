@@ -29,7 +29,9 @@ static class RegisteredNamesPersistenceChecks
             check("missing surname cannot save without explicit mononym",invalid.Error=="invalid-registered-names"&&account.RegisteredNamesRevision==0);
             var saved=await RegisteredNamesService.SaveAsync(db,id,new("Fictional","Example",false,0,true),now,default);
             check("confirmed declaration retains issuer and subject",saved.Value is{Confirmed:true,Revision:1}&&account.Subject==id.ToString()&&account.Issuer=="https://names.example.test/realms/members");
-            check("name confirmation revokes previous ID badge and returns fresh attempt",profile.IdStatus!=VerificationStatus.Verified&&profile.CanRequestIdVerification&&account.RegisteredNamesMatchId is null);
+            // Q125 A (D317): an ID-verified member's name change keeps the badge and opens one staff review (ids only).
+            var reviews=await db.NameChangeReviews.Where(r=>r.AccountId==id).ToListAsync();
+            check("name change keeps ID Verified and opens one staff review",profile.IdStatus==VerificationStatus.Verified&&reviews.Count==1&&reviews[0].ResolvedAt==null&&reviews[0].Revision==1&&account.RegisteredNamesMatchId is null);
             RegisteredNamesService.SuggestFromTrustedClaims(account,new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim("given_name","Stale"),new Claim("family_name","Provider")},"validated-fictional")));
             check("later provider claims cannot reverse member-confirmed declarations",account.RegisteredFirstName=="Fictional"&&account.RegisteredLastName=="Example");
             check("custom public name is never overwritten by registered identity",profile.DisplayName=="Custom public name");
@@ -38,7 +40,7 @@ static class RegisteredNamesPersistenceChecks
             check("stale editor cannot overwrite registered names",stale.Error=="record-changed"&&account.RegisteredFirstName=="Fictional");
             var old=new IdVerificationAttempt{Id=Guid.NewGuid(),AccountId=id,SessionId=Guid.NewGuid().ToString(),State=IdAttemptState.Created,RegisteredNamesRevision=0,CreatedAt=now,UpdatedAt=now};db.IdVerificationAttempts.Add(old);await db.SaveChangesAsync();
             await VerificationEndpoints.ApplyAsync(db,old,new(old.SessionId,"Approved",id.ToString(),null,true,DateOfBirth:new(1990,1,1)),now,"test",default);
-            check("late pre-edit provider success cannot restore revoked ID",profile.IdStatus!=VerificationStatus.Verified);
+            check("late pre-edit provider result is never compared with the new name",account.RegisteredNamesMatchId is null&&await db.NameChangeReviews.CountAsync(r=>r.AccountId==id&&r.ResolvedAt==null)==1);
             var current=new IdVerificationAttempt{Id=Guid.NewGuid(),AccountId=id,SessionId=Guid.NewGuid().ToString(),State=IdAttemptState.Created,RegisteredNamesRevision=1,CreatedAt=now,UpdatedAt=now};db.IdVerificationAttempts.Add(current);await db.SaveChangesAsync();
             await VerificationEndpoints.ApplyAsync(db,current,new(current.SessionId,"Approved",id.ToString(),null,true,DateOfBirth:new(1990,1,1),Identity:new("Fictional","Example",new(1990,1,1),null,null,null)),now,"test",default);
             check("fresh approved result compares declaration without legal decryption",account.RegisteredNamesMatchId==true&&profile.IdStatus==VerificationStatus.Verified&&!await db.IdentityAccesses.AnyAsync());

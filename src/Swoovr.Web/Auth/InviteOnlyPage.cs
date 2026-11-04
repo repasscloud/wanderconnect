@@ -6,7 +6,7 @@ namespace Swoovr.Web.Auth;
 /// header, colour mode, card, buttons and footer as the rest of Swoovr. Static HTML so it works before WebAssembly.</summary>
 public static class InviteOnlyPage
 {
-    public static string Html(bool betaInvitations, string version)
+    public static string Html(bool betaInvitations, string version, string? measurementId = null)
     {
         var invited = betaInvitations
             ? """<a class="button button-secondary" href="/account/create?invited=true" data-enhance-nav="false" data-beta-invited>I have a beta invitation</a>"""
@@ -40,9 +40,10 @@ public static class InviteOnlyPage
             <p class="invite-only-switch">Already have an account? <a href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
             </section>
             </main>
-            <footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> <a href="https://swoovr.com/support">Support</a></nav><small class="app-version">Version {{WebUtility.HtmlEncode(version)}}</small></footer>
+            <footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> <a href="https://swoovr.com/support">Support</a> <button type="button" class="footer-link-button" data-privacy-open>Your Privacy Choices</button></nav><small class="app-version">Version {{WebUtility.HtmlEncode(version)}}</small></footer>
             </div>
-            <script src="/reading-mode.js"></script>
+            {{PrivacyChoicesMarkup.Html(measurementId)}}
+            <script src="/reading-mode.js"></script><script src="/privacy-choices.js"></script>
             </body>
             </html>
             """;

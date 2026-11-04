@@ -1,6 +1,6 @@
 @* issue 180: the registered name as a settings row. Confirmed names are read-only with "Manage"; the form appears only
-   when the member chooses to change them, or while names still need confirming (D300). The ID Verified rule on a change is
-   Q125 (the current rule is stated plainly until the owner decides). *@
+   when the member chooses to change them, or while names still need confirming (D300). Q125 A (D317): an ID-verified
+   member's change goes to staff review and the badge stays until staff decide. *@
 @inject MemberClient Members
 <div class="settings-row" data-registered-names="@(view is null ? "loading" : editing ? "editing" : "confirmed")">
     <div class="settings-row-text">
@@ -18,7 +18,7 @@
         <label class="settings-check"><input type="checkbox" @bind="mononym" /> I have one name</label>
         <div class="field"><label for="registered-last">Last name</label><input id="registered-last" autocomplete="family-name" maxlength="100" required="@(!mononym)" disabled="@mononym" @bind="last" /></div>
         <label class="settings-check"><input type="checkbox" required @bind="confirm" /> I confirm these are my registered names.</label>
-        <p class="settings-row-help">If you're ID verified, changing your name removes the ID Verified badge until you verify again.</p>
+        <p class="settings-row-help">If you're ID verified, Swoovr's team checks a new name against your verified ID. Your badge stays while they review it.</p>
         <div class="settings-actions">
             <button type="submit" class="button button-small" disabled="@(busy||!confirm)">Save name</button>
             @if (view.Confirmed) { <button type="button" class="button button-secondary button-small" @onclick="Cancel">Cancel</button> }

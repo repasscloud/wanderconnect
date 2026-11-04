@@ -2619,26 +2619,26 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 
 ### Q124 — Record policy acceptance when an account is created
 
-- Issue: [#179](https://github.com/repasscloud/wanderconnect/issues/179#issuecomment-6619031661). Status: OPEN (decision-needed).
+- Issue: [#179](https://github.com/repasscloud/wanderconnect/issues/179#issuecomment-6619031661). Status: ANSWERED A (D316), owner 4 November 2026.
 - Registration now uses the owner's wording (D312): "By creating an account, you agree to our Terms of Use and acknowledge our Privacy Notice and Community Guidelines."
 - A (**Suggested**): record an acceptance of version 2026-11-02-0.2 (account, version, server time) automatically at account creation; the 18+ checkbox stays the only tick. B: wording only, no stored record.
 - Built meanwhile: B (wording only).
 
 ### Q125 — Registered name change and the ID Verified badge
 
-- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937). Status: OPEN (decision-needed).
+- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937). Status: ANSWERED A (D317), owner 4 November 2026.
 - A (**Suggested**): staff compare the change with the verified identity record; the badge stays until staff decide. B: the member repeats the Didit check; the badge stays until the new result. C: keep D300 (badge removed at once).
 - Built meanwhile: the D300 rule is unchanged and stated on the change form.
 
 ### Q126 — Security & access scope
 
-- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937), [update](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619358193). Status: OPEN (decision-needed).
+- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937), [update](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619358193). Status: ANSWERED A (D317), owner 4 November 2026. Follow-up: sessions and linked sign-ins, #185.
 - A (**Suggested**): Keycloak application-initiated actions now (change password, add passkey; change email once the realm enables update-email); active sessions and linked sign-ins as a follow-up API. B: enable Keycloak's account console, themed.
 - Built meanwhile: A for password and passkey (D314). Email change waits for the realm's update-email step.
 
 ### Q127 — "Deactivate account"
 
-- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937). Status: OPEN (decision-needed).
+- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937). Status: ANSWERED A (D317), owner 4 November 2026.
 - A (**Suggested**): no separate deactivate; Delete account hides the account at once and can be recovered for 30 days (D170). B: a new reversible deactivated state.
 - Built meanwhile: A.
 
@@ -2656,7 +2656,7 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 
 ### Q130 — Remembering the Safety & Support country vs the Privacy Notice
 
-- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619048054). Status: OPEN (decision-needed).
+- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619048054). Status: ANSWERED A (D318), owner 4 November 2026; Privacy Notice update tracked in #183.
 - The approved notice lists essential cookies/device storage "only" for sign-in, form protection, trusted-contact access and appearance choices.
 - A: remember the country for one year once "your Safety & Support country" is added to the notice through the legal process. B (**Suggested for now**): keep the browsing-session cookie until then.
 - Built meanwhile: B.

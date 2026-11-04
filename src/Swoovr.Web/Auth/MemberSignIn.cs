@@ -157,7 +157,7 @@ public static class MemberSignIn
             if(availability is not{Revision:>=0}||!availability.PublicEnabled&&!(availability.BetaEnabled&&context.Request.Query["invited"]=="true"))
             {
                 // issue 178: same Swoovr layout and components as the rest of the site.
-                return Results.Content(InviteOnlyPage.Html(availability is{BetaEnabled:true},SwoovrBuild.Display),"text/html",statusCode:availability is null?503:200);
+                return Results.Content(InviteOnlyPage.Html(availability is{BetaEnabled:true},SwoovrBuild.Display,PrivacyChoicesMarkup.MeasurementId(context.RequestServices.GetRequiredService<IConfiguration>(),context.Request.Host.Host)),"text/html",statusCode:availability is null?503:200);
             }
             var properties = new AuthenticationProperties { RedirectUri = "/explore" };
             properties.Parameters["prompt"] = "create";

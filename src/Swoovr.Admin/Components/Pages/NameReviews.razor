@@ -1,0 +1,120 @@
+@page "/name-reviews"
+@* Q125 A (owner, 4 November 2026; D317): an ID-verified member changed their registered name. Compare the current name
+   with the verified identity record (opened from the account through restricted, logged access) and decide. ID Verified
+   stays until then; "Doesn't match" removes it and lets the member verify again. *@
+@inject AdminClient Admin
+@inject NavigationManager Navigation
+<PageTitle>Name change reviews — Swoovr admin</PageTitle>
+<header class="ui-page-head">
+    <h1>Name change reviews</h1>
+    <p>ID-verified members who changed their registered name.</p>
+</header>
+<nav class="ui-tabs" aria-label="Name review sections">
+    <a href="/name-reviews" aria-current="@(Resolved ? null : "page")">Waiting <span class="ui-tab-count">@waiting.Count</span></a>
+    <a href="/name-reviews?view=resolved" aria-current="@(Resolved ? "page" : null)">Resolved <span class="ui-tab-count">@resolved.Count</span></a>
+</nav>
+@if (message is not null && Selected is null) { <p class="notice" role="status" data-result="@resultCode">@message</p> }
+@if (!Resolved)
+{
+    <div class="ui-results-head"><p><strong>@waiting.Count</strong> waiting</p><p>Oldest first</p></div>
+    @if (waiting.Count == 0) { <div class="ui-empty" data-name-reviews="none"><strong>Nothing waiting</strong>Name changes by ID-verified members appear here.</div> }
+    else
+    {
+        <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Name change reviews waiting">
+        <table data-name-reviews="@waiting.Count"><thead><tr><th scope="col">Registered name now</th><th scope="col">Waiting since</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead><tbody>
+        @foreach (var r in waiting)
+        {
+            <tr data-name-review="@r.Id">
+                <td><strong>@Name(r)</strong><span class="ui-sub"><a href="/accounts/@r.AccountId">Account</a> · <code>@r.AccountId.ToString()[..8]</code></span></td>
+                <td>@r.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC<span class="ui-sub">@Ago(r.CreatedAt) ago</span></td>
+                <td class="ui-right"><a class="ui-button-ghost" href="/name-reviews?review=@r.Id" data-name-review-open="@r.Id">Review</a></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+}
+else
+{
+    @if (resolved.Count == 0) { <div class="ui-empty"><strong>No resolved reviews</strong>Decisions appear here.</div> }
+    else
+    {
+        <div class="table-scroll ui-table" tabindex="0" role="region" aria-label="Resolved name change reviews">
+        <table><thead><tr><th scope="col">Registered name</th><th scope="col">Outcome</th><th scope="col">Reason</th><th scope="col">Resolved</th></tr></thead><tbody>
+        @foreach (var r in resolved)
+        {
+            <tr data-name-resolved="@r.Id">
+                <td><strong>@Name(r)</strong><span class="ui-sub"><a href="/accounts/@r.AccountId">Account</a></span></td>
+                <td><span class="ui-pill" data-tone="@(r.Outcome == "matches" ? "approve" : "quiet")">@(r.Outcome == "matches" ? "Matches ID" : "Badge removed")</span></td>
+                <td>@(r.ResolutionNote ?? "—")</td>
+                <td>@r.ResolvedAt?.ToUniversalTime().ToString("d MMM HH:mm") UTC<span class="ui-sub">@r.ResolvedByName</span></td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+}
+@if (Selected is { } selected)
+{
+    <dialog open class="media-dialog dob-dialog" data-name-review-dialog aria-labelledby="name-heading">
+        <header class="media-dialog-head">
+            <div><h2 id="name-heading">@Name(selected)</h2><p class="ui-sub">Registered name change · revision @selected.Revision</p></div>
+            <nav class="media-dialog-nav" aria-label="Review navigation"><a class="ui-button-ghost" href="/name-reviews" aria-label="Close review">Close</a></nav>
+        </header>
+        <form method="post" @formname="@($"name-resolve-{selected.Id}")" @onsubmit="() => ResolveAsync(selected.Id)" class="media-side dob-form" data-enhance="true" data-name-form>
+            <AntiforgeryToken />
+            <dl class="media-meta">
+                <dt>Registered name now</dt><dd>@Name(selected)@(selected.Mononym ? " (one name)" : "")</dd>
+                <dt>Opened</dt><dd>@selected.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC · @Ago(selected.CreatedAt) ago</dd>
+                <dt>ID Verified</dt><dd><span class="ui-pill" data-tone="approve">Kept until you decide</span></dd>
+                <dt>Identity record</dt><dd><a href="/accounts/@selected.AccountId">Open from the account</a> (restricted, logged)</dd>
+            </dl>
+            <fieldset class="ui-field"><legend>Outcome</legend>
+                <div class="media-decide dob-decide" role="radiogroup">
+                    <label><input type="radio" name="outcome" value="matches" required data-name-resolve="matches" /><span>Matches ID</span></label>
+                    <label><input type="radio" name="outcome" value="mismatch" required data-name-resolve="mismatch" /><span>Doesn't match — remove badge</span></label>
+                </div>
+            </fieldset>
+            <label class="ui-field"><span>Reason</span><textarea name="reason" maxlength="1000" required placeholder="Recorded with the outcome"></textarea></label>
+            @if (message is not null) { <p class="media-error" role="status" data-result="@resultCode">@message</p> }
+            <div class="media-side-actions"><span></span><button type="submit" data-name-save>Save decision</button></div>
+        </form>
+    </dialog>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+    [SupplyParameterFromQuery(Name = "review")] public Guid? Focus { get; set; }
+    private List<NameReviewView> waiting = [], resolved = [];
+    private string? message, resultCode;
+    private bool Resolved => View == "resolved";
+    private NameReviewView? Selected => Resolved ? null : waiting.FirstOrDefault(r => r.Id == Focus);
+
+    private static string Name(NameReviewView r)
+    {
+        var name = string.Join(" ", new[] { r.FirstName, r.Mononym ? null : r.LastName }.Where(n => !string.IsNullOrWhiteSpace(n)));
+        return name.Length > 0 ? name : r.DisplayName ?? "Member";
+    }
+    private static string Ago(DateTimeOffset at) { var h = Math.Max(0, (DateTimeOffset.UtcNow - at).TotalHours); return h < 1 ? $"{(int)(h * 60)} min" : h < 48 ? $"{(int)h} h" : $"{(int)(h / 24)} days"; }
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var open = await Admin.NameReviewsAsync(open: true);
+        waiting = open.Value ?? [];
+        resolved = (await Admin.NameReviewsAsync(open: false)).Value?.Where(r => r.ResolvedAt is not null).OrderByDescending(r => r.ResolvedAt).ToList() ?? [];
+        if (!open.Ok) message = AdminText.Refusal(open.Status, open.Code);
+    }
+
+    private async Task ResolveAsync(Guid id)
+    {
+        var outcome = Field("outcome"); var reason = Field("reason").Trim();
+        if (outcome is not ("matches" or "mismatch")) { resultCode = "outcome-required"; message = "Choose Matches ID or Doesn't match."; return; }
+        if (reason.Length == 0) { resultCode = "reason-required"; message = "Add a reason."; return; }
+        var result = await Admin.ResolveNameReviewAsync(id, outcome, reason);
+        resultCode = result.Ok ? "ok" : result.Code ?? result.Status.ToString();
+        if (result.Ok) { Navigation.NavigateTo("/name-reviews"); return; }
+        message = AdminText.Refusal(result.Status, result.Code);
+        await LoadAsync();
+    }
+}

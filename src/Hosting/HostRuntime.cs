@@ -46,6 +46,13 @@ public static class HostRuntime
                 context.Items[ImportMapIntegrityKey]=integrity;
                 responsePolicy=csp.Replace("script-src 'self'","script-src 'self' '"+integrity+"'",StringComparison.Ordinal);
             }
+            // Issue 184 (D318): only a host with a configured GA4 ID (swoovr.app) may load Google Analytics, and only
+            // after consent (privacy-choices.js). No other host's policy changes.
+            if(host==HostKind.Web&&app.Configuration[$"Analytics:GoogleMeasurementIds:{context.Request.Host.Host}"] is {Length:>0})
+                responsePolicy=responsePolicy
+                    .Replace("script-src 'self'","script-src 'self' https://www.googletagmanager.com",StringComparison.Ordinal)
+                    .Replace("img-src 'self'","img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com",StringComparison.Ordinal)
+                    .Replace("connect-src 'self'","connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",StringComparison.Ordinal);
             context.Response.Headers.ContentSecurityPolicy=responsePolicy;
             context.Response.Headers.XContentTypeOptions="nosniff";
             context.Response.Headers["Referrer-Policy"]="strict-origin-when-cross-origin";

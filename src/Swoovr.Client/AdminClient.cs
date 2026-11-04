@@ -175,6 +175,11 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<List<DobReviewView>>> DobReviewsAsync(bool open, CancellationToken cancellationToken = default) =>
         SendAsync<List<DobReviewView>>(HttpMethod.Get, open ? "api/admin/dob-reviews" : "api/admin/dob-reviews?open=false", null, cancellationToken);
 
+    /// <summary>Q125 A (D317): registered name changes by ID-verified members (open queue, or recent history).</summary>
+    public Task<ApiResult<List<NameReviewView>>> NameReviewsAsync(bool open = true, CancellationToken cancellationToken = default) =>
+        SendAsync<List<NameReviewView>>(HttpMethod.Get, open ? "api/admin/name-reviews" : "api/admin/name-reviews?open=false", null, cancellationToken);
+    public Task<ApiResult<NameReviewView>> ResolveNameReviewAsync(Guid id, string outcome, string reason, CancellationToken cancellationToken = default) =>
+        SendAsync<NameReviewView>(HttpMethod.Post, $"api/admin/name-reviews/{id}/resolve", new NameReviewDecision(outcome, reason), cancellationToken);
     public Task<ApiResult<DobReviewView>> ResolveDobReviewAsync(Guid id, string outcome, string reason, CancellationToken cancellationToken = default) =>
         SendAsync<DobReviewView>(HttpMethod.Post, $"api/admin/dob-reviews/{id}/resolve", new DobReviewDecision(outcome, reason), cancellationToken);
 
