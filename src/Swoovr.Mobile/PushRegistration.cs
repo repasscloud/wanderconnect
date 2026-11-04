@@ -47,7 +47,7 @@ public static class PushRegistration
             if (result.Value is { } device)
             {
                 await SecureStorage.Default.SetAsync(DeviceKey, device.Id.ToString());
-                Status = device.Simulated ? Swoovr.Client.NotificationText.PushSimulated : "This device is registered for push. Provider acceptance does not guarantee delivery; check Swoovr for updates.";
+                Status = "This device is registered for push. Provider acceptance does not guarantee delivery; check Swoovr for updates.";
             }
             else Status = "This device could not be registered for push. Check Swoovr for updates.";
         }

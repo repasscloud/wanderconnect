@@ -1,7 +1,7 @@
 @* ID verification (D126–D129, Interactive WebAssembly). Optional and free; one self-service attempt. The API creates the
    Didit session and returns its hosted link, which opens in a new browser tab: the check happens on Didit, not here.
    Returning to /me/verification/return re-reads the result from Didit through the API (D152); the status Didit puts in
-   the return address is never trusted. Didit's test mode is always labelled (D147): it is not a live check. *@
+   the return address is never trusted. No environment notice is shown on any host (D321); nothing claims a live check. *@
 @inject MemberClient Members
 <div class="page-heading" data-verification="@(loaded ? (view is null ? "refused" : "ready") : "loading")">
     <p class="breadcrumb"><a href="/account">Me</a> / ID verification</p>
@@ -11,10 +11,6 @@
 </div>
 @if (view is not null)
 {
-    @if (view.TestMode)
-    {
-        <p class="notice" role="note" data-verification-mode="test"><strong>Test mode.</strong> ID checks run in Didit's test environment. They aren't live verification yet.</p>
-    }
     @if (view.AgeCheckRequired)
     {
         <section class="card account-section" data-age-check-required="true">

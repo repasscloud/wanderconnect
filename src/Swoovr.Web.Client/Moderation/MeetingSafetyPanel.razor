@@ -8,12 +8,11 @@
 @if(data is null){<p data-meeting-loading>Meeting safety is loading or unavailable. <a href="/safety">Safety &amp; Support</a> remains available.</p>}
 else
 {
-    @if(data.DeliveryMode=="local-simulation-only"){<p class="notice" data-meeting-simulated>Local prototype: email goes to the local sink; SMS and push are simulated. Nothing is confirmed delivered to contacts or devices.</p>}
     <section class="card account-section stack"><h2>Trusted contacts</h2><p>Keep up to three. Each contact must agree before receiving meeting updates. Changing a destination means removing that contact and adding a fresh invitation. Contacts are never used for marketing.</p>
         <form class="stack" @onsubmit="AddContactAsync" @onsubmit:preventDefault data-trusted-contact-form>
             <div class="field"><label for="contact-owner-name">Your first name</label><input id="contact-owner-name" @bind="firstName" maxlength="50" required/></div>
             <div class="field"><label for="contact-name">Contact name</label><input id="contact-name" @bind="contactName" maxlength="80" required/></div>
-            <div class="field"><label for="contact-channel">Channel</label><select id="contact-channel" @bind="channel"><option value="email">Email</option><option value="sms">SMS (only when configured; simulated locally)</option></select></div>
+            <div class="field"><label for="contact-channel">Channel</label><select id="contact-channel" @bind="channel"><option value="email">Email</option><option value="sms">SMS</option></select></div>
             <div class="field"><label for="contact-destination">@(channel=="sms"?"International mobile (+ country code)":"Email address")</label><input id="contact-destination" @bind="destination" maxlength="254" required autocomplete="off"/></div>
             <button class="button" disabled="@busy" type="submit">Invite trusted contact</button>
         </form>

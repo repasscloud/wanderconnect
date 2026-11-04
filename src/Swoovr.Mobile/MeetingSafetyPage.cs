@@ -21,11 +21,10 @@ public sealed class MeetingSafetyPage:ContentPage
         if(!await Ui.SignedInAsync()){body.Children.Add(Ui.Text("Sign in to manage voluntary meeting safety.",id:"MeetingSafetySignedOut"));return;}
         var result=await Ui.Members!.MeetingSafetyAsync();data=result.Value;if(data is null){status.Text=MeetingSafetyText.Problem(result.Code);return;}
         selected.RemoveWhere(id=>!data.Contacts.Any(c=>c.Id==id&&c.Consent=="confirmed"));
-        if(data.DeliveryMode=="local-simulation-only")body.Children.Add(Ui.Text("Local prototype: email goes to the local sink; SMS and push are simulated. No external contact/device delivery is verified.","FooterClaims","MeetingSafetySimulated"));
         body.Children.Add(SafeButton("Refresh status","MeetingSafetyRefresh",LoadAsync,primary:false));
         var name=Entry(firstName,"Your preferred first name",50,"MeetingFirstName",v=>firstName=v);body.Children.Add(Ui.Card(Ui.Labelled("Your preferred first name (shared with chosen contacts)",name)));
         var contact=Entry(contactName,"Contact name",80,"TrustedContactName",v=>contactName=v);var target=Entry(destination,"Email or international mobile (+ country code)",254,"TrustedContactDestination",v=>destination=v);
-        var via=new Picker{Title="Channel",ItemsSource=new[]{"Email",MobileEndpoints.Environment=="Uat"?"SMS (when configured)":"SMS (when configured; simulated locally)"},SelectedIndex=channel=="sms"?1:0,AutomationId="TrustedContactChannel"};via.SelectedIndexChanged+=(_,_)=>channel=via.SelectedIndex==1?"sms":"email";
+        var via=new Picker{Title="Channel",ItemsSource=new[]{"Email","SMS"},SelectedIndex=channel=="sms"?1:0,AutomationId="TrustedContactChannel"};via.SelectedIndexChanged+=(_,_)=>channel=via.SelectedIndex==1?"sms":"email";
         body.Children.Add(Ui.Card(Ui.Text("Trusted contacts","SectionHeading"),Ui.Text("Up to three active contacts. Each must agree before receiving alerts. Changing a destination requires removal and a fresh invitation. Never used for marketing.","FooterClaims"),Ui.Labelled("Contact name",contact),via,Ui.Labelled("Destination",target),SafeButton("Invite trusted contact","TrustedContactInvite",async()=>{var saved=await Ui.Members.AddTrustedContactAsync(new(contactName,channel,destination,firstName));status.Text=saved.Ok?"Invitation queued; wait for confirmed consent. Delivery is not confirmed.":MeetingSafetyText.Problem(saved.Code);if(saved.Ok){contactName="";destination="";}await LoadAsync();})));
         foreach(var item in data.Contacts)
         {

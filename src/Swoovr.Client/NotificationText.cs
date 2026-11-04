@@ -12,7 +12,6 @@ public static class NotificationText
     public const string MutedHelp = "Nothing about a muted mode is pushed or emailed. It still shows here.";
     public const string EmailHelp = "Emails go for requests, new connections and travel reminders, never for messages, and say only that something is waiting.";
     public const string PhotosHelp = "When off, people can't send you photos in chat.";
-    public const string PushSimulated = "Push notifications are simulated in this prototype: nothing reaches your lock screen yet.";
     public const string Empty = "Nothing new.";
     /// <summary>The app's install id, kept in its preferences, which stands in for a push token until APNs and FCM exist (Q83).</summary>
     public const string InstallIdKey = "swoovr.install.id";
