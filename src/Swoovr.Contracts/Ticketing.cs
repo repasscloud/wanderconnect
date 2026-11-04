@@ -4,7 +4,7 @@ public sealed record TicketSummary(long Id,string Reference,string Title,long St
 public sealed record TicketAttachment(long Id,string Filename,string ContentType,long Size);
 public sealed record TicketArticle(long Id,string Body,bool Private,string Sender,DateTimeOffset CreatedAt,IReadOnlyList<TicketAttachment> Attachments);
 public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArticle> Articles,TicketStaffFields? Staff=null,bool CanReply=true);
-public sealed record TicketStaffFields(long GroupId,long OwnerId,Guid? CustomerAccountId,IReadOnlyDictionary<string,string> Classification);
+public sealed record TicketStaffFields(long GroupId,long OwnerId,Guid? CustomerAccountId,IReadOnlyDictionary<string,string> Classification,bool Guest=false);
 public sealed record TicketPage(IReadOnlyList<TicketSummary> Items,int Page,int PageSize,bool HasMore);
 public sealed record TicketCreate(Guid OperationId,string Title,string Body);
 public sealed record TicketUpload(string Filename,string ContentType,byte[] Data);
@@ -27,3 +27,11 @@ public sealed record TicketDownload(string Filename,string ContentType,byte[] Da
 public sealed record TicketOwner(long Id,string Name,IReadOnlyList<long> GroupIds);
 public sealed record TicketCategory(string Id,IReadOnlyList<string> Subcategories);
 public sealed record TicketMemberOptions(IReadOnlyList<TicketOption> States,IReadOnlyList<TicketOption> Priorities,string AttachmentPolicy);
+
+// Guest support (no membership): for the separately built public website. See docs/delivery/zammad/GUEST-API.md.
+public sealed record GuestCodeRequest(string Email,string? BotToken=null);
+public sealed record GuestCodeReceipt(string Status);
+public sealed record GuestGrantRequest(string Email,string Code);
+public sealed record GuestGrant(string Grant,DateTimeOffset ExpiresAt);
+public sealed record GuestTicketCreate(Guid OperationId,string Category,string Title,string Body);
+public sealed record GuestCategory(string Id,string Label);

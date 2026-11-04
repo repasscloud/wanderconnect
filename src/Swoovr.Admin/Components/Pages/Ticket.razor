@@ -27,7 +27,7 @@ else
                 {
                     <dt>Queue</dt><dd data-ticket-group>@(Named(caps.Groups, s.GroupId) ?? "Another queue")</dd>
                     <dt>Owner</dt><dd data-ticket-owner>@(caps.Owners.FirstOrDefault(o => o.Id == s.OwnerId)?.Name ?? "Unassigned")</dd>
-                    <dt>Member</dt><dd>@if (s.CustomerAccountId is { } member) { <a href="/accounts/@member" data-ticket-member>Open account</a> } else { <span>Not a mapped member</span> }</dd>
+                    <dt>Member</dt><dd>@if (s.CustomerAccountId is { } member) { <a href="/accounts/@member" data-ticket-member>Open account</a> } else if (s.Guest) { <span data-ticket-guest>Guest (verified email, not a member)</span> } else { <span>Not a mapped member</span> }</dd>
                     @foreach (var (key, label) in Attributes) { if (s.Classification.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v)) { <dt>@label</dt><dd data-ticket-attr="@key">@v</dd> } }
                 }
             </dl>

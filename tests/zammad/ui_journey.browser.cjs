@@ -102,6 +102,28 @@ async function signIn(page, start, email, password) {
     await m.goto(web + '/me/support/' + id);
     await m.waitForSelector('[data-support-state]');
     check((await m.textContent('[data-support-detail] [data-support-state]')).trim() === 'Closed', 'member sees the request closed');
+    // A guest (no membership) submits through the public guest API; staff handle it natively in Admin.
+    const site = 'http://localhost:5099', api = process.env.SWOOVR_API || 'http://127.0.0.1:5080', guestEmail = `guest-ui-${run}@example.test`;
+    const guestCall = async (p, method, body, grant) => { const r = await fetch(api + '/api/support/guest' + p, { method, headers: { Origin: site, 'Content-Type': 'application/json', ...(grant ? { Authorization: 'SwoovrGuest ' + grant } : {}) }, body: body && JSON.stringify(body) }); return [r.status, r.status === 204 ? null : await r.json()]; };
+    check((await guestCall('/codes', 'POST', { email: guestEmail }))[0] === 202, 'guest asks for a code through the guest API');
+    let guestCode;
+    for (let i = 0; i < 60 && !guestCode; i++) {
+      const found = await (await fetch('http://127.0.0.1:8025/api/v1/search?query=' + encodeURIComponent(`to:"${guestEmail}"`))).json();
+      if (found.messages?.length) guestCode = ((await (await fetch('http://127.0.0.1:8025/api/v1/message/' + found.messages[0].ID)).json()).Text.match(/\b(\d{8})\b/) || [])[1];
+      else await new Promise(r => setTimeout(r, 500));
+    }
+    const [, grant] = await guestCall('/grants', 'POST', { email: guestEmail, code: guestCode });
+    const [gs, gt] = await guestCall('/tickets', 'POST', { operationId: crypto.randomUUID(), category: 'account', title: `Guest question ${run}`, body: `Fictional guest ${run}: can I pause my membership?` }, grant.grant);
+    check(gs === 200, 'guest creates a request without a membership');
+    await s.goto(admin + '/tickets/' + gt.id);
+    await s.waitForSelector(`[data-ticket-detail="TK-${gt.id}"]`);
+    check(await s.locator('[data-ticket-guest]').count() === 1, 'staff see the request marked as a guest, not a member');
+    const guestReply = `Guest reply ${run}: yes, from Membership settings.`;
+    await s.fill('[data-ticket-reply-body]', guestReply); await s.selectOption('[data-ticket-visibility]', 'public');
+    await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
+    await s.waitForSelector('[data-result="ok"]');
+    const [, gd] = await guestCall('/tickets/' + gt.id, 'GET', null, grant.grant);
+    check(gd.articles.some(a => a.body.includes(guestReply)), 'guest reads the staff reply through the guest API');
     console.log(`PASS: ${checks} native support journey checks against real Zammad (ticket TK-${id}).`);
   } catch (e) {
     console.log('FAIL: ' + (e.safe ? e.message : (e.name + ': ' + String(e.message).split('\n')[0].slice(0, 200))));

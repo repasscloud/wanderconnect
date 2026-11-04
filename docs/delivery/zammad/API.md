@@ -71,8 +71,8 @@ Attachments (DEFAULT): ordinary UTF-8 `.txt`, at most 64 KiB each and three per 
 | Diagnostics (mappings, uncertain work, inbox) | Implemented, Admin only | same |
 | Trigger, webhook, group, role and object-attribute configuration | Not routine agent work: managed by `scripts/zammad_local.py provision` locally; remote changes use the Zammad admin UI by an administrator | provisioning ran twice without duplication |
 
-## Pending client contracts
+## Client and guest surfaces
 
-Native member Web/MAUI and Admin screens, guest verification/follow-up, webhook inbox processing and notifications, and appeals/case links are delivered by later packages (see `IMPLEMENTATION.md`). No public support website exists or is claimed.
+Native member Web/MAUI and Admin screens use the routes above (see `IMPLEMENTATION.md`, Task 2). Guest support for the separately built public website is specified in `GUEST-API.md`. Webhook inbox processing, notifications and appeals/case links are delivered by later work (see `IMPLEMENTATION.md`). No public support website exists or is claimed.
 
 Sensitive identity-document collection is deferred; no upload invitation or unfinished upload flow is introduced. Ticket closure must never change a Swoovr enforcement/appeal outcome.

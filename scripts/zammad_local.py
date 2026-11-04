@@ -79,6 +79,8 @@ def provision_runtime(staff, config, output=None, reconcile=False):
     private_write(target / 'api.json', json.dumps(settings))
     lines = ['Ticketing__Zammad__BaseUrl=http://swoovr-zammad:8080/', 'Ticketing__Zammad__IdentityToken=' + config['identity_token']]
     lines.extend('Ticketing__Zammad__Staff__' + key + '__Token=' + row['Token'] for key, row in rows.items())
+    # Local guest support: a placeholder website origin for the disposable local harness (the real website is separate).
+    lines.extend(['Ticketing__Guest__AllowedOrigins__0=http://localhost:5099', 'Ticketing__Guest__FrontendUrl=http://localhost:5099/support'])
     private_write(target / 'api.env', '\n'.join(lines) + '\n')
     return settings
 

@@ -50,6 +50,19 @@ public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvi
     {
         if(requireActive&&!actor.Active||actor.Login!=TicketingPolicy.MemberLogin(id)||actor.Roles.Count!=1||actor.Roles[0]!="Customer"||actor.Groups.Count!=0)throw new TicketingAccessException(403,"ticket-customer-role-invalid");
     }
+    public static void ValidateGuest(SupportActor actor,Guid id)
+    {
+        if(!actor.Active||actor.Login!=TicketingGuestPolicy.Login(id)||actor.Roles.Count!=1||actor.Roles[0]!="Customer"||actor.Groups.Count!=0)throw new TicketingAccessException(403,"ticket-customer-role-invalid");
+    }
+    /// <summary>A verified guest acts only as their own mapped customer, through the identity token and a server-chosen From.</summary>
+    public async Task<ITicketingWorkspaceProvider> GuestAsync(Guid guestId,long providerId,CancellationToken ct)
+    {
+        ValidateGuest(await Identity().UserAsync(providerId,ct),guestId);
+        var actor=Provider(configuration["Ticketing:Zammad:IdentityToken"],providerId);
+        var effective=await actor.ActorAsync(ct);ValidateGuest(effective,guestId);
+        if(effective.Id!=providerId)throw new TicketingAccessException(403,"ticket-actor-mismatch");
+        return actor;
+    }
     public async Task<ITicketingWorkspaceProvider> StaffAsync(CurrentAccount current,CancellationToken ct)
     {
         var actor=Provider(configuration[$"Ticketing:Zammad:Staff:{current.Account!.Id:D}:Token"]);

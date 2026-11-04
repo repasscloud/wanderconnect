@@ -17,6 +17,10 @@ builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Enviro
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
 builder.Services.AddScoped<AccountResolver>();
 builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingActorFactory>();
+// Guest support needs persistence (its endpoints are mapped only with a database).
+if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestSupport>();
+builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestBotCheck>();
+builder.Services.AddHttpClient(Swoovr.Api.Ticketing.GuestBotCheck.Client,http=>http.Timeout=TimeSpan.FromSeconds(10));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Founders>();
 // D147, D169: Didit and the members realm's deletion client, from configuration only (locally .local/docker.env).
@@ -117,6 +121,7 @@ if(persistence){Swoovr.Api.Policies.PolicyEndpoints.Map(app);Swoovr.Api.Moderati
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
 Swoovr.Api.Ticketing.TicketingWebhookEndpoints.Map(app);
 Swoovr.Api.Ticketing.TicketingEndpoints.Map(app);
+if(persistence)Swoovr.Api.Ticketing.GuestSupportEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);

@@ -48,9 +48,17 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     private async Task CheckSubjectsAsync(SupportTicket ticket,CancellationToken ct)
     {
         var member=await CustomerAccountAsync(ticket.CustomerId,ct);
-        if(member is null)throw Refuse(404);
-        if(!await Db.Accounts.AnyAsync(a=>a.Id==member&&a.Status==AccountStatus.Active,ct))throw Refuse(404);
-        var subjects=new HashSet<Guid>{member.Value};
+        var subjects=new HashSet<Guid>();
+        if(member is null)
+        {
+            // A verified support guest has no Swoovr account (so no member conflicts); case links below still apply.
+            if(!await Db.Set<TicketingGuest>().AnyAsync(g=>g.ProviderUserId==ticket.CustomerId&&g.State==TicketingOperationState.Applied&&g.DeactivatedAt==null,ct))throw Refuse(404);
+        }
+        else
+        {
+            if(!await Db.Accounts.AnyAsync(a=>a.Id==member&&a.Status==AccountStatus.Active,ct))throw Refuse(404);
+            subjects.Add(member.Value);
+        }
         var links=await Db.Set<TicketingCaseLink>().Where(l=>l.ProviderTicketId==ticket.Id).Select(l=>l.CaseId).Distinct().ToArrayAsync(ct);
         var cases=await Db.ModerationCases.Where(c=>links.Contains(c.Id)).ToArrayAsync(ct);
         if(cases.Length!=links.Length||cases.Any(c=>c.Queue==CaseQueue.Admin&&current.StaffRole!=AccountRole.Admin))throw Refuse(404);
@@ -83,7 +91,12 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         ticket=await TicketAsync(id,false,ct);
         var views=articles.Where(a=>a.TicketId==id&&(staff||!a.Internal)).Select(a=>new TicketArticle(a.Id,TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
             a.Attachments.Where(x=>x.ContentType=="text/plain"&&x.Size<=65536).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),x.ContentType,x.Size)).ToArray())).ToArray();
-        return new(Summary(ticket),views,staff?new(ticket.GroupId,ticket.OwnerId,await CustomerAccountAsync(ticket.CustomerId,ct),ticket.Classification):null,await CanReplyAsync(ticket,ct));
+        return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct));
+    }
+    private async Task<TicketStaffFields> StaffFieldsAsync(SupportTicket ticket,CancellationToken ct)
+    {
+        var member=await CustomerAccountAsync(ticket.CustomerId,ct);
+        return new(ticket.GroupId,ticket.OwnerId,member,ticket.Classification,member is null&&await Db.Set<TicketingGuest>().AnyAsync(g=>g.ProviderUserId==ticket.CustomerId,ct));
     }
     private async Task<bool> CanReplyAsync(SupportTicket ticket,CancellationToken ct)
     {

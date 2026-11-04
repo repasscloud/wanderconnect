@@ -240,7 +240,7 @@ def main():
         check(call(support,'/api/admin/tickets/customers','POST',{'query':customer})['accountId']==people['member'][2],'numeric customer lookup resolves only durable server mapping')
         # Ordinary staff assignment, close/reopen macro, follow-up, scoped search and bounded bulk.
         current=call(support,f'/api/admin/tickets/{ticket}')['ticket']
-        owner=next(o['id'] for o in caps['owners'] if o['name']=='swoovr-staff-'+people['support'][2])
+        owner=next(o['id'] for o in caps['owners'] if o['name']==people['support'][1]['email'])
         assigned=call(support,f'/api/admin/tickets/{ticket}','PUT',{'operationId':str(uuid.uuid4()),'expectedUpdatedAt':current['updatedAt'],'ownerId':owner})
         modules=call(support,'/api/admin/tickets/text-modules');macros=call(support,'/api/admin/tickets/macros')
         macro=next(m for m in macros if m['name']=='Swoovr close ticket' and m['supported'])

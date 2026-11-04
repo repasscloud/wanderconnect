@@ -61,12 +61,56 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
         }
     }
 
+    /// <summary>The guest's helpdesk customer: login `swoovr-guest-{id}`, Customer only, no email (so it can never collide
+    /// with, or be merged into, a member's customer). Same uncertainty rules as members: a lost response is never blindly recreated.</summary>
+    public async Task<long> EnsureGuestCustomerAsync(Guid guestId, CancellationToken ct)
+    {
+        if (guestId == Guid.Empty) throw new ArgumentException("Missing guest identity.");
+        await using var lease = await AccountLifecycleLease.AcquireAsync(db, guestId, ct);
+        var row = await db.Set<TicketingGuest>().SingleOrDefaultAsync(item => item.Id == guestId, ct) ?? throw new InvalidOperationException("Guest is not available.");
+        if (row.DeactivatedAt is not null) throw new InvalidOperationException("Guest is inactive.");
+        var login = TicketingGuestPolicy.Login(guestId);
+        if (row.ProviderUserId is long mapped)
+        {
+            if (identityProvider is ITicketingWorkspaceProvider workspace) TicketingActorFactory.ValidateGuest(await workspace.UserAsync(mapped, ct), guestId);
+            return mapped;
+        }
+        var fresh = row.State is TicketingOperationState.Pending or TicketingOperationState.Rejected;
+        try
+        {
+            var customer = await identityProvider.FindCustomerAsync(login, ct);
+            if (customer is null)
+            {
+                if (!fresh) throw new TicketingProviderException("customer-reconciliation-required", true);
+                row.State = TicketingOperationState.Uncertain; row.UpdatedAt = clock.GetUtcNow();
+                await db.SaveChangesAsync(ct);
+                customer = await identityProvider.CreateCustomerAsync(login, null, ct);
+            }
+            if (customer.Login != login || !customer.Active) throw new TicketingProviderException("provider-identity-mismatch");
+            if (identityProvider is ITicketingWorkspaceProvider currentProvider) TicketingActorFactory.ValidateGuest(await currentProvider.UserAsync(customer.Id, ct), guestId);
+            row.ProviderUserId = customer.Id;
+            row.State = TicketingOperationState.Applied;
+            row.UpdatedAt = clock.GetUtcNow();
+            await db.SaveChangesAsync(ct);
+            return customer.Id;
+        }
+        catch (TicketingProviderException error)
+        {
+            row.State = error.Uncertain ? TicketingOperationState.Uncertain : TicketingOperationState.Rejected;
+            row.UpdatedAt = clock.GetUtcNow();
+            await SaveOutcomeAsync();
+            throw;
+        }
+    }
+
     public async Task<SupportTicket> CreateTicketAsync(Guid accountId, Guid operationId, SupportTicketDraft draft, CancellationToken ct)
     {
         if (accountId == Guid.Empty || operationId == Guid.Empty || draft.OperationReference != operationId.ToString("D")) throw new ArgumentException("Invalid operation identity.");
         await using var lease = await AccountLifecycleLease.AcquireAsync(db, accountId, ct);
-        var identity = await db.Set<TicketingIdentity>().AsNoTracking().SingleOrDefaultAsync(row => row.AccountId == accountId, ct);
-        if (identity is null || identity.State != TicketingOperationState.Applied || identity.DeactivatedAt is not null || identity.ProviderUserId != draft.CustomerId)
+        // A member mapping or, for support guests, a guest mapping; the two never share a helpdesk customer.
+        var mapped = await db.Set<TicketingIdentity>().AsNoTracking().Where(row => row.AccountId == accountId && row.State == TicketingOperationState.Applied && row.DeactivatedAt == null).Select(row => row.ProviderUserId).SingleOrDefaultAsync(ct)
+            ?? await db.Set<TicketingGuest>().AsNoTracking().Where(row => row.Id == accountId && row.State == TicketingOperationState.Applied && row.DeactivatedAt == null).Select(row => row.ProviderUserId).SingleOrDefaultAsync(ct);
+        if (mapped is null || mapped != draft.CustomerId)
             throw new InvalidOperationException("Customer identity is not available.");
         var digest = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(draft)));
         var operation = await db.Set<TicketingOperation>().SingleOrDefaultAsync(row => row.Id == operationId, ct);
