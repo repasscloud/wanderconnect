@@ -20,7 +20,7 @@ public sealed class RegisteredNamesPage : ContentPage
             new HorizontalStackLayout{Children={confirm,Ui.Text("I confirm these names. Changing them removes ID Verified until I submit ID again.")}},
             Ui.Button("Confirm registered names","RegisteredNamesSave",SaveAsync),status,
             Ui.Button("Your data and account","RegisteredNamesData",()=>Ui.PushAsync(new DataPage()),primary:false),
-            Ui.Button("Privacy notice","RegisteredNamesPrivacy",()=>Ui.PushAsync(new PrivacyPage()),primary:false),
+            Ui.Button("Privacy Notice","RegisteredNamesPrivacy",()=>Ui.PushAsync(new PrivacyPage()),primary:false),
             Ui.Button("Contact Support","RegisteredNamesSupport",()=>Launcher.Default.OpenAsync(new Uri("https://swoovr.com/support")),primary:false)
         }}};
     }

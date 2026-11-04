@@ -3,7 +3,7 @@
   const api = window.SwoovrAppearance;
   let storage;
   try { storage = window.localStorage; } catch { /* Private/blocked storage. */ }
-  const initial = document.documentElement.dataset.appearanceOwner ? api.load(storage) : { preference: { scheme: 'standard', mode: 'system' }, available: false };
+  const initial = document.documentElement.dataset.appearanceOwner ? api.load(storage) : { preference: api.signedOut(storage), available: false };
   const media = window.matchMedia('(prefers-color-scheme: dark)');
   const state = { preference: initial.preference, guestPreference: initial.preference, activeAccount: null, available: initial.available, media, storage };
   function apply() {

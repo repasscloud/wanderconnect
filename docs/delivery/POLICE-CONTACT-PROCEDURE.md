@@ -1,10 +1,10 @@
 # Swoovr — Police Contact, Legal Holds & Law-Enforcement Disclosure Procedure
 
 **Classification:** Internal — Restricted\
-**Version:** 1.0 — Owner-approved policy draft\
+**Version:** 1.0 — approved policy (owner Q1–Q37; legal approval D288, 2 November 2026)\
 **Date:** 27 October 2026 (cross-references and statutory notes revised 2 November 2026)\
 **Related issue:** <https://github.com/repasscloud/wanderconnect/issues/84>\
-**Status:** Approved owner decisions Q1–Q37; legal and operational readiness review required before production activation.\
+**Status:** Approved and in force (D288, D310). Operational readiness evidence is tracked separately before production activation.\
 **Related documents:** [breach response runbook](BREACH-RESPONSE-RUNBOOK.md), [retention schedule](RETENTION-SCHEDULE.md), [internal policy](INTERNAL-TRUST-SAFETY-EVIDENCE-PROTECTION-POLICY.md), [law-enforcement cooperation plan](LAW-ENFORCEMENT-COOPERATION-PLAN-DRAFT.md).
 
 ## 1. Purpose and principles

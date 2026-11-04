@@ -1,18 +1,19 @@
-namespace Swoovr.Client;
+namespace Swoovr.Contracts;
 
-/// <summary>CONFIRMED D288/D290 operative reader; reading is not a consent record. Text generated from
-/// docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md by swoovr-legal-docs scripts/sync-policy-drafts.py; edit the
-/// Markdown and regenerate rather than editing this text.</summary>
-public static class PublicPolicyDrafts
+/// <summary>The approved, in-force terms of use and community guidelines (legal approval D288, operative D290, owner
+/// 4 November 2026: these are the policies, not drafts). Text mirrors docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES.md;
+/// change both together and update <see cref="SourceSha256"/>. Reading a page is not an acceptance record.</summary>
+public static class PublicPolicies
 {
     public const string Version = "2026-11-02-0.2";
     public const string Status = "approved";
-    public const string Source = "docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md";
-    public const string SourceSha256 = "8c2a55247543aa711d239e21d200dbbe9dd0020afeb1964f8a1d787523b4a1e9";
+    public static readonly DateTimeOffset EffectiveAt = new(2026, 11, 2, 0, 0, 0, TimeSpan.FromHours(10.5));
+    public const string Source = "docs/delivery/TERMS-AND-COMMUNITY-GUIDELINES.md";
+    public const string SourceSha256 = "72accb8d75d5501b3a4ff1ce021430b528ca28f6efd4d0f7bbb7b0199d71ab70";
     public const bool IsApproved = true;
-    public const string DraftLabel = "Reading this page does not record acceptance of these terms.";
+    public const string ReadingNote = "Reading this page does not record acceptance of these terms.";
     public sealed record Document(string Id, string Title, IReadOnlyList<string> Paragraphs, IReadOnlyList<string> Rules);
-    public static readonly Document Terms = new("terms", "Terms of use", [
+    public static readonly Document Terms = new("terms", "Terms of Use", [
         "1. About these terms. These terms are an agreement between you and RePass Cloud Pty Ltd (ABN 74 642 243 801, ACN 642 243 801) of Findon, South Australia 5023, the company that operates Swoovr (\"Swoovr\", \"we\", \"us\"). They apply to the Swoovr website, apps and services. The community guidelines and the privacy notice form part of how Swoovr works; please read them too. If you don't agree to these terms, don't use Swoovr.",
         "2. Who can use Swoovr. Swoovr is an adult connection service. You must be at least 18 to use it, legally able to agree to these terms, and not prohibited from using it by law or by an earlier Swoovr decision to permanently close your account (unless we have reinstated it). One person may have one account. Venue partner and staff accounts are covered by separate agreements.",
         "3. Your account. Give accurate account information, keep it up to date, and use only accounts you are authorised to control. Your mobile number and email address must be yours and verified. Protect your sign-in details, don't share your account, and tell support at once if your account may be compromised. You are responsible for activity on your account that you could reasonably have prevented.",
@@ -28,7 +29,7 @@ public static class PublicPolicyDrafts
         "13. Help, complaints and disputes. For help, use Swoovr support (https://swoovr.com/support) or support@swoovr.com and include your reference if one is shown. You can also complain to us about how we handled a report or about our compliance with the online dating industry code through the same channels; someone not involved in the original decision will review it. Intake availability does not mean continuous human monitoring or a promised response time. If you're not satisfied, you can contact the eSafety Commissioner (esafety.gov.au) about online harm, the Office of the Australian Information Commissioner (oaic.gov.au) about privacy, or your state or territory consumer protection agency. These terms are governed by the law in force in South Australia, and the courts of South Australia and the courts that can hear appeals from them have non-exclusive jurisdiction. If you live somewhere whose law gives you mandatory protections, such as the Australian Consumer Law, the EU or UK GDPR, the California Consumer Privacy Act or your local consumer laws, those protections still apply and you can bring proceedings where that law allows.",
         "14. General. If part of these terms is unenforceable, the rest continues to apply. If we don't enforce a term straight away, we can still enforce it later. You may not transfer your account or these terms to anyone else. We may transfer these terms to a new operator of Swoovr who agrees to keep your rights under them and under the privacy notice."
     ], []);
-    public static readonly Document Community = new("community", "Community guidelines", [
+    public static readonly Document Community = new("community", "Community Guidelines", [
         "These guidelines apply to everyone on Swoovr, in every mode, profile, photo, message and meeting arranged through Swoovr. Breaking them can lead to content removal, restrictions, suspension or permanent account closure, and serious matters may be referred to police.",
         "Report concerns using Swoovr's controls; you do not need to confront the person first. Give the information you reasonably have, distinguish facts from uncertainty, and do not knowingly fabricate reports. A report made in good faith is not misconduct merely because evidence is inconclusive."
     ], [
@@ -45,5 +46,8 @@ public static class PublicPolicyDrafts
         "No commercial use. Don't advertise, recruit or sell to members, or use Swoovr for multi-level marketing, without our written permission.",
         "Meet safely and honestly. Don't pressure anyone to meet, change plans or go somewhere private, don't encourage dangerous behaviour, and treat people respectfully if you decide not to continue."
     ]);
+    /// <summary>Plain text served by the API for the approved version: one paragraph per block, rules after the opening paragraph.</summary>
+    public static string Text(Document document) => string.Join("\n\n",
+        document.Paragraphs.Take(1).Concat(document.Rules).Concat(document.Paragraphs.Skip(1)));
     public static Document? Find(string? id) => id switch { "terms" => Terms, "community" => Community, _ => null };
 }

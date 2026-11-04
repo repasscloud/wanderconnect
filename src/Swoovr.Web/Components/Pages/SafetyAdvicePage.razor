@@ -1,17 +1,15 @@
 @page "/safety/advice"
-@using Swoovr.Client
-<PageTitle>Connection and meeting advice — Swoovr</PageTitle>
-<div class="reading-page">
-    <div class="page-heading"><p>Swoovr safety advice</p><h1>@SafetyAdvice.Title</h1><p>@SafetyAdvice.Introduction</p></div>
-    <section class="card account-section stack" aria-labelledby="connect-safety-heading">
-        <h2 id="connect-safety-heading">Before connecting</h2>
-        <ul>@foreach(var advice in SafetyAdvice.BeforeConnecting){<li>@advice</li>}</ul>
-    </section>
-    <section class="card account-section stack" aria-labelledby="meet-safety-heading">
-        <h2 id="meet-safety-heading">Before meeting</h2>
-        <ul>@foreach(var advice in SafetyAdvice.BeforeMeeting){<li>@advice</li>}</ul>
-        <p>@SafetyAdvice.Responsibility</p>
-        <p><a class="link" href="/safety">Country-specific Safety &amp; Support</a></p>
-    </section>
-    <p class="field-help">Advice version @SafetyAdvice.Version. This educational advice is separate from terms and privacy policies.</p>
-</div>
+<PageTitle>Safety Advice — Swoovr</PageTitle>
+<PolicyReader Title="@SafetyAdvice.Title" Eyebrow="Safety Advice" Current="/safety/advice" Lede="@SafetyAdvice.Introduction"
+              Meta="@PolicyReading.Describe(SafetyAdvice.Version)" Sections="@Sections" SectionExtra="@Extra"
+              Note="This educational advice is separate from the terms of use and privacy notice." data-safety-advice-page />
+@code {
+    private static readonly IReadOnlyList<PolicyReading.Section> Sections =
+    [
+        new("before-connecting", "1", "Before connecting", [], SafetyAdvice.BeforeConnecting),
+        new("before-meeting", "2", "Before meeting", [], SafetyAdvice.BeforeMeeting),
+    ];
+    private static RenderFragment? Extra(string id) => id == "before-meeting"
+        ? @<div class="policy-callout"><p>@SafetyAdvice.Responsibility</p><a class="policy-callout-link" href="/safety">Country-specific Safety &amp; Support<Icon Name="arrow-right" Size="18" /></a></div>
+        : null;
+}

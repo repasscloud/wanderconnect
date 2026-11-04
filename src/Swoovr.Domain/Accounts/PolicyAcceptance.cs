@@ -1,5 +1,5 @@
 namespace Swoovr.Domain;
-/// <summary>Explicit acceptance of one immutable approved version; never inferred from sign-in or draft reading.</summary>
+/// <summary>Explicit acceptance of one immutable approved version; never inferred from sign-in or from reading a policy page.</summary>
 public sealed class PolicyAcceptance
 {
     public Guid AccountId{get;set;}

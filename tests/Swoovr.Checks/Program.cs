@@ -20,14 +20,14 @@ if(args is ["--contact-provider-probe"])
     return;
 }
 
-if(args is ["--policy-checks"]){PublicPolicyDraftChecks.Run();PolicyNoticeChecks.Run();await PersistenceChecks.Run(policiesOnly:true);return;}
+if(args is ["--policy-checks"]){PublicPolicyChecks.Run();PolicyNoticeChecks.Run();await PersistenceChecks.Run(policiesOnly:true);return;}
 
 HostingPolicyChecks.Run();
 await HostingProxyChecks.Run();
 await SmsSelectionChecks.Run();
 await SmsTransportChecks.Run();
 await DeviceClientChecks.Run();
-PublicPolicyDraftChecks.Run();
+PublicPolicyChecks.Run();
 PolicyNoticeChecks.Run();
 MeetingSafetyChecks.Run();
 MeetingSafetyContactAccessChecks.Run();

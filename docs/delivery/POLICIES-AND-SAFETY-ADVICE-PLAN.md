@@ -2,13 +2,13 @@
 
 > For agentic workers: use superpowers:executing-plans inline against this approved original queue. No additional owner approval is required for reversible DEFAULT implementation; legal approval remains separate.
 
-**Goal:** Deliver the remaining113/121 software: discoverable public draft policies, explicit versioned-acceptance preparation, safety advice at first use/before meetings, and centre-only policy-change notices.
+**Goal:** Deliver the remaining113/121 software (historical plan; the policies were approved under D288/D290/D310): discoverable public policies, explicit versioned-acceptance preparation, safety advice at first use/before meetings, and centre-only policy-change notices.
 
 **Architecture:** Reuse Domain policy rules, Contracts, existing API/persistence and shared Client presentation; no new projects or auth provider. An API-owned approved catalogue starts empty, so configuration cannot make a draft binding. Explicit operator publication of an already published safety source snapshots eligible members once; bounded durable centre processing never sends externally.
 
 **Tech stack:** Existing .NET10, EF/PostgreSQL, Keycloak, Blazor SSR/WASM and MAUI.
 
-**Spec:** Original owner Phase0 queue6, issues113/121; D215/D220/D264; TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md; repository AGENTS/product/architecture rules. Legal57 remains OPEN.
+**Spec:** Original owner Phase0 queue6, issues113/121; D215/D220/D264; TERMS-AND-COMMUNITY-GUIDELINES.md; repository AGENTS/product/architecture rules. Legal57 remains OPEN.
 
 ## Global constraints
 

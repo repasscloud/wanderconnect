@@ -1,18 +1,11 @@
 @page "/terms"
-@using Swoovr.Client
-<PageTitle>Terms of use — Swoovr</PageTitle>
-<div class="reading-page" data-public-policy="terms" data-policy-version="@PublicPolicyDrafts.Version" data-policy-status="@PublicPolicyDrafts.Status">
-    <div class="page-heading">
-        <h1>@Document.Title</h1>
-        <p class="field-help">@PublicPolicyDrafts.Version</p>
-    </div>
-    <section class="card account-section" aria-label="@Document.Title">
-        @if (Document.Rules.Count > 0) { <ul>@foreach (var rule in Document.Rules) { <li>@rule</li> }</ul> }
-        @foreach (var paragraph in Document.Paragraphs) { <p>@paragraph</p> }
-    </section>
-    <nav class="card account-section" aria-label="Related policies">
-        <a href="/terms">Terms of use</a> · <a href="/community-guidelines">Community guidelines</a> · <a href="/privacy">Privacy notice</a> · <a href="/safety">Safety &amp; Support</a>
-    </nav>
-    <p><a href="@StandingText.SupportUrl">Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
-</div>
-@code { private static PublicPolicyDrafts.Document Document => PublicPolicyDrafts.Terms; }
+<PageTitle>Terms of Use — Swoovr</PageTitle>
+<PolicyReader Title="@Document.Title" Eyebrow="Legal" Current="/terms" NumberLabel="Clause"
+              Lede="The agreement between you and RePass Cloud Pty Ltd for using the Swoovr website, apps and services."
+              Meta="@PolicyReading.Describe(PublicPolicies.Version)" Sections="@Sections" Note="@PublicPolicies.ReadingNote"
+              data-public-policy="terms" data-policy-version="@PublicPolicies.Version" data-policy-status="@PublicPolicies.Status" />
+@code {
+    private static PublicPolicies.Document Document => PublicPolicies.Terms;
+    private static readonly IReadOnlyList<PolicyReading.Section> Sections =
+        Document.Paragraphs.Select((p, i) => PolicyReading.Numbered("terms", p, i + 1)).ToList();
+}

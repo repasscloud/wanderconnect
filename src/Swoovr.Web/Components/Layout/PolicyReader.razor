@@ -1,0 +1,102 @@
+@* Shared reader for the public policy and advice pages (owner review, 4 November 2026): full-width article with a
+   sticky contents list on wide screens, numbered section headings, related pages and a support panel. Static SSR,
+   readable without JavaScript; the contents list collapses behind "On this page" on narrow screens (reading-mode.js). *@
+<article class="policy" @attributes="Attributes">
+    <header class="policy-hero" @attributes="HeadingAttributes">
+        @if (Eyebrow is not null) { <p class="eyebrow">@Eyebrow</p> }
+        <h1>@Title</h1>
+        @if (Lede is not null) { <p class="policy-lede">@Lede</p> }
+        @if (Meta.Updated is not null || Meta.Version is not null)
+        {
+            <dl class="policy-meta" data-policy-meta>
+                @if (Meta.Updated is not null) { <div><dt>Last updated</dt><dd data-policy-updated>@Meta.Updated</dd></div> }
+                @if (Meta.Version is not null) { <div><dt>Version</dt><dd>@Meta.Version</dd></div> }
+            </dl>
+        }
+    </header>
+    <div class="policy-layout">
+        @if (Sections.Count > 1)
+        {
+            <nav class="policy-toc" aria-label="On this page">
+                <details open data-policy-toc>
+                    <summary>On this page</summary>
+                    <ol>
+                        @foreach (var s in Sections)
+                        {
+                            @* Page path + fragment: the document's <base href="/"> would turn a bare "#id" into "/#id". *@
+                            <li><a href="@($"{Current}#{s.Id}")">@if (s.Number is not null) { <span class="policy-toc-num" aria-hidden="true">@s.Number</span> }<span>@s.Title</span></a></li>
+                        }
+                    </ol>
+                </details>
+            </nav>
+        }
+        <div class="policy-main">
+            @Before
+            @foreach (var s in Sections)
+            {
+                <section class="policy-section" id="@s.Id" aria-labelledby="@(s.Id)-title" @attributes="SectionAttributes(s)">
+                    <h2 id="@(s.Id)-title">
+                        @if (s.Number is not null) { <span class="policy-num" aria-hidden="true">@s.Number</span><span class="visually-hidden">@NumberLabel @s.Number: </span> }
+                        <span class="policy-section-title">@s.Title</span>
+                    </h2>
+                    <div class="policy-section-body">
+                        @foreach (var p in s.Paragraphs) { <p>@p</p> }
+                        @if (s.Points.Count > 0)
+                        {
+                            <ol class="policy-points">
+                                @foreach (var point in s.Points)
+                                {
+                                    var (lead, rest) = PolicyReading.Lead(point);
+                                    @* Short clause names ("Adults only.") lead in bold; long first sentences stay plain for readability. *@
+                                    if (rest.Length > 0 && lead.Length <= 32) { <li><strong>@lead</strong>@(" " + rest)</li> }
+                                    else { <li>@point</li> }
+                                }
+                            </ol>
+                        }
+                        @SectionExtra?.Invoke(s.Id)
+                    </div>
+                </section>
+            }
+            @ChildContent
+            @if (Note is not null) { <p class="policy-note">@Note</p> }
+            <aside class="policy-help" aria-labelledby="policy-help-title" data-policy-help>
+                <div>
+                    <h2 id="policy-help-title">Need help?</h2>
+                    <p>Contact Swoovr support and include your reference if one is shown.</p>
+                </div>
+                <div class="policy-help-actions">
+                    <a class="primary-button" href="@StandingText.SupportUrl" rel="noopener" data-support-link>Visit Swoovr support<Icon Name="external" Size="18" /></a>
+                    <a class="button button-secondary" href="@("mailto:" + StandingText.SupportEmail)" data-support-email><Icon Name="mail" Size="18" />@StandingText.SupportEmail</a>
+                </div>
+            </aside>
+            <nav class="policy-related" aria-labelledby="policy-related-title">
+                <h2 id="policy-related-title">Related pages</h2>
+                <ul>
+                    @foreach (var link in PolicyReading.Pages.Where(p => p.Href != Current))
+                    {
+                        <li><a class="policy-card" href="@link.Href"><span class="policy-card-title">@link.Title</span><span class="policy-card-text">@link.Description</span><Icon Name="arrow-right" Size="18" /></a></li>
+                    }
+                </ul>
+            </nav>
+        </div>
+    </div>
+</article>
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Lede { get; set; }
+    [Parameter] public PolicyReading.Meta Meta { get; set; } = new(null, null);
+    [Parameter, EditorRequired] public IReadOnlyList<PolicyReading.Section> Sections { get; set; } = [];
+    [Parameter, EditorRequired] public string Current { get; set; } = "";
+    [Parameter] public string NumberLabel { get; set; } = "Section";
+    [Parameter] public string? SectionAttribute { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, object>? HeadingAttributes { get; set; }
+    [Parameter] public Func<string, RenderFragment?>? SectionExtra { get; set; }
+    [Parameter] public RenderFragment? Before { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Note { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+
+    private IReadOnlyDictionary<string, object>? SectionAttributes(PolicyReading.Section s) =>
+        SectionAttribute is null ? null : new Dictionary<string, object> { [SectionAttribute] = s.Id };
+}

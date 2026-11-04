@@ -33,6 +33,15 @@
     <p class="account-actions"><a class="button button-secondary" href="/me/meeting-safety">I’m meeting someone</a> <a class="button button-secondary" href="/me/safety#serious" data-serious-entry>Report a serious safety incident</a></p>
 </section>
 }
+else
+{
+@* D308: signed-out visitors see the serious-incident entry only, and it goes to Swoovr support; meeting safety stays members-only. *@
+<section class="card account-section" aria-labelledby="serious-guest-heading" data-swoovr-guest-actions>
+    <h2 id="serious-guest-heading">Report a serious safety incident</h2>
+    <p class="field-help">If you're in immediate danger, contact local emergency services first. To tell Swoovr about a serious incident involving a member, contact Swoovr support.</p>
+    <p class="account-actions"><a class="button button-secondary" href="@StandingText.SupportUrl" rel="noopener" data-serious-entry>Report a serious safety incident</a></p>
+</section>
+}
 @code {
     [Parameter] public bool ShowMemberActions { get; set; } = true;
     [Parameter] public SafetyPack? Pack { get; set; }

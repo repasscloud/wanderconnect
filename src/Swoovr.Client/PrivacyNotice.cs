@@ -3,14 +3,14 @@ namespace Swoovr.Client;
 /// <summary>
 /// The member-facing privacy notice (#99, #22; policy §1–§16, procedure §10), shared by the web page and the app so both say
 /// the same thing. It is the APP privacy policy (APP 1.3–1.4, including the APP 1.7–1.9 automated-decision disclosures that
-/// commence on 10 December 2026) and the general collection notice (APP 5). D288/D290 approve these operative readers; every
-/// rendering shows <see cref="DraftLabel"/>. Wording follows the decisions it describes (D138, D167, D170–D173, D186–D191,
+/// commence on 10 December 2026) and the general collection notice (APP 5). Approved and in force (D288/D290/D310); every
+/// rendering shows <see cref="StatusLabel"/>. Wording follows the decisions it describes (D138, D167, D170–D173, D186–D191,
 /// D195, D199, D203–D205, D216, D217, D263, D266, D268, D269, D272, D275, D277); change them together. Provider countries in
-/// "overseas" must match the executed provider agreements before publication.
+/// "overseas" must keep matching the executed provider agreements.
 /// </summary>
 public static class PrivacyNotice
 {
-    public const string DraftLabel = "Privacy notice — approved 2 November 2026.";
+    public const string StatusLabel = "Privacy notice — approved 2 November 2026.";
     public const string Version = "0.17, 2 November 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";

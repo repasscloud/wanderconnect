@@ -12,7 +12,7 @@
 
             <VerticalStackLayout x:Name="SignedOutPanel" Spacing="12" IsVisible="False">
                 <Button Text="Terms" Clicked="OnTerms" Style="{StaticResource SecondaryButton}" />
-                <Button Text="Community guidelines" Clicked="OnCommunity" Style="{StaticResource SecondaryButton}" />
+                <Button Text="Community Guidelines" Clicked="OnCommunity" Style="{StaticResource SecondaryButton}" />
                 <Button Text="Privacy" Clicked="OnPrivacy" Style="{StaticResource SecondaryButton}" />
                 <Button Text="Connection and meeting advice" Clicked="OnSafetyAdvice" Style="{StaticResource SecondaryButton}" />
                 <Button Text="Safety &amp; Support" Clicked="OnSafety" Style="{StaticResource SecondaryButton}" />
@@ -121,9 +121,9 @@
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
-                            <Button Text="Terms of use" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />
-                            <Button Text="Community guidelines" AutomationId="MeCommunity" Style="{StaticResource SecondaryButton}" Clicked="OnCommunity" />
-                            <Button Text="Privacy notice" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
+                            <Button Text="Terms of Use" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />
+                            <Button Text="Community Guidelines" AutomationId="MeCommunity" Style="{StaticResource SecondaryButton}" Clicked="OnCommunity" />
+                            <Button Text="Privacy Notice" AutomationId="MePrivacy" Style="{StaticResource SecondaryButton}" Clicked="OnPrivacy" />
                         </VerticalStackLayout>
                     </Border>
 

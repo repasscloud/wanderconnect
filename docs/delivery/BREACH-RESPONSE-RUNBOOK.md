@@ -1,6 +1,6 @@
 # Data breach and security incident response runbook
 
-Status: DEFAULT (builder, 27 October 2026; revised 2 November 2026; #89, internal policy §12, police-contact procedure §12). Release candidate for legal and operational review before the external beta (#57). Not legal advice.
+Status: DEFAULT (builder, 27 October 2026; revised 2 November 2026; #89, internal policy §12, police-contact procedure §12). Legally approved 2 November 2026 (D288, D310); operational review before the external beta remains (#57). Not legal advice.
 
 This is what Swoovr staff do when something may have gone wrong with personal information: unauthorised access, disclosure, loss or alteration. It implements the Notifiable Data Breaches (NDB) scheme in Part IIIC of the Privacy Act 1988. Act at once; don't wait for certainty.
 

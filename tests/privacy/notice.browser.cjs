@@ -1,5 +1,5 @@
-// Local acceptance for slice AF (#99, #22): the member-facing privacy notice draft. The public /privacy page is labelled
-// DRAFT, covers the identity record, ban matching, 2 years after termination, contact history, unsent messages, evidence
+// Local acceptance for slice AF (#99, #22): the approved member-facing privacy notice (D288/D290/D310). The public /privacy page
+// shows its last-updated date and version, is never labelled draft, covers the identity record, ban matching, 2 years after termination, contact history, unsent messages, evidence
 // holds and the founder token, and links to the law-enforcement page; Me (the account page) and the data and deletion
 // screen link to it, in Edge at phone width. The sign-up link lives in the Keycloak theme (checked in the file; the
 // running Keycloak serves the main checkout's theme until this branch merges). Every person is fictional.
@@ -17,7 +17,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     const response = await fetch(web + '/privacy');
     assert.equal(response.status, 200); pass();
     const html = await response.text();
-    assert.ok(html.includes('DRAFT') && html.includes('not in force')); pass();
+    assert.ok(html.includes('data-policy-updated') && !/draft|not in force/i.test(html.replace(/<script[\s\S]*?<\/script>/g, ''))); pass();
     for (const id of ['identity', 'bans', 'contact-history', 'messages', 'photos', 'holds', 'founders', 'retention', 'law-enforcement', 'contact'])
       assert.ok(html.includes(`data-privacy-section="${id}"`), id);
     pass();
@@ -49,7 +49,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     assert.equal(await page.locator('[data-privacy-link]').first().getAttribute('href'), '/privacy'); pass();
     await page.locator('[data-privacy-link]').first().evaluate(a => a.click());
     await page.waitForSelector('[data-privacy-notice]');
-    assert.ok((await page.locator('[data-draft]').innerText()).startsWith('DRAFT')); pass();
+    assert.ok((await page.locator('[data-policy-updated]').innerText()).includes('2026')); pass();
     if (output) {
       await page.screenshot({ path: output + '/web-privacy.png', fullPage: true });
       await page.locator('[data-privacy-section="bans"]').screenshot({path:output+'/web-privacy-bans.png'});
@@ -61,7 +61,7 @@ const { web, createMember, cli, memberToken, call, sql, claims } = require('../a
     }
     await context.close();
 
-    console.log(`PASS: privacy notice draft (${passed} checks).`);
+    console.log(`PASS: approved privacy notice (${passed} checks).`);
   } finally {
     await edge.close();
   }

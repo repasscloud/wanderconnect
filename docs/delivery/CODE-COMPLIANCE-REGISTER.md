@@ -1,6 +1,6 @@
-# Code and governance compliance register — draft
+# Code and governance compliance register
 
-Status: **DRAFT 0.2 — working register, 2 November 2026**, issue [119](https://github.com/repasscloud/wanderconnect/issues/119), CONFIRMED D215/D220. **No obligation is recorded as fulfilled.** Swoovr intends to seek Code participation subject to legal and ongoing operational readiness; it is not represented as a signatory, externally verified or compliant. Legal review ([57](https://github.com/repasscloud/wanderconnect/issues/57)) remains required. DRAFT 0.2 adds the mandatory statutory obligations that apply whether or not Swoovr signs the voluntary Code.
+Status: **Version 0.2 — approved revision (D288, 2 November 2026; D310), working register**, issue [119](https://github.com/repasscloud/wanderconnect/issues/119), CONFIRMED D215/D220. **No obligation is recorded as fulfilled.** Swoovr intends to seek Code participation subject to legal and ongoing operational readiness; it is not represented as a signatory, externally verified or compliant. Legal review ([57](https://github.com/repasscloud/wanderconnect/issues/57)) remains required. DRAFT 0.2 adds the mandatory statutory obligations that apply whether or not Swoovr signs the voluntary Code.
 
 Status vocabulary: **Fulfilled** requires dated evidence for the relevant environment and an authorised reviewer. **Partially fulfilled** identifies evidence and outstanding scope. **Outstanding** lacks necessary implementation or operational evidence. **Not applicable** requires recorded justification and review. The dated repository [gap analysis](ONLINE-DATING-CODE.md) is a starting point, not a verified assessment.
 
@@ -8,7 +8,7 @@ Status vocabulary: **Fulfilled** requires dated evidence for the relevant enviro
 
 | Obligation | Status and evidence | Accountable role / next action | Gate / issue |
 | --- | --- | --- | --- |
-| Code §5.1, §7.3(2): terms and accessible current policies | Partially fulfilled: terms and guidelines DRAFT 0.2 and privacy notice Draft 0.17 prepared as legal-review release candidates; D269 public draft readers and explicit immutable acceptance with an empty approved catalogue | Trust and Safety Leader / legal review, approved catalogue activation, native UI accessibility and version evidence | 113, 57, 48 |
+| Code §5.1, §7.3(2): terms and accessible current policies | Partially fulfilled: terms and guidelines 2026-11-02-0.2 and privacy notice 0.17 approved and in force (D288/D290/D310); public readers live and the API catalogue serves the approved version; explicit immutable acceptance is ready but not yet required | Trust and Safety Leader / legal review, approved catalogue activation, native UI accessibility and version evidence | 113, 57, 48 |
 | Code §5.2, §5.3: detection and content intervention | Partially fulfilled per the dated gap analysis | Leader / verify current 114 and 115 implementation and provider limits in the hosted environment | 114, 115 |
 | Code §5.4(1)(a), §7.2(4): moderator guidance and training | Partially fulfilled: [draft playbook](MODERATOR-GUIDANCE-DRAFT.md); no completed staff assessment | Leader / operational approval and named trainee evidence | 116, 119 |
 | Code §5.5, §6.2(2): retention and review records | Partially fulfilled: [schedule](RETENTION-SCHEDULE.md) and local implementation evidence; legal and hosted acceptance separate | Leader / inspect current 118 evidence and resolve remaining gaps | 118, 57 |
