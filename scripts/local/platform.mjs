@@ -64,7 +64,8 @@ async function ensureUser(realm, email, password, root = false, firstName = null
   if (!users.length) await api('/users', 'POST', {
     username: email, email, firstName: firstName ?? (root ? 'Local Admin' : 'Fictional'), lastName: firstName ? 'Staff' : 'Adult',
     enabled: true, emailVerified: true, // Explicit LOCAL simulation only.
-    requiredActions: root ? ['CONFIGURE_TOTP'] : ['TERMS_AND_CONDITIONS'],
+    // Staff fixtures (D322) have no terms step: the staff realm disables it.
+    requiredActions: root ? ['CONFIGURE_TOTP'] : firstName ? [] : ['TERMS_AND_CONDITIONS'],
     credentials: [{ type: 'password', value: password, temporary: false }],
   });
   const created = (await api('/users?exact=true&username=' + encodeURIComponent(email)))[0];
@@ -182,7 +183,7 @@ async function bootstrap() {
     await ensureUser('swoovr-members-dev', email, values.SWOOVR_LOCAL_MEMBER_PASSWORD);
   // D322: fictional staff for each non-root role; the shell grants the roles through the API CLI after this first sign-in.
   const roles = [];
-  for (const [email, role, name] of [['fictional.trust@example.test', 'trust-safety', 'Trust & Safety'], ['fictional.support@example.test', 'support', 'Support']]) {
+  for (const [email, role, name] of [['fictional.trust@example.test', 'trust-safety', 'Trust and Safety'], ['fictional.support@example.test', 'support', 'Support']]) {
     const staff = await ensureUser('swoovr-staff-dev', email, values.SWOOVR_LOCAL_ADMIN_PASSWORD, false, name);
     await session(await login({ realm: 'swoovr-staff-dev', client: 'swoovr-admin-web', secret: values.SWOOVR_STAFF_WEB_SECRET,
       redirect: 'http://localhost:5082/signin-oidc', email, password: values.SWOOVR_LOCAL_ADMIN_PASSWORD, fixture: {} }));
