@@ -7,7 +7,7 @@
         <div><dt>Correction</dt>
             <dd data-dob-grant="@(live is null ? "none" : "available")">@(live is null ? (grants.Count == 0 ? "None allowed" : $"Last allowed {grants[0].CreatedAt:d MMM yyyy} · {State(grants[0])}") : $"Allowed until {live.ExpiresAt:d MMM yyyy HH:mm} UTC")</dd>
             <dd class="ad-act">
-                @if (live is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-grant" data-op="dob-grant">Allow correction…</button>}
+                @if (live is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-grant" data-op="dob-grant">Allow correction</button>}
                 else {<form method="post" @formname="@($"dob-revoke-{live.Id}")" @onsubmit="() => RevokeAsync(live.Id)"><AntiforgeryToken /><button type="submit" class="ui-button-ghost" data-op="dob-revoke">Revoke</button></form>}
                 <a class="ui-button-ghost" href="/dob-history?account=@AccountId">History (Legal)</a>
             </dd></div>

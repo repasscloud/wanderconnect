@@ -61,7 +61,7 @@ else
                         <td>@s.StartsAt.ToString("d MMM yyyy")</td>
                         <td>@(s.Kind == "termination" ? "Permanent" : s.EndsAt?.ToString("d MMM yyyy") ?? "—")</td>
                         <td>@(s.LiftedAt is { } l ? $"Lifted {l:d MMM yyyy}" : s.Live ? "Active" : "Ended")</td>
-                        <td class="ad-right">@if (s.Live && s.Kind != "termination" && CanLift(s)) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"lift-{s.Id}")" data-op="lift">Lift…</button>}
+                        <td class="ad-right">@if (s.Live && s.Kind != "termination" && CanLift(s)) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"lift-{s.Id}")" data-op="lift">Lift sanction</button>}
                             else if (s.Live && s.Kind == "termination") {<a class="ui-button-ghost" href="/accounts/@Account.Id/reinstate">Reinstatement</a>}</td>
                     </tr>
                 }

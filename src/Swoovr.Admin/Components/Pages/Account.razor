@@ -49,7 +49,7 @@ else
             <a class="ad-stat" href="/accounts/@Id/enforcement" data-strip="enforcement"><span>Enforcement</span><b>@(activeSanction is null ? "No active sanction" : AccountLabels.Sanction(activeSanction.Kind))</b><small>@account.Sanctions.Count on record · @account.OpenCases open case@(account.OpenCases == 1 ? "" : "s")</small></a>
         </div>
     }
-    @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/accounts/@Id/@Current" data-enhance-nav="false">Sign in again</a> }</p> }
+    @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="@ReauthHref()" data-enhance-nav="false" data-reauth>Sign in again</a> }</p> }
     <nav class="ad-tabs" aria-label="Account sections">
         @foreach (var tab in Sections.Where(s => !s.MembersOnly || account.Realm == "members"))
         {
@@ -116,6 +116,19 @@ else
         message = ok ? outcome.Done : AdminText.Refusal(outcome.Status, outcome.Code);
         // A tab reports through a plain delegate, so re-render the page (header, notice) explicitly.
         StateHasChanged();
+    }
+
+    [CascadingParameter] private HttpContext? Context { get; set; }
+
+    /// <summary>
+    /// A stale-session refusal sends staff through a fresh sign-in and straight back to the same tab with the same dialog open
+    /// (account-detail.js reads ?resume), so a sensitive action is one more click, not a hunt for where it was.
+    /// </summary>
+    private string ReauthHref()
+    {
+        var handler = Context?.Request.HasFormContentType == true ? Context.Request.Form["_handler"].ToString() : "";
+        var back = $"/accounts/{Id}/{Current}" + (System.Text.RegularExpressions.Regex.IsMatch(handler, "^[a-z0-9-]{1,80}$") ? $"?resume={handler}" : "");
+        return "/sign-in?reauth=true&returnUrl=" + Uri.EscapeDataString(back);
     }
 
     private string Name => registeredName is { Confirmed: true } r

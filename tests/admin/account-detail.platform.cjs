@@ -71,10 +71,41 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   await Promise.all([admin.waitForLoadState('networkidle'), admin.click('[data-op=grant]')]); await admin.waitForTimeout(800);
   ok((await admin.locator('[data-result]').getAttribute('data-result')) === 'ok', 'complimentary Plus granted');
   // Verification override (§3)
+  // Each badge is revoked first when an earlier run left it on, so the suite can run again (issue 199: ID Verified too).
   await admin.goto(`${A}/accounts/${test}/verification`);
-  await dialog(admin, 'override-photoVerified', async d => { await d.locator('select[name=reasonCode]').selectOption('staff-selfie-check'); });
-  ok((await admin.locator('[data-result]').getAttribute('data-result')) === 'ok', 'Photo Verified applied (' + await admin.locator('.notice').first().textContent() + ')');
-  ok((await admin.locator('[data-verification-history] tbody tr').count()) >= 1, 'override history row');
+  const revokeReason = async d => { await d.locator('select[name=reasonCode]').selectOption('applied-in-error'); };
+  for (const [badge, reason, label] of [['photoVerified', 'staff-selfie-check', 'Photo Verified'], ['idVerified', 'staff-document-check', 'ID Verified']]) {
+    if (await admin.locator(`[data-op=revoke-${badge}]`).count()) await dialog(admin, `override-${badge}`, revokeReason);
+    ok(await admin.locator(`[data-op=apply-${badge}]`).textContent() === 'Apply badge', `${label} button reads "Apply badge"`);
+    await dialog(admin, `override-${badge}`, async d => { const s = d.locator('select[name=reasonCode]'); await s.selectOption(reason); });
+    ok((await admin.locator('[data-result]').getAttribute('data-result')) === 'ok', `${label} applied (` + await admin.locator('.notice').first().textContent() + ')');
+    ok(await admin.locator(`[data-op=revoke-${badge}]`).count() === 1, `${label} shows On straight away`);
+  }
+  ok(await admin.locator('[data-badge=idVerified] .ad-tag').count() === 1, 'ID Verified source reads Staff override (Manual)');
+  ok((await admin.locator('[data-verification-history] tbody tr').count()) >= 2, 'override history rows');
+  await dialog(admin, 'override-idVerified', revokeReason);
+  ok(await admin.locator('[data-op=apply-idVerified]').count() === 1, 'ID Verified revoked again (test data restored)');
+  // No account-detail control reads as cut off (issue 199)
+  for (const tab of ['overview', 'verification', 'membership', 'enforcement', 'access']) {
+    await admin.goto(`${A}/accounts/${sam}/${tab}`);
+    const cut = await admin.locator('[data-account-panel] button:visible').evaluateAll(bs => bs.map(x => x.textContent.trim()).filter(t => t.endsWith('…')));
+    ok(cut.length === 0, `${tab}: no button label ends in an ellipsis ${JSON.stringify(cut)}`);
+  }
+  // Media: the photo shows in its own card and opens larger in a dialog (issue 199)
+  await admin.goto(`${A}/accounts/${sam}/media`);
+  if (await admin.locator('[data-photo-preview]').count()) {
+    await Promise.all([admin.waitForLoadState('load'), admin.locator('[data-photo-preview]').first().click()]); await admin.waitForLoadState('networkidle');
+    const result = await admin.locator('[data-result]').getAttribute('data-result');
+    if (result === 'ok') {
+      ok(await admin.locator('.ad-media-card [data-photo-thumb=blurred] img').count() === 1, 'blurred preview shows inside its card');
+      ok(await admin.locator('section.ad-viewer').count() === 0, 'no viewer panel below the grid');
+      await admin.click('[data-photo-thumb]');
+      ok(await admin.locator('dialog#photo-viewer[open][data-photo-viewer=blurred] img').count() === 1, 'a click opens the larger preview');
+      await admin.click('dialog#photo-viewer [data-dialog-close]');
+      await Promise.all([admin.waitForLoadState('load'), admin.locator('[data-photo-reveal]').first().click()]); await admin.waitForLoadState('networkidle');
+      ok(await admin.locator('.ad-media-card [data-photo-thumb=revealed] img').count() === 1, 'reveal shows inside the same card');
+    } else console.log('SKIP media in-card checks: ' + result);
+  } else console.log('SKIP media: no photos for the fictional account');
   // Enforcement warn (§12)
   await admin.goto(`${A}/accounts/${test}/enforcement?action=warn`);
   await admin.click('[data-op=sanction]'); await confirm(admin);

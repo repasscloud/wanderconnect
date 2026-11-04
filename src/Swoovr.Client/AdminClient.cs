@@ -127,8 +127,8 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<AdminVerificationView>> AgeAssuranceAsync(Guid id, bool needsVerification, CancellationToken cancellationToken = default) =>
         SendAsync<AdminVerificationView>(HttpMethod.Put, $"api/admin/accounts/{id}/age-assurance", new AgeAssuranceRequest(needsVerification), cancellationToken);
 
-    public Task<int> AdultOverrideAsync(Guid id, CancellationToken cancellationToken = default) =>
-        StatusAsync(HttpMethod.Post, $"api/admin/accounts/{id}/adult-override", null, cancellationToken);
+    public Task<ApiResult<bool>> AdultOverrideAsync(Guid id, CancellationToken cancellationToken = default) =>
+        ActionAsync(HttpMethod.Post, $"api/admin/accounts/{id}/adult-override", null, cancellationToken);
 
     public Task<ApiResult<AccountAdminSummary>> HomeMoveOverrideAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
         SendAsync<AccountAdminSummary>(HttpMethod.Post, $"api/admin/accounts/{id}/home-move-override", new HomeMoveOverride(reason), cancellationToken);
@@ -142,8 +142,8 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<EntitlementView>> RevokeGrantAsync(Guid grantId, string? reasonCode = null, CancellationToken cancellationToken = default) =>
         SendAsync<EntitlementView>(HttpMethod.Post, $"api/admin/entitlements/{grantId}/revoke", reasonCode is null ? null : new EntitlementRevoke(reasonCode), cancellationToken);
 
-    public Task<int> StaffAffiliationAsync(Guid id, bool active, string? reasonCode = null, CancellationToken cancellationToken = default) =>
-        StatusAsync(HttpMethod.Put, $"api/admin/accounts/{id}/staff-affiliation", new StaffAffiliationRequest(active, reasonCode), cancellationToken);
+    public Task<ApiResult<bool>> StaffAffiliationAsync(Guid id, bool active, string? reasonCode = null, CancellationToken cancellationToken = default) =>
+        ActionAsync(HttpMethod.Put, $"api/admin/accounts/{id}/staff-affiliation", new StaffAffiliationRequest(active, reasonCode), cancellationToken);
 
     // #190 account detail (D322, D323).
     public Task<ApiResult<AccountPermissionsView>> AccountPermissionsAsync(Guid id, CancellationToken cancellationToken = default) =>
@@ -154,14 +154,14 @@ public sealed class AdminClient(HttpClient transport)
         SendAsync<AccountLockView>(HttpMethod.Post, $"api/admin/accounts/{id}/locks", request, cancellationToken);
     public Task<ApiResult<AccountLockView>> UnlockAccountAsync(Guid lockId, AccountUnlockRequest request, CancellationToken cancellationToken = default) =>
         SendAsync<AccountLockView>(HttpMethod.Post, $"api/admin/account-locks/{lockId}/remove", request, cancellationToken);
-    public Task<int> SignOutMemberAsync(Guid id, CancellationToken cancellationToken = default) =>
-        StatusAsync(HttpMethod.Post, $"api/admin/accounts/{id}/sign-out", null, cancellationToken);
+    public Task<ApiResult<bool>> SignOutMemberAsync(Guid id, CancellationToken cancellationToken = default) =>
+        ActionAsync(HttpMethod.Post, $"api/admin/accounts/{id}/sign-out", null, cancellationToken);
     public Task<ApiResult<AccountContactView>> AccountContactAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<AccountContactView>(HttpMethod.Get, $"api/admin/accounts/{id}/contact", null, cancellationToken);
     public Task<ApiResult<VerificationStateView>> VerificationStateAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync<VerificationStateView>(HttpMethod.Get, $"api/admin/accounts/{id}/verification-state", null, cancellationToken);
-    public Task<int> VerificationOverrideAsync(Guid id, VerificationOverrideRequest request, CancellationToken cancellationToken = default) =>
-        StatusAsync(HttpMethod.Post, $"api/admin/accounts/{id}/verification-override", request, cancellationToken);
+    public Task<ApiResult<bool>> VerificationOverrideAsync(Guid id, VerificationOverrideRequest request, CancellationToken cancellationToken = default) =>
+        ActionAsync(HttpMethod.Post, $"api/admin/accounts/{id}/verification-override", request, cancellationToken);
 
     public Task<int> StaffLinkAsync(Guid staffId, Guid? memberId, CancellationToken cancellationToken = default) =>
         StatusAsync(HttpMethod.Put, $"api/admin/staff-links/{staffId}", new StaffLinkRequest(memberId), cancellationToken);
@@ -171,8 +171,8 @@ public sealed class AdminClient(HttpClient transport)
         SendAsync<List<TripAdminView>>(HttpMethod.Get, $"api/admin/accounts/{id}/trips", null, cancellationToken);
 
     /// <summary>Support confirms an arrival after a review, with a reason (D149 rule 7).</summary>
-    public Task<int> ConfirmArrivalAsync(Guid tripId, string reason, CancellationToken cancellationToken = default) =>
-        StatusAsync(HttpMethod.Post, $"api/admin/trips/{tripId}/arrival", new ArrivalReview(reason), cancellationToken);
+    public Task<ApiResult<bool>> ConfirmArrivalAsync(Guid tripId, string reason, CancellationToken cancellationToken = default) =>
+        ActionAsync(HttpMethod.Post, $"api/admin/trips/{tripId}/arrival", new ArrivalReview(reason), cancellationToken);
 
     /// <summary>An admin clears the home-location review after looking (D150).</summary>
     public Task<ApiResult<AccountAdminSummary>> ClearHomeReviewAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
@@ -418,6 +418,14 @@ public sealed class AdminClient(HttpClient transport)
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
         using var response = await http.SendAsync(request, cancellationToken);
         return (int)response.StatusCode;
+    }
+
+    /// <summary>An action without a response body: the status and, on a refusal, the problem code (for example stale-session).</summary>
+    private async Task<ApiResult<bool>> ActionAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body, body.GetType()) };
+        using var response = await http.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode ? new((int)response.StatusCode, true, null) : await ReadAsync<bool>(response, cancellationToken);
     }
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)

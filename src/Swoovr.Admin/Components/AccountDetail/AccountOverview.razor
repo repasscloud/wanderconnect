@@ -12,7 +12,7 @@
                     else {<span class="ad-masked" aria-label="Hidden">•• ••• ••••</span>}
                     <span class="ad-tag">@(Account.DateOfBirthVerified ? "Verified by ID" : Account.DobCheck switch { "correctionNeeded" => "Correction requested", "manualReview" => "Waiting for review", _ => "Saved, not verified" })</span>
                 </dd>
-                <dd class="ad-act">@if (dob is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-open">Open…</button>}</dd></div>
+                <dd class="ad-act">@if (dob is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-open" data-op="dob-open">View date of birth</button>}</dd></div>
             <div><dt>Age</dt><dd>@(Account.Age?.ToString() ?? "Not provided") · @AccountLabels.Age(Account.AgeStatus)</dd><dd></dd></div>
             <div><dt>Display name</dt><dd>@(Account.DisplayName ?? "None")</dd><dd class="ad-act"><a class="ui-button-ghost" href="/accounts/@Account.Id/profiles">Profiles</a></dd></div>
             <div><dt>Verified identity</dt><dd data-identity-on-file="@(Account.IdentityOnFileSince is null ? "none" : "on-file")">@(Account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(Account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file")</dd>
@@ -35,9 +35,9 @@
             <h2 class="ui-card-title">Location</h2>
             <dl class="ad-dl">
                 <div><dt>Home market</dt><dd data-home-market="@(Account.HomeMarket ?? "none")">@(Account.HomeMarket ?? "None")@(Account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd>
-                    <dd class="ad-act">@if (Account.HomeMarketMovedAt is not null) { if (Permissions?.EditLocation == true) {<button type="button" class="ui-button-ghost" data-dialog-open="home-wait" data-op="home-override">Lift wait…</button>} else {<RoleNote />} }</dd></div>
+                    <dd class="ad-act">@if (Account.HomeMarketMovedAt is not null) { if (Permissions?.EditLocation == true) {<button type="button" class="ui-button-ghost" data-dialog-open="home-wait" data-op="home-override">Lift wait</button>} else {<RoleNote />} }</dd></div>
                 <div><dt>Home checks</dt><dd data-home-checks="@Account.InconsistentHomeChecks">@Account.InconsistentHomeChecks disagreed in the last 30 days@(Account.HomeReviewFlaggedAt is { } flagged ? $" · flagged {flagged:d MMM yyyy}" : "")</dd>
-                    <dd class="ad-act">@if (Account.HomeReviewFlaggedAt is not null) {<button type="button" class="ui-button-ghost" data-dialog-open="home-review" data-op="home-review-clear">Clear review…</button>}</dd></div>
+                    <dd class="ad-act">@if (Account.HomeReviewFlaggedAt is not null) {<button type="button" class="ui-button-ghost" data-dialog-open="home-review" data-op="home-review-clear">Clear review</button>}</dd></div>
                 <div><dt>Trips</dt><dd data-trips="@trips.Count">@(trips.Count == 0 ? "None" : $"{trips.Count} trip{(trips.Count == 1 ? "" : "s")}")</dd><dd></dd></div>
             </dl>
             @if (trips.Count > 0)
@@ -46,7 +46,7 @@
                     @foreach (var t in trips)
                     {
                         <li data-trip="@t.Id" data-arrival="@t.ArrivalState"><span><strong>@(t.Market ?? "Outside every market")</strong> <span class="ui-sub">@t.Arrival.ToString("d MMM yyyy") – @t.Departure.ToString("d MMM yyyy") · @t.State · arrival @t.ArrivalState@(t.ArrivalMethod is { } m ? $" ({m})" : "")</span></span>
-                            @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled")) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"arrival-{t.Id}")" data-op="confirm-arrival">Confirm arrival…</button>}
+                            @if (t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled")) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"arrival-{t.Id}")" data-op="confirm-arrival">Confirm arrival</button>}
                         </li>
                     }
                 </ul>
@@ -122,7 +122,7 @@
         {
             "home" => Of(await Admin.HomeMoveOverrideAsync(Account.Id, reason)),
             "home-review" => Of(await Admin.ClearHomeReviewAsync(Account.Id, reason)),
-            "arrival" => (await Admin.ConfirmArrivalAsync(item!.Value, reason), null),
+            "arrival" => Of(await Admin.ConfirmArrivalAsync(item!.Value, reason)),
             _ => (400, null),
         };
         Report?.Invoke((status, code, "Saved."));
