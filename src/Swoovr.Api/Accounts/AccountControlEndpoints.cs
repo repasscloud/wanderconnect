@@ -39,6 +39,7 @@ public static class AccountControlEndpoints
         {
             var (current, denied) = await LockStaffAsync(user, accounts, token);
             if (denied is not null) return denied;
+            if (await StaffAccessEndpoints.ExcludedAsync(accounts.Db!, current!.Account!.Id, [id], token)) return StaffAccessEndpoints.Conflict();
             var now = clock.GetUtcNow();
             var rows = await accounts.Db!.AccountLocks.Where(l => l.AccountId == id).OrderByDescending(l => l.CreatedAt).Take(100).ToListAsync(token);
             return Results.Ok(rows.Select(l => View(l, now)).ToList());
@@ -67,6 +68,9 @@ public static class AccountControlEndpoints
                 CreatedByRole = role, ExpiresAt = request.Days is { } days ? now.AddDays(days) : null,
             };
             db.AccountLocks.Add(item);
+            // The lock gate holds while the lock is active; the cutoff also retires every existing (possibly stolen) token so it
+            // can't resume when the lock is removed or expires.
+            RetireSessions(account, now);
             Audit.Record(db, now, current.Account.Id, "account", "account.locked", "account", id.ToString(), $"{role}:{request.ReasonCode}:{reference}");
             await db.SaveChangesAsync(token);
             // The API gate refuses every request at once; ending Keycloak sessions also stops silent refreshes on every device.
@@ -85,9 +89,11 @@ public static class AccountControlEndpoints
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             var item = await db.AccountLocks.FindAsync([lockId], token);
             if (item is null) return Results.NotFound();
+            // The same retained conflicts as placing a lock: no one removes a lock on their own or a linked/excluded account.
+            if (await StaffAccessEndpoints.ExcludedAsync(db, current!.Account!.Id, [item.AccountId], token)) return StaffAccessEndpoints.Conflict();
             if (!AccountLockPolicy.Active(item, now)) return Problem(409, ProblemCodes.InvalidRequest, "This lock has already ended.");
             if (!AccountLockPolicy.MayUnlock(role, item)) return Problem(403, ProblemCodes.ModerationNotPermitted, "A higher role placed this lock.");
-            (item.RemovedAt, item.RemovedBy, item.RemovedReason) = (now, current!.Account!.Id, request.ReasonCode);
+            (item.RemovedAt, item.RemovedBy, item.RemovedReason) = (now, current.Account.Id, request.ReasonCode);
             Audit.Record(db, now, current.Account.Id, "account", "account.unlocked", "account", item.AccountId.ToString(), $"{role}:{request.ReasonCode}");
             await db.SaveChangesAsync(token);
             return Results.Ok(View(item, now));
@@ -101,10 +107,15 @@ public static class AccountControlEndpoints
             var db = accounts.Db!;
             var account = await db.Accounts.FindAsync([id], token);
             if (account is not { Realm: AccountRealm.Members }) return Results.NotFound();
+            if (await StaffAccessEndpoints.ExcludedAsync(db, current!.Account!.Id, [id], token)) return StaffAccessEndpoints.Conflict();
             if (!identity.Configured) return Problem(503, ProblemCodes.InvalidRequest, "Session sign-out isn't available.");
-            if (!await identity.SignOutEverywhereAsync(account.Subject, token)) return Problem(502, ProblemCodes.InvalidRequest, "Sign-out didn't complete. Try again.");
-            Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", "sessions.revoked", "account", id.ToString(), ActingRole(current).ToString());
+            // The API validates tokens locally, so the application cutoff is what retires existing tokens at once; it is saved
+            // before the Keycloak logout (which stops refreshes) so a provider failure never leaves old tokens usable.
+            var now = clock.GetUtcNow();
+            RetireSessions(account, now);
+            Audit.Record(db, now, current.Account.Id, "account", "sessions.revoked", "account", id.ToString(), ActingRole(current).ToString());
             await db.SaveChangesAsync(token);
+            if (!await identity.SignOutEverywhereAsync(account.Subject, token)) return Problem(502, ProblemCodes.InvalidRequest, "Sign-out didn't complete. Try again.");
             return Results.NoContent();
         });
 
@@ -183,6 +194,13 @@ public static class AccountControlEndpoints
         if (current is null) return (null, Results.Unauthorized());
         if (current.Account is null) return (null, Problem(503, ProblemCodes.PersistenceUnavailable, "Accounts are not available."));
         return ActingRole(current) is AccountRole.Admin or AccountRole.TrustSafety or AccountRole.Legal ? (current, null) : (null, Results.Forbid());
+    }
+
+    /// <summary>Refuses every token authenticated through the issuer-skew cutoff (the same rule as staff revocation).</summary>
+    private static void RetireSessions(Account account, DateTimeOffset now)
+    {
+        var cutoff = SessionRevocationPolicy.Cutoff(now);
+        if (account.SessionsRevokedAt is null || account.SessionsRevokedAt < cutoff) account.SessionsRevokedAt = cutoff;
     }
 
     public static string? MaskEmail(string? email)
