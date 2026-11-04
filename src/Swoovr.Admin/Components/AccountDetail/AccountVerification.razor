@@ -35,7 +35,7 @@
                 <AntiforgeryToken />
                 <button name="value" value="flag" type="submit" class="ui-button-ghost" data-op="age-flag">Require an age check</button>
                 <button name="value" value="clear" type="submit" class="ui-button-ghost" data-op="age-clear">Clear a flag set in error</button>
-                <button type="button" class="ui-button-ghost" data-dialog-open="adult-override" data-op="adult-override">Record adult override…</button>
+                <button type="button" class="ui-button-ghost" data-dialog-open="adult-override" data-op="adult-override">Record adult override</button>
             </form>
         }
         else { <RoleNote /> }
@@ -92,22 +92,22 @@ else { <p class="ui-help" data-verification-history="0">No staff overrides.</p> 
         ? (manual ? @<span>Staff override <span class="ad-tag ad-tag-solid">Manual</span></span> : @<span>@provider</span>)
         : @<span>—</span>;
     private RenderFragment Action(string badge, bool on) => Permissions?.Verify == true
-        ? @<button type="button" class="ui-button-ghost" data-dialog-open="@($"override-{badge}")" data-op="@($"{(on ? "revoke" : "apply")}-{badge}")">@(on ? "Revoke…" : "Apply…")</button>
+        ? @<button type="button" class="ui-button-ghost" data-dialog-open="@($"override-{badge}")" data-op="@($"{(on ? "revoke" : "apply")}-{badge}")">@(on ? "Revoke badge" : "Apply badge")</button>
         : @<RoleNote />;
 
     private async Task OverrideAsync(string badge, bool apply)
     {
-        var status = await Admin.VerificationOverrideAsync(Account.Id, new VerificationOverrideRequest(badge, apply, Field("reasonCode"), NullIfEmpty(Field("note"))));
-        await DoneAsync(status, null, $"{(badge == "idVerified" ? "ID Verified" : "Photo Verified")} {(apply ? "applied" : "revoked")}.");
+        var r = await Admin.VerificationOverrideAsync(Account.Id, new VerificationOverrideRequest(badge, apply, Field("reasonCode"), NullIfEmpty(Field("note"))));
+        await DoneAsync(r.Status, r.Code, $"{(badge == "idVerified" ? "ID Verified" : "Photo Verified")} {(apply ? "applied" : "revoked")}.");
     }
     private async Task StaffAsync()
     {
-        var status = await Admin.StaffAffiliationAsync(Account.Id, !Account.Employee, Field("reasonCode"));
-        await DoneAsync(status, null, Account.Employee ? "Staff badge turned off." : "Staff badge turned on.");
+        var r = await Admin.StaffAffiliationAsync(Account.Id, !Account.Employee, Field("reasonCode"));
+        await DoneAsync(r.Status, r.Code, Account.Employee ? "Staff badge turned off." : "Staff badge turned on.");
     }
     private async Task AllowAgainAsync() { var r = await Admin.VerificationActionAsync(Account.Id, "allow-again"); await DoneAsync(r.Status, r.Code, "Another attempt allowed."); }
     private async Task AgeAsync() { var r = await Admin.AgeAssuranceAsync(Account.Id, Field("value") == "flag"); await DoneAsync(r.Status, r.Code, "Age assurance updated."); }
-    private async Task AdultOverrideAsync() => await DoneAsync(await Admin.AdultOverrideAsync(Account.Id), null, "Adult override recorded.");
+    private async Task AdultOverrideAsync() { var r = await Admin.AdultOverrideAsync(Account.Id); await DoneAsync(r.Status, r.Code, "Adult override recorded."); }
     private async Task DoneAsync(int status, string? code, string done)
     {
         Report?.Invoke((status, code, done));

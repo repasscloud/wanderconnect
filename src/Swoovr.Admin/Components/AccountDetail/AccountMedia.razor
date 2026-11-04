@@ -20,12 +20,29 @@
                     @foreach (var photo in photos)
                     {
                         <div class="ad-media-card" data-profile-photo="@photo.Id" aria-current="@(viewed == photo.Id ? "true" : null)">
-                            <div class="ad-media-thumb"><span class="ui-pill" data-tone="@(photo.State == "passed" ? "approve" : photo.State == "rejected" ? "reject" : "quiet")">@PhotoState(photo.State)</span></div>
+                            <div class="ad-media-thumb">
+                                @if (viewed == photo.Id && link is not null)
+                                {
+                                    <button type="button" class="ad-media-open media-review @(revealed ? "is-revealed" : null)" data-dialog-open="photo-viewer"
+                                            data-photo-thumb="@(revealed ? "revealed" : "blurred")" aria-label="@(revealed ? "Open the revealed photo" : "Open the blurred preview")">
+                                        <img src="@Proxy(link)" alt="" />
+                                    </button>
+                                }
+                                <span class="ui-pill" data-tone="@(photo.State == "passed" ? "approve" : photo.State == "rejected" ? "reject" : "quiet")">@PhotoState(photo.State)</span>
+                            </div>
                             <div class="ad-media-meta"><strong>@(photo.Scopes.Count == 0 ? "Unassigned" : string.Join(" · ", photo.Scopes.Select(ScopeLabel)))</strong>
                                 <span class="ui-sub">@photo.CreatedAt.ToString("d MMM yyyy")@(photo.MainScopes is { Count: > 0 } main ? " · main photo" : "")</span></div>
                             <div class="ad-media-actions">
-                                <button type="submit" name="photo" value="@($"{photo.Id}|preview")" class="ui-button-ghost" data-photo-preview>Blurred preview</button>
-                                <button type="submit" name="photo" value="@($"{photo.Id}|reveal")" class="ui-button-ghost" data-photo-reveal>Reveal</button>
+                                @if (viewed == photo.Id && link is not null)
+                                {
+                                    <a class="ui-button-ghost" href="/accounts/@AccountId/media" data-photo-conceal>Conceal</a>
+                                    @if (!revealed) {<button type="submit" name="photo" value="@($"{photo.Id}|reveal")" class="ui-button-ghost" data-photo-reveal>Reveal</button>}
+                                }
+                                else
+                                {
+                                    <button type="submit" name="photo" value="@($"{photo.Id}|preview")" class="ui-button-ghost" data-photo-preview>Blurred preview</button>
+                                    <button type="submit" name="photo" value="@($"{photo.Id}|reveal")" class="ui-button-ghost" data-photo-reveal>Reveal</button>
+                                }
                             </div>
                         </div>
                     }
@@ -33,10 +50,13 @@
             </form>
             @if (viewed is not null && link is not null)
             {
-                <section class="ui-card ad-viewer" data-photo-viewer="@(revealed ? "revealed" : "blurred")">
-                    <div class="ui-card-head"><h2>@(revealed ? "Revealed photo" : "Blurred preview")</h2><a class="ui-button-ghost" href="/accounts/@AccountId/media">Conceal</a></div>
-                    <div class="media-review @(revealed ? "is-revealed" : null)"><img src="@Proxy(link)" alt="Restricted profile photo" /></div>
-                </section>
+                @* The photo shows in its own card; a click opens it larger here, without leaving the grid. *@
+                <dialog id="photo-viewer" class="ad-dialog ad-photo-dialog" aria-labelledby="photo-viewer-title" data-photo-viewer="@(revealed ? "revealed" : "blurred")">
+                    <div class="ad-dialog-panel">
+                        <header><h2 id="photo-viewer-title">@(revealed ? "Revealed photo" : "Blurred preview")</h2><button type="button" class="ad-icon" data-dialog-close aria-label="Close">×</button></header>
+                        <div class="ad-dialog-body"><div class="media-review @(revealed ? "is-revealed" : null)"><img src="@Proxy(link)" alt="Restricted profile photo" /></div></div>
+                    </div>
+                </dialog>
             }
         }
     </div>

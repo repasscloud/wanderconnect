@@ -34,7 +34,7 @@ else
                         <td><strong>@AccountLabels.Plan(e.Tier)</strong></td><td>@AccountLabels.Source(e.Source)</td><td>@e.StartsAt.ToString("d MMM yyyy")</td><td>@(e.EndsAt?.ToString("d MMM yyyy") ?? "Open")</td>
                         <td>@e.Reason@if (e.Note is not null) {<span class="ui-sub">@e.Note</span>}</td>
                         <td>@if (e.RevokedAt is not null) {<span class="ui-pill" data-tone="quiet">Revoked @(e.RevokedReason is null ? "" : "· " + AccountLabels.Reason(e.RevokedReason))</span>} else if (e.Valid) {<span class="ui-pill" data-tone="approve">Active</span>} else {<span class="ui-pill" data-tone="quiet">Ended</span>}</td>
-                        <td class="ad-right">@if (e.RevokedAt is null && e.Valid && e.Source == "adminGrant" && Permissions?.Membership == true) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"revoke-{e.Id}")" data-op="revoke-grant">Revoke…</button>}</td>
+                        <td class="ad-right">@if (e.RevokedAt is null && e.Valid && e.Source == "adminGrant" && Permissions?.Membership == true) {<button type="button" class="ui-button-ghost" data-dialog-open="@($"revoke-{e.Id}")" data-op="revoke-grant">Revoke grant</button>}</td>
                     </tr>
                 }
             </tbody>

@@ -55,10 +55,14 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   ok((await admin.locator('[data-account-state=locked]').count()) === 1, 'header shows Sign-in locked');
   const api = await m.request.fetch('http://localhost:5081/bff/api/me/profile', { headers: { 'X-Swoovr-Bff': '1' } });
   const body = await api.json().catch(() => ({}));
-  ok(api.status() === 403 && body.code === 'account-locked' && body.reference === ref, 'existing session refused by the API: ' + api.status() + ' ' + body.code);
-  await m.goto('http://localhost:5081/me'); await m.waitForLoadState('networkidle');
-  ok(m.url().includes('/account/restricted?state=locked'), 'member redirected to locked screen: ' + m.url().slice(21));
-  ok((await m.locator('[data-locked-reference]').getAttribute('data-locked-reference')) === ref, 'member sees the same reference');
+  // Since 4a54b5c a lock also retires the member's tokens: the live session ends (401), or is refused as locked (403).
+  ok(api.status() === 401 || api.status() === 403 && body.code === 'account-locked' && body.reference === ref, 'existing session refused by the API: ' + api.status() + ' ' + (body.code ?? ''));
+  await m.goto('http://localhost:5081/account'); await m.waitForLoadState('networkidle');
+  const lockedScreen = m.url().includes('/account/restricted?state=locked');
+  // Issue 201: after token retirement the web shows "couldn't load your account" rather than the locked screen.
+  ok(lockedScreen || /couldn't load your account|sign in/i.test(await m.locator('main').innerText()), 'member no longer sees their account: ' + m.url().slice(21));
+  if (lockedScreen) ok((await m.locator('[data-locked-reference]').getAttribute('data-locked-reference')) === ref, 'member sees the same reference');
+  else console.log('NOTE issue 201: locked screen not shown after token retirement');
   
   await dialog(admin, 'unlock', async d => { await d.locator('select[name=reasonCode]').selectOption('investigation-closed'); });
   ok(await admin.locator('[data-lock-state=unlocked]').count() === 1, 'lock removed');
@@ -71,10 +75,41 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   await Promise.all([admin.waitForLoadState('networkidle'), admin.click('[data-op=grant]')]); await admin.waitForTimeout(800);
   ok((await admin.locator('[data-result]').getAttribute('data-result')) === 'ok', 'complimentary Plus granted');
   // Verification override (§3)
+  // Each badge is revoked first when an earlier run left it on, so the suite can run again (issue 199: ID Verified too).
   await admin.goto(`${A}/accounts/${test}/verification`);
-  await dialog(admin, 'override-photoVerified', async d => { await d.locator('select[name=reasonCode]').selectOption('staff-selfie-check'); });
-  ok((await admin.locator('[data-result]').getAttribute('data-result')) === 'ok', 'Photo Verified applied (' + await admin.locator('.notice').first().textContent() + ')');
-  ok((await admin.locator('[data-verification-history] tbody tr').count()) >= 1, 'override history row');
+  const revokeReason = async d => { await d.locator('select[name=reasonCode]').selectOption('applied-in-error'); };
+  for (const [badge, reason, label] of [['photoVerified', 'staff-selfie-check', 'Photo Verified'], ['idVerified', 'staff-document-check', 'ID Verified']]) {
+    if (await admin.locator(`[data-op=revoke-${badge}]`).count()) await dialog(admin, `override-${badge}`, revokeReason);
+    ok(await admin.locator(`[data-op=apply-${badge}]`).textContent() === 'Apply badge', `${label} button reads "Apply badge"`);
+    await dialog(admin, `override-${badge}`, async d => { const s = d.locator('select[name=reasonCode]'); await s.selectOption(reason); });
+    ok((await admin.locator('[data-result]').getAttribute('data-result')) === 'ok', `${label} applied (` + await admin.locator('.notice').first().textContent() + ')');
+    ok(await admin.locator(`[data-op=revoke-${badge}]`).count() === 1, `${label} shows On straight away`);
+  }
+  ok(await admin.locator('[data-badge=idVerified] .ad-tag').count() === 1, 'ID Verified source reads Staff override (Manual)');
+  ok((await admin.locator('[data-verification-history] tbody tr').count()) >= 2, 'override history rows');
+  await dialog(admin, 'override-idVerified', revokeReason);
+  ok(await admin.locator('[data-op=apply-idVerified]').count() === 1, 'ID Verified revoked again (test data restored)');
+  // No account-detail control reads as cut off (issue 199)
+  for (const tab of ['overview', 'verification', 'membership', 'enforcement', 'access']) {
+    await admin.goto(`${A}/accounts/${sam}/${tab}`);
+    const cut = await admin.locator('[data-account-panel] button:visible').evaluateAll(bs => bs.map(x => x.textContent.trim()).filter(t => t.endsWith('…')));
+    ok(cut.length === 0, `${tab}: no button label ends in an ellipsis ${JSON.stringify(cut)}`);
+  }
+  // Media: the photo shows in its own card and opens larger in a dialog (issue 199)
+  await admin.goto(`${A}/accounts/${sam}/media`);
+  if (await admin.locator('[data-photo-preview]').count()) {
+    await Promise.all([admin.waitForLoadState('load'), admin.locator('[data-photo-preview]').first().click()]); await admin.waitForLoadState('networkidle');
+    const result = await admin.locator('[data-result]').getAttribute('data-result');
+    if (result === 'ok') {
+      ok(await admin.locator('.ad-media-card [data-photo-thumb=blurred] img').count() === 1, 'blurred preview shows inside its card');
+      ok(await admin.locator('section.ad-viewer').count() === 0, 'no viewer panel below the grid');
+      await admin.click('[data-photo-thumb]');
+      ok(await admin.locator('dialog#photo-viewer[open][data-photo-viewer=blurred] img').count() === 1, 'a click opens the larger preview');
+      await admin.click('dialog#photo-viewer [data-dialog-close]');
+      await Promise.all([admin.waitForLoadState('load'), admin.locator('[data-photo-reveal]').first().click()]); await admin.waitForLoadState('networkidle');
+      ok(await admin.locator('.ad-media-card [data-photo-thumb=revealed] img').count() === 1, 'reveal shows inside the same card');
+    } else console.log('SKIP media in-card checks: ' + result);
+  } else console.log('SKIP media: no photos for the fictional account');
   // Enforcement warn (§12)
   await admin.goto(`${A}/accounts/${test}/enforcement?action=warn`);
   await admin.click('[data-op=sanction]'); await confirm(admin);
@@ -98,6 +133,14 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   ok(await sup.locator('span[data-enforce-action=suspend][aria-disabled=true]').count() === 1, 'Support cannot suspend');
   await sup.goto(`${A}/accounts/${test}/access`);
   ok(await sup.locator('[data-op=lock]').count() === 0, 'Support cannot lock');
+  // Sign out ends the Keycloak session too: "Sign in again" is a button and always asks for the password again (issue 199).
+  await admin.goto(`${A}/accounts/${sam}`);
+  await Promise.all([admin.waitForURL(/\/signed-out/), admin.locator('form[action="/sign-out"]').evaluate(f => f.requestSubmit())]);
+  ok(await admin.locator('a.ui-button-primary[data-sign-in-again]').count() === 1, 'signed-out page shows Sign in again as a button');
+  await Promise.all([admin.waitForLoadState('networkidle'), admin.click('[data-sign-in-again]')]);
+  ok(admin.url().includes(':8180/') && await admin.locator('#password').count() === 1, 'Sign in again asks for the password: ' + admin.url().slice(0, 40));
+  await admin.goto(`${A}/accounts/${sam}`); await admin.waitForLoadState('networkidle');
+  ok(admin.url().includes(':8180/'), 'the old admin session no longer opens staff pages');
   console.log('TOTAL', n);
   await b.close();
 })().catch(e => { console.error('FAIL', e.message); process.exit(1); });

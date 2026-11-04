@@ -20,7 +20,7 @@
 }
 else if (refused is not null)
 {
-    <p class="notice" role="alert" data-refused="@status">@refused <a href="/sign-in?reauth=true" data-enhance-nav="false">Sign in again</a></p>
+    <p class="notice notice-action" role="alert" data-refused="@status"><span>@refused</span><a href="/sign-in?reauth=true" class="ui-button-primary notice-button" data-enhance-nav="false">Sign in again</a></p>
 }
 else
 {

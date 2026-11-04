@@ -13,7 +13,7 @@
                 <div><dt>Expires</dt><dd>@(held.ExpiresAt is { } x ? $"{x:d MMM yyyy HH:mm} UTC" : "When removed")</dd><dd></dd></div>
                 <div><dt>Locked</dt><dd>@held.CreatedAt.ToString("d MMM yyyy HH:mm") UTC · @AccountLabels.Role(held.CreatedByRole)</dd><dd></dd></div>
             </dl>
-            <div class="acct-buttons">@if (may) {<button type="button" class="ui-button-ghost" data-dialog-open="unlock" data-op="unlock">Remove lock…</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
+            <div class="acct-buttons">@if (may) {<button type="button" class="ui-button-ghost" data-dialog-open="unlock" data-op="unlock">Remove lock</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
         }
         else
         {
@@ -32,7 +32,7 @@
     <section class="ui-card">
         <div class="ui-card-head"><h2>Sessions</h2></div>
         <p class="ui-help">Ends every sign-in for this member in Keycloak. They can sign in again unless the account is locked.</p>
-        <div class="acct-buttons">@if (may) {<button type="button" class="ui-button-ghost" data-dialog-open="sign-out" data-op="sign-out">Sign out everywhere…</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
+        <div class="acct-buttons">@if (may) {<button type="button" class="ui-button-ghost" data-dialog-open="sign-out" data-op="sign-out">Sign out everywhere</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
     </section>
 </div>
 <h2 class="ad-h2">Lock history</h2>
@@ -80,8 +80,8 @@ else
     }
     private async Task SignOutAsync()
     {
-        var status = await Admin.SignOutMemberAsync(Account.Id);
-        Report?.Invoke((status, null, "Signed out on every device."));
+        var r = await Admin.SignOutMemberAsync(Account.Id);
+        Report?.Invoke((r.Status, r.Code, "Signed out on every device."));
         await Changed.InvokeAsync();
     }
 }

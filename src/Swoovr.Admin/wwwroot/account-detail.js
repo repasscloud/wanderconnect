@@ -50,6 +50,20 @@
     dialog.showModal();
     (dialog.querySelector('input') ?? ok).focus();
   });
+  // After a fresh sign-in (stale-session), ?resume=<dialog id> reopens the dialog the action came from, then drops the parameter.
+  const resume = () => {
+    const url = new URL(location.href);
+    const id = url.searchParams.get('resume');
+    if (!id) return;
+    url.searchParams.delete('resume');
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    const dialog = document.getElementById(id);
+    if (dialog instanceof HTMLDialogElement && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector('select, input:not([type=hidden]), textarea, button[type=submit]')?.focus();
+    }
+  };
+  document.addEventListener('DOMContentLoaded', () => { resume(); window.Blazor?.addEventListener('enhancedload', resume); }, { once: true });
   // A typed confirmation word (for example TERMINATE) enables the submit button only when it matches exactly.
   document.addEventListener('input', event => {
     const input = event.target.closest('[data-confirm-word]');
