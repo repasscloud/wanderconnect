@@ -21,7 +21,7 @@
     }
 </header>
 <main id="main-content" tabindex="-1">@Body</main>
-<footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> @if (SignedIn) { <a href="/settings/appearance">Appearance</a> } <a href="https://swoovr.com/support">Support</a> <button type="button" class="footer-link-button" data-privacy-open>Your Privacy Choices</button></nav><small class="app-version" data-app-version="@AppVersion.Current.ProductVersion">@AppVersion.Current.DisplayVersion</small></footer>
+<footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> @if (SignedIn) { <a href="/settings/appearance">Appearance</a> } <a href="https://swoovr.com/support">Support</a></nav><small class="app-version" data-app-version="@AppVersion.Current.ProductVersion">@AppVersion.Current.DisplayVersion</small></footer>
 @* Issue 184 (D318): the floating control and dialog; analytics only where configured for this host. *@
 @((MarkupString)PrivacyChoicesMarkup.Html(PrivacyChoicesMarkup.MeasurementId(Configuration, HttpContext?.Request.Host.Host)))
 </div>
