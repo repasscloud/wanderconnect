@@ -6,13 +6,13 @@
         <thead><tr><th scope="col">Badge</th><th scope="col">State</th><th scope="col">Source</th><th scope="col">Since</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
         <tbody>
             <tr data-badge="idVerified" data-id-status="@Account.IdStatus"><td><strong>ID Verified</strong></td><td>@Pill(Account.IdStatus == "verified")</td>
-                <td>@Source(Account.IdStatus == "verified", Verification?.IdManual == true, "Didit")</td><td class="ui-sub">@(Verification?.IdCheckedAt?.ToString("d MMM yyyy") ?? "—")</td>
+                <td>@Source(Account.IdStatus == "verified", Verification?.IdManual == true, "Didit")</td><td><span class="ui-sub">@(Verification?.IdCheckedAt?.ToString("d MMM yyyy") ?? "—")</span></td>
                 <td class="ad-right">@Action("idVerified", Account.IdStatus == "verified")</td></tr>
             <tr data-badge="photoVerified"><td><strong>Photo Verified</strong></td><td>@Pill(Verification?.PhotoStatus == "verified")</td>
-                <td>@Source(Verification?.PhotoStatus == "verified", Verification?.PhotoManual == true, "Selfie match")</td><td class="ui-sub">@(Verification?.PhotoCheckedAt?.ToString("d MMM yyyy") ?? "—")</td>
+                <td>@Source(Verification?.PhotoStatus == "verified", Verification?.PhotoManual == true, "Selfie match")</td><td><span class="ui-sub">@(Verification?.PhotoCheckedAt?.ToString("d MMM yyyy") ?? "—")</span></td>
                 <td class="ad-right">@Action("photoVerified", Verification?.PhotoStatus == "verified")</td></tr>
             <tr data-badge="didit"><td><strong>Didit check</strong></td><td><span class="ui-pill" data-tone="quiet">@AccountLabels.Id(Account.IdStatus)</span></td><td>Didit</td>
-                <td class="ui-sub">@(attempts is { Attempts.Count: > 0 } list ? $"{list.Attempts.Count} attempt{(list.Attempts.Count == 1 ? "" : "s")}" : "No attempts")</td>
+                <td><span class="ui-sub">@(attempts is { Attempts.Count: > 0 } list ? $"{list.Attempts.Count} attempt{(list.Attempts.Count == 1 ? "" : "s")}" : "No attempts")</span></td>
                 <td class="ad-right">@if (Permissions?.Verify == true) {<form method="post" @formname="allow-again" @onsubmit="AllowAgainAsync"><AntiforgeryToken /><button type="submit" class="ui-button-ghost" data-op="allow-again">Allow another attempt</button></form>} else {<RoleNote />}</td></tr>
         </tbody>
     </table>

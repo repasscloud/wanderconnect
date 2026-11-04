@@ -17,7 +17,7 @@ else
                         <td><span class="ui-pill" data-tone="@(mode.Enabled ? "approve" : "quiet")">@(mode.Enabled ? "Enabled" : "Disabled")</span></td>
                         <td>@(mode.Visible ? "Visible" : "Hidden")</td>
                         <td>@(mode.PublicProfile?.DisplayName ?? "—")</td>
-                        <td class="ui-sub">@(mode.PublicProfile is { } shown ? string.Join(" · ", shown.Intentions) : "—")</td>
+                        <td><span class="ui-sub">@(mode.PublicProfile is { } shown ? string.Join(" · ", shown.Intentions) : "—")</span></td>
                         <td class="ad-right">@if (mode.PublicProfile is not null) {<a class="ui-button-ghost" href="/accounts/@AccountId/profiles?mode=@mode.Id">Open</a>}</td>
                     </tr>
                 }
