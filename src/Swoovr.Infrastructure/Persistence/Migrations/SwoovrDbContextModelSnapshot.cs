@@ -5384,6 +5384,57 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.NameChangeReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolution_note");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.HasKey("Id")
+                        .HasName("pk_name_change_reviews");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_name_change_reviews_created_at");
+
+                    b.HasIndex(new[] { "AccountId" }, "ix_name_change_reviews_one_open")
+                        .IsUnique()
+                        .HasDatabaseName("ix_name_change_reviews_one_open")
+                        .HasFilter("resolved_at IS NULL");
+
+                    b.ToTable("name_change_reviews");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8414,6 +8465,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_moderation_cases_accounts_subject_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.NameChangeReview", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_name_change_reviews_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Notification", b =>

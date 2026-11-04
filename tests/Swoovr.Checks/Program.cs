@@ -28,6 +28,7 @@ await SmsSelectionChecks.Run();
 await SmsTransportChecks.Run();
 await DeviceClientChecks.Run();
 PublicPolicyChecks.Run();
+AppVersionChecks.Run();
 PolicyNoticeChecks.Run();
 MeetingSafetyChecks.Run();
 MeetingSafetyContactAccessChecks.Run();

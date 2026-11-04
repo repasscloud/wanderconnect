@@ -290,7 +290,7 @@ const canonical = v => Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
     assert.equal((await bff('api/me/verification')).status(), 200); pass();
     await page.click('a[href="/me/verification"]');
     await page.waitForSelector('[data-verification=ready]', { timeout: 20000 });
-    assert.equal(await page.locator('[data-verification-mode=test]').count(), 1); pass(); // never presented as live
+    assert.equal(await page.locator('[data-verification-mode]').count(), 0); pass(); // no environment notice on any host (D321)
     assert.equal(await page.locator('[data-id-status]').getAttribute('data-id-status'), 'notStarted'); pass();
     if (output) await page.screenshot({ path: output + '/verification-start-390.png', fullPage: true });
     await page.click('[data-verification-start]'); // the second real Didit test-mode session of this run

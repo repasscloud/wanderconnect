@@ -1,7 +1,7 @@
 @* ID verification (D126–D129, Interactive WebAssembly). Optional and free; one self-service attempt. The API creates the
    Didit session and returns its hosted link, which opens in a new browser tab: the check happens on Didit, not here.
    Returning to /me/verification/return re-reads the result from Didit through the API (D152); the status Didit puts in
-   the return address is never trusted. Didit's test mode is always labelled (D147): it is not a live check. *@
+   the return address is never trusted. No environment notice is shown on any host (D321); nothing claims a live check. *@
 @inject MemberClient Members
 <div class="page-heading" data-verification="@(loaded ? (view is null ? "refused" : "ready") : "loading")">
     <p class="breadcrumb"><a href="/account">Me</a> / ID verification</p>
@@ -11,10 +11,6 @@
 </div>
 @if (view is not null)
 {
-    @if (view.TestMode)
-    {
-        <p class="notice" role="note" data-verification-mode="test"><strong>Test mode.</strong> ID checks run in Didit's test environment. They aren't live verification yet.</p>
-    }
     @if (view.AgeCheckRequired)
     {
         <section class="card account-section" data-age-check-required="true">
@@ -43,6 +39,26 @@
             <p class="field-help" data-verification-used>You've used your ID check. Contact Swoovr support if you'd like another.</p>
         }
         <p role="status" aria-live="polite" class="field-help" data-verification-message="@messageCode">@message</p>
+    </section>
+}
+@if (account is not null)
+{
+    @* issue 180: badges sit with verification (moved from Account settings). *@
+    <section class="card account-section" aria-labelledby="badges-heading">
+        <h2 id="badges-heading">Your badges</h2>
+        @if (account.Badges.Count == 0)
+        {
+            <p class="field-help" data-badges="none">No badges yet. Each badge shows one check, such as a photo or ID check.</p>
+        }
+        else
+        {
+            <ul class="badge-list" data-badges="@string.Join(" ", account.Badges.Select(b => b.Badge))">
+                @foreach (var badge in account.Badges)
+                {
+                    <li><Badge Kind="@AccountText.BadgeKind(badge.Badge)" Size="20" /> @AccountText.BadgeLabel(badge.Badge)@(badge.CheckedAt is { } at ? $" · checked {at:d MMM yyyy}" : "")</li>
+                }
+            </ul>
+        }
     </section>
 }
 @code {

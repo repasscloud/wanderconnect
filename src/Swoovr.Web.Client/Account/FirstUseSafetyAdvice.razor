@@ -1,9 +1,18 @@
+@* issue 180: a short one-time message; the full advice lives at /safety/advice and under Safety & Support. Dismissal is
+   saved on the account (the existing acknowledgement API), so it doesn't come back on other devices either. *@
 @inject MemberClient Members
 @if(loaded && !acknowledged)
 {
-    <Swoovr.Web.Client.Moderation.SafetyAdviceCard />
-    <button type="button" class="button" disabled="@busy" @onclick="DismissAsync" data-advice-dismiss>Got it</button>
-    @if(error is not null){<p role="status">@error</p>}
+    <aside class="settings-banner" role="note" aria-labelledby="connect-title" data-safety-advice>
+        <Icon Name="shield" Size="22" />
+        <div class="settings-banner-text">
+            <p id="connect-title" class="settings-banner-title">Connect with confidence</p>
+            <p>Stay in control of who you connect with. You can block, report or disconnect from another member at any time.</p>
+            <a href="/safety/advice">Read safety advice</a>
+        </div>
+        <button type="button" class="button button-secondary button-small" disabled="@busy" @onclick="DismissAsync" data-advice-dismiss>Got it</button>
+    </aside>
+    @if(error is not null){<p role="status" class="field-help">@error</p>}
 }
 @code {
     private bool loaded,acknowledged,busy;private string? error;

@@ -36,7 +36,6 @@ public static class MemberText
 
     /// <summary>D148: the phone step's words, shared by the web and the app.</summary>
     public const string PhoneIntro = "We text a six-digit code to check your mobile number. Your number is never shown to other members.";
-    public const string PhoneSimulated = "Test mode: no text message is sent. The code goes to the local development mail sink.";
 
     public static string PhoneProblem(string? code) => code switch
     {

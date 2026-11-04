@@ -30,7 +30,12 @@
                 </#if>
             </@userProfileCommons.userProfileFormFields>
 
-            <label><input id="swoovr-mononym" type="checkbox" name="swoovr_mononym" value="true" <#if ((register.formData['swoovr_mononym'][0])!'false') == 'true'>checked</#if> /> ${msg("swoovrMononym")}</label>
+            <#-- issue 179: the same Swoovr checkbox as "I'm 18 or over". -->
+            <label class="sw-check sw-check-mononym" for="swoovr-mononym">
+                <input id="swoovr-mononym" type="checkbox" name="swoovr_mononym" value="true" <#if ((register.formData['swoovr_mononym'][0])!'false') == 'true'>checked</#if> />
+                <span class="sw-box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                <span>${msg("swoovrMononym")}</span>
+            </label>
             <@registerCommons.termsAcceptance/>
 
             <#if recaptchaRequired?? && (recaptchaVisible!false)>
@@ -69,13 +74,15 @@
             <@validator.script field="password"/>
         </#if>
         <script>
-          // Prototype: "Create account" stays disabled until "I'm 18 or over" is ticked. The realm's terms
-          // step still rejects a submission without it (D40); this only mirrors that in the page.
+          // issue 179: "Create account" stays disabled until "I'm 18 or over" is ticked and every required field is valid.
+          // The realm's terms step and the server's field validation remain authoritative (D40, D300).
           (function () {
-            var box = document.getElementById("termsAccepted"), button = document.getElementById("kc-register");
-            if (!box || !button) return;
-            var sync = function () { button.disabled = !box.checked; };
-            box.addEventListener("change", sync); sync();
+            var form = document.getElementById("kc-register-form"), box = document.getElementById("termsAccepted"), button = document.getElementById("kc-register");
+            if (!form || !box || !button) return;
+            var fields = function () { return Array.prototype.filter.call(form.querySelectorAll("input[name]"), function (input) { return input.type !== "checkbox" && input.type !== "hidden" && !input.disabled; }); };
+            var valid = function (input) { var value = input.value.trim(); if ((input.required || input.name === "firstName" || input.name === "lastName" || input.name === "email") && !value) return false; if (input.type === "email" || input.name === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); return input.checkValidity(); };
+            var sync = function () { button.disabled = !(box.checked && fields().every(valid)); };
+            form.addEventListener("input", sync); form.addEventListener("change", sync); sync();
           })();
         </script>
     </#if>

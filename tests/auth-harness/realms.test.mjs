@@ -8,6 +8,7 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
     realm: { realm: name, attributes: { 'swoovr.environment': environment, 'swoovr.registrationTerms': terms } },
     registration: [{ id: 'terms', providerId: 'registration-terms-and-conditions', requirement: 'DISABLED' }],
     action: { alias: 'TERMS_AND_CONDITIONS', enabled: false, defaultAction: false, priority: 20 },
+    updateEmail: { alias: 'UPDATE_EMAIL', enabled: false, defaultAction: false, priority: 70 },
     browser: Object.keys(amrReferences).map((providerId, i) => ({ id: 'e' + i, providerId, authenticationConfig: foreignConfig && i === 0 ? 'foreign' : undefined })),
     configs: foreignConfig ? { foreign: { id: 'foreign', alias: 'someone-else', config: {} } } : {},
     // As first imported: email before first name, no placeholders.
@@ -25,6 +26,10 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
     if (path === '/authentication/required-actions/TERMS_AND_CONDITIONS') {
       if (method === 'PUT') { state.action = body; return; }
       return state.action;
+    }
+    if (path === '/authentication/required-actions/UPDATE_EMAIL') {
+      if (method === 'PUT') { state.updateEmail = body; return; }
+      return state.updateEmail;
     }
     if (path === '/authentication/flows/browser/executions') return state.browser;
     const clientQuery = path.match(/^\/clients\?clientId=(.+)$/);
@@ -51,13 +56,16 @@ test('members realm: 18+ checkbox required, terms action recorded by default, AM
   assert.equal(state.registration[0].requirement, 'REQUIRED');
   assert.equal(state.action.enabled, true);
   assert.equal(state.action.defaultAction, true);
+  // Q126 A: members can change their email through Keycloak; never a default action.
+  assert.equal(state.updateEmail.enabled, true);
+  assert.equal(state.updateEmail.defaultAction, false);
   for (const [i, reference] of Object.values(amrReferences).entries())
   {
     const config = state.configs[state.browser[i].authenticationConfig].config;
     assert.equal(config['default.reference.value'], reference);
     assert.equal(config['default.reference.maxAge'], amrMaxAgeSeconds, 'AMR must outlive the authentication second');
   }
-  assert.equal(changes.length, 4 + Object.keys(amrReferences).length);
+  assert.equal(changes.length, 5 + Object.keys(amrReferences).length);
 });
 
 test('members app client: created once from the import, public, PKCE, no secret, app redirect only', async () => {

@@ -567,3 +567,7 @@ section[id^="acct-"], #acct-inspection { scroll-margin-top: 140px; }
 .table-scroll td > .ui-pill:first-child { margin-top: -3px; margin-bottom: -3px; }
 .table-scroll { position: relative; }
 .acct-grid > *, .ui-metrics > *, .ui-stats > * { min-width: 0; } .acct-badges .ui-pill { white-space: normal; }
+
+/* Q129 / D320: the product version on every admin page, below the content. */
+.admin-version { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+.admin-version small { font-size: .75rem; color: var(--muted); }

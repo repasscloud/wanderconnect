@@ -112,8 +112,18 @@ web_styles = [p for p in [*root.glob('src/Swoovr.Web/**/*.razor'), *root.glob('s
                            *root.glob('src/Swoovr.Web.Client/**/*.razor'), *root.glob('src/Swoovr.Web.Client/**/*.razor.css'), root / 'src/Swoovr.Web/wwwroot/app.css',
                            *root.glob('src/Swoovr.Admin/**/*.razor'), root / 'src/Swoovr.Admin/wwwroot/admin.css']
               if not {'bin', 'obj'} & set(p.parts)]
+# D315 (owner, issue 181): one deliberate exception to black and white, the emergency call red. It is a single named token
+# pair in app.css :root, the Union Jack scheme's red, and white text on it must meet WCAG AA for normal text.
+emergency = re.compile(r'^\s*--emergency(?:-text)?:\s*#[0-9A-Fa-f]{6};\s*$', re.M)
+app_css = (root / 'src/Swoovr.Web/wwwroot/app.css').read_text()
+tokens = dict(re.findall(r'--(emergency(?:-text)?):\s*(#[0-9A-Fa-f]{6})', app_css))
+assert set(tokens) == {'emergency', 'emergency-text'}, 'app.css must define --emergency and --emergency-text once'
+low, high = sorted([luminance(tokens['emergency-text']), luminance(tokens['emergency'])])
+assert (high + .05) / (low + .05) >= 4.5, 'emergency button text contrast below 4.5:1'
 for path in web_styles:
-    found = stray.search(re.sub(r'/\*.*?\*/', '', path.read_text(), flags=re.S))
+    text = path.read_text()
+    if path.name == 'app.css': text = emergency.sub('', text)
+    found = stray.search(re.sub(r'/\*.*?\*/', '', text, flags=re.S))
     assert not found, f'Stray colour/shadow/framework style in {path.relative_to(root)}: {found.group(0)}'
 
 # Pages that can't load themes.css (Keycloak, the launch splash) copy Standard values; keep them equal.

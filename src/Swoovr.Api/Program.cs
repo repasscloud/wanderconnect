@@ -79,6 +79,8 @@ app.UseRateLimiter();
 app.UseMiddleware<MemberMutationAuthority>();
 ApiReadiness.Map(app);
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
+// Q129 / D320: public, read-only compiled product version (no commit, environment or build time).
+app.MapGet("/version", () => Results.Ok(Swoovr.Contracts.VersionView.From(Swoovr.Contracts.AppVersion.Current))).AllowAnonymous();
 app.MapGet("/api/status", () => new FoundationStatus("Swoovr.Api", "foundation"));
 AccountEndpoints.Map(app);
 AdviceAcknowledgements.Map(app);

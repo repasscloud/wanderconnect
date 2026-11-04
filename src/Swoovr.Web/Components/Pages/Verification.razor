@@ -1,6 +1,7 @@
 @page "/me/verification"
 @page "/me/verification/return"
 <PageTitle>ID verification — Swoovr</PageTitle>
+<SettingsShell Current="verification">
 <div class="column">
 @if (!signedIn)
 {
@@ -13,6 +14,7 @@ else
     <VerificationPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

@@ -139,7 +139,7 @@ async function latestCode(number) {
       await page.waitForURL(/\/account\?phone=required/); pass();
     }
     await page.waitForSelector('[data-phone=none]', { timeout: 20000 });
-    assert.equal(await page.locator('[data-phone-simulated]').count(), 1, 'test mode is said plainly'); pass();
+    assert.equal(await page.locator('[data-phone-simulated]').count(), 0, 'no test-mode instructions on member screens (issue 180)'); pass();
     await page.fill('#phone-number', local(120));
     await page.click('[data-phone-send] button');
     await page.waitForSelector('[data-phone=pending]'); pass();

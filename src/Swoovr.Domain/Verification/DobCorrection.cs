@@ -50,3 +50,23 @@ public static class DobCorrectionPolicy
     /// <summary>The ordinary date-of-birth form is closed while a correction or a review is open, so the prompt is the only way.</summary>
     public static bool OrdinaryChangeAllowed(DobCheck state) => state == DobCheck.None;
 }
+
+public enum NameReviewOutcome { Matches, Mismatch }
+
+/// <summary>
+/// Q125 A (owner, 4 November 2026; D317): an ID-verified member changed their registered name. Staff compare the new
+/// name with the member's verified identity record (opened through the existing restricted, logged access) and decide.
+/// ID Verified stays until then; "mismatch" removes it. Ids, times and the outcome only: never a name.
+/// </summary>
+public sealed class NameChangeReview
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    /// <summary>The registered-names revision under review; a newer change replaces the open review's revision.</summary>
+    public long Revision { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public Guid? ResolvedBy { get; set; }
+    public NameReviewOutcome? Outcome { get; set; }
+    public string? ResolutionNote { get; set; }
+}

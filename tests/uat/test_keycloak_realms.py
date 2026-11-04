@@ -71,6 +71,11 @@ class RealmPreparationChecks(unittest.TestCase):
                       [(step['authenticator'], step['requirement']) for step in forms])
         self.assertTrue(next(action for action in member['requiredActions']
                              if action['alias'] == 'TERMS_AND_CONDITIONS')['defaultAction'])
+        # Q126 A: change password / email are member-initiated Keycloak steps, enabled but never default.
+        for alias in ('UPDATE_PASSWORD', 'UPDATE_EMAIL'):
+            action = next(action for action in member['requiredActions'] if action['alias'] == alias)
+            self.assertTrue(action['enabled'])
+            self.assertFalse(action['defaultAction'])
 
     def test_venue_and_staff_no_consumer_social_or_passkeys(self):
         for kind in ('venues', 'staff'):

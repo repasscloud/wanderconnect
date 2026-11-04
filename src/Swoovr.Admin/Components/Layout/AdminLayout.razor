@@ -21,7 +21,7 @@
 {
     <section class="card desktop-required" data-desktop-required><h1>This page needs a larger screen</h1><p>Open this workflow on a desktop or tablet.</p><a href="/">Back to overview</a></section>
 }
-<div data-workflow>@Body</div></main>
+<div data-workflow>@Body</div><footer class="admin-version"><small data-app-version="@Swoovr.Contracts.AppVersion.Current.ProductVersion">@Swoovr.Contracts.AppVersion.Current.DisplayVersion</small></footer></main>
 </div></div>
 <dialog id="navigation-drawer" aria-label="Navigation"><AdminNavigation Drawer="true" /></dialog>
 @code {
@@ -33,7 +33,7 @@ private bool LimitedPhone => Path == "/beta" || Path.StartsWith("/accounts/", St
 private string Initials => string.Concat(StaffName.Split(new[] { ' ', '.', '@', '-', '_' }, StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
 private string StaffName => Context.HttpContext?.User.Identity?.Name is { Length: > 0 } name ? name : "Staff account";
 private string Section => Path.Split('/').ElementAtOrDefault(1) switch {
-"cases" or "appeals" or "media" or "dob-reviews" => "Moderation",
+"cases" or "appeals" or "media" or "dob-reviews" or "name-reviews" => "Moderation",
 "registration" or "accounts" or "beta" or "support" or "contact-history" or "registry" => "Members",
 "holds" or "law-enforcement" or "disclosures" or "access" or "security" => "Governance",
 "safety" or "beta-scorecard" or "code-reports" => "Reporting & resources",

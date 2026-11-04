@@ -1,55 +1,58 @@
 @page "/account"
 @inject IConfiguration Configuration
-<PageTitle>Account — Swoovr</PageTitle>
-<div class="account-page member-settings">
-<div class="account-layout">
-<div class="account-details">
+<PageTitle>Account settings — Swoovr</PageTitle>
 @if (!signedIn)
 {
-    <div class="page-heading">
-        <p class="breadcrumb"><a href="/">Me</a> / Account</p>
-        <h1>Sign in to Swoovr.</h1>
-        <p>Use your email and password or a passkey. Apple and Google sign-in arrive once their developer registrations exist.</p>
-    </div>
-    @if (!configured)
-    {
-        <p role="status" class="field-help">Sign-in isn't configured on this server. See docs/delivery/LOCAL-DEVELOPMENT.md.</p>
-    }
-    else
-    {
-        @if (SignIn == "retry")
+    <div class="account-page">
+        <div class="page-heading">
+            <h1>Sign in to Swoovr.</h1>
+            <p>Use your email and password or a passkey.</p>
+        </div>
+        @if (!configured)
         {
-            <p role="status" class="notice" data-signin-retry>We couldn't finish signing you in. If you just created your account, it's ready: sign in again.</p>
+            <p role="status" class="field-help">Sign-in isn't available on this server.</p>
         }
-        <p class="account-actions"><a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a> <a class="button button-secondary" href="/account/create" data-enhance-nav="false">Create an account</a></p>
-    }
+        else
+        {
+            @if (SignIn == "retry")
+            {
+                <p role="status" class="notice" data-signin-retry>We couldn't finish signing you in. If you just created your account, it's ready: sign in again.</p>
+            }
+            <p class="account-actions"><a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a> <a class="button button-secondary" href="/account/create" data-enhance-nav="false">Create an account</a></p>
+        }
+    </div>
 }
 else
 {
-    @* Signed-in content runs as Interactive WebAssembly (D59) and reads the API through /bff/. Not prerendered:
-       the server never renders member data into HTML, and no Interactive Server circuit is used. *@
-    <MemberAccountPanel Name="@name" @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
-    <form method="post" action="/account/sign-out" class="account-sign-out">
-        <AntiforgeryToken />
-        <button type="submit" class="quiet-button">Sign out</button>
-    </form>
+    <SettingsShell Current="account">
+        @* Signed-in content runs as Interactive WebAssembly (D59) and reads the API through /bff/. Not prerendered:
+           the server never renders member data into HTML, and no Interactive Server circuit is used. *@
+        <MemberAccountPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+        @* issue 180: account management is static so sign-out keeps its antiforgery token. *@
+        <section class="settings-card" aria-labelledby="management-title" data-account-management>
+            <div class="settings-card-head">
+                <h2 id="management-title">Account management</h2>
+                <p>Sign out, download your data or delete your account.</p>
+            </div>
+            <div class="settings-actions">
+                <form method="post" action="/account/sign-out" class="account-sign-out">
+                    <AntiforgeryToken />
+                    <button type="submit" class="button button-secondary button-small">Sign out</button>
+                </form>
+                <a class="button button-secondary button-small" href="/account/data" data-account-data-link>Download your data</a>
+                <a class="button button-secondary button-small settings-danger" href="/account/deletion" data-delete-link>Delete account</a>
+            </div>
+        </section>
+    </SettingsShell>
 }
-</div>
-<details class="account-sidebar" open><summary>Account sections</summary><nav class="card settings-list" aria-label="Account sections">
-<a href="/me/profile">Profile</a><a href="/me/photos" data-photos-link>Photos</a><a href="/me/matching">Who I'd like to meet</a><a href="/me/verification">Verification</a><a href="/me/standing" data-standing-link>Privacy &amp; safety</a><a href="/me/notifications" data-notifications-link>Notifications</a><a href="/settings/appearance">Appearance</a><a href="/account#membership-billing">Membership &amp; billing</a><a href="/account/data">Account</a>
-</nav></details>
-</div>
-</div>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     [SupplyParameterFromQuery(Name = "signin")] public string? SignIn { get; set; }
     private bool configured, signedIn;
-    private string name = "there";
 
     protected override void OnInitialized()
     {
         configured = Swoovr.Web.Auth.MemberSignIn.IsConfigured(Configuration);
         signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
-        if (signedIn) name = HttpContext.User.Identity!.Name ?? "there";
     }
 }

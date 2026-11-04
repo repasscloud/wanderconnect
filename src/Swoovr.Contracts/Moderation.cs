@@ -107,5 +107,11 @@ public sealed record DobReviewView(Guid Id, Guid AccountId, string? DisplayName,
     string? FirstName = null, string? LastName = null, string? DiditSessionId = null, string? ResolutionNote = null, string? ResolvedByName = null);
 /// <summary>"verified" (the date on file matches the ID) or "notVerified", with a reason (audited, never shown publicly).</summary>
 public sealed record DobReviewDecision(string? Outcome, string? Reason);
+/// <summary>Q125 A (D317): an ID-verified member's registered name change waiting for staff. The current confirmed name is
+/// shown; the verified identity record is opened separately through restricted, logged access.</summary>
+public sealed record NameReviewView(Guid Id, Guid AccountId, string? DisplayName, string? FirstName, string? LastName, bool Mononym, long Revision,
+    DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome, string? ResolutionNote = null, string? ResolvedByName = null);
+/// <summary>"matches" (keep ID Verified) or "mismatch" (remove it; the member can verify again), with a reason.</summary>
+public sealed record NameReviewDecision(string? Outcome, string? Reason);
 /// <summary>D150: an admin clears the home-location review flag after looking, with a reason (audited, never shown publicly).</summary>
 public sealed record HomeReviewClear(string? Reason);

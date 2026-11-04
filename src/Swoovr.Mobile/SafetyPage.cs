@@ -63,7 +63,7 @@ public sealed class SafetyPage : ContentPage
 			}
 		};
 		cards.Add(Ui.Card(Ui.Text(SafetyText.Title, "SectionHeading"), picker,
-			Ui.Text(SafetyText.Hint(chosen is not null ? "manual" : pack?.Source ?? "unknown"), "FooterClaims", "SafetyCountryHint")));
+			Ui.Text(chosen is not null ? "" : SafetyText.Hint(pack?.Source ?? "unknown"), "FooterClaims", "SafetyCountryHint")));
 		var rows = new List<View>();
 		if (pack is null || pack.Resources.Count == 0)
 			rows.AddRange([Ui.Text("If you're in immediate danger", "SectionHeading", "SafetyDanger"), Ui.Text(SafetyText.Neutral, id: "SafetyNeutral")]);

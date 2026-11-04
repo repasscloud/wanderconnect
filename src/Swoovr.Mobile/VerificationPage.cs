@@ -32,7 +32,6 @@ public sealed class VerificationPage : ContentPage
 		body.Children.Add(Ui.Text("ID verification", "PageTitle"));
 		var result = await Ui.Members!.VerificationAsync();
 		if (result.Value is not { } view) { body.Children.Add(Ui.Barred(result.Code, "VerificationBarred") ?? Ui.Text("ID verification isn't available right now.", id: "VerificationRefused")); return; }
-		if (view.TestMode) body.Children.Add(Ui.Text("Test mode: Didit checks a sample ID. No real verification is made.", "FieldLabel", "VerificationTestMode"));
 		if (view.AgeCheckRequired)
 			body.Children.Add(Ui.Card(Ui.Text("Please verify your age", "SectionHeading"),
 				Ui.Text("We need to confirm you're 18 or over before you can keep using Swoovr. Verify your ID below, or contact Swoovr support.")));

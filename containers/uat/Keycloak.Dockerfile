@@ -24,6 +24,8 @@ RUN set -eu; \
     jar --create --file /output/swoovr-contact-policy.jar -C /build/main .
 
 FROM keycloak-base AS keycloak-build
+# Q129 / D320: the release's product version (scripts/release_version.py); empty keeps the committed theme value.
+ARG SWOOVR_VERSION=
 ENV KC_DB=postgres \
     KC_HEALTH_ENABLED=true \
     KC_METRICS_ENABLED=true
@@ -33,10 +35,10 @@ COPY --chown=1000:0 containers/keycloak/themes/swoovr/ /opt/keycloak/themes/swoo
 # Keycloak checks provider mtimes at optimized startup; normalize before build.
 RUN sed -i -e 's|^swoovrPrivacyUrl=.*|swoovrPrivacyUrl=https://uat.swoovr.app/privacy|' \
     -e 's|^swoovrTermsUrl=.*|swoovrTermsUrl=https://uat.swoovr.app/terms|' \
-    -e 's|^swoovrCommunityUrl=.*|swoovrCommunityUrl=https://uat.swoovr.app/community-guidelines|' \
-    -e 's|^swoovrVersion=.*|swoovrVersion=v0.1.0-uat|' /opt/keycloak/themes/swoovr/login/theme.properties \
+    -e 's|^swoovrCommunityUrl=.*|swoovrCommunityUrl=https://uat.swoovr.app/community-guidelines|' /opt/keycloak/themes/swoovr/login/theme.properties \
+    && if [ -n "$SWOOVR_VERSION" ]; then echo "$SWOOVR_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && sed -i "s|^swoovrVersion=.*|swoovrVersion=$SWOOVR_VERSION|" /opt/keycloak/themes/swoovr/login/theme.properties; fi \
     && touch -m --date=@1743465600 /opt/keycloak/providers/swoovr-contact-policy.jar \
-    && /opt/keycloak/bin/kc.sh build --spi-email-sender--provider=swoovr-mailersend
+    && /opt/keycloak/bin/kc.sh build --features=update-email --spi-email-sender--provider=swoovr-mailersend
 
 FROM keycloak-base AS keycloak
 ENV KC_DB=postgres \

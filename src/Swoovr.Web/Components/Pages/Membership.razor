@@ -1,0 +1,6 @@
+@page "/account/membership"
+@* issue 180: Membership & billing as its own settings page (was a card on /account). Signed in only (D290). *@
+<PageTitle>Membership &amp; billing — Swoovr</PageTitle>
+<SettingsShell Current="membership">
+    <MembershipPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+</SettingsShell>

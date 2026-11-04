@@ -1,5 +1,5 @@
-<#-- Swoovr: keycloak.v2 26.8.1 register-commons.ftl in the prototype's order: the blocking "I'm 18 or over"
-     checkbox (D40, enforced by the realm's registration terms step), then the 18+ / Terms line. -->
+<#-- Swoovr: keycloak.v2 26.8.1 register-commons.ftl: the blocking "I'm 18 or over" checkbox (D40, enforced by the
+     realm's registration terms step), then the owner's adults-only and agreement wording with inline links (issue 179). -->
 <#macro termsAcceptance>
     <#if termsAcceptanceRequired??>
         <div class="sw-check-group">
@@ -16,10 +16,9 @@
                 </span>
             </#if>
             <div id="kc-registration-terms-text" class="sw-hint">
-                ${kcSanitize(msg("termsText"))?no_esc}
-                <#-- #99: the privacy notice (a draft until legal review, #57). The address comes from theme.properties. -->
-                <p><a href="${properties.swoovrPrivacyUrl!'/privacy'}" target="_blank" rel="noopener" id="sw-privacy-link">${msg("privacyNoticeLink")}</a></p>
-                <p><a href="${properties.swoovrTermsUrl!'/terms'}" target="_blank" rel="noopener" id="sw-terms-link">${msg("termsLink")}</a> · <a href="${properties.swoovrCommunityUrl!'/community-guidelines'}" target="_blank" rel="noopener" id="sw-community-link">${msg("communityLink")}</a></p>
+                <p>${msg("swoovrAdultsOnly")}</p>
+                <#-- The approved policies (D288/D310); addresses come from theme.properties. -->
+                <p>${msg("swoovrAgreementBefore")} <a href="${properties.swoovrTermsUrl!'/terms'}" target="_blank" rel="noopener" id="sw-terms-link">${msg("termsLink")}</a> ${msg("swoovrAgreementMiddle")} <a href="${properties.swoovrPrivacyUrl!'/privacy'}" target="_blank" rel="noopener" id="sw-privacy-link">${msg("privacyNoticeLink")}</a> ${msg("swoovrAgreementAnd")} <a href="${properties.swoovrCommunityUrl!'/community-guidelines'}" target="_blank" rel="noopener" id="sw-community-link">${msg("communityLink")}</a>.</p>
             </div>
         </div>
     </#if>

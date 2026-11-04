@@ -3,6 +3,7 @@
 @* D144, D170–D173: download your data and delete your account. Under /account so restricted members and members with a
    pending deletion can reach it (RestrictionGate keeps /account open). The API decides everything; this only hosts the panel. *@
 <PageTitle>Your data and account — Swoovr</PageTitle>
+<SettingsShell Current="account">
 <div class="column">
 @if (!signedIn)
 {
@@ -18,6 +19,7 @@ else
     </form>
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

@@ -33,11 +33,14 @@ public static class RegisteredNamesService
         account.RegisteredFirstName=names.FirstName;account.RegisteredLastName=names.LastName;account.RegisteredMononym=names.Mononym;
         account.RegisteredNamesConfirmedAt=now;account.RegisteredNamesRevision++;account.RegisteredNamesMatchId=null;
         profile.DisplayName=RegisteredNamePolicy.InitialPublicName(profile.DisplayName,names);
-        if(profile.IdStatus==VerificationStatus.Verified)
+        // Q125 A (D317): an ID-verified member keeps the badge while staff compare the new name with the verified identity
+        // record; one open review per account, moved to the latest revision if the member changes it again meanwhile.
+        if(changed&&profile.IdStatus==VerificationStatus.Verified)
         {
-            profile.IdStatus=VerificationStatus.Rejected;profile.IdCheckedAt=now;profile.DateOfBirthVerified=false;profile.DateOfBirthVerifiedAt=null;
-            profile.CanRequestIdVerification=true;
-            Audit.Record(db,now,id,"account","verification.revoked-registered-name-change","account",id.ToString());
+            var review=await db.NameChangeReviews.SingleOrDefaultAsync(r=>r.AccountId==id&&r.ResolvedAt==null,token);
+            if(review is null)db.NameChangeReviews.Add(new NameChangeReview{Id=Guid.NewGuid(),AccountId=id,Revision=account.RegisteredNamesRevision,CreatedAt=now});
+            else review.Revision=account.RegisteredNamesRevision;
+            Audit.Record(db,now,id,"account","verification.name-change-review","account",id.ToString(),"revision:"+account.RegisteredNamesRevision);
         }
         // An in-flight result belongs to the old declarations. A fresh name check must use a new provider session.
         var open=await db.IdVerificationAttempts.Where(a=>a.AccountId==id&&a.CompletedAt==null).ToListAsync(token);

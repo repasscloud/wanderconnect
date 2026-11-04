@@ -86,6 +86,11 @@ def local_flows(value, member):
              'providerId': 'TERMS_AND_CONDITIONS', 'enabled': True, 'defaultAction': True, 'priority': 10},
             {'alias': 'webauthn-register-passwordless', 'name': 'Register passkey',
              'providerId': 'webauthn-register-passwordless', 'enabled': True, 'defaultAction': False, 'priority': 20},
+            # Q126 A: Account settings → Security & access opens these Keycloak steps (never default actions).
+            {'alias': 'UPDATE_PASSWORD', 'name': 'Update Password',
+             'providerId': 'UPDATE_PASSWORD', 'enabled': True, 'defaultAction': False, 'priority': 30},
+            {'alias': 'UPDATE_EMAIL', 'name': 'Update Email',
+             'providerId': 'UPDATE_EMAIL', 'enabled': True, 'defaultAction': False, 'priority': 40},
         ]
 
 

@@ -95,7 +95,8 @@ app.MapGet("/signed-out", (HttpContext context) =>
 {
     context.Response.Headers.CacheControl = "no-store";
     if (context.User.Identity?.IsAuthenticated == true) return Results.Redirect("/");
-    return Results.Content("""
+    // Q129 / D320: the product version on every admin page, including this one.
+    return Results.Content($$"""
         <!doctype html>
         <html lang="en" data-scheme="standard" data-theme="light">
         <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -103,7 +104,8 @@ app.MapGet("/signed-out", (HttpContext context) =>
         <link rel="stylesheet" href="/themes.css"><link rel="stylesheet" href="/admin.css"></head>
         <body><main class="signed-out-page"><p class="admin-brand">Swoovr · Staff workspace</p>
         <h1>You're signed out.</h1><p>Your local staff session has ended. Sign in to continue.</p>
-        <a href="/sign-in" data-enhance-nav="false">Sign in again</a></main></body></html>
+        <a href="/sign-in" data-enhance-nav="false">Sign in again</a>
+        <footer class="admin-version"><small data-app-version="{{Swoovr.Contracts.AppVersion.Current.ProductVersion}}">{{Swoovr.Contracts.AppVersion.Current.DisplayVersion}}</small></footer></main></body></html>
         """, "text/html");
 }).AllowAnonymous();
 // D189: the one-time evidence package, fetched server-side with the officer's token and handed over as a file.

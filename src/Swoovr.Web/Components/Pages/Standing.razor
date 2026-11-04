@@ -1,5 +1,6 @@
 @page "/me/standing"
 <PageTitle>Account standing — Swoovr</PageTitle>
+<SettingsShell Current="privacy">
 <div class="reading-page">
 @if (!signedIn)
 {
@@ -11,6 +12,7 @@ else
     <StandingPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;

@@ -1,0 +1,33 @@
+# Disabled in full: owner has no GitHub Actions minutes. Do not uncomment without owner request.
+# Q129 / D320 release versioning (docs/delivery/VERSIONING.md). One release at a time; the vX.Y.Z tag push is atomic,
+# so a concurrent run that picked the same version fails instead of shipping a duplicate.
+# name: Release
+# on:
+#   workflow_dispatch:
+# concurrency:
+#   group: swoovr-release
+#   cancel-in-progress: false
+# permissions:
+#   contents: write
+# jobs:
+#   release:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#       - uses: actions/setup-dotnet@v4
+#         with:
+#           global-json-file: global.json
+#       - run: ./scripts/check.sh
+#       - name: Allocate the product version
+#         run: |
+#           git config user.name "swoovr-release"
+#           git config user.email "release@swoovr.invalid"
+#           VERSION=$(python3 scripts/release_version.py allocate)
+#           git push --atomic origin "v$VERSION"
+#           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+#       - name: Build with the embedded version and commit
+#         run: dotnet publish src/Swoovr.Api -c Release $(python3 scripts/release_version.py msbuild-args "$VERSION")
+#       # Mobile: add -p:SwoovrNativeBuild=${{ github.run_number }} (monotonic store build) to the MAUI publish.
+#       # Keycloak: docker build --build-arg SWOOVR_VERSION="$VERSION" -f containers/uat/Keycloak.Dockerfile .

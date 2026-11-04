@@ -71,7 +71,7 @@ async function mailCount(to) {
     // Theme (D41): Standard only, device light/dark, claims line, no scheme picker.
     await page.goto(web + '/account/sign-in');
     await page.waitForURL(url => url.origin === keycloak);
-    assert.match(await page.locator('.sw-claims').innerText(), /In development · Starting in Adelaide · Adults 18\+/); pass();
+    assert.match(await page.locator('.sw-ver').innerText(), /^Version \d+\.\d+\.\d+$/); assert.doesNotMatch(await page.locator('body').innerText(), /in development|Starting in Adelaide/i); pass();
     assert.equal(await page.locator('[data-scheme], input[name=scheme]').count(), 0); pass();
     await assertSwoovrType(page, 'Keycloak sign-in'); pass();
     // The prototype's white sign-in screen is the Standard surface token (#FFFFFF light, #161616 dark).
@@ -117,7 +117,7 @@ async function mailCount(to) {
     await page.locator('[data-registered-names-form] input[type=checkbox]').last().check();
     await page.locator('[data-registered-names-form] button').click();await page.waitForSelector('[data-registered-names-result=saved]');
     await page.waitForSelector('[data-registered-name-gate]',{state:'detached'});pass();
-    assert.match(await page.locator('h1').innerText(), /Your account, Ana\./); pass();
+    assert.match(await page.locator('h1').innerText(), /Account settings/); pass();
     assert.equal(await page.locator('[data-adult-attested]').getAttribute('data-adult-attested'), 'true'); pass();
     assert.equal(await page.locator('[data-member-area]').getAttribute('data-member-area'), 'true'); pass();
     assert.equal(await page.locator('[data-session-method]').getAttribute('data-session-method'), 'unknown', 'email-first registration session has no method evidence'); pass();
@@ -130,7 +130,7 @@ async function mailCount(to) {
     // Sign out is a POST with antiforgery; a cross-site GET does nothing.
     assert.ok([404, 405].includes((await page.request.get(web + '/account/sign-out', { maxRedirects: 0 })).status())); pass();
     await page.goto(web + '/account'); await accountReady(page);
-    assert.match(await page.locator('h1').innerText(), /Your account, Ana\./, 'GET must not sign out'); pass();
+    assert.match(await page.locator('h1').innerText(), /Account settings/, 'GET must not sign out'); pass();
     await Promise.all([page.waitForURL(web + '/'), page.click('text=Sign out')]);
     await page.goto(web + '/account');
     assert.equal(page.url(),web+'/','guest account navigation returns to the home preview');pass();
@@ -220,7 +220,7 @@ async function mailCount(to) {
       if (passkeyPage.url().startsWith(keycloak)) await passkeyPage.click('#authenticateWebAuthnButton');
     }
     await passkeyPage.waitForURL(web+'/explore');await passkeyPage.goto(web+'/account');await accountReady(passkeyPage);
-    assert.match(await passkeyPage.locator('h1').innerText(), /Your account, Ana\./); pass();
+    assert.match(await passkeyPage.locator('h1').innerText(), /Account settings/); pass();
     await shot(passkeyPage, 'account-passkey');
     await passkeyContext.close();
 

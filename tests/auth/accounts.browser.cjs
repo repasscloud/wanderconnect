@@ -279,8 +279,11 @@ const { web, createMember, createStaff, staffToken, memberToken, rootAdminToken,
     await page.fill('#username', returning.email); await page.fill('#password', returning.password);
     await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
     await page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
-    assert.equal(await page.locator('[data-badges=founder] [data-badge=founding]').count(), 1, 'founder badge drawn from the API'); pass();
     assert.ok(await page.evaluate(() => [...performance.getEntriesByType('resource')].some(r => r.name.includes('/_framework/') && r.name.endsWith('.wasm'))), 'runs as WebAssembly'); pass();
+    // issue 180: badges live under Verification.
+    await page.goto(web + '/me/verification'); await page.waitForSelector('[data-badges]', { timeout: 20000 });
+    assert.equal(await page.locator('[data-badges=founder] [data-badge=founding]').count(), 1, 'founder badge drawn from the API'); pass();
+    await page.goto(web + '/account'); await page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
     await page.fill('#dob', '1990-05-01');
     assert.equal(await page.locator('[data-age-form] [type=submit]').isDisabled(),true);pass();
     await page.locator('[data-age-form] [type=checkbox]').check();await page.click('[data-age-form] [type=submit]');
@@ -291,6 +294,8 @@ const { web, createMember, createStaff, staffToken, memberToken, rootAdminToken,
     assert.equal(await page.locator('#dob').count(),0);pass();
     assert.equal(await page.getByRole('link',{name:'Request a date of birth correction',exact:true}).count(),1);pass();
     assert.equal(JSON.parse(await sql(`SELECT json_build_array(date_of_birth, declared_age)::text FROM member_profiles WHERE account_id = (SELECT id FROM accounts WHERE subject = '${claims(returnToken).sub}')`))[0], '1990-05-01'); pass();
+    // issue 180: the coupon lives under Membership & billing.
+    await page.goto(web + '/account/membership'); await page.waitForSelector('[data-membership-panel=ready]', { timeout: 20000 });
     await page.fill('#coupon', 'WELCOME10'); await page.click('[data-coupon-form] [type=submit]');
     await page.waitForSelector('[data-coupon-result=invalid]');
     assert.equal(await page.locator('[data-coupon-form] [role=status]').innerText(), "That code can't be used."); pass();

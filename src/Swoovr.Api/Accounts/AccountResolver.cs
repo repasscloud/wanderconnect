@@ -292,6 +292,9 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             Audit.Record(Db, now, null, "system", "age.needs-verification", "account", accountId.ToString(), "same-email");
         }
         Db!.MemberProfiles.Add(profile);
+        // Q124 A (D316): creating the account agreed to the approved terms; recorded with the profile, atomically.
+        Swoovr.Api.Policies.RegistrationAgreement.Record(Db, services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>(),
+            services.GetRequiredService<IConfiguration>(), accountId, facts.AdultAttestedAt, now);
         try
         {
             await Db.SaveChangesAsync(cancellationToken);

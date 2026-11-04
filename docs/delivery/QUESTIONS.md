@@ -2616,3 +2616,49 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - Status: ANSWERED (D308), implementation pending; previously blocks acceptance of shared-plan contact responses/readers, not ordinary member-route protection.
 - 173.1 A: narrowly allow existing token/code-protected contact/meeting workflows with all consent/expiry/rate/privacy controls (**Suggested**). B: keep the absolute six-page guest rule and explicitly remove/disable that non-member sharing journey.
 - The current implementation follows the latest strict six-page instruction, so contact/meeting capability pages redirect home. These rendered pages are not honestly classifiable as static/authentication protocol resources. No anonymous exception or feature removal is inferred; independent work continues.
+
+### Q124 — Record policy acceptance when an account is created
+
+- Issue: [#179](https://github.com/repasscloud/wanderconnect/issues/179#issuecomment-6619031661). Status: ANSWERED A (D316), owner 4 November 2026.
+- Registration now uses the owner's wording (D312): "By creating an account, you agree to our Terms of Use and acknowledge our Privacy Notice and Community Guidelines."
+- A (**Suggested**): record an acceptance of version 2026-11-02-0.2 (account, version, server time) automatically at account creation; the 18+ checkbox stays the only tick. B: wording only, no stored record.
+- Built meanwhile: B (wording only).
+
+### Q125 — Registered name change and the ID Verified badge
+
+- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937). Status: ANSWERED A (D317), owner 4 November 2026.
+- A (**Suggested**): staff compare the change with the verified identity record; the badge stays until staff decide. B: the member repeats the Didit check; the badge stays until the new result. C: keep D300 (badge removed at once).
+- Built meanwhile: the D300 rule is unchanged and stated on the change form.
+
+### Q126 — Security & access scope
+
+- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937), [update](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619358193). Status: ANSWERED A (D317), owner 4 November 2026. Follow-up: sessions and linked sign-ins, #185.
+- A (**Suggested**): Keycloak application-initiated actions now (change password, add passkey; change email once the realm enables update-email); active sessions and linked sign-ins as a follow-up API. B: enable Keycloak's account console, themed.
+- Built meanwhile: A for password and passkey (D314). Email change waits for the realm's update-email step.
+
+### Q127 — "Deactivate account"
+
+- Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937). Status: ANSWERED A (D317), owner 4 November 2026.
+- A (**Suggested**): no separate deactivate; Delete account hides the account at once and can be recovered for 30 days (D170). B: a new reversible deactivated state.
+- Built meanwhile: A.
+
+### Q128 — Reporting to Swoovr through Zammad
+
+- Own issue: [#188](https://github.com/repasscloud/wanderconnect/issues/188) (decision-needed).
+- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619038197). Status: OPEN (decision-needed; owner-action for Zammad URL, API token secret and group names).
+- A (**Suggested**): ship the redesign; "Report to Swoovr" keeps D308 routing (guests → https://swoovr.com/support, members → in-app serious report) until Zammad details are supplied. B: hold the reporting change.
+- Built meanwhile: A.
+
+### Q129 — Version number in the public footer
+
+- Own issue: [#189](https://github.com/repasscloud/wanderconnect/issues/189) (decision-needed).
+- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619038197). Status: ANSWERED B (D320), owner 4 November 2026: version visible everywhere, centralised Major.Minor.Build versioning. Conflicts with the 4 November chat request to keep the version under the footer links.
+- A: remove from signed-out pages; keep for members and on the sign-in page. B (current): keep everywhere.
+- Built meanwhile: B.
+
+### Q130 — Remembering the Safety & Support country vs the Privacy Notice
+
+- Issue: [#181](https://github.com/repasscloud/wanderconnect/issues/181#issuecomment-6619048054). Status: ANSWERED A (D318), owner 4 November 2026; Privacy Notice update tracked in #183.
+- The approved notice lists essential cookies/device storage "only" for sign-in, form protection, trusted-contact access and appearance choices.
+- A: remember the country for one year once "your Safety & Support country" is added to the notice through the legal process. B (**Suggested for now**): keep the browsing-session cookie until then.
+- Built meanwhile: B.

@@ -13,7 +13,7 @@
         button.setAttribute('aria-pressed', String(button.dataset.modeChoice === mode)));
     });
     // Contents list: open beside the article on wide screens, collapsed behind "On this page" on narrow ones.
-    document.querySelectorAll('[data-policy-toc]').forEach(details => { details.open = wide.matches; });
+    document.querySelectorAll('[data-policy-toc], [data-settings-menu]').forEach(details => { details.open = wide.matches; });
   }
   document.addEventListener('click', event => {
     const button = event.target instanceof Element ? event.target.closest('[data-mode-choice]') : null;

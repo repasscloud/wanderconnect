@@ -10,8 +10,9 @@ namespace Swoovr.Client;
 /// </summary>
 public static class PrivacyNotice
 {
-    public const string StatusLabel = "Privacy notice — approved 2 November 2026.";
-    public const string Version = "0.17, 2 November 2026";
+    // Issue 186: 0.18 (Safety & Support country, Q130) approved by legal 4 November 2026 (owner, issue 186; D319).
+    public const string StatusLabel = "Privacy notice — approved 4 November 2026.";
+    public const string Version = "0.18, 4 November 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
 
@@ -28,7 +29,7 @@ public static class PrivacyNotice
             "Your profile: display name, area, home city, date of birth (never shown to others), photos, gender, detailed identity and pronouns if you add them, sexual orientation if you add it, your connection modes, intentions, interests, filters, who you'd like to meet and abouts.",
             "What you do on Swoovr: connection requests, connections, blocks, messages, reports, appeals, trips, meeting plans, meeting-safety sessions and trusted contacts, private feedback, notices, and the policy versions you explicitly accept.",
             "Location: your home city and trip destinations, which you choose. When you confirm arrival or we check your home area, we read your device location once and keep only the outcome, never the coordinates.",
-            "Technical information: the cookies and device storage that keep you signed in and remember your preferences, notification tokens for your device if you turn on notifications, and the network (IP) address of requests, which we use to limit abuse and protect sign-in and verification.",
+            "Technical information: the cookies and device storage that keep you signed in, protect the service and remember your preferences, including your appearance choices and manually selected Safety & Support country. We also collect notification tokens for your device if you enable notifications and the network (IP) address of requests, which we use to limit abuse and protect sign-in and verification.",
             "Information from others: verification results from Didit if you choose ID verification, and information other members or authorities give us, such as a report about you or a request from police. We may also receive information about you from someone who names you as a trusted contact.",
         ]),
         new("why", "Why we collect and use it", [
@@ -109,7 +110,9 @@ public static class PrivacyNotice
             "We protect information with encryption in transit and at rest, extra application-level encryption for identity records, contact history and evidence, keys held outside our databases, named least-privilege staff accounts protected by multi-factor authentication, and logs of sensitive access that can't be edited. No system is perfectly secure, so please protect your sign-in details and tell us at once if you think your account has been compromised.",
         ]),
         new("device", "Cookies and device storage", [
-            "We use essential cookies and device storage only: to keep you signed in securely, to protect forms and sign-in from misuse, to keep trusted-contact access working for a limited time, and to remember your appearance choices. We don't use advertising or cross-site tracking cookies. Blocking essential cookies will stop sign-in from working.",
+            "We use cookies and device storage to keep you signed in securely, protect forms and sign-in from misuse, maintain trusted-contact access for a limited time, remember your appearance choices, and remember the country you manually select when viewing Safety & Support information.",
+            "Your selected Safety & Support country is stored on your device for up to 12 months so we can show information relevant to that country when you return. You can change your country selection at any time. This preference is not used to determine your physical location, verify your country of residence, or personalise advertising.",
+            "We do not use advertising or cross-site tracking cookies. Blocking essential cookies may prevent sign-in from working. If you disable or clear device storage, your saved preferences may be lost.",
         ]),
         new("policy-records", "Policy versions and safety updates", [
             "The terms and community guidelines are the operative versions approved for Swoovr. Reading them or signing in does not record acceptance. When an approved version is explicitly required, we record your deliberate acceptance with its version, content digest and server time. Ordinary acceptance records are erased during final account deletion; independently preserved evidence follows its own review and legal-hold rules.",

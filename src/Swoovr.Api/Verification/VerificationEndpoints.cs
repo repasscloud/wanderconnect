@@ -240,6 +240,54 @@ public static class VerificationEndpoints
             return Results.Ok(ReviewView(review, profile.DisplayName));
         });
 
+        // Q125 A (D317): registered name changes by ID-verified members. ID Verified stays until an admin decides.
+        var names = app.MapGroup("/api/admin/name-reviews").RequireAuthorization();
+        names.MapGet("", async (bool? open, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (_, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var db = accounts.Db!;
+            var query = from r in db.NameChangeReviews join p in db.MemberProfiles on r.AccountId equals p.AccountId
+                        join a in db.Accounts on r.AccountId equals a.Id
+                        join s in db.Accounts on r.ResolvedBy equals (Guid?)s.Id into resolvers from s in resolvers.DefaultIfEmpty()
+                        where open == false || r.ResolvedAt == null
+                        select new { r, p.DisplayName, a.RegisteredFirstName, a.RegisteredLastName, a.RegisteredMononym,
+                            ResolverFirst = s == null ? null : s.RegisteredFirstName, ResolverLast = s == null ? null : s.RegisteredLastName, ResolverEmail = s == null ? null : s.Email };
+            var rows = await (open == false ? query.OrderByDescending(x => x.r.CreatedAt) : query.OrderBy(x => x.r.CreatedAt)).Take(200).ToListAsync(cancellationToken);
+            return Results.Ok(rows.Select(x => new NameReviewView(x.r.Id, x.r.AccountId, x.DisplayName, x.RegisteredFirstName, x.RegisteredLastName, x.RegisteredMononym,
+                x.r.Revision, x.r.CreatedAt, x.r.ResolvedAt, x.r.Outcome is { } o ? NameWire(o) : null, x.r.ResolutionNote,
+                x.r.ResolvedBy is null ? null : StaffName(x.ResolverFirst, x.ResolverLast, x.ResolverEmail))).ToList());
+        });
+        names.MapPost("/{reviewId:guid}/resolve", async (Guid reviewId, NameReviewDecision request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
+            CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
+            if (denied is not null) return denied;
+            var outcome = request.Outcome switch { "matches" => NameReviewOutcome.Matches, "mismatch" => NameReviewOutcome.Mismatch, _ => (NameReviewOutcome?)null };
+            if (outcome is null || string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > ModerationPolicy.ReasonMax)
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose matches or mismatch, with a reason.");
+            var (db, now) = (accounts.Db!, clock.GetUtcNow());
+            if (!current!.RecentlyAuthenticated(now)) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.StaleSession, "Sign in again to do this.");
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var review = await db.NameChangeReviews.FindAsync([reviewId], cancellationToken);
+            if (review is null) return Results.NotFound();
+            if (review.ResolvedAt is not null) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "This review is already resolved.");
+            var account = await db.Accounts.SingleAsync(a => a.Id == review.AccountId, cancellationToken);
+            if (account.RegisteredNamesRevision != review.Revision) return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "The member changed their name again. Reload and review the latest name.");
+            var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == review.AccountId, cancellationToken);
+            (review.ResolvedAt, review.ResolvedBy, review.Outcome, review.ResolutionNote) = (now, current.Account!.Id, outcome, request.Reason.Trim());
+            if (outcome == NameReviewOutcome.Mismatch && profile.IdStatus == VerificationStatus.Verified)
+            {
+                // The earlier rule, now a staff decision: the badge goes and the member may verify again.
+                (profile.IdStatus, profile.IdCheckedAt, profile.DateOfBirthVerified, profile.DateOfBirthVerifiedAt, profile.CanRequestIdVerification) = (VerificationStatus.Rejected, now, false, null, true);
+                Audit.Record(db, now, current.Account.Id, "account", "verification.revoked-registered-name-change", "account", review.AccountId.ToString());
+            }
+            Audit.Record(db, now, current.Account.Id, "account", "verification.name-review-resolved", "account", review.AccountId.ToString(), NameWire(outcome.Value));
+            await db.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+            return Results.Ok(new NameReviewView(review.Id, review.AccountId, profile.DisplayName, account.RegisteredFirstName, account.RegisteredLastName, account.RegisteredMononym,
+                review.Revision, review.CreatedAt, review.ResolvedAt, NameWire(outcome.Value), review.ResolutionNote));
+        });
+
         var admin = app.MapGroup("/api/admin/accounts/{id:guid}").RequireAuthorization();
         admin.MapGet("/verification", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
         {
@@ -308,6 +356,8 @@ public static class VerificationEndpoints
 
     private static DobReviewView ReviewView(DobReview r, string? name) =>
         new(r.Id, r.AccountId, name, r.Reason, r.CreatedAt, r.ResolvedAt, r.Outcome is { } o ? Wire(o) : null, ResolutionNote: r.ResolutionNote);
+
+    private static string NameWire(NameReviewOutcome outcome) => outcome == NameReviewOutcome.Matches ? "matches" : "mismatch";
 
     private static string StaffName(string? first, string? last, string? email)
     {
