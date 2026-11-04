@@ -64,7 +64,7 @@ async function ensureUser(realm, email, password, root = false, firstName = null
   if (!users.length) await api('/users', 'POST', {
     username: email, email, firstName: firstName ?? (root ? 'Local Admin' : 'Fictional'), lastName: firstName ? 'Staff' : 'Adult',
     enabled: true, emailVerified: true, // Explicit LOCAL simulation only.
-    // Staff fixtures (D322) have no terms step: the staff realm disables it.
+    // Staff fixtures have no terms step: the staff realm disables it.
     requiredActions: root ? ['CONFIGURE_TOTP'] : firstName ? [] : ['TERMS_AND_CONDITIONS'],
     credentials: [{ type: 'password', value: password, temporary: false }],
   });
@@ -181,7 +181,8 @@ async function bootstrap() {
   const firstStart = await readFile('.local/initialized', 'utf8').then(() => false).catch(e => { if (e.code !== 'ENOENT') throw e; return true; });
   if (firstStart) for (const email of ['fictional.alex@example.test', 'fictional.sam@example.test'])
     await ensureUser('swoovr-members-dev', email, values.SWOOVR_LOCAL_MEMBER_PASSWORD);
-  // D322: fictional staff for each non-root role; the shell grants the roles through the API CLI after this first sign-in.
+  // D322: one fictional staff sign-in per non-root role. Keycloak only authenticates; the shell grants each role through
+  // the API CLI after this first sign-in has created the application account. Keycloak names may not contain '&'.
   const roles = [];
   for (const [email, role, name] of [['fictional.trust@example.test', 'trust-safety', 'Trust and Safety'], ['fictional.support@example.test', 'support', 'Support']]) {
     const staff = await ensureUser('swoovr-staff-dev', email, values.SWOOVR_LOCAL_ADMIN_PASSWORD, false, name);
