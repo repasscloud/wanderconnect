@@ -10,9 +10,8 @@ namespace Swoovr.Client;
 /// </summary>
 public static class PrivacyNotice
 {
-    // Issue 186: owner-supplied 0.18 wording (Safety & Support country, Q130). Version 0.17 was approved 2 November 2026;
-    // the 0.18 approval date is added here once legal approval completes (issue 186), never the commit date.
-    public const string StatusLabel = "Privacy notice — version 0.18, updated 4 November 2026.";
+    // Issue 186: 0.18 (Safety & Support country, Q130) approved by legal 4 November 2026 (owner, issue 186; D319).
+    public const string StatusLabel = "Privacy notice — approved 4 November 2026.";
     public const string Version = "0.18, 4 November 2026";
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";

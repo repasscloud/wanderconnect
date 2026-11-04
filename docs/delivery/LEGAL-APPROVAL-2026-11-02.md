@@ -31,6 +31,10 @@ SHA-256 identifies the owner-supplied text before this approval record was added
 
 No issue is closed solely by this approval record. No deployment, migration, acceptance activation or merge is performed.
 
+## Privacy notice 0.18 approved — 4 November 2026 (D319)
+
+Owner, [#186](https://github.com/repasscloud/wanderconnect/issues/186): "Legal approved." Version 0.18 adds the owner-supplied "device" and "collect" wording for the remembered Safety & Support country (up to 12 months; not location, residence or advertising). `PrivacyNotice` now reads "approved 4 November 2026", version "0.18, 4 November 2026", on web and mobile.
+
 ## In force, no draft status anywhere — D310 (4 November 2026)
 
 Owner, 4 November 2026: the policies are not drafts; they are the policies. The approved documents keep their approved wording, but every remaining draft label, filename and status line is removed: `TERMS-AND-COMMUNITY-GUIDELINES-DRAFT.md` → `TERMS-AND-COMMUNITY-GUIDELINES.md`, `CODE-COMPLIANCE-REGISTER-DRAFT.md` → `CODE-COMPLIANCE-REGISTER.md`, `Swoovr.Client.PublicPolicyDrafts` → `Swoovr.Contracts.PublicPolicies` (moved so the API can serve it). Status headers now say approved, so the hashes in the table above identify the 2 November approved snapshot, not the current files; the member-facing terms/guidelines wording is unchanged and its current file hash is checked by `PublicPolicyChecks`. The API catalogue now holds version 2026-11-02-0.2 as approved and effective from 2 November 2026. Requiring members to record acceptance (`Policies:RequiredVersion`) is still a separate configuration step.
