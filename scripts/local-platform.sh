@@ -203,7 +203,7 @@ case "$command" in
     dc exec -T api dotnet Swoovr.Api.dll root-admin grant "$subject"
     while IFS=$'\t' read -r staff_subject staff_role; do
       [[ "$staff_subject" =~ ^[a-f0-9-]{36}$ && "$staff_role" =~ ^(support|trust-safety)$ ]] || continue
-      dc exec -T api dotnet Swoovr.Api.dll staff-role grant "$staff_subject" "$staff_role" >/dev/null
+      dc exec -T api dotnet Swoovr.Api.dll staff-role grant "$staff_subject" "$staff_role" </dev/null >/dev/null
     done < "$state/staff-roles.tsv"
     tool smoke
     date -u +%FT%TZ > "$state/initialized"
