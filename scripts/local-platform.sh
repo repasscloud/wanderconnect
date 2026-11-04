@@ -20,6 +20,7 @@ Usage: ./scripts/local-platform.sh COMMAND [OPTIONS]
   status               Show managed services and refresh container ID/PID records.
   smoke                Check portals and real Keycloak password+OTP admin access.
   admin-code           Print a current test admin TOTP code for manual sign-in.
+  logins               Print every local address and sign-in (passwords stay in docker.env).
   logs [SERVICE]       Follow managed logs (may contain private local information).
 Options:
   --take-ports         On up only: stop Docker containers publishing required ports
@@ -48,7 +49,7 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
-case "$command" in help|-h|--help) usage; exit 0 ;; init|up|down|reset|status|smoke|admin-code|logs) ;; *) usage >&2; exit 2 ;; esac
+case "$command" in help|-h|--help) usage; exit 0 ;; init|up|down|reset|status|smoke|admin-code|logs|logins) ;; *) usage >&2; exit 2 ;; esac
 if $fresh && $reuse; then echo "Choose only one of --fresh or --reuse." >&2; exit 2; fi
 if { $reuse && [[ "$command" != up ]]; } || { $fresh && [[ "$command" != up ]]; } || { $forget && [[ "$command" != reset ]]; } \
   || { $take_ports && [[ "$command" != up ]]; }; then echo 'Option does not apply to this command.' >&2; exit 2; fi
@@ -96,6 +97,74 @@ reset_data() {
   dc --profile "*" down --volumes --remove-orphans
   # Only these managed fixtures point into the now-deleted DB/realm; do not touch legacy .local.
   rm -f "$state/admin.json" "$state/identities.json" "$state/admin-subject" "$state/initialized" "$state/containers.tsv"
+}
+# D322: grant each fictional staff fixture its role through the API CLI. Exec gets /dev/null as input so it can't consume
+# the role list. A grant the running API can't make yet is reported, never fatal (the role may not exist on this branch).
+grant_staff_roles() {
+  local staff_subject staff_role
+  : > "$state/staff-roles.status"
+  [[ -f "$state/staff-roles.tsv" ]] || return 0
+  while IFS=$'\t' read -r staff_subject staff_role; do
+    [[ "$staff_subject" =~ ^[a-f0-9-]{36}$ && "$staff_role" =~ ^(support|trust-safety)$ ]] || continue
+    if dc exec -T api dotnet Swoovr.Api.dll staff-role grant "$staff_subject" "$staff_role" </dev/null >/dev/null 2>&1; then
+      printf '%s\tgranted\n' "$staff_role" >> "$state/staff-roles.status"
+    else
+      printf '%s\tnot granted (this API has no staff-role command or role yet)\n' "$staff_role" >> "$state/staff-roles.status"
+    fi
+  done < "$state/staff-roles.tsv"
+  chmod 600 "$state/staff-roles.status"
+}
+# The summary printed after `up` (and by `logins`): every address and sign-in. Emails are fictional and printed;
+# passwords are never printed, only the variable that holds them in the private env file.
+logins() {
+  local admin_email
+  admin_email=$(grep -E '^SWOOVR_LOCAL_ADMIN_EMAIL=' "$state/docker.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"'")
+  role_state() { awk -F'\t' -v r="$1" '$1==r{print $2; found=1} END{if(!found) print "not seeded yet (run up)"}' "$state/staff-roles.status" 2>/dev/null || echo "not seeded yet (run up)"; }
+  cat <<SUMMARY
+
+================================================================================
+ Swoovr local platform is ready
+================================================================================
+
+ WHERE
+   Member web app ...... http://localhost:5081        (members: dating, friends, activities)
+   Admin app ........... http://localhost:5082        (staff: Support, Trust & Safety, Admin, Legal)
+   API ................. http://localhost:5080        (health: /health/live)
+   Mail (Mailpit) ...... http://localhost:8025        (every local email and SMS code lands here)
+   Keycloak console .... http://localhost:8180/admin/ (user: local-bootstrap)
+
+ PASSWORDS
+   Never printed. They live in .local/platform/docker.env. To show one:
+     grep VARIABLE_NAME .local/platform/docker.env
+
+ ADMIN APP SIGN-INS  (http://localhost:5082)
+   Root admin
+     Email ......... ${admin_email:-see SWOOVR_LOCAL_ADMIN_EMAIL}
+     Password ...... SWOOVR_LOCAL_ADMIN_PASSWORD
+     Second factor . ./scripts/local-platform.sh admin-code   (6-digit code, new every 30 s)
+     Can do ........ everything, including terminate, appeals, verification overrides, grants
+   Trust & Safety
+     Email ......... fictional.trust@example.test
+     Password ...... SWOOVR_LOCAL_ADMIN_PASSWORD   (no second factor)
+     Role .......... $(role_state trust-safety)
+     Can do ........ Support's work, plus restrict or suspend up to 90 days and lock sign-in
+   Support
+     Email ......... fictional.support@example.test
+     Password ...... SWOOVR_LOCAL_ADMIN_PASSWORD   (no second factor)
+     Role .......... $(role_state support)
+     Can do ........ routine member services, warnings, restrictions up to 30 days
+
+ MEMBER WEB SIGN-INS  (http://localhost:5081)
+   Members ......... fictional.alex@example.test, fictional.sam@example.test
+   Password ........ SWOOVR_LOCAL_MEMBER_PASSWORD
+   First sign-in ... complete the age, mobile and profile steps; the mobile code arrives in Mailpit
+
+ HOUSEKEEPING
+   Show this again . ./scripts/local-platform.sh logins
+   Containers ...... .local/platform/containers.tsv (Docker IDs and Linux PIDs)
+   Stop, keep data . ./scripts/local-platform.sh down
+================================================================================
+SUMMARY
 }
 free_ports() {
   local port id owner ids= pid exe
@@ -201,22 +270,14 @@ case "$command" in
     subject=$(cat "$state/admin-subject")
     [[ "$subject" =~ ^[a-f0-9-]{36}$ ]]
     dc exec -T api dotnet Swoovr.Api.dll root-admin grant "$subject"
+    grant_staff_roles
     tool smoke
     date -u +%FT%TZ > "$state/initialized"
     record
     trap - ERR INT TERM
-    cat <<'READY'
-Ready: member http://localhost:5081/account | admin http://localhost:5082
-Mail http://localhost:8025 | Keycloak http://localhost:8180/admin/
-Private credentials: .local/platform/docker.env (not printed).
-Fictional members: fictional.alex@example.test, fictional.sam@example.test
-Use SWOOVR_LOCAL_MEMBER_PASSWORD; complete age, phone and profile gates in the UI.
-Admin: SWOOVR_LOCAL_ADMIN_EMAIL / SWOOVR_LOCAL_ADMIN_PASSWORD.
-Second factor: ./scripts/local-platform.sh admin-code
-Docker IDs and Linux PIDs: .local/platform/containers.tsv
-Stop/keep data: ./scripts/local-platform.sh down
-READY
+    logins
     ;;
+  logins) logins ;;
   down) dc --profile "*" down --remove-orphans; record ;;
   reset) reset_data; if $forget; then rm -f "$state/docker.env"; fi; record ;;
   status) dc ps -a; record ;;

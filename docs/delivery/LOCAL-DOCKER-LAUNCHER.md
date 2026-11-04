@@ -33,6 +33,7 @@ initial/fresh startup, so reuse preserves test account deletions and beta revoca
 | `init` | Generate missing credentials without starting the platform. |
 | `smoke` | Recheck portals/mail and a real password+TOTP admin session. |
 | `admin-code` | Print a current fictional admin TOTP code. |
+| `logins` | Print every local address and sign-in (also printed at the end of `up`). Passwords are never printed. |
 | `logs [service]` | Follow all managed logs, or e.g. `logs api`. |
 | `help` | Print command/credential instructions. |
 
@@ -65,6 +66,12 @@ Credentials are private in **`.local/platform/docker.env`**, mode0600:
 - Keycloak console: username `local-bootstrap`, password `KC_BOOTSTRAP_ADMIN_PASSWORD`.
 - Fictional members: `fictional.alex@example.test` and
   `fictional.sam@example.test`, password `SWOOVR_LOCAL_MEMBER_PASSWORD`.
+- Fictional staff (D322), created and signed in once by every `up`, including `up --fresh --yes`:
+  `fictional.trust@example.test` (Trust & Safety) and `fictional.support@example.test`
+  (Support), password `SWOOVR_LOCAL_ADMIN_PASSWORD`, no second factor. Roles are
+  application records granted through the API `staff-role` command, never Keycloak roles
+  (Q131 A, D324). If the running API can't grant a role yet, `up` still completes and the
+  summary says "not granted".
 
 The admin's TOTP is enrolled automatically through the real Keycloak flow and
 stored privately in `.local/platform/admin.json`. When the admin portal requests
