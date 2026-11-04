@@ -37,10 +37,13 @@ public sealed class TicketingEventProcessor(SwoovrDbContext db, TicketingActorFa
                 await HandleAsync(work.ProviderTicketId, work.ProviderArticleId, work.ProviderCustomerId, ct);
                 (work.CompletedAt, work.FailureCode) = (clock.GetUtcNow(), null);
             }
-            catch (Exception error) when (error is TicketingProviderException or TicketingAccessException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            // Any failure except shutdown counts as an attempt, so one bad event can never be retried in a tight loop (poison).
+            catch (Exception error) when (error is not OperationCanceledException || !ct.IsCancellationRequested)
             {
+                db.ChangeTracker.Clear();
+                work = await db.Set<TicketingWebhookWork>().SingleAsync(w => w.Id == work.Id, ct);
                 work.Attempts++;
-                var code = error switch { TicketingProviderException p => p.Code, TicketingAccessException a => a.Code, _ => "provider-unreachable" };
+                var code = error switch { TicketingProviderException p => p.Code, TicketingAccessException a => a.Code, HttpRequestException or TaskCanceledException => "provider-unreachable", _ => "processing-failed" };
                 // Bounded exponential backoff; after the last attempt the event is a dead letter, visible in Admin diagnostics.
                 (work.FailureCode, work.NextAttemptAt) = work.Attempts >= MaximumAttempts
                     ? ("dead-letter:" + code, DateTimeOffset.MaxValue.AddYears(-1))
