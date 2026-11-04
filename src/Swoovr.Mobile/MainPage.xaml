@@ -82,6 +82,7 @@
                         <Button x:Name="RestrictedNotices" Text="Read the notice" AutomationId="RestrictedNotices" Style="{StaticResource PrimaryButton}" Clicked="OnNotices" />
                         <!-- D170: anyone can delete their account or download their data, restricted or not; a pending deletion lands here too. -->
                         <Button Text="Account standing" AutomationId="RestrictedStanding" Style="{StaticResource SecondaryButton}" Clicked="OnStanding" />
+                        <Button Text="Contact support" AutomationId="RestrictedSupport" Style="{StaticResource SecondaryButton}" Clicked="OnSupport" />
                         <Button Text="Your data and account" AutomationId="RestrictedData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
                     </VerticalStackLayout>
                 </Border>
@@ -121,6 +122,7 @@
                             <Button Text="Account standing" AutomationId="MeStanding" Style="{StaticResource SecondaryButton}" Clicked="OnStanding" />
                             <Button Text="Notifications" AutomationId="MeNotifications" Style="{StaticResource SecondaryButton}" Clicked="OnNotifications" />
                             <Button Text="Notices and reports" AutomationId="MeNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
+                            <Button Text="Support" AutomationId="MeSupport" Style="{StaticResource SecondaryButton}" Clicked="OnSupport" />
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />

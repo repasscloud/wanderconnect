@@ -1,0 +1,30 @@
+@page "/me/support"
+@page "/me/support/new"
+@page "/me/support/{Id:long}"
+@* Native support requests. Open while restricted or suspended (like notices and standing), so a barred member can still
+   ask for help; the API applies the same support exemptions. Signed-out visitors use email (the public support site is
+   built separately). *@
+<PageTitle>Support — Swoovr</PageTitle>
+<div class="reading-page">
+@if (!signedIn)
+{
+    <div class="page-heading"><h1>Support</h1><p>Sign in to contact support about your account, or email <a href="@("mailto:" + StandingText.SupportEmail)">@StandingText.SupportEmail</a>.</p></div>
+    <p class="account-actions"><a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
+}
+else
+{
+    <SupportPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" Id="Id" New="@isNew" Reference="@Reference" />
+}
+</div>
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [Parameter] public long? Id { get; set; }
+    [SupplyParameterFromQuery] public string? Reference { get; set; }
+    private bool signedIn, isNew;
+    protected override void OnInitialized()
+    {
+        signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+        isNew = HttpContext.Request.Path.Value?.TrimEnd('/').EndsWith("/new", StringComparison.Ordinal) == true;
+        if (!SupportTicketText.ValidReference(Reference)) Reference = null;
+    }
+}

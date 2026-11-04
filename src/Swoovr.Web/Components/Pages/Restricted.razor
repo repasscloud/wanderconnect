@@ -10,14 +10,14 @@
     {
         <section class="card account-section" data-locked-reference="@(Reference ?? "")">
             @if (Reference is not null) { <p>Your reference: <strong>@Reference</strong></p> }
-            <p class="account-actions"><a class="primary-link" href="https://swoovr.com/support">Contact support</a> <a class="button button-secondary" href="/account">Your account</a></p>
+            <p class="account-actions"><a class="primary-link" href="@SupportTicketText.NewLink(Reference)" data-restricted-support>Contact support</a> <a class="button button-secondary" href="/account">Your account</a></p>
         </section>
     }
     else
     {
     <section class="card account-section">
         <p>Read the notice to see why@(Kind == "terminated" ? "" : " and how long it lasts"). You can appeal within 30 days.</p>
-        <p class="account-actions"><a class="primary-link" href="/me/notices">Read the notice</a> <a class="button button-secondary" href="/me/standing" data-restricted-standing>Account standing</a> <a class="button button-secondary" href="/account">Your account</a></p>
+        <p class="account-actions"><a class="primary-link" href="/me/notices">Read the notice</a> <a class="button button-secondary" href="/me/standing" data-restricted-standing>Account standing</a> <a class="button button-secondary" href="@SupportTicketText.MemberPath" data-restricted-support>Contact support</a> <a class="button button-secondary" href="/account">Your account</a></p>
     </section>
     }
     <form method="post" action="/account/sign-out" class="account-sign-out">

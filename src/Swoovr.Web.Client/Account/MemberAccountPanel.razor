@@ -51,7 +51,7 @@ else
             {
                 <p>@MemberText.LockedBody</p>
                 @if (me.StatusReference is { } reference) { <p data-locked-reference="@reference">Your reference: <strong>@reference</strong></p> }
-                <p><a class="button button-small" href="https://swoovr.com/support">Contact support</a></p>
+                <p><a class="button button-small" href="@SupportTicketText.NewLink(me.StatusReference)" data-locked-support>Contact support</a></p>
             }
             else
             {
@@ -96,7 +96,7 @@ else
                             <div class="settings-row" data-dob-locked="saved">
                                 <div class="settings-row-text"><p class="settings-row-label">Date of birth</p>
                                     <p class="settings-row-value">@me.DateOfBirth.Value.ToString("d MMMM yyyy")<span class="settings-tag settings-tag-quiet">Locked</span>@if (me.DateOfBirthVerified) { <span class="settings-tag" data-dob-verified="true">Verified with ID</span> }</p></div>
-                                <a class="settings-row-action" href="@StandingText.SupportUrl" rel="noopener" aria-label="Request a date of birth correction">Request a correction</a>
+                                <a class="settings-row-action" href="@SupportTicketText.NewLink()" aria-label="Request a date of birth correction">Request a correction</a>
                             </div>
                         }
                         else

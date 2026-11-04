@@ -161,7 +161,8 @@ public partial class MainPage : ContentPage
 	private async void OnPolicies(object? sender,EventArgs e)=>await Ui.PushAsync(new PolicyAcceptancePage());
 	private async void OnNotices(object? sender, EventArgs e) => await Ui.PushAsync(new NoticesPage());
 	private async void OnStanding(object? sender, EventArgs e) => await Ui.PushAsync(new StandingPage());
-	private async void OnEmailSupport(object? sender, EventArgs e) => await Launcher.Default.OpenAsync(StandingText.SupportUrl);
+	private async void OnEmailSupport(object? sender, EventArgs e) => await Ui.PushAsync(new SupportPage());
+	private async void OnSupport(object? sender, EventArgs e) => await Ui.PushAsync(new SupportPage());
 	internal static async Task<bool> RefreshSignInAsync()
 	{
 		try { return await Auth.SignInAsync(reauthenticate: true); }
@@ -224,7 +225,7 @@ public partial class MainPage : ContentPage
         if(result.Value is not null)await RefreshAsync();
 		AgeMessage.Text = result.Code == ProblemCodes.AccountLocked ? null : AccountText.AgeSaved(result.Value);
 	}
-	private async void OnDobSupport(object? sender,EventArgs e)=>await Launcher.Default.OpenAsync("https://swoovr.com/support");
+	private async void OnDobSupport(object? sender,EventArgs e)=>await Ui.PushAsync(new SupportPage(compose:true));
 
 	private async void OnApplyCoupon(object? sender, EventArgs e)
 	{

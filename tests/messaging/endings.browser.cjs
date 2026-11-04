@@ -111,7 +111,7 @@ const neutral = 'A conversation has ended on Swoovr.';
     assert.equal(await sql(`SELECT status FROM notification_deliveries WHERE notification_id='${endingNotice}' AND device_id='${device}'`), 'unknown'); pass();
     assert.equal((await mailTo('push-' + secondDevice.replaceAll('-', '') + '@simulated.swoovr.invalid')).length, 1); pass();
     await page.goto(web + '/me/standing'); await page.waitForSelector('[data-standing="ready"]');
-    assert.equal(await page.getAttribute('[data-support-web]', 'href'), 'https://swoovr.com/support'); assert.equal(await page.getAttribute('[data-support-email]', 'href'), 'mailto:support@swoovr.com'); pass();
+    assert.equal(await page.getAttribute('[data-support-web]', 'href'), '/me/support'); assert.equal(await page.getAttribute('[data-support-email]', 'href'), 'mailto:support@swoovr.com'); pass();
     if (output) await page.screenshot({ path: output + '/web-standing-support.png', fullPage: true });
     await page.goto(web + '/privacy'); assert.ok((await page.textContent('[data-privacy-section="contact"]')).includes('support@swoovr.com')); pass();
     await context.close();

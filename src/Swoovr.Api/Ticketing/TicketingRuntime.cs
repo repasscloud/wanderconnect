@@ -164,7 +164,10 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         foreach(var actor in await provider.AgentsAsync(ct))
         {
             var groups=(await OwnerGroupsAsync(actor,ct)).Where(g=>read.Any(r=>r.Id==g)).ToArray();
-            if(groups.Length>0)owners.Add(new(actor.Id,actor.Login,groups));
+            if(groups.Length==0)continue;
+            // Staff choose an owner by their Swoovr staff email, never by a provider login.
+            var label=Guid.TryParseExact(actor.Login[13..],"D",out var staffId)?await Db.Accounts.Where(a=>a.Id==staffId&&a.Realm==AccountRealm.Staff).Select(a=>a.Email).SingleOrDefaultAsync(ct):null;
+            owners.Add(new(actor.Id,string.IsNullOrWhiteSpace(label)?"Staff member "+actor.Id:label,groups));
         }
         return new(read,transfers,facts.Directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),facts.Directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),true,"Ordinary UTF-8 .txt; 64 KiB each; 3 per reply. No identity documents or sensitive evidence.",
             owners,

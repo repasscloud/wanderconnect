@@ -1,0 +1,188 @@
+@* Native support requests (Zammad behind the Swoovr API). The member's identity is the API's; nothing here names a helpdesk
+   customer. Each draft keeps one operation key until the API confirms it, so a double click or a lost response never sends
+   twice: after an uncertain outcome the text is locked and only "Send again" (same key, reconciled by the API) is offered. *@
+@using System.Text
+@inject MemberClient Members
+@inject NavigationManager Navigation
+<div class="page-heading" data-support="@Mode">
+    <p class="breadcrumb"><a href="/account">Me</a> / @if (Mode == "list") { @SupportTicketText.Title } else { <a href="@SupportTicketText.MemberPath">@SupportTicketText.Title</a> }</p>
+    <h1>@(Mode == "new" ? SupportTicketText.NewTitle : Mode == "detail" && detail is not null ? detail.Ticket.Title : SupportTicketText.Title)</h1>
+    @if (Mode == "list") { <p>@SupportTicketText.Intro</p> }
+</div>
+@if (problem is not null) { <p class="notice" role="alert" data-support-problem="@problemCode">@problem</p> }
+
+@if (Mode == "list")
+{
+    <p class="account-actions"><a class="primary-button" href="@SupportTicketText.NewLink()" data-support-new>New request</a> <a class="button button-secondary" href="@("mailto:" + StandingText.SupportEmail)">Email Support</a></p>
+    <section class="card account-section" aria-labelledby="requests-heading" data-support-list="@(page is null ? "loading" : page.Items.Count.ToString())">
+        <h2 id="requests-heading">Your requests</h2>
+        @if (page is null) { @if (problem is null) { <p role="status">Loading…</p> } }
+        else if (page.Items.Count == 0) { <p class="field-help" data-support-empty>@SupportTicketText.NoTickets</p> }
+        else
+        {
+            <ul class="request-list">
+                @foreach (var t in page.Items)
+                {
+                    <li data-support-ticket="@t.Reference"><a href="@SupportTicketText.Link(t.Id)"><strong>@t.Title</strong></a>
+                        <p class="field-help"><span data-support-state>@SupportTicketText.StateName(States, t.StateId)</span> · @t.Reference · Updated @t.UpdatedAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</p></li>
+                }
+            </ul>
+            <p class="account-actions">
+                @if (pageNumber > 1) { <button type="button" class="button button-secondary button-small" @onclick="() => PageAsync(pageNumber - 1)">Newer</button> }
+                @if (page.HasMore) { <button type="button" class="button button-secondary button-small" @onclick="() => PageAsync(pageNumber + 1)" data-support-more>Older</button> }
+            </p>
+        }
+    </section>
+    <p class="field-help">@StandingText.SupportHelp</p>
+}
+else if (Mode == "new")
+{
+    <section class="card account-section" aria-labelledby="new-heading">
+        <h2 id="new-heading" class="visually-hidden">@SupportTicketText.NewTitle</h2>
+        <form class="stack" @onsubmit="CreateAsync" data-support-create="@(locked ? "uncertain" : "ready")">
+            <div class="field"><label for="support-title">@SupportTicketText.TitleLabel</label>
+                <input id="support-title" maxlength="200" required @bind="title" @bind:event="oninput" readonly="@locked" data-support-title /></div>
+            <div class="field"><label for="support-body">@SupportTicketText.BodyLabel</label>
+                <textarea id="support-body" rows="8" maxlength="16000" required @bind="body" @bind:event="oninput" readonly="@locked" data-support-body></textarea></div>
+            <p class="field-help">@SupportTicketText.SensitiveHelp</p>
+            <button type="submit" class="button" disabled="@(busy || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(body))" data-support-send>@(locked ? "Send again" : "Send request")</button>
+            <p role="status" aria-live="polite" class="field-help">@(busy ? "Sending…" : null)</p>
+        </form>
+    </section>
+}
+else if (detail is { } d)
+{
+    <section class="card account-section" aria-labelledby="facts-heading" data-support-detail="@d.Ticket.Reference">
+        <h2 id="facts-heading" class="visually-hidden">Request details</h2>
+        <dl class="standing-facts">
+            <div><dt>Reference</dt><dd data-support-reference>@d.Ticket.Reference</dd></div>
+            <div><dt>Status</dt><dd data-support-state>@SupportTicketText.StateName(States, d.Ticket.StateId)</dd></div>
+            <div><dt>Updated</dt><dd>@d.Ticket.UpdatedAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</dd></div>
+        </dl>
+        <p class="field-help">@SupportTicketText.OutcomeHelp</p>
+    </section>
+    <section class="card account-section" aria-labelledby="messages-heading">
+        <h2 id="messages-heading">Messages</h2>
+        <ol class="request-list" data-support-articles="@d.Articles.Count">
+            @foreach (var a in d.Articles)
+            {
+                <li data-support-article="@a.Id" data-sender="@a.Sender">
+                    <p class="field-help"><strong>@SupportTicketText.Sender(a.Sender, true)</strong> · @a.CreatedAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</p>
+                    <p class="support-body">@a.Body</p>
+                    @foreach (var x in a.Attachments)
+                    {
+                        <p class="field-help" data-support-attachment="@x.Id">@x.Filename (@Size(x.Size))
+                            <button type="button" class="button button-secondary button-small" @onclick="() => ViewAsync(a.Id, x.Id)">@(viewing == x.Id ? "Hide" : "View")</button></p>
+                        @if (viewing == x.Id && viewed is not null) { <pre class="support-attachment" data-support-attachment-text>@viewed</pre> }
+                    }
+                </li>
+            }
+        </ol>
+    </section>
+    @if (d.CanReply)
+    {
+        <section class="card account-section" aria-labelledby="reply-heading">
+            <h2 id="reply-heading">Reply</h2>
+            <form class="stack" @onsubmit="ReplyAsync" data-support-reply="@(locked ? "uncertain" : "ready")">
+                <div class="field"><label for="support-reply">@SupportTicketText.ReplyLabel</label>
+                    <textarea id="support-reply" rows="5" maxlength="16000" required @bind="body" @bind:event="oninput" readonly="@locked" data-support-reply-body></textarea></div>
+                @if (!locked)
+                {
+                    <div class="field"><label for="support-files">Attach text files (optional)</label>
+                        <InputFile id="support-files" OnChange="AttachAsync" multiple accept=".txt,text/plain" /></div>
+                }
+                @foreach (var f in files) { <p class="field-help" data-support-upload>@f.Filename (@Size(f.Data.Length)) @if (!locked) { <button type="button" class="button button-secondary button-small" @onclick="() => files.Remove(f)">Remove</button> }</p> }
+                <p class="field-help">@SupportTicketText.AttachmentHelp @SupportTicketText.SensitiveHelp</p>
+                <button type="submit" class="button" disabled="@(busy || string.IsNullOrWhiteSpace(body))" data-support-reply-send>@(locked ? "Send again" : "Send reply")</button>
+                <p role="status" aria-live="polite" class="field-help">@(busy ? "Sending…" : null)</p>
+            </form>
+        </section>
+    }
+    else { <p class="field-help" data-support-closed>This request is closed. <a href="@SupportTicketText.NewLink()">Start a new request</a> if you still need help.</p> }
+}
+else if (problem is null) { <p role="status">Loading…</p> }
+@code {
+    [Parameter] public long? Id { get; set; }
+    [Parameter] public bool New { get; set; }
+    [Parameter] public string? Reference { get; set; }
+    private string Mode => New ? "new" : Id is null ? "list" : "detail";
+    private TicketPage? page;
+    private TicketDetail? detail;
+    private IReadOnlyList<TicketOption> States = [];
+    private int pageNumber = 1;
+    private string? problem, problemCode, title, body, viewed;
+    private long? viewing;
+    private bool busy, locked;
+    private Guid operation = Guid.NewGuid();
+    private readonly List<TicketUpload> files = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (New) { title = SupportTicketText.Subject(Reference); return; }
+        if ((await Members.TicketOptionsAsync()).Value is { } options) States = options.States;
+        if (Id is long id) await LoadAsync(id); else await PageAsync(1);
+    }
+
+    private void Fail(int status, string? code) => (problem, problemCode) = (SupportTicketText.Problem(status, code), code ?? status.ToString());
+
+    private async Task PageAsync(int number)
+    {
+        var result = await Members.TicketsAsync(number);
+        if (result.Ok) (page, pageNumber, problem) = (result.Value, number, null); else Fail(result.Status, result.Code);
+    }
+
+    private async Task LoadAsync(long id)
+    {
+        var result = await Members.TicketAsync(id);
+        // A refusal removes what was shown: access may have been withdrawn since the last load.
+        if (result.Ok) detail = result.Value; else { detail = null; viewed = null; Fail(result.Status, result.Code); }
+    }
+
+    private async Task CreateAsync()
+    {
+        busy = true; problem = null;
+        var result = await Members.CreateTicketAsync(new TicketCreate(operation, title!.Trim(), body!.Trim()));
+        busy = false;
+        if (result.Ok) { Navigation.NavigateTo(SupportTicketText.Link(result.Value!.Id), forceLoad: true); return; }
+        locked = Uncertain(result.Status, result.Code);
+        Fail(result.Status, result.Code);
+    }
+
+    private async Task ReplyAsync()
+    {
+        busy = true; problem = null;
+        var result = await Members.ReplyTicketAsync(Id!.Value, new TicketReply(operation, body!.Trim(), false, files.Count == 0 ? null : files.ToArray()));
+        busy = false;
+        if (result.Ok) { detail = result.Value; body = null; files.Clear(); locked = false; operation = Guid.NewGuid(); return; }
+        locked = Uncertain(result.Status, result.Code);
+        Fail(result.Status, result.Code);
+        if (result.Status is 403 or 404) { detail = null; viewed = null; }
+        else if (result.Code is "ticket-follow-up-unavailable" or "ticket-changed") await LoadAsync(Id.Value);
+    }
+
+    // An outcome the API couldn't confirm: keep the same key and content so a resend is reconciled, never duplicated.
+    private static bool Uncertain(int status, string? code) => code == "ticket-reconciliation-required" || status == 0 || status >= 500 && code != "ticketing-unavailable";
+
+    private async Task AttachAsync(InputFileChangeEventArgs e)
+    {
+        problem = null;
+        foreach (var file in e.GetMultipleFiles(3))
+        {
+            if (files.Count >= 3 || file.Size > 65536 || !file.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) { problem = SupportTicketText.AttachmentHelp; continue; }
+            using var stream = file.OpenReadStream(65536);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            files.Add(new TicketUpload(file.Name, "text/plain", memory.ToArray()));
+        }
+    }
+
+    private async Task ViewAsync(long article, long attachment)
+    {
+        if (viewing == attachment) { (viewing, viewed) = (null, null); return; }
+        var result = await Members.TicketAttachmentAsync(Id!.Value, article, attachment);
+        if (result.Ok) (viewing, viewed) = (attachment, new UTF8Encoding(false, false).GetString(result.Value!.Data));
+        else { (viewing, viewed) = (null, null); Fail(result.Status, result.Code); }
+    }
+
+    private static string Size(long bytes) => bytes < 1024 ? $"{bytes} bytes" : $"{bytes / 1024.0:0.#} KB";
+}

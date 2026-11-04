@@ -1,0 +1,57 @@
+@page "/tickets/new"
+@* Create a support request for a member. The member is found by an exact key (account ID, canonical helpdesk login,
+   mapped helpdesk number or exact email); a shared email is reported as ambiguous and never guessed or merged. *@
+@inject AdminClient Admin
+@inject NavigationManager Navigation
+<PageTitle>New support request — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/tickets">Support requests</a> / New</p>
+<header class="ui-page-head"><h1>New request for a member</h1><p>Start a conversation the member will see in their Support page.</p></header>
+@if (message is not null) { <p class="notice" role="alert" data-result="@resultCode"><span>@message</span></p> }
+<section class="ui-card" aria-label="Find the member">
+    <form method="post" @formname="find" @onsubmit="FindAsync" class="ui-big-search" data-enhance="false" data-ticket-customer-find>
+        <AntiforgeryToken />
+        <label class="ui-field beta-search"><span class="sr-only">Member</span><input name="Query" type="search" maxlength="254" required autocomplete="off" placeholder="Account ID or exact email" value="@query" /></label>
+        <button type="submit">Find member</button>
+    </form>
+</section>
+@if (customer is { } c)
+{
+    <section class="ui-card" aria-label="New request" data-ticket-customer="@c.AccountId">
+        <p>Member <a href="/accounts/@c.AccountId"><code>@c.AccountId.ToString()[..8]</code></a> · helpdesk record: @(c.State == "applied" || c.State == "mapped" ? "ready" : "created on first request")</p>
+        <form method="post" @formname="create" @onsubmit="CreateAsync" data-enhance="false" data-ticket-create>
+            <AntiforgeryToken />
+            <input type="hidden" name="AccountId" value="@c.AccountId" /><input type="hidden" name="OpKey" value="@key" />
+            <label class="ui-field"><span>Subject</span><input name="Title" maxlength="200" required value="@title" /></label>
+            <label class="ui-field"><span>Message to the member</span><textarea name="Body" rows="8" maxlength="16000" required>@body</textarea></label>
+            <p class="help">Don't include case evidence or identity documents. Refer to the case or report reference instead.</p>
+            <button type="submit" data-ticket-create-send>@(uncertain ? "Send again" : "Create request")</button>
+        </form>
+    </section>
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private TicketCustomerView? customer;
+    private string? message, resultCode, query, title, body;
+    private bool uncertain;
+    private string key = Guid.NewGuid().ToString("D");
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task FindAsync()
+    {
+        query = Field("Query").Trim();
+        var result = await Admin.TicketCustomerAsync(new TicketCustomerLookup(Query: query));
+        if (result.Ok) customer = result.Value; else (message, resultCode) = (SupportTicketText.Problem(result.Status, result.Code), result.Code ?? result.Status.ToString());
+    }
+
+    private async Task CreateAsync()
+    {
+        if (!Guid.TryParse(Field("AccountId"), out var account) || !Guid.TryParse(Field("OpKey"), out var operation)) { (message, resultCode) = (SupportTicketText.Problem(400, "invalid-request"), "invalid-request"); return; }
+        (title, body) = (Field("Title").Trim(), Field("Body").Trim());
+        var result = await Admin.CreateTicketAsync(new TicketOnBehalf(account, new TicketCreate(operation, title, body)));
+        if (result.Ok) { Navigation.NavigateTo("/tickets/" + result.Value!.Id); return; }
+        uncertain = result.Code == "ticket-reconciliation-required" || result.Status is 0 or >= 500;
+        if (uncertain) key = operation.ToString("D");
+        customer = new TicketCustomerView(account, "unknown");
+        (message, resultCode) = (SupportTicketText.Problem(result.Status, result.Code), result.Code ?? result.Status.ToString());
+    }
+}

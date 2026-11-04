@@ -1,0 +1,38 @@
+@page "/tickets/diagnostics"
+@* Integration health for administrators: whether the helpdesk answers, and how much durable work is waiting or uncertain.
+   No conversation content. Helpdesk configuration (queues, triggers, webhook, fields) is not routine work: it is provisioned
+   by the deployment and changed in the helpdesk's own administration by an administrator. *@
+@inject AdminClient Admin
+<PageTitle>Support integration health — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/tickets">Support requests</a> / Integration health</p>
+<header class="ui-page-head"><h1>Integration health</h1><p>The helpdesk connection and the work Swoovr is tracking for it.</p></header>
+@if (diagnostics is { } d)
+{
+    <div class="ui-stats ui-stats-4" data-ticket-diagnostics="@d.Provider">
+        <div class="ui-stat"><strong>@(d.Provider == "reachable" ? "Reachable" : d.Provider)</strong><span>Helpdesk</span></div>
+        <div class="ui-stat"><strong>@d.Mappings</strong><span>Member records</span></div>
+        <div class="ui-stat @(d.UncertainMappings + d.UncertainOperations > 0 ? "is-alert" : null)"><strong>@(d.UncertainMappings + d.UncertainOperations)</strong><span>Waiting to be confirmed</span></div>
+        <div class="ui-stat @(d.FailedDeliveries > 0 ? "is-alert" : null)"><strong>@d.PendingDeliveries</strong><span>Helpdesk events waiting (@d.FailedDeliveries retrying)</span></div>
+    </div>
+    <p class="help">Unconfirmed work is never repeated automatically. It is matched against the helpdesk before anything is sent again.</p>
+}
+else { <div class="ui-empty" role="alert" data-ticket-diagnostics="unavailable"><strong>Not available</strong>@message</div> }
+@if (caps is { } c)
+{
+    <section class="ui-card" aria-label="Your access">
+        <h2 class="ui-card-title">Your queues</h2>
+        <p>@(c.Groups.Count == 0 ? "None." : string.Join(", ", c.Groups.Select(g => g.Name)))</p>
+        <p class="help">Queues come from your Swoovr role and your own helpdesk grants. Restricted, legal, privacy and security queues also need elevated access and a trusted connection.</p>
+    </section>
+}
+@code {
+    private Swoovr.Contracts.TicketDiagnostics? diagnostics;
+    private TicketCapabilities? caps;
+    private string? message;
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.TicketDiagnosticsAsync();
+        if (result.Ok) diagnostics = result.Value; else message = SupportTicketText.Problem(result.Status, result.Code);
+        caps = (await Admin.TicketCapabilitiesAsync()).Value;
+    }
+}

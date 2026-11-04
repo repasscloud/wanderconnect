@@ -75,9 +75,9 @@ def provision_runtime(staff, config, output=None, reconcile=False):
         raise RuntimeError('Runtime staff provisioning failed; inspect private diagnostics.')
     prefix = 'SWOOVR_RUNTIME_STAFF='
     rows = json.loads(next(line[len(prefix):] for line in result.stdout.splitlines() if line.startswith(prefix)))
-    settings = {'Ticketing': {'Zammad': {'BaseUrl': 'http://swoovr-zammad/', 'IdentityToken': config['identity_token'], 'Staff': rows}}}
+    settings = {'Ticketing': {'Zammad': {'BaseUrl': 'http://swoovr-zammad:8080/', 'IdentityToken': config['identity_token'], 'Staff': rows}}}
     private_write(target / 'api.json', json.dumps(settings))
-    lines = ['Ticketing__Zammad__BaseUrl=http://swoovr-zammad/', 'Ticketing__Zammad__IdentityToken=' + config['identity_token']]
+    lines = ['Ticketing__Zammad__BaseUrl=http://swoovr-zammad:8080/', 'Ticketing__Zammad__IdentityToken=' + config['identity_token']]
     lines.extend('Ticketing__Zammad__Staff__' + key + '__Token=' + row['Token'] for key, row in rows.items())
     private_write(target / 'api.env', '\n'.join(lines) + '\n')
     return settings

@@ -26,7 +26,7 @@ const title='There is an update to a report you submitted. Open Notices and repo
   check(await page.locator('[data-report-support]').count()===1,'routine report always offers support and complaints');
   const support=page.locator('[data-report-support]');check((await support.innerText()).includes('how your report was handled'),'handling complaint explained');check((await support.innerText()).includes('Online Dating Code'),'Code concerns explained without claiming signatory status');
   check(await support.getByRole('link',{name:'Safety & Support',exact:true}).getAttribute('href')==='/safety','country-aware independent support link');
-  check(await support.getByRole('link',{name:'Contact Support',exact:true}).getAttribute('href')==='https://swoovr.com/support','approved corporate support channel');
+  check(await support.getByRole('link',{name:'Contact Support',exact:true}).getAttribute('href')==='/me/support','native support request channel');
   check(await support.getByRole('link',{name:'Email Support',exact:true}).getAttribute('href')==='mailto:support@swoovr.com','approved support email');
   check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'support fits390px');await page.screenshot({path:path.join(folder,'web-report-support-390.png'),fullPage:true});
   const reportId=await sql(`SELECT id FROM reports WHERE reporter_account_id='${ids.reporter}' AND subject_account_id='${ids.subject}'`),caseId=await sql(`SELECT case_id FROM reports WHERE id='${reportId}'`);
