@@ -129,7 +129,7 @@ public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IE
     {
         var ticket = await actor.GetTicketAsync(id, ct);
         // Another guest's or member's request answers exactly like a request that doesn't exist.
-        return ticket is not null && ticket.CustomerId == customer ? ticket : throw Refuse();
+        return ticket is not null && ticket.CustomerId == customer && ticket.OperationReference is not null ? ticket : throw Refuse();
     }
 
     public async Task<TicketPage> ListAsync(TicketingGuest guest, int page, CancellationToken ct)
@@ -138,7 +138,7 @@ public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IE
         if (guest.ProviderUserId is null) return new([], page, 25, false);
         var (actor, customer) = await ActorAsync(guest, ct);
         var rows = await actor.SearchAsync("customer_id:" + customer, page, 26, "updated_at", true, ct);
-        var own = rows.Where(r => r.CustomerId == customer).ToArray();
+        var own = rows.Where(r => r.CustomerId == customer && r.OperationReference is not null).ToArray();
         return new(own.Take(25).Select(TicketingRuntime.Summary).ToArray(), page, 25, own.Length > 25);
     }
 
@@ -167,7 +167,7 @@ public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IE
         var ticket = await OwnAsync(actor, customer, id, ct);
         var articles = await actor.GetArticlesAsync(id, ct);
         ticket = await OwnAsync(actor, customer, id, ct);
-        var views = articles.Where(a => a.TicketId == id && !a.Internal).Select(a => new TicketArticle(a.Id, TicketingProjection.Plain(a.Body, a.ContentType), false, a.Sender, a.CreatedAt,
+        var views = articles.Where(a => a.TicketId == id && a.CustomerVisible).Select(a => new TicketArticle(a.Id, TicketingProjection.Plain(a.Body, a.ContentType), false, a.Sender, a.CreatedAt,
             a.Attachments.Where(x => x.ContentType == "text/plain" && x.Size <= 65536).Select(x => new TicketAttachment(x.Id, TicketingProjection.Filename(x.Filename), x.ContentType, x.Size)).ToArray())).ToArray();
         var directory = await actor.DirectoryAsync(ct);
         var kind = directory.States.SingleOrDefault(s => s.Id == ticket.StateId)?.Kind;

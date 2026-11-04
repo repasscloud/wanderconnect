@@ -259,6 +259,24 @@ def main():
             if any(t['id']==ticket for t in listed['items']):break
             time.sleep(.25)
         check(len(listed['items'])==1,'TK reference search routes through current staff access')
+        # Case/appeal links (safe references only). Fixture case and report live in this run's own database.
+        case_id,admin_case,ref=str(uuid.uuid4()),str(uuid.uuid4()),'SW-'+''.join(__import__('secrets').choice('ABCDEFGHJKMNPQRSTUVWXYZ23456789') for _ in range(6))
+        def fixture(sql_text):
+            done=subprocess.run(['docker','exec','swoovr-platform-postgres-1','psql','-p','5433','-U','swoovr','-d',database,'-At','-v','ON_ERROR_STOP=1','-c',sql_text],capture_output=True,text=True)
+            if done.returncode:raise RuntimeError('Fixture insert failed: '+done.stderr.strip().splitlines()[0][:200])
+        fixture(f"INSERT INTO moderation_cases(id,subject_account_id,status,queue,priority,created_at,updated_at) VALUES('{case_id}','{people['other'][2]}','Open','Support','Normal',now(),now()),('{admin_case}','{people['member'][2]}','Open','Admin','Normal',now(),now())")
+        fixture(f"INSERT INTO reports(id,reporter_account_id,subject_account_id,subject_type,subject_ref,category_id,priority,case_id,created_at,support_reference) VALUES(gen_random_uuid(),'{people['member'][2]}','{people['other'][2]}','Profile','fictional','spam','Normal','{case_id}',now(),'{ref}')")
+        linked=call(member,'/api/me/tickets','POST',{'operationId':str(uuid.uuid4()),'title':'About report '+ref,'body':'Fictional follow-up on my report.','reference':ref})
+        check([l['caseId'] for l in call(support,f"/api/admin/tickets/{linked['id']}/links")]==[case_id],"member's own report reference links the new request to that case only")
+        stranger=call(member,'/api/me/tickets','POST',{'operationId':str(uuid.uuid4()),'title':'Probe','body':'Fictional probe.','reference':'SW-ABC234'})
+        check(call(support,f"/api/admin/tickets/{stranger['id']}/links")==[],'an unknown reference links nothing and reveals nothing')
+        call(support,f"/api/admin/tickets/{linked['id']}/links",'POST',{'caseId':admin_case},expected=404)
+        call(support,f"/api/admin/tickets/{linked['id']}/links",'POST',{'caseId':case_id,'appealId':str(uuid.uuid4())},expected=404)
+        check(True,'support cannot link an admin-queue case or an appeal from another case')
+        before=psql(database,f"SELECT status||'|'||(SELECT count(*) FROM sanctions WHERE case_id='{case_id}')||'|'||(SELECT count(*) FROM appeals) FROM moderation_cases WHERE id='{case_id}'")
+        current=call(support,f"/api/admin/tickets/{linked['id']}")
+        call(support,f"/api/admin/tickets/{linked['id']}",'PUT',{'operationId':str(uuid.uuid4()),'expectedUpdatedAt':current['ticket']['updatedAt'],'stateId':closed_state})
+        check(psql(database,f"SELECT status||'|'||(SELECT count(*) FROM sanctions WHERE case_id='{case_id}')||'|'||(SELECT count(*) FROM appeals) FROM moderation_cases WHERE id='{case_id}'")==before,'closing a linked request changes no case, sanction or appeal')
         for _ in range(40):
             filtered=call(support,'/api/admin/tickets?state='+str(open_state)+'&owner='+str(owner)+'&sort=updated_at&descending=true&page=1&pageSize=5')
             if any(t['id']==ticket for t in filtered['items']):break

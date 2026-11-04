@@ -18,6 +18,7 @@ public static class NotificationLinks
         NotificationKind.Message or NotificationKind.ConversationEnded => $"/chats/{n.SubjectId}",
         NotificationKind.ReportOutcome => "/me/notices",
         NotificationKind.PhotoDecision => "/me/photos",
+        NotificationKind.Support => SupportNotice.Ticket(n.SubjectId) is { } ticket ? $"/me/support/{ticket}" : "/me/support",
         NotificationKind.Request => "/connections",
         NotificationKind.Connection when n.ActorAccountId is { } actor
             && await db.MemberProfiles.Where(p => p.AccountId == actor).Select(p => (Guid?)p.PublicId).SingleOrDefaultAsync(cancellationToken) is { } person
@@ -199,7 +200,7 @@ public static class NotificationEndpoints
     public static async Task<NotificationCentre> CentreAsync(SwoovrDbContext db, Guid me, bool barred, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if(!await db.Accounts.AnyAsync(a=>a.Id==me&&a.Status==AccountStatus.Active,cancellationToken))return new([],0);
-        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account || n.Kind==NotificationKind.ReportOutcome || n.Kind == NotificationKind.PhotoDecision))
+        var rows = await db.Notifications.Where(n => n.AccountId == me && (!barred || n.Kind == NotificationKind.Account || n.Kind==NotificationKind.ReportOutcome || n.Kind==NotificationKind.Support || n.Kind == NotificationKind.PhotoDecision))
             .OrderByDescending(n => n.UpdatedAt).Take(NotificationPolicy.PageSize * 2).ToListAsync(cancellationToken);
         var outcomeIds=rows.Where(n=>n.Kind==NotificationKind.ReportOutcome&&n.SubjectId!=null).Select(n=>n.SubjectId!.Value).ToList();
         var ownOutcomes=await db.Reports.Where(r=>r.ReporterAccountId==me&&outcomeIds.Contains(r.Id)).Select(r=>r.Id).ToListAsync(cancellationToken);
@@ -233,6 +234,7 @@ public static class NotificationEndpoints
             {
                 NotificationKind.PolicyChange => "Safety policy update: "+publications[n.SubjectId!.Value].Title,
                 NotificationKind.PhotoDecision => "There is an update to one of your photos. Open Your photos to review it.",
+                NotificationKind.Support => "Swoovr support replied to your request. Open Support to read it.",
                 NotificationKind.ReportOutcome => "There is an update to a report you submitted. Open Notices and reports to review it.",
                 NotificationKind.ConversationEnded => ConversationEnding.Notification,
                 NotificationKind.MeetingSafety => "You have a meeting safety update. Open it to check in.",

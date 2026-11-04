@@ -65,6 +65,7 @@ public static partial class SupportTicketText
         "ticket-owner-unavailable" => "That person can't own requests in this queue.",
         "transfer-to-restricted-group-first" => "Move the request to a restricted queue before marking it restricted.",
         "ticket-macro-unsupported" => "That macro includes actions Swoovr can't run. Use the individual controls instead.",
+        "ticket-case-unavailable" => "That case or appeal doesn't exist, or isn't available to your role.",
         "ticket-search-scope-too-large" => "That search covers too much. Narrow it with a queue or status.",
         _ => status switch
         {

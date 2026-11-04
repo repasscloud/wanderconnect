@@ -44,7 +44,7 @@ public static class TicketingWebhookEndpoints
         if (await db.Set<TicketingWebhookWork>().AnyAsync(row => row.BodyDigest == digest, context.RequestAborted)) return Results.NoContent();
         var now = clock.GetUtcNow();
         db.Add(new TicketingWebhookWork {Id = Guid.NewGuid(), DeliveryId = canonicalDelivery, BodyDigest = digest,
-            ProviderTicketId = ids.Value.TicketId, ProviderArticleId = ids.Value.ArticleId, ReceivedAt = now, NextAttemptAt = now});
+            ProviderTicketId = ids.Value.TicketId, ProviderArticleId = ids.Value.ArticleId, ProviderCustomerId = ids.Value.CustomerId, ReceivedAt = now, NextAttemptAt = now});
         try { await db.SaveChangesAsync(context.RequestAborted); }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException {SqlState: PostgresErrorCodes.UniqueViolation})
         {
@@ -57,7 +57,7 @@ public static class TicketingWebhookEndpoints
         return Results.NoContent();
     }
 
-    public static (long TicketId, long? ArticleId)? Parse(ReadOnlyMemory<byte> body)
+    public static (long TicketId, long? ArticleId, long? CustomerId)? Parse(ReadOnlyMemory<byte> body)
     {
         try
         {
@@ -77,7 +77,13 @@ public static class TicketingWebhookEndpoints
                     articleId = value;
                 }
             }
-            return (ticketId, articleId);
+            long? customerId = null;
+            if (ticket.TryGetProperty("customer_id", out var customer))
+            {
+                if (!Positive(customer, out var value)) return null;
+                customerId = value;
+            }
+            return (ticketId, articleId, customerId);
         }
         catch (JsonException) { return null; }
     }

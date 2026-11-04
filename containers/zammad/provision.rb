@@ -83,17 +83,26 @@ macro = Macro.find_or_initialize_by(name: 'Swoovr close ticket')
 macro.assign_attributes(perform: {'ticket.state_id' => {'value' => Ticket::State.find_by!(name: 'closed').id}},
   active: true, ux_flow_next_up: 'none', created_by_id: actor, updated_by_id: actor)
 macro.save!
-# Webhook/trigger kept inactive until the secured API is composed and tested. No false delivery claim.
+# New support mail (any sender) starts in General Support, never the disabled stock Users group. Follow-ups keep their queue.
+general = Group.find_by!(name: 'General Support')
+mail_filter = PostmasterFilter.find_or_initialize_by(name: 'Swoovr: new support mail to General Support')
+mail_filter.assign_attributes(channel: 'email', active: true,
+  match: {'from' => {'operator' => 'contains', 'value' => '@'}},
+  perform: {'X-Zammad-Ticket-group_id' => {'value' => general.id.to_s}},
+  note: 'Provisioned by Swoovr', created_by_id: actor, updated_by_id: actor)
+mail_filter.save!
+# Webhook/trigger stay inactive unless provisioning explicitly enables events (zammad_local.py provision --events).
+events = input.fetch('events_active', false) == true
 webhook = Webhook.find_or_initialize_by(name: 'Swoovr events')
 webhook.assign_attributes(endpoint: 'http://swoovr-platform:5080/api/integrations/zammad/events',
-  signature_token: input.fetch('webhook_secret'), active: false, ssl_verify: true,
-  customized_payload: true, custom_payload: JSON.generate({ticket: {id: '#{ticket.id}', updated_at: '#{ticket.updated_at}', state_id: '#{ticket.state_id}', group_id: '#{ticket.group_id}', owner_id: '#{ticket.owner_id}', priority_id: '#{ticket.priority_id}'}, article: {id: '#{article.id}'}}),
+  signature_token: input.fetch('webhook_secret'), active: events, ssl_verify: true,
+  customized_payload: true, custom_payload: JSON.generate({ticket: {id: '#{ticket.id}', updated_at: '#{ticket.updated_at}', customer_id: '#{ticket.customer_id}', state_id: '#{ticket.state_id}', group_id: '#{ticket.group_id}', owner_id: '#{ticket.owner_id}', priority_id: '#{ticket.priority_id}'}, article: {id: '#{article.id}'}}),
   created_by_id: actor, updated_by_id: actor)
 webhook.save!
 trigger = Trigger.find_or_initialize_by(name: 'Swoovr correspondence events')
 trigger.assign_attributes(condition: {'ticket.state_id' => {'operator' => 'is', 'value' => Ticket::State.pluck(:id)}},
   perform: {'notification.webhook' => {'webhook_id' => webhook.id.to_s}}, activator: 'action',
-  execution_condition_mode: 'always', active: false, created_by_id: actor, updated_by_id: actor)
+  execution_condition_mode: 'always', active: events, created_by_id: actor, updated_by_id: actor)
 trigger.save!
 puts "SWOOVR_PROVISION_RESULT=" + JSON.generate({version: Version.get, groups: groups,
   customer_role_id: customer_role.id, agent_role_id: agent_role.id,

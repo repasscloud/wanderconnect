@@ -4,7 +4,24 @@ namespace Swoovr.Domain;
 /// What a notification is about (#49). Account notices (D135) can't be turned off; the rest follow the member's settings.
 /// Message requests in Swoovr are connection requests: people can only message once connected (D143).
 /// </summary>
-public enum NotificationKind { Message, Request, Connection, Travel, Account, ConversationEnded, MeetingSafety, ReportOutcome, PolicyChange, PhotoDecision }
+public enum NotificationKind { Message, Request, Connection, Travel, Account, ConversationEnded, MeetingSafety, ReportOutcome, PolicyChange, PhotoDecision, Support }
+
+/// <summary>
+/// A reply from Swoovr support to the member's own request (helpdesk ticket). Ids only: the ticket number is packed into the
+/// subject, the dedupe key is the helpdesk article, so one public staff reply gives at most one notice. No message text.
+/// </summary>
+public static class SupportNotice
+{
+    public static Guid Subject(long ticket) { Span<byte> bytes = stackalloc byte[16]; System.Buffers.Binary.BinaryPrimitives.WriteInt64BigEndian(bytes, ticket); bytes[8] = 0x5A; return new Guid(bytes, bigEndian: true); }
+    public static long? Ticket(Guid? subject)
+    {
+        if (subject is not { } value) return null;
+        Span<byte> bytes = stackalloc byte[16]; value.TryWriteBytes(bytes, bigEndian: true, out _);
+        var id = System.Buffers.Binary.BinaryPrimitives.ReadInt64BigEndian(bytes);
+        return bytes[8] == 0x5A && id > 0 && bytes[9..].IndexOfAnyExcept((byte)0) < 0 ? id : null;
+    }
+    public static string Dedupe(long article) => "support-article:" + article;
+}
 
 /// <summary>
 /// One item in the member's notification centre. It holds ids only (who, which mode, which conversation, request, trip or
@@ -127,10 +144,11 @@ public static class NotificationPolicy
     public static NotificationDecision Decide(NotificationFacts f)
     {
         if (!f.RecipientActive) return NotificationDecision.None;
-        if (f.RecipientBarred && f.Kind is not(NotificationKind.Account or NotificationKind.ReportOutcome or NotificationKind.PhotoDecision)) return NotificationDecision.None;
+        // Support stays open to barred members (like notices and appeals), so its replies do too.
+        if (f.RecipientBarred && f.Kind is not(NotificationKind.Account or NotificationKind.ReportOutcome or NotificationKind.PhotoDecision or NotificationKind.Support)) return NotificationDecision.None;
         if (f.HasActor && !f.ActorAllowed) return NotificationDecision.None;
         if(f.Kind is NotificationKind.ReportOutcome or NotificationKind.PolicyChange or NotificationKind.PhotoDecision)return new(true,NotForKind,NotForKind);
-        var wanted = f.Kind == NotificationKind.Account || f.KindOn && !f.ModeMuted;
+        var wanted = f.Kind is NotificationKind.Account or NotificationKind.Support || f.KindOn && !f.ModeMuted;
         string Channel(bool on, bool forKind) => !forKind ? NotForKind : !wanted || !on ? Off : f.QuietNow ? Quiet : Send;
         // Account notices are emailed by D135's own notice email; messages are never emailed.
         return new(true, Channel(f.PushOn, true), Channel(f.EmailOn, f.Kind is NotificationKind.Request or NotificationKind.Connection or NotificationKind.Travel));
@@ -177,6 +195,7 @@ public static class NotificationPolicy
         if (kind == NotificationKind.PolicyChange) return ("Swoovr", "Safety guidance has changed. Open Swoovr to read the notice.");
         if (kind == NotificationKind.MeetingSafety) return ("Swoovr", "You have a meeting safety update. Open Swoovr to check in.");
         if (kind == NotificationKind.ConversationEnded) return ("Swoovr", ConversationEnding.Notification);
+        if (kind == NotificationKind.Support) return ("Swoovr", "Swoovr support replied to your request.");
         if (privatePreviews || kind == NotificationKind.Account)
             return ("Swoovr", kind switch
             {

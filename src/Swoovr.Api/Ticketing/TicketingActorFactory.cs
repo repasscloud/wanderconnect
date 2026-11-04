@@ -50,6 +50,17 @@ public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvi
     {
         if(requireActive&&!actor.Active||actor.Login!=TicketingPolicy.MemberLogin(id)||actor.Roles.Count!=1||actor.Roles[0]!="Customer"||actor.Groups.Count!=0)throw new TicketingAccessException(403,"ticket-customer-role-invalid");
     }
+    /// <summary>A mapped customer's own view, for background re-fetching. The numeric ID comes only from Swoovr's mapping.</summary>
+    public async Task<ITicketingWorkspaceProvider> CustomerAsync(long providerId,Guid owner,bool guest,CancellationToken ct)
+    {
+        var user=await Identity().UserAsync(providerId,ct);
+        if(guest)ValidateGuest(user,owner);else ValidateCustomer(user,owner);
+        var actor=Provider(configuration["Ticketing:Zammad:IdentityToken"],providerId);
+        var effective=await actor.ActorAsync(ct);
+        if(guest)ValidateGuest(effective,owner);else ValidateCustomer(effective,owner);
+        if(effective.Id!=providerId)throw new TicketingAccessException(403,"ticket-actor-mismatch");
+        return actor;
+    }
     public static void ValidateGuest(SupportActor actor,Guid id)
     {
         if(!actor.Active||actor.Login!=TicketingGuestPolicy.Login(id)||actor.Roles.Count!=1||actor.Roles[0]!="Customer"||actor.Groups.Count!=0)throw new TicketingAccessException(403,"ticket-customer-role-invalid");

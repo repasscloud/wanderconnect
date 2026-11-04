@@ -65,7 +65,7 @@ public sealed class SupportPage : ContentPage
         {
             if (string.IsNullOrWhiteSpace(subject.Text) || string.IsNullOrWhiteSpace(message.Text)) { status.Text = SupportTicketText.Problem(400, "invalid-request"); return; }
             status.Text = "Sending…";
-            var result = await Ui.Members!.CreateTicketAsync(new TicketCreate(operation, subject.Text.Trim(), message.Text.Trim()));
+            var result = await Ui.Members!.CreateTicketAsync(new TicketCreate(operation, subject.Text.Trim(), message.Text.Trim(), reference));
             if (result.Ok) { Navigation.InsertPageBefore(new SupportTicketPage(result.Value!.Id, states), this); await Navigation.PopAsync(); return; }
             // Uncertain: keep the same key and lock the text, so "Send again" is reconciled by the API instead of duplicated.
             if (result.Code == "ticket-reconciliation-required" || result.Status is 0 or >= 500) { subject.IsReadOnly = message.IsReadOnly = true; send!.Text = "Send again"; }
@@ -85,6 +85,7 @@ public sealed class SupportTicketPage(long id, IReadOnlyList<TicketOption> state
     private readonly List<TicketUpload> files = [];
     private string? draft;
     private bool locked;
+    private IReadOnlyList<TicketOption> known = states;
 
     protected override async void OnAppearing()
     {
@@ -96,13 +97,14 @@ public sealed class SupportTicketPage(long id, IReadOnlyList<TicketOption> state
 
     private async Task LoadAsync(TicketDetail? fresh = null, string? notice = null)
     {
+        if (known.Count == 0) known = (await Ui.Members!.TicketOptionsAsync()).Value?.States ?? [];
         var result = fresh is null ? await Ui.Members!.TicketAsync(id) : new ApiResult<TicketDetail>(200, fresh, null);
         body.Children.Clear();
         // A refusal removes what was shown: access may have been withdrawn since the last load.
         if (!result.Ok) { body.Children.Add(Ui.Text(SupportTicketText.Problem(result.Status, result.Code), id: "SupportTicketProblem")); return; }
         var d = result.Value!;
         body.Children.Add(Ui.Text(d.Ticket.Title, "PageTitle", "SupportTicketTitle"));
-        body.Children.Add(Ui.Text($"{d.Ticket.Reference} · {SupportTicketText.StateName(states, d.Ticket.StateId)}", "FooterClaims", "SupportTicketState"));
+        body.Children.Add(Ui.Text($"{d.Ticket.Reference} · {SupportTicketText.StateName(known, d.Ticket.StateId)}", "FooterClaims", "SupportTicketState"));
         body.Children.Add(Ui.Text(SupportTicketText.OutcomeHelp, "FooterClaims"));
         if (notice is not null) body.Children.Add(Ui.Text(notice, id: "SupportTicketNotice"));
         foreach (var a in d.Articles)

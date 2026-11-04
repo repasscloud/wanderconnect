@@ -28,6 +28,8 @@ public static class TicketingEndpoints
         admin.MapGet("/{id:long}",(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.DetailAsync(id,ct)));
         admin.MapPut("/{id:long}",(long id,TicketChange request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ChangeAsync(id,request,ct)));
         admin.MapPost("/{id:long}/replies",(long id,TicketReply request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ReplyAsync(id,request,ct)));
+        admin.MapGet("/{id:long}/links",(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.LinksAsync(id,ct)));
+        admin.MapPost("/{id:long}/links",(long id,TicketLink request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.LinkAsync(id,request,ct)));
         admin.MapPost("/{id:long}/macros/{macro:long}",(long id,long macro,TicketMacroApply request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ApplyMacroAsync(id,macro,request,ct)));
         admin.MapGet("/{id:long}/articles/{article:long}/attachments/{attachment:long}",(long id,long article,long attachment,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.DownloadAsync(id,article,attachment,ct)));
         admin.MapPost("/bulk",(TicketBulk request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,async(r,ct)=>

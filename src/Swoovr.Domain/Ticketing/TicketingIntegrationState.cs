@@ -45,6 +45,8 @@ public sealed class TicketingWebhookWork
     public string BodyDigest { get; set; } = "";
     public long ProviderTicketId { get; set; }
     public long? ProviderArticleId { get; set; }
+    /// <summary>Selects which customer to re-fetch as; the helpdesk's own access rules then decide what is visible.</summary>
+    public long? ProviderCustomerId { get; set; }
     public DateTimeOffset ReceivedAt { get; set; }
     public DateTimeOffset NextAttemptAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }

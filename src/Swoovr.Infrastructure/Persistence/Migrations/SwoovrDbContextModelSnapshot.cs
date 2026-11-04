@@ -7852,6 +7852,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("provider_article_id");
 
+                    b.Property<long?>("ProviderCustomerId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_customer_id");
+
                     b.Property<long>("ProviderTicketId")
                         .HasColumnType("bigint")
                         .HasColumnName("provider_ticket_id");

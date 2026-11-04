@@ -13,6 +13,13 @@ public sealed record SupportArticle(long Id, long TicketId, string Body, string 
 {
     public string? OperationReference { get; init; }
     public long? AuthorId { get; init; }
+    /// <summary>The helpdesk channel ("note", "email", "web", ...). Email senders are unverified addresses.</summary>
+    public string? Type { get; init; }
+    /// <summary>
+    /// What a member or guest may see in Swoovr: no internal notes, and no customer messages that arrived by email, because
+    /// an email sender address can be forged and must not speak as the member inside the app (DEFAULT, conservative).
+    /// </summary>
+    public bool CustomerVisible => !Internal && !(Sender == "Customer" && Type == "email");
 }
 public sealed record SupportTicketDraft(string Title, string Body, long CustomerId, long GroupId, string OperationReference,string Source="member");
 public sealed record SupportTicketChange(long? GroupId = null, long? OwnerId = null, long? StateId = null, long? PriorityId = null);

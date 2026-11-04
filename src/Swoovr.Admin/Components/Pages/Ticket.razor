@@ -27,7 +27,7 @@ else
                 {
                     <dt>Queue</dt><dd data-ticket-group>@(Named(caps.Groups, s.GroupId) ?? "Another queue")</dd>
                     <dt>Owner</dt><dd data-ticket-owner>@(caps.Owners.FirstOrDefault(o => o.Id == s.OwnerId)?.Name ?? "Unassigned")</dd>
-                    <dt>Member</dt><dd>@if (s.CustomerAccountId is { } member) { <a href="/accounts/@member" data-ticket-member>Open account</a> } else if (s.Guest) { <span data-ticket-guest>Guest (verified email, not a member)</span> } else { <span>Not a mapped member</span> }</dd>
+                    <dt>Member</dt><dd>@if (s.CustomerAccountId is { } member) { <a href="/accounts/@member" data-ticket-member>Open account</a> } else if (s.Guest) { <span data-ticket-guest>Guest (verified email, not a member)</span> } else { <span data-ticket-email-sender>Email sender (not a verified Swoovr identity)</span> }</dd>
                     @foreach (var (key, label) in Attributes) { if (s.Classification.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v)) { <dt>@label</dt><dd data-ticket-attr="@key">@v</dd> } }
                 }
             </dl>
@@ -75,6 +75,24 @@ else
             }
         }
     </div>
+    <section class="ui-card" aria-label="Linked cases and appeals" data-ticket-links="@links.Count">
+        <h2 class="ui-card-title">Linked cases and appeals</h2>
+        @if (links.Count == 0) { <p class="help">No case or appeal is linked.</p> }
+        else
+        {
+            <ul class="list">@foreach (var l in links) { <li data-ticket-link="@l.CaseId"><a href="/cases/@l.CaseId">Case @l.CaseId.ToString()[..8]</a> · @l.CaseStatus@if (l.AppealId is { } appeal) { <span> · appeal <code>@appeal.ToString()[..8]</code></span> }</li> }</ul>
+        }
+        <p class="help">A link is a reference only. Evidence stays in the case, and decisions are made there: closing this request never lifts a sanction or decides an appeal.</p>
+        @if (d.CanReply)
+        {
+            <form method="post" @formname="link" @onsubmit="LinkAsync" class="media-filters" data-enhance="false" data-ticket-link-form>
+                <AntiforgeryToken />
+                <label class="ui-field"><span>Case ID</span><input name="CaseId" required maxlength="36" autocomplete="off" /></label>
+                <label class="ui-field"><span>Appeal ID (optional)</span><input name="AppealId" maxlength="36" autocomplete="off" /></label>
+                <div class="beta-filter-actions"><button type="submit" class="secondary" data-ticket-link-save>Link</button></div>
+            </form>
+        }
+    </section>
     <section class="ui-card" aria-label="Conversation">
         <h2 class="ui-card-title">Conversation</h2>
         <ol class="list" data-ticket-articles="@d.Articles.Count">
@@ -82,7 +100,7 @@ else
             {
                 <li data-ticket-article="@a.Id" data-private="@(a.Private ? "true" : "false")" class="@(a.Private ? "ticket-note" : null)">
                     <div class="ui-card-row"><strong>@SupportTicketText.Sender(a.Sender, false)</strong>
-                        @if (a.Private) { <span class="ui-pill" data-tone="escalate">Private note — staff only</span> } else { <span class="ui-pill" data-tone="quiet">Sent to member</span> }
+                        @if (a.Private) { <span class="ui-pill" data-tone="escalate">Private note — staff only</span> } else if (a.Sender == "Customer" && a.Channel == "email") { <span class="ui-pill" data-tone="reject" data-ticket-email>By email — sender not verified, not shown to the member</span> } else { <span class="ui-pill" data-tone="quiet">Sent to member</span> }
                         <span class="help">@a.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span></div>
                     <p class="ticket-body">@a.Body</p>
                     @foreach (var x in a.Attachments) { <p class="help" data-ticket-attachment="@x.Id"><a href="/tickets/@Id/articles/@a.Id/attachments/@x.Id" download>@x.Filename</a> (@x.Size bytes)</p> }
@@ -133,6 +151,7 @@ else
     private List<TicketMacro> macros = [];
     private List<TicketTextModule> modules = [];
     private List<TicketUpload> kept = [];
+    private List<TicketLinkView> links = [];
     private string? message, resultCode, replyBody;
     private int status;
     private bool ok, replyLocked, replyPrivate;
@@ -151,6 +170,7 @@ else
         if (!capabilities.Ok) { Report(capabilities.Status, capabilities.Code); return; }
         caps = capabilities.Value;
         await LoadAsync();
+        if (detail is not null) links = (await Admin.TicketLinksAsync(Id)).Value ?? [];
         if (detail?.CanReply == true)
         {
             macros = (await Admin.TicketMacrosAsync()).Value ?? [];
@@ -202,6 +222,14 @@ else
         if (Uncertain(result)) macroKey = PostedKey.ToString("D");
         if (result.Ok) Report(200, null, "Macro applied."); else Report(result.Status, result.Code);
         await LoadAsync();
+    }
+
+    private async Task LinkAsync()
+    {
+        if (!Guid.TryParse(Field("CaseId"), out var caseId)) { Report(400, "invalid-request"); return; }
+        Guid? appeal = Guid.TryParse(Field("AppealId"), out var a) ? a : null;
+        var result = await Admin.LinkTicketAsync(Id, new TicketLink(caseId, appeal));
+        if (result.Ok) { links = result.Value!; Report(200, null, "Linked."); } else Report(result.Status, result.Code);
     }
 
     private async Task ReplyAsync()

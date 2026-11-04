@@ -113,3 +113,24 @@ After the vertical slice continue phases 4–8 in order. Do not describe this fo
 - Portable gate checks: 15 guest policy/bot checks (fake verifier). Runtime acceptance re-run after the staff-side changes: **38/38 PASS** (owner lookup now matches the staff email label).
 - Platform journey extended: a guest submits through the platform API, staff open it in Admin marked as a guest and reply, and the guest reads the reply (`ui_journey.browser.cjs` **20 PASS**, 1 SKIP as before). The local platform API gets placeholder guest origins (`http://localhost:5099`) from `zammad_local.py runtime`.
 - Not done (external): real mailbox/DNS, Cloudflare hosting, Turnstile with real keys, the public website itself. Guest reply notices by email belong to event processing (Task 4).
+
+### Events, email, case links and recovery (Task 4) — 5 November 2026
+
+- **Event processing** (`TicketingEventWorker.cs`, in the existing API): inbox rows are claimed with `FOR UPDATE SKIP LOCKED`, re-fetched from Zammad as the ticket's own mapped customer (identity token + server-chosen `From`; the identity token alone cannot read tickets), and only a public staff reply on a Swoovr-created request produces a notice. The signed payload now carries `customer_id` (new nullable column, migration `TicketingEventCustomer`); it only selects which customer to re-fetch as, and Zammad's own rules decide visibility. Members get an in-app/push `Support` notice (ids only; always on; allowed while barred; never emailed, so no duplicate of helpdesk mail); guests get one content-free email, recorded before sending. Failures back off exponentially (15 s doubling, capped at 1 h); after 10 attempts the row is a dead letter shown in Admin diagnostics. A reconciliation sweep (`Ticketing:Events:ReconcileMinutes`, default 10; local 2) re-reads recently updated tickets of mapped customers; dedupe keys make overlap harmless. Swoovr writes nothing back on events, so there are no loops.
+- **Events opt-in**: `zammad_local.py provision --events` activates the webhook/trigger; plain `provision` keeps them inactive. `runtime` gives the local API the webhook secret. `webhook_acceptance.py` restores them inactive afterwards, so re-run `provision --events` after it.
+- **Inbound email** via Zammad's shipped `Channel::Driver::MailStdin` (untrusted). A provisioned email filter routes new mail to General Support (it otherwise lands in the disabled stock `Users` group). DEFAULT (conservative): customer messages that arrived by email are not shown to members/guests in Swoovr and tickets opened by email aren't listed in their apps, because a sender address can be forged; staff see them labelled "sender not verified" and can handle mailbox tickets from unknown senders natively.
+- **Case and appeal links**: a member's own `SW-` report reference links a new request to that case (unknown or someone else's references are ignored silently); staff list and add case/appeal links (`GET/POST /api/admin/tickets/{id}/links`) subject to case queue, conflicts and appeal-belongs-to-case checks. Links are references only; no ticket action changes a case, sanction or appeal. No historical backfill (DEFAULT).
+- **Recovery**: the pinned dataset stores attachments in PostgreSQL (`storage_provider=DB`), so the database backup includes files. `restore_acceptance.py` restores into an isolated clone (same image digests, internal network, no Elasticsearch) and verifies it over HTTP.
+
+Evidence (all real, local, fictional data):
+
+| Harness | Result |
+| --- | --- |
+| `tests/zammad/runtime_acceptance.py` | 42/42 PASS (adds 4 case-link checks) |
+| `tests/zammad/guest_acceptance.py` | 31/31 PASS |
+| `tests/zammad/webhook_acceptance.py` | PASS (signed intake, replay, tamper, conflicting delivery) |
+| `tests/zammad/events_acceptance.py` | 4/4 PASS with real faults: Zammad nginx stopped (event kept, backed off, one notice after recovery); private note gives none; Swoovr API stopped during delivery (recovered exactly once) |
+| `tests/zammad/ui_journey.browser.cjs` | 28 PASS, 2 SKIP (second fixture member's local password changed; local fixture member can't file a report, so browser-level case links are covered by the runtime harness instead). Includes the real event to notice, guest reply email, inbound email threading and unverified-sender handling |
+| `tests/zammad/restore_acceptance.py` | 6/6 PASS: identical counts incl. file content, restored API credential works, ticket/articles readable, attachment bytes identical, no egress |
+| `./scripts/check.sh` | exit 0, 0 warnings, 723 PostgreSQL checks |
+| MAUI iOS simulator / Android builds | 0 warnings, 0 errors (build only) |

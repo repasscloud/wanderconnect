@@ -53,6 +53,7 @@ def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'provision', 'runtime', 'reset'])
     parser.add_argument('--delete-local-data', action='store_true')
+    parser.add_argument('--events', action='store_true', help='provision: activate the signed webhook and trigger (the API must have the matching secret)')
     result = parser.parse_args(args)
     if result.action == 'reset' and not result.delete_local_data:
         parser.error('reset requires --delete-local-data; this removes only the Zammad dataset')
@@ -78,9 +79,13 @@ def provision_runtime(staff, config, output=None, reconcile=False):
     settings = {'Ticketing': {'Zammad': {'BaseUrl': 'http://swoovr-zammad:8080/', 'IdentityToken': config['identity_token'], 'Staff': rows}}}
     private_write(target / 'api.json', json.dumps(settings))
     lines = ['Ticketing__Zammad__BaseUrl=http://swoovr-zammad:8080/', 'Ticketing__Zammad__IdentityToken=' + config['identity_token']]
+    secret = dict(line.split('=', 1) for line in ENV.read_text().splitlines() if '=' in line).get('SWOOVR_ZAMMAD_WEBHOOK_SECRET')
+    if secret: lines.append('Ticketing__Zammad__WebhookSecret=' + secret)
     lines.extend('Ticketing__Zammad__Staff__' + key + '__Token=' + row['Token'] for key, row in rows.items())
     # Local guest support: a placeholder website origin for the disposable local harness (the real website is separate).
     lines.extend(['Ticketing__Guest__AllowedOrigins__0=http://localhost:5099', 'Ticketing__Guest__FrontendUrl=http://localhost:5099/support'])
+    # Local only: a short missed-event sweep so reconciliation can be observed (default 10 minutes).
+    lines.append('Ticketing__Events__ReconcileMinutes=2')
     private_write(target / 'api.env', '\n'.join(lines) + '\n')
     return settings
 
@@ -113,7 +118,7 @@ def main():
             'swoovr-zammad-zammad-railsserver-1:/tmp/swoovr-provision.rb'], check=True)
         result = subprocess.run(['docker', 'exec', '-i', 'swoovr-zammad-zammad-railsserver-1',
             'bundle', 'exec', 'rails', 'runner', '/tmp/swoovr-provision.rb'],
-            input=json.dumps({'password': values['SWOOVR_ZAMMAD_BOOTSTRAP_PASSWORD'], 'webhook_secret': values['SWOOVR_ZAMMAD_WEBHOOK_SECRET']}),
+            input=json.dumps({'password': values['SWOOVR_ZAMMAD_BOOTSTRAP_PASSWORD'], 'webhook_secret': values['SWOOVR_ZAMMAD_WEBHOOK_SECRET'], 'events_active': args.events}),
             capture_output=True, text=True)
         if result.returncode:
             # Rails errors can echo input attributes. Keep complete diagnostics private.

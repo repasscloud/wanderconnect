@@ -19,6 +19,9 @@ builder.Services.AddScoped<AccountResolver>();
 builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingActorFactory>();
 // Guest support needs persistence (its endpoints are mapped only with a database).
 if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestSupport>();
+// Helpdesk events become notices only when the signed webhook is configured; the worker can be turned off per host.
+if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingEventProcessor>();
+if(persistence&&builder.Configuration["Ticketing:Zammad:WebhookSecret"] is {Length:>=32}&&builder.Configuration.GetValue("Ticketing:Events:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Ticketing.TicketingEventWorker>();
 builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestBotCheck>();
 builder.Services.AddHttpClient(Swoovr.Api.Ticketing.GuestBotCheck.Client,http=>http.Timeout=TimeSpan.FromSeconds(10));
 builder.Services.AddHttpContextAccessor();

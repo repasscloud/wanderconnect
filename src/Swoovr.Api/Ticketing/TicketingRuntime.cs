@@ -51,8 +51,12 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var subjects=new HashSet<Guid>();
         if(member is null)
         {
-            // A verified support guest has no Swoovr account (so no member conflicts); case links below still apply.
-            if(!await Db.Set<TicketingGuest>().AnyAsync(g=>g.ProviderUserId==ticket.CustomerId&&g.State==TicketingOperationState.Applied&&g.DeactivatedAt==null,ct))throw Refuse(404);
+            // A customer that ever belonged to a member keeps the member rules (an inactive or deleted member stays refused).
+            if(await Db.Set<TicketingIdentity>().AnyAsync(m=>m.ProviderUserId==ticket.CustomerId,ct))throw Refuse(404);
+            // A guest must still be active. Anyone else wrote to the support mailbox: an unverified email sender with no Swoovr
+            // account, so there are no member conflicts to apply; case links below still apply.
+            var guest=await Db.Set<TicketingGuest>().Where(g=>g.ProviderUserId==ticket.CustomerId).Select(g=>new{g.State,g.DeactivatedAt}).SingleOrDefaultAsync(ct);
+            if(guest is not null&&(guest.State!=TicketingOperationState.Applied||guest.DeactivatedAt!=null))throw Refuse(404);
         }
         else
         {
@@ -76,7 +80,8 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         else
         {
             var mapped=await CustomerAccountAsync(ticket.CustomerId,ct);
-            if(mapped!=Me)throw Refuse(404);
+            // A ticket opened by email (no Swoovr operation) can't be tied to a verified Swoovr identity: staff only.
+            if(mapped!=Me||ticket.OperationReference is null)throw Refuse(404);
             var effective=await provider.ActorAsync(ct);TicketingActorFactory.ValidateCustomer(effective,Me);
             if(effective.Id!=ticket.CustomerId)throw Refuse(404);
         }
@@ -89,8 +94,8 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var articles=await provider.GetArticlesAsync(id,ct);
         // Read access again after the provider fetch; a transfer/revocation cannot expose a fetched private projection.
         ticket=await TicketAsync(id,false,ct);
-        var views=articles.Where(a=>a.TicketId==id&&(staff||!a.Internal)).Select(a=>new TicketArticle(a.Id,TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
-            a.Attachments.Where(x=>x.ContentType=="text/plain"&&x.Size<=65536).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),x.ContentType,x.Size)).ToArray())).ToArray();
+        var views=articles.Where(a=>a.TicketId==id&&(staff||a.CustomerVisible)).Select(a=>new TicketArticle(a.Id,TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
+            a.Attachments.Where(x=>x.ContentType=="text/plain"&&x.Size<=65536).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),x.ContentType,x.Size)).ToArray(),staff?a.Type:null)).ToArray();
         return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct));
     }
     private async Task<TicketStaffFields> StaffFieldsAsync(SupportTicket ticket,CancellationToken ct)
@@ -200,7 +205,39 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var customer=await operations.EnsureCustomerAsync(customerAccount,account.Email,ct);
         var directory=await DirectoryAsync(ct);var group=directory.Groups.SingleOrDefault(g=>g.Name=="General Support")??throw Refuse(503);
         if(staff&&!await GroupAsync(group.Id,"create",ct))throw Refuse();
-        return Summary(await operations.CreateTicketAsync(customerAccount,request.OperationId,new(request.Title,request.Body,customer,group.Id,request.OperationId.ToString("D"),staff?"staff":"member"),ct));
+        var created=await operations.CreateTicketAsync(customerAccount,request.OperationId,new(request.Title,request.Body,customer,group.Id,request.OperationId.ToString("D"),staff?"staff":"member"),ct);
+        // DEFAULT: a member's own report reference links the request to that report's case. Someone else's or an unknown
+        // reference is ignored without a word, so references can't be probed. Nothing from the report is sent to the helpdesk.
+        if(!staff&&SupportReference.Normalise(request.Reference) is { } reference
+            &&await Db.Reports.Where(r=>r.SupportReference==reference&&r.ReporterAccountId==Me).Select(r=>(Guid?)r.CaseId).FirstOrDefaultAsync(ct) is Guid caseId)
+            await AddLinkAsync(created.Id,caseId,null,ct);
+        return Summary(created);
+    }
+    private async Task AddLinkAsync(long ticket,Guid caseId,Guid? appeal,CancellationToken ct)
+    {
+        if(await Db.Set<TicketingCaseLink>().AnyAsync(l=>l.ProviderTicketId==ticket&&l.CaseId==caseId&&l.AppealId==appeal,ct))return;
+        Db.Add(new TicketingCaseLink{Id=Guid.NewGuid(),ProviderTicketId=ticket,CaseId=caseId,AppealId=appeal,LinkedBy=Me,LinkedAt=clock.GetUtcNow()});
+        try{await Db.SaveChangesAsync(ct);}
+        catch(DbUpdateException e)when(e.InnerException is Npgsql.PostgresException{SqlState:"23505"}){Db.ChangeTracker.Clear();}
+    }
+    public async Task<IReadOnlyList<TicketLinkView>> LinksAsync(long id,CancellationToken ct)
+    {
+        await TicketAsync(id,false,ct);
+        return await (from l in Db.Set<TicketingCaseLink>() join c in Db.ModerationCases on l.CaseId equals c.Id where l.ProviderTicketId==id orderby l.LinkedAt
+                      select new TicketLinkView(l.CaseId,l.AppealId,c.Status.ToString(),l.LinkedAt)).ToListAsync(ct);
+    }
+    /// <summary>Staff link a request to a case or an appeal they may see. A link is a reference only: closing or reopening
+    /// the request never changes the case, a sanction or an appeal decision, which stay in Swoovr.</summary>
+    public async Task<IReadOnlyList<TicketLinkView>> LinkAsync(long id,TicketLink request,CancellationToken ct)
+    {
+        await TicketAsync(id,true,ct);
+        var found=await Db.ModerationCases.AsNoTracking().SingleOrDefaultAsync(c=>c.Id==request.CaseId,ct)??throw Refuse(404,"ticket-case-unavailable");
+        if(found.Queue==CaseQueue.Admin&&!current.Allows(AccountRole.Admin))throw Refuse(404,"ticket-case-unavailable");
+        if(await StaffAccessEndpoints.ExcludedAsync(Db,Me,(await Swoovr.Api.Retention.SafetyRetention.CaseAccountsAsync(Db,found.Id,ct)).ToArray(),ct))throw Refuse(403,"conflict-of-interest");
+        if(request.AppealId is Guid appeal&&!await (from a in Db.Appeals join s in Db.Sanctions on a.SanctionId equals s.Id where a.Id==appeal&&s.CaseId==found.Id select a.Id).AnyAsync(ct))
+            throw Refuse(404,"ticket-case-unavailable");
+        await AddLinkAsync(id,found.Id,request.AppealId,ct);
+        return await LinksAsync(id,ct);
     }
     // DEFAULT reversible vocabulary; provider owns the selected attributes, not a parallel classification engine.
     public static readonly TicketCategory[] Categories=[new("account",["access","profile","verification"]),new("billing",["subscription","payment","refund"]),new("safety",["report","appeal","other"]),new("technical",["web","mobile","other"]),new("other",["general"])];

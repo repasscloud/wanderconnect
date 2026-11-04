@@ -141,7 +141,7 @@ else if (problem is null) { <p role="status">Loading…</p> }
     private async Task CreateAsync()
     {
         busy = true; problem = null;
-        var result = await Members.CreateTicketAsync(new TicketCreate(operation, title!.Trim(), body!.Trim()));
+        var result = await Members.CreateTicketAsync(new TicketCreate(operation, title!.Trim(), body!.Trim(), SupportTicketText.ValidReference(Reference) ? Reference : null));
         busy = false;
         if (result.Ok) { Navigation.NavigateTo(SupportTicketText.Link(result.Value!.Id), forceLoad: true); return; }
         locked = Uncertain(result.Status, result.Code);

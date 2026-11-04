@@ -2,11 +2,15 @@ namespace Swoovr.Contracts;
 
 public sealed record TicketSummary(long Id,string Reference,string Title,long StateId,long PriorityId,DateTimeOffset UpdatedAt);
 public sealed record TicketAttachment(long Id,string Filename,string ContentType,long Size);
-public sealed record TicketArticle(long Id,string Body,bool Private,string Sender,DateTimeOffset CreatedAt,IReadOnlyList<TicketAttachment> Attachments);
+public sealed record TicketArticle(long Id,string Body,bool Private,string Sender,DateTimeOffset CreatedAt,IReadOnlyList<TicketAttachment> Attachments,string? Channel=null);
 public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArticle> Articles,TicketStaffFields? Staff=null,bool CanReply=true);
 public sealed record TicketStaffFields(long GroupId,long OwnerId,Guid? CustomerAccountId,IReadOnlyDictionary<string,string> Classification,bool Guest=false);
 public sealed record TicketPage(IReadOnlyList<TicketSummary> Items,int Page,int PageSize,bool HasMore);
-public sealed record TicketCreate(Guid OperationId,string Title,string Body);
+/// <param name="Reference">Optional SW- report reference of the member's own report; the API links the request to that case only if it is theirs.</param>
+public sealed record TicketCreate(Guid OperationId,string Title,string Body,string? Reference=null);
+/// <summary>A safe reference from a support request to a Swoovr case or appeal. Swoovr stays authoritative for outcomes.</summary>
+public sealed record TicketLink(Guid CaseId,Guid? AppealId=null);
+public sealed record TicketLinkView(Guid CaseId,Guid? AppealId,string CaseStatus,DateTimeOffset LinkedAt);
 public sealed record TicketUpload(string Filename,string ContentType,byte[] Data);
 public sealed record TicketReply(Guid OperationId,string Body,bool Private=false,IReadOnlyList<TicketUpload>? Attachments=null);
 public sealed record TicketChange(Guid OperationId,DateTimeOffset ExpectedUpdatedAt,long? GroupId=null,long? OwnerId=null,long? StateId=null,long? PriorityId=null,IReadOnlyDictionary<string,string>? Classification=null);

@@ -3,7 +3,11 @@
 // member sees the reply and never the note -> another member is refused -> staff closes -> member sees Closed.
 // Fictional fixture accounts only. Passwords are read in-process from .local/platform/docker.env and never printed.
 // Usage: SWOOVR_PLAYWRIGHT_PATH=/path/to/node_modules/playwright node tests/zammad/ui_journey.browser.cjs
-const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), { execFileSync } = require('node:child_process');
+// Zammad's shipped operator ingress for inbound mail (untrusted by default) and a Rails read-back helper; ids/flags only.
+const rails = code => JSON.parse(execFileSync('docker', ['exec', 'swoovr-zammad-zammad-railsserver-1', 'bundle', 'exec', 'rails', 'runner', code], { encoding: 'utf8' }).split('\n').filter(l => l.startsWith('SWOOVR=')).pop().slice(7));
+const mailIn = (from, subject, body) => execFileSync('docker', ['exec', '-i', 'swoovr-zammad-zammad-railsserver-1', 'bundle', 'exec', 'rails', 'r', 'Channel::Driver::MailStdin.new'],
+  { input: `From: ${from}\r\nTo: support@swoovr.test\r\nSubject: ${subject}\r\nMessage-ID: <${crypto.randomUUID()}@example.test>\r\nDate: ${new Date().toUTCString()}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}\r\n`, stdio: ['pipe', 'ignore', 'ignore'] });
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
 const root = path.resolve(__dirname, '../..');
 const env = Object.fromEntries(fs.readFileSync(path.join(root, '.local/platform/docker.env'), 'utf8').split('\n')
@@ -70,8 +74,27 @@ async function signIn(page, start, email, password) {
     check(true, 'staff public reply sent');
     await s.screenshot({ path: path.join(shots, 'admin-ticket.png'), fullPage: true });
 
+    // The signed Zammad event becomes exactly one in-app notice for the public reply (none for the private note).
+    let notices = [];
+    for (let i = 0; i < 60 && notices.length === 0; i++) {
+      notices = (await m.evaluate(async () => (await (await fetch('/bff/api/me/notifications', { headers: { 'X-Swoovr-Bff': '1' } })).json()).items))
+        .filter(n => n.kind === 'support' && n.link === '/me/support/' + id);
+      if (!notices.length) await m.waitForTimeout(1000);
+    }
+    check(notices.length === 1 && !notices[0].title.includes(reply) && !notices[0].title.includes(note), 'one content-free support notice from the real Zammad event, linking to the request');
+    await m.waitForTimeout(5000);
+    const again = (await m.evaluate(async () => (await (await fetch('/bff/api/me/notifications', { headers: { 'X-Swoovr-Bff': '1' } })).json()).items)).filter(n => n.kind === 'support' && n.link === '/me/support/' + id);
+    check(again.length === 1, 'the private note and later events add no further notice');
+    // Inbound email reply from the member's own address, threaded by ticket number. The address could be forged, so it
+    // must not speak as the member inside Swoovr; staff see it labelled.
+    const number = rails(`puts "SWOOVR=" + {n: Ticket.find(${id}).number}.to_json`).n;
+    const emailed = `Email reply ${run}: please also delete my photos.`;
+    mailIn('fictional.alex@example.test', `Re: [Ticket#${number}] Display name help`, emailed);
+    const threaded = rails(`a=Ticket::Article.where(ticket_id: ${id}).order(:id).last; puts "SWOOVR=" + {type: a.type.name, sender: a.sender.name, mine: a.body.include?("${run}")}.to_json`);
+    check(threaded.type === 'email' && threaded.sender === 'Customer' && threaded.mine, 'inbound email reply threads into the same helpdesk ticket by its number');
     await m.goto(web + '/me/support/' + id);
     await m.waitForSelector('[data-support-articles]');
+    check(!(await m.textContent('[data-support-articles]')).includes(emailed), 'an emailed message (unverified sender) is not shown as the member in Swoovr');
     const seen = await m.textContent('[data-support-articles]');
     check(seen.includes(reply), 'member sees the staff reply in Swoovr');
     check(!seen.includes(note) && !seen.includes('Private staff note'), 'member never sees the private note');
@@ -92,6 +115,16 @@ async function signIn(page, start, email, password) {
       check(!(await o.content()).includes(question), 'another member cannot open the request');
     } else console.log('SKIP: second fixture member could not sign in with the shared local password (changed locally); API-level cross-member denial is covered by runtime_acceptance.py');
 
+    await s.goto(admin + '/tickets/' + id);
+    await s.waitForSelector('[data-ticket-change]');
+    check(await s.locator('[data-ticket-email]').count() >= 1, 'staff see the emailed message labelled as an unverified sender');
+    const strangerText = `New email ${run}: I need help with a booking.`;
+    mailIn(`stranger-${run}@example.test`, `Help ${run}`, strangerText);
+    const mailed = rails(`t=Ticket.where(title: "Help ${run}").last; puts "SWOOVR=" + {id: t&.id, group: t&.group&.name}.to_json`);
+    check(mailed.id && mailed.group === 'General Support', 'email from a new address opens a ticket in General Support');
+    await s.goto(admin + '/tickets/' + mailed.id);
+    await s.waitForSelector(`[data-ticket-detail="TK-${mailed.id}"]`);
+    check(await s.locator('[data-ticket-email-sender]').count() === 1 && (await s.textContent('[data-ticket-articles]')).includes(strangerText), 'staff handle a mailbox ticket natively, marked as an unverified email sender');
     await s.goto(admin + '/tickets/' + id);
     await s.waitForSelector('[data-ticket-change]');
     const closed = await s.locator('select[name=StateId] option', { hasText: 'Closed' }).getAttribute('value');
@@ -124,6 +157,39 @@ async function signIn(page, start, email, password) {
     await s.waitForSelector('[data-result="ok"]');
     const [, gd] = await guestCall('/tickets/' + gt.id, 'GET', null, grant.grant);
     check(gd.articles.some(a => a.body.includes(guestReply)), 'guest reads the staff reply through the guest API');
+    let notice;
+    for (let i = 0; i < 60 && !notice; i++) {
+      const found = await (await fetch('http://127.0.0.1:8025/api/v1/search?query=' + encodeURIComponent(`to:"${guestEmail}" subject:"Swoovr support replied"`))).json();
+      if (found.messages?.length) notice = await (await fetch('http://127.0.0.1:8025/api/v1/message/' + found.messages[0].ID)).json();
+      else await new Promise(r => setTimeout(r, 1000));
+    }
+    check(notice && notice.Text.includes('TK-' + gt.id) && !notice.Text.includes(guestReply), 'guest gets one reply email naming the request, without the reply text');
+    // Report follow-up: the member's own SW- reference links the request to that case (a reference only), and closing the
+    // request changes nothing in Swoovr's case, sanctions or appeals.
+    const sql = q => execFileSync('docker', ['exec', 'swoovr-platform-postgres-1', 'psql', '-p', '5433', '-U', 'swoovr', '-d', 'swoovr', '-At', '-c', q], { encoding: 'utf8' }).trim();
+    const samPublic = sql("SELECT p.public_id FROM member_profiles p JOIN accounts a ON a.id = p.account_id WHERE a.email = 'fictional.sam@example.test'");
+    await m.goto(web + '/me/support');
+    const reported = await m.evaluate(async body => (await fetch('/bff/api/reports', { method: 'POST', headers: { 'X-Swoovr-Bff': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).status,
+      { subjectType: 'profile', subjectId: samPublic, category: 'spam', text: `Fictional report ${run}`, block: false });
+    const reference = sql("SELECT r.support_reference FROM reports r JOIN accounts a ON a.id = r.reporter_account_id WHERE a.email = 'fictional.alex@example.test' ORDER BY r.created_at DESC LIMIT 1");
+    if (reported < 300 && /^SW-/.test(reference)) {
+      const caseId = sql(`SELECT case_id FROM reports WHERE support_reference = '${reference}'`);
+      const before = sql(`SELECT c.status || '|' || (SELECT count(*) FROM sanctions s WHERE s.case_id = c.id) || '|' || (SELECT count(*) FROM appeals) FROM moderation_cases c WHERE c.id = '${caseId}'`);
+      await m.goto(web + '/me/support/new?reference=' + reference);
+      await m.waitForSelector('[data-support-title]');
+      await m.fill('[data-support-body]', `Fictional follow-up ${run} about my report.`);
+      await Promise.all([m.waitForURL(/\/me\/support\/\d+$/, { timeout: 60000 }), m.click('[data-support-send]')]);
+      const linkedId = m.url().match(/(\d+)$/)[1];
+      await s.goto(admin + '/tickets/' + linkedId);
+      await s.waitForSelector(`[data-ticket-link="${caseId}"]`);
+      check(true, "member's own report reference links the request to its case (reference only)");
+      const closedState = await s.locator('select[name=StateId] option', { hasText: 'Closed' }).getAttribute('value');
+      await s.selectOption('select[name=StateId]', closedState);
+      await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-change-save]')]);
+      await s.waitForSelector('[data-result="ok"]');
+      check(sql(`SELECT c.status || '|' || (SELECT count(*) FROM sanctions s WHERE s.case_id = c.id) || '|' || (SELECT count(*) FROM appeals) FROM moderation_cases c WHERE c.id = '${caseId}'`) === before,
+        'closing the linked request leaves the case, its sanctions and appeals unchanged');
+    } else console.log('SKIP: the fixture report could not be created locally (status ' + reported + '); case links not exercised in the browser');
     console.log(`PASS: ${checks} native support journey checks against real Zammad (ticket TK-${id}).`);
   } catch (e) {
     console.log('FAIL: ' + (e.safe ? e.message : (e.name + ': ' + String(e.message).split('\n')[0].slice(0, 200))));
