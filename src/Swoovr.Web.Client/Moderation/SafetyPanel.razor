@@ -115,14 +115,14 @@ else if (subjectType is not null)
     private async Task ChooseAsync(ChangeEventArgs e)
     {
         if (SafetyText.Manual(e.Value?.ToString()) is not { } chosen) return;
-        try { await JS.InvokeVoidAsync("sessionStorage.setItem", SafetyText.ChoiceKey, chosen); } catch (JSException) { }
+        try { await JS.InvokeVoidAsync("localStorage.setItem", SafetyText.ChoiceKey, chosen); } catch (JSException) { }
         await LoadPackAsync(chosen, "manual");
     }
 
     protected override async Task OnInitializedAsync()
     {
         string? remembered = null;
-        try { remembered = SafetyText.Manual(await JS.InvokeAsync<string?>("sessionStorage.getItem", SafetyText.ChoiceKey)); } catch (JSException) { }
+        try { remembered = SafetyText.Manual(await JS.InvokeAsync<string?>("localStorage.getItem", SafetyText.ChoiceKey)); } catch (JSException) { }
         await (remembered is not null ? LoadPackAsync(remembered, "manual") : LoadPackAsync(DefaultCountry, DefaultSource));
         var query = new Uri(Navigation.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Select(pair => pair.Split('=', 2)).Where(pair => pair.Length == 2).GroupBy(pair => pair[0]).ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1]));

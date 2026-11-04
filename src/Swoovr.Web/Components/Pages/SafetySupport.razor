@@ -1,8 +1,8 @@
 @page "/safety"
 @* Country-aware Safety & Support (issue 103, D204; redesign issue 181), public and reachable signed out (Static SSR, so it works
    without WebAssembly). Emergency assistance first; external services in the main column; country, reporting to Swoovr
-   and safety resources in the side column. The country is the visitor's choice for this browsing session (a session
-   cookie; Q130), else Cloudflare's network country when this host is behind Cloudflare and says so (D153), else this
+   and safety resources in the side column. The country is the visitor's manual choice, remembered for one year in an
+   essential cookie (Q130 A; Privacy Notice update tracked in issue 183), else Cloudflare's network country when this host is behind Cloudflare and says so (D153), else this
    deployment's fallback. An IP-based guess never replaces a manual choice. Nothing is stored about the visitor. *@
 @inject IHttpClientFactory Clients
 @inject IConfiguration Configuration
@@ -40,7 +40,7 @@
                                 </div>
                                 @if (r.Phone is not null)
                                 {
-                                    <a class="safety-call-emergency" href="tel:@r.Phone" data-call="@r.Phone" aria-label="Call @(r.PhoneDisplay ?? r.Phone), @r.Name">Call @(r.PhoneDisplay ?? r.Phone)</a>
+                                    <a class="safety-call-emergency" href="tel:@r.Phone" data-call="@r.Phone" aria-label="Call @(r.PhoneDisplay ?? r.Phone), @r.Name"><Icon Name="phone" Size="18" />Call @(r.PhoneDisplay ?? r.Phone)</a>
                                 }
                             </li>
                         }
@@ -142,10 +142,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // A manual choice lasts for the browsing session (Q130); a new choice replaces it.
+        // Q130 A: a manual choice is remembered for one year; a new choice replaces it. Only the country code is stored.
         var manual = SafetyText.Manual(Country);
         if (manual is not null)
-            HttpContext.Response.Cookies.Append(Cookie, manual, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = HttpContext.Request.IsHttps, IsEssential = true });
+            HttpContext.Response.Cookies.Append(Cookie, manual, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = HttpContext.Request.IsHttps, IsEssential = true, MaxAge = TimeSpan.FromDays(365) });
         manual ??= SafetyText.Manual(HttpContext.Request.Cookies[Cookie]);
         var trusted = !Environment.IsDevelopment() && Configuration.GetValue("Location:CloudflareHeaders", false);
         var (fallbackCountry, fallbackSource) = SafetyText.Default(HttpContext.Request.Headers["CF-IPCountry"], trusted, Configuration["Safety:FallbackCountry"]);

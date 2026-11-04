@@ -109,7 +109,9 @@ else
                 <div class="settings-row">
                     <div class="settings-row-text"><p class="settings-row-label">Email address</p>
                         <p class="settings-row-value" data-email-verified="@(session?.EmailVerified == true ? "true" : "false")">@if (session?.EmailVerified == true) { <text>Verified email address</text> } else { <text>Email address</text><span class="settings-tag settings-tag-quiet">Not verified</span> }</p></div>
-                    @* Q126: "Change" appears once Keycloak's update-email step is switched on (it isn't in this realm yet). *@
+                    @* Q126 A: Keycloak's update-email step verifies the new address; the API then re-checks it (banned
+                       identifiers, contact history) and keeps the old address if that fails (EmailChangeNotice). *@
+                    <a class="settings-row-action" href="/account/action/email" data-enhance-nav="false" data-email-change>Change</a>
                 </div>
                 <div id="setup-phone"><PhonePanel Changed="PhoneChanged" /></div>
             </section>

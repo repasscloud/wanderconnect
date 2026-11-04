@@ -22,7 +22,7 @@ public static class MemberSignIn
     {
         ["password"] = "UPDATE_PASSWORD",
         ["passkey"] = "webauthn-register-passwordless",
-        // "email" (UPDATE_EMAIL) is added once the realm enables update-email (Q126).
+        ["email"] = "UPDATE_EMAIL", // Q126 A: Keycloak runs with --features=update-email; the API re-checks the new address.
     };
     /// <summary>Session cookie marking that this browser session has seen the launch splash.</summary>
     public const string IntroCookie = "swoovr.intro";

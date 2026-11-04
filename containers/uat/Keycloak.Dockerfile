@@ -35,7 +35,7 @@ RUN sed -i -e 's|^swoovrPrivacyUrl=.*|swoovrPrivacyUrl=https://uat.swoovr.app/pr
     -e 's|^swoovrTermsUrl=.*|swoovrTermsUrl=https://uat.swoovr.app/terms|' \
     -e 's|^swoovrCommunityUrl=.*|swoovrCommunityUrl=https://uat.swoovr.app/community-guidelines|' /opt/keycloak/themes/swoovr/login/theme.properties \
     && touch -m --date=@1743465600 /opt/keycloak/providers/swoovr-contact-policy.jar \
-    && /opt/keycloak/bin/kc.sh build --spi-email-sender--provider=swoovr-mailersend
+    && /opt/keycloak/bin/kc.sh build --features=update-email --spi-email-sender--provider=swoovr-mailersend
 
 FROM keycloak-base AS keycloak
 ENV KC_DB=postgres \

@@ -17,7 +17,7 @@
             @foreach (var r in Pack.Resources)
             {
                 <li data-service="@r.Name" data-category="@r.Category"><strong>@r.Name</strong> <span class="field-help">@SafetyText.Category(r.Category)</span><br />@r.Description
-                    @if (r.Phone is not null) { <a class="link" href="tel:@r.Phone" data-call="@r.Phone">Call @(r.PhoneDisplay ?? r.Phone)</a> }
+                    @if (r.Phone is not null) { <a class="@(r.Category == "emergency" ? "safety-call-emergency" : "link")" href="tel:@r.Phone" data-call="@r.Phone">@if (r.Category == "emergency") { <Icon Name="phone" Size="18" /> }Call @(r.PhoneDisplay ?? r.Phone)</a> }
                     @if (r.WebsiteUrl is not null) { <a class="link" href="@r.WebsiteUrl" target="_blank" rel="noopener" data-website="@r.Name">Website</a> }</li>
             }
         </ul>

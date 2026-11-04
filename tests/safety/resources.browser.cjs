@@ -2,7 +2,7 @@
 // resolution (manual wins; Cloudflare's header never trusted on a Development host; the AU fallback; unknown and
 // unsupported countries get neutral guidance, never another country's numbers); nothing stored about the caller and no
 // profile change; admins edit packs with revisions and a launch-readiness gate (members, support and legal refused;
-// tampered bodies); the public /safety page signed out at phone width with a session-scoped choice; Me → Safety signed
+// tampered bodies); the public /safety page signed out at phone width with a remembered (one-year, Q130) choice; Me → Safety signed
 // in; the admin app's Safety resources page. Test data lives in the user-assigned code ZZ, never offered to members.
 // Needs the local stack, hosts from this checkout and the enrolled fictional root admin. Every person is fictional.
 const assert = require('node:assert/strict');
@@ -109,7 +109,7 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     assert.ok(revisions.every(v => v.snapshot.length > 2)); pass();
     assert.ok(Number(await sql(`SELECT count(*) FROM audit_entries WHERE action LIKE 'safety.%' AND actor_account_id = '${admId}'`)) >= 4); pass();
 
-    // ---- Web, signed out, phone width: /safety with the fallback, a session-scoped choice, neutral guidance.
+    // ---- Web, signed out, phone width: /safety with the fallback, a remembered choice (Q130 A), neutral guidance.
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await phone.newPage();
     await page.goto(web + '/safety');
@@ -123,6 +123,8 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     // issue 181: choosing a country updates the page by itself; there is no "Show contacts" button.
     assert.equal(await page.locator('[data-country-form] button:visible').count(), 0, 'no confirmation button'); pass();
     await Promise.all([page.waitForURL(/country=NZ/), page.selectOption('[data-country-select]', 'NZ')]);
+    const remembered = (await phone.cookies()).find(c => c.name === 'swoovr.safety-country');
+    assert.ok(remembered && remembered.value === 'NZ' && remembered.httpOnly && remembered.expires * 1000 > Date.now() + 300 * 86400000, 'manual country remembered for a year (Q130 A)'); pass();
     await page.waitForSelector('[data-safety-page="NZ"]');
     assert.equal(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'manual'); pass();
     assert.ok(await page.locator('[data-safety-warning]').count() === 1, 'not-ready packs warn'); pass();
@@ -136,7 +138,7 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     assert.equal(await page.locator('[data-public-safety]').count(), 1, 'Me → Safety signed out points to the public page'); pass();
     await phone.close();
 
-    // ---- Web, signed in: Me → Safety keeps Z's behaviour with the API pack and a session choice.
+    // ---- Web, signed in: Me → Safety keeps Z's behaviour with the API pack and a remembered choice.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const me = await context.newPage();
     await me.goto(web + '/account/sign-in?intro=done');

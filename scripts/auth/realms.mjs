@@ -48,6 +48,15 @@ export async function applyRealm(api, name, profile = generatedProfile, publicCl
     await api('/authentication/required-actions/TERMS_AND_CONDITIONS', 'PUT', { ...action, enabled: terms, defaultAction: terms });
     changes.push('terms action ' + (terms ? 'default' : 'disabled'));
   }
+  // Q126 A: members change their email through Keycloak's update-email step (Keycloak runs with
+  // --features=update-email; the API then re-checks the address). Never a default action.
+  if (terms) {
+    const update = await api('/authentication/required-actions/UPDATE_EMAIL');
+    if (!update.enabled || update.defaultAction) {
+      await api('/authentication/required-actions/UPDATE_EMAIL', 'PUT', { ...update, enabled: true, defaultAction: false });
+      changes.push('update-email enabled');
+    }
+  }
   const browser = await api('/authentication/flows/browser/executions');
   for (const [providerId, reference] of Object.entries(amrReferences)) {
     const execution = browser.find(e => e.providerId === providerId);

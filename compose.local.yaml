@@ -56,7 +56,7 @@ services:
   keycloak:
     <<: *app
     image: quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
-    command: ["start-dev", "--http-port=8180", "--import-realm"]
+    command: ["start-dev", "--http-port=8180", "--import-realm", "--features=update-email"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: local-bootstrap
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Use scripts/local-platform.sh}

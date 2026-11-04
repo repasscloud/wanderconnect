@@ -25,7 +25,11 @@ try{
  check((await call(tokens.first,'/api/me/policies')).body.requiredVersion===null,'no acceptance requirement configured locally');
  check((await call(tokens.first,'/api/policies/2026-11-02-0.2')).status===200,'approved version served by the API catalogue');
  check((await call(tokens.first,'/api/me/policies/accept',{method:'POST',body:{version:'draft-2026-10-30-0.1',confirm:true}})).status===400,'unknown version acceptance refused by real API');
- check(await sql('SELECT count(*) FROM policy_acceptances')==='0','no implicit acceptance rows');
+ // Q124 A (D316): accepting Keycloak's terms step (which shows the agreement wording) records one registration acceptance.
+ const subjects=Object.values(tokens).map(t=>`'${claims(t).sub}'`).join(',');
+ const acceptedRows=async()=>sql(`SELECT count(*) FROM policy_acceptances WHERE version='2026-11-02-0.2' AND account_id IN (SELECT id FROM accounts WHERE subject IN (${subjects}))`);
+ check(await acceptedRows()==='2','one registration acceptance per new member');
+ check(await sql(`SELECT count(*) FROM audit_entries WHERE action='policy.accepted' AND detail='registration' AND actor_account_id IN (SELECT id FROM accounts WHERE subject IN (${subjects}))`)==='2','registration acceptance audited');
  await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',members.first.email);await page.fill('#password',members.first.password);await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');await page.waitForSelector('[data-account-panel=ready]');
  check(await page.locator('[data-safety-advice]').count()===1,'first-use Me prominently shows advice before profile setup');check(await page.locator('a[href="/terms"]').count()>0&&await page.locator('a[href="/community-guidelines"]').count()>0,'Me links the policies');
  await page.screenshot({path:path.join(folder,'first-use-advice-390.png'),fullPage:true});
@@ -45,6 +49,6 @@ try{
  const foreign=(await call(tokens.second,'/api/me/notifications')).body.items.find(n=>n.kind==='policyChange');check(foreign&&foreign.id!==centre[0].id,'each member has an independent own notice');
  check((await call(tokens.second,`/api/me/notifications/${centre[0].id}/read`,{method:'POST'})).status===404,'other member cannot mark source notice read');
  await page.goto(web+'/me/notifications');await page.waitForSelector('[data-notifications=ready]');check((await page.locator('body').innerText()).includes('Fictional test safety update'),'actual Web centre renders public source title');check(await page.locator('a[href="/safety/advice"]').count()>0,'Web policy notice links advice');await page.screenshot({path:path.join(folder,'policy-notice-centre-390.png'),fullPage:true});
- check(await sql('SELECT count(*) FROM policy_acceptances')==='0','reading advice and policy notices never records acceptance');
+ check(await acceptedRows()==='2','reading advice and policy notices never records more acceptance');
  console.log(`PASS: approved policies, safety advice and policy notices (${checks} checks; owned real API/Web/CLI, fictional data, no external delivery).`);
 }finally{for(const context of contexts)await context.close();await edge.close();}})().catch(e=>{console.error(e.message);process.exitCode=1;});

@@ -29,6 +29,9 @@
   --tab-bar: 80px;
   --radius: 14px;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  /* D315 (owner, issue 181): the only colour outside black and white, so emergency calls stand out in every theme. */
+  --emergency: #C8102E;
+  --emergency-text: #FFFFFF;
 }
 :root[data-theme="dark"] { --scrim: color-mix(in srgb, var(--bg) 72%, transparent); }
 
@@ -633,8 +636,10 @@ body:has(.public-layout) { padding-bottom: 0; }
 .safety-emergency-name { font: 700 1.0625rem/1.35 var(--font); }
 .safety-emergency-text { color: var(--muted); font: 400 .9375rem/1.5 var(--font); margin-top: 2px !important; max-width: 46ch; }
 .safety-emergency-fallback { margin: 0; font: 400 1rem/1.6 var(--font); }
-.safety-call-emergency { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px; border-radius: 999px; background: var(--primary); color: var(--onPrimary); font: 700 1rem/1 var(--font); text-decoration: none; border: 1px solid var(--primary); }
-.safety-call-emergency:hover { opacity: .9; }
+.safety-call-emergency { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 24px; border-radius: 999px; background: var(--emergency); color: var(--emergency-text); font: 700 1.0625rem/1 var(--font); text-decoration: none; border: 2px solid var(--emergency); }
+.safety-call-emergency:hover { filter: brightness(.92); }
+.safety-call-emergency:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+@media (forced-colors: active) { .safety-call-emergency { border-color: ButtonText; } }
 .safety-group-title { font: var(--type-label); letter-spacing: .3px; text-transform: uppercase; color: var(--muted); margin: 18px 0 0; }
 .safety-services { list-style: none; margin: 0; padding: 0; }
 .safety-service { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 16px 0; border-top: 1px solid var(--border); }
