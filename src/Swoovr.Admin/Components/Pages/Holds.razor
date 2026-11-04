@@ -5,7 +5,7 @@
     <div><h1>Legal holds</h1><p>Records preserved for legal or safety reasons, whatever the member does.</p></div>
     <div class="acct-buttons"><a class="ui-button-ghost" href="/disclosures">Disclosure register</a>@if (Status != "released") {<a class="ui-button-primary" href="#place-hold">Place a hold</a>}</div>
 </header>
-@if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/holds" data-enhance-nav="false">Sign in again</a> }</p> }
+@if (message is not null) { <p class="notice@(reauth ? " notice-action" : "")" role="status" data-result="@resultCode"><span>@message</span>@if (reauth) { <a href="/sign-in?reauth=true&returnUrl=/holds" class="ui-button-primary notice-button" data-enhance-nav="false">Sign in again</a> }</p> }
 @if (holds is not null && Status != "released")
 {
     <div class="ui-stats ui-stats-4">

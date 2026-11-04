@@ -49,7 +49,7 @@ else
             <a class="ad-stat" href="/accounts/@Id/enforcement" data-strip="enforcement"><span>Enforcement</span><b>@(activeSanction is null ? "No active sanction" : AccountLabels.Sanction(activeSanction.Kind))</b><small>@account.Sanctions.Count on record · @account.OpenCases open case@(account.OpenCases == 1 ? "" : "s")</small></a>
         </div>
     }
-    @if (message is not null) { <p class="notice" role="status" data-result="@resultCode">@message @if (reauth) { <a href="@ReauthHref()" data-enhance-nav="false" data-reauth>Sign in again</a> }</p> }
+    @if (message is not null) { <p class="notice@(reauth ? " notice-action" : "")" role="status" data-result="@resultCode"><span>@message</span>@if (reauth) { <a href="@ReauthHref()" class="ui-button-primary notice-button" data-enhance-nav="false" data-reauth>Sign in again</a> }</p> }
     <nav class="ad-tabs" aria-label="Account sections">
         @foreach (var tab in Sections.Where(s => !s.MembersOnly || account.Realm == "members"))
         {

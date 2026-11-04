@@ -637,6 +637,9 @@ a.ad-stat:hover { border-color: color-mix(in srgb, var(--muted) 55%, var(--borde
 .ad-media-thumb .ui-pill { position: absolute; top: 8px; left: 8px; }
 .ad-media-meta { display: grid; gap: 2px; padding: 10px 12px 0; font-size: .8125rem; }
 .ad-media-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 12px; }
+/* A notice with one follow-up action (for example Sign in again): message left, button right, wrapping on narrow screens. */
+.notice.notice-action { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.notice-action .notice-button { flex: none; }
 .ad-media-thumb { overflow: hidden; }
 .ad-media-thumb .ui-pill { z-index: 1; pointer-events: none; }
 .ad-media-open { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; cursor: zoom-in; }
