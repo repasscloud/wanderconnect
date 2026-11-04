@@ -34,7 +34,7 @@ public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,E
         if(review.SubjectAccountId!=subject.Value)throw Refuse(409,"content-review-changed");
         var staff=await db.Accounts.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==actor&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,token);
         var role=staff?.IsRootAdmin==true||await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Admin,token)?AccountRole.Admin
-            :await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Support,token)?AccountRole.Support:AccountRole.Unknown;
+            :await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.TrustSafety,token)?AccountRole.TrustSafety:await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Support,token)?AccountRole.Support:AccountRole.Unknown;
         if(staff is null)throw Refuse(403,"content-removal-not-permitted");
         var profile=await db.MemberProfiles.SingleOrDefaultAsync(p=>p.AccountId==subject.Value,token);
         var people=await SafetyRetention.CaseAccountsAsync(db,caseId,token);
@@ -123,7 +123,7 @@ public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,E
     {
         var review=await db.ModerationCases.AsNoTracking().SingleOrDefaultAsync(c=>c.Id==id&&c.SubjectAccountId==subject,token)??throw Refuse(404,"content-not-available");
         var staff=await db.Accounts.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==actor&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,token);
-        var role=staff?.IsRootAdmin==true||await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Admin,token)?AccountRole.Admin:await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Support,token)?AccountRole.Support:AccountRole.Unknown;
+        var role=staff?.IsRootAdmin==true||await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Admin,token)?AccountRole.Admin:await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.TrustSafety,token)?AccountRole.TrustSafety:await db.RoleGrants.AnyAsync(g=>g.AccountId==actor&&g.Role==AccountRole.Support,token)?AccountRole.Support:AccountRole.Unknown;
         var affiliated=await db.MemberProfiles.AnyAsync(p=>p.AccountId==subject&&p.Employee,token);
         if(staff is null||!ContentRemovalPolicy.Allows(role,review.Queue,affiliated,await StaffAccessEndpoints.ExcludedAsync(db,actor,await SafetyRetention.CaseAccountsAsync(db,id,token),token)))throw Refuse(403,"content-removal-not-permitted");
         return review;

@@ -155,10 +155,10 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.deepEqual(code(await disconnect('cat', catLink)), [404, 'not-available'], 'a blocked pair'); pass();
     assert.equal((await call(tokens.ana, `/api/blocks/${pid.cat}`, { method: 'DELETE' })).status, 204);
 
-    // Restricted members can't use it (D160).
+    // D325 (Q132 B): a restriction limits only discovery, requests, messages and photos, so a restricted member can still disconnect.
     const resLink = await connect('res', 'bob', 'friends');
     assert.ok([200, 201].includes((await call(root, `/api/admin/accounts/${ids.res}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional', days: 3 } })).status));
-    assert.deepEqual(code(await disconnect('res', resLink)), [403, 'account-restricted']); pass();
+    assert.ok((await disconnect('res', resLink)).status < 300); pass();
 
     // The web pages in Edge: the person page from one mode, the mode about editor, and disconnect on Connections.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });

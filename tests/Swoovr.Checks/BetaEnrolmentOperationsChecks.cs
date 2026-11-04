@@ -65,6 +65,13 @@ static class BetaEnrolmentOperationsChecks
             check("public launch beta-off switch disables audience gate",await Swoovr.Api.Connections.BetaMessageAudience.AllowsAsync(services,member,default));
             await db.Database.ExecuteSqlRawAsync("UPDATE registration_availability SET beta_enabled=true,public_enabled=false,revision=revision+1 WHERE id=1");
             await db.BetaEnrolments.Where(e=>e.Id==oldId).ExecuteUpdateAsync(set=>set.SetProperty(e=>e.RevokedAt,(DateTimeOffset?)null));
+            // PR #195 review: an open hub connection must stop receiving once a sign-in lock is placed (D323).
+            var lockId=Guid.NewGuid();
+            db.AccountLocks.Add(new AccountLock{Id=lockId,AccountId=member,ReasonCode="security-incident",CaseReference="SW-CHK001",CreatedAt=now,CreatedBy=staff,CreatedByRole=AccountRole.TrustSafety});
+            await db.SaveChangesAsync();
+            check("an active sign-in lock denies message audience without trusting an old hub",!await Swoovr.Api.Connections.BetaMessageAudience.AllowsAsync(services,member,default));
+            await db.AccountLocks.Where(l=>l.Id==lockId).ExecuteUpdateAsync(set=>set.SetProperty(l=>l.RemovedAt,(DateTimeOffset?)now));
+            check("a removed sign-in lock restores message audience",await Swoovr.Api.Connections.BetaMessageAudience.AllowsAsync(services,member,default));
             var founders=new Founders(services,config,new Sink(),NullLogger<Founders>.Instance);var evidence=new EvidencePreservation(services,new EvidenceKeys(config,founders),new ContactHistoryKeys(config,founders));
             var expiry=new BetaEnrolmentRetention(db,evidence,TimeProvider.System);
             var due=(await BetaEnrolments.AddAsync(db,"fictional.expiry-due@example.test",null,now.AddDays(-91),default)).Enrolment!;

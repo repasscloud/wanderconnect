@@ -1,27 +1,22 @@
 @inject AdminClient Admin
-@if(allowed)
+@* D299: an admin allows the member one date-of-birth correction for 24 hours, with a reason; it can be revoked unused. *@
+@if (allowed)
 {
-    <section class="ui-card" data-dob-correction-tools>
-        <h2 class="ui-card-title">Date of birth correction</h2>
-
-        @if(message is not null){<p role="status" data-dob-grant-result="@resultCode">@message</p>}
-        <form method="post" @formname="dob-grant" @onsubmit="GrantAsync" class="stack" data-enhance="true">
-            <AntiforgeryToken />
-            <label>Reason<textarea name="dobReason" maxlength="500" required></textarea></label>
-            <button type="submit">Allow one correction for 24 hours</button>
-        </form>
-        @foreach(var grant in grants)
-        {
-            <p>Created @grant.CreatedAt.ToString("u") · expires @grant.ExpiresAt.ToString("u") · @(grant.ConsumedAt is not null?"used":grant.RevokedAt is not null?"revoked":grant.ExpiresAt<=DateTimeOffset.UtcNow?"expired":"available")</p>
-            @if(grant.ConsumedAt is null&&grant.RevokedAt is null&&grant.ExpiresAt>DateTimeOffset.UtcNow)
-            {
-                <form method="post" @formname="@($"dob-revoke-{grant.Id}")" @onsubmit="()=>RevokeAsync(grant.Id)" data-enhance="true">
-                    <AntiforgeryToken /><button type="submit" class="secondary">Revoke correction</button>
-                </form>
-            }
-        }
-        <a href="/dob-history?account=@AccountId">Open previous date history (Legal only)</a>
-    </section>
+    var live = grants.FirstOrDefault(g => g.ConsumedAt is null && g.RevokedAt is null && g.ExpiresAt > DateTimeOffset.UtcNow);
+    <dl class="ad-dl ad-dl-inline" data-dob-correction-tools>
+        <div><dt>Correction</dt>
+            <dd data-dob-grant="@(live is null ? "none" : "available")">@(live is null ? (grants.Count == 0 ? "None allowed" : $"Last allowed {grants[0].CreatedAt:d MMM yyyy} · {State(grants[0])}") : $"Allowed until {live.ExpiresAt:d MMM yyyy HH:mm} UTC")</dd>
+            <dd class="ad-act">
+                @if (live is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-grant" data-op="dob-grant">Allow correction…</button>}
+                else {<form method="post" @formname="@($"dob-revoke-{live.Id}")" @onsubmit="() => RevokeAsync(live.Id)"><AntiforgeryToken /><button type="submit" class="ui-button-ghost" data-op="dob-revoke">Revoke</button></form>}
+                <a class="ui-button-ghost" href="/dob-history?account=@AccountId">History (Legal)</a>
+            </dd></div>
+    </dl>
+    @if (message is not null) {<p class="ui-help" role="status" data-dob-grant-result="@resultCode">@message</p>}
+    <ConfirmDialog Id="dob-grant" FormName="dob-grant" Title="Allow one date of birth correction" Confirm="Allow for 24 hours" OnSubmit="GrantAsync">
+        <label class="ui-field"><span>Reason</span><select name="dobReason" required><option>Member typing error, confirmed by ID</option><option>Didit document mismatch review</option><option>Legal instruction</option></select></label>
+        <p class="ui-help">The member can change their date once in the next 24 hours. It is then locked again.</p>
+    </ConfirmDialog>
 }
 @code{
     [Parameter] public Guid AccountId{get;set;}
@@ -30,7 +25,8 @@
     private List<DobGrantView> grants=[];
     private string? message,resultCode;
     protected override async Task OnInitializedAsync()=>await LoadAsync();
-    private async Task LoadAsync(){var result=await Admin.DobGrantsAsync(AccountId);allowed=result.Ok;grants=result.Value??[];}
+    private async Task LoadAsync(){var result=await Admin.DobGrantsAsync(AccountId);allowed=result.Ok;grants=(result.Value??[]).OrderByDescending(g=>g.CreatedAt).ToList();}
+    private static string State(DobGrantView g)=>g.ConsumedAt is not null?"used":g.RevokedAt is not null?"revoked":"expired";
     private async Task GrantAsync()
     {
         var reason=Context?.Request.HasFormContentType==true?Context.Request.Form["dobReason"].ToString():"";

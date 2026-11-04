@@ -1,0 +1,87 @@
+@inject AdminClient Admin
+@* issue 190 §10 (D323): sign-in locks. The API refuses every protected member request while a lock is active, whatever session
+   or token the member holds, and ends their Keycloak sessions. The member sees the locked screen and the reference only. *@
+@{ var held = Locks.FirstOrDefault(l => l.Active); var may = Permissions?.Lock == true; }
+<div class="acct-grid">
+    <section class="ui-card" data-lock-state="@(held is null ? "unlocked" : "locked")">
+        <div class="ui-card-head"><h2>Sign-in</h2><span class="ui-pill" data-tone="@(held is null ? "approve" : "reject")">@(held is null ? "Allowed" : "Locked")</span></div>
+        @if (held is not null)
+        {
+            <dl class="ad-dl">
+                <div><dt>Reason</dt><dd>@AccountLabels.Reason(held.ReasonCode)</dd><dd></dd></div>
+                <div><dt>Reference</dt><dd><code class="ui-reference" data-lock-reference>@held.CaseReference</code></dd><dd></dd></div>
+                <div><dt>Expires</dt><dd>@(held.ExpiresAt is { } x ? $"{x:d MMM yyyy HH:mm} UTC" : "When removed")</dd><dd></dd></div>
+                <div><dt>Locked</dt><dd>@held.CreatedAt.ToString("d MMM yyyy HH:mm") UTC · @AccountLabels.Role(held.CreatedByRole)</dd><dd></dd></div>
+            </dl>
+            <div class="acct-buttons">@if (may) {<button type="button" class="ui-button-ghost" data-dialog-open="unlock" data-op="unlock">Remove lock…</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
+        }
+        else
+        {
+            <form method="post" @formname="lock" @onsubmit="LockAsync" class="acct-form" data-confirm="Lock sign-in? The member is signed out on every device and sees the locked screen.">
+                <AntiforgeryToken />
+                <fieldset class="ad-fieldset ad-fieldset-grid" disabled="@(!may)">
+                    <ReasonField Reasons="@(Permissions?.LegalLock == true ? AccountReasons.Lock : AccountReasons.Lock.Where(r => r.Code != "legal-restriction").ToList())" />
+                    <label class="ui-field"><span>Reference</span><input name="caseReference" maxlength="12" placeholder="SW-XXXXXX or blank for new" class="ui-reference" /></label>
+                    <label class="ui-field"><span>Expires</span><select name="days"><option value="1">24 hours</option><option value="7" selected>7 days</option><option value="30">30 days</option><option value="">When removed</option></select></label>
+                </fieldset>
+                <label class="ui-field"><span>Internal note</span><input name="note" maxlength="1000" placeholder="Optional · never shown to the member" disabled="@(!may)" /></label>
+                <div>@if (may) {<button type="submit" data-op="lock">Lock sign-in</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
+            </form>
+        }
+    </section>
+    <section class="ui-card">
+        <div class="ui-card-head"><h2>Sessions</h2></div>
+        <p class="ui-help">Ends every sign-in for this member in Keycloak. They can sign in again unless the account is locked.</p>
+        <div class="acct-buttons">@if (may) {<button type="button" class="ui-button-ghost" data-dialog-open="sign-out" data-op="sign-out">Sign out everywhere…</button>} else {<RoleNote Text="Trust & Safety, Admin or Legal" />}</div>
+    </section>
+</div>
+<h2 class="ad-h2">Lock history</h2>
+@if (Locks.Count == 0) { <p class="ui-help" data-locks="0">Never locked.</p> }
+else
+{
+    <div class="ui-table table-scroll" role="region" aria-label="Lock history" tabindex="0">
+        <table data-locks="@Locks.Count">
+            <thead><tr><th scope="col">Locked</th><th scope="col">Reason</th><th scope="col">Reference</th><th scope="col">By</th><th scope="col">Expires</th><th scope="col">Removed</th></tr></thead>
+            <tbody>@foreach (var l in Locks){<tr data-lock="@l.Id" data-active="@(l.Active ? "true" : "false")"><td>@l.CreatedAt.ToString("d MMM yyyy HH:mm")</td><td>@AccountLabels.Reason(l.ReasonCode)</td><td><code class="ui-reference">@l.CaseReference</code></td><td>@AccountLabels.Role(l.CreatedByRole)</td><td>@(l.ExpiresAt?.ToString("d MMM yyyy") ?? "When removed")</td><td>@(l.RemovedAt is { } r ? $"{r:d MMM yyyy} · {AccountLabels.Reason(l.RemovedReason)}" : l.Active ? "—" : "Expired")</td></tr>}</tbody>
+        </table>
+    </div>
+}
+@if (held is not null && may)
+{
+    <ConfirmDialog Id="unlock" FormName="unlock" Title="Remove sign-in lock" Confirm="Remove lock" OnSubmit="() => UnlockAsync(held.Id)">
+        <ReasonField Reasons="AccountReasons.Unlock" />
+        <NoteField />
+    </ConfirmDialog>
+}
+<ConfirmDialog Id="sign-out" FormName="sign-out" Title="Sign out everywhere" Confirm="Sign out" OnSubmit="SignOutAsync">
+    <p class="ui-help">Every session on every device ends now.</p>
+</ConfirmDialog>
+@code {
+    [Parameter, EditorRequired] public AccountAdminSummary Account { get; set; } = null!;
+    [Parameter] public List<AccountLockView> Locks { get; set; } = [];
+    [Parameter] public AccountPermissionsView? Permissions { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public Action<(int Status, string? Code, string Done)>? Report { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+    private static string? Text(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private async Task LockAsync()
+    {
+        var result = await Admin.LockAccountAsync(Account.Id, new AccountLockRequest(Field("reasonCode"), Text(Field("caseReference")), int.TryParse(Field("days"), out var d) ? d : null, Text(Field("note"))));
+        Report?.Invoke((result.Status, result.Code, $"Sign-in locked. Reference {result.Value?.CaseReference}."));
+        await Changed.InvokeAsync();
+    }
+    private async Task UnlockAsync(Guid id)
+    {
+        var result = await Admin.UnlockAccountAsync(id, new AccountUnlockRequest(Field("reasonCode"), Text(Field("note"))));
+        Report?.Invoke((result.Status, result.Code, "Lock removed."));
+        await Changed.InvokeAsync();
+    }
+    private async Task SignOutAsync()
+    {
+        var status = await Admin.SignOutMemberAsync(Account.Id);
+        Report?.Invoke((status, null, "Signed out on every device."));
+        await Changed.InvokeAsync();
+    }
+}

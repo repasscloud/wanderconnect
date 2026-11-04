@@ -42,17 +42,27 @@ else
             <p><a class="button button-small" href="/account/deletion">See deletion details</a></p>
         </section>
     }
-    else if (me is not null && me.AccountState != "active")
+    else if (me is not null && me.AccountState is not ("active" or "restricted"))
     {
-        @* D160: restricted, suspended or terminated: nothing else in the app until it's lifted; notices and appeals stay open. *@
+        @* D325: suspended, terminated or locked (restrictions show a notice instead): nothing else in the app until it's lifted; notices and appeals stay open. *@
         <section class="settings-card" aria-label="Account restricted" data-restricted-screen="@me.AccountState">
-            <h2>@(me.AccountState switch { "suspended" => "Your account is suspended", "terminated" => "Your account has been closed", _ => "Your account is restricted" })</h2>
-            <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
-            <p><a class="button button-small" href="/me/notices">Read the notice</a></p>
+            <h2>@(MemberText.RestrictedTitle(me.AccountState))</h2>
+            @if (me.AccountState == "locked")
+            {
+                <p>@MemberText.LockedBody</p>
+                @if (me.StatusReference is { } reference) { <p data-locked-reference="@reference">Your reference: <strong>@reference</strong></p> }
+                <p><a class="button button-small" href="https://swoovr.com/support">Contact support</a></p>
+            }
+            else
+            {
+                <p>You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.</p>
+                <p><a class="button button-small" href="/me/notices">Read the notice</a></p>
+            }
         </section>
     }
     else if (me is not null)
     {
+        @if (me.AccountState == "restricted") { <p class="notice" role="status" data-restriction-limits="@string.Join(",", me.RestrictionLimits ?? [])">@MemberText.RestrictionNotice(me.RestrictionLimits, me.RestrictedUntil) <a href="/me/notices">Read the notice</a></p> }
         @if (me.RegisteredNamesRequired) { <p class="notice" role="status" data-registered-name-gate>Confirm your registered name below to continue. Your data, account notices and support remain available.</p> }
         else if (me.PolicyRequired) { <p class="notice" role="status" data-policy-gate>Please review the required policies. <a href="/account/policies">Review and choose whether to accept</a></p> }
         <DobCorrectionPrompt Account="me" Changed="Corrected" />

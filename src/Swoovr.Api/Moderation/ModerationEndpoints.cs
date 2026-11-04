@@ -538,7 +538,8 @@ public static class ModerationEndpoints
             await using var outcomeCase=sanction.CaseId is{}caseId?await Retention.PreservationLease.CaseAsync(db,caseId,cancellationToken):null;
             await using var outcomeTransaction=await db.Database.BeginTransactionAsync(cancellationToken);
             (sanction.LiftedAt, sanction.LiftedBy) = (now, current.Account.Id);
-            Audit.Record(db, now, current.Account.Id, "account", "sanction.lifted", "sanction", sanction.Id.ToString(), current.StaffRole.ToString());
+            Audit.Record(db, now, current.Account.Id, "account", "sanction.lifted", "sanction", sanction.Id.ToString(),
+                current.StaffRole + (AccountReasons.Valid(AccountReasons.Lift, request.Reason) ? ":" + request.Reason : ""));
             await db.SaveChangesAsync(cancellationToken);
             if(sanction.CaseId is{}sourceCase)await ReportOutcomeCapture.InTransactionAsync(db,sourceCase,now,cancellationToken);
             await outcomeTransaction.CommitAsync(cancellationToken);
@@ -664,7 +665,8 @@ public static class ModerationEndpoints
                 || !EntitlementPolicy.ValidGrant(tier, starts, request.EndsAt, request.Reason?.Trim()))
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidEntitlement, "A grant needs Plus or Premium, an end within a year and a reason.");
             var grant = new Entitlement { Id = Guid.NewGuid(), AccountId = id, Tier = tier, Source = EntitlementSource.AdminGrant, StartsAt = starts, EndsAt = request.EndsAt,
-                Reason = request.Reason!.Trim(), GrantedBy = current!.Account!.Id, CreatedAt = now };
+                Reason = request.Reason!.Trim(), GrantedBy = current!.Account!.Id, CreatedAt = now,
+                Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()[..Math.Min(request.Note.Trim().Length, 500)] };
             db.Entitlements.Add(grant);
             Audit.Record(db, now, current.Account.Id, "account", "entitlement.granted", "account", id.ToString(), $"{tier}:{grant.Id}");
             await db.SaveChangesAsync(cancellationToken);
@@ -691,14 +693,16 @@ public static class ModerationEndpoints
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(Entitlements.View(grant, now));
         });
-        admin.MapPost("/entitlements/{id:guid}/revoke", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        admin.MapPost("/entitlements/{id:guid}/revoke", async (Guid id, EntitlementRevoke? request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
             if (denied is not null) return denied;
             var (db, now) = (accounts.Db!, clock.GetUtcNow());
             var grant = await db.Entitlements.FindAsync([id], cancellationToken);
             if (grant is not { Source: EntitlementSource.AdminGrant } || grant.RevokedAt is not null) return Results.NotFound();
-            (grant.RevokedAt, grant.RevokedBy) = (now, current!.Account!.Id);
+            if (request?.ReasonCode is { } why && !AccountReasons.Valid(AccountReasons.RevokeComp, why))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose a listed reason.");
+            (grant.RevokedAt, grant.RevokedBy, grant.RevokedReason) = (now, current!.Account!.Id, request?.ReasonCode);
             Audit.Record(db, now, current.Account.Id, "account", "entitlement.revoked", "account", grant.AccountId.ToString(), grant.Id.ToString());
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(Entitlements.View(grant, now));
@@ -707,13 +711,13 @@ public static class ModerationEndpoints
 
     private static IResult Refused(ModerationRefusal refusal) => refusal switch
     {
-        ModerationRefusal.TooLong => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Restrictions last up to 30 days and suspensions up to 90."),
+        ModerationRefusal.TooLong => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Support restricts for up to 30 days; Trust & Safety and Admin restrict or suspend for up to 90."),
         ModerationRefusal.ReasonRequired => Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Give a reason (up to 1,000 characters)."),
         _ => Problem(StatusCodes.Status403Forbidden, ProblemCodes.ModerationNotPermitted, refusal switch
         {
             ModerationRefusal.OwnAccount => "You can't decide a case about your own member account.",
             ModerationRefusal.StaffAffiliatedCase => "Cases about staff-affiliated accounts are for admins.",
-            ModerationRefusal.AdminSanction => "An admin applied this; only an admin can change it.",
+            ModerationRefusal.AdminSanction => "A higher role applied this; only that role or above can change it.",
             _ => "Your role can't do this.",
         }),
     };
@@ -752,6 +756,10 @@ public static class ModerationEndpoints
         var refusal = ModerationPolicy.Check(action.Value, current.StaffRole, staffAffiliated, await OwnAccountAsync(db, current.Account!.Id, subjectId, cancellationToken),
             duration, request.Reason?.Trim());
         if (refusal != ModerationRefusal.None) return Refused(refusal);
+        // D323: a set reason code, when given, must belong to this action; the internal note is bounded and never shown to the member.
+        if (request.ReasonCode is not null && !AccountReasons.Valid(AccountReasons.ForAction(request.Action), request.ReasonCode)
+            || request.Note is { Length: > ModerationPolicy.ReasonMax })
+            return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose a listed reason; notes are up to 1,000 characters.");
         // DEFAULT: suspension and termination need a sign-in within the last 15 minutes, like other sensitive admin actions.
         if (action is ModerationAction.Suspend or ModerationAction.Terminate && !current.RecentlyAuthenticated(now))
             return Problem(StatusCodes.Status403Forbidden, ProblemCodes.StaleSession, "Sign in again to do this.");
@@ -777,7 +785,9 @@ public static class ModerationEndpoints
                 HideFromDiscovery = kind == SanctionKind.Restriction && request.HideFromDiscovery,
                 NoNewRequests = kind == SanctionKind.Restriction && request.NoNewRequests,
                 NoMessages = kind == SanctionKind.Restriction && request.NoMessages,
+                NoPhotoUploads = kind == SanctionKind.Restriction && request.NoPhotoUploads,
                 CreatedBy = current.Account.Id, CreatedByRole = current.StaffRole,
+                ReasonCode = request.ReasonCode, InternalNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
             };
             db.Sanctions.Add(sanction);
             if (kind == SanctionKind.Termination)
@@ -808,7 +818,7 @@ public static class ModerationEndpoints
     }
 
     private static SanctionView View(Sanction s, DateTimeOffset now) => new(s.Id, s.AccountId, s.CaseId, Wire(s.Kind), s.Reason, s.StartsAt, s.EndsAt,
-        s.HideFromDiscovery, s.NoNewRequests, s.NoMessages, s.CreatedBy, Wire(s.CreatedByRole), s.LiftedAt, Enforcement.Live(s, now));
+        s.HideFromDiscovery, s.NoNewRequests, s.NoMessages, s.CreatedBy, Wire(s.CreatedByRole), s.LiftedAt, Enforcement.Live(s, now), s.ReasonCode, s.InternalNote, s.NoPhotoUploads);
 
     private static async Task<List<CaseSummaryView>> SummariesAsync(SwoovrDbContext db, List<ModerationCase> cases, CancellationToken cancellationToken)
     {
@@ -878,5 +888,5 @@ public static class Entitlements
     }
 
     public static EntitlementView View(Entitlement e, DateTimeOffset now) => new(e.Id, AccountEndpoints.Wire(e.Tier), AccountEndpoints.Wire(e.Source), e.StartsAt, e.EndsAt,
-        e.Reason, e.GrantedBy, e.CreatedAt, e.RevokedAt, EntitlementPolicy.Valid(e, now));
+        e.Reason, e.GrantedBy, e.CreatedAt, e.RevokedAt, EntitlementPolicy.Valid(e, now), e.Note, e.RevokedReason);
 }

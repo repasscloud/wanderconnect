@@ -54,7 +54,8 @@ public sealed record CaseReportView(Guid Id, Guid ReporterAccountId, string Subj
     string? Text, DateTimeOffset CreatedAt, string? Police = null);
 public sealed record CaseEvidenceView(Guid ReportId, string Kind, string Snapshot, DateTimeOffset CapturedAt);
 public sealed record SanctionView(Guid Id, Guid AccountId, Guid? CaseId, string Kind, string Reason, DateTimeOffset StartsAt, DateTimeOffset? EndsAt,
-    bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, Guid CreatedBy, string CreatedByRole, DateTimeOffset? LiftedAt, bool Live);
+    bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, Guid CreatedBy, string CreatedByRole, DateTimeOffset? LiftedAt, bool Live,
+    string? ReasonCode = null, string? InternalNote = null, bool NoPhotoUploads = false);
 public sealed record CaseDetailView(CaseSummaryView Case, bool StaffAffiliatedSubject, IReadOnlyList<CaseReportView> Reports,
     IReadOnlyList<CaseEvidenceView> Evidence, IReadOnlyList<SanctionView> Sanctions, DateTimeOffset? EvidencePurgedAt = null);
 
@@ -62,7 +63,8 @@ public sealed record CaseDetailView(CaseSummaryView Case, bool StaffAffiliatedSu
 /// A staff action (D133): "dismiss", "warn", "restrict", "suspend" or "terminate", with a reason (required except to
 /// dismiss), days for a restriction (up to 30) or suspension (up to 90), and what a restriction covers.
 /// </summary>
-public sealed record ModerationActionRequest(string Action, string? Reason, int? Days, bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, ModerationReportingChoice? Reporting=null);
+public sealed record ModerationActionRequest(string Action, string? Reason, int? Days, bool HideFromDiscovery, bool NoNewRequests, bool NoMessages, ModerationReportingChoice? Reporting=null,
+    string? ReasonCode=null, string? Note=null, bool NoPhotoUploads=false);
 public sealed record LiftRequest(string? Reason);
 /// <summary>"uphold" or "overturn" (D135).</summary>
 public sealed record AppealDecision(string Outcome);
@@ -74,10 +76,10 @@ public sealed record StaffLinkView(Guid StaffAccountId, Guid MemberAccountId, Da
 /// <summary>D150: an admin lets a member move their home city into another market now, with a reason (audited, never shown publicly).</summary>
 public sealed record HomeMoveOverride(string? Reason);
 
-public sealed record EntitlementGrant(string Tier, DateTimeOffset? StartsAt, DateTimeOffset EndsAt, string Reason);
+public sealed record EntitlementGrant(string Tier, DateTimeOffset? StartsAt, DateTimeOffset EndsAt, string Reason, string? Note = null);
 public sealed record EntitlementChange(string? Tier, DateTimeOffset? EndsAt, string? Reason);
 public sealed record EntitlementView(Guid Id, string Tier, string Source, DateTimeOffset StartsAt, DateTimeOffset? EndsAt, string Reason,
-    Guid? GrantedBy, DateTimeOffset CreatedAt, DateTimeOffset? RevokedAt, bool Valid);
+    Guid? GrantedBy, DateTimeOffset CreatedAt, DateTimeOffset? RevokedAt, bool Valid, string? Note = null, string? RevokedReason = null);
 
 /// <summary>One account as staff see it in the admin app (D136).</summary>
 public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, string? DisplayName, string? AgeStatus, string? IdStatus,

@@ -88,6 +88,7 @@ RegistrationEndpoints.Map(app);
 RegisteredNamesEndpoints.Map(app);
 DobChangeEndpoints.Map(app);
 AccountInspectionEndpoints.Map(app);
+AccountControlEndpoints.Map(app);
 if(persistence)AppearanceEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);

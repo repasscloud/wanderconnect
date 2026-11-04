@@ -34,11 +34,20 @@ public static class AccountEndpoints
             if (denied is not null) return denied;
             // D170: a pending deletion outranks any other state; clients show the deletion screen.
             var state = current!.Account!.Status == AccountStatus.PendingDeletion ? "pendingDeletion" : current.Enforcement.State;
+            // #190 §10 (D323): an active sign-in lock outranks sanctions here; the member sees the locked screen and its public reference.
+            var lockNow = clock.GetUtcNow();
+            var lockReference = await accounts.Db!.AccountLocks.AsNoTracking()
+                .Where(l => l.AccountId == current.Account.Id && l.RemovedAt == null && (l.ExpiresAt == null || l.ExpiresAt > lockNow))
+                .Select(l => l.CaseReference).FirstOrDefaultAsync(cancellationToken);
+            if (lockReference is not null && state != "pendingDeletion") state = "locked";
             var phone = await accounts.Db!.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken);
             return Results.Ok(View(current.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), state) with
                 { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, PhoneGateEnabled=accounts.PhoneRequired, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken),
                     RegisteredNamesRequired=!RegisteredNamePolicy.Complete(current.Account),
-                    DateOfBirthCorrectionUntil=await DobChangeEndpoints.UntilAsync(accounts.Db!,current.Account.Id,clock.GetUtcNow(),cancellationToken) });
+                    DateOfBirthCorrectionUntil=await DobChangeEndpoints.UntilAsync(accounts.Db!,current.Account.Id,clock.GetUtcNow(),cancellationToken),
+                    StatusReference = state == "locked" ? lockReference : null,
+                    RestrictionLimits = state == "restricted" ? current.Enforcement.Limits : null,
+                    RestrictedUntil = state == "restricted" ? current.Enforcement.RestrictedUntil : null });
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
@@ -199,17 +208,28 @@ public static class AccountEndpoints
         }
         if (current.Account.Status != AccountStatus.Active && current.Facts.Realm == AccountRealm.Members)
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountLocked, "This account is locked."));
+        // #190 §10 (D323): a staff sign-in lock is read on every request, so no session, token or cached client gets past it.
+        // Only the account summary, notices and appeals (barredExempt) stay open; they show the locked screen and reference.
+        if (current.Facts.Realm == AccountRealm.Members && !barredExempt)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var held = await accounts.Db!.AccountLocks.AsNoTracking()
+                .Where(l => l.AccountId == current.Account.Id && l.RemovedAt == null && (l.ExpiresAt == null || l.ExpiresAt > now))
+                .Select(l => l.CaseReference).FirstOrDefaultAsync(cancellationToken);
+            if (held is not null)
+                return (null, Results.Problem(statusCode: 403, title: "This account is locked.",
+                    extensions: new Dictionary<string, object?> { ["code"] = ProblemCodes.AccountLocked, ["reference"] = held }));
+        }
         if (current.Facts.Realm == AccountRealm.Members && !BetaAccessPolicy.Allows(current.Beta))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.BetaNotEnrolled, "Swoovr is in private beta."));
         if (!current.Allows(AccountRole.Member)) return (null, Results.Forbid());
         // Sanctions are read on every request, so an action applies at once to every client and live session (D133).
         var sanctions = await accounts.Db!.Sanctions.Where(s => s.AccountId == current.Account.Id && s.LiftedAt == null).ToListAsync(cancellationToken);
         var enforcement = Enforcement.For(sanctions, DateTimeOffset.UtcNow);
-        // D160: restricted members are barred too, with their own code so clients show the restricted screen.
+        // D325 (Q132 B, supersedes D160): suspension and termination bar the member; a restriction limits only what it names,
+        // checked by each feature (discovery, requests, messages, photo uploads).
         if (enforcement.Barred && !barredExempt)
-            return (null, enforcement.Terminated || enforcement.Suspended
-                ? Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended, enforcement.Terminated ? "This account has been closed." : "This account is suspended.")
-                : Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountRestricted, "Your account is restricted."));
+            return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AccountSuspended, enforcement.Terminated ? "This account has been closed." : "This account is suspended."));
         if (!ageGateExempt && current.Profile is { } profile && AgeAssurance.Blocks(profile.AgeStatus))
             return (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.AgeVerificationRequired, "Verify your age to keep using Swoovr."));
         if(!barredExempt&&!registeredNamesExempt&&!RegisteredNamePolicy.Complete(current.Account))

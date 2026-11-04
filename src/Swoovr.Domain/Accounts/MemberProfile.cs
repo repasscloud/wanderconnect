@@ -36,6 +36,10 @@ public sealed class MemberProfile
     public DateTimeOffset? PhotoCheckedAt { get; set; }
     public VerificationStatus IdStatus { get; set; }
     public DateTimeOffset? IdCheckedAt { get; set; }
+    /// <summary>#190 §3 (D323): the current Photo Verified / ID Verified state was set by a staff override, not a provider
+    /// check. A manual ID Verified never claims a Didit result and never verifies the date of birth.</summary>
+    public bool PhotoManual { get; set; }
+    public bool IdManual { get; set; }
     /// <summary>
     /// D128: starts true, false once a self-service ID check starts; an admin may set it again (D129). IsIdVerified is
     /// <see cref="IdStatus"/> == Verified.

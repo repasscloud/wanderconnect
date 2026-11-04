@@ -693,16 +693,14 @@ body:has(.public-layout) { padding-bottom: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .policy * { transition: none !important; } }
 
-/* Issue 184 (D318): Your Privacy Choices. Floating control bottom-right (above the phone tab bar), footer link, dialog. */
+/* Issue 184 (D318, D326): Your Privacy Choices. Floating control bottom-right (above the phone tab bar) and its dialog; no footer link. */
 .privacy-pill { position: fixed; z-index: 25; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 600 .8125rem/1 var(--font); cursor: pointer; }
 .privacy-pill[hidden] { display: none; }
 .privacy-pill:hover { border-color: var(--text); }
-.privacy-pill:focus-visible, .footer-link-button:focus-visible, .privacy-dialog :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.privacy-pill:focus-visible, .privacy-dialog :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .member-layout .privacy-pill { bottom: calc(var(--tab-bar) + 12px + env(safe-area-inset-bottom)); }
 @media (min-width: 760px) { .member-layout .privacy-pill { bottom: max(16px, env(safe-area-inset-bottom)); } }
 @media (max-width: 599px) { .privacy-pill span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } .privacy-pill { padding: 0 12px; min-width: 44px; min-height: 44px; justify-content: center; } }
-.footer-link-button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: .2em; cursor: pointer; }
-.footer-link-button:hover { text-decoration-color: currentColor; }
 .privacy-dialog { position: fixed; inset: auto max(16px, env(safe-area-inset-right)) calc(68px + env(safe-area-inset-bottom)) auto; z-index: 40; width: min(480px, calc(100vw - 32px)); max-height: calc(100svh - 96px); margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); color: var(--text); }
 .privacy-dialog:not([open]) { display: none; }
 .privacy-dialog::backdrop { background: var(--scrim); }

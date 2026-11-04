@@ -150,6 +150,24 @@ public static class Cli
                 Console.WriteLine(args[1] == "grant" ? "Legal role granted." : "Legal role revoked.");
                 return 0;
             }
+            // D322: grant or revoke Support, Trust & Safety or Admin on a staff-realm account that has signed in once (local and
+            // operator use; the admin app's invitations remain the normal path). Legal keeps its own command above (D189).
+            case ["staff-role", "grant" or "revoke", var subject, var roleName, ..]:
+            {
+                AccountRole? role = roleName switch { "support" => AccountRole.Support, "trust-safety" => AccountRole.TrustSafety, "admin" => AccountRole.Admin, _ => null };
+                if (role is null) { Console.Error.WriteLine("Role must be support, trust-safety or admin."); return 2; }
+                var staff = await db.Accounts.Where(a => a.Realm == AccountRealm.Staff && a.Subject == subject).ToListAsync();
+                if (staff.Count != 1) { Console.Error.WriteLine("No single staff-realm account has that subject; sign in once first."); return 1; }
+                var existing = await db.RoleGrants.SingleOrDefaultAsync(g => g.AccountId == staff[0].Id && g.Role == role);
+                if (args[1] == "grant" && existing is null)
+                    db.RoleGrants.Add(new RoleGrant { Id = Guid.NewGuid(), AccountId = staff[0].Id, Role = role.Value, GrantedAt = now });
+                else if (args[1] == "revoke" && existing is not null)
+                    db.RoleGrants.Remove(existing);
+                Audit.Record(db, now, null, "cli", "staff-role." + (args[1] == "grant" ? "granted" : "revoked"), "account", staff[0].Id.ToString(), role.ToString());
+                await db.SaveChangesAsync();
+                Console.WriteLine($"{role} role {(args[1] == "grant" ? "granted" : "revoked")}.");
+                return 0;
+            }
             // D191: one-off backfill of the verified identity store for approved checks Didit still keeps (30 days). Members
             // whose decision has gone have no record until they verify again; nobody is asked to.
             case ["identity", "backfill", ..]:

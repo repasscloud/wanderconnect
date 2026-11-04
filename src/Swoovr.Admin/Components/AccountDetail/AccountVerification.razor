@@ -1,0 +1,118 @@
+@inject AdminClient Admin
+@* issue 190 §3, §6: badge states with their source, staff overrides with set reasons (Admin), Didit attempts, age assurance and
+   the Staff badge as one switch. A manual override is recorded as a staff override, never as a provider result. *@
+<div class="ui-table table-scroll" role="region" aria-label="Verification badges" tabindex="0">
+    <table data-verification-badges>
+        <thead><tr><th scope="col">Badge</th><th scope="col">State</th><th scope="col">Source</th><th scope="col">Since</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>
+            <tr data-badge="idVerified" data-id-status="@Account.IdStatus"><td><strong>ID Verified</strong></td><td>@Pill(Account.IdStatus == "verified")</td>
+                <td>@Source(Account.IdStatus == "verified", Verification?.IdManual == true, "Didit")</td><td><span class="ui-sub">@(Verification?.IdCheckedAt?.ToString("d MMM yyyy") ?? "—")</span></td>
+                <td class="ad-right">@Action("idVerified", Account.IdStatus == "verified")</td></tr>
+            <tr data-badge="photoVerified"><td><strong>Photo Verified</strong></td><td>@Pill(Verification?.PhotoStatus == "verified")</td>
+                <td>@Source(Verification?.PhotoStatus == "verified", Verification?.PhotoManual == true, "Selfie match")</td><td><span class="ui-sub">@(Verification?.PhotoCheckedAt?.ToString("d MMM yyyy") ?? "—")</span></td>
+                <td class="ad-right">@Action("photoVerified", Verification?.PhotoStatus == "verified")</td></tr>
+            <tr data-badge="didit"><td><strong>Didit check</strong></td><td><span class="ui-pill" data-tone="quiet">@AccountLabels.Id(Account.IdStatus)</span></td><td>Didit</td>
+                <td><span class="ui-sub">@(attempts is { Attempts.Count: > 0 } list ? $"{list.Attempts.Count} attempt{(list.Attempts.Count == 1 ? "" : "s")}" : "No attempts")</span></td>
+                <td class="ad-right">@if (Permissions?.Verify == true) {<form method="post" @formname="allow-again" @onsubmit="AllowAgainAsync"><AntiforgeryToken /><button type="submit" class="ui-button-ghost" data-op="allow-again">Allow another attempt</button></form>} else {<RoleNote />}</td></tr>
+        </tbody>
+    </table>
+</div>
+@if (attempts is { Attempts.Count: > 0 })
+{
+    <ul class="ui-list ad-attempts" data-attempts="@attempts.Attempts.Count">
+        @foreach (var a in attempts.Attempts)
+        {
+            <li><span>@AccountLabels.Attempt(a.State) <span class="ui-sub">Didit: @a.ProviderStatus · @(a.SelfService ? "self-service" : "allowed by an admin")@(a.Adult is { } adult ? adult ? " · adult" : " · under 18" : "")</span></span><span class="ui-help">@a.CreatedAt.ToString("d MMM yyyy")</span></li>
+        }
+    </ul>
+}
+<div class="acct-grid ad-gap">
+    <div class="ui-card">
+        <div class="ui-card-head"><h2>Age assurance</h2><span class="ui-pill" data-tone="quiet" data-age-status="@Account.AgeStatus">@AccountLabels.Age(Account.AgeStatus)</span></div>
+        @if (Permissions?.Verify == true)
+        {
+            <form method="post" @formname="age" @onsubmit="AgeAsync" class="acct-buttons">
+                <AntiforgeryToken />
+                <button name="value" value="flag" type="submit" class="ui-button-ghost" data-op="age-flag">Require an age check</button>
+                <button name="value" value="clear" type="submit" class="ui-button-ghost" data-op="age-clear">Clear a flag set in error</button>
+                <button type="button" class="ui-button-ghost" data-dialog-open="adult-override" data-op="adult-override">Record adult override…</button>
+            </form>
+        }
+        else { <RoleNote /> }
+    </div>
+    <div class="ui-card">
+        <div class="ui-card-head"><h2>Staff affiliation</h2></div>
+        <div class="ad-switch-row">
+            <button type="button" class="ad-switch" role="switch" aria-checked="@(Account.Employee ? "true" : "false")" data-staff-switch="@(Account.Employee ? "on" : "off")"
+                    data-dialog-open="staff-badge" disabled="@(Permissions?.StaffBadge != true)"><span class="ad-track" aria-hidden="true"></span>Staff badge @(Account.Employee ? "On" : "Off")</button>
+            @if (Permissions?.StaffBadge != true) { <RoleNote /> }
+        </div>
+        <p class="ui-help">Separate from Admin Verified and the ID and Photo badges.</p>
+    </div>
+</div>
+<h2 class="ad-h2">History</h2>
+@if (Verification is { History.Count: > 0 } v)
+{
+    <div class="ui-table table-scroll" role="region" aria-label="Verification history" tabindex="0">
+        <table data-verification-history="@v.History.Count">
+            <thead><tr><th scope="col">When</th><th scope="col">Change</th><th scope="col">Source</th><th scope="col">Role</th><th scope="col">Reason</th></tr></thead>
+            <tbody>@foreach (var h in v.History){<tr><td>@h.At.ToString("d MMM yyyy HH:mm") UTC</td><td>@(h.Badge == "idVerified" ? "ID Verified" : "Photo Verified") @(h.Applied ? "applied" : "revoked")</td><td>Staff override</td><td>@AccountLabels.Role(h.ByRole)</td><td>@AccountLabels.Reason(h.ReasonCode)</td></tr>}</tbody>
+        </table>
+    </div>
+}
+else { <p class="ui-help" data-verification-history="0">No staff overrides.</p> }
+
+@foreach (var (badge, label, on) in new[] { ("idVerified", "ID Verified", Account.IdStatus == "verified"), ("photoVerified", "Photo Verified", Verification?.PhotoStatus == "verified") })
+{
+    <ConfirmDialog Id="@($"override-{badge}")" FormName="@($"override-{badge}")" Title="@($"{(on ? "Revoke" : "Apply")} {label}")" Confirm="@(on ? "Revoke" : "Apply")" OnSubmit="() => OverrideAsync(badge, !on)">
+        <ReasonField Reasons="@(on ? AccountReasons.VerifyRevoke : AccountReasons.VerifyApply)" />
+        <NoteField />
+        <p class="ui-help">@(on ? "The badge leaves profiles now. Verification evidence is kept." : "Recorded as a staff override, never as a provider result.")</p>
+    </ConfirmDialog>
+}
+<ConfirmDialog Id="staff-badge" FormName="staff-badge" Title="@(Account.Employee ? "Turn off Staff badge" : "Turn on Staff badge")" Confirm="@(Account.Employee ? "Turn off" : "Turn on")" OnSubmit="StaffAsync">
+    <ReasonField Reasons="@(Account.Employee ? AccountReasons.StaffOff : AccountReasons.StaffOn)" />
+</ConfirmDialog>
+<ConfirmDialog Id="adult-override" FormName="adult-override" Title="Record adult override" Confirm="Record override" OnSubmit="AdultOverrideAsync">
+    <p class="ui-help">Records that staff have confirmed this member is an adult. It does not verify the date of birth.</p>
+</ConfirmDialog>
+@code {
+    [Parameter, EditorRequired] public AccountAdminSummary Account { get; set; } = null!;
+    [Parameter] public VerificationStateView? Verification { get; set; }
+    [Parameter] public AccountPermissionsView? Permissions { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public Action<(int Status, string? Code, string Done)>? Report { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private AdminVerificationView? attempts;
+    protected override async Task OnInitializedAsync() => attempts = (await Admin.VerificationAsync(Account.Id)).Value;
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private RenderFragment Pill(bool on) => @<span class="ui-pill" data-tone="@(on ? "approve" : "quiet")">@(on ? "On" : "Off")</span>;
+    private RenderFragment Source(bool on, bool manual, string provider) => on
+        ? (manual ? @<span>Staff override <span class="ad-tag ad-tag-solid">Manual</span></span> : @<span>@provider</span>)
+        : @<span>—</span>;
+    private RenderFragment Action(string badge, bool on) => Permissions?.Verify == true
+        ? @<button type="button" class="ui-button-ghost" data-dialog-open="@($"override-{badge}")" data-op="@($"{(on ? "revoke" : "apply")}-{badge}")">@(on ? "Revoke…" : "Apply…")</button>
+        : @<RoleNote />;
+
+    private async Task OverrideAsync(string badge, bool apply)
+    {
+        var status = await Admin.VerificationOverrideAsync(Account.Id, new VerificationOverrideRequest(badge, apply, Field("reasonCode"), NullIfEmpty(Field("note"))));
+        await DoneAsync(status, null, $"{(badge == "idVerified" ? "ID Verified" : "Photo Verified")} {(apply ? "applied" : "revoked")}.");
+    }
+    private async Task StaffAsync()
+    {
+        var status = await Admin.StaffAffiliationAsync(Account.Id, !Account.Employee, Field("reasonCode"));
+        await DoneAsync(status, null, Account.Employee ? "Staff badge turned off." : "Staff badge turned on.");
+    }
+    private async Task AllowAgainAsync() { var r = await Admin.VerificationActionAsync(Account.Id, "allow-again"); await DoneAsync(r.Status, r.Code, "Another attempt allowed."); }
+    private async Task AgeAsync() { var r = await Admin.AgeAssuranceAsync(Account.Id, Field("value") == "flag"); await DoneAsync(r.Status, r.Code, "Age assurance updated."); }
+    private async Task AdultOverrideAsync() => await DoneAsync(await Admin.AdultOverrideAsync(Account.Id), null, "Adult override recorded.");
+    private async Task DoneAsync(int status, string? code, string done)
+    {
+        Report?.Invoke((status, code, done));
+        await Changed.InvokeAsync();
+        attempts = (await Admin.VerificationAsync(Account.Id)).Value;
+    }
+    private static string? NullIfEmpty(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+}

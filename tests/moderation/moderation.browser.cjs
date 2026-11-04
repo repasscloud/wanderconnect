@@ -128,25 +128,24 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     r = await act('sup', subCase, { action: 'restrict', reason: 'Fictional reason: repeated rude behaviour reported.', days: 7, hideFromDiscovery: true, noNewRequests: true });
     assert.equal(r.status, 200); assert.equal(r.body.case.status, 'reviewed'); pass();
     assert.ok(!(await explore('rep')).includes(pid.sub)); pass(); // out of discovery at once
-    // Q55 (D160): a restricted member can't do anything in the app until it's lifted.
-    assert.deepEqual(code(await call(tokens.sub, '/api/requests', { method: 'POST', body: { to: pid.urg, mode: 'dating' } })), [403, 'account-restricted']); pass();
-    assert.deepEqual(code(await call(tokens.sub, `/api/requests/${subReq.body.id}/accept`, { method: 'POST' })), [403, 'account-restricted']); pass();
+    // Q132 B (D325, supersedes D160): only the named limits apply; everything else keeps working.
+    assert.deepEqual(code(await call(tokens.sub, '/api/requests', { method: 'POST', body: { to: pid.urg, mode: 'dating' } })), [403, 'restricted']); pass();
     for (const path of ['/api/explore?mode=dating', '/api/me/profile', '/api/connections', '/api/me/trips', '/api/me/verification'])
-    { assert.deepEqual(code(await call(tokens.sub, path)), [403, 'account-restricted'], path); pass(); }
-    assert.equal((await call(tokens.sub, '/api/me')).body.accountState, 'restricted'); pass();
-    // The web shows the restricted screen instead of member pages; the account page and notices stay open.
+    { assert.ok((await call(tokens.sub, path)).status < 300, path); pass(); }
+    r = await call(tokens.sub, '/api/me');
+    assert.deepEqual([r.body.accountState, r.body.restrictionLimits], ['restricted', ['discovery', 'requests']]); pass();
+    // The web keeps member pages open and shows what is limited on the account page; notices stay open.
     {
       const restrictedContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const restrictedPage = await restrictedContext.newPage();
       await restrictedPage.goto(web + '/account/sign-in?intro=done');
       await restrictedPage.fill('#username', members.sub.email); await restrictedPage.fill('#password', members.sub.password);
-      await Promise.all([restrictedPage.waitForURL(url=>url.href===web+'/explore'||url.href.startsWith(web+'/account/restricted')),restrictedPage.click('#kc-login')]);await restrictedPage.goto(web+'/account');
-      await restrictedPage.waitForSelector('[data-restricted-screen=restricted]', { timeout: 20000 }); pass(); // on the account page
-      for (const path of ['/explore', '/connections', '/travel', `/people/${pid.rep}`, '/me/matching']) {
+      await Promise.all([restrictedPage.waitForURL(url=>url.href.startsWith(web)),restrictedPage.click('#kc-login')]);await restrictedPage.goto(web+'/account');
+      await restrictedPage.waitForSelector('[data-restriction-limits="discovery,requests"]', { timeout: 20000 }); pass(); // the notice on the account page
+      for (const path of ['/explore', '/connections', '/travel', '/me/matching']) {
         await restrictedPage.goto(web + path);
-        assert.ok(restrictedPage.url().startsWith(web + '/account/restricted'), path); pass();
+        assert.ok(!restrictedPage.url().startsWith(web + '/account/restricted'), path); pass();
       }
-      assert.equal(await restrictedPage.locator('[data-restricted-screen]').getAttribute('data-restricted-screen'), 'restricted'); pass();
       if (output) await restrictedPage.screenshot({ path: output + '/restricted-390.png', fullPage: true });
       await restrictedPage.goto(web + '/me/notices');
       await restrictedPage.waitForSelector('[data-notice-kind=restriction]', { timeout: 20000 }); pass();
@@ -323,19 +322,17 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     assert.equal(await adminPage.locator('[data-case-status]').getAttribute('data-case-status'), 'reviewed'); pass();
     assert.ok((await call(tokens.urg, '/api/me/notices')).body.some(n => n.kind === 'warning')); pass();
     if (output) await adminPage.screenshot({ path: output + '/admin-case.png', fullPage: true });
-    await adminPage.goto(admin + `/accounts/${ids.plus}`);
+    await adminPage.goto(admin + `/accounts/${ids.plus}/membership`);
     await adminPage.waitForSelector(`[data-account="${ids.plus}"]`);
-    await adminPage.fill('form:has([data-op=grant]) input[name=reason]', 'Fictional beta tester');
-    await adminPage.click('[data-op=grant]');
-    await adminPage.waitForSelector('[data-result="403"]'); pass(); // support can't grant Plus
+    assert.ok(await adminPage.locator('[data-op=grant]').isDisabled()); pass(); // support can't grant Plus (D323; the API refuses too, above)
     await adminContext.close();
     // The root admin grants Plus from the account page.
     const rootContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const rootPage = await rootContext.newPage();
-    await rootPage.goto(admin + `/accounts/${ids.plus}`);
+    await rootPage.goto(admin + `/accounts/${ids.plus}/membership`);
     await fillRootAdmin(rootPage);
     await rootPage.waitForSelector(`[data-account="${ids.plus}"]`, { timeout: 20000 });
-    await rootPage.fill('form:has([data-op=grant]) input[name=reason]', 'Fictional beta tester');
+    await rootPage.selectOption('form:has([data-op=grant]) select[name=reasonCode]', 'beta-tester');
     await rootPage.click('[data-op=grant]');
     await rootPage.waitForSelector('[data-result=ok]'); pass();
     assert.equal(await rootPage.locator('[data-plan]').getAttribute('data-plan'), 'plus'); pass();

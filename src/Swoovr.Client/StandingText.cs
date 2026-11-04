@@ -23,6 +23,7 @@ public static class StandingText
         "restricted" => "Restricted",
         "suspended" => "Suspended",
         "terminated" => "Closed",
+        "locked" => "Temporarily locked",
         _ => "In good standing",
     };
 

@@ -1,0 +1,61 @@
+@inject AdminClient Admin
+@* issue 190 §11: the public profile in each mode, as other members would see it. Private photos are in Media. *@
+@if (preview is null)
+{
+    <p class="notice" data-profiles="unavailable">@(error ?? "Profiles aren't available to your role.")</p>
+}
+else
+{
+    <div class="ui-table table-scroll" role="region" aria-label="Profiles by mode" tabindex="0">
+        <table data-profiles="@preview.Modes.Count">
+            <thead><tr><th scope="col">Mode</th><th scope="col">State</th><th scope="col">Visibility</th><th scope="col">Display name</th><th scope="col">Intentions</th><th scope="col"><span class="visually-hidden">Open</span></th></tr></thead>
+            <tbody>
+                @foreach (var mode in preview.Modes)
+                {
+                    <tr data-mode-preview="@mode.Id" aria-current="@(mode.Id == Mode ? "true" : null)">
+                        <td><strong>@mode.Label</strong></td>
+                        <td><span class="ui-pill" data-tone="@(mode.Enabled ? "approve" : "quiet")">@(mode.Enabled ? "Enabled" : "Disabled")</span></td>
+                        <td>@(mode.Visible ? "Visible" : "Hidden")</td>
+                        <td>@(mode.PublicProfile?.DisplayName ?? "—")</td>
+                        <td><span class="ui-sub">@(mode.PublicProfile is { } shown ? string.Join(" · ", shown.Intentions) : "—")</span></td>
+                        <td class="ad-right">@if (mode.PublicProfile is not null) {<a class="ui-button-ghost" href="/accounts/@AccountId/profiles?mode=@mode.Id">Open</a>}</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (preview.Modes.FirstOrDefault(m => m.Id == Mode) is { PublicProfile: { } card } selected)
+    {
+        <section class="ui-card ad-profile" data-mode-open="@selected.Id">
+            <div class="ui-card-head"><h2>@selected.Label profile</h2><a class="ui-button-ghost" href="/accounts/@AccountId/profiles">Close</a></div>
+            <div class="ad-profile-body">
+                <div class="ad-photos">
+                    @if (card.Photo is { } main) {<img src="@Proxy(main.Link)" alt="Main public photo for this mode" />}
+                    @foreach (var photo in selected.Photos) {<img src="@Proxy(photo.Link)" alt="Public photo for this mode" />}
+                </div>
+                <dl class="ad-dl">
+                    <div><dt>Display name</dt><dd>@card.DisplayName</dd><dd></dd></div>
+                    @if (card.Age is { } age) {<div><dt>Age</dt><dd>@age</dd><dd></dd></div>}
+                    <div><dt>Area</dt><dd>@card.Area</dd><dd></dd></div>
+                    <div><dt>Gender</dt><dd>@card.Gender @card.Pronouns</dd><dd></dd></div>
+                    <div><dt>Intentions</dt><dd>@string.Join(" · ", card.Intentions)</dd><dd></dd></div>
+                    <div><dt>Badges</dt><dd>@string.Join(" · ", card.Badges.Select(b => AccountText.BadgeLabel(b.Badge)))</dd><dd></dd></div>
+                    <div><dt>About</dt><dd>@card.About</dd><dd></dd></div>
+                </dl>
+            </div>
+        </section>
+    }
+}
+@code {
+    [Parameter, EditorRequired] public Guid AccountId { get; set; }
+    [SupplyParameterFromQuery(Name = "mode")] public string? Mode { get; set; }
+    private StaffProfilePreview? preview;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.ProfilePreviewAsync(AccountId);
+        preview = result.Value;
+        if (!result.Ok) error = AdminText.Refusal(result.Status, result.Code);
+    }
+    private static string Proxy(string link) => "/media/" + link.Split('/').Last();
+}

@@ -1,0 +1,78 @@
+@inject AdminClient Admin
+@* issue 190 §5: the restricted profile photo inventory. One always-rendered form carries the viewing purpose, so a blurred
+   preview or a reveal works on the first submit (the old reveal form only existed after a previous POST, so it never
+   dispatched). The API checks the role, the current media safety acknowledgement and records every view. *@
+<div class="requires-desktop">
+    <section class="ui-card desktop-required" data-desktop-required><h2>Open on a desktop</h2><p>Restricted media isn't available on small screens.</p></section>
+    <div data-workflow>
+        @if (preview is null) { <p class="notice" data-media="unavailable">@(error ?? "Media isn't available to your role.")</p> }
+        else if (!preview.CanInspectPrivatePhotos) { <p class="notice" data-media="restricted">Restricted photos are for admins.</p> }
+        else
+        {
+            <form method="post" @formname="media-inventory" @onsubmit="OpenAsync" data-media-inventory="@photos.Count">
+                <AntiforgeryToken />
+                <div class="ad-toolbar">
+                    <label class="ui-field ad-purpose"><span>Viewing purpose</span><select name="purpose" required>@foreach (var p in Purposes){<option selected="@(p == purpose)">@p</option>}</select></label>
+                    <p class="ui-help">Each view and reveal is recorded. <a href="/media">Media safety notice</a></p>
+                </div>
+                @if (photos.Count == 0) { <p class="ui-help" data-media-empty>No photos.</p> }
+                <div class="ad-media-grid">
+                    @foreach (var photo in photos)
+                    {
+                        <div class="ad-media-card" data-profile-photo="@photo.Id" aria-current="@(viewed == photo.Id ? "true" : null)">
+                            <div class="ad-media-thumb"><span class="ui-pill" data-tone="@(photo.State == "passed" ? "approve" : photo.State == "rejected" ? "reject" : "quiet")">@PhotoState(photo.State)</span></div>
+                            <div class="ad-media-meta"><strong>@(photo.Scopes.Count == 0 ? "Unassigned" : string.Join(" · ", photo.Scopes.Select(ScopeLabel)))</strong>
+                                <span class="ui-sub">@photo.CreatedAt.ToString("d MMM yyyy")@(photo.MainScopes is { Count: > 0 } main ? " · main photo" : "")</span></div>
+                            <div class="ad-media-actions">
+                                <button type="submit" name="photo" value="@($"{photo.Id}|preview")" class="ui-button-ghost" data-photo-preview>Blurred preview</button>
+                                <button type="submit" name="photo" value="@($"{photo.Id}|reveal")" class="ui-button-ghost" data-photo-reveal>Reveal</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </form>
+            @if (viewed is not null && link is not null)
+            {
+                <section class="ui-card ad-viewer" data-photo-viewer="@(revealed ? "revealed" : "blurred")">
+                    <div class="ui-card-head"><h2>@(revealed ? "Revealed photo" : "Blurred preview")</h2><a class="ui-button-ghost" href="/accounts/@AccountId/media">Conceal</a></div>
+                    <div class="media-review @(revealed ? "is-revealed" : null)"><img src="@Proxy(link)" alt="Restricted profile photo" /></div>
+                </section>
+            }
+        }
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public Guid AccountId { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [Parameter] public Action<(int Status, string? Code, string Done)>? Report { get; set; }
+    private static readonly string[] Purposes = ["Investigate a report", "Review a media appeal", "Respond to a lawful request", "Member support request"];
+    private StaffProfilePreview? preview;
+    private List<StaffProfilePhoto> photos = [];
+    private string? error, link, purpose;
+    private Guid? viewed;
+    private bool revealed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.ProfilePreviewAsync(AccountId);
+        preview = result.Value;
+        if (!result.Ok) error = AdminText.Refusal(result.Status, result.Code);
+        else if (preview!.CanInspectPrivatePhotos) photos = (await Admin.ProfilePhotosAsync(AccountId)).Value ?? [];
+    }
+
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+
+    private async Task OpenAsync()
+    {
+        var parts = Field("photo").Split('|');
+        if (parts.Length != 2 || !Guid.TryParse(parts[0], out var id)) return;
+        purpose = Field("purpose");
+        var result = await Admin.InspectProfilePhotoAsync(AccountId, id, purpose);
+        if (result.Ok) (viewed, link, revealed) = (id, result.Value!.Link, parts[1] == "reveal");
+        Report?.Invoke((result.Status, result.Code, revealed ? "Photo revealed. The view is recorded." : "Blurred preview opened. The view is recorded."));
+    }
+
+    private static string Proxy(string link) => "/media/" + link.Split('/').Last();
+    private string ScopeLabel(string scope) => preview?.Modes.FirstOrDefault(m => m.Id == scope)?.Label ?? "Shared photo (legacy)";
+    private static string PhotoState(string state) => state switch { "passed" => "Approved", "pending" => "Screening pending", "uncertain" => "Needs review", "rejected" => "Rejected", _ => "Unavailable" };
+}

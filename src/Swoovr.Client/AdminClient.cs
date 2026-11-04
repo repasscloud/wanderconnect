@@ -139,11 +139,29 @@ public sealed class AdminClient(HttpClient transport)
     public Task<ApiResult<EntitlementView>> ChangeGrantAsync(Guid grantId, EntitlementChange change, CancellationToken cancellationToken = default) =>
         SendAsync<EntitlementView>(HttpMethod.Put, $"api/admin/entitlements/{grantId}", change, cancellationToken);
 
-    public Task<ApiResult<EntitlementView>> RevokeGrantAsync(Guid grantId, CancellationToken cancellationToken = default) =>
-        SendAsync<EntitlementView>(HttpMethod.Post, $"api/admin/entitlements/{grantId}/revoke", null, cancellationToken);
+    public Task<ApiResult<EntitlementView>> RevokeGrantAsync(Guid grantId, string? reasonCode = null, CancellationToken cancellationToken = default) =>
+        SendAsync<EntitlementView>(HttpMethod.Post, $"api/admin/entitlements/{grantId}/revoke", reasonCode is null ? null : new EntitlementRevoke(reasonCode), cancellationToken);
 
-    public Task<int> StaffAffiliationAsync(Guid id, bool active, CancellationToken cancellationToken = default) =>
-        StatusAsync(HttpMethod.Put, $"api/admin/accounts/{id}/staff-affiliation", new StaffAffiliationRequest(active), cancellationToken);
+    public Task<int> StaffAffiliationAsync(Guid id, bool active, string? reasonCode = null, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Put, $"api/admin/accounts/{id}/staff-affiliation", new StaffAffiliationRequest(active, reasonCode), cancellationToken);
+
+    // #190 account detail (D322, D323).
+    public Task<ApiResult<AccountPermissionsView>> AccountPermissionsAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountPermissionsView>(HttpMethod.Get, $"api/admin/accounts/{id}/permissions", null, cancellationToken);
+    public Task<ApiResult<List<AccountLockView>>> AccountLocksAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<List<AccountLockView>>(HttpMethod.Get, $"api/admin/accounts/{id}/locks", null, cancellationToken);
+    public Task<ApiResult<AccountLockView>> LockAccountAsync(Guid id, AccountLockRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountLockView>(HttpMethod.Post, $"api/admin/accounts/{id}/locks", request, cancellationToken);
+    public Task<ApiResult<AccountLockView>> UnlockAccountAsync(Guid lockId, AccountUnlockRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountLockView>(HttpMethod.Post, $"api/admin/account-locks/{lockId}/remove", request, cancellationToken);
+    public Task<int> SignOutMemberAsync(Guid id, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Post, $"api/admin/accounts/{id}/sign-out", null, cancellationToken);
+    public Task<ApiResult<AccountContactView>> AccountContactAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<AccountContactView>(HttpMethod.Get, $"api/admin/accounts/{id}/contact", null, cancellationToken);
+    public Task<ApiResult<VerificationStateView>> VerificationStateAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<VerificationStateView>(HttpMethod.Get, $"api/admin/accounts/{id}/verification-state", null, cancellationToken);
+    public Task<int> VerificationOverrideAsync(Guid id, VerificationOverrideRequest request, CancellationToken cancellationToken = default) =>
+        StatusAsync(HttpMethod.Post, $"api/admin/accounts/{id}/verification-override", request, cancellationToken);
 
     public Task<int> StaffLinkAsync(Guid staffId, Guid? memberId, CancellationToken cancellationToken = default) =>
         StatusAsync(HttpMethod.Put, $"api/admin/staff-links/{staffId}", new StaffLinkRequest(memberId), cancellationToken);

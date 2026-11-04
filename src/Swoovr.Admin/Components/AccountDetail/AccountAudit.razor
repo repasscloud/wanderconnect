@@ -1,0 +1,41 @@
+@inject AdminClient Admin
+@* issue 190 §14: the account's action history, newest first, from the append-only audit log. Read-only. *@
+@if (history is null) { <p class="notice" data-audit="unavailable">@(error ?? "Not available to your role.")</p> }
+else if (history.Items.Count == 0) { <div class="ad-empty" data-audit="0"><strong>No actions yet</strong></div> }
+else
+{
+    <div class="ui-table table-scroll" role="region" aria-label="Audit" tabindex="0">
+        <table data-audit="@history.Items.Count">
+            <thead><tr><th scope="col">When</th><th scope="col">Action</th><th scope="col">Code</th></tr></thead>
+            <tbody>@foreach (var item in history.Items){<tr><td><time datetime="@item.At.ToString("O")">@item.At.ToString("d MMM yyyy HH:mm") UTC</time></td><td>@Label(item.Action)</td><td><code>@item.Action</code></td></tr>}</tbody>
+        </table>
+    </div>
+    <div class="ad-pager">
+        @if (Before is not null) {<a class="ui-button-ghost" href="/accounts/@AccountId/audit">Latest</a>}
+        @if (history.NextCursor is { } next) {<a class="ui-button-ghost" href="/accounts/@AccountId/audit?before=@next">Earlier</a>}
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public Guid AccountId { get; set; }
+    [SupplyParameterFromQuery(Name = "before")] public long? Before { get; set; }
+    private StaffActionPage? history;
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.AccountHistoryAsync(AccountId, Before);
+        history = result.Value;
+        if (!result.Ok) error = AdminText.Refusal(result.Status, result.Code);
+    }
+    private static string Label(string action) => action switch
+    {
+        "age.updated" => "Date of birth saved", "profile.updated" => "Profile updated", "home-market.override" => "Home move wait lifted",
+        "staff.affiliated" => "Staff badge on", "staff.revoked" => "Staff badge off", "moderation.warn" => "Warning issued", "moderation.restrict" => "Restricted",
+        "moderation.suspend" => "Suspended", "moderation.terminate" => "Terminated", "sanction.lifted" => "Action lifted",
+        "entitlement.granted" => "Complimentary access granted", "entitlement.revoked" => "Complimentary access revoked",
+        "dob.correction-granted" => "Date correction allowed", "dob.correction-revoked" => "Date correction revoked", "dob.correction-used" => "Date correction used",
+        "profile-dob.opened" => "Date of birth opened by staff", "account.locked" => "Sign-in locked", "account.unlocked" => "Sign-in lock removed",
+        "sessions.revoked" => "Signed out everywhere", "verification.photoVerified.applied" => "Photo Verified applied", "verification.photoVerified.revoked" => "Photo Verified revoked",
+        "verification.idVerified.applied" => "ID Verified applied", "verification.idVerified.revoked" => "ID Verified revoked",
+        _ => "Account action",
+    };
+}

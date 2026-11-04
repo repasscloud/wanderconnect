@@ -30,6 +30,9 @@ public static class MemberText
         "active" => null,
         "suspended" => "Your account is suspended",
         "terminated" => "Your account has been closed",
+        "locked" => "Your account is temporarily locked",
+        // D325 (Q132 B): a restriction no longer takes over the app; the account page shows RestrictionNotice instead.
+        "restricted" => null,
         "pendingDeletion" => "Your account is being deleted",
         _ => "Your account is restricted",
     };
@@ -63,9 +66,23 @@ public static class MemberText
     public const string RestrictedBody = "You can't use Swoovr until this is lifted. Read the notice to see why; you can appeal within 30 days.";
 
     /// <summary>D170: a pending deletion says how to change your mind instead of pointing at a notice.</summary>
-    public static string RestrictedBodyFor(string? accountState) => accountState == "pendingDeletion"
-        ? "You can still change your mind: open Your data and account to cancel."
-        : RestrictedBody;
+    public static string RestrictedBodyFor(string? accountState, string? reference = null) => accountState switch
+    {
+        "pendingDeletion" => "You can still change your mind: open Your data and account to cancel.",
+        "locked" => LockedBody + (reference is null ? "" : " Your reference: " + reference + "."),
+        _ => RestrictedBody,
+    };
+
+    /// <summary>D325 (Q132 B): what a restriction limits, in the member's words.</summary>
+    public static string RestrictionNotice(IReadOnlyList<string>? limits, DateTimeOffset? until)
+    {
+        var names = (limits ?? []).Select(l => l switch { "discovery" => "showing you in Explore", "requests" => "sending new requests", "messages" => "sending messages", "photos" => "adding photos", _ => null }).OfType<string>().ToList();
+        var what = names.Count switch { 0 => "some features", 1 => names[0], _ => string.Join(", ", names[..^1]) + " and " + names[^1] };
+        return $"Your account is restricted{(until is { } u ? $" until {u:d MMMM yyyy}" : "")}: {what} {(names.Count == 1 ? "is" : "are")} paused. Everything else works as usual. You can appeal within 30 days.";
+    }
+
+    /// <summary>#190 §10 (D323): a staff sign-in lock. No internal reason is ever shown.</summary>
+    public const string LockedBody = "Access to this account is paused while we look into it. Contact support at swoovr.com/support and quote your reference.";
 
     /// <summary>Why Explore shows no one for a mode (D125, D139, D157); null when the API answered with people.</summary>
     public static string? ExploreNotice(string? code, string modeLabel) => code switch

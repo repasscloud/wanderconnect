@@ -31,7 +31,9 @@ public sealed record CurrentAccount(
     {
         var holds = area == AccountRole.Member
             ? Facts.Realm == AccountRealm.Members
-            : Roles.Any(r => r.Role == area) || area == AccountRole.Admin && IsRootAdmin;
+            : Roles.Any(r => r.Role == area) || area == AccountRole.Admin && IsRootAdmin
+                // D322: Trust & Safety has every Support capability.
+                || area == AccountRole.Support && Roles.Any(r => r.Role == AccountRole.TrustSafety);
         var venues = Roles.Where(r => r.Role == AccountRole.VenuePartner && r.VenueId is not null).Select(r => r.VenueId!.Value).ToHashSet();
         // Without a database there are no grants, so only the implicit member role can exist.
         var active = Account is null ? true : Account.Status == AccountStatus.Active;
@@ -44,8 +46,9 @@ public sealed record CurrentAccount(
     /// <summary>What the member's live sanctions mean right now (D133); filled in by the member gate.</summary>
     public Enforcement Enforcement { get; init; } = Enforcement.None;
 
-    /// <summary>The staff role this caller acts with in moderation: Admin when they hold it, else Support, else Unknown.</summary>
-    public AccountRole StaffRole => Allows(AccountRole.Admin) ? AccountRole.Admin : Allows(AccountRole.Support) ? AccountRole.Support : AccountRole.Unknown;
+    /// <summary>The staff role this caller acts with in moderation: the highest of Admin, Trust & Safety and Support (D322).</summary>
+    public AccountRole StaffRole => Allows(AccountRole.Admin) ? AccountRole.Admin : Allows(AccountRole.TrustSafety) ? AccountRole.TrustSafety
+        : Allows(AccountRole.Support) ? AccountRole.Support : AccountRole.Unknown;
 
     /// <summary>D136: local fictional password staff are allowed (Development with Staff:LocalPasswords only).</summary>
     public bool LocalPasswordStaff { get; init; }

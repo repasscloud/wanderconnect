@@ -119,8 +119,8 @@ const output = process.env.SWOOVR_SCREENSHOTS;
     assert.deepEqual([restriction.kind, restriction.reason, restriction.appealStatus], ['restriction', 'Fictional restriction for the standing suite.', null]); pass();
     assert.ok(new Date(restriction.endsAt) > new Date(Date.now() + 2.9 * 86400000) && new Date(restriction.appealBy) > new Date(Date.now() + 29 * 86400000)); pass();
     assert.deepEqual(s.decisions.map(d => [d.kind, d.state]).slice(0, 2), [['restriction', 'in-force'], ['warning', 'issued']]); pass();
-    // Restricted members still reach their standing (D160), but nothing else.
-    assert.deepEqual(code(await call(tokens.bob, '/api/explore?mode=friends')), [403, 'account-restricted']); pass();
+    // D325: a restriction naming nothing limits discovery, requests, messages and photos; Bob can still browse and appeal.
+    assert.deepEqual((await call(tokens.bob, '/api/me')).body.restrictionLimits, ['discovery', 'requests', 'messages', 'photos']); pass();
     assert.equal((await call(tokens.bob, '/api/me/appeals', { method: 'POST', body: { sanctionId: restriction.id, text: 'Fictional appeal.' } })).status, 201);
     s = await standing('bob');
     assert.deepEqual([s.inForce[0].appealStatus, s.inForce[0].appealBy], ['pending', null]); pass();
@@ -156,7 +156,7 @@ const output = process.env.SWOOVR_SCREENSHOTS;
     assert.ok(photos.every(p => p.state === null && p.sanctionId === null)); pass();
     await sql(`DELETE FROM media_items WHERE account_id = '${ids.ana}' AND object_key IS NULL AND status IN ('Blocked', 'Rejected')`);
 
-    // ---- Web at phone width: Ana's standing with her reference; Bob, restricted again, reaches it from the restricted screen.
+    // ---- Web at phone width: Ana's standing with her reference; Bob, restricted again, reaches it from his account page.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
@@ -174,10 +174,10 @@ const output = process.env.SWOOVR_SCREENSHOTS;
     const bobPage = await bobContext.newPage();
     await bobPage.goto(web + '/account/sign-in?intro=done');
     await bobPage.fill('#username', members.bob.email); await bobPage.fill('#password', members.bob.password);
-    await Promise.all([bobPage.waitForURL(url=>url.href===web+'/explore'||url.href.startsWith(web+'/account/restricted')), bobPage.click('#kc-login')]);
-    await bobPage.goto(web + '/explore');
-    await bobPage.waitForURL('**/account/restricted**');
-    await bobPage.$eval('[data-restricted-standing]', el => el.click());
+    await Promise.all([bobPage.waitForURL(url=>url.href.startsWith(web)), bobPage.click('#kc-login')]);
+    await bobPage.goto(web + '/account');
+    await bobPage.waitForSelector('[data-restriction-limits]', { timeout: 20000 }); pass();
+    await bobPage.goto(web + '/me/standing');
     await bobPage.waitForSelector('[data-standing="ready"]', { timeout: 20000 });
     assert.equal(await bobPage.getAttribute('[data-standing-state]', 'data-standing-state'), 'restricted'); pass();
     assert.ok((await bobPage.textContent('[data-standing-in-force]')).includes('Fictional second restriction.')); pass();

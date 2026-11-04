@@ -214,14 +214,14 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     assert.equal((await send('lou', travel, 'Fictional welcome')).status, 201); pass();
     assert.equal((await send('trv', travel, 'Fictional thanks')).status, 201); pass();
 
-    // Restricted and suspended members take no part (rule 15, D160).
+    // Rule 15, D325: a member restricted from messages and a suspended member take no part.
     const resConversation = (await start('ana', 'res')).body.id, susConversation = (await start('ana', 'sus')).body.id;
     assert.equal((await call(root, `/api/admin/accounts/${ids.res}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction for the messaging suite.', days: 2, hideFromDiscovery: true, noNewRequests: true, noMessages: true } })).status, 200);
     assert.equal((await call(root, `/api/admin/accounts/${ids.sus}/sanctions`, { method: 'POST', body: { action: 'suspend', reason: 'Fictional suspension for the messaging suite.', days: 2 } })).status, 200);
     assert.deepEqual(code(await send('ana', resConversation, 'hi')), [404, 'not-available']); pass();
     assert.deepEqual(code(await send('ana', susConversation, 'hi')), [404, 'not-available']); pass();
     assert.equal((await call(tokens.ana, `/api/conversations/${susConversation}`)).body.canSend, false); pass();
-    assert.deepEqual(code(await send('res', resConversation, 'hi')), [403, 'account-restricted']); pass();
+    assert.deepEqual(code(await send('res', resConversation, 'hi')), [403, 'restricted']); pass(); // D325: the messages limit, not a full bar
     assert.deepEqual(code(await call(tokens.sus, '/api/conversations')), [403, 'account-suspended']); pass();
     assert.equal((await listen(hub, { token: tokens.sus })).open, false); pass(); // the hub refuses barred members too
 

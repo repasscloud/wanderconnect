@@ -346,13 +346,16 @@ public static class AdminEndpoints
             await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, id, cancellationToken);
             var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
             if (profile is null) return Results.NotFound();
+            if (request.ReasonCode is not null && !AccountReasons.Valid(request.Active ? AccountReasons.StaffOn : AccountReasons.StaffOff, request.ReasonCode))
+                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose a listed reason.");
             if (request.Active && profile.Bot)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.InvalidRequest, "An official bot can't hold a staff affiliation.");
             if (profile.Employee != request.Active)
             {
                 profile.Employee = request.Active;
                 // Revoking the badge leaves the member account and every other credential as they were (Q11 rule 44).
-                Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", request.Active ? "staff.affiliated" : "staff.revoked", "account", id.ToString());
+                Audit.Record(db, clock.GetUtcNow(), current!.Account!.Id, "account", request.Active ? "staff.affiliated" : "staff.revoked", "account", id.ToString(),
+                    AccountReasons.Valid(request.Active ? AccountReasons.StaffOn : AccountReasons.StaffOff, request.ReasonCode) ? request.ReasonCode : null);
                 await db.SaveChangesAsync(cancellationToken);
             }
             return Results.NoContent();

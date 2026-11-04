@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Authentication;
 namespace Swoovr.Web.Auth;
 
 /// <summary>
-/// Owner answer to Q55 (D160): a restricted (or suspended or terminated) member can't use the app and sees the restricted
+/// D325 (Q132 B, supersedes D160): a suspended or terminated member can't use the app (a restriction only pauses the features it names,
+/// and a sign-in lock shows its own screen) and sees the restricted
 /// screen until the action is lifted. Before rendering a signed-in page this asks the API for the member's account state
 /// (`/api/me`, which stays open to barred members) and redirects to /account/restricted. The API refuses every other
 /// member route on its own; this only decides what the browser shows. The account page, notices (to read and appeal), notifications, account standing (#49, #50),
@@ -24,8 +25,11 @@ public static class RestrictionGate
             await next();
             return;
         }
-        var (state, phoneRequired) = await StateAsync(context, token);
-        if (state is "restricted" or "suspended" or "terminated") { context.Response.Redirect("/account/restricted?state=" + state); return; }
+        var (state, phoneRequired, reference) = await StateAsync(context, token);
+        // D325 (Q132 B): only suspension and termination take over the app; a restriction limits named features in place.
+        if (state is "suspended" or "terminated") { context.Response.Redirect("/account/restricted?state=" + state); return; }
+        // issue 190 §10 (D323): a sign-in lock shows its own screen with the member's public reference.
+        if (state == "locked") { context.Response.Redirect("/account/restricted?state=locked" + (reference is { } r ? "&ref=" + Uri.EscapeDataString(r) : "")); return; }
         // D170: while deletion is pending only the deletion screen (under /account) is open.
         if (state == "pendingDeletion") { context.Response.Redirect("/account/deletion"); return; }
         // D148: with the gate on, the account page (where the phone step is) comes first.
@@ -33,19 +37,20 @@ public static class RestrictionGate
         await next();
     });
 
-    private static async Task<(string? State, bool PhoneRequired)> StateAsync(HttpContext context, string token)
+    private static async Task<(string? State, bool PhoneRequired, string? Reference)> StateAsync(HttpContext context, string token)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "api/me");
             request.Headers.Authorization = new("Bearer", token);
             using var response = await context.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient(Bff.ApiClient).SendAsync(request, context.RequestAborted);
-            if (!response.IsSuccessStatusCode) return (null, false);
+            if (!response.IsSuccessStatusCode) return (null, false, null);
             using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(context.RequestAborted), cancellationToken: context.RequestAborted);
             return (body.RootElement.TryGetProperty("accountState", out var s) ? s.GetString() : null,
-                body.RootElement.TryGetProperty("phoneRequired", out var p) && p.ValueKind == JsonValueKind.True);
+                body.RootElement.TryGetProperty("phoneRequired", out var p) && p.ValueKind == JsonValueKind.True,
+                body.RootElement.TryGetProperty("statusReference", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null);
         }
         // The page itself still works without the API (its panels show their own errors); the API refuses barred members anyway.
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException) { return (null, false); }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException) { return (null, false, null); }
     }
 }

@@ -113,6 +113,8 @@ public sealed class Sanction
     public bool HideFromDiscovery { get; set; }
     public bool NoNewRequests { get; set; }
     public bool NoMessages { get; set; }
+    /// <summary>Q132 B (D325): no new profile or chat photos while the restriction lasts.</summary>
+    public bool NoPhotoUploads { get; set; }
     /// <summary>A staff-written reason, shown in the admin app and in the member's notice; never in the audit log.</summary>
     public string Reason { get; set; } = "";
     public DateTimeOffset StartsAt { get; set; }
@@ -122,6 +124,10 @@ public sealed class Sanction
     public AccountRole CreatedByRole { get; set; }
     public DateTimeOffset? LiftedAt { get; set; }
     public Guid? LiftedBy { get; set; }
+    /// <summary>D323: the set reason chosen by staff (stable wire code); <see cref="Reason"/> stays the member-facing message.</summary>
+    public string? ReasonCode { get; set; }
+    /// <summary>D323: an optional internal note, never shown to the member and never in the audit log.</summary>
+    public string? InternalNote { get; set; }
 }
 
 public enum AppealStatus { Pending, Upheld, Overturned }
@@ -169,10 +175,11 @@ public enum ModerationAction { Dismiss, Warn, Restrict, Suspend, Terminate, Lift
 public enum ModerationRefusal { None, NotPermitted, StaffAffiliatedCase, OwnAccount, AdminSanction, TooLong, ReasonRequired }
 
 /// <summary>
-/// Who may do what in moderation (D133–D135). Support reviews, dismisses, warns and applies or lifts temporary
-/// restrictions; only admins suspend, terminate, revoke staff affiliation and work staff-affiliated cases; nobody
-/// decides about their own member account; support can't lift what an admin applied. Facts come from application
-/// records only.
+/// Who may do what in moderation (D133–D135, roles D322). Support reviews, dismisses, warns and restricts for up to 30 days;
+/// Trust & Safety does everything Support does and enforces independently for up to 90 days (restrict or suspend); only
+/// admins terminate, revoke staff affiliation, decide appeals and work staff-affiliated cases. Legal takes no member
+/// sanctions here (its legal access blocks use the sign-in lock). Nobody decides about their own member account, and
+/// nobody lifts an action taken by a higher role. Facts come from application records only.
 /// </summary>
 public static class ModerationPolicy
 {
@@ -180,30 +187,46 @@ public static class ModerationPolicy
     public static readonly TimeSpan MaxSuspension = TimeSpan.FromDays(90);
     public const int ReasonMax = 1000;
 
+    /// <summary>Rank for "can't override a higher role": Support 1, Trust & Safety 2, Admin 3.</summary>
+    public static int Rank(AccountRole role) => role switch { AccountRole.Admin => 3, AccountRole.TrustSafety => 2, AccountRole.Support => 1, _ => 0 };
+
+    /// <summary>The longest restriction this role may set: 30 days for Support, 90 for Trust & Safety and Admin.</summary>
+    public static TimeSpan MaxRestrictionFor(AccountRole role) => role is AccountRole.Admin or AccountRole.TrustSafety ? MaxSuspension : MaxRestriction;
+
+    /// <summary>Which of warn, restrict, suspend and terminate this role may apply.</summary>
+    public static bool MayApply(AccountRole role, SanctionKind kind) => kind switch
+    {
+        SanctionKind.Warning or SanctionKind.Restriction => Rank(role) >= 1,
+        SanctionKind.Suspension => Rank(role) >= 2,
+        SanctionKind.Termination => role == AccountRole.Admin,
+        _ => false,
+    };
+
     public static ModerationRefusal Check(ModerationAction action, AccountRole actor, bool staffAffiliatedSubject, bool ownAccount,
         TimeSpan? duration = null, string? reason = null, Sanction? lifting = null)
     {
-        if (actor is not (AccountRole.Admin or AccountRole.Support)) return ModerationRefusal.NotPermitted;
+        if (Rank(actor) == 0) return ModerationRefusal.NotPermitted;
         if (ownAccount) return ModerationRefusal.OwnAccount;
         if (staffAffiliatedSubject && actor != AccountRole.Admin) return ModerationRefusal.StaffAffiliatedCase;
-        var adminOnly = action is ModerationAction.Suspend or ModerationAction.Terminate or ModerationAction.RevokeStaffAffiliation;
-        if (adminOnly && actor != AccountRole.Admin) return ModerationRefusal.NotPermitted;
+        if (action == ModerationAction.Suspend && !MayApply(actor, SanctionKind.Suspension)) return ModerationRefusal.NotPermitted;
+        if (action is ModerationAction.Terminate or ModerationAction.RevokeStaffAffiliation && actor != AccountRole.Admin) return ModerationRefusal.NotPermitted;
         if (action == ModerationAction.Lift && lifting is not null)
         {
-            if (lifting.CreatedByRole == AccountRole.Admin && actor != AccountRole.Admin) return ModerationRefusal.AdminSanction;
-            if (lifting.Kind is SanctionKind.Suspension or SanctionKind.Termination && actor != AccountRole.Admin) return ModerationRefusal.NotPermitted;
+            if (Rank(lifting.CreatedByRole) > Rank(actor)) return ModerationRefusal.AdminSanction;
+            if (lifting.Kind == SanctionKind.Termination && actor != AccountRole.Admin) return ModerationRefusal.NotPermitted;
+            if (lifting.Kind == SanctionKind.Suspension && !MayApply(actor, SanctionKind.Suspension)) return ModerationRefusal.NotPermitted;
         }
         if (action is ModerationAction.Warn or ModerationAction.Restrict or ModerationAction.Suspend or ModerationAction.Terminate or ModerationAction.Lift
             && string.IsNullOrWhiteSpace(reason)) return ModerationRefusal.ReasonRequired;
         if (reason is { Length: > ReasonMax }) return ModerationRefusal.ReasonRequired;
-        if (action == ModerationAction.Restrict && (duration is null || duration <= TimeSpan.Zero || duration > MaxRestriction)) return ModerationRefusal.TooLong;
+        if (action == ModerationAction.Restrict && (duration is null || duration <= TimeSpan.Zero || duration > MaxRestrictionFor(actor))) return ModerationRefusal.TooLong;
         if (action == ModerationAction.Suspend && (duration is null || duration <= TimeSpan.Zero || duration > MaxSuspension)) return ModerationRefusal.TooLong;
         return ModerationRefusal.None;
     }
 
     /// <summary>
-    /// Appeals (D135): one per action (warnings included), within 30 days of it, by the sanctioned member; decided by
-    /// someone other than the original decider, and only by admins for staff-affiliated accounts.
+    /// Appeals (D135): one per action (warnings included), within 30 days of it, by the sanctioned member; decided by an
+    /// admin (D322) other than the original decider.
     /// </summary>
     public static readonly TimeSpan AppealWindow = TimeSpan.FromDays(30);
 
@@ -212,7 +235,8 @@ public static class ModerationPolicy
 
     public static ModerationRefusal MayDecideAppeal(Sanction sanction, Guid decider, AccountRole role, bool staffAffiliatedSubject, bool ownAccount)
     {
-        if (role is not (AccountRole.Admin or AccountRole.Support)) return ModerationRefusal.NotPermitted;
+        // D322: appeals are an Admin decision.
+        if (role != AccountRole.Admin) return ModerationRefusal.NotPermitted;
         if (ownAccount) return ModerationRefusal.OwnAccount;
         if (sanction.CreatedBy == decider) return ModerationRefusal.NotPermitted; // someone other than the original decider
         if (staffAffiliatedSubject && role != AccountRole.Admin) return ModerationRefusal.StaffAffiliatedCase;
@@ -223,28 +247,40 @@ public static class ModerationPolicy
 
 /// <summary>What the account's live sanctions mean right now (D133); expired or lifted ones count for nothing.</summary>
 /// <remarks>
-/// Owner answer to Q55 (D160): a restricted member can't do anything in the app either; restrictions are a safety
-/// concern. Restricted, suspended and terminated accounts are all barred (only their account, notices and appeals stay
-/// open, and the app shows the restricted screen); the targeted options on a restriction are kept as a record only.
+/// Owner answer to Q132 B (D325, supersedes D160): a restriction limits only what it names (out of discovery, no new
+/// requests, no messages, no photo uploads) and the member keeps using everything else; a restriction that names nothing
+/// limits all four. Suspension and termination still bar the member: only their account, notices and appeals stay open.
 /// </remarks>
-public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFromDiscovery, bool NoNewRequests, bool NoMessages, bool Restricted = false)
+public sealed record Enforcement(bool Suspended, bool Terminated, bool HiddenFromDiscovery, bool NoNewRequests, bool NoMessages, bool Restricted = false,
+    bool NoPhotoUploads = false, DateTimeOffset? RestrictedUntil = null)
 {
     public static readonly Enforcement None = new(false, false, false, false, false);
-    /// <summary>Restricted, suspended or terminated: no normal member functions.</summary>
-    public bool Barred => Suspended || Terminated || Restricted;
+    /// <summary>Suspended or terminated: no normal member functions (D325).</summary>
+    public bool Barred => Suspended || Terminated;
     /// <summary>The account state members and the web host see: active, restricted, suspended or terminated.</summary>
     public string State => Terminated ? "terminated" : Suspended ? "suspended" : Restricted ? "restricted" : "active";
+    /// <summary>Wire codes of what a live restriction limits, for the member's notice (D325).</summary>
+    public IReadOnlyList<string> Limits => Barred || !Restricted ? [] :
+        new[] { HiddenFromDiscovery ? "discovery" : null, NoNewRequests ? "requests" : null, NoMessages ? "messages" : null, NoPhotoUploads ? "photos" : null }
+            .OfType<string>().ToList();
 
     public static bool Live(Sanction s, DateTimeOffset now) => s.LiftedAt is null && s.StartsAt <= now && (s.EndsAt is null || s.EndsAt > now);
+
+    /// <summary>D325: what one restriction limits; naming nothing means all four.</summary>
+    public static (bool Discovery, bool Requests, bool Messages, bool Photos) Scope(Sanction s) =>
+        s.HideFromDiscovery || s.NoNewRequests || s.NoMessages || s.NoPhotoUploads
+            ? (s.HideFromDiscovery, s.NoNewRequests, s.NoMessages, s.NoPhotoUploads) : (true, true, true, true);
 
     public static Enforcement For(IEnumerable<Sanction> sanctions, DateTimeOffset now)
     {
         var live = sanctions.Where(s => Live(s, now)).ToList();
         var terminated = live.Any(s => s.Kind == SanctionKind.Termination);
         var suspended = live.Any(s => s.Kind == SanctionKind.Suspension);
-        var restricted = live.Any(s => s.Kind == SanctionKind.Restriction);
-        var barred = terminated || suspended || restricted;
-        return new(suspended, terminated, barred, barred, barred, restricted);
+        var restrictions = live.Where(s => s.Kind == SanctionKind.Restriction).Select(s => (Sanction: s, Scope: Scope(s))).ToList();
+        var barred = terminated || suspended;
+        return new(suspended, terminated, barred || restrictions.Any(r => r.Scope.Discovery), barred || restrictions.Any(r => r.Scope.Requests),
+            barred || restrictions.Any(r => r.Scope.Messages), restrictions.Count > 0, barred || restrictions.Any(r => r.Scope.Photos),
+            restrictions.Count > 0 ? restrictions.Max(r => r.Sanction.EndsAt) : null);
     }
 }
 
@@ -316,6 +352,10 @@ public sealed class Entitlement
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
     public Guid? RevokedBy { get; set; }
+    /// <summary>D323: optional internal note on a grant; <see cref="Reason"/> holds the set reason code for new grants.</summary>
+    public string? Note { get; set; }
+    /// <summary>D323: the set reason code recorded when a grant is revoked.</summary>
+    public string? RevokedReason { get; set; }
 }
 
 /// <summary>

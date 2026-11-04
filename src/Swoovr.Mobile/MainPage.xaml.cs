@@ -97,10 +97,10 @@ public partial class MainPage : ContentPage
 		LockedCard.IsVisible = locked;
         PolicyGateCard.IsVisible=false;
 		var account = locked ? null : result?.Value;
-		// D160: anything but active shows only the restricted card; notices and appeals stay open.
+		// D325: suspended, terminated, locked or deleting shows only this card (restrictions don't); notices and appeals stay open.
 		var restricted = account is not null && MemberText.RestrictedTitle(account.AccountState) is not null;
 		RestrictedCard.IsVisible = restricted;
-		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBodyFor(account?.AccountState));
+		(RestrictedTitle.Text, RestrictedBody.Text) = (account is null ? null : MemberText.RestrictedTitle(account.AccountState), MemberText.RestrictedBodyFor(account?.AccountState, account?.StatusReference));
 		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;

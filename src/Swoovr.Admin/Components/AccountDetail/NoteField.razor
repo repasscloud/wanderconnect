@@ -1,0 +1,7 @@
+<label class="ui-field"><span>@Label</span><textarea name="@Name" maxlength="@Max" rows="2" placeholder="@(Required ? "Required" : "Optional")" required="@Required"></textarea></label>
+@code {
+    [Parameter] public string Name { get; set; } = "note";
+    [Parameter] public string Label { get; set; } = "Internal note";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public int Max { get; set; } = 1000;
+}
