@@ -162,6 +162,10 @@ public static class PushRegistration
         else if (path == "/travel") await Ui.PushAsync(new TravelPage());
         else if (path == "/me/meeting-safety") await Ui.PushAsync(new MeetingSafetyPage());
         else if (path == "/me/notices") await Ui.PushAsync(new NoticesPage());
+        // Every link the API sends (NotificationLinks): photo decisions and safety policy updates too.
+        else if (path == "/me/photos") await Ui.PushAsync(new PhotosPage());
+        else if (path == "/safety") await Ui.PushAsync(new SafetyPage());
+        else if (path == "/safety/advice") await Ui.PushAsync(new SafetyAdvicePage());
         // Support replies (Zammad): the list, or one request by its number. The page loads it as the signed-in member, so a
         // number for someone else's request shows "This request isn't available".
         else if (path == Swoovr.Client.SupportTicketText.MemberPath) await Ui.PushAsync(new SupportPage());
