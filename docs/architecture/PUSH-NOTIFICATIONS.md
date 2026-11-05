@@ -73,14 +73,26 @@ The API needs `Push:Provider=providers`, `Push:Fcm:Enabled=true` and the `swoovr
 | Delivered with the app swiped closed | Pass |
 | Tap opens the support request | Pass in all three states, including a cold start |
 
-Before the PR #209 fixes, the same device registered without ever being asked for permission, and a tap opened the last screen instead of the support request.
+Lifecycle checks on the same device:
+
+| Check | Result |
+| --- | --- |
+| Permission denied at the prompt | Pass: the device still registers and FCM accepts, but nothing is shown; the app works normally |
+| Re-enabled with "Enable notifications on this device" | Pass: Android asks again, delivery resumes, same device record |
+| Reinstall | Pass: registers as a new device; the old one is marked invalid on the next send (FCM `invalid-token`) |
+| Sign out (online) | Pass: the registration is removed, and later notices record `no-device` |
+| Sign out with the API down | Pass (best effort): the server keeps the registration, but the phone deletes its FCM token, so the next send is `invalid-token` and the registration is invalidated; nothing is shown |
+| Dead-token clean-up | Pass: invalidated on FCM's answer, never sent to again |
+
+Found on the device and fixed in PR #209:
+- **No permission prompt:** the app never asked for notification permission.
+- **Tap opened the wrong screen:** a tap opened the last screen instead of the support request.
+- **Sign-in left push off:** after signing out and back in, the device stayed unregistered until "Enable" was tapped. Sign-in and opening while signed in now fetch a fresh token when permission is already granted.
 
 Not yet tested on the device:
-- denying permission, token rotation, sign-out removal and invalid-token clean-up;
-- quiet hours and blocks;
+- quiet hours, per-kind preferences and blocks;
 - other notice kinds (chats, connections, meeting safety);
 - iOS/APNs (waiting on the Apple key).
-
 
 ## Primary references
 
