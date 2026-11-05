@@ -91,6 +91,7 @@ const widths = [375, 768, 1024, 1440];
       ['/me/matching', 'main h1', 'matching'], ['/travel', 'main h1', 'travel'],
       ['/me/safety', '[data-safety-services]', 'member-safety'], ['/me/meeting-safety', '[data-meeting-plan-form]', 'meeting-safety'],
       ['/me/notifications', '[data-notifications="ready"]', 'notifications'], ['/me/standing', '[data-standing="ready"]', 'standing'],
+      ['/me/standing/history', '[data-standing="ready"]', 'standing-history'], ['/me/safety/people', '[data-safety-people-page="ready"]', 'safety-people'],
       ['/account/data', '[data-privacy-link]', 'account-data'], ['/me/notices', 'main h1', 'notices'],
       ['/me/verification', 'main h1', 'verification'], ['/privacy', '[data-privacy-notice]', 'privacy'],
       ['/terms', '[data-public-policy]', 'terms'], ['/community-guidelines', '[data-public-policy]', 'community'],

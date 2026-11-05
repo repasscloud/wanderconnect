@@ -210,9 +210,12 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     await page.goto(web + `/chats/${withRep.conversation}`);
     await page.waitForSelector('[data-serious-link]', { timeout: 20000 });
     const href = await page.getAttribute('[data-serious-link]', 'href');
-    assert.equal(href, `/me/safety?type=conversation&id=${withRep.conversation}`); pass();
+    assert.equal(href, `/me/safety/report?type=conversation&id=${withRep.conversation}`); pass();
+    // Issue 217: links made before the dedicated report page still arrive there.
+    await page.goto(web + `/me/safety?type=conversation&id=${withRep.conversation}`);
+    await page.waitForURL(url => url.pathname === '/me/safety/report', { timeout: 20000 }); pass();
     await page.goto(web + href);
-    await page.waitForSelector('[data-safety-services]', { timeout: 20000 });
+    await page.waitForSelector('[data-safety-services]:not([data-safety-services="none"])', { timeout: 20000 });
     assert.ok((await page.textContent('[data-safety-services]')).includes('000')); pass();
     await page.waitForSelector('[data-serious-category] option[value="stalking"]', { state: 'attached' });
     await page.selectOption('[data-serious-category]', 'stalking');
@@ -225,8 +228,16 @@ const waitFor = async (predicate, ms = 5000) => { for (let i = 0; i < ms / 100 &
     await tap('[data-serious-send]');
     await page.waitForSelector('[data-serious-done]', { timeout: 20000 }); pass();
     assert.equal(await sql(`SELECT count(*) FROM reports WHERE reporter_account_id = '${ids.web}' AND category_id = 'stalking' AND police = 'will-contact'`), '1'); pass();
+    // Issue 217: Privacy & safety shows the latest three; everyone is on People you've dealt with, filterable by state.
     await page.goto(web + '/me/safety');
+    await page.waitForSelector('[data-safety-person]', { timeout: 20000 });
+    assert.ok(await page.locator('[data-safety-person]').count() <= 3, 'the latest three only'); pass();
+    await page.goto(web + '/me/safety/people');
     await page.waitForSelector(`[data-safety-person="${withOth.conversation}"][data-safety-state="blocked"]`, { timeout: 20000 }); pass();
+    await page.locator('[data-people-filter="blocked"]').evaluate(b => b.click());
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-safety-person]')].every(p => p.dataset.safetyState === 'blocked'));
+    assert.ok(await page.locator(`[data-safety-person="${withOth.conversation}"]`).count() === 1, 'the blocked filter keeps the blocked person'); pass();
+    assert.ok((await page.getAttribute(`[data-safety-report="${withOth.conversation}"]`, 'href')).endsWith('&from=people'), 'Report returns to the list'); pass();
     // Block from the chat header: the window closes the chat.
     const withDis2 = await connect('web', 'dis');
     await page.goto(web + `/chats/${withDis2.conversation}`);

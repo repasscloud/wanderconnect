@@ -21,7 +21,8 @@ public static class TravelEndpoints
     public const int PageSize = 50, SearchLimit = 10, TripWritesPerHour = 30;
 
     public static PlaceView Place(GeoCity city) => new(city.GeoNameId, city.Name,
-        city.Admin1Name is { Length: > 0 } region && region != city.Name ? region : null, city.CountryName, PlaceNames.Label(city));
+        city.Admin1Name is { Length: > 0 } region && region != city.Name ? region : null, city.CountryName, PlaceNames.Label(city),
+        city.CountryCode is { Length: 2 } code ? code.ToUpperInvariant() : null);
 
     public static void Map(WebApplication app)
     {

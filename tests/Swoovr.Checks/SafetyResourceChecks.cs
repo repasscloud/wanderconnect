@@ -55,6 +55,17 @@ static class SafetyResourceChecks
         Expect(SafetyText.Warning(unknown with { Readiness = "demo", Stale = true }) == SafetyText.DemoWarning, "demo warning");
         Expect(SafetyText.Warning(unknown with { Readiness = "not-ready", Stale = true }) == SafetyText.StaleWarning, "not-ready warning");
         Expect(SafetyText.Hint("cloudflare").Contains("VPN") && SafetyText.Hint("manual").Contains("manually"), "the hint says where the country came from");
+
+        // Issue 217: a member's choice, then their Home City's country, then the host default.
+        var adelaide = new PlaceView(2078025, "Adelaide", "South Australia", "Australia", "Adelaide, South Australia, Australia", "au");
+        Expect(SafetyText.HomeCountry(adelaide) == "AU" && SafetyText.HomeCountry(null) is null && SafetyText.HomeCountry(adelaide with { CountryCode = null }) is null, "the Home City's ISO code");
+        Expect(SafetyText.Choose("nz", "AU", "GB", "cloudflare") == ("NZ", "manual"), "a choice wins over the Home City");
+        Expect(SafetyText.Choose(null, "AU", "GB", "cloudflare") == ("AU", "home"), "the Home City wins over the network");
+        Expect(SafetyText.Choose(null, null, "GB", "cloudflare") == ("GB", "cloudflare") && SafetyText.Choose("bad", "XX", null, "unknown") == (null, "unknown"), "else the host default");
+        Expect(new[] { "connected", "pending", "blocked", "deleted", "disconnected", "ended", "declined" }.Select(SafetyText.PeopleGroup).Distinct().Order().SequenceEqual(["blocked", "connected", "deleted", "disconnected"]), "every state has a filter");
+        var person = new SafetyPerson("conversation", Guid.Parse("11111111-1111-1111-1111-111111111111"), "Jordan", "blocked", DateTimeOffset.UtcNow);
+        Expect(SafetyText.ReportPath(person, null, "people") == "/me/safety/report?type=conversation&id=11111111-1111-1111-1111-111111111111&state=blocked&from=people", "a report link returns to its list");
+        Expect(SafetyText.Query("https://swoovr.app/me/safety/report?type=profile&id=a%20b", "id") == "a b" && SafetyText.Query("https://swoovr.app/x", "id") is null, "query values");
         Console.WriteLine($"PASS: country-aware safety resources ({checks}).");
     }
 }

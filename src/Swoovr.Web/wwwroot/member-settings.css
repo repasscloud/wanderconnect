@@ -24,20 +24,25 @@
 
 .member-settings .settings-fields { display:contents; }
 
-/* issue 180: settings shell. 240px sidebar on desktop, a "Settings" menu above the page on phones; content up to
-   ~1,280px; one card style, 8/16/24/32 spacing, 14px minimum supporting text. */
+/* issue 180: settings shell. 240px sidebar on desktop; content up to ~1,280px; one card style, 8/16/24/32 spacing,
+   14px minimum supporting text. Issue 217: below 900px the list is a popover side sheet opened from the header's menu
+   button (SettingsShell), so nothing sits above the page heading. */
 .settings-shell { width: 100%; max-width: 1280px; margin-inline: auto; display: grid; gap: 24px; align-items: start; }
 .settings-shell .member-settings, .settings-shell .reading-page, .settings-shell .column, .settings-shell .collection-page { max-width: none; margin: 0; width: 100%; }
 .settings-shell .breadcrumb { display: none; }
 .settings-shell .field-help, .settings-shell .hint { font-size: .875rem; }
-.settings-nav details { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
-.settings-nav summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 18px; }
-.settings-nav summary::-webkit-details-marker { display: none; }
-.settings-nav summary::after { content: ""; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); margin-top: -4px; }
-.settings-nav details[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
-.settings-menu-label { font: var(--type-label); letter-spacing: .3px; text-transform: uppercase; color: var(--muted); }
-.settings-menu-current { margin-left: auto; font-weight: 700; }
-.settings-nav ul { list-style: none; margin: 0; padding: 4px 8px 10px; display: grid; gap: 2px; }
+.app-header .tab-bar { margin-left: auto; }
+.settings-menu-button, .settings-menu-close { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); cursor: pointer; }
+.settings-menu-button { margin-left: 8px; }
+.settings-menu-close { border-color: transparent; color: var(--muted); }
+.settings-menu-close:hover { color: var(--text); background: var(--soft); }
+.settings-menu-button:focus-visible, .settings-menu-close:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.settings-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 12px 12px; }
+.settings-menu-head h2 { font: 700 1.125rem/1.3 var(--font); margin: 0; }
+.settings-nav[popover] { color: var(--text); }
+.settings-nav:popover-open { position: fixed; inset: 0 0 0 auto; width: min(340px, 88vw); height: 100%; max-height: none; margin: 0; padding: 12px 12px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; border: 0; border-left: 1px solid var(--border); background: var(--surface); }
+.settings-nav::backdrop { background: var(--scrim); }
+.settings-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .settings-nav a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; text-decoration: none; color: var(--muted); font: 500 .9375rem/1.3 var(--font); }
 .settings-nav a .icon { flex: none; width: 20px; height: 20px; }
 .settings-nav a:hover { color: var(--text); background: var(--soft); }
@@ -87,10 +92,10 @@
 .settings-phone .notice { margin: 8px 0; }
 @media (min-width: 900px) {
   .settings-shell { grid-template-columns: 240px minmax(0, 1fr); gap: 40px; }
-  .settings-nav { position: sticky; top: 24px; }
-  .settings-nav details { border: 0; background: none; }
-  .settings-nav summary { display: none; }
-  .settings-nav ul { padding: 0; }
+  /* The popover list is the sidebar here: always shown, in the page flow. */
+  .settings-nav, .settings-nav[popover], .settings-nav:popover-open { display: block; position: sticky; top: 24px; inset: auto; width: auto; height: auto; margin: 0; padding: 0; overflow: visible; border: 0; background: none; color: inherit; }
+  .settings-nav::backdrop { display: none; }
+  .settings-menu-head, .settings-menu-button { display: none; }
 }
 @media (min-width: 1180px) {
   .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -101,3 +106,113 @@
   .settings-row { flex-wrap: wrap; }
   .settings-banner { flex-wrap: wrap; }
 }
+
+/* ---- Issue 217: Account standing, Privacy & safety and their sub-pages. Colours are theme tokens only (the
+   emergency call keeps D315's --emergency). Layouts follow each card's own width (container queries), so a row
+   that fits on desktop moves its button under the text on a narrow card instead of squeezing. */
+.me-page { display: grid; gap: 16px; align-content: start; container: me-page / inline-size; }
+.me-page-head { display: grid; gap: 4px; margin: 0 0 4px; }
+.me-title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.me-title-row h1 { font: 700 clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem)/1.1 var(--font); letter-spacing: -.8px; margin: 0; }
+.me-back { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; color: var(--muted); text-decoration: none; font: 600 .875rem/1 var(--font); justify-self: start; }
+.me-back:hover { color: var(--text); }
+.me-back:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.me-tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--soft); color: var(--softText); font: 600 .75rem/1.5 var(--font); white-space: nowrap; }
+.me-tag-quiet { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 1px 9px; }
+.me-tag-ink { background: var(--text); color: var(--bg); }
+.me-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.me-card { margin: 0; padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); min-width: 0; container: me-card / inline-size; }
+.me-card-title { display: flex; align-items: center; gap: 10px; font: 700 1.125rem/1.3 var(--font); margin: 0 0 12px; }
+.me-card-title .icon { color: var(--muted); }
+.me-card-lede { color: var(--muted); font: 400 .9375rem/1.5 var(--font); margin: 0 0 8px; }
+.me-card-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.me-meta { font: 400 .8125rem/1.45 var(--font); color: var(--muted); margin: 0; font-variant-numeric: tabular-nums; }
+.me-foot-note { margin-top: 12px; }
+.me-empty { font: 400 .9375rem/1.5 var(--font); color: var(--muted); margin: 0; }
+.me-stack { display: grid; gap: 8px; }
+.me-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.button.me-pill-button { width: auto; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: .875rem; white-space: nowrap; }
+.me-two-col, .me-safety-grid { display: grid; gap: 16px; align-items: start; }
+.me-col { display: grid; gap: 16px; min-width: 0; }
+@container me-page (min-width: 720px) {
+  .me-two-col, .me-safety-grid { grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 20px; }
+}
+/* Banner: only when something applies. */
+.me-banner { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px; padding: 20px 24px; border: 2px solid var(--text); border-radius: 18px; background: var(--surface); }
+.me-banner > .icon { flex: none; margin-top: 2px; }
+.me-banner-text { flex: 1 1 260px; min-width: 0; display: grid; gap: 4px; }
+.me-banner-text p { margin: 0; color: var(--muted); font: 400 .9375rem/1.5 var(--font); }
+.me-banner-text .me-banner-title { color: var(--text); font: 700 1.125rem/1.3 var(--font); }
+@container me-page (max-width: 520px) { .me-banner { padding: 18px; } .me-banner .me-actions { flex: 1 1 100%; } .me-banner .me-pill-button { width: 100%; min-height: 48px; } }
+/* Actions in force */
+.me-sanctions { display: grid; gap: 16px; }
+.me-sanction { display: grid; gap: 14px; }
+.me-sanction + .me-sanction { padding-top: 16px; border-top: 1px solid var(--border); }
+.me-sanction-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.me-sanction-head h3 { font: 700 1.0625rem/1.3 var(--font); margin: 0; }
+.me-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.me-facts dt { font: 400 .8125rem/1.4 var(--font); color: var(--muted); }
+.me-facts dd { font: 600 .9375rem/1.4 var(--font); margin: 2px 0 0; }
+.me-sanction-reason { font: 400 .9375rem/1.55 var(--font); margin: 0; }
+.me-appeal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; padding: 16px; border-radius: 14px; background: var(--soft); color: var(--softText); }
+.me-appeal-text { display: grid; gap: 2px; min-width: 0; }
+.me-appeal-text strong { font: 700 .9375rem/1.4 var(--font); }
+.me-appeal-text span { font: 400 .875rem/1.4 var(--font); color: var(--muted); }
+.me-appeal .button { width: auto; min-height: 44px; padding: 0 24px; }
+@container me-card (max-width: 479px) { .me-appeal .button { width: 100%; } }
+/* Uniform rows: title and pills, then date and detail, then the outcome; the action sits right, or below on narrow cards. */
+.me-items { list-style: none; margin: 0; padding: 0; }
+.me-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; padding: 16px 0; border-top: 1px solid var(--border); }
+.me-items > .me-item:first-child { border-top: 0; padding-top: 4px; }
+.me-item-main { min-width: 0; display: grid; gap: 3px; }
+.me-item-main p { margin: 0; }
+.me-item-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.me-item-title { font: 600 .9375rem/1.4 var(--font); }
+.me-ref { font: 600 .875rem/1.3 var(--font-mono); letter-spacing: .2px; }
+.me-outcome { font: 400 .875rem/1.45 var(--font); }
+.me-item-action { justify-self: end; }
+.me-person { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.me-avatar { width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--soft); color: var(--softText); display: inline-flex; align-items: center; justify-content: center; font: 700 .875rem/1 var(--font); }
+@container me-card (max-width: 479px) {
+  .me-items:not(.me-items-compact) .me-item { grid-template-columns: minmax(0, 1fr); }
+  .me-items:not(.me-items-compact) .me-item-action { justify-self: start; }
+  .me-card-foot .me-pill-button { width: 100%; }
+}
+.me-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.me-pager .button:disabled { opacity: .45; }
+/* Privacy & safety */
+.me-emergency { border: 2px solid var(--text); }
+.me-emergency-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.me-emergency-head .me-card-title { margin: 0; }
+.me-country { width: auto; min-height: 40px; padding: 6px 36px 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 600 .875rem/1.2 var(--font); }
+.me-country:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+@container me-card (max-width: 479px) { .me-emergency-head .me-country { width: 100%; } .me-emergency .safety-call-emergency { width: 100%; } }
+.me-links { list-style: none; margin: 0; padding: 0; }
+.me-links a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; border-top: 1px solid var(--border); text-decoration: none; font: 600 .9375rem/1.3 var(--font); color: var(--text); }
+.me-links li:first-child a { border-top: 0; }
+.me-links .icon { color: var(--muted); transition: transform .2s var(--ease); }
+.me-links a:hover .icon { color: var(--text); transform: translateX(3px); }
+.me-links a:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+/* People you've dealt with */
+.me-toolbar { display: grid; gap: 12px; margin-bottom: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.me-toolbar-row { display: grid; gap: 12px; }
+.me-toolbar input, .me-toolbar select { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font: 400 1rem/1.4 var(--font); }
+@container me-card (min-width: 620px) { .me-toolbar-row { grid-template-columns: minmax(0, 1fr) 240px; } }
+.me-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.me-chip { min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 600 .8125rem/1 var(--font); cursor: pointer; }
+.me-chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+.me-chip:focus-visible, .me-toolbar input:focus-visible, .me-toolbar select:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+/* Serious incident report */
+.me-report-layout { display: grid; gap: 16px; align-items: start; }
+@container me-page (min-width: 820px) { .me-report-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; } }
+.me-report-about { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--soft); color: var(--softText); }
+.me-report-form { display: grid; gap: 20px; }
+.me-report-form .field > label { position: static; display: block; margin: 0 0 8px; padding: 0; white-space: normal; overflow: visible; text-transform: none; letter-spacing: normal; font: 600 .875rem/1.3 var(--font); color: var(--text); }
+.me-report-form .field input, .me-report-form .field select, .me-report-form .field textarea { padding: 12px 14px; }
+.me-report-form fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
+.me-report-form legend { font: 600 .875rem/1.3 var(--font); margin-bottom: 4px; padding: 0; }
+.me-report-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.me-report-buttons .button { width: auto; padding: 0 24px; min-height: 48px; }
+@container me-card (max-width: 479px) { .me-report-buttons .button { flex: 1 1 100%; } }
+@media (max-width: 599px) { .me-card { padding: 18px 16px; } }
+@media (prefers-reduced-motion: reduce) { .me-links .icon { transition: none; } }

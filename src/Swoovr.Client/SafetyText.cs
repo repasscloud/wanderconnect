@@ -39,6 +39,52 @@ public static partial class SafetyText
 
     public static string? Manual(string? value) => value is not null && Iso().IsMatch(value.Trim()) ? value.Trim().ToUpperInvariant() : null;
 
+    /// <summary>
+    /// Issue 217: a signed-in member's default country is their Home City's (Me → Profile), after any country they chose
+    /// themselves and before the host's network or configured default. Choosing another country never changes the Home City.
+    /// </summary>
+    public static string? HomeCountry(PlaceView? homeCity) => Manual(homeCity?.CountryCode) is { } code && code != "XX" ? code : null;
+
+    /// <summary>Issue 217's order: an explicit or remembered choice, the Home City's country, then the host default.</summary>
+    public static (string? Country, string Source) Choose(string? manual, string? home, string? hostDefault, string hostSource) =>
+        Manual(manual) is { } chosen ? (chosen, "manual") : HomeCountry(home) is { } own ? (own, "home") : (hostDefault, hostSource);
+
+    private static string? HomeCountry(string? code) => Manual(code) is { } iso && iso != "XX" ? iso : null;
+
+    public const string SeriousPeopleHelp = "You can report people you've blocked, disconnected from, or whose account was deleted. They're never told.";
+
+    /// <summary>Me → Privacy & safety → People you've dealt with, keeping a meeting to include in the report.</summary>
+    public static string PeoplePath(string? meeting) => "/me/safety/people" + (meeting is null ? "" : "?meeting=" + Uri.EscapeDataString(meeting));
+
+    /// <summary>The serious-incident report page for one person; "from" is where Back and Cancel return (hub or people).</summary>
+    public static string ReportPath(SafetyPerson person, string? meeting, string from) =>
+        $"/me/safety/report?type={Uri.EscapeDataString(person.SubjectType)}&id={person.SubjectId}&state={Uri.EscapeDataString(person.State)}"
+        + (meeting is null ? "" : "&meeting=" + Uri.EscapeDataString(meeting)) + (from == "people" ? "&from=people" : "");
+
+    /// <summary>"Chat" or "Chat request": how the member dealt with them.</summary>
+    public static string Via(string subjectType) => subjectType == "conversation" ? "Chat" : "Chat request";
+
+    /// <summary>One query value from a URL (WebAssembly-safe; no System.Web).</summary>
+    public static string? Query(string uri, string key)
+    {
+        var query = new Uri(uri).Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (parts.Length == 2 && Uri.UnescapeDataString(parts[0]) == key) return Uri.UnescapeDataString(parts[1].Replace('+', ' '));
+        }
+        return null;
+    }
+
+    /// <summary>The People you've dealt with filters (issue 217): every state the API reports falls in one of them.</summary>
+    public static string PeopleGroup(string state) => state switch
+    {
+        "connected" or "pending" => "connected",
+        "blocked" => "blocked",
+        "deleted" => "deleted",
+        _ => "disconnected",
+    };
+
     public static string Hint(string source) => source switch
     {
         "manual" => "Country selected manually.",

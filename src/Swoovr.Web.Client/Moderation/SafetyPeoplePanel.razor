@@ -1,0 +1,81 @@
+@* Issue 217: Me → Privacy & safety → People you've dealt with. Everyone the member can still report (D190: after a
+   block, a disconnect or the other account's deletion), with search by name, a filter by state, a sort and pages,
+   the same on phones, tablets and desktop. Report opens the dedicated report page; its Back returns here. *@
+@inject MemberClient Members
+@inject NavigationManager Navigation
+<div class="me-page-head" data-safety-people-page="@(loaded ? "ready" : "loading")">
+    <a class="me-back" href="@("/me/safety" + (meeting is null ? "" : "?meeting=" + meeting))"><Icon Name="back" Size="18" />Privacy &amp; safety</a>
+    <div class="me-title-row"><h1>People you've dealt with</h1></div>
+</div>
+<section class="me-card" aria-label="People">
+    <div class="me-toolbar">
+        <div class="me-toolbar-row">
+            <label class="visually-hidden" for="people-search">Search by name</label>
+            <input id="people-search" type="search" placeholder="Search by name" autocomplete="off" value="@search" @oninput="Search" data-people-search />
+            <label class="visually-hidden" for="people-sort">Sort</label>
+            <select id="people-sort" value="@sort" @onchange="Sort" data-people-sort>
+                <option value="recent">Most recent interaction</option>
+                <option value="oldest">Oldest interaction</option>
+                <option value="name">Name A–Z</option>
+            </select>
+        </div>
+        <div class="me-chips" role="group" aria-label="Filter">
+            @foreach (var (key, label) in Filters)
+            {
+                <button type="button" class="me-chip" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => Filter(key)" data-people-filter="@key">@label</button>
+            }
+        </div>
+    </div>
+    @if (!loaded) { <p role="status" class="me-meta">Loading…</p> }
+    else if (Matches.Count == 0) { <p class="me-empty" data-safety-people="none">@(people.Count == 0 ? "No one yet." : "No one matches.")</p> }
+    else
+    {
+        var pages = Math.Max(1, (Matches.Count + PageSize - 1) / PageSize);
+        var current = Math.Clamp(page, 1, pages);
+        <SafetyPeopleList People="Matches.Skip((current - 1) * PageSize).Take(PageSize)" Meeting="meeting" From="people" />
+        @if (pages > 1)
+        {
+            <nav class="me-pager" aria-label="Pages" data-people-pager="@current/@pages">
+                <button type="button" class="button button-secondary me-pill-button" disabled="@(current == 1)" @onclick="() => page = current - 1">Previous</button>
+                <span class="me-meta">Page @current of @pages</span>
+                <button type="button" class="button button-secondary me-pill-button" disabled="@(current == pages)" @onclick="() => page = current + 1">Next</button>
+            </nav>
+        }
+    }
+</section>
+@code {
+    /// <summary>DEFAULT (issue 217): ten per page, as on the standing lists.</summary>
+    private const int PageSize = 10;
+    private static readonly (string Key, string Label)[] Filters = [("all", "All"), ("connected", "Connected"), ("disconnected", "Disconnected"), ("blocked", "Blocked"), ("deleted", "Deleted")];
+    private bool loaded;
+    private int page = 1;
+    private string search = "", sort = "recent", filter = "all";
+    private string? meeting;
+    private List<SafetyPerson> people = [];
+
+    private List<SafetyPerson> Matches
+    {
+        get
+        {
+            var list = people.Where(p => (filter == "all" || SafetyText.PeopleGroup(p.State) == filter)
+                && (search.Trim().Length == 0 || p.Name.Contains(search.Trim(), StringComparison.CurrentCultureIgnoreCase)));
+            return (sort switch
+            {
+                "oldest" => list.OrderBy(p => p.LastInteractionAt ?? p.Since),
+                "name" => list.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ThenByDescending(p => p.LastInteractionAt ?? p.Since),
+                _ => list.OrderByDescending(p => p.LastInteractionAt ?? p.Since),
+            }).ToList();
+        }
+    }
+
+    private void Search(ChangeEventArgs e) => (search, page) = (e.Value?.ToString() ?? "", 1);
+    private void Sort(ChangeEventArgs e) => (sort, page) = (e.Value?.ToString() ?? "recent", 1);
+    private void Filter(string key) => (filter, page) = (key, 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        meeting = SafetyText.Query(Navigation.Uri, "meeting") is { } m && Guid.TryParse(m, out var id) ? id.ToString() : null;
+        people = (await Members.SafetyPeopleAsync()).Value ?? [];
+        loaded = true;
+    }
+}

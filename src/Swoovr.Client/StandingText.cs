@@ -52,7 +52,46 @@ public static class StandingText
         "needsAction" => "ID check needs action",
         "rejected" => "ID check not approved",
         "expired" => "ID check expired",
-        _ => "Not verified (optional)",
+        _ => "Not verified",
+    };
+
+    // ---- Issue 217: the web standing page (summary, Account history, Your reports).
+    public const string NoHistory = "No decisions about your account and no reports from you.";
+    public const string BannerTodo = "Complete the steps below to keep using everything.";
+
+    /// <summary>"5 Nov 2026", the date style used across the member app.</summary>
+    public static string Date(DateTimeOffset at) => at.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static string Capitalise(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    /// <summary>The banner's headline: the strongest action in force, else what the member needs to do.</summary>
+    public static string BannerTitle(AccountStandingView view)
+    {
+        var strongest = view.InForce.OrderByDescending(s => s.Kind switch { "termination" => 3, "suspension" => 2, "restriction" => 1, _ => 0 }).FirstOrDefault();
+        if (strongest is null) return view.Actions.Count == 1 ? Action(view.Actions[0].Code) : "There are things to do on your account";
+        var verb = strongest.Kind switch { "termination" => "closed", "suspension" => "suspended", "restriction" => "restricted", _ => "limited" };
+        return strongest.EndsAt is { } end ? $"Your account is {verb} until {Date(end)}" : $"Your account is {verb}";
+    }
+
+    /// <summary>The second line of a decision row: the appeal's state or deadline, if any.</summary>
+    public static string? DecisionDetail(StandingDecision d) =>
+        d.AppealStatus is { } a ? "Appeal " + MemberText.AppealStatus(a) : d.AppealBy is { } by ? $"You can appeal until {Date(by)}" : null;
+
+    /// <summary>Where a decision can be acted on, if anywhere.</summary>
+    public static (string Label, string Href)? DecisionLink(StandingDecision d) => d.Kind switch
+    {
+        "photo-not-approved" => ("Photos", "/me/photos"),
+        "dob-not-verified" => ("Verification", "/me/verification"),
+        _ when d.AppealBy is not null && d.AppealStatus is null => ("Appeal", "/me/notices"),
+        _ => null,
+    };
+
+    /// <summary>The general outcome of a closed report (D190), never which action.</summary>
+    public static string? Outcome(string? outcome) => outcome switch
+    {
+        "actionTaken" => "We took action on this report.",
+        "noBreachFound" => "We reviewed it and didn't find a breach of our rules.",
+        _ => null,
     };
 
     public static string Dob(StandingVerification v) => !v.DateOfBirthSet ? "Not added"

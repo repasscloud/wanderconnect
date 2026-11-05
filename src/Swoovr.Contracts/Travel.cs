@@ -1,7 +1,8 @@
 namespace Swoovr.Contracts;
 
-/// <summary>A GeoNames city as search and trips show it (D111): id, name, region, country and "City, Region, Country". No coordinates.</summary>
-public sealed record PlaceView(int Id, string Name, string? Region, string Country, string Label);
+/// <summary>A GeoNames city as search and trips show it (D111): id, name, region, country and "City, Region, Country". No coordinates.
+/// CountryCode is the ISO 3166-1 alpha-2 code (issue 217: Safety &amp; Support defaults to the Home City's country).</summary>
+public sealed record PlaceView(int Id, string Name, string? Region, string Country, string Label, string? CountryCode = null);
 
 /// <summary>A trip as its owner sees it. State is "planned", "visible", "expired" or "cancelled"; OpensOn is the first day locals may see it.</summary>
 /// <param name="ArrivalState">"upcoming", "unconfirmed" (a check didn't confirm) or "arrived" (D149); ArrivedAt is when it was confirmed.</param>

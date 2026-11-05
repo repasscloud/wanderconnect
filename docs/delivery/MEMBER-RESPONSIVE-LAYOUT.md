@@ -21,9 +21,10 @@ Profiles separate their story/photos from connection/safety actions on desktop. 
 | `/chats`, `/chats/{id}` | Wider list rows; bounded conversation and wrapping safety actions |
 | `/travel`, `/me/photos` | Travel composition and photo gallery width; forms bounded |
 | `/settings/appearance` | Existing responsive controls/preview retained; palette infrastructure untouched |
-| `/privacy`, `/terms`, `/community-guidelines`, `/safety/advice`, `/safety`, `/law-enforcement`, `/me/notices`, `/me/notifications`, `/me/standing` | Readable44rem content width |
-| `/me/profile`, `/me/matching`, `/me/verification` (including return), `/me/safety`, `/me/meeting-safety`, `/account/data` (and deletion), `/account/policies`, `/account/restricted` |420px form width retained; shared reflow/navigation improvements apply |
+| `/privacy`, `/terms`, `/community-guidelines`, `/safety/advice`, `/law-enforcement`, `/me/notices`, `/me/notifications` | Readable44rem content width |
+| `/me/profile`, `/me/matching`, `/me/verification` (including return), `/me/meeting-safety`, `/account/data` (and deletion), `/account/policies`, `/account/restricted` |420px form width retained; shared reflow/navigation improvements apply |
 | `/policies/{version}`, `/Error`, not-found | Bounded reading/status states retained |
+| `/safety`, `/me/standing` (+ `/history`, `/reports`), `/me/safety` (+ `/people`, `/report`) | Issue 217 (D329): full settings-shell width; two columns from about 720px of content (history/tools left, help/privacy right), one column below; rows move their button under the text on narrow cards. `/safety` puts the country beside the heading, or under Emergency assistance on phones. Below 900px the Me list opens from the header's menu button. |
 | Development previews | Existing widths retained; shared tile/navigation/reflow rules apply |
 
 ## Browser evidence

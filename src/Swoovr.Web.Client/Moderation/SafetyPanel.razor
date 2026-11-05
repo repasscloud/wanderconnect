@@ -1,109 +1,108 @@
-@* The Serious Safety Incident pathway (policy §9, owner Q77, D190), separate from routine reports. Immediate safety
-   information and Australian support services come first; then the people the member has dealt with (reportable even
-   after a block, a disconnect or their deletion) and the serious report itself: a category, what happened, whether they
-   have contacted or want to contact police (with an optional reference, kept encrypted), messages chosen as evidence
-   and an optional block. The other person is never told. Opened from a profile, a conversation or Me → Safety. *@
+@* Me → Privacy & safety (issue 217; earlier Me → Safety, D190/D204). Emergency assistance first for the member's
+   country; then the serious-incident entry with the three people they dealt with most recently (the full list and the
+   report itself are their own pages), safety resources, "I'm meeting someone" and the privacy controls.
+   Country: a choice the member made (kept on this device) wins, then their Home City's country, then the host's
+   default. Choosing a country never changes the profile, Home City, Travel or Explore. *@
 @inject MemberClient Members
-@inject NavigationManager Navigation
 @inject IJSRuntime JS
-<div class="page-heading" data-safety="@(done ? "sent" : "ready")">
-    <p class="breadcrumb"><a href="/account">Me</a> / Safety</p>
-    <h1>Safety</h1>
-</div>
-@* issue 103 (D204): the country's contacts from the API, emergency first; the member's choice wins for this browsing session
-   and never changes their profile, home city, Travel or Explore. *@
-<div class="card account-section stack" data-country-form>
-    <div class="field"><label for="safety-country">Country</label>
-        <select id="safety-country" value="@(pack?.Country ?? "")" @onchange="ChooseAsync" data-country-select>
+<div class="me-page-head" data-safety="ready"><div class="me-title-row"><h1>Privacy &amp; safety</h1></div></div>
+<section class="me-card me-emergency" aria-labelledby="emergency-title" data-safety-services="@(pack?.Country ?? "none")"
+         data-safety-readiness="@(pack?.Readiness ?? "unknown")" data-safety-stale="@(pack?.Stale == true ? "yes" : "no")" data-country-source="@source">
+    <div class="me-emergency-head" data-country-form>
+        <h2 class="me-card-title" id="emergency-title"><Icon Name="phone" Size="20" />Emergency assistance</h2>
+        <label class="visually-hidden" for="safety-country">Country</label>
+        <select id="safety-country" class="me-country" value="@(pack?.Country ?? "")" @onchange="ChooseAsync" data-country-select>
             @if (pack?.Country is null) { <option value="">Choose a country</option> }
             @foreach (var option in pack?.Countries ?? []) { <option value="@option.Code">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option> }
-        </select></div>
-    <p class="field-help" data-country-hint="@source">@(source == "manual" ? "" : SafetyText.Hint(source))</p>
-</div>
-@if (packLoaded) { <SafetyResources Pack="pack" /> }
-@if (done)
-{
-    <section class="card account-section" data-serious-done>
-        <h2>Your report was sent</h2>
-        <p role="status">@MemberText.SeriousPromise</p>
-        <ReportSupport />
-        <p>You can follow it under <a class="link" href="/me/notices">Me → Notices and reports</a>.</p>
-    </section>
-}
-else if (subjectType is not null)
-{
-    <section class="card account-section" aria-labelledby="serious-heading">
-        <h2 id="serious-heading">Report a serious safety incident</h2>
-        <p class="field-help">@MemberText.SeriousPromise</p>
-        <form class="stack" @onsubmit="SendAsync" data-serious-form>
-            @if(meetingContext is not null){<label class="check"><input type="checkbox" @bind="includeMeeting" />Include my meeting times, venue or area and check-in status for staff review. Private feedback and trusted-contact details are excluded.</label>}
-            <div class="field"><label for="serious-category">What happened</label>
-                <select id="serious-category" @bind="category" required data-serious-category>
-                    <option value="">Choose one</option>
-                    @foreach (var c in categories) { <option value="@c.Id">@c.Label</option> }
-                </select></div>
-            <div class="field"><label for="serious-text">Tell us what happened (optional)</label>
-                <textarea id="serious-text" maxlength="2000" rows="5" @bind="text"></textarea></div>
-            <fieldset class="field"><legend>Police</legend>
-                @foreach (var answer in new[] { "contacted", "will-contact", "not-now" })
-                {
-                    <label class="check"><input type="radio" name="police" checked="@(police == answer)" @onchange="() => police = answer" data-police="@answer" /> @MemberText.PoliceAnswer(answer)</label>
-                }
-            </fieldset>
-            @if (police == "contacted")
-            {
-                <div class="field"><label for="police-reference">Police reference (optional)</label>
-                    <input id="police-reference" maxlength="100" @bind="policeReference" data-police-reference /></div>
-            }
-            @if (messages.Count > 0)
-            {
-                <fieldset class="field" data-choose-messages="@messages.Count"><legend>Messages to include (optional, up to 20)</legend>
-                    @foreach (var m in messages.Where(m => !m.Deleted).TakeLast(50))
-                    {
-                        <label class="check"><input type="checkbox" checked="@chosen.Contains(m.Id)" @onchange="() => Toggle(m.Id)" data-choose="@m.Id" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @(m.Mine ? "You" : "Them"): @(m.Kind == "photo" ? "[photo]" : m.Text)</label>
-                    }
-                </fieldset>
-            }
-            @if (subjectType != "conversation" || personState is not ("blocked" or "deleted"))
-            {
-                <label class="check"><input type="checkbox" @bind="block" data-serious-block /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Also block them</label>
-            }
-            <button type="submit" class="button" disabled="@(busy || string.IsNullOrEmpty(category))" data-serious-send>Send serious report</button>
-            <p role="status" aria-live="polite" class="field-help" data-serious-status="@status">@message</p>
-        </form>
-    </section>
-}
-<section class="card account-section" aria-labelledby="people-heading">
-    <h2 id="people-heading">People you've dealt with</h2>
-    <p class="field-help">You can report someone even after blocking or disconnecting, or if their account was deleted.</p>
-    @if (people.Count == 0) { <p class="field-help" data-safety-people="none">No one yet.</p> }
+        </select>
+    </div>
+    @if (pack is not null && SafetyText.Warning(pack) is { } warning) { <p class="safety-warning" role="note" data-safety-warning>@warning</p> }
+    @if (!packLoaded) { <p role="status" class="me-meta">Loading…</p> }
+    else if (Emergency.Count == 0) { <p class="safety-emergency-fallback" data-safety-neutral>@(pack is null ? "Safety contacts couldn't be loaded. If you're in immediate danger, contact your local emergency services now." : SafetyText.Neutral)</p> }
     else
     {
-        <ul class="request-list" data-safety-people="@people.Count">
-            @foreach (var p in people)
+        <ul class="safety-emergency-list">
+            @foreach (var r in Emergency)
             {
-                <li data-safety-person="@p.SubjectId" data-safety-state="@p.State">@p.Name · @MemberText.SafetyState(p.State)
-                    <a class="link" href="@($"/me/safety?type={p.SubjectType}&id={p.SubjectId}&state={p.State}{(meetingContext is{}meeting?$"&meeting={meeting}":"")}")" data-safety-report="@p.SubjectId">Report</a></li>
+                <li class="safety-emergency-row" data-service="@r.Name" data-category="@r.Category" data-safety-resource>
+                    <div>
+                        @if ((r.PhoneDisplay ?? r.Phone) is { } shown) { <p class="safety-emergency-number">@shown</p> }
+                        <p class="safety-emergency-name">@r.Name</p>
+                        <p class="safety-emergency-text">@r.Description</p>
+                    </div>
+                    @if (r.Phone is not null) { <a class="safety-call-emergency" href="tel:@r.Phone" data-call="@r.Phone" aria-label="Call @(r.PhoneDisplay ?? r.Phone), @r.Name"><Icon Name="phone" Size="18" />Call @(r.PhoneDisplay ?? r.Phone)</a> }
+                </li>
             }
         </ul>
     }
 </section>
+<div class="me-safety-grid">
+    <div class="me-col">
+        <section class="me-card" id="serious" aria-labelledby="serious-heading" data-swoovr-actions>
+            <h2 class="me-card-title" id="serious-heading"><Icon Name="shield" Size="20" />Report a serious safety incident</h2>
+            <p class="me-card-lede">@SafetyText.SeriousPeopleHelp</p>
+            @if (!peopleLoaded) { <p role="status" class="me-meta">Loading…</p> }
+            else if (people.Count == 0) { <p class="me-empty" data-safety-people="none">No one yet. You can also report from someone's profile or a conversation.</p> }
+            else { <SafetyPeopleList People="people.Take(3)" Meeting="meeting" From="hub" /> }
+            @if (people.Count > 3)
+            {
+                <div class="me-card-foot"><span class="me-meta">@people.Count people</span><a class="button button-secondary me-pill-button" href="@SafetyText.PeoplePath(meeting)" data-safety-all-people>See all people</a></div>
+            }
+        </section>
+        <section class="me-card" aria-labelledby="resources-heading">
+            <h2 class="me-card-title" id="resources-heading"><Icon Name="book" Size="20" />Safety resources</h2>
+            <ul class="me-links">
+                <li><a href="@("/safety" + (pack?.Country is { } c ? "?country=" + c : ""))" data-enhance-nav="false">Support services@(pack?.CountryName is { } name ? " in " + name : "")<Icon Name="arrow-right" Size="18" /></a></li>
+                <li><a href="/safety/advice">Safety Advice<Icon Name="arrow-right" Size="18" /></a></li>
+                <li><a href="/community-guidelines#guidance-2">Reporting and blocking<Icon Name="arrow-right" Size="18" /></a></li>
+                <li><a href="/community-guidelines">Community Guidelines<Icon Name="arrow-right" Size="18" /></a></li>
+            </ul>
+        </section>
+    </div>
+    <div class="me-col">
+        <section class="me-card" aria-labelledby="meeting-heading">
+            <h2 class="me-card-title" id="meeting-heading"><Icon Name="clock" Size="20" />I'm meeting someone</h2>
+            <p class="me-card-lede">Share your plans with a trusted contact and check in when you're home.</p>
+            <a class="button" href="/me/meeting-safety" data-meeting-entry>Set up a meeting check-in</a>
+        </section>
+        <section class="me-card" aria-labelledby="privacy-heading">
+            <h2 class="me-card-title" id="privacy-heading"><Icon Name="lock" Size="20" />Privacy</h2>
+            <ul class="me-items me-items-compact">
+                <li class="me-item"><div class="me-item-main"><p class="me-item-title">Blocked people</p>@if (blockedCount is { } n) { <p class="me-meta" data-blocked-count="@n">@(n == 1 ? "1 person" : $"{n} people")</p> }</div><a class="button button-secondary me-pill-button me-item-action" href="/connections#blocked-heading">Manage</a></li>
+                <li class="me-item"><div class="me-item-main"><p class="me-item-title">Your data</p><p class="me-meta">Download or delete</p></div><a class="button button-secondary me-pill-button me-item-action" href="/account/data">Open</a></li>
+                <li class="me-item"><div class="me-item-main"><p class="me-item-title">Privacy Notice</p></div><a class="button button-secondary me-pill-button me-item-action" href="/privacy">Read</a></li>
+            </ul>
+        </section>
+    </div>
+</div>
 @code {
-    private string? subjectType, subjectId, personState, category, text, police, policeReference, status, message;
-    private bool busy, done, block;
-    private Guid? meetingContext;
-    private bool includeMeeting=true;
-    private List<ReportCategoryView> categories = [];
-    private List<SafetyPerson> people = [];
-    private List<MessageView> messages = [];
-    private readonly HashSet<Guid> chosen = [];
-
     /// <summary>The host's default (D153 Cloudflare only where trusted, else the deployment fallback) and where it came from.</summary>
     [Parameter] public string? DefaultCountry { get; set; }
     [Parameter] public string DefaultSource { get; set; } = "unknown";
+
     private SafetyPack? pack;
-    private bool packLoaded;
+    private bool packLoaded, peopleLoaded;
     private string source = "unknown";
+    private string? meeting;
+    private int? blockedCount;
+    private List<SafetyPerson> people = [];
+    private IReadOnlyList<SafetyResourceView> Emergency => pack?.Resources.Where(r => r.Category == "emergency").OrderBy(r => r.Order).ToList() ?? [];
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // ?meeting=<id> (from I'm meeting someone) is carried into the report so its details can be included.
+        meeting = SafetyText.Query(Navigation.Uri, "meeting") is { } m && Guid.TryParse(m, out var id) ? id.ToString() : null;
+        string? remembered = null;
+        try { remembered = await JS.InvokeAsync<string?>("localStorage.getItem", SafetyText.ChoiceKey); } catch (JSException) { }
+        var home = SafetyText.Manual(remembered) is null ? SafetyText.HomeCountry((await Members.ProfileAsync()).Value?.HomeCity) : null;
+        var (country, from) = SafetyText.Choose(remembered, home, DefaultCountry, DefaultSource);
+        await LoadPackAsync(country, from);
+        people = (await Members.SafetyPeopleAsync()).Value ?? [];
+        peopleLoaded = true;
+        blockedCount = (await Members.BlocksAsync()).Value?.Count;
+    }
 
     private async Task LoadPackAsync(string? country, string from)
     {
@@ -117,40 +116,5 @@ else if (subjectType is not null)
         if (SafetyText.Manual(e.Value?.ToString()) is not { } chosen) return;
         try { await JS.InvokeVoidAsync("localStorage.setItem", SafetyText.ChoiceKey, chosen); } catch (JSException) { }
         await LoadPackAsync(chosen, "manual");
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        string? remembered = null;
-        try { remembered = SafetyText.Manual(await JS.InvokeAsync<string?>("localStorage.getItem", SafetyText.ChoiceKey)); } catch (JSException) { }
-        await (remembered is not null ? LoadPackAsync(remembered, "manual") : LoadPackAsync(DefaultCountry, DefaultSource));
-        var query = new Uri(Navigation.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
-            .Select(pair => pair.Split('=', 2)).Where(pair => pair.Length == 2).GroupBy(pair => pair[0]).ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1]));
-        if (query.GetValueOrDefault("type") is "profile" or "conversation" or "request" or "message" && query.GetValueOrDefault("id") is { } id)
-            (subjectType, subjectId, personState) = (query["type"], id, query.GetValueOrDefault("state"));
-        if(Guid.TryParse(query.GetValueOrDefault("meeting"),out var meeting))meetingContext=meeting;
-        categories = (await Members.ReportCategoriesAsync(serious: true)).Value ?? [];
-        people = (await Members.SafetyPeopleAsync()).Value ?? [];
-        // A conversation the member can still read offers its messages as evidence; a blocked one can't be read, and its
-        // latest messages are preserved anyway.
-        if (subjectType == "conversation" && Guid.TryParse(subjectId, out var conversation))
-            messages = (await Members.MessagesAsync(conversation)).Value?.Items.Reverse().ToList() ?? [];
-    }
-
-    private void Toggle(Guid id)
-    {
-        if (!chosen.Remove(id) && chosen.Count < 20) chosen.Add(id);
-    }
-
-    private async Task SendAsync()
-    {
-        busy = true;
-        var result = await Members.ReportAsync(new NewReport(subjectType!, subjectId!, category ?? "", text, block, police, policeReference,
-            chosen.Count > 0 ? chosen.ToList() : null,includeMeeting?meetingContext:null));
-        busy = false;
-        if (result.Ok) { done = true; return; }
-        (status, message) = (result.Code ?? "failed", result.Code == ProblemCodes.NotAvailable
-            ? "We couldn't find that conversation or person. Choose them from the list below."
-            : "That report couldn't be sent. If you're in immediate danger, contact your local emergency services.");
     }
 }

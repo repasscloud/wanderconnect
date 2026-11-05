@@ -69,7 +69,8 @@ public static class ModerationEndpoints
                 var deleted = !names.ContainsKey(other);
                 if (conversations.FirstOrDefault(c => c.PairLow == other || c.PairHigh == other) is { } c)
                     people.Add(new("conversation", c.Id, name, deleted ? "deleted" : blocked.Contains(other) || c.ClosedReason == ClosedReasons.Blocked ? "blocked"
-                        : c.ClosedReason == ClosedReasons.Disconnected ? "disconnected" : c.ClosedAt is null ? "connected" : "ended", c.CreatedAt));
+                        : c.ClosedReason == ClosedReasons.Disconnected ? "disconnected" : c.ClosedAt is null ? "connected" : "ended", c.CreatedAt,
+                        Latest(c.CreatedAt, c.LastMessageAt, c.ClosedAt)));
                 else if (requests.FirstOrDefault(r => r.FromAccountId == other || r.ToAccountId == other) is { } r)
                     people.Add(new("request", r.Id, name, blocked.Contains(other) ? "blocked" : r.Status switch
                     {
@@ -78,9 +79,10 @@ public static class ModerationEndpoints
                         ConnectionRequestStatus.Disconnected => "disconnected",
                         ConnectionRequestStatus.Declined => "declined",
                         _ => "ended",
-                    }, r.CreatedAt));
+                    }, r.CreatedAt, Latest(r.CreatedAt, r.AnsweredAt, r.EndedAt)));
             }
-            return Results.Ok(people);
+            // issue 217: newest interaction first, so the Privacy & safety page can show the latest three.
+            return Results.Ok(people.OrderByDescending(p => p.LastInteractionAt ?? p.Since).ToList());
         });
         api.MapGet("/me/notices", async (ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -129,6 +131,10 @@ public static class ModerationEndpoints
     }
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    /// <summary>The latest of a start time and optional later events (issue 217's "last interaction").</summary>
+    private static DateTimeOffset Latest(DateTimeOffset start, params DateTimeOffset?[] later) =>
+        later.Aggregate(start, (max, at) => at is { } value && value > max ? value : max);
 
     /// <summary>
     /// D131: a member reports a profile, a request between them, a bot, a conversation or a message. Optional text, an

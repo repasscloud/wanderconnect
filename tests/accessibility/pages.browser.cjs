@@ -42,7 +42,8 @@ const audit = require('./audit.cjs');
     for (const [path, ready] of [['/account', 'main h1'], ['/account/policies','[data-policy-none]'], ['/me/meeting-safety','[data-meeting-plan-form]'], ['/me/profile', '[data-profile-editor="ready"]'], ['/me/photos', '[data-photos-panel="ready"]'],
       ['/explore?mode=friends', '.people-grid, [data-explore-empty], [data-explore-local]'], ['/connections', 'main h1'], ['/chats', 'main h1'], ['/me/safety', '[data-safety-services]'],
       ['/me/matching', 'main h1'], ['/travel', 'main h1'], ['/account/data', '[data-privacy-link]'], ['/me/notices', 'main h1'], ['/me/verification', 'main h1'],
-      ['/me/notifications', '[data-notifications="ready"]'], ['/me/standing', '[data-standing="ready"]']])
+      ['/me/notifications', '[data-notifications="ready"]'], ['/me/standing', '[data-standing="ready"]'],
+      ['/me/standing/reports', '[data-standing="ready"]'], ['/me/safety/people', '[data-safety-people-page="ready"]'], ['/me/safety/report', '[data-serious-choose]']])
       await check(page, path, ready);
     const report = Object.entries(findings).map(([where, list]) => `${where}\n  - ${list.join('\n  - ')}`).join('\n');
     if (process.env.SWOOVR_A11Y_REPORT) require('node:fs').writeFileSync(process.env.SWOOVR_A11Y_REPORT, report || 'no findings');
