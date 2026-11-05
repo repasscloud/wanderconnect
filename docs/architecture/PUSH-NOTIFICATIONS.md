@@ -87,14 +87,25 @@ Lifecycle checks on the same device:
 | Swoovr "Push notifications" switched off (account-wide) | Pass: push recorded `off`, nothing sent to FCM; the notice stays in the notice centre |
 | Quiet hours covering now (`Australia/Adelaide`) | Pass: push recorded `quiet`, nothing sent; the notice stays in the notice centre. A held push is never sent after the window ends (current design) |
 
+Notice kinds, with a second fictional member (Sam) acting on the web and Alex on the phone:
+
+| Kind | Result | Tap opens |
+| --- | --- | --- |
+| Request | Pass: push `accepted`; request email also sent | Connections |
+| Connection (on accepting) | Pass: Sam's notice recorded (no device, so push `no-device`; email sent) | — |
+| Message | Pass: push `accepted`; never emailed | That chat |
+| Conversation ended | Pass: neutral text "A conversation has ended on Swoovr." | The ended chat |
+| Block | Pass: after Alex blocked Sam, Sam couldn't reach the chat, profile or Explore, and Alex received no notice; Alex sees Sam under Connections → Blocked with Unblock | — |
+
 Found on the device and fixed in PR #209:
 - **No permission prompt:** the app never asked for notification permission.
 - **Tap opened the wrong screen:** a tap opened the last screen instead of the support request.
+- **Unrouted links:** photo-decision and safety-policy notices (`/me/photos`, `/safety`, `/safety/advice`) also had no app route. They're now routed (not yet triggered on the device).
 - **Sign-in left push off:** after signing out and back in, the device stayed unregistered until "Enable" was tapped. Sign-in and opening while signed in now fetch a fresh token when permission is already granted.
 
 Not yet tested on the device:
-- per-kind switches (messages, requests, connections, travel) and blocks (support replies always count as wanted, so they need the other notice kinds);
-- other notice kinds (chats, connections, meeting safety);
+- per-kind switches (messages, requests, connections, travel);
+- travel, meeting-safety, photo-decision and safety-policy notices on the device;
 - iOS/APNs (waiting on the Apple key).
 
 ## Primary references
