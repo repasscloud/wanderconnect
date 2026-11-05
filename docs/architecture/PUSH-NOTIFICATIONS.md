@@ -63,6 +63,25 @@ adb shell pm list packages | grep swoovr     # expect package:com.swoovr.app.uat
 
 The API needs `Push:Provider=providers`, `Push:Fcm:Enabled=true` and the `swoovr-uat` service-account values. Device delivery is confirmed only on the phone.
 
+**Physical-device evidence, 5 November 2026** (owner's Samsung Galaxy A14 5G, Android 15; build `com.swoovr.app.uat` from PR #209; local API with real FCM on `swoovr-uat`; fictional member). Each test was a public staff reply posted in Zammad, which went through the signed webhook and became a Support notice, then FCM `accepted`:
+
+| Check | Result |
+| --- | --- |
+| Permission prompt (Android 13+) | Shown once after sign-in |
+| Delivered with the app open | Pass: buzzed and appeared in the notification centre |
+| Delivered with the app in the background | Pass |
+| Delivered with the app swiped closed | Pass |
+| Tap opens the support request | Pass in all three states, including a cold start |
+
+Before the PR #209 fixes, the same device registered without ever being asked for permission, and a tap opened the last screen instead of the support request.
+
+Not yet tested on the device:
+- denying permission, token rotation, sign-out removal and invalid-token clean-up;
+- quiet hours and blocks;
+- other notice kinds (chats, connections, meeting safety);
+- iOS/APNs (waiting on the Apple key).
+
+
 ## Primary references
 
 [Apple request protocol](https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns), [Apple response rules](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns), [Firebase HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api), [Firebase errors](https://firebase.google.com/docs/cloud-messaging/error-codes), [Google service-account OAuth](https://developers.google.com/identity/protocols/oauth2/service-account), [Microsoft MAUI native hooks](https://learn.microsoft.com/dotnet/maui/data-cloud/push-notifications?view=net-maui-10.0), [token-compatible Android binding](https://www.nuget.org/packages/Xamarin.Firebase.Messaging/124.1.2).
