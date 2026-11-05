@@ -83,6 +83,9 @@ Lifecycle checks on the same device:
 | Sign out (online) | Pass: the registration is removed, and later notices record `no-device` |
 | Sign out with the API down | Pass (best effort): the server keeps the registration, but the phone deletes its FCM token, so the next send is `invalid-token` and the registration is invalidated; nothing is shown |
 | Dead-token clean-up | Pass: invalidated on FCM's answer, never sent to again |
+| Android's own app-notification switch off | Pass: the server still sends (it can't see the switch), FCM accepts, Android shows nothing |
+| Swoovr "Push notifications" switched off (account-wide) | Pass: push recorded `off`, nothing sent to FCM; the notice stays in the notice centre |
+| Quiet hours covering now (`Australia/Adelaide`) | Pass: push recorded `quiet`, nothing sent; the notice stays in the notice centre. A held push is never sent after the window ends (current design) |
 
 Found on the device and fixed in PR #209:
 - **No permission prompt:** the app never asked for notification permission.
@@ -90,7 +93,7 @@ Found on the device and fixed in PR #209:
 - **Sign-in left push off:** after signing out and back in, the device stayed unregistered until "Enable" was tapped. Sign-in and opening while signed in now fetch a fresh token when permission is already granted.
 
 Not yet tested on the device:
-- quiet hours, per-kind preferences and blocks;
+- per-kind switches (messages, requests, connections, travel) and blocks (support replies always count as wanted, so they need the other notice kinds);
 - other notice kinds (chats, connections, meeting safety);
 - iOS/APNs (waiting on the Apple key).
 
