@@ -13,7 +13,7 @@
 		<!-- Display name -->
 		<ApplicationTitle>Swoovr</ApplicationTitle>
 
-		<!-- DEFAULT development app identifier; store/signing registration remains unverified. -->
+		<!-- iOS bundle identifier and the production Android package (D306). Store/signing registration remains unverified. -->
 		<ApplicationId>com.swoovr.app</ApplicationId>
 
 		<!-- Versions -->
@@ -33,6 +33,14 @@
         <DefineConstants Condition="'$(SwoovrEnvironment)' == 'Uat'">$(DefineConstants);SWOOVR_UAT</DefineConstants>
         <DefineConstants Condition="'$(SwoovrOwnedApiTest)' == 'true'">$(DefineConstants);SWOOVR_OWNED_API</DefineConstants>
         <ApnsEnvironment Condition="'$(ApnsEnvironment)' == '' And '$(SwoovrEnvironment)' == 'Uat' And '$(Configuration)' == 'Release'">production</ApnsEnvironment>
+    </PropertyGroup>
+    <!-- D306 (Q121, #170): Android UAT and local builds are the separate package com.swoovr.app.uat in the swoovr-uat Firebase
+         project, so they install beside, and never replace, the production app (com.swoovr.app, swoovr-prod, a production
+         target not built yet). The private Firebase client file defaults to the ignored .local/firebase copy. The app's
+         sign-in and callback URL scheme (com.swoovr.app:/...) is separate from the package name and doesn't change. -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <ApplicationId>com.swoovr.app.uat</ApplicationId>
+        <SwoovrGoogleServicesJson Condition="'$(SwoovrGoogleServicesJson)' == ''">$(MSBuildThisFileDirectory)../../.local/firebase/google-services-uat.json</SwoovrGoogleServicesJson>
     </PropertyGroup>
     <Target Name="ValidateSwoovrBuild" BeforeTargets="BeforeBuild">
         <Error Condition="'$(SwoovrEnvironment)' != 'Development' And '$(SwoovrEnvironment)' != 'Uat'" Text="SwoovrEnvironment must be Development or Uat." />
@@ -59,6 +67,8 @@
         <Error Condition="'$(EnableApnsPush)' == 'true' And '$(SwoovrEnvironment)' == 'Uat' And '$(Configuration)' == 'Release' And '$(ApnsEnvironment)' != 'production'" Text="UAT Release APNs requires production entitlements." />
         <Error Condition="'$(EnableApnsPush)' == 'true' And '$(ApnsEnvironment)' != 'development' And '$(ApnsEnvironment)' != 'production'" Text="ApnsEnvironment must be development or production." />
         <Error Condition="'$(EnableFcmPush)' == 'true' And ('$(Configuration)' == 'Release' Or '$(SwoovrEnvironment)' == 'Uat') And !Exists('$(SwoovrGoogleServicesJson)')" Text="An external SwoovrGoogleServicesJson file is required for a Release/UAT FCM build." />
+        <!-- A Firebase client file registered for another package would build but never receive messages. -->
+        <Error Condition="'$(EnableFcmPush)' == 'true' And $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('$(SwoovrGoogleServicesJson)') And !$([System.IO.File]::ReadAllText('$(SwoovrGoogleServicesJson)').Contains('&quot;package_name&quot;: &quot;$(ApplicationId)&quot;'))" Text="The Firebase client file isn't registered for $(ApplicationId) (D306)." />
     </Target>
 
 	<ItemGroup>

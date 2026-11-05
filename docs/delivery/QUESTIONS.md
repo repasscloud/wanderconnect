@@ -2592,7 +2592,7 @@ Owner answer recorded 2 November 2026 — **CONFIRMED D305** ([source](https://g
 Owner answer recorded 3 November 2026 — **CONFIRMED D306** ([source](https://github.com/repasscloud/wanderconnect/issues/170#issuecomment-6596650785)): two projects; UAT/local = `swoovr-uat` + `com.swoovr.app.uat` (`-uat` files), production = `swoovr-prod` + `com.swoovr.app`. Files ready in `.local/firebase/`. Recording is not completion of the code.
 
 - Issue: [#170](https://github.com/repasscloud/wanderconnect/issues/170); follows Q83/#127 and D305.
-- Status: ANSWERED (D306), implementation pending. Supplied local Firebase client targets `com.swoovr.app.uat`; current MAUI app and owner answer use `com.swoovr.app`. Project/service-account ids match; no key material published.
+- Status: ANSWERED (D306), built 5 November 2026: Android UAT and local builds use `com.swoovr.app.uat` with the `swoovr-uat` Firebase client file (default `.local/firebase/google-services-uat.json`); iOS and the future production Android target keep `com.swoovr.app`. A Firebase file registered for another package fails the build. Physical-device delivery stays with #127.
 - 170.1 A: register current `com.swoovr.app` in Firebase and replace local config (**Suggested**). B: explicitly approve different provider-test package and review callback/signing implications.
 - 170.2 Confirm corrected file ready at `.local/firebase/google-services.json` after A. Never paste keys.
 - No private file was changed because the consistency check failed first. Physical-device/APNs acceptance stays OPEN. Independent work continues.
