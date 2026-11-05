@@ -73,14 +73,46 @@ The API needs `Push:Provider=providers`, `Push:Fcm:Enabled=true` and the `swoovr
 | Delivered with the app swiped closed | Pass |
 | Tap opens the support request | Pass in all three states, including a cold start |
 
-Before the PR #209 fixes, the same device registered without ever being asked for permission, and a tap opened the last screen instead of the support request.
+Lifecycle checks on the same device:
+
+| Check | Result |
+| --- | --- |
+| Permission denied at the prompt | Pass: the device still registers and FCM accepts, but nothing is shown; the app works normally |
+| Re-enabled with "Enable notifications on this device" | Pass: Android asks again, delivery resumes, same device record |
+| Reinstall | Pass: registers as a new device; the old one is marked invalid on the next send (FCM `invalid-token`) |
+| Sign out (online) | Pass: the registration is removed, and later notices record `no-device` |
+| Sign out with the API down | Pass (best effort): the server keeps the registration, but the phone deletes its FCM token, so the next send is `invalid-token` and the registration is invalidated; nothing is shown |
+| Dead-token clean-up | Pass: invalidated on FCM's answer, never sent to again |
+| Android's own app-notification switch off | Pass: the server still sends (it can't see the switch), FCM accepts, Android shows nothing |
+| Swoovr "Push notifications" switched off (account-wide) | Pass: push recorded `off`, nothing sent to FCM; the notice stays in the notice centre |
+| Quiet hours covering now (`Australia/Adelaide`) | Pass: push recorded `quiet`, nothing sent; the notice stays in the notice centre. A held push is never sent after the window ends (current design) |
+
+Notice kinds, with a second fictional member (Sam) acting on the web and Alex on the phone:
+
+| Kind | Result | Tap opens |
+| --- | --- | --- |
+| Request | Pass: push `accepted`; request email also sent | Connections |
+| Connection (on accepting) | Pass: Sam's notice recorded (no device, so push `no-device`; email sent) | — |
+| Message | Pass: push `accepted`; never emailed | That chat |
+| Conversation ended | Pass: neutral text "A conversation has ended on Swoovr." | The ended chat |
+| Block | Pass: after Alex blocked Sam, Sam couldn't reach the chat, profile or Explore, and Alex received no notice; Alex sees Sam under Connections → Blocked with Unblock | — |
+| Messages switch off (Push on) | Pass: after unblocking and reconnecting, Sam's message was recorded push `off` with nothing shown; the reconnection request still pushed (Requests on) | — |
+| Travel reminder (trip arriving tomorrow; `notifications sweep`) | Pass: push `accepted` | Travel |
+| Travel switch off (new trip) | Pass: push `off`, email `off`; notice in the centre | — |
+| Meeting safety (check-in falls due, confirmed trusted contact) | Pass: push `accepted` 8 s after due | Meeting safety |
+| Photo approved | Nothing sent (by design) | — |
+| Photo declined | Notice-centre entry only, zero deliveries (by design, `NotificationKind.PhotoDecision` is not-for-channel). Owner wants it pushed with a review/appeal action: #215 | — |
+| Safety policy update | Not published locally (in-force policies). The publisher writes notice-centre entries only (`PolicyNoticePublisher.cs`), same design as photo decisions; see #215 | — |
+
+Found on the device and fixed in PRs #209/#212:
+- **No permission prompt:** the app never asked for notification permission.
+- **Tap opened the wrong screen:** a tap opened the last screen instead of the support request.
+- **Unrouted links:** photo-decision and safety-policy notices (`/me/photos`, `/safety`, `/safety/advice`) also had no app route. They're now routed, ready for #215.
+- **Sign-in left push off:** after signing out and back in, the device stayed unregistered until "Enable" was tapped. Sign-in and opening while signed in now fetch a fresh token when permission is already granted.
 
 Not yet tested on the device:
-- denying permission, token rotation, sign-out removal and invalid-token clean-up;
-- quiet hours and blocks;
-- other notice kinds (chats, connections, meeting safety);
+- Requests and Connections switches (same code path as Messages and Travel, which passed);
 - iOS/APNs (waiting on the Apple key).
-
 
 ## Primary references
 
