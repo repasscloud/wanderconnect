@@ -45,6 +45,43 @@ The member requests OS permission using Enable notifications on this device. Sig
 
 Owner gates: APNs key/team/app entitlement/profile, Firebase project/service account/app configuration, and physical iOS/Android tests for permission denial, rotation, foreground/background/terminated state, logout, invalidation, quiet hours, block and deep links. Unsigned simulator compilation and fake HTTP tests do not satisfy physical-device delivery acceptance. No credentials or deployment is supplied/authorised by this document.
 
+## Android packages and Firebase projects (D306)
+
+| Build | Android package | Firebase project | Client file (private, ignored) | API service account (private) |
+| --- | --- | --- | --- | --- |
+| Local (Debug) and UAT | `com.swoovr.app.uat` | `swoovr-uat` | `.local/firebase/google-services-uat.json` (default) | `fcm-service-account-uat.json` → `Push:Fcm:*` |
+| Production (target not built yet) | `com.swoovr.app` | `swoovr-prod` | `google-services.json` | `fcm-service-account.json` |
+
+The UAT package installs beside the production app and never replaces it. `SwoovrGoogleServicesJson` overrides the client file. The build fails if that file isn't registered for the package being built. The sign-in and callback URL scheme (`com.swoovr.app:/...`) is unchanged. iOS stays `com.swoovr.app` (APNs).
+
+Android device test (#127), Samsung Galaxy A14 with USB debugging on:
+
+```sh
+dotnet build src/Swoovr.Mobile -t:Run -f net10.0-android -p:EnableFcmPush=true
+adb shell pm list packages | grep swoovr     # expect package:com.swoovr.app.uat
+```
+
+The API needs `Push:Provider=providers`, `Push:Fcm:Enabled=true` and the `swoovr-uat` service-account values. Device delivery is confirmed only on the phone.
+
+**Physical-device evidence, 5 November 2026** (owner's Samsung Galaxy A14 5G, Android 15; build `com.swoovr.app.uat` from PR #209; local API with real FCM on `swoovr-uat`; fictional member). Each test was a public staff reply posted in Zammad, which went through the signed webhook and became a Support notice, then FCM `accepted`:
+
+| Check | Result |
+| --- | --- |
+| Permission prompt (Android 13+) | Shown once after sign-in |
+| Delivered with the app open | Pass: buzzed and appeared in the notification centre |
+| Delivered with the app in the background | Pass |
+| Delivered with the app swiped closed | Pass |
+| Tap opens the support request | Pass in all three states, including a cold start |
+
+Before the PR #209 fixes, the same device registered without ever being asked for permission, and a tap opened the last screen instead of the support request.
+
+Not yet tested on the device:
+- denying permission, token rotation, sign-out removal and invalid-token clean-up;
+- quiet hours and blocks;
+- other notice kinds (chats, connections, meeting safety);
+- iOS/APNs (waiting on the Apple key).
+
+
 ## Primary references
 
 [Apple request protocol](https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns), [Apple response rules](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns), [Firebase HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api), [Firebase errors](https://firebase.google.com/docs/cloud-messaging/error-codes), [Google service-account OAuth](https://developers.google.com/identity/protocols/oauth2/service-account), [Microsoft MAUI native hooks](https://learn.microsoft.com/dotnet/maui/data-cloud/push-notifications?view=net-maui-10.0), [token-compatible Android binding](https://www.nuget.org/packages/Xamarin.Firebase.Messaging/124.1.2).

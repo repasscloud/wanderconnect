@@ -20,7 +20,7 @@ Updated 22 October 2026. CONFIRMED by the owner; [D30](../delivery/DECISIONS.md#
 | Swoovr token claims | `swoovr_idp`, `swoovr_adult_attested_at` | Realm protocol mappers |
 | Member web session cookie | `swoovr.member` | `src/Swoovr.Web/Auth/MemberSignIn.cs` |
 | Investigation cookie / resource markers | Lowercase `swoovr` prefix | `scripts/auth/` |
-| Mobile application ID | `com.swoovr.app` (DEFAULT development identifier) | `src/Swoovr.Mobile/Swoovr.Mobile.csproj` |
+| Mobile application ID | iOS and production Android `com.swoovr.app`; Android UAT and local builds `com.swoovr.app.uat` (D306). The sign-in URL scheme stays `com.swoovr.app` | `src/Swoovr.Mobile/Swoovr.Mobile.csproj` |
 | Colour studio / exports | `swoovr-colour-studio.html`, `swoovr-…-tokens.css` | `docs/design/` |
 
 Use PascalCase `Swoovr` in C#/XAML types and product prose, lowercase `swoovr` in machine identifiers and filenames, and uppercase `SWOOVR_` for shell environment variables. Preserve existing suffixes and casing required by the platform. Do not rename third-party technologies such as Keycloak.

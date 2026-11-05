@@ -26,6 +26,7 @@ public partial class AppShell : Shell
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await PushRegistration.AskOnceAsync();
         await PushRegistration.OpenPendingAsync();
     }
 }

@@ -7,7 +7,7 @@ namespace Swoovr.Mobile;
 /// <summary>Only platform-issued tokens reach hosted APIs. Local simulation is a separate Debug-only path.</summary>
 public static class PushRegistration
 {
-    private const string TokenKey = "swoovr.push.token", DeviceKey = "swoovr.push.device", InstallKey = "swoovr.push.installation";
+    private const string TokenKey = "swoovr.push.token", DeviceKey = "swoovr.push.device", InstallKey = "swoovr.push.installation", AskedKey = "swoovr.push.permission-asked";
     private static readonly SemaphoreSlim registration = new(1, 1);
     private static bool signingOut;
     private static bool ProviderEnabled =>
@@ -59,6 +59,26 @@ public static class PushRegistration
     {
         if (!Guid.TryParse(Preferences.Default.Get(InstallKey, ""), out var id)) Preferences.Default.Set(InstallKey, (id = Guid.NewGuid()).ToString());
         return id;
+    }
+    /// <summary>
+    /// Android 13+ shows nothing until the app asks, while Firebase still issues a token and the device registers. So a signed-in
+    /// member is asked once per install (after sign-in, or on first opening while signed in). Declining is respected:
+    /// Android isn't asked again, and "Enable notifications on this device" or system settings still turn it on.
+    /// </summary>
+    public static async Task AskOnceAsync()
+    {
+#if ANDROID && SWOOVR_FCM
+        try
+        {
+            if (!OperatingSystem.IsAndroidVersionAtLeast(33) || Preferences.Default.Get(AskedKey, false) || !await Ui.SignedInAsync()) return;
+            if (await Permissions.CheckStatusAsync<Permissions.PostNotifications>() == PermissionStatus.Granted) { Preferences.Default.Set(AskedKey, true); return; }
+            Preferences.Default.Set(AskedKey, true);
+            await EnableAsync();
+        }
+        catch (Exception e) when (e is InvalidOperationException or PermissionException) { }
+#else
+        await Task.CompletedTask;
+#endif
     }
     public static async Task EnableAsync()
     {
@@ -120,6 +140,12 @@ public static class PushRegistration
         else if (path == "/travel") await Ui.PushAsync(new TravelPage());
         else if (path == "/me/meeting-safety") await Ui.PushAsync(new MeetingSafetyPage());
         else if (path == "/me/notices") await Ui.PushAsync(new NoticesPage());
+        // Support replies (Zammad): the list, or one request by its number. The page loads it as the signed-in member, so a
+        // number for someone else's request shows "This request isn't available".
+        else if (path == Swoovr.Client.SupportTicketText.MemberPath) await Ui.PushAsync(new SupportPage());
+        else if (path.StartsWith(Swoovr.Client.SupportTicketText.MemberPath + "/", StringComparison.Ordinal)
+            && long.TryParse(path[(Swoovr.Client.SupportTicketText.MemberPath.Length + 1)..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ticket) && ticket > 0)
+            await Ui.PushAsync(new SupportTicketPage(ticket, []));
         else if (Uri.TryCreate("https://swoovr.invalid" + path, UriKind.Absolute, out var uri) && uri.AbsolutePath.StartsWith("/people/", StringComparison.Ordinal)
             && Guid.TryParse(uri.AbsolutePath[8..], out var person))
         {
