@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Safety and Standing Mockup</title>
+<!--
+  Issue #217 review mockup: replacement Me navigation, Account standing (/me/standing), Privacy & safety (/me/safety)
+  and Safety & Support (/safety). Static, offline, fictional adult member. Nothing here calls the API.
+  Tokens: Standard light/dark copied from src/Swoovr.Web/wwwroot/themes.css (generated from docs/design/themes.json).
+  Type/components: docs/design/reference/UI-STYLE.md, app.css and member-settings.css (issue 180 settings shell, issue 181 safety page).
+  Layout breakpoints are container queries so the review bar's Desktop / Tablet / Phone frame shows the real responsive layout.
+-->
+<style>
+:root[data-theme="light"] { --bg:#FAFAFA; --surface:#FFFFFF; --text:#0A0A0A; --muted:#6B6B6B; --primary:#0A0A0A; --onPrimary:#FAFAFA; --soft:#F4F4F4; --softText:#0A0A0A; --border:#E5E5E5; color-scheme:light; }
+:root[data-theme="dark"]  { --bg:#0A0A0A; --surface:#161616; --text:#F5F5F5; --muted:#A3A3A3; --primary:#F5F5F5; --onPrimary:#0A0A0A; --soft:#1F1F1F; --softText:#F5F5F5; --border:#2A2A2A; color-scheme:dark; }
+:root {
+  --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono:ui-monospace, "SF Mono", Menlo, monospace;
+  --placeholder:color-mix(in srgb, var(--muted) 50%, var(--surface));
+  --ring:color-mix(in srgb, var(--text) 6%, transparent);
+  --emergency:#C8102E; --emergency-text:#FFFFFF; /* D315: the only colour outside black and white */
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+* { box-sizing:border-box; }
+html { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+body { margin:0; background:color-mix(in srgb, var(--bg) 92%, var(--text)); color:var(--text); font:400 .9375rem/1.4 var(--font); }
+h1,h2,h3,p { margin:0; }
+a { color:inherit; }
+.icon { width:20px; height:20px; flex:none; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+
+/* ---------- Review chrome (not part of the app) ---------- */
+.review { position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); font:400 .8125rem/1.3 var(--font); }
+.review strong { font-weight:700; margin-right:4px; }
+.review-group { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.review-group > span { color:var(--muted); margin-right:4px; text-transform:uppercase; letter-spacing:.3px; font-size:.6875rem; }
+.seg { display:inline-flex; padding:3px; gap:2px; border-radius:999px; background:var(--soft); }
+.seg button { border:0; background:none; padding:6px 12px; border-radius:999px; font:600 .8125rem/1 var(--font); color:var(--muted); cursor:pointer; }
+.seg button[aria-pressed="true"] { background:var(--surface); color:var(--text); box-shadow:0 0 0 1px var(--border); }
+.seg button:focus-visible, .review a:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.review-notes-toggle { margin-left:auto; }
+.stage { padding:24px 16px 64px; display:flex; justify-content:center; }
+.frame { width:100%; max-width:1440px; background:var(--bg); border:1px solid var(--border); border-radius:12px; overflow:hidden; container:app / inline-size; transition:max-width .25s var(--ease); }
+.frame[data-viewport="tablet"] { max-width:820px; }
+.frame[data-viewport="phone"] { max-width:390px; border-radius:28px; height:844px; overflow-y:auto; position:relative; }
+.notes { max-width:1440px; margin:0 auto 24px; padding:0 16px; }
+.notes[hidden] { display:none; }
+.notes-inner { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; display:grid; gap:20px; }
+.notes h2 { font:700 1.25rem/1.3 var(--font); }
+.notes h3 { font:700 .9375rem/1.3 var(--font); margin-bottom:6px; }
+.notes ul { margin:0; padding-left:18px; display:grid; gap:4px; color:var(--text); }
+.notes li { font:400 .875rem/1.5 var(--font); }
+.notes code { font:400 .8125rem/1 var(--mono); background:var(--soft); padding:2px 5px; border-radius:6px; }
+.notes-grid { display:grid; gap:20px; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); }
+.label { display:inline-block; font:700 .6875rem/1.6 var(--font); letter-spacing:.3px; padding:0 6px; border-radius:6px; border:1px solid var(--border); margin-right:4px; }
+
+/* ---------- App: header + tab bar ---------- */
+/* Header and tab bar share row 1 on wide frames; on phones the tab bar moves to a sticky bottom row. */
+.app { min-height:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto 1fr auto; }
+.app-header { grid-column:1 / -1; grid-row:1; }
+.app > .tab-bar { grid-column:2; grid-row:1; align-self:center; padding-right:24px; z-index:1; }
+main, .app-footer { grid-column:1 / -1; }
+.app-header { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:64px; padding:0 24px; border-bottom:1px solid var(--border); background:var(--surface); }
+.wordmark { font:700 1.1875rem/1 var(--font); letter-spacing:3px; text-transform:lowercase; text-decoration:none; }
+.tab-bar { display:flex; gap:4px; }
+.tab { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 12px; color:var(--muted); font:400 .875rem/1.2 var(--font); text-decoration:none; border-radius:10px; }
+.tab[aria-current="page"] { color:var(--text); font-weight:700; }
+.tab[aria-current="page"] .icon { stroke-width:2.25; }
+main { flex:1; width:100%; max-width:1328px; margin:0 auto; padding:30px 24px 56px; }
+.app-footer { padding:20px 24px 28px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:6px 16px; font:400 .75rem/1.6 var(--font); color:var(--muted); justify-content:center; }
+.app-footer a { text-decoration:none; }
+@container app (max-width:759px) {
+  .app-header { min-height:56px; padding:0 20px; }
+  .app { grid-template-rows:auto 1fr auto auto; }
+  .app > .tab-bar { grid-column:1 / -1; grid-row:4; align-self:end; padding-right:0; position:sticky; bottom:0; justify-content:space-around; gap:0; padding:10px 0 14px; border-top:1px solid var(--border); background:var(--surface); z-index:5; }
+  .tab { flex:1 1 0; max-width:80px; flex-direction:column; gap:4px; padding:0; font:400 .6875rem/1.3 var(--font); text-align:center; }
+  .tab .icon { width:22px; height:22px; }
+  main { padding:20px 16px 40px; }
+  .app-footer { display:none; }
+}
+
+/* ---------- Settings shell (issue 180) ---------- */
+.settings-shell { display:grid; gap:24px; align-items:start; }
+.settings-nav details { border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+.settings-nav summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:12px; min-height:52px; padding:0 18px; }
+.settings-nav summary::-webkit-details-marker { display:none; }
+.settings-nav summary::after { content:""; width:8px; height:8px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); margin-top:-4px; }
+.settings-nav details[open] summary::after { transform:rotate(-135deg); margin-top:4px; }
+.settings-menu-label { font:400 .6875rem/1.3 var(--font); letter-spacing:.3px; text-transform:uppercase; color:var(--muted); }
+.settings-menu-current { margin-left:auto; font-weight:700; }
+.settings-nav ul { list-style:none; margin:0; padding:4px 8px 10px; display:grid; gap:2px; }
+.settings-nav li.sep { height:1px; background:var(--border); margin:6px 12px; }
+.settings-nav a { display:flex; align-items:center; gap:12px; min-height:44px; padding:0 12px; border-radius:10px; text-decoration:none; color:var(--muted); font:500 .9375rem/1.3 var(--font); }
+.settings-nav a:hover { color:var(--text); background:var(--soft); }
+.settings-nav a[aria-current="page"] { color:var(--text); background:var(--soft); font-weight:700; box-shadow:inset 3px 0 0 var(--text); }
+.settings-nav a:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.nav-flag { margin-left:auto; width:8px; height:8px; border-radius:50%; background:var(--text); }
+.nav-flag[hidden] { display:none; }
+.settings-main { min-width:0; display:grid; gap:16px; align-content:start; container:page / inline-size; }
+@container app (min-width:900px) {
+  .settings-shell { grid-template-columns:240px minmax(0,1fr); gap:40px; }
+  .settings-nav { position:sticky; top:24px; }
+  .settings-nav details { border:0; background:none; }
+  .settings-nav summary { display:none; }
+  .settings-nav ul { padding:0; }
+}
+
+/* ---------- Shared components ---------- */
+.page-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px; margin-bottom:8px; }
+.page-head h1 { font:700 clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem)/1.1 var(--font); letter-spacing:-.8px; }
+.card { margin:0; padding:24px; border:1px solid var(--border); border-radius:18px; background:var(--surface); min-width:0; }
+.card-title { display:flex; align-items:center; gap:10px; font:700 1.125rem/1.3 var(--font); margin-bottom:12px; }
+.card-title .icon { color:var(--muted); }
+.card-title .count { margin-left:auto; font:600 .8125rem/1 var(--font); color:var(--muted); }
+.muted { color:var(--muted); }
+.small { font:400 .875rem/1.5 var(--font); }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:0 20px; border-radius:14px; border:1px solid var(--primary); background:var(--primary); color:var(--onPrimary); font:600 .9375rem/1 var(--font); text-decoration:none; cursor:pointer; white-space:nowrap; }
+.btn:active { transform:scale(.98); }
+.btn-secondary { background:var(--surface); color:var(--text); border-color:var(--border); }
+.btn-secondary:hover { border-color:var(--text); }
+.btn-pill { min-height:40px; padding:0 16px; border-radius:999px; font-size:.875rem; }
+.btn-block { width:100%; min-height:52px; }
+.btn:focus-visible, .link:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.btn .icon { width:18px; height:18px; }
+.link { color:var(--text); text-decoration:none; border-bottom:1px solid var(--border); font:600 .875rem/1.4 var(--font); }
+.link:hover { border-bottom-color:var(--text); }
+.actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.tag { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; background:var(--soft); color:var(--softText); font:600 .75rem/1.5 var(--font); white-space:nowrap; }
+.tag-quiet { background:transparent; border:1px solid var(--border); color:var(--muted); }
+.tag-ink { background:var(--text); color:var(--bg); }
+.dot { width:8px; height:8px; border-radius:50%; background:currentColor; }
+.rows { list-style:none; margin:0; padding:0; }
+.row { display:flex; align-items:center; justify-content:space-between; gap:12px 16px; padding:14px 0; border-top:1px solid var(--border); }
+.rows > .row:first-child { border-top:0; padding-top:4px; }
+.row-text { min-width:0; flex:1 1 auto; }
+.row-label { font:400 .875rem/1.4 var(--font); color:var(--muted); }
+.row-value { font:500 1rem/1.45 var(--font); margin-top:2px; overflow-wrap:anywhere; }
+.row-help { font:400 .8125rem/1.45 var(--font); color:var(--muted); margin-top:2px; }
+.row-end { display:flex; align-items:center; gap:8px; flex:none; }
+.check-ok { width:18px; height:18px; color:var(--text); }
+.ref { font:600 .875rem/1.3 var(--mono); letter-spacing:.2px; }
+.field { display:grid; gap:8px; }
+.field label, .field legend { font:600 .875rem/1.3 var(--font); }
+select, textarea, input[type=text] { width:100%; min-height:48px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); font:400 1rem/1.4 var(--font); }
+textarea { min-height:104px; resize:vertical; }
+fieldset { border:0; margin:0; padding:0; display:grid; gap:8px; min-width:0; }
+.choice { display:flex; align-items:center; gap:10px; font:400 .9375rem/1.4 var(--font); }
+.choice input { width:18px; height:18px; accent-color:var(--primary); margin:0; }
+.foot-note { font:400 .8125rem/1.5 var(--font); color:var(--muted); margin-top:12px; }
+.empty-line { font:400 .9375rem/1.5 var(--font); color:var(--muted); }
+.banner { display:flex; flex-wrap:wrap; align-items:flex-start; gap:16px; padding:20px 24px; border-radius:18px; border:2px solid var(--text); background:var(--surface); }
+.banner-text { flex:1 1 280px; min-width:0; display:grid; gap:4px; }
+.banner-title { font:700 1.125rem/1.3 var(--font); }
+.banner .actions { flex:0 1 auto; }
+
+/* ---------- Account standing ---------- */
+.standing-grid, .safety-grid { display:grid; gap:16px; align-items:start; }
+.standing-col, .safety-col { display:grid; gap:16px; min-width:0; }
+@container page (min-width:720px) {
+  .standing-grid { grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr); gap:20px; }
+  .safety-grid { grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr); gap:20px; }
+}
+.decision-date, .report-date { font:400 .8125rem/1.4 var(--font); color:var(--muted); font-variant-numeric:tabular-nums; }
+.decision-kind { font:600 .9375rem/1.4 var(--font); }
+.sanction { display:grid; gap:6px; padding:16px 0; border-top:1px solid var(--border); }
+.sanction:first-of-type { border-top:0; padding-top:0; }
+.sanction p { font:400 .9375rem/1.5 var(--font); }
+.todo { display:grid; gap:8px; }
+
+/* ---------- Safety ---------- */
+.emergency { border:2px solid var(--text); }
+.emergency-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.emergency-head .card-title { margin:0; }
+.country-inline { display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; }
+.country-inline select { width:auto; min-height:40px; padding:6px 36px 6px 12px; border-radius:999px; font-size:.875rem; font-weight:600; }
+.country-hint { font:400 .8125rem/1.4 var(--font); color:var(--muted); }
+.emergency-rows { list-style:none; margin:0; padding:0; display:grid; gap:14px; }
+.emergency-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; padding-top:14px; border-top:1px solid var(--border); }
+.emergency-number { font:700 2.5rem/1 var(--font); letter-spacing:-1px; font-variant-numeric:tabular-nums; margin-bottom:6px; }
+.emergency-name { font:700 1.0625rem/1.35 var(--font); }
+.emergency-text { color:var(--muted); font:400 .9375rem/1.5 var(--font); margin-top:2px; max-width:46ch; }
+.call-emergency { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:52px; padding:0 24px; border-radius:999px; background:var(--emergency); color:var(--emergency-text); font:700 1.0625rem/1 var(--font); text-decoration:none; border:2px solid var(--emergency); }
+.call-emergency:focus-visible { outline:3px solid var(--text); outline-offset:3px; }
+.call-emergency .icon { width:18px; height:18px; }
+.links { list-style:none; margin:0; padding:0; }
+.links a { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; border-top:1px solid var(--border); text-decoration:none; font:600 .9375rem/1.3 var(--font); }
+.links li:first-child a { border-top:0; }
+.links .icon { color:var(--muted); transition:transform .2s var(--ease); }
+.links a:hover .icon { color:var(--text); transform:translateX(3px); }
+.links a:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.serious-form { display:grid; gap:16px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+.serious-form[hidden] { display:none; }
+.serious-for { display:flex; align-items:center; justify-content:space-between; gap:12px; font:600 .9375rem/1.4 var(--font); }
+.service { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px; padding:16px 0; border-top:1px solid var(--border); }
+.service-name { font:700 1rem/1.35 var(--font); }
+.service-desc { font:400 .9375rem/1.5 var(--font); margin-top:4px; }
+.service-phone { font:600 .9375rem/1.4 var(--font); margin-top:4px; font-variant-numeric:tabular-nums; }
+.safety-hero { margin-bottom:24px; }
+.safety-hero h1 { font:700 clamp(2rem, 1.5rem + 2vw, 2.75rem)/1.05 var(--font); letter-spacing:-1px; }
+.public-safety { max-width:1240px; margin:0 auto; }
+@container app (min-width:900px) {
+  .public-safety .safety-grid { grid-template-columns:minmax(0,2fr) minmax(300px,1fr); gap:20px; }
+}
+.public-safety .safety-grid { container:none; }
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.5 3.5 5.2"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.1A8 8 0 1 1 20 12Z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4.2 4-6.5 8-6.5s7.2 2.3 8 6.5"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 3 8.3 7 10 4-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.3-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h3"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20Z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 3.5h3.2l1.6 4.2-2.2 1.4a11 11 0 0 0 7.3 7.3l1.4-2.2 4.2 1.6V19a1.6 1.6 0 0 1-1.7 1.6A16.6 16.6 0 0 1 3.4 5.2 1.6 1.6 0 0 1 5 3.5Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3Z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+</svg>
+
+<div class="review" role="region" aria-label="Mockup review controls">
+  <strong>Issue #217 mockup</strong>
+  <div class="review-group" aria-label="Screen"><span>Screen</span>
+    <div class="seg" data-control="screen">
+      <button type="button" data-value="standing" aria-pressed="true">Account standing</button>
+      <button type="button" data-value="me-safety" aria-pressed="false">Privacy &amp; safety</button>
+      <button type="button" data-value="safety" aria-pressed="false">Safety &amp; Support (/safety)</button>
+    </div>
+  </div>
+  <div class="review-group" aria-label="Frame"><span>Frame</span>
+    <div class="seg" data-control="viewport">
+      <button type="button" data-value="desktop" aria-pressed="true">Desktop</button>
+      <button type="button" data-value="tablet" aria-pressed="false">Tablet</button>
+      <button type="button" data-value="phone" aria-pressed="false">Phone</button>
+    </div>
+  </div>
+  <div class="review-group" aria-label="Theme"><span>Theme</span>
+    <div class="seg" data-control="theme">
+      <button type="button" data-value="light" aria-pressed="true">Light</button>
+      <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <div class="review-group" aria-label="Standing state" data-standing-only><span>State</span>
+    <div class="seg" data-control="state">
+      <button type="button" data-value="good" aria-pressed="true">Good standing</button>
+      <button type="button" data-value="new" aria-pressed="false">New member</button>
+      <button type="button" data-value="restricted" aria-pressed="false">Restricted</button>
+    </div>
+  </div>
+  <div class="review-group" aria-label="Date of birth source" data-standing-only><span>DOB</span>
+    <div class="seg" data-control="dob">
+      <button type="button" data-value="self" aria-pressed="true">Entered</button>
+      <button type="button" data-value="id" aria-pressed="false">ID-verified</button>
+    </div>
+  </div>
+  <div class="review-group review-notes-toggle">
+    <div class="seg"><button type="button" id="notes-toggle" aria-pressed="false" aria-controls="notes">Review notes</button></div>
+  </div>
+</div>
+
+<section class="notes" id="notes" hidden aria-label="Review notes">
+  <div class="notes-inner">
+    <h2>What changed, against issue #217</h2>
+    <p class="small muted">Static mockup for review. Fictional adult member (Sam, Adelaide, born 14 March 1990). Only the three screens below work; other links are inert. Support service names and numbers are illustrative; the live page keeps reading them from the country safety pack.</p>
+    <div class="notes-grid">
+      <div><h3>§1 Navigation</h3><ul>
+        <li><b>Privacy &amp; safety</b> → <code>/me/safety</code> (was <code>/me/standing</code>).</li>
+        <li>New <b>Account standing</b> entry → <code>/me/standing</code>, after Privacy &amp; safety. A dot appears next to it when something needs action.</li>
+        <li><code>/me/safety</code> now uses the settings shell (it used a bare <code>column</code>, which is why it rendered narrow).</li>
+        <li><code>/safety</code> stays the public, signed-out-capable page; its "Privacy &amp; account safety" link now goes to <code>/me/safety</code>. All routes and deep links (<code>/me/safety#serious</code>, <code>?type=…&amp;id=…</code>) stay.</li>
+      </ul></div>
+      <div><h3>§2–3 Account standing</h3><ul>
+        <li>Status becomes a compact tag in the page head. The "Nothing to do" card is gone; to-dos and actions in force only render when they exist, as a prominent banner.</li>
+        <li>Verification is reduced to a compact summary with a <b>Manage verification</b> button. ID reads "Not verified" (no "optional").</li>
+        <li>Age shows the number from the DOB (36). DOB shows its source: <i>Entered by you</i> or <i>Matches your ID</i>. Age never claims to be verified unless the ID check matched.</li>
+        <li>Decisions and Your reports keep their content; each report gets a <b>Contact support</b> button carrying its reference.</li>
+        <li>"Support and complaints" block removed here (it lives on <code>/me/support</code>). One <b>Need help?</b> card with buttons.</li>
+      </ul></div>
+      <div><h3>§4, §8 Copy and links</h3><ul>
+        <li>Removed: page intro line; "Support requests are prioritised by urgency…" disclaimer; empty-state paragraphs for sections with nothing in them.</li>
+        <li>Kept (legal/safety): "We never show who reported anyone…" once, under Your reports; emergency services line.</li>
+        <li>Removed the self-link "Account standing and support references". "Notices and reports" is a secondary button. "Safety &amp; Support" link replaced by the Privacy &amp; safety page.</li>
+      </ul></div>
+      <div><h3>§5–6 Desktop layouts</h3><ul>
+        <li>Both pages use the full settings content width (up to 1,280px shell): history on the left, verification/help or tools on the right; single column under 720px of content width.</li>
+        <li>On Privacy &amp; safety, emergency assistance spans the top and stays first on phones; the serious-incident card is first in the main column.</li>
+      </ul></div>
+      <div><h3>§7 Country default</h3><ul>
+        <li>Order: <code>?country=</code> → the member's remembered manual choice → Home City country (<code>GeoCity.CountryCode</code>, e.g. Adelaide → AU) → Cloudflare (where trusted) → deployment fallback.</li>
+        <li>Hint reads "From your home city, Adelaide". Choosing another country never changes the Home City.</li>
+        <li><span class="label">BUILD</span><code>PlaceView</code> carries only the country <i>name</i> today; expose the ISO code (or resolve it server-side in the BFF) rather than mapping names.</li>
+      </ul></div>
+      <div><h3>Labels</h3><ul>
+        <li><span class="label">DEFAULT</span>Keep the label "Privacy &amp; safety" (pointing to <code>/me/safety</code>) with a small Privacy card (blocked people, your data, Privacy Notice), not a separate privacy page.</li>
+        <li><span class="label">DEFAULT</span>A remembered manual country choice outranks Home City (the member chose it deliberately).</li>
+        <li><span class="label">OPEN</span>Merge <code>/me/safety</code> into <code>/safety</code>? Mockup keeps both: <code>/safety</code> = public directory, <code>/me/safety</code> = member tools. No duplicated forms.</li>
+        <li><span class="label">OPEN</span>Should a New-member state hide the Decisions/Reports cards entirely (shown as one line here)?</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<div class="stage">
+<div class="frame" id="frame" data-viewport="desktop">
+<div class="app">
+  <header class="app-header">
+    <a class="wordmark" href="#" aria-label="Swoovr home">swoovr</a>
+  </header>
+    <nav class="tab-bar" aria-label="Main">
+      <a class="tab" href="#"><svg class="icon"><use href="#i-search"/></svg><span>Explore</span></a>
+      <a class="tab" href="#"><svg class="icon"><use href="#i-users"/></svg><span>Connections</span></a>
+      <a class="tab" href="#"><svg class="icon"><use href="#i-chat"/></svg><span>Chats</span></a>
+      <a class="tab" href="#" aria-current="page"><svg class="icon"><use href="#i-user"/></svg><span>Me</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <!-- ======== Settings shell: used by /me/standing and /me/safety ======== -->
+    <div class="settings-shell" id="shell">
+      <nav class="settings-nav" aria-label="Settings">
+        <details id="settings-menu">
+          <summary><span class="settings-menu-label">Settings</span><span class="settings-menu-current" id="menu-current">Account standing</span></summary>
+          <ul>
+            <li><a href="#"><svg class="icon"><use href="#i-user"/></svg><span>Profile</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-image"/></svg><span>Photos</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-heart"/></svg><span>Who I'd like to meet</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-shield"/></svg><span>Verification</span></a></li>
+            <li><a href="#me-safety" data-nav="me-safety"><svg class="icon"><use href="#i-lock"/></svg><span>Privacy &amp; safety</span></a></li>
+            <li><a href="#standing" data-nav="standing"><svg class="icon"><use href="#i-flag"/></svg><span>Account standing</span><span class="nav-flag" id="nav-flag" hidden aria-label="Needs attention"></span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-bell"/></svg><span>Notifications</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-palette"/></svg><span>Appearance</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-mail"/></svg><span>Support</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-card"/></svg><span>Membership &amp; billing</span></a></li>
+            <li><a href="#"><svg class="icon"><use href="#i-settings"/></svg><span>Account settings</span></a></li>
+          </ul>
+        </details>
+      </nav>
+
+      <div class="settings-main">
+        <!-- ======== /me/standing ======== -->
+        <section data-screen="standing" aria-labelledby="standing-title" style="display:grid;gap:16px">
+          <div class="page-head">
+            <h1 id="standing-title">Account standing</h1>
+            <span class="tag" id="standing-tag"><span class="dot"></span><span id="standing-state">In good standing</span></span>
+          </div>
+
+          <!-- Only when there's something to do or in force (state = restricted) -->
+          <div class="banner" data-when="restricted" role="region" aria-labelledby="restricted-title">
+            <svg class="icon" style="width:24px;height:24px;margin-top:2px"><use href="#i-alert"/></svg>
+            <div class="banner-text">
+              <p class="banner-title" id="restricted-title">Your account is restricted until 12 Nov 2026</p>
+              <p class="small muted">You can't send new chat requests. Messages in existing chats still work.</p>
+            </div>
+            <div class="actions">
+              <a class="btn btn-pill" href="#">Verify your mobile number</a>
+            </div>
+          </div>
+
+          <div class="standing-grid">
+            <div class="standing-col">
+              <section class="card" data-when="restricted" aria-labelledby="in-force-title">
+                <h2 class="card-title" id="in-force-title">Actions in force</h2>
+                <div class="sanction">
+                  <p><strong>Restriction</strong> · since 5 Nov 2026, until 12 Nov 2026</p>
+                  <p>Repeated chat requests after a member declined. See Community Guidelines §4.</p>
+                  <div class="actions" style="margin-top:6px">
+                    <a class="btn btn-secondary btn-pill" href="#">Appeal</a>
+                    <span class="small muted">You can appeal until 5 Dec 2026</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card" data-when="history" aria-labelledby="decisions-title">
+                <h2 class="card-title" id="decisions-title">Decisions about your account <span class="count" data-decision-count>2</span></h2>
+                <ul class="rows">
+                  <li class="row" data-when="restricted">
+                    <div class="row-text"><p class="decision-kind">Restriction</p><p class="decision-date">5 Nov 2026 · appeal until 5 Dec 2026</p></div>
+                    <span class="tag tag-ink">In force</span>
+                  </li>
+                  <li class="row">
+                    <div class="row-text"><p class="decision-kind">A photo wasn't approved</p><p class="decision-date">28 Oct 2026</p></div>
+                    <a class="btn btn-secondary btn-pill" href="#">Photos</a>
+                  </li>
+                  <li class="row">
+                    <div class="row-text"><p class="decision-kind">Restriction</p><p class="decision-date">2 Oct 2026 · appeal upheld</p></div>
+                    <span class="tag tag-quiet">Lifted</span>
+                  </li>
+                </ul>
+              </section>
+
+              <section class="card" data-when="history" aria-labelledby="reports-title">
+                <h2 class="card-title" id="reports-title">Your reports <span class="count">2</span></h2>
+                <ul class="rows">
+                  <li class="row">
+                    <div class="row-text"><p><span class="ref">SW-K7M2QX</span></p><p class="report-date">25 Oct 2026 · Harassment · We took action on this report</p></div>
+                    <div class="row-end"><span class="tag tag-quiet">Closed</span><a class="btn btn-secondary btn-pill" href="#" aria-label="Contact support about SW-K7M2QX">Contact support</a></div>
+                  </li>
+                  <li class="row">
+                    <div class="row-text"><p><span class="ref">SW-P4R8TN</span> <span class="tag" style="margin-left:6px">Serious incident</span></p><p class="report-date">3 Nov 2026 · Threats</p></div>
+                    <div class="row-end"><span class="tag">Being reviewed</span><a class="btn btn-secondary btn-pill" href="#" aria-label="Contact support about SW-P4R8TN">Contact support</a></div>
+                  </li>
+                </ul>
+                <p class="foot-note">We never show who reported anyone, or any report made about you.</p>
+              </section>
+
+              <section class="card" data-when="new" aria-label="History">
+                <p class="empty-line">No decisions about your account and no reports from you.</p>
+              </section>
+            </div>
+
+            <div class="standing-col">
+              <section class="card" aria-labelledby="verify-title">
+                <h2 class="card-title" id="verify-title">Verification</h2>
+                <ul class="rows">
+                  <li class="row"><div class="row-text"><p class="row-label">Email</p><p class="row-value">Verified</p></div><svg class="icon check-ok" aria-hidden="true"><use href="#i-check"/></svg></li>
+                  <li class="row"><div class="row-text"><p class="row-label">Mobile number</p><p class="row-value" data-phone>Verified</p></div><svg class="icon check-ok" aria-hidden="true" data-phone-ok><use href="#i-check"/></svg></li>
+                  <li class="row"><div class="row-text"><p class="row-label">Age</p><p class="row-value">36</p><p class="row-help" data-age-help>From the date of birth you entered</p></div><svg class="icon check-ok" aria-hidden="true" data-id-ok hidden><use href="#i-check"/></svg></li>
+                  <li class="row"><div class="row-text"><p class="row-label">Date of birth</p><p class="row-value">14 Mar 1990</p></div><span class="tag tag-quiet" data-dob-tag>Entered by you</span></li>
+                  <li class="row"><div class="row-text"><p class="row-label">ID</p><p class="row-value" data-id-value>Not verified</p></div><svg class="icon check-ok" aria-hidden="true" data-id-ok hidden><use href="#i-check"/></svg></li>
+                </ul>
+                <a class="btn btn-secondary btn-block" href="#" style="margin-top:12px">Manage verification</a>
+              </section>
+
+              <section class="card" aria-labelledby="help-title">
+                <h2 class="card-title" id="help-title">Need help?</h2>
+                <div class="actions" style="display:grid;gap:8px">
+                  <a class="btn btn-block" href="#">Contact support</a>
+                  <a class="btn btn-secondary btn-block" href="#">Email support@swoovr.com</a>
+                  <a class="btn btn-secondary btn-block" href="#">Notices and reports</a>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======== /me/safety (Privacy & safety) ======== -->
+        <section data-screen="me-safety" aria-labelledby="me-safety-title" style="display:grid;gap:16px" hidden>
+          <div class="page-head"><h1 id="me-safety-title">Privacy &amp; safety</h1></div>
+
+          <section class="card emergency" aria-labelledby="emergency-title">
+            <div class="emergency-head">
+              <h2 class="card-title" id="emergency-title"><svg class="icon"><use href="#i-phone"/></svg>Emergency assistance</h2>
+              <div class="country-inline">
+                <label class="visually-hidden" for="me-country" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Country</label>
+                <select id="me-country" data-country-select></select>
+                <span class="country-hint" data-country-hint>From your home city, Adelaide</span>
+              </div>
+            </div>
+            <ul class="emergency-rows" data-emergency></ul>
+          </section>
+
+          <div class="safety-grid">
+            <div class="safety-col">
+              <section class="card" id="serious" aria-labelledby="serious-title">
+                <h2 class="card-title" id="serious-title"><svg class="icon"><use href="#i-shield"/></svg>Report a serious safety incident</h2>
+                <p class="small muted" style="margin-bottom:8px">Choose who it's about. You can report people you've blocked, disconnected from, or whose account was deleted. They're never told.</p>
+                <ul class="rows" data-people>
+                  <li class="row"><div class="row-text"><p class="row-value">Jordan</p><p class="row-help">Connected</p></div><button type="button" class="btn btn-secondary btn-pill" data-report="Jordan">Report</button></li>
+                  <li class="row"><div class="row-text"><p class="row-value">Alex</p><p class="row-help">Blocked by you</p></div><button type="button" class="btn btn-secondary btn-pill" data-report="Alex">Report</button></li>
+                  <li class="row"><div class="row-text"><p class="row-value">Former member</p><p class="row-help">Account deleted</p></div><button type="button" class="btn btn-secondary btn-pill" data-report="a former member">Report</button></li>
+                </ul>
+                <form class="serious-form" data-serious-form hidden onsubmit="return false">
+                  <div class="serious-for"><span>Reporting <span data-serious-name>Jordan</span></span><button type="button" class="link" style="background:none;border-width:0 0 1px;cursor:pointer" data-serious-cancel>Cancel</button></div>
+                  <div class="field"><label for="serious-category">What happened</label>
+                    <select id="serious-category"><option value="">Choose one</option><option>Threats or violence</option><option>Sexual assault or harassment</option><option>Stalking</option><option>Something else</option></select></div>
+                  <div class="field"><label for="serious-text">Details (optional)</label><textarea id="serious-text" maxlength="2000"></textarea></div>
+                  <fieldset><legend style="font:600 .875rem/1.3 var(--font)">Police</legend>
+                    <label class="choice"><input type="radio" name="police"> I've contacted the police</label>
+                    <label class="choice"><input type="radio" name="police"> I'll contact the police</label>
+                    <label class="choice"><input type="radio" name="police"> Not now</label>
+                  </fieldset>
+                  <label class="choice"><input type="checkbox"> Also block them</label>
+                  <div class="actions"><button type="submit" class="btn">Send serious report</button></div>
+                </form>
+              </section>
+
+              <section class="card" aria-labelledby="resources-title">
+                <h2 class="card-title" id="resources-title"><svg class="icon"><use href="#i-book"/></svg>Safety resources</h2>
+                <ul class="links">
+                  <li><a href="#safety" data-goto="safety"><span>Support services in <span data-country-name>Australia</span></span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+                  <li><a href="#"><span>Safety Advice</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+                  <li><a href="#"><span>Reporting and blocking</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+                  <li><a href="#"><span>Community Guidelines</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+                </ul>
+              </section>
+            </div>
+
+            <div class="safety-col">
+              <section class="card" aria-labelledby="meeting-title">
+                <h2 class="card-title" id="meeting-title"><svg class="icon"><use href="#i-clock"/></svg>I'm meeting someone</h2>
+                <p class="small muted" style="margin-bottom:16px">Share your plans with a trusted contact and check in when you're home.</p>
+                <a class="btn btn-block" href="#">Set up a meeting check-in</a>
+              </section>
+
+              <section class="card" aria-labelledby="privacy-title">
+                <h2 class="card-title" id="privacy-title"><svg class="icon"><use href="#i-lock"/></svg>Privacy</h2>
+                <ul class="rows">
+                  <li class="row"><div class="row-text"><p class="row-value">Blocked people</p><p class="row-help">2 people</p></div><a class="btn btn-secondary btn-pill" href="#">Manage</a></li>
+                  <li class="row"><div class="row-text"><p class="row-value">Your data</p><p class="row-help">Download or delete</p></div><a class="btn btn-secondary btn-pill" href="#">Open</a></li>
+                  <li class="row"><div class="row-text"><p class="row-value">Privacy Notice</p></div><a class="btn btn-secondary btn-pill" href="#">Read</a></li>
+                </ul>
+              </section>
+
+              <section class="card" aria-labelledby="standing-link-title">
+                <h2 class="card-title" id="standing-link-title"><svg class="icon"><use href="#i-flag"/></svg>Account standing</h2>
+                <div class="row" style="border:0;padding:0"><span class="tag" data-standing-mirror><span class="dot"></span>In good standing</span><a class="btn btn-secondary btn-pill" href="#standing" data-goto="standing">View</a></div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ======== /safety (public Safety & Support, signed in) ======== -->
+    <article class="public-safety" data-screen="safety" hidden aria-labelledby="public-title">
+      <header class="safety-hero"><h1 id="public-title">Safety &amp; Support</h1></header>
+      <div class="safety-grid">
+        <div class="safety-col">
+          <section class="card emergency" aria-labelledby="pub-emergency-title">
+            <h2 class="card-title" id="pub-emergency-title"><svg class="icon"><use href="#i-phone"/></svg>Emergency assistance</h2>
+            <ul class="emergency-rows" data-emergency></ul>
+          </section>
+          <section class="card" aria-labelledby="services-title">
+            <h2 class="card-title" id="services-title">Support services</h2>
+            <ul class="rows" data-services></ul>
+            <p class="foot-note">These organisations operate independently of Swoovr and have their own privacy policies.</p>
+          </section>
+        </div>
+        <aside class="safety-col" aria-label="Country, reporting and resources">
+          <section class="card" aria-labelledby="loc-title">
+            <h2 class="card-title" id="loc-title"><svg class="icon"><use href="#i-globe"/></svg>Your location</h2>
+            <div class="field"><label for="pub-country">Country or region</label><select id="pub-country" data-country-select></select></div>
+            <p class="country-hint" style="margin-top:10px" data-country-hint>From your home city, Adelaide</p>
+          </section>
+          <section class="card" aria-labelledby="pub-report-title">
+            <h2 class="card-title" id="pub-report-title"><svg class="icon"><use href="#i-shield"/></svg>Report a safety concern</h2>
+            <p class="small muted" style="margin-bottom:16px">Harassment, threats or abusive behaviour involving Swoovr members.</p>
+            <a class="btn btn-block" href="#me-safety" data-goto="me-safety" data-anchor="serious">Report to Swoovr</a>
+          </section>
+          <nav class="card" aria-labelledby="pub-res-title">
+            <h2 class="card-title" id="pub-res-title"><svg class="icon"><use href="#i-book"/></svg>Safety resources</h2>
+            <ul class="links">
+              <li><a href="#"><span>I'm meeting someone</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+              <li><a href="#"><span>Safety Advice</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+              <li><a href="#"><span>Community Guidelines</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+              <li><a href="#me-safety" data-goto="me-safety"><span>Privacy &amp; safety</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+              <li><a href="#"><span>Reporting and blocking</span><svg class="icon"><use href="#i-arrow"/></svg></a></li>
+            </ul>
+          </nav>
+        </aside>
+      </div>
+    </article>
+  </main>
+
+  <footer class="app-footer"><a href="#">Terms</a><a href="#">Community Guidelines</a><a href="#">Privacy Notice</a><a href="#">Safety Advice</a><a href="#">Support</a></footer>
+</div>
+</div>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const frame = document.getElementById('frame');
+  const shell = document.getElementById('shell');
+  const state = { screen: 'standing', viewport: 'desktop', theme: 'light', standing: 'good', dob: 'self', country: 'AU', source: 'home' };
+
+  // Illustrative country packs; the app reads these from the safety pack API.
+  const packs = {
+    AU: { name: 'Australia', emergency: [{ n: '000', name: 'Triple Zero', text: 'Police, ambulance and fire when life or property is in danger.' }],
+          services: [{ name: '1800RESPECT', desc: 'Sexual assault, domestic and family violence counselling.', phone: '1800 737 732' },
+                     { name: 'Lifeline', desc: 'Crisis support and suicide prevention, 24 hours.', phone: '13 11 14' },
+                     { name: 'eSafety Commissioner', desc: 'Report serious online abuse and image-based abuse.', web: true }] },
+    NZ: { name: 'New Zealand', emergency: [{ n: '111', name: 'Emergency services', text: 'Police, ambulance and fire.' }],
+          services: [{ name: 'Lifeline Aotearoa', desc: 'Crisis support, 24 hours.', phone: '0800 543 354' },
+                     { name: "Women's Refuge", desc: 'Family violence crisis line.', phone: '0800 733 843' }] },
+    GB: { name: 'United Kingdom', emergency: [{ n: '999', name: 'Emergency services', text: 'Police, ambulance, fire and coastguard.' }],
+          services: [{ name: 'Samaritans', desc: 'Emotional support, 24 hours.', phone: '116 123' },
+                     { name: 'National Domestic Abuse Helpline', desc: 'Free, confidential support, 24 hours.', phone: '0808 2000 247' }] }
+  };
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const icon = id => `<svg class="icon"><use href="#i-${id}"/></svg>`;
+
+  function renderCountry() {
+    const p = packs[state.country];
+    document.querySelectorAll('[data-country-select]').forEach(sel => {
+      sel.innerHTML = Object.entries(packs).map(([code, x]) => `<option value="${code}"${code === state.country ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    });
+    document.querySelectorAll('[data-country-hint]').forEach(h => {
+      h.textContent = state.source === 'home' ? 'From your home city, Adelaide' : '';
+      h.hidden = !h.textContent;
+    });
+    document.querySelectorAll('[data-country-name]').forEach(n => n.textContent = p.name);
+    document.querySelectorAll('[data-emergency]').forEach(ul => {
+      ul.innerHTML = p.emergency.map(e => `<li class="emergency-row"><div><p class="emergency-number">${esc(e.n)}</p><p class="emergency-name">${esc(e.name)}</p><p class="emergency-text">${esc(e.text)}</p></div><a class="call-emergency" href="#" aria-label="Call ${esc(e.n)}, ${esc(e.name)}">${icon('phone')}Call ${esc(e.n)}</a></li>`).join('');
+    });
+    document.querySelectorAll('[data-services]').forEach(ul => {
+      ul.innerHTML = p.services.map(s => `<li class="service"><div style="min-width:0;flex:1 1 16rem"><p class="service-name">${esc(s.name)}</p><p class="service-desc">${esc(s.desc)}</p>${s.phone ? `<p class="service-phone">${esc(s.phone)}</p>` : ''}</div><div class="actions">${s.phone ? `<a class="btn btn-secondary btn-pill" href="#">Call</a>` : ''}<a class="btn btn-secondary btn-pill" href="#">Visit website</a></div></li>`).join('');
+    });
+  }
+
+  function renderStanding() {
+    const restricted = state.standing === 'restricted';
+    const fresh = state.standing === 'new';
+    document.querySelectorAll('[data-when="restricted"]').forEach(el => el.hidden = !restricted);
+    document.querySelectorAll('[data-when="history"]').forEach(el => el.hidden = fresh);
+    document.querySelectorAll('[data-when="new"]').forEach(el => el.hidden = !fresh);
+    document.querySelector('[data-decision-count]').textContent = restricted ? '3' : '2';
+    const label = restricted ? 'Restricted' : 'In good standing';
+    document.getElementById('standing-state').textContent = label;
+    document.getElementById('standing-tag').className = 'tag' + (restricted ? ' tag-ink' : '');
+    document.querySelector('[data-standing-mirror]').innerHTML = `<span class="dot"></span>${label}`;
+    document.querySelector('[data-standing-mirror]').className = 'tag' + (restricted ? ' tag-ink' : '');
+    document.getElementById('nav-flag').hidden = !restricted;
+    document.querySelector('[data-phone]').textContent = restricted ? 'Needed' : 'Verified';
+    document.querySelector('[data-phone-ok]').style.visibility = restricted ? 'hidden' : 'visible';
+    const id = state.dob === 'id';
+    document.querySelector('[data-age-help]').textContent = id ? 'Verified with your ID' : 'From the date of birth you entered';
+    document.querySelector('[data-dob-tag]').textContent = id ? 'Matches your ID' : 'Entered by you';
+    document.querySelector('[data-id-value]').textContent = id ? 'Verified' : 'Not verified';
+    document.querySelectorAll('[data-id-ok]').forEach(el => el.hidden = !id);
+  }
+
+  function renderScreen(anchor) {
+    document.querySelectorAll('[data-screen]').forEach(el => el.hidden = el.dataset.screen !== state.screen);
+    shell.hidden = state.screen === 'safety';
+    document.querySelectorAll('[data-nav]').forEach(a => { if (a.dataset.nav === state.screen) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    document.getElementById('menu-current').textContent = state.screen === 'me-safety' ? 'Privacy & safety' : 'Account standing';
+    document.querySelectorAll('[data-standing-only]').forEach(el => el.hidden = state.screen !== 'standing');
+    setPressed('screen', state.screen);
+    const menu = document.getElementById('settings-menu');
+    menu.open = frame.getBoundingClientRect().width >= 900;
+    if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
+    else (state.viewport === 'phone' ? frame : window).scrollTo({ top: 0 });
+  }
+
+  function setPressed(control, value) {
+    document.querySelectorAll(`[data-control="${control}"] button`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === value)));
+  }
+
+  document.querySelectorAll('[data-control] button').forEach(b => b.addEventListener('click', () => {
+    const control = b.closest('[data-control]').dataset.control, value = b.dataset.value;
+    if (control === 'screen') { state.screen = value; renderScreen(); }
+    if (control === 'viewport') { state.viewport = value; frame.dataset.viewport = value; setPressed('viewport', value); requestAnimationFrame(() => setTimeout(() => renderScreen(), 260)); }
+    if (control === 'theme') { state.theme = value; root.dataset.theme = value; setPressed('theme', value); }
+    if (control === 'state') { state.standing = value; setPressed('state', value); renderStanding(); }
+    if (control === 'dob') { state.dob = value; setPressed('dob', value); renderStanding(); }
+  }));
+
+  document.addEventListener('click', e => {
+    const go = e.target.closest('[data-goto]');
+    if (go) { e.preventDefault(); state.screen = go.dataset.goto; renderScreen(go.dataset.anchor); return; }
+    const nav = e.target.closest('[data-nav]');
+    if (nav) { e.preventDefault(); state.screen = nav.dataset.nav; renderScreen(); return; }
+    const rep = e.target.closest('[data-report]');
+    if (rep) {
+      const form = document.querySelector('[data-serious-form]');
+      document.querySelector('[data-serious-name]').textContent = rep.dataset.report;
+      form.hidden = false; form.querySelector('select').focus(); return;
+    }
+    if (e.target.closest('[data-serious-cancel]')) { document.querySelector('[data-serious-form]').hidden = true; return; }
+    const a = e.target.closest('a[href="#"]');
+    if (a) e.preventDefault();
+  });
+
+  document.addEventListener('change', e => {
+    if (e.target.matches('[data-country-select]')) { state.country = e.target.value; state.source = 'manual'; renderCountry(); }
+  });
+
+  const notes = document.getElementById('notes');
+  document.getElementById('notes-toggle').addEventListener('click', e => {
+    notes.hidden = !notes.hidden; e.currentTarget.setAttribute('aria-pressed', String(!notes.hidden));
+  });
+
+  // Deep links for review, e.g. #me-safety,phone,dark or #standing,restricted
+  for (const part of location.hash.slice(1).split(',')) {
+    if (['standing', 'me-safety', 'safety'].includes(part)) state.screen = part;
+    if (['desktop', 'tablet', 'phone'].includes(part)) { state.viewport = part; frame.dataset.viewport = part; setPressed('viewport', part); }
+    if (['light', 'dark'].includes(part)) { state.theme = part; root.dataset.theme = part; setPressed('theme', part); }
+    if (['good', 'new', 'restricted'].includes(part)) { state.standing = part; setPressed('state', part); }
+    if (part === 'id') { state.dob = 'id'; setPressed('dob', 'id'); }
+  }
+  renderCountry(); renderStanding(); renderScreen();
+})();
+</script>
+</body>
+</html>
