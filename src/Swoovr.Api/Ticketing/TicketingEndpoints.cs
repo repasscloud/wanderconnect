@@ -21,6 +21,7 @@ public static class TicketingEndpoints
         admin.MapGet("",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ListAsync(Int(c,"page",1),Int(c,"pageSize",25),c.Request.Query["query"],Long(c,"group"),Long(c,"state"),Long(c,"priority"),Long(c,"owner"),c.Request.Query["sort"].FirstOrDefault()??"updated_at",!bool.TryParse(c.Request.Query["descending"],out var desc)||desc,ct)));
         admin.MapGet("/capabilities",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.CapabilitiesAsync(ct)));
         admin.MapGet("/diagnostics",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.DiagnosticsAsync(ct)));
+        admin.MapPost("/staff-sync",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.SyncStaffAsync(ct)));
         admin.MapGet("/text-modules",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.TextModulesAsync(ct)));
         admin.MapGet("/macros",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.MacrosAsync(ct)));
         admin.MapPost("/customers",(TicketCustomerLookup request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.CustomerAsync(request,ct)));
@@ -73,8 +74,8 @@ public static class TicketingEndpoints
             }
             if(!staff&&!create&&context.Request.Method=="GET"&&context.Request.Path.Value?.TrimEnd('/')=="/api/me/tickets"&&
                 !await accounts.Db.Set<TicketingIdentity>().AnyAsync(m=>m.AccountId==current.Account!.Id,ct))return Results.Ok(new TicketPage([],Int(context,"page",1),Int(context,"pageSize",25),false));
-            var provider=staff?await actors.StaffAsync(current,ct):await actors.MemberAsync(accounts,current,create,ct);
-            return Results.Ok(await action(new(accounts,current,provider,actors,context,clock,staff),ct));
+            var provider=staff?await actors.StaffAsync(accounts,current,ct):await actors.MemberAsync(accounts,current,create,ct);
+            return Results.Ok(await action(new(accounts,current,provider,actors,clock,staff),ct));
         }
         catch(TicketingAccessException e){return Problem(e.Status,e.Code);}
         catch(TicketingProviderException e){return Problem(e.Uncertain?409:e.Code is "provider-forbidden" or "provider-not-found"?404:503,e.Uncertain?"ticket-reconciliation-required":"ticket-provider-unavailable");}

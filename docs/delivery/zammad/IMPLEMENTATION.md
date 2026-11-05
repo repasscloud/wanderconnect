@@ -83,7 +83,7 @@ After the vertical slice continue phases 4–8 in order. Do not describe this fo
 ### Runtime API package (Task 1) — 4 November 2026
 
 - Implemented member `/api/me/tickets` and staff `/api/admin/tickets` routes, `Swoovr.Contracts/Ticketing.cs` and typed `MemberClient`/`AdminClient` methods (`Swoovr.Client/TicketingClient.cs`). Contract, actor design and capability matrix: `API.md`. No new projects, migrations or conversation store.
-- Per-staff Zammad users/tokens (`scripts/zammad_local.py runtime`, private `.local/zammad/api.env`/`api.json`, optional `env_file` on the local API service). No application-wide agent token. Sensitive groups need elevation, fresh sign-in and a pinned direct TLS client certificate (channel authentication, not device attestation).
+- Per-staff Zammad users/tokens. No application-wide agent token. (Superseded on 5 November 2026 by D327: Swoovr synchronises staff identities itself, and the certificate rule is dropped. See "Staff access mirrored into Zammad" below.)
 - Real bugs found and fixed against the pinned release: attachment sizes are strings and MIME type is in `preferences['Mime-Type']`; customer-visible articles drop `preferences` but keep `message_id`, so reply reconciliation uses an exact GUID marker in `message_id` plus author and visibility; `macro.perform` values are objects (`{value: n}`), sometimes with `pre_condition`.
 - `python3 tests/zammad/runtime_acceptance.py` (disposable Keycloak realms with real code+PKCE sessions, disposable PostgreSQL database, real Zammad, API on HTTP 5095 + HTTPS 5096): **38/38 PASS**, re-run in a fresh session. Covers concurrency, customer isolation, raw `From` denial, private note/attachment denial, payload-bound idempotency, real lost-response reconciliation, stale updates, classification, customer lookup and ambiguity, macros/text modules, bulk, paging/filter/sort, conflicts, immediate transfer access loss, restricted TLS/elevation, Legal isolation, provider/Swoovr grant revocation, email continuity, deletion pending/cancelled. Disposable databases and realms removed afterwards (0 remaining).
 - Support access follows existing member policy: staff locks/sanctions, age and phone gates are exempt (as for notices/appeals); accounts whose status is not `Active` are blocked as on every member route.
@@ -98,7 +98,7 @@ After the vertical slice continue phases 4–8 in order. Do not describe this fo
 - Fixed: generated API configuration pointed at `http://swoovr-zammad/` (port 80, refused); nginx listens on 8080 in the shared network, so the containerised API now uses `http://swoovr-zammad:8080/` (verified from the API container's network namespace).
 - Owner choices are labelled with the staff account's email, never a provider login.
 - Builds: Web, Admin, MAUI iOS simulator (`net10.0-ios`, `iossimulator-arm64`) and Android (`net10.0-android`) all 0 warnings / 0 errors. Build success is not device acceptance.
-- Known limitation (DEFAULT, recorded for the owner): sensitive queues (Legal, Restricted T&S, Privacy, Security) require a pinned TLS client certificate per staff account. The Admin host does not present one, so those tickets stay invisible in Admin until a trusted-workstation mechanism is decided.
+- Resolved by D327 (Q133 B): sensitive queues no longer need a client certificate and are reachable in Admin with elevation and a recent sign-in.
 - Real end-to-end journey, `tests/zammad/ui_journey.browser.cjs` (Playwright with installed Chrome, local platform rebuilt from this branch, real Keycloak and Zammad): **16 PASS, 1 SKIP**. The member creates a request in Swoovr web (safe `SW-` subject prefill, invalid reference ignored, fits 390 px); staff find it by `TK-` reference and in the queue, read it in Admin, add a private note and a public reply; the member sees the reply and never the note, replies in the same conversation; staff close it and the member sees Closed. SKIP: the second fixture member's local password had been changed, so browser-level cross-member denial was not re-run; API-level denial with real Keycloak sessions is covered by `runtime_acceptance.py`.
 - Found and fixed during the journey: member Send stayed disabled while typing (`@bind` now updates on input); a visually hidden heading used a class the member stylesheet lacks; Admin visibility radios rendered oversized (now a select, matching Admin forms).
 - The staff queue is a Zammad search, which Zammad indexes asynchronously; new tickets appeared within about 1 second here. Direct `TK-` lookup never depends on the index.
@@ -134,3 +134,56 @@ Evidence (all real, local, fictional data):
 | `tests/zammad/restore_acceptance.py` | 6/6 PASS: identical counts incl. file content, restored API credential works, ticket/articles readable, attachment bytes identical, no egress |
 | `./scripts/check.sh` | exit 0, 0 warnings, 723 PostgreSQL checks |
 | MAUI iOS simulator / Android builds | 0 warnings, 0 errors (build only) |
+
+### Staff access mirrored into Zammad (owner decisions Q133/Q134) — 5 November 2026
+
+Owner answers on [#204](https://github.com/repasscloud/wanderconnect/issues/204) and [#205](https://github.com/repasscloud/wanderconnect/issues/205): D327 and D328.
+
+- **Policy:** `TicketingPolicy` implements the owner's matrix, cell by cell, in portable checks: Appeals is Trust & Safety/Admin; Legal hand-off for Support, Trust & Safety and Admin; no Admin break-glass into Legal. It also defines `EffectiveRoles` (as the API applies roles) and `StaffGrants` (Zammad grants per identity).
+- **Sensitive queues:** role, elevated capability and a sign-in within 15 minutes. The certificate rule and its Kestrel hosting are removed.
+- **Synchronisation (`TicketingStaffSync`, `ticketing_staff` table, migration `TicketingStaffMirror`):**
+  - Runs every 60 s, and is nudged by staff revocation and new conflict records. Every 10 min it does a full verification; Admin can also run one with `POST /api/admin/tickets/staff-sync`.
+  - Each staff member gets two identities: the API identity (all role queues; token issued on its behalf and stored encrypted, other tokens deleted) and the web sign-in (ordinary queues plus hand-off only; switched off with sessions ended on any conflict record, role loss, suspension, deletion or Swoovr session revocation).
+  - Zammad-side changes are reverted. Every change, drift, ended session and revoked token is audited.
+  - Failures back off and never widen access. Diagnostics report failures and active agents Swoovr doesn't manage.
+- **Zammad sign-in:** OpenID Connect against the staff realm (public PKCE client `swoovr-zammad`, generated by `scripts/keycloak_realms.py`). Password login and reset are off, and unknown identities are never created.
+  - Locally, `local-keycloak-forward.rb` (pinned Zammad image, no new image) lets Zammad's Rails container reach `localhost:8180`. It terminates TLS only for discovery: Zammad 7.2.2's discovery always uses HTTPS, so a throwaway local certificate is trusted by Rails only.
+  - The Rails-runner `runtime-staff.rb` and per-staff configuration are removed.
+- **Admin:** Integration health shows staff mirroring and "Check staff access now". Owner choices use the web identity where it works the queue, otherwise the API identity.
+- **Q134:** no change. The built behaviour is what the owner chose.
+
+Evidence (real local Keycloak, Zammad 7.2.2 and PostgreSQL, fictional data):
+
+| Check | Result |
+| --- | --- |
+| `runtime_acceptance.py` | 53/53, new checks below |
+| `staff_sso.browser.cjs` | 12/12, new |
+| `guest_acceptance.py` | 31/31 |
+| `events_acceptance.py` | 4/4 |
+| `webhook_acceptance.py` | PASS |
+| `restore_acceptance.py` | 6/6 |
+| `ui_journey.browser.cjs` | 30 PASS, 2 SKIP (unchanged reasons); now includes the Admin staff-access panel and on-demand check |
+| `./scripts/check.sh` | exit 0, 723 PostgreSQL checks |
+
+New `runtime_acceptance.py` checks:
+- the owner matrix via live capabilities;
+- Restricted with elevation and no certificate;
+- the Legal hand-off;
+- the API and web identities' Zammad grants;
+- Legal having no web sign-in;
+- drift reverted and audited;
+- role removal switching off both identities;
+- staff-mirroring diagnostics.
+
+`staff_sso.browser.cjs` covers:
+- central sign-in only;
+- the Trust & Safety web identity's exact grants;
+- a restricted ticket refused on the web;
+- no web tokens;
+- a conflict ending the live session (audited) and refusing a new sign-in;
+- clearing the conflict restoring access;
+- an unmanaged staff-realm user refused with no Zammad account created.
+
+Local platform data: the three fictional staff are mirrored (Admin 11 queues / 9 web; Trust & Safety 9 / 8; Support 6 / 6). Old runner tokens were revoked on the first verification.
+
+Not verified: a hosted HTTPS Keycloak issuer for Zammad, Entra-brokered employee sign-in into Zammad, and device attestation (Q133 option C, not built).

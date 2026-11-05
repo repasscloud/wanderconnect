@@ -58,7 +58,8 @@ def main():
     run = uuid.uuid4().hex[:10]
     database = 'swoovr_zammad_guest_' + run
     config = json.loads((PRIVATE / 'provisioned.json').read_text())
-    staff_token = next(iter(json.loads((PRIVATE / 'api.json').read_text())['Ticketing']['Zammad']['Staff'].values()))['Token']
+    # Staff replies are written inside the helpdesk by the local operator agent (all queues); member/guest views are what's tested.
+    staff_token = config['provisioning_token']
     platform = dict(l.split('=', 1) for l in (ROOT / '.local/platform/docker.env').read_text().splitlines() if '=' in l and not l.startswith('#'))
     password = platform['SWOOVR_DB_PASSWORD'].strip("'\"")
     checks = []

@@ -11,7 +11,6 @@ if (args.Length > 0 && !args[0].StartsWith('-')) return await Cli.RunAsync(args)
 var builder = WebApplication.CreateBuilder(args);
 HostRuntime.Configure(builder,HostKind.Api);
 if(builder.Configuration["Ticketing:ConfigurationFile"] is {Length:>0} ticketingConfiguration) builder.Configuration.AddJsonFile(ticketingConfiguration,optional:false,reloadOnChange:false);
-Swoovr.Api.Ticketing.TicketingHosting.Configure(builder);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
@@ -21,6 +20,10 @@ builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingActorFactory>();
 if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestSupport>();
 // Helpdesk events become notices only when the signed webhook is configured; the worker can be turned off per host.
 if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingEventProcessor>();
+builder.Services.AddSingleton<Swoovr.Api.Ticketing.TicketingStaffSignal>();
+if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingStaffSync>();
+// Swoovr staff permissions are mirrored into Zammad (Q133). Without the staff-directory credential nothing is provisioned.
+if(persistence&&builder.Configuration["Ticketing:Zammad:StaffDirectoryToken"] is {Length:>0}&&builder.Configuration.GetValue("Ticketing:Staff:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Ticketing.TicketingStaffSyncWorker>();
 if(persistence&&builder.Configuration["Ticketing:Zammad:WebhookSecret"] is {Length:>=32}&&builder.Configuration.GetValue("Ticketing:Events:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Ticketing.TicketingEventWorker>();
 builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestBotCheck>();
 builder.Services.AddHttpClient(Swoovr.Api.Ticketing.GuestBotCheck.Client,http=>http.Timeout=TimeSpan.FromSeconds(10));

@@ -193,6 +193,40 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "swoovr-zammad",
+      "name": "Swoovr helpdesk (local)",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "clientAuthenticatorType": "none",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": false,
+      "redirectUris": [
+        "http://localhost:8095/auth/openid_connect/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8095"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8095/*",
+        "standard.token.exchange.enabled": "false",
+        "oauth2.device.authorization.grant.enabled": "false"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "email",
+        "acr",
+        "web-origins"
+      ],
+      "optionalClientScopes": []
     }
   ],
   "users": [],

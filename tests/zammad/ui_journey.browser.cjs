@@ -190,6 +190,23 @@ async function signIn(page, start, email, password) {
       check(sql(`SELECT c.status || '|' || (SELECT count(*) FROM sanctions s WHERE s.case_id = c.id) || '|' || (SELECT count(*) FROM appeals) FROM moderation_cases c WHERE c.id = '${caseId}'`) === before,
         'closing the linked request leaves the case, its sanctions and appeals unchanged');
     } else console.log('SKIP: the fixture report could not be created locally (status ' + reported + '); case links not exercised in the browser');
+    // Staff access is mirrored from Swoovr into the helpdesk (Q133): the root admin sees it and can check it now.
+    const rootPage = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage(); pages.push(['root', rootPage]);
+    await rootPage.goto(admin + '/sign-in');
+    await rootPage.waitForSelector('#username', { timeout: 30000 });
+    await rootPage.fill('#username', env.SWOOVR_LOCAL_ADMIN_EMAIL); await rootPage.fill('#password', env.SWOOVR_LOCAL_ADMIN_PASSWORD);
+    await rootPage.click('#kc-login');
+    // The fictional root admin has a second factor; the launcher computes the current code (kept in-process, never printed).
+    await rootPage.waitForSelector('#otp', { timeout: 30000 });
+    await rootPage.fill('#otp', execFileSync(path.join(root, 'scripts/local-platform.sh'), ['admin-code'], { cwd: root, encoding: 'utf8' }).trim().split('\n').pop());
+    await Promise.all([rootPage.waitForURL(u => !u.toString().includes('/realms/'), { timeout: 30000 }), rootPage.click('#kc-login')]);
+    await rootPage.goto(admin + '/tickets/diagnostics');
+    await rootPage.waitForSelector('[data-ticket-staff-sync="configured"]', { timeout: 60000 });
+    check(await rootPage.getAttribute('[data-ticket-staff-failed]', 'data-ticket-staff-failed') === '0', 'integration health shows staff access copied from Swoovr with nothing failing');
+    await Promise.all([rootPage.waitForLoadState('load'), rootPage.click('[data-ticket-staff-sync-now] button')]);
+    await rootPage.waitForSelector('[data-ticket-staff-sync-result]', { timeout: 60000 });
+    check(/^Checked \d+ staff\./.test((await rootPage.textContent('[data-ticket-staff-sync-result]')).trim()), 'an administrator can check staff helpdesk access on demand');
+    await rootPage.screenshot({ path: path.join(shots, 'admin-staff-access.png'), fullPage: true });
     console.log(`PASS: ${checks} native support journey checks against real Zammad (ticket TK-${id}).`);
   } catch (e) {
     console.log('FAIL: ' + (e.safe ? e.message : (e.name + ': ' + String(e.message).split('\n')[0].slice(0, 200))));

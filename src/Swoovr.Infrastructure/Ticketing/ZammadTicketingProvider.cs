@@ -90,12 +90,12 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
             @internal = internalNote, sender = customer ? "Customer" : "Agent" }, ct));
     }
 
-    private async Task<JsonElement> Send(HttpMethod method, string path, object? payload, CancellationToken ct)
+    private async Task<JsonElement> Send(HttpMethod method, string path, object? payload, CancellationToken ct, long? onBehalf = null)
     {
         bool write = method != HttpMethod.Get;
         using var request = new HttpRequestMessage(method, new Uri(root, path));
         request.Headers.Authorization = new AuthenticationHeaderValue("Token", "token=" + token);
-        if(from is long actor) request.Headers.TryAddWithoutValidation("From",actor.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if((onBehalf ?? from) is long actor) request.Headers.TryAddWithoutValidation("From",actor.ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (payload is not null) request.Content = JsonContent.Create(payload);
         try
@@ -110,7 +110,9 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
                     _ => "provider-unavailable" };
                 throw new TicketingProviderException(code, write && (int)response.StatusCode >= 500);
             }
-            using var document = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(ct));
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            if (bytes.Length == 0) return default;
+            using var document = JsonDocument.Parse(bytes);
             return document.RootElement.Clone();
         }
         catch (TicketingProviderException) { throw; }

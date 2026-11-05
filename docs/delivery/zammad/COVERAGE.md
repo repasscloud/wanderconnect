@@ -13,7 +13,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R005 | Done | `TicketingIdentity` GUID→numeric mapping; access resolves via mapping, never email; verified email sync (runtime checks) |
 | R006 | Done | Guest code→grant flow (`GUEST-API.md`); ticket numbers/emails/GUIDs not credentials (guest checks) |
 | R007 | Done | Email change continuity, guest/member same address never merged, deletion pending/cancelled, disabled/promoted provider customer fails closed, barred members keep support (runtime + guest checks) |
-| R008 | Done | Separate provisioning token, identity-lifecycle token and per-staff agent tokens; no application-wide agent token (`API.md` actor design) |
+| R008 | Done | Separate provisioning, identity-lifecycle and staff-directory tokens, plus per-staff agent tokens issued by Swoovr's synchronisation; no application-wide agent token (`API.md` actor design, D327) |
 
 ## Ticketing model
 
@@ -25,7 +25,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R012 | Done | Private notes/attachments excluded from member/guest projections, notices and errors (runtime, guest, journey, events checks) |
 | R013 | Done | Queue + `swoovr_category/subcategory/sensitivity/resolution` attributes, priority, source (`swoovr_source`), case links; 13 groups only |
 | R014 | Done | Server-derived customer; raw `From` ignored; staff create-on-behalf by exact lookup (runtime checks) |
-| R015 | Done | Per-staff Zammad grants AND Swoovr role/conflict checks on every read/write/download; transfer removes access immediately (runtime) |
+| R015 | Done | Per-staff Zammad grants mirrored from Swoovr roles AND Swoovr role/conflict checks on every read/write/download; transfer removes access immediately; drift in Zammad reverted (runtime, D327) |
 | R016 | Done | Follow-up follows the queue's Zammad policy; closed requests show "start a new request" (`canReply`); journey shows Closed |
 
 ## Trust & Safety boundary
@@ -36,7 +36,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R018 | Done | Cases, evidence, sanctions, appeals stay in Swoovr; links are references; closing a request changes nothing (runtime check) |
 | R019 | Done | No evidence copied; sensitive-looking uploads refused; `.txt` only; secure document collection deferred |
 | R020 | Done | Visibility split documented in `API.md`/`IMPLEMENTATION.md`; Admin shows linked cases with deep links into Swoovr case screens |
-| R021 | Partly / OPEN | Sensitive queues need elevation + fresh sign-in + pinned channel; conflict exclusions enforced. Jurisdiction-specific retention for helpdesk data is a legal decision (OPEN, see `OPERATIONS.md`) |
+| R021 | Partly / OPEN | Sensitive queues need elevation + a sign-in within 15 minutes (D327); never on a Zammad web sign-in; conflict exclusions enforced in Admin and by switching off web sign-in. Jurisdiction-specific retention for helpdesk data is a legal decision (OPEN, see `OPERATIONS.md`) |
 
 ## Public website, guest support and email
 
@@ -60,8 +60,8 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R032 | Done | Owner, escalation/transfer, priority, category/subcategory, sensitivity, resolution, supported macros, text modules |
 | R033 | Done | Member account link, guest/email-sender labels, linked cases/appeals panel |
 | R034 | Done | Lookup by GUID, `swoovr-{GUID}`, mapped numeric ID or exact email; shared email → ambiguity (runtime) |
-| R035 | Done (DEFAULT) | `/tickets/diagnostics`: reachability, mappings, uncertain work, inbox and dead letters. Group/role/trigger/webhook configuration is provisioned and changed in Zammad's own admin by an administrator (not routine work) |
-| R036 | Done / OPEN | Sensitive queues enforce elevation + pinned TLS channel; Admin host presents no certificate, so those queues are invisible in Admin until the owner decides the trusted-workstation mechanism (question opened) |
+| R035 | Done (DEFAULT) | `/tickets/diagnostics`: reachability, mappings, uncertain work, inbox and dead letters, staff mirroring and unmanaged agents, on-demand staff check. Group/role/trigger/webhook configuration is provisioned and changed in Zammad's own admin by an administrator (not routine work) |
+| R036 | Done | Owner decision Q133 B (D327): sensitive queues need role + elevation + a recent sign-in, worked in Admin only; owner's queue matrix enforced; direct Zammad access mirrored from Swoovr (runtime + `staff_sso.browser.cjs`) |
 | R037 | Done | Existing Admin controls and tokens; no environment notices |
 
 ## Webhooks and notification delivery
@@ -96,14 +96,14 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | --- | --- | --- |
 | R057 | Done | Verified against the actual repository: .NET API, PostgreSQL, Keycloak, Blazor web/Admin, MAUI |
 | R058 | Done locally / External | Separate Compose project, private network, loopback-only port; remote hosting is the owner's (External) |
-| R059 | Done | Staff OIDC sessions vs per-staff provider tokens vs provisioning/identity tokens |
+| R059 | Done | Staff OIDC sessions (Admin and Zammad web via the staff realm) vs per-staff provider tokens vs provisioning/identity/staff-directory tokens |
 | R060 | Done | Timeouts, no blind write retry, operation keys, lost-response reconciliation, outage behaviour (events harness), redacted logs |
 | R061 | Done / External | Pinned digests, upgrade/rollback procedure and full isolated restore (`OPERATIONS.md`, restore harness); production DR drills: External |
 | R062 | OPEN (legal) | Upstream Compose and AGPL-3.0 licence retained; deployment obligations need legal review (no legal conclusion given) |
 
 ## Thirteen groups and the stock Users group
 
-The 13 named groups are provisioned idempotently (twice without duplication) with role mappings in `TicketingPolicy`. The stock `Users` group is disabled only when empty; new email is routed to General Support by a provisioned filter. Public guest categories route only to non-restricted queues.
+The 13 named groups are provisioned idempotently (twice without duplication) with the owner's role matrix in `TicketingPolicy` (D327, table in `OPERATIONS.md`). The stock `Users` group is disabled only when empty; new email is routed to General Support by a provisioned filter. Public guest categories route only to non-restricted queues.
 
 ## Original discovery questions
 

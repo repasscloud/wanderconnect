@@ -84,9 +84,12 @@ test('members app client: created once from the import, public, PKCE, no secret,
   assert.deepEqual(mobile.redirectUris, ['changed']);
 });
 
-test('only the members realm has a public client', async () => {
+test('public clients: the members app, and the staff helpdesk sign-in (Q133) redirecting only to Zammad', async () => {
   assert.deepEqual((await generatedPublicClients('swoovr-members-dev')).map(c => c.clientId), ['swoovr-mobile']);
-  for (const name of ['swoovr-venues-dev', 'swoovr-staff-dev']) assert.deepEqual(await generatedPublicClients(name), []);
+  assert.deepEqual(await generatedPublicClients('swoovr-venues-dev'), []);
+  const staff = await generatedPublicClients('swoovr-staff-dev');
+  assert.deepEqual(staff.map(c => [c.clientId, c.redirectUris, c.attributes['pkce.code.challenge.method'], c.fullScopeAllowed, 'secret' in c]),
+    [['swoovr-zammad', ['http://localhost:8095/auth/openid_connect/callback'], 'S256', false, false]]);
 });
 
 test('user profile follows the generated import: first name before email, prototype placeholders', async () => {

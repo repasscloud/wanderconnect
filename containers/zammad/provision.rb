@@ -38,6 +38,18 @@ identity = User.find_or_initialize_by(login: 'swoovr-identity')
 identity.assign_attributes(firstname: 'Swoovr', lastname: 'Identity', email: 'identity@example.test', active: true,
   password: input.fetch('password'), role_ids: [identity_role.id], created_by_id: actor, updated_by_id: actor)
 identity.save!
+# Staff directory (Q133/#204): Swoovr mirrors its staff permissions into Zammad through this identity only. It can manage
+# users and sessions; ticket.agent only lets it read the group and role lists, because it belongs to no group and so
+# sees no tickets. Swoovr always writes agents with exactly the Agent role.
+directory_role = Role.find_or_initialize_by(name: 'Swoovr staff directory')
+directory_role.assign_attributes(active: true, default_at_signup: false, created_by_id: actor, updated_by_id: actor)
+directory_role.save!
+%w[admin.user admin.session ticket.agent].each { |permission| directory_role.permission_grant(permission) }
+directory = User.find_or_initialize_by(login: 'swoovr-directory')
+directory.assign_attributes(firstname: 'Swoovr', lastname: 'Staff directory', email: 'directory@example.test', active: true,
+  password: input.fetch('password'), role_ids: [directory_role.id], created_by_id: actor, updated_by_id: actor)
+directory.save!
+directory.group_names_access_map = {}
 def api_token(user, label, permissions)
   token = Token.find_by(action: 'api', user_id: user.id, name: label)
   token ||= Token.create!(action: 'api', persistent: true, user_id: user.id, name: label,
@@ -49,6 +61,20 @@ Setting.set('system_init_done', true)
 Setting.set('api_token_access', true)
 Setting.set('api_password_access', false)
 Setting.set('user_create_account', false)
+# Staff sign in to Zammad's web interface only through the central staff identity provider (Keycloak OpenID Connect).
+# Password sign-in and password reset are off, so a Zammad password can never replace the central sign-in. Unknown
+# identities are never created; a staff web identity provisioned by Swoovr is linked by its verified email on first use.
+sso = input.fetch('sso', nil)
+if sso
+  Setting.set('auth_openid_connect', true)
+  Setting.set('auth_openid_connect_credentials', {
+    'display_name' => sso.fetch('display_name'), 'identifier' => sso.fetch('client_id'), 'issuer' => sso.fetch('issuer'),
+    'uid_field' => 'sub', 'scope' => 'openid email profile', 'pkce' => true })
+  Setting.set('auth_third_party_no_create_user', true)
+  Setting.set('auth_third_party_auto_link_at_inital_login', true)
+end
+Setting.set('user_show_password_login', sso.nil?)
+Setting.set('user_lost_password', false)
 # Local outgoing email never leaves the Docker mail sink.
 Channel.where(area: 'Email::Notification').update_all(active: false)
 notification = Channel.find_by(area: 'Email::Notification') || Channel.new(area: 'Email::Notification')
@@ -107,4 +133,5 @@ trigger.save!
 puts "SWOOVR_PROVISION_RESULT=" + JSON.generate({version: Version.get, groups: groups,
   customer_role_id: customer_role.id, agent_role_id: agent_role.id,
   provisioning_token: api_token(admin, 'swoovr-local-provisioning', ['admin', 'ticket.agent']),
-  identity_token: api_token(identity, 'swoovr-local-identity', ['admin.user'])})
+  identity_token: api_token(identity, 'swoovr-local-identity', ['admin.user']),
+  staff_directory_token: api_token(directory, 'swoovr-local-staff-directory', ['admin.user', 'admin.session', 'ticket.agent'])})

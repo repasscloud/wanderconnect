@@ -25,7 +25,11 @@ public sealed record TicketBulkResult(long Id,int Status,string? Code,TicketSumm
 public sealed record TicketTextModule(long Id,string Name,string Body);
 public sealed record TicketMacro(long Id,string Name,bool Supported);
 public sealed record TicketMacroApply(Guid OperationId,DateTimeOffset ExpectedUpdatedAt);
-public sealed record TicketDiagnostics(string Provider,long Mappings,long UncertainMappings,long UncertainOperations,long PendingDeliveries,long FailedDeliveries);
+public sealed record TicketDiagnostics(string Provider,long Mappings,long UncertainMappings,long UncertainOperations,long PendingDeliveries,long FailedDeliveries,
+    TicketStaffSyncStatus? Staff=null);
+/// <summary>Staff permission mirroring into the helpdesk. UnmanagedAgents counts helpdesk agents Swoovr doesn't control (null if not checked).</summary>
+public sealed record TicketStaffSyncStatus(bool Configured,long Mirrored,long WebSignIn,long Failed,DateTimeOffset? LastSyncedAt,DateTimeOffset? LastVerifiedAt,long? UnmanagedAgents);
+public sealed record TicketStaffSyncRun(int Checked,int Changed,int Failed,int Drifted);
 public sealed record TicketDownload(string Filename,string ContentType,byte[] Data);
 
 public sealed record TicketOwner(long Id,string Name,IReadOnlyList<long> GroupIds);

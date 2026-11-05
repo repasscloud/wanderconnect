@@ -7812,6 +7812,77 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("ticketing_operation");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TicketingStaff", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("AppliedDigest")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("applied_digest");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<long?>("ProviderUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_user_id");
+
+                    b.Property<DateTimeOffset?>("SessionsRevokedApplied")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sessions_revoked_applied");
+
+                    b.Property<DateTimeOffset?>("SyncedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("synced_at");
+
+                    b.Property<byte[]>("TokenProtected")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_protected");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.Property<bool>("WebActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("web_active");
+
+                    b.Property<long?>("WebProviderUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("web_provider_user_id");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_ticketing_staff");
+
+                    b.HasIndex("NextAttemptAt")
+                        .HasDatabaseName("ix_ticketing_staff_next_attempt_at");
+
+                    b.HasIndex("ProviderUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_staff_provider_user_id");
+
+                    b.HasIndex("WebProviderUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_staff_web_provider_user_id");
+
+                    b.ToTable("ticketing_staff");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.TicketingWebhookWork", b =>
                 {
                     b.Property<Guid>("Id")

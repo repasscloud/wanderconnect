@@ -41,6 +41,15 @@ internal static class TicketingModel
             entity.HasIndex(row => row.ProviderUserId).IsUnique();
             entity.Property(row => row.State).HasConversion<string>().HasMaxLength(32);
         });
+        // No foreign key to accounts: the row must outlive a removed account so its Zammad identities are still revoked.
+        model.Entity<TicketingStaff>(entity => {
+            entity.HasKey(row => row.AccountId);
+            entity.HasIndex(row => row.ProviderUserId).IsUnique();
+            entity.HasIndex(row => row.WebProviderUserId).IsUnique();
+            entity.Property(row => row.AppliedDigest).HasMaxLength(64);
+            entity.Property(row => row.FailureCode).HasMaxLength(64);
+            entity.HasIndex(row => row.NextAttemptAt);
+        });
         model.Entity<TicketingGuestChallenge>(entity => {
             entity.HasKey(row => row.Id);
             entity.Property(row => row.EmailLookup).HasMaxLength(32);

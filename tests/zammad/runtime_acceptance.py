@@ -15,7 +15,6 @@ from pathlib import Path
 import re
 import signal
 import socket
-import ssl
 import subprocess
 import sys
 import threading
@@ -27,7 +26,7 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
-from zammad_local import provision_runtime, private_write
+from zammad_local import private_write
 from webhook_acceptance import psql
 from provider_acceptance import request as provider_call
 PRIVATE=ROOT/'.local/zammad'
@@ -59,7 +58,7 @@ def main():
     database='swoovr_zammad_runtime_'+run
     realms=['swoovr-ticket-members-'+run,'swoovr-ticket-staff-'+run]
     kc='http://localhost:8180';base='http://127.0.0.1:5095'
-    checks=[];api=None;log=None;created_realms=[];staff_ids=[];proxy=None
+    checks=[];api=None;log=None;created_realms=[];proxy=None
     def check(ok,name):
         if not ok:raise RuntimeError('FAIL: '+name)
         checks.append(name);print('PASS:',name,flush=True)
@@ -123,7 +122,7 @@ def main():
             time.sleep(.25)
         raise RuntimeError('API readiness timed out')
     def call(token,path,method='GET',data=None,expected=200,opener=None,headers=None):
-        code,value=request(('https://127.0.0.1:5096' if opener else base)+path,method,data,token,opener,headers)
+        code,value=request(base+path,method,data,token,opener,headers)
         if code!=expected:raise RuntimeError('HTTP '+method+' '+re.sub(r'/\d+', '/[id]',path.split('?')[0])+' returned '+str(code)+' expected '+str(expected)+' code '+str(value.get('code') if isinstance(value,dict) else None))
         return value
     def login(realm,username,password):
@@ -181,21 +180,13 @@ def main():
             people[label]=(token,claims,account)
         roles={'support':'Support','restricted':'TrustSafety','legal':'Legal','admin':'Admin'}
         for label,role in roles.items():psql(database,"INSERT INTO role_grants(id,account_id,role,granted_at) VALUES(gen_random_uuid(),'"+people[label][2]+"','"+role+"',now())")
-        settings=provision_runtime([{'id':people[label][2],'roles':[role]} for label,role in roles.items()],config,directory)
-        staff_ids=list(settings['Ticketing']['Zammad']['Staff'])
         proxy=ThreadingHTTPServer(('127.0.0.1',0),Proxy);threading.Thread(target=proxy.serve_forever,daemon=True).start()
-        settings['Ticketing']['Zammad']['BaseUrl']='http://127.0.0.1:'+str(proxy.server_port)+'/'
-        # TLS pins are provisioned per actor. This fixture exercises actual TLS client-certificate possession.
-        for label in ('server','client'):
-            subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(directory/(label+'.key')),'-out',str(directory/(label+'.crt')),'-days','1','-subj','/CN=127.0.0.1','-addext','subjectAltName=IP:127.0.0.1'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            os.chmod(directory/(label+'.key'),0o600)
-        der=ssl.PEM_cert_to_DER_cert((directory/'client.crt').read_text());pin=hashlib.sha256(der).hexdigest().upper()
-        for label in ('restricted','legal'):settings['Ticketing']['Zammad']['Staff'][people[label][2]]['ClientCertificatePins']=[pin]
+        # Only helpdesk credentials are configured. Each staff member's Zammad identities and token are created by the API's
+        # own staff synchronisation from Swoovr roles (Q133); nothing is provisioned per person by an operator.
+        settings={'Ticketing':{'Zammad':{'BaseUrl':'http://127.0.0.1:'+str(proxy.server_port)+'/','IdentityToken':config['identity_token'],'StaffDirectoryToken':config['staff_directory_token']}}}
         private_write(directory/'api.json',json.dumps(settings));stop()
-        environment.update({'Ticketing__ConfigurationFile':str(directory/'api.json'),'ASPNETCORE_URLS':base+';https://127.0.0.1:5096','Kestrel__Certificates__Default__Path':str(directory/'server.crt'),'Kestrel__Certificates__Default__KeyPath':str(directory/'server.key')})
+        environment.update({'Ticketing__ConfigurationFile':str(directory/'api.json'),'Ticketing__Staff__SyncSeconds':'5','Ticketing__Staff__VerifyMinutes':'1'})
         start()
-        context=ssl.create_default_context(cafile=str(directory/'server.crt'));context.load_cert_chain(str(directory/'client.crt'),str(directory/'client.key'))
-        secure=urllib.request.build_opener(urllib.request.HTTPSHandler(context=context))
         member,other,support,restricted,legal,adminperson=[people[k][0] for k in ('member','other','support','restricted','legal','admin')]
         call(None,'/api/me/tickets',expected=401);call(member,'/api/admin/tickets',expected=403)
         check(call(member,'/api/me/tickets')['items']==[],'unmapped member lists empty tickets and member cannot reach staff routes')
@@ -205,7 +196,12 @@ def main():
         call(other,f'/api/me/tickets/{ticket}',expected=404)
         call(member,f'/api/me/tickets/{ticket}',headers={'From':'1'})
         check(True,'cross-customer detail denied and raw client From header cannot select provider actor')
-        options=call(member,'/api/me/tickets/options');caps=call(support,'/api/admin/tickets/capabilities')
+        options=call(member,'/api/me/tickets/options')
+        # Staff identities are created by the API on first use; Zammad's user search indexes them asynchronously.
+        for _ in range(60):
+            caps=call(support,'/api/admin/tickets/capabilities')
+            if any(o['name']==people['support'][1]['email'] for o in caps['owners']):break
+            time.sleep(1)
         check(bool(options['states']) and bool(options['priorities']) and bool(caps['owners']) and bool(caps['categories']),'member labels and staff owner/category/subcategory choices come from secured API')
         note={'operationId':str(uuid.uuid4()),'body':'Private fictional staff note','private':True,'attachments':[{'filename':'ordinary.txt','contentType':'text/plain','data':base64.b64encode(b'Private ordinary text').decode()}]}
         staff_detail=call(support,f'/api/admin/tickets/{ticket}/replies','POST',note)
@@ -302,18 +298,49 @@ def main():
         psql(database,"DELETE FROM staff_exclusions WHERE staff_account_id='"+people['support'][2]+"'")
         current=call(support,f'/api/admin/tickets/{ticket}')['ticket']
         restricted_group=next(g['id'] for g in caps['transferGroups'] if g['name']=='Trust & Safety — Restricted')
+        names=lambda options:{g['name'] for g in options}
+        trust_caps=call(restricted,'/api/admin/tickets/capabilities');legal_caps=call(legal,'/api/admin/tickets/capabilities');admin_caps=call(adminperson,'/api/admin/tickets/capabilities')
+        check('Appeals' not in names(caps['groups']) and 'Appeals' in names(trust_caps['groups']) and 'Appeals' in names(admin_caps['groups']) and 'Appeals' not in names(legal_caps['groups']),
+              "owner matrix: Appeals is worked by Trust & Safety and Admin only")
+        check({'Trust & Safety — Restricted','Legal & Law Enforcement'}<=names(caps['transferGroups']) and 'Legal & Law Enforcement' in names(trust_caps['transferGroups']) and 'Legal & Law Enforcement' in names(admin_caps['transferGroups']),
+              'owner matrix: Support, Trust & Safety and Admin can hand off into Legal; Support and Admin into Restricted')
+        check(not names(legal_caps['groups'])-{'Legal & Law Enforcement','Privacy & Data Protection'} and 'General Support' not in names(legal_caps['groups']),'owner matrix: Legal works no ordinary queue')
         call(support,f'/api/admin/tickets/{ticket}','PUT',{'operationId':str(uuid.uuid4()),'expectedUpdatedAt':current['updatedAt'],'groupId':restricted_group})
         call(support,f'/api/admin/tickets/{ticket}',expected=404);call(adminperson,f'/api/admin/tickets/{ticket}',expected=404)
         call(restricted,f'/api/admin/tickets/{ticket}',expected=404)
         call(restricted,'/api/admin/access/grants','POST',{'capability':'ticketing-restricted','purpose':'Fictional restricted runtime acceptance'},expected=201)
-        call(restricted,f'/api/admin/tickets/{ticket}',expected=404)
-        check(call(restricted,f'/api/admin/tickets/{ticket}',opener=secure)['staff']['groupId']==restricted_group,'transfer removes support/admin access immediately; restricted access requires role, provider group, fresh elevation and actual pinned TLS channel')
-        call(legal,f'/api/admin/tickets/{ticket}',expected=404,opener=secure)
+        check(call(restricted,f'/api/admin/tickets/{ticket}')['staff']['groupId']==restricted_group,'transfer removes support/admin access immediately; restricted access needs role, provider group, elevation and a recent sign-in (no certificate, Q133 option B)')
+        call(legal,f'/api/admin/tickets/{ticket}',expected=404)
         check(True,'Legal has no implicit Restricted T&S access')
-        call(adminperson,'/api/admin/tickets/diagnostics')
+        # Hand-off into Legal: Support moves it and loses it; Admin can't read it; Legal reads only with its own elevation.
+        legal_group=next(g['id'] for g in caps['transferGroups'] if g['name']=='Legal & Law Enforcement')
+        legal_ticket=call(support,'/api/admin/tickets','POST',{'accountId':people['member'][2],'ticket':{'operationId':str(uuid.uuid4()),'title':'Fictional legal hand-off','body':'Ordinary fictional enquiry for the legal team'}})
+        current=call(support,f"/api/admin/tickets/{legal_ticket['id']}")['ticket']
+        call(support,f"/api/admin/tickets/{legal_ticket['id']}",'PUT',{'operationId':str(uuid.uuid4()),'expectedUpdatedAt':current['updatedAt'],'groupId':legal_group})
+        call(support,f"/api/admin/tickets/{legal_ticket['id']}",expected=404);call(adminperson,f"/api/admin/tickets/{legal_ticket['id']}",expected=404);call(legal,f"/api/admin/tickets/{legal_ticket['id']}",expected=404)
+        call(legal,'/api/admin/access/grants','POST',{'capability':'ticketing-legal','purpose':'Fictional legal runtime acceptance'},expected=201)
+        check(call(legal,f"/api/admin/tickets/{legal_ticket['id']}")['staff']['groupId']==legal_group,'Support hands off into Legal and loses it; Admin has no Legal access; Legal reads with elevation')
+        diagnostics=call(adminperson,'/api/admin/tickets/diagnostics')
         call(support,'/api/admin/tickets/diagnostics',expected=403)
         call(support,'/api/admin/tickets/text-modules');call(support,'/api/admin/tickets/macros')
-        check(True,'secured integration diagnostics and verified provider text-module/macro reads execute through Swoovr')
+        check(diagnostics['staff']['configured'] and diagnostics['staff']['mirrored']>=4 and diagnostics['staff']['failed']==0 and diagnostics['staff']['unmanagedAgents'] is not None,
+              'secured diagnostics report staff mirroring (and agents Swoovr does not manage); provider text-module/macro reads execute through Swoovr')
+        # Mirrored Zammad identities (Q133): the web sign-in gets only what Zammad can enforce itself.
+        group_names={v:k for k,v in config['groups'].items()}
+        def zuser(login):
+            code,rows=provider_call(config['identity_token'],'GET','users/search?query=login:%22'+login+'%22&expand=true')
+            row=next(u for u in rows if u['login']==login)
+            # Search results come from the asynchronous index; the current record is read by ID.
+            code,row=provider_call(config['identity_token'],'GET','users/'+str(row['id']))
+            return row,{group_names.get(int(g),g):','.join(a) for g,a in row['group_ids'].items() if a}
+        api_user,api_groups=zuser('swoovr-staff-'+people['admin'][2]);web_user,web_groups=zuser('swoovr-staff-web-'+people['admin'][2])
+        check(api_user['active'] and not api_user['email'] and api_groups.get('Security')=='full' and api_groups.get('Privacy & Data Protection')=='full','Admin API identity: no email or password, all Admin queues')
+        check(web_user['active'] and web_user['email']==people['admin'][1]['email'] and web_groups.get('Security')=='create' and web_groups.get('Privacy & Data Protection')=='create' and web_groups.get('Internal Operations')=='full','Admin web sign-in: sensitive queues are hand-off only (never read)')
+        trust_web=zuser('swoovr-staff-web-'+people['restricted'][2])[1];support_web=zuser('swoovr-staff-web-'+people['support'][2])[1]
+        check(trust_web.get('Trust & Safety — Restricted')=='create' and trust_web.get('Appeals')=='full','Trust & Safety web sign-in: Restricted hand-off only, Appeals worked')
+        check(support_web.get('Legal & Law Enforcement')=='create' and support_web.get('Trust & Safety — Restricted')=='create' and 'Appeals' not in support_web and support_web.get('General Support')=='full','Support web sign-in: ordinary queues, hand-off into Restricted and Legal, no Appeals')
+        code,rows=provider_call(config['identity_token'],'GET','users/search?query=login:%22swoovr-staff-web-'+people['legal'][2]+'%22')
+        check(not any(u['login']=='swoovr-staff-web-'+people['legal'][2] and u['active'] for u in rows),'Legal has no web sign-in: both its queues need elevation that Zammad cannot enforce')
         # Signed verified email mutation retains mapping/tickets; provider role changes never grant broader customer impersonation.
         changed_email='changed.'+run+'@example.test'
         admin('realms/'+realms[0]+'/users/'+people['member'][1]['sub'],'PUT',{'email':changed_email,'emailVerified':True})
@@ -327,15 +354,18 @@ def main():
         call(member,f'/api/me/tickets/{ticket}',expected=403)
         provider_call(config['identity_token'],'PUT','users/'+customer,{'roles':['Customer']})
         check(True,'externally disabled or promoted provider customer fails closed without automatic privilege repair')
-        # Provider grant revocation also denies, even while Swoovr role remains granted.
-        support_provider=call(support,'/api/admin/tickets/capabilities')
-        code,users=provider_call(config['identity_token'],'GET','users/search?query=login:%22swoovr-staff-'+people['support'][2]+'%22')
-        support_user=next(u for u in users if u['login']=='swoovr-staff-'+people['support'][2])
+        # Zammad is not a second permission system: a change made there denies at once and the next verification reverts it.
+        support_user=zuser('swoovr-staff-'+people['support'][2])[0]
         provider_call(config['provisioning_token'],'PUT','users/'+str(support_user['id']),{'group_ids':{}})
         call(support,f'/api/admin/tickets/{on_behalf["id"]}',expected=404)
         check(True,'live provider group revocation denies staff independently of Swoovr role')
+        reverted=call(adminperson,'/api/admin/tickets/staff-sync','POST')
+        check(reverted['drifted']>=1 and call(support,f'/api/admin/tickets/{on_behalf["id"]}')['ticket']['id']==on_behalf['id'] and psql(database,"SELECT count(*) FROM audit_entries WHERE action='ticketing.staff-drift-reverted'")!='0',
+              'Swoovr verification reverts a permission change made in Zammad and audits it')
         psql(database,"DELETE FROM role_grants WHERE account_id='"+people['restricted'][2]+"'")
-        call(restricted,f'/api/admin/tickets/{ticket}',expected=403,opener=secure)
+        call(restricted,f'/api/admin/tickets/{ticket}',expected=403)
+        call(adminperson,'/api/admin/tickets/staff-sync','POST')
+        check(not zuser('swoovr-staff-'+people['restricted'][2])[0]['active'] and not zuser('swoovr-staff-web-'+people['restricted'][2])[0]['active'],'removing the Swoovr role switches off both Zammad identities on the next synchronisation')
         psql(database,"UPDATE accounts SET status='PendingDeletion' WHERE id='"+people['member'][2]+"'")
         call(member,f'/api/me/tickets/{ticket}',expected=403)
         check(True,'current Swoovr role revocation and account deletion state fail closed with old valid tokens')
@@ -359,18 +389,16 @@ def main():
         for realm in created_realms:
             try:admin('realms/'+realm,'DELETE')
             except Exception:pass
+        # The run's own helpdesk identities, by the IDs Swoovr recorded (search is asynchronous and could miss new ones).
+        owned=[]
+        try:owned=[int(x) for x in psql(database,"SELECT concat_ws(',',provider_user_id,web_provider_user_id) FROM ticketing_staff").replace('\n',',').split(',') if x]
+        except Exception:pass
         try:psql('postgres','DROP DATABASE IF EXISTS '+database+' WITH (FORCE)')
         except Exception:pass
-        # Revoke only runtime users owned by this run; preserve normal local staff.
-        for account in staff_ids:
-            query='login:%22swoovr-staff-'+account+'%22'
-            req=urllib.request.Request('http://127.0.0.1:8095/api/v1/users/search?query='+query,headers={'Authorization':'Token token='+config['identity_token']})
-            try:
-                with urllib.request.urlopen(req) as r:rows=json.load(r)
-                for row in rows:
-                    if row['login']=='swoovr-staff-'+account:
-                        req=urllib.request.Request('http://127.0.0.1:8095/api/v1/users/'+str(row['id']),json.dumps({'active':False}).encode(),method='PUT',headers={'Authorization':'Token token='+config['identity_token'],'Content-Type':'application/json'})
-                        urllib.request.urlopen(req).close()
+        # Switch off only the helpdesk identities owned by this run (API and web sign-in); normal local staff are untouched.
+        for user_id in owned:
+            req=urllib.request.Request('http://127.0.0.1:8095/api/v1/users/'+str(user_id),json.dumps({'active':False,'email':''}).encode(),method='PUT',headers={'Authorization':'Token token='+config['identity_token'],'Content-Type':'application/json'})
+            try:urllib.request.urlopen(req).close()
             except Exception:pass
 
 if __name__=='__main__':main()

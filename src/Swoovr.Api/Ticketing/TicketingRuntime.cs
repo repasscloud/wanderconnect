@@ -10,7 +10,7 @@ namespace Swoovr.Api.Ticketing;
 
 /// <summary>Per-request workspace. Every ticket read/write is checked against live provider grants and Swoovr subjects.</summary>
 public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount current,ITicketingWorkspaceProvider provider,
-    TicketingActorFactory actors,HttpContext http,TimeProvider clock,bool staff)
+    TicketingActorFactory actors,TimeProvider clock,bool staff)
 {
     private SwoovrDbContext Db=>accounts.Db!;
     private readonly HashSet<Guid> freshIntents=[];
@@ -19,20 +19,20 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     private Guid Me=>current.Account!.Id;
     private static TicketingAccessException Refuse(int status=403,string code="ticket-unavailable")=>new(status,code);
     private AccountRole Role(string group)=>new[]{AccountRole.Legal,AccountRole.TrustSafety,AccountRole.Admin,AccountRole.Support}.FirstOrDefault(r=>current.Allows(r)&&TicketingPolicy.CanAccessGroup(r,group));
+    /// <summary>
+    /// Sensitive queues (owner, 5 November 2026, Q133 option B): the role, the matching elevated capability and a sign-in
+    /// within 15 minutes. These queues are never granted to anyone's Zammad web sign-in, so this is the only way in.
+    /// </summary>
     private async Task<bool> SensitiveAsync(string group,CancellationToken ct)
     {
-        if(group is not("Legal & Law Enforcement" or "Trust & Safety — Restricted" or "Privacy & Data Protection" or "Security"))return true;
-        var capability=group switch {"Legal & Law Enforcement"=>StaffAccessPolicy.TicketLegal,"Privacy & Data Protection"=>StaffAccessPolicy.TicketPrivacy,"Security"=>StaffAccessPolicy.TicketSecurity,_=>StaffAccessPolicy.TicketRestricted};
-        if(!current.RecentlyAuthenticated(clock.GetUtcNow())||await StaffAccessEndpoints.GrantAsync(Db,Me,capability,clock.GetUtcNow(),ct) is null)return false;
-        // DEFAULT trusted-channel rule: direct TLS client certificate pinned per actor. This proves the API caller, not a browser device.
-        var certificate=await http.Connection.GetClientCertificateAsync(ct);
-        var pins=accounts.Services.GetRequiredService<IConfiguration>().GetSection($"Ticketing:Zammad:Staff:{Me:D}:ClientCertificatePins").Get<string[]>()??[];
-        return certificate is not null&&certificate.NotAfter.ToUniversalTime()>clock.GetUtcNow().UtcDateTime&&pins.Contains(certificate.GetCertHashString(HashAlgorithmName.SHA256),StringComparer.OrdinalIgnoreCase);
+        if(!TicketingPolicy.Sensitive.Contains(group))return true;
+        var capability=group switch {TicketingPolicy.Legal=>StaffAccessPolicy.TicketLegal,"Privacy & Data Protection"=>StaffAccessPolicy.TicketPrivacy,"Security"=>StaffAccessPolicy.TicketSecurity,_=>StaffAccessPolicy.TicketRestricted};
+        return current.RecentlyAuthenticated(clock.GetUtcNow())&&await StaffAccessEndpoints.GrantAsync(Db,Me,capability,clock.GetUtcNow(),ct) is not null;
     }
     private async Task<(SupportActor Actor,SupportDirectory Directory)> FactsAsync(CancellationToken ct)
     {
         var actor=await provider.ActorAsync(ct);
-        if(!actor.Active||actor.Roles.Count!=1||actor.Roles[0]!=(staff?"Agent":"Customer")||actor.Login!=(staff?$"swoovr-staff-{Me:D}":TicketingPolicy.MemberLogin(Me)))throw Refuse();
+        if(!actor.Active||actor.Roles.Count!=1||actor.Roles[0]!=(staff?"Agent":"Customer")||actor.Login!=(staff?TicketingPolicy.StaffLogin(Me):TicketingPolicy.MemberLogin(Me)))throw Refuse();
         return(actor,await DirectoryAsync(ct));
     }
     private async Task<bool> GroupAsync(long group,string action,CancellationToken ct,bool transfer=false)
@@ -42,7 +42,7 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         if(name is null||!TicketingPolicy.Groups.Contains(name))return false;
         var allowed=transfer?new[]{AccountRole.Legal,AccountRole.TrustSafety,AccountRole.Admin,AccountRole.Support}.Any(r=>current.Allows(r)&&TicketingPolicy.CanTransfer(r,name)):Role(name)!=AccountRole.Unknown;
         if(!allowed||!actor.Groups.TryGetValue(group,out var grants)||!grants.Any(g=>g=="full"||g==action))return false;
-        return transfer&&action=="create"&&name=="Trust & Safety — Restricted"||await SensitiveAsync(name,ct);
+        return transfer&&action=="create"&&TicketingPolicy.IsHandOffTarget(name)||await SensitiveAsync(name,ct);
     }
     private async Task<Guid?> CustomerAccountAsync(long customer,CancellationToken ct)=>await Db.Set<TicketingIdentity>().Where(m=>m.ProviderUserId==customer&&m.State==TicketingOperationState.Applied&&m.DeactivatedAt==null).Select(m=>(Guid?)m.AccountId).SingleOrDefaultAsync(ct);
     private async Task CheckSubjectsAsync(SupportTicket ticket,CancellationToken ct)
@@ -160,15 +160,25 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var directory=await DirectoryAsync(ct);
         return new(directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),"Ordinary UTF-8 .txt; 64 KiB each; 3 per reply. No identity documents or sensitive evidence.");
     }
+    /// <summary>The staff member behind either of their Zammad identities, or null for anything Swoovr doesn't manage.</summary>
+    private static (Guid Staff,bool Web)? StaffOf(SupportActor actor)
+    {
+        if(!actor.Active||actor.Roles.Count!=1||actor.Roles[0]!="Agent")return null;
+        foreach(var web in new[]{true,false})
+        {
+            var prefix=web?"swoovr-staff-web-":"swoovr-staff-";
+            if(actor.Login.StartsWith(prefix,StringComparison.Ordinal)&&Guid.TryParseExact(actor.Login[prefix.Length..],"D",out var id)&&actor.Login==(web?TicketingPolicy.StaffWebLogin(id):TicketingPolicy.StaffLogin(id)))return(id,web);
+        }
+        return null;
+    }
     private async Task<long[]> OwnerGroupsAsync(SupportActor actor,CancellationToken ct)
     {
-        if(!actor.Active||actor.Roles.Count!=1||actor.Roles[0]!="Agent"||!actor.Login.StartsWith("swoovr-staff-",StringComparison.Ordinal)||!Guid.TryParseExact(actor.Login[13..],"D",out var id))return [];
+        if(StaffOf(actor) is not var(id,web))return [];
         var account=await Db.Accounts.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==id&&a.Realm==AccountRealm.Staff&&a.Status==AccountStatus.Active,ct);
         if(account is null)return [];
-        var roles=await Db.RoleGrants.Where(r=>r.AccountId==id).Select(r=>r.Role).ToListAsync(ct);
-        if(account.IsRootAdmin)roles.Add(AccountRole.Admin);
+        var roles=TicketingPolicy.EffectiveRoles(await Db.RoleGrants.Where(r=>r.AccountId==id).Select(r=>r.Role).ToListAsync(ct),account.IsRootAdmin);
         var directory=await DirectoryAsync(ct);
-        return actor.Groups.Where(g=>g.Value.Contains("full")&&directory.Groups.Any(d=>d.Id==g.Key&&roles.Any(r=>TicketingPolicy.CanAccessGroup(r,d.Name)))).Select(g=>g.Key).ToArray();
+        return actor.Groups.Where(g=>g.Value.Contains("full")&&directory.Groups.Any(d=>d.Id==g.Key&&roles.Any(r=>TicketingPolicy.CanAccessGroup(r,d.Name))&&!(web&&TicketingPolicy.Sensitive.Contains(d.Name)))).Select(g=>g.Key).ToArray();
     }
     public async Task<TicketCapabilities> CapabilitiesAsync(CancellationToken ct)
     {
@@ -179,13 +189,17 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
             if(await GroupAsync(g.Id,"create",ct,true))transfers.Add(new(g.Id,g.Name));
         }
         var owners=new List<TicketOwner>();
-        foreach(var actor in await provider.AgentsAsync(ct))
+        var agents=(await provider.AgentsAsync(ct)).Select(a=>(Actor:a,Staff:StaffOf(a))).Where(a=>a.Staff is not null).ToList();
+        foreach(var (actor,who) in agents)
         {
-            var groups=(await OwnerGroupsAsync(actor,ct)).Where(g=>read.Any(r=>r.Id==g)).ToArray();
-            if(groups.Length==0)continue;
+            var groups=(await OwnerGroupsAsync(actor,ct)).Where(g=>read.Any(r=>r.Id==g)).ToList();
+            // One owner per person per queue: their web sign-in where it works the queue (so it shows in their own Zammad
+            // views), otherwise the identity Swoovr Admin acts as.
+            if(!who!.Value.Web&&agents.FirstOrDefault(o=>o.Staff is{Web:true} w&&w.Staff==who.Value.Staff).Actor is{} web)groups.RemoveAll((await OwnerGroupsAsync(web,ct)).Contains);
+            if(groups.Count==0)continue;
             // Staff choose an owner by their Swoovr staff email, never by a provider login.
-            var label=Guid.TryParseExact(actor.Login[13..],"D",out var staffId)?await Db.Accounts.Where(a=>a.Id==staffId&&a.Realm==AccountRealm.Staff).Select(a=>a.Email).SingleOrDefaultAsync(ct):null;
-            owners.Add(new(actor.Id,string.IsNullOrWhiteSpace(label)?"Staff member "+actor.Id:label,groups));
+            var label=await Db.Accounts.Where(a=>a.Id==who.Value.Staff&&a.Realm==AccountRealm.Staff).Select(a=>a.Email).SingleOrDefaultAsync(ct);
+            owners.Add(new(actor.Id,string.IsNullOrWhiteSpace(label)?"Staff member "+actor.Id:label,groups.ToArray()));
         }
         return new(read,transfers,facts.Directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),facts.Directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),true,"Ordinary UTF-8 .txt; 64 KiB each; 3 per reply. No identity documents or sensitive evidence.",
             owners,
@@ -374,6 +388,26 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     {
         if(!current.Allows(AccountRole.Admin))throw Refuse();
         await provider.ActorAsync(ct);
-        return new("reachable",await Db.Set<TicketingIdentity>().LongCountAsync(ct),await Db.Set<TicketingIdentity>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain,ct),await Db.Set<TicketingOperation>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain||i.State==TicketingOperationState.Pending,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null&&i.FailureCode!=null,ct));
+        var rows=Db.Set<TicketingStaff>();
+        var configured=!string.IsNullOrWhiteSpace(accounts.Services.GetRequiredService<IConfiguration>()["Ticketing:Zammad:StaffDirectoryToken"]);
+        long? unmanaged=null;
+        if(configured)
+        {
+            // Agents that Swoovr doesn't manage are another way into tickets; they are reported, never silently tolerated.
+            var managed=await rows.Where(s=>s.ProviderUserId!=null||s.WebProviderUserId!=null).Select(s=>new{s.ProviderUserId,s.WebProviderUserId}).ToListAsync(ct);
+            var ids=managed.SelectMany(m=>new[]{m.ProviderUserId,m.WebProviderUserId}).OfType<long>().ToHashSet();
+            try{unmanaged=(await actors.StaffDirectory().AgentsAsync(ct)).LongCount(a=>!ids.Contains(a.Id)&&a.Login!="swoovr-provisioner");}
+            catch(TicketingProviderException){}
+        }
+        var staffStatus=new TicketStaffSyncStatus(configured,await rows.LongCountAsync(s=>s.ProviderUserId!=null,ct),await rows.LongCountAsync(s=>s.WebActive,ct),await rows.LongCountAsync(s=>s.FailureCode!=null,ct),
+            await rows.MaxAsync(s=>(DateTimeOffset?)s.SyncedAt,ct),await rows.MaxAsync(s=>(DateTimeOffset?)s.VerifiedAt,ct),unmanaged);
+        return new("reachable",await Db.Set<TicketingIdentity>().LongCountAsync(ct),await Db.Set<TicketingIdentity>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain,ct),await Db.Set<TicketingOperation>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain||i.State==TicketingOperationState.Pending,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null&&i.FailureCode!=null,ct),staffStatus);
+    }
+    /// <summary>Admin: apply and verify every staff member's helpdesk permissions now (normally every minute / ten minutes).</summary>
+    public async Task<TicketStaffSyncRun> SyncStaffAsync(CancellationToken ct)
+    {
+        if(!current.Allows(AccountRole.Admin))throw Refuse();
+        var result=await accounts.Services.GetRequiredService<TicketingStaffSync>().RunAsync(true,ct);
+        return new(result.Checked,result.Changed,result.Failed,result.Drifted);
     }
 }

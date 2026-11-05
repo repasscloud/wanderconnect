@@ -93,6 +93,26 @@ def web_client(client_id, secret_env, path='', base=web):
     }
 
 
+# Q133 (#204): staff may use Zammad's own web interface, signing in only through this realm. Zammad 7.2.2's OpenID Connect
+# sends no client secret (identifier + PKCE), so this is a public client, redirecting only to the local Zammad callback.
+zammad_web = 'http://localhost:8095'
+zammad_redirect = zammad_web + '/auth/openid_connect/callback'
+
+
+def zammad_client():
+    return {
+        'clientId': 'swoovr-zammad', 'name': 'Swoovr helpdesk (local)', 'protocol': 'openid-connect', 'enabled': True,
+        'publicClient': True, 'clientAuthenticatorType': 'none',
+        'standardFlowEnabled': True, 'implicitFlowEnabled': False, 'directAccessGrantsEnabled': False,
+        'serviceAccountsEnabled': False, 'frontchannelLogout': False,
+        'redirectUris': [zammad_redirect], 'webOrigins': [zammad_web],
+        'attributes': {'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': zammad_web + '/*',
+                       'standard.token.exchange.enabled': 'false', 'oauth2.device.authorization.grant.enabled': 'false'},
+        'fullScopeAllowed': False,
+        'defaultClientScopes': ['basic', 'profile', 'email', 'acr', 'web-origins'], 'optionalClientScopes': [],
+    }
+
+
 def mobile_client():
     # Members only (D31, D32): a public client with PKCE and no secret (design: "Mobile (members only)").
     # Same mappers as the web client, so the API sees the same session evidence and audience.
@@ -139,7 +159,7 @@ realms = {
                                clients=[web_client('swoovr-venue-web', 'SWOOVR_VENUES_WEB_SECRET', '/venues')]),
     # Employees broker from Entra ID once a tenant registration exists (D32); root admin needs OTP (D36).
     'swoovr-staff-dev': realm('swoovr-staff-dev', 'Swoovr staff', registration=False, passkeys=False,
-                              clients=[web_client('swoovr-admin-web', 'SWOOVR_STAFF_WEB_SECRET', base=admin_web)]),
+                              clients=[web_client('swoovr-admin-web', 'SWOOVR_STAFF_WEB_SECRET', base=admin_web), zammad_client()]),
 }
 realms['swoovr-members-dev']['eventsListeners'] = ['jboss-logging','swoovr-contact-clocks']
 realms['swoovr-staff-dev']['resetPasswordAllowed'] = False  # Entra owns employee passwords; root admin is reset by master admin.
@@ -150,8 +170,12 @@ def check(name, value):
     assert all(value[k] == v for k, v in brute_force.items()), (name, 'brute force')
     assert value['users'] == [], (name, 'no committed users')
     for client in value['clients']:
-        if client['publicClient']:
-            assert name == 'swoovr-members-dev' and client['clientId'] == 'swoovr-mobile', (name, 'public clients: members app only')
+        if client['publicClient'] and client['clientId'] == 'swoovr-zammad':
+            assert name == 'swoovr-staff-dev', (name, 'helpdesk sign-in: staff realm only')
+            assert 'secret' not in client and client['clientAuthenticatorType'] == 'none', (name, 'no secret')
+            assert client['redirectUris'] == [zammad_redirect], (name, 'helpdesk callback only')
+        elif client['publicClient']:
+            assert name == 'swoovr-members-dev' and client['clientId'] == 'swoovr-mobile', (name, 'public clients: members app and staff helpdesk only')
             assert 'secret' not in client and client['clientAuthenticatorType'] == 'none', (name, 'no secret in the app')
             assert client['redirectUris'] == [mobile_redirect], (name, 'app redirect only')
         else:
@@ -179,4 +203,4 @@ for name, value in realms.items():
         path.write_text(text)
     else:
         assert path.exists() and path.read_text() == text, f'{path.relative_to(root)} drifted; run --write'
-print(f'PASS: {len(realms)} local Keycloak realm imports (temporary lockout, code+PKCE only, members app client public without a secret, no token exchange, social only in members, 18+ registration checkbox).')
+print(f'PASS: {len(realms)} local Keycloak realm imports (temporary lockout, code+PKCE only, members app and staff helpdesk clients public without a secret, no token exchange, social only in members, 18+ registration checkbox).')

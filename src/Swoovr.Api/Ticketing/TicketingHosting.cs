@@ -1,20 +1,8 @@
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Server.Kestrel.Https;
 namespace Swoovr.Api.Ticketing;
 
 public static class TicketingHosting
 {
-    public static void Configure(WebApplicationBuilder builder)
-    {
-        var pins=builder.Configuration.GetSection("Ticketing:Zammad:Staff").GetChildren().SelectMany(s=>s.GetSection("ClientCertificatePins").Get<string[]>()??[]).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if(pins.Count>0)builder.WebHost.ConfigureKestrel(k=>k.ConfigureHttpsDefaults(h=>
-        {
-            h.ClientCertificateMode=ClientCertificateMode.AllowCertificate;
-            // Explicit certificate pinning requires TLS proof of private-key possession; no header forwarding is accepted.
-            h.ClientCertificateValidation=(cert,chain,errors)=>cert.NotBefore.ToUniversalTime()<=DateTime.UtcNow&&cert.NotAfter.ToUniversalTime()>DateTime.UtcNow&&pins.Contains(cert.GetCertHashString(HashAlgorithmName.SHA256));
-        }));
-    }
     public static void Use(WebApplication app)=>app.Use(async(c,next)=>
     {
         if(!await GuestSupportEndpoints.OriginAsync(c,app.Configuration))return;

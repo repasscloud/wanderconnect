@@ -49,6 +49,22 @@ def initialize(path=ENV):
         stream.write(''.join(f'{key}={value}\n' for key, value in values.items()))
 
 
+def local_tls():
+    """Throwaway self-signed "localhost" certificate for the local Keycloak forwarder, plus a CA bundle (the pinned image's
+    system CAs + this certificate) that only Zammad's Rails container uses. Local only; never a real credential."""
+    target = ENV.parent / 'tls'
+    target.mkdir(mode=0o700, exist_ok=True)
+    if not (target / 'bundle.pem').exists():
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '825', '-subj', '/CN=localhost',
+            '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1', '-keyout', str(target / 'key.pem'), '-out', str(target / 'cert.pem')],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        image = 'ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614'
+        system = subprocess.run(['docker', 'run', '--rm', '--entrypoint', 'cat', image, '/etc/ssl/certs/ca-certificates.crt'], capture_output=True, text=True, check=True).stdout
+        private_write(target / 'bundle.pem', system + (target / 'cert.pem').read_text())
+        # Readable by the containers' own user through the bind mount; the directory itself stays private.
+        for name in ('key.pem', 'cert.pem', 'bundle.pem'): os.chmod(target / name, 0o644)
+
+
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'provision', 'runtime', 'reset'])
@@ -66,22 +82,54 @@ def compose(*args):
         '-f', str(ROOT / 'containers/zammad/compose.local.yaml'), *args], check=True)
 
 
-def provision_runtime(staff, config, output=None, reconcile=False):
+STAFF_REALM = 'swoovr-staff-dev'
+KEYCLOAK = 'http://localhost:8180'
+SSO_CLIENT = 'swoovr-zammad'
+
+
+def keycloak_admin():
+    """Local bootstrap admin from the running Keycloak container's environment (never printed)."""
+    import json, urllib.parse, urllib.request
+    container = json.loads(subprocess.check_output(['docker', 'inspect', 'swoovr-platform-keycloak-1']))[0]
+    env = dict(line.split('=', 1) for line in container['Config']['Env'] if '=' in line)
+    body = urllib.parse.urlencode({'grant_type': 'password', 'client_id': 'admin-cli', 'username': env['KC_BOOTSTRAP_ADMIN_USERNAME'], 'password': env['KC_BOOTSTRAP_ADMIN_PASSWORD']}).encode()
+    with urllib.request.urlopen(urllib.request.Request(KEYCLOAK + '/realms/master/protocol/openid-connect/token', body), timeout=15) as response:
+        token = json.load(response)['access_token']
+    def call(path, method='GET', data=None):
+        request = urllib.request.Request(KEYCLOAK + '/admin/realms/' + path, None if data is None else json.dumps(data).encode(), method=method,
+            headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+        with urllib.request.urlopen(request, timeout=15) as response:
+            raw = response.read()
+            return json.loads(raw) if raw else None
+    return call
+
+
+def sso_client(realm=STAFF_REALM):
+    """The staff realm's public PKCE client for Zammad's web sign-in (idempotent). Redirects only to the local Zammad."""
+    call = keycloak_admin()
+    # Same definition as the realm import (scripts/keycloak_realms.py), applied to an already-imported realm.
+    client = {'clientId': SSO_CLIENT, 'name': 'Swoovr helpdesk (local)', 'enabled': True, 'publicClient': True, 'clientAuthenticatorType': 'none',
+        'standardFlowEnabled': True, 'directAccessGrantsEnabled': False, 'implicitFlowEnabled': False, 'serviceAccountsEnabled': False,
+        'frontchannelLogout': False, 'fullScopeAllowed': False,
+        'redirectUris': ['http://localhost:8095/auth/openid_connect/callback'], 'webOrigins': ['http://localhost:8095'],
+        'attributes': {'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': 'http://localhost:8095/*',
+                       'standard.token.exchange.enabled': 'false', 'oauth2.device.authorization.grant.enabled': 'false'}}
+    existing = call(f'{realm}/clients?clientId={SSO_CLIENT}')
+    if existing: call(f'{realm}/clients/{existing[0]["id"]}', 'PUT', {**existing[0], **client})
+    else: call(f'{realm}/clients', 'POST', client)
+    return {'display_name': 'Swoovr staff sign-in', 'client_id': SSO_CLIENT, 'issuer': f'{KEYCLOAK}/realms/{realm}'}
+
+
+def api_settings(config, output=None):
+    """Private API configuration: helpdesk credentials only. Staff tokens are issued by the API's own staff sync (Q133)."""
     import json
     target = output or ENV.parent
-    subprocess.run(['docker', 'cp', str(ROOT / 'containers/zammad/runtime-staff.rb'), 'swoovr-zammad-zammad-railsserver-1:/tmp/swoovr-runtime-staff.rb'], check=True, stdout=subprocess.DEVNULL)
-    result = subprocess.run(['docker', 'exec', '-i', 'swoovr-zammad-zammad-railsserver-1', 'bundle', 'exec', 'rails', 'runner', '/tmp/swoovr-runtime-staff.rb'], input=json.dumps({'staff': staff, 'reconcile': reconcile}), capture_output=True, text=True)
-    if result.returncode:
-        private_write(target / 'runtime-provision-error.log', result.stdout + result.stderr)
-        raise RuntimeError('Runtime staff provisioning failed; inspect private diagnostics.')
-    prefix = 'SWOOVR_RUNTIME_STAFF='
-    rows = json.loads(next(line[len(prefix):] for line in result.stdout.splitlines() if line.startswith(prefix)))
-    settings = {'Ticketing': {'Zammad': {'BaseUrl': 'http://swoovr-zammad:8080/', 'IdentityToken': config['identity_token'], 'Staff': rows}}}
+    zammad = {'BaseUrl': 'http://swoovr-zammad:8080/', 'IdentityToken': config['identity_token'], 'StaffDirectoryToken': config['staff_directory_token']}
+    settings = {'Ticketing': {'Zammad': zammad}}
     private_write(target / 'api.json', json.dumps(settings))
-    lines = ['Ticketing__Zammad__BaseUrl=http://swoovr-zammad:8080/', 'Ticketing__Zammad__IdentityToken=' + config['identity_token']]
+    lines = ['Ticketing__Zammad__' + key + '=' + value for key, value in zammad.items()]
     secret = dict(line.split('=', 1) for line in ENV.read_text().splitlines() if '=' in line).get('SWOOVR_ZAMMAD_WEBHOOK_SECRET')
     if secret: lines.append('Ticketing__Zammad__WebhookSecret=' + secret)
-    lines.extend('Ticketing__Zammad__Staff__' + key + '__Token=' + row['Token'] for key, row in rows.items())
     # Local guest support: a placeholder website origin for the disposable local harness (the real website is separate).
     lines.extend(['Ticketing__Guest__AllowedOrigins__0=http://localhost:5099', 'Ticketing__Guest__FrontendUrl=http://localhost:5099/support'])
     # Local only: a short missed-event sweep so reconciliation can be observed (default 10 minutes).
@@ -109,6 +157,7 @@ def main():
             if 'swoovr-ticketing' not in networks:
                 subprocess.run(['docker', 'network', 'connect', '--alias', 'swoovr-platform',
                     'swoovr-ticketing', 'swoovr-platform-mailpit-1'], check=True)
+        local_tls()
         compose('up', '-d', '--wait', '--wait-timeout', '180')
     elif args.action == 'provision':
         import json
@@ -118,7 +167,8 @@ def main():
             'swoovr-zammad-zammad-railsserver-1:/tmp/swoovr-provision.rb'], check=True)
         result = subprocess.run(['docker', 'exec', '-i', 'swoovr-zammad-zammad-railsserver-1',
             'bundle', 'exec', 'rails', 'runner', '/tmp/swoovr-provision.rb'],
-            input=json.dumps({'password': values['SWOOVR_ZAMMAD_BOOTSTRAP_PASSWORD'], 'webhook_secret': values['SWOOVR_ZAMMAD_WEBHOOK_SECRET'], 'events_active': args.events}),
+            input=json.dumps({'password': values['SWOOVR_ZAMMAD_BOOTSTRAP_PASSWORD'], 'webhook_secret': values['SWOOVR_ZAMMAD_WEBHOOK_SECRET'], 'events_active': args.events,
+                'sso': sso_client()}),
             capture_output=True, text=True)
         if result.returncode:
             # Rails errors can echo input attributes. Keep complete diagnostics private.
@@ -133,12 +183,8 @@ def main():
         print('Provisioned Zammad ' + data['version'] + '; groups: ' + str(len(data['groups'])))
     elif args.action == 'runtime':
         import json
-        config = json.loads((ENV.parent / 'provisioned.json').read_text())
-        result = subprocess.run(['docker', 'exec', 'swoovr-platform-postgres-1', 'psql', '-p', '5433', '-U', 'swoovr', '-d', 'swoovr', '-At', '-v', 'ON_ERROR_STOP=1', '-c',
-            "SELECT coalesce(json_agg(s), '[]'::json) FROM (SELECT a.id, array_remove(array_agg(DISTINCT r.role),NULL) || CASE WHEN a.is_root_admin THEN ARRAY['Admin'] ELSE ARRAY[]::text[] END roles FROM accounts a LEFT JOIN role_grants r ON r.account_id=a.id WHERE a.realm='Staff' AND a.status='Active' GROUP BY a.id,a.is_root_admin) s"], capture_output=True, text=True, check=True)
-        staff = json.loads(result.stdout)
-        provision_runtime(staff, config, reconcile=True)
-        print('Provisioned per-staff runtime credentials and private API configuration.')
+        api_settings(json.loads((ENV.parent / 'provisioned.json').read_text()))
+        print('Wrote private API configuration. Staff are provisioned in Zammad by the API itself.')
     elif args.action == 'down':
         compose('down')
     elif args.action == 'status':

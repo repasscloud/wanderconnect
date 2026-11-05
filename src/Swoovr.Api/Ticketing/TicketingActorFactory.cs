@@ -12,7 +12,7 @@ public sealed class TicketingAccessException(int status,string code):Exception(c
     public string Code {get;}=code;
 }
 
-/// <summary>No runtime provisioning token or arbitrary client-selected From. Configuration stores each staff token separately.</summary>
+/// <summary>No runtime provisioning token or arbitrary client-selected From. Each staff member acts through their own issued token.</summary>
 public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvider clock):IDisposable
 {
     private readonly List<HttpClient> clients=[];
@@ -74,11 +74,25 @@ public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvi
         if(effective.Id!=providerId)throw new TicketingAccessException(403,"ticket-actor-mismatch");
         return actor;
     }
-    public async Task<ITicketingWorkspaceProvider> StaffAsync(CurrentAccount current,CancellationToken ct)
+    /// <summary>The staff-directory credential (admin.user and admin.session only), used solely by the staff synchronisation.</summary>
+    public ITicketingStaffDirectory StaffDirectory()=>Provider(configuration["Ticketing:Zammad:StaffDirectoryToken"]);
+    /// <summary>
+    /// The signed-in staff member's own Zammad API identity. Its token was issued to that identity by the staff
+    /// synchronisation and is stored encrypted; a staff member not yet provisioned is synchronised first, once.
+    /// </summary>
+    public async Task<ITicketingWorkspaceProvider> StaffAsync(AccountResolver accounts,CurrentAccount current,CancellationToken ct)
     {
-        var actor=Provider(configuration[$"Ticketing:Zammad:Staff:{current.Account!.Id:D}:Token"]);
+        var db=accounts.Db!;var keys=accounts.Services.GetRequiredService<Swoovr.Api.Accounts.ContactHistoryKeys>();
+        var credential=await TicketingStaffSync.TokenAsync(db,keys,current.Account!.Id,ct);
+        if(credential is null&&!string.IsNullOrWhiteSpace(configuration["Ticketing:Zammad:StaffDirectoryToken"]))
+        {
+            await accounts.Services.GetRequiredService<TicketingStaffSync>().RunAsync(false,ct,current.Account.Id);
+            credential=await TicketingStaffSync.TokenAsync(db,keys,current.Account.Id,ct);
+        }
+        if(credential is not var(providerId,token))throw new TicketingAccessException(503,"ticketing-unavailable");
+        var actor=Provider(token);
         var effective=await actor.ActorAsync(ct);
-        if(!effective.Active||effective.Login!=$"swoovr-staff-{current.Account.Id:D}"||effective.Roles.Count!=1||effective.Roles[0]!="Agent")throw new TicketingAccessException(403,"ticket-staff-actor-invalid");
+        if(effective.Id!=providerId||!effective.Active||effective.Login!=TicketingPolicy.StaffLogin(current.Account.Id)||effective.Roles.Count!=1||effective.Roles[0]!="Agent")throw new TicketingAccessException(403,"ticket-staff-actor-invalid");
         return actor;
     }
     public void Dispose(){foreach(var client in clients)client.Dispose();}
