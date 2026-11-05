@@ -97,16 +97,21 @@ Notice kinds, with a second fictional member (Sam) acting on the web and Alex on
 | Conversation ended | Pass: neutral text "A conversation has ended on Swoovr." | The ended chat |
 | Block | Pass: after Alex blocked Sam, Sam couldn't reach the chat, profile or Explore, and Alex received no notice; Alex sees Sam under Connections → Blocked with Unblock | — |
 | Messages switch off (Push on) | Pass: after unblocking and reconnecting, Sam's message was recorded push `off` with nothing shown; the reconnection request still pushed (Requests on) | — |
+| Travel reminder (trip arriving tomorrow; `notifications sweep`) | Pass: push `accepted` | Travel |
+| Travel switch off (new trip) | Pass: push `off`, email `off`; notice in the centre | — |
+| Meeting safety (check-in falls due, confirmed trusted contact) | Pass: push `accepted` 8 s after due | Meeting safety |
+| Photo approved | Nothing sent (by design) | — |
+| Photo declined | Notice-centre entry only, zero deliveries (by design, `NotificationKind.PhotoDecision` is not-for-channel). Owner wants it pushed with a review/appeal action: #215 | — |
+| Safety policy update | Not published locally (in-force policies). The publisher writes notice-centre entries only (`PolicyNoticePublisher.cs`), same design as photo decisions; see #215 | — |
 
-Found on the device and fixed in PR #209:
+Found on the device and fixed in PRs #209/#212:
 - **No permission prompt:** the app never asked for notification permission.
 - **Tap opened the wrong screen:** a tap opened the last screen instead of the support request.
-- **Unrouted links:** photo-decision and safety-policy notices (`/me/photos`, `/safety`, `/safety/advice`) also had no app route. They're now routed (not yet triggered on the device).
+- **Unrouted links:** photo-decision and safety-policy notices (`/me/photos`, `/safety`, `/safety/advice`) also had no app route. They're now routed, ready for #215.
 - **Sign-in left push off:** after signing out and back in, the device stayed unregistered until "Enable" was tapped. Sign-in and opening while signed in now fetch a fresh token when permission is already granted.
 
 Not yet tested on the device:
-- per-kind switches other than Messages (requests, connections, travel; same code path);
-- travel, meeting-safety, photo-decision and safety-policy notices on the device;
+- Requests and Connections switches (same code path as Messages and Travel, which passed);
 - iOS/APNs (waiting on the Apple key).
 
 ## Primary references
