@@ -17,6 +17,9 @@ public static class MeetingSafetyPages
     });
     public static void Map(WebApplication app)
     {
+        // D308 (Q123, #173, #211): these capability-link pages are for trusted contacts, who aren't Swoovr members, so they
+        // must open signed out. Each still requires a well-formed token the API confirms is current (unexpired, unrevoked),
+        // and meeting details still need the emailed code and grant. Without this the signed-out gate sent them to "/".
         app.MapGet("/safety/meeting/{token}",async(string token,HttpContext context,IHttpClientFactory clients,IDataProtectionProvider protection)=>
         {
             Headers(context);if(!Shape(token))return Page(Unavailable(),404);
@@ -37,7 +40,7 @@ public static class MeetingSafetyPages
                 return Page($"<div class=\"page-heading\"><p>Swoovr meeting safety</p><h1>Meeting status</h1></div><section class=\"card account-section stack\" data-meeting-status=\"{E(meeting.Status)}\"><h2>{E(meeting.PreferredFirstName)}</h2><p><strong>{E(status)}</strong></p><p>Details are member-provided and not independently verified.</p><dl><dt>Meeting</dt><dd>{E(meeting.StartDisplay)}</dd><dt>{deadline}</dt><dd>{E(meeting.DeadlineDisplay)}</dd>{(meeting.VenueOrArea is{}place?$"<dt>Public venue or general area</dt><dd>{E(place)}</dd>":"")}<dt>Last update (UTC)</dt><dd>{E(meeting.UpdatedAt.ToString("u"))}</dd></dl><p>This is a read-only page. Only the member can confirm their own safety.</p><p><a class=\"link\" href=\"/safety/contact/{E(token)}\">Manage trusted-contact consent</a></p>{checkInHelp}<p>A missed check-in does not prove an emergency. Try contacting the member directly using your usual contact details.</p><p>Swoovr does not monitor emergencies or dispatch responders. Alerts are not guaranteed to arrive; absence of an alert is not proof of safety.</p><p><a class=\"link\" href=\"/safety\">Country-specific Safety &amp; Support</a> · <a class=\"link\" href=\"https://swoovr.com/support\" rel=\"noreferrer\">Swoovr support</a></p></section>");
             }
             catch(Exception error)when(error is HttpRequestException or TaskCanceledException or JsonException){return Page(Unavailable(),404);}
-        }).RequireRateLimiting("meeting-safety-pages");
+        }).RequireRateLimiting("meeting-safety-pages").AllowAnonymous();
         app.MapPost("/safety/meeting/request-code",async(HttpContext context,IHttpClientFactory clients)=>
         {
             Headers(context);if(!ValidForm(context))return Page(Unavailable(),400);
@@ -54,7 +57,7 @@ public static class MeetingSafetyPages
                 return Page(CodeForm(link,message));
             }
             catch(Exception error)when(error is HttpRequestException or TaskCanceledException or JsonException){return Page(CodeForm(link,"The request could not be confirmed. Please wait before trying again."));}
-        }).RequireRateLimiting("meeting-safety-pages");
+        }).RequireRateLimiting("meeting-safety-pages").AllowAnonymous();
         app.MapPost("/safety/meeting/verify",async(HttpContext context,IHttpClientFactory clients,IDataProtectionProvider protection,IHostEnvironment environment)=>
         {
             Headers(context);if(!ValidForm(context))return Page(Unavailable(),400);
@@ -79,7 +82,7 @@ public static class MeetingSafetyPages
                 return Results.Empty;
             }
             catch(Exception error)when(error is HttpRequestException or TaskCanceledException or JsonException or CryptographicException){return Page(CodeForm(link,"Verification could not be confirmed. Please try again."));}
-        }).RequireRateLimiting("meeting-safety-pages");
+        }).RequireRateLimiting("meeting-safety-pages").AllowAnonymous();
         app.MapGet("/safety/contact/{token}",async(string token,HttpContext context,IHttpClientFactory clients)=>
         {
             Headers(context);if(!Shape(token))return Page(Unavailable(),404);
@@ -92,7 +95,7 @@ public static class MeetingSafetyPages
                 return Page($"<div class=\"page-heading\"><p>Swoovr meeting safety</p><h1>Trusted contact consent</h1></div><section class=\"card account-section stack\"><p>Only agree if you know the person who invited you and want to receive their voluntary meeting-safety updates. Details are member-provided, not independently verified. Your contact details are not used for marketing.</p><p>You may receive their preferred first name, planned meeting times and chosen public venue or general area, check-in deadlines and safety-session status. You do not receive the other participant's profile, photographs, messages or live location.</p><p>Swoovr does not monitor emergencies or dispatch responders. Alerts are not guaranteed to arrive. Agree with the member about what you should do if a check-in is missed.</p><form class=\"stack\" method=\"post\" action=\"/safety/contact/respond\"><input type=\"hidden\" name=\"token\" value=\"{E(token)}\"/><div class=\"account-actions\">{buttons}</div></form><p>You can withdraw using the unsubscribe link in your invitation. Contact <a class=\"link\" href=\"https://swoovr.com/support\" rel=\"noreferrer\">Swoovr support</a> if needed.</p></section>");
             }
             catch(Exception error)when(error is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException){return Page(Unavailable(),404);}
-        }).RequireRateLimiting("meeting-safety-pages");
+        }).RequireRateLimiting("meeting-safety-pages").AllowAnonymous();
         app.MapPost("/safety/contact/respond",async(HttpContext context,IHttpClientFactory clients)=>
         {
             Headers(context);
@@ -106,7 +109,7 @@ public static class MeetingSafetyPages
                 return result is{Available:true}?Page($"<div class=\"page-heading\"><h1>Consent updated</h1></div><section class=\"card account-section\"><p data-consent-result=\"{E(result.Status)}\">{(result.Status=="confirmed"?"You agreed to receive this member's meeting-safety updates. You can withdraw using the unsubscribe link in your invitation.":"You will not receive further meeting-safety updates for this contact invitation.")}</p><p>Swoovr does not monitor emergencies or dispatch responders.</p></section>"):Page(Unavailable(),404);
             }
             catch(Exception error)when(error is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException){return Page(Unavailable(),404);}
-        }).RequireRateLimiting("meeting-safety-pages");
+        }).RequireRateLimiting("meeting-safety-pages").AllowAnonymous();
     }
     private sealed record GrantCookie(string Grant,DateTimeOffset ExpiresAt);
     private static string CookieName(string link)=>"swoovr.safety."+Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(link))).ToLowerInvariant();
