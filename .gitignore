@@ -502,10 +502,11 @@ claude-update-ignore-for-now.md
 
 # Special files
 docs/ignore-this-file.txt
+tmp.md
+swoovr-zammad-integration-review-prompt.md
 
 # venv directories
 .venv-*/
-
 
 # Provider app configuration and private signing material are supplied outside source control.
 **/google-services.json
