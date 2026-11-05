@@ -140,6 +140,12 @@ public static class PushRegistration
         else if (path == "/travel") await Ui.PushAsync(new TravelPage());
         else if (path == "/me/meeting-safety") await Ui.PushAsync(new MeetingSafetyPage());
         else if (path == "/me/notices") await Ui.PushAsync(new NoticesPage());
+        // Support replies (Zammad): the list, or one request by its number. The page loads it as the signed-in member, so a
+        // number for someone else's request shows "This request isn't available".
+        else if (path == Swoovr.Client.SupportTicketText.MemberPath) await Ui.PushAsync(new SupportPage());
+        else if (path.StartsWith(Swoovr.Client.SupportTicketText.MemberPath + "/", StringComparison.Ordinal)
+            && long.TryParse(path[(Swoovr.Client.SupportTicketText.MemberPath.Length + 1)..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ticket) && ticket > 0)
+            await Ui.PushAsync(new SupportTicketPage(ticket, []));
         else if (Uri.TryCreate("https://swoovr.invalid" + path, UriKind.Absolute, out var uri) && uri.AbsolutePath.StartsWith("/people/", StringComparison.Ordinal)
             && Guid.TryParse(uri.AbsolutePath[8..], out var person))
         {
