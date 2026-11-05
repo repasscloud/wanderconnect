@@ -10,10 +10,23 @@ using Swoovr.Infrastructure.Persistence;
 if (args.Length > 0 && !args[0].StartsWith('-')) return await Cli.RunAsync(args);
 var builder = WebApplication.CreateBuilder(args);
 HostRuntime.Configure(builder,HostKind.Api);
+if(builder.Configuration["Ticketing:ConfigurationFile"] is {Length:>0} ticketingConfiguration) builder.Configuration.AddJsonFile(ticketingConfiguration,optional:false,reloadOnChange:false);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
 builder.Services.AddScoped<AccountResolver>();
+builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingActorFactory>();
+// Guest support needs persistence (its endpoints are mapped only with a database).
+if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestSupport>();
+// Helpdesk events become notices only when the signed webhook is configured; the worker can be turned off per host.
+if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingEventProcessor>();
+builder.Services.AddSingleton<Swoovr.Api.Ticketing.TicketingStaffSignal>();
+if(persistence)builder.Services.AddScoped<Swoovr.Api.Ticketing.TicketingStaffSync>();
+// Swoovr staff permissions are mirrored into Zammad (Q133). Without the staff-directory credential nothing is provisioned.
+if(persistence&&builder.Configuration["Ticketing:Zammad:StaffDirectoryToken"] is {Length:>0}&&builder.Configuration.GetValue("Ticketing:Staff:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Ticketing.TicketingStaffSyncWorker>();
+if(persistence&&builder.Configuration["Ticketing:Zammad:WebhookSecret"] is {Length:>=32}&&builder.Configuration.GetValue("Ticketing:Events:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Ticketing.TicketingEventWorker>();
+builder.Services.AddScoped<Swoovr.Api.Ticketing.GuestBotCheck>();
+builder.Services.AddHttpClient(Swoovr.Api.Ticketing.GuestBotCheck.Client,http=>http.Timeout=TimeSpan.FromSeconds(10));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Founders>();
 // D147, D169: Didit and the members realm's deletion client, from configuration only (locally .local/docker.env).
@@ -69,6 +82,7 @@ if (persistence && app.Environment.IsDevelopment())
     await Swoovr.Api.Notifications.PushDeviceMaintenance.ProtectLegacyAsync(db, scope.ServiceProvider.GetRequiredService<Swoovr.Api.Notifications.PushKeys>(), CancellationToken.None);
 }
 app.Use(async(context,next)=>{if(context.Request.Path.StartsWithSegments("/api/safety/meeting-contact")||context.Request.Path.StartsWithSegments("/api/me/meeting-safety")){context.Response.Headers.CacheControl="no-store";context.Response.Headers["Referrer-Policy"]="no-referrer";context.Response.Headers["X-Robots-Tag"]="noindex, nofollow, noarchive";}await next();});
+Swoovr.Api.Ticketing.TicketingHosting.Use(app);
 app.UseMiddleware<ApiVersionMiddleware>();
 app.UseAuthentication();
 app.UseMiddleware<IdentifierCheckMiddleware>();
@@ -111,6 +125,9 @@ Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 if(persistence){Swoovr.Api.Policies.PolicyEndpoints.Map(app);Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
 Swoovr.Api.Moderation.StandingEndpoints.Map(app);
+Swoovr.Api.Ticketing.TicketingWebhookEndpoints.Map(app);
+Swoovr.Api.Ticketing.TicketingEndpoints.Map(app);
+if(persistence)Swoovr.Api.Ticketing.GuestSupportEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);

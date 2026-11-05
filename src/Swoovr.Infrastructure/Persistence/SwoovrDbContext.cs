@@ -1120,6 +1120,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
         });
 
         model.AddPhotoReviewWorkflows();
+        model.AddTicketing();
         foreach (var entity in model.Model.GetEntityTypes())
         {
             entity.SetTableName(Snake(entity.GetTableName()!));

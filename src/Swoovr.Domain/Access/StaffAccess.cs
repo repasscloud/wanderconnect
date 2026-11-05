@@ -71,13 +71,17 @@ public enum AccessRefusal { None, NotPermitted, PurposeRequired, Unknown, Expire
 
 public static class StaffAccessPolicy
 {
+    public const string TicketSecurity="ticketing-security";
+    public const string TicketPrivacy="ticketing-privacy";
+    public const string TicketLegal="ticketing-legal";
+    public const string TicketRestricted="ticketing-restricted";
     public const string IdentityOpen = "identity-open";
     public const string ProfileDobOpen="profile-dob-open";
     public const string EvidenceExport = "evidence-export";
     public const string Termination = "termination";
     public const string IdentifierRelease = "identifier-release";
     public const string AccountReinstatement = "account-reinstatement";
-    public static readonly IReadOnlyList<string> Capabilities = [IdentityOpen, EvidenceExport, Termination, IdentifierRelease, AccountReinstatement,ProfileDobOpen];
+    public static readonly IReadOnlyList<string> Capabilities = [IdentityOpen, EvidenceExport, Termination, IdentifierRelease, AccountReinstatement,ProfileDobOpen,TicketLegal,TicketRestricted,TicketSecurity,TicketPrivacy];
     /// <summary>DEFAULT (owner, 27 October 2026): 60 minutes, renewable.</summary>
     public static readonly TimeSpan Duration = TimeSpan.FromMinutes(60);
     /// <summary>At most eight renewals: a working day, then ask again.</summary>
@@ -91,6 +95,9 @@ public static class StaffAccessPolicy
     /// <summary>Which role may ask for a capability: `legal` opens identities and exports evidence; admins terminate.</summary>
     public static AccountRole RoleFor(string capability) => capability switch
     {
+        TicketSecurity => AccountRole.Admin,
+        TicketLegal => AccountRole.Legal,
+        TicketRestricted => AccountRole.TrustSafety,
         IdentityOpen or EvidenceExport => AccountRole.Legal,
         Termination or IdentifierRelease or AccountReinstatement => AccountRole.Admin,
         _ => AccountRole.Unknown,
@@ -98,7 +105,7 @@ public static class StaffAccessPolicy
 
     public static AccessRefusal CheckRequest(string? capability, string? purpose, Func<AccountRole, bool> allows) =>
         capability is null || !Capabilities.Contains(capability) ? AccessRefusal.Unknown
-        : !(capability==ProfileDobOpen ? allows(AccountRole.Support)||allows(AccountRole.Admin)||allows(AccountRole.Legal) : allows(RoleFor(capability))) ? AccessRefusal.NotPermitted
+        : !(capability==TicketPrivacy ? allows(AccountRole.Admin)||allows(AccountRole.Legal) : capability==ProfileDobOpen ? allows(AccountRole.Support)||allows(AccountRole.Admin)||allows(AccountRole.Legal) : allows(RoleFor(capability))) ? AccessRefusal.NotPermitted
         : string.IsNullOrWhiteSpace(purpose) || purpose.Length > PurposeMax ? AccessRefusal.PurposeRequired : AccessRefusal.None;
 
     public static bool Active(AccessGrant grant, DateTimeOffset now) => grant.RevokedAt is null && grant.ExpiresAt > now;
@@ -164,6 +171,7 @@ public static class StaffAccessPolicy
         string? Id(int i) => parts.Length > i && Guid.TryParse(parts[i], out var g) ? g.ToString() : null;
         (string, string?, bool)? kind = parts[2] switch
         {
+            "tickets" => ("tickets", null, false),
             "holds" => ("holds", Id(3), parts.Length > 4 && parts[4] == "exports"),
             "evidence-exports" => ("evidence-export", null, true),
             "disclosures" => ("disclosures", null, false),

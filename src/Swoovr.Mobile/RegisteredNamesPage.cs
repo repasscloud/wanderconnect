@@ -21,7 +21,7 @@ public sealed class RegisteredNamesPage : ContentPage
             Ui.Button("Confirm registered names","RegisteredNamesSave",SaveAsync),status,
             Ui.Button("Your data and account","RegisteredNamesData",()=>Ui.PushAsync(new DataPage()),primary:false),
             Ui.Button("Privacy Notice","RegisteredNamesPrivacy",()=>Ui.PushAsync(new PrivacyPage()),primary:false),
-            Ui.Button("Contact Support","RegisteredNamesSupport",()=>Launcher.Default.OpenAsync(new Uri("https://swoovr.com/support")),primary:false)
+            Ui.Button("Contact Support","RegisteredNamesSupport",()=>Ui.PushAsync(new SupportPage()),primary:false)
         }}};
     }
     protected override async void OnAppearing()

@@ -42,6 +42,7 @@ public sealed class NotificationsPage : ContentPage
             if(n.Kind=="policyChange"&&n.Link=="/safety/advice")rows.Add(Ui.Button("Read safety advice","PolicyAdvice_"+n.Id,()=>Ui.PushAsync(new SafetyAdvicePage()),primary:false));
             if(n.Kind=="policyChange"&&n.Link=="/safety")rows.Add(Ui.Button("Safety & Support","PolicySupport_"+n.Id,()=>Ui.PushAsync(new SafetyPage()),primary:false));
             if(n.Kind=="reportOutcome")rows.Add(Ui.Button("Open Notices and reports","ReportOutcome_"+n.Id,()=>Ui.PushAsync(new NoticesPage()),primary:false));
+            if(n.Kind=="support")rows.Add(Ui.Button("Open Support","SupportNotification_"+n.Id,()=>Ui.PushAsync(long.TryParse(n.Link.Split('/').Last(),out var ticket)?new SupportTicketPage(ticket,[]):new SupportPage()),primary:false));
             if(n.Link=="/me/meeting-safety")rows.Add(Ui.Button("Open meeting safety","MeetingNotification_"+n.Id,()=>Ui.PushAsync(new MeetingSafetyPage()),primary:false));
         }
 		if (centre.Unread > 0) rows.Add(Ui.Button("Mark all as read", "NotificationsReadAll", async () => { await Ui.Members.ReadAllNotificationsAsync(); await LoadAsync(); }, primary: false));

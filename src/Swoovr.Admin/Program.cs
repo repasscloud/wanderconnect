@@ -134,6 +134,12 @@ app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admi
     if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.(review|case|member|inspection|appeal)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
     return await admin.MediaAsync("api/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
 }).RequireAuthorization();
+// A support request's plain-text attachment, fetched server-side with the staff member's token; the API rechecks access.
+app.MapGet("/tickets/{id:long}/articles/{article:long}/attachments/{attachment:long}", async (long id, long article, long attachment, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
+{
+    var result = await admin.TicketAttachmentAsync(id, article, attachment, cancellationToken);
+    return result.Ok ? Results.File(result.Value!.Data, "text/plain; charset=utf-8", result.Value.Filename) : Results.NotFound();
+}).RequireAuthorization();
 app.MapGet("/code-reports/{year:int}/export",async(int year,Swoovr.Client.AdminClient admin,CancellationToken token)=>
 {
     var(status,body)=await admin.ModerationReportExportAsync(year,token);

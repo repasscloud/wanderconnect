@@ -22,7 +22,7 @@ public static partial class Bff
     private const string MeetingSafetyPaths="me/meeting-safety(?:/contacts(?:/"+Uuid+"(?:/(?:resend|compose))?)?|/sessions(?:/"+Uuid+"/actions)?)?";
     [GeneratedRegex(@"^api/(session|me|me/policies|me/policies/accept|me/age|me/registered-names|me/coupons|me/safety-advice|me/appearance|me/profile|modes|explore|me/modes/[a-z]{1,32}|profiles/" + Uuid
         + "|requests|requests/" + Uuid + "/(accept|decline|withdraw|disconnect)|connections|blocks|blocks/" + Uuid
-        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/decisions|me/photos/decisions/" + Uuid + "/appeal|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/notifications|me/notifications/read|me/notifications/" + Uuid + "/read|me/notification-settings|me/standing|" + MeetingSafetyPaths + "|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide|photos|end|starters)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
+        + "|me/phone|me/phone/confirm|me/deletion|me/deletion/now|me/export|me/export/[A-Za-z0-9_-]{43}|me/market-interest|safety/resources|me/photos|me/photos/placement|me/photos/decisions|me/photos/decisions/" + Uuid + "/appeal|me/photos/" + Uuid + "|me/verification|me/verification/date-of-birth|report-categories|reports|me/reports|me/safety/people|me/notices|me/notices/" + Uuid + "/read|me/notifications|me/notifications/read|me/notifications/" + Uuid + "/read|me/notification-settings|me/standing|me/tickets|me/tickets/options|me/tickets/[0-9]{1,18}|me/tickets/[0-9]{1,18}/replies|me/tickets/[0-9]{1,18}/articles/[0-9]{1,18}/attachments/[0-9]{1,18}|" + MeetingSafetyPaths + "|me/appeals|me/plan|profile-options|me/identity|me/modes/[a-z]{1,32}/filters|places|me/trips|me/trips/" + Uuid + "|me/trips/" + Uuid + "/cancel|me/trips/" + Uuid + "/arrival|me/itineraries|travel/visitors|travel/search|me/home-check|conversations|conversations/" + Uuid + "|conversations/" + Uuid + "/(messages|hide|photos|end|starters)|messages/" + Uuid + "|messages/" + Uuid + "/hide)$")]
     private static partial Regex Allowed();
 
     public static void AddBff(this IServiceCollection services, IConfiguration configuration) =>
@@ -51,6 +51,11 @@ public static partial class Bff
             context.Response.Headers.XContentTypeOptions = "nosniff";
             return Results.File(await response.Content.ReadAsByteArrayAsync(context.RequestAborted), "image/jpeg");
         });
+
+    public const long TicketLimit = 300_000;
+
+    [GeneratedRegex("^api/me/tickets/[0-9]{1,18}/replies$")]
+    private static partial Regex TicketReply();
 
     [GeneratedRegex("^api/conversations/" + Uuid + "/photos$")]
     private static partial Regex ChatPhoto();
@@ -81,7 +86,9 @@ public static partial class Bff
             if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Count > 0)
             {
                 // D203, #41: only photo uploads (profile and chat) may carry a large body (10 MB plus the multipart overhead).
-                var limit = context.Request.Method == "POST" && (path == "api/me/photos" || ChatPhoto().IsMatch(path)) ? PhotoUploadLimit : 16 * 1024;
+                var limit = context.Request.Method == "POST" && (path == "api/me/photos" || ChatPhoto().IsMatch(path)) ? PhotoUploadLimit
+                    // Support requests carry up to 16,000 characters and three 64 KB text files as JSON (the API caps them at 300,000 bytes).
+                    : context.Request.Method == "POST" && (path == "api/me/tickets" || TicketReply().IsMatch(path)) ? TicketLimit : 16 * 1024;
                 if (context.Request.ContentLength > limit) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 request.Content = new StreamContent(context.Request.Body);
                 if (context.Request.ContentType is { } type) request.Content.Headers.TryAddWithoutValidation("Content-Type", type);

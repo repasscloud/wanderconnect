@@ -1,0 +1,138 @@
+@page "/tickets"
+@* Support requests (Zammad behind the Swoovr API). Every row is checked by the API against the staff member's own helpdesk
+   grants, Swoovr role, conflicts and sensitive-queue rules; this page only shows what came back. Bulk changes post one
+   form key, and each ticket's operation key is derived from it, so submitting twice never applies a change twice. *@
+@using System.Security.Cryptography
+@using System.Text
+@inject AdminClient Admin
+<PageTitle>Support requests — Swoovr admin</PageTitle>
+<header class="ui-page-head">
+    <h1>Support requests</h1>
+    <p>Member support conversations. Replies, notes and queues live in the helpdesk; reports, decisions and appeals stay in Swoovr.</p>
+</header>
+<p class="ui-actions"><a class="ui-button-primary" href="/tickets/new" data-ticket-new>New request for a member</a> <a class="ui-button-ghost" href="/tickets/diagnostics">Integration health</a></p>
+@if (problem is not null) { <p class="notice@(Status == 401 ? " notice-action" : "")" role="alert" data-tickets-problem="@problemCode"><span>@problem</span>@if (Status == 401) { <a href="/sign-in?reauth=true&returnUrl=/tickets" class="ui-button-primary notice-button" data-enhance-nav="false">Sign in again</a> }</p> }
+@if (bulkResults is { Count: > 0 })
+{
+    <section class="ui-card" aria-label="Bulk change results" data-bulk-results="@bulkResults.Count(r => r.Status == 200)">
+        <h2 class="ui-card-title">Bulk change: @bulkResults.Count(r => r.Status == 200) of @bulkResults.Count applied</h2>
+        <ul class="list">@foreach (var r in bulkResults) { <li data-bulk-result="@r.Id" data-status="@r.Status">TK-@r.Id: @(r.Status == 200 ? "applied" : SupportTicketText.Problem(r.Status, r.Code))</li> }</ul>
+    </section>
+}
+@if (caps is { } c)
+{
+    <section class="ui-card" aria-label="Filter requests">
+        <form method="get" action="/tickets" class="media-filters" data-enhance="false" data-tickets-filter>
+            <label class="ui-field beta-search"><span>Search</span><input name="query" type="search" value="@Query" maxlength="200" placeholder="Words or TK-123" /></label>
+            <label class="ui-field"><span>Queue</span><select name="group"><option value="">All my queues</option>@foreach (var g in c.Groups) {<option value="@g.Id" selected="@(Group == g.Id)">@g.Name</option>}</select></label>
+            <label class="ui-field"><span>Status</span><select name="state"><option value="">Any status</option>@foreach (var s in c.States) {<option value="@s.Id" selected="@(State == s.Id)">@SupportTicketText.State(s.Name)</option>}</select></label>
+            <label class="ui-field"><span>Priority</span><select name="priority"><option value="">Any priority</option>@foreach (var pr in c.Priorities) {<option value="@pr.Id" selected="@(Priority == pr.Id)">@pr.Name</option>}</select></label>
+            <label class="ui-field"><span>Owner</span><select name="owner"><option value="">Anyone</option>@foreach (var o in c.Owners) {<option value="@o.Id" selected="@(Owner == o.Id)">@o.Name</option>}</select></label>
+            <label class="ui-field"><span>Sort</span><select name="sort">@foreach (var (v, l) in Sorts) {<option value="@v" selected="@(SortKey == v)">@l</option>}</select></label>
+            <label class="ui-field"><span>Order</span><select name="descending"><option value="true" selected="@Descending">Newest first</option><option value="false" selected="@(!Descending)">Oldest first</option></select></label>
+            <div class="beta-filter-actions"><a class="ui-button-ghost" href="/tickets">Clear</a><button type="submit">Apply filters</button></div>
+        </form>
+    </section>
+    @if (page is { } p)
+    {
+        <form method="post" @formname="bulk" @onsubmit="BulkAsync" data-enhance="false" data-tickets-bulk>
+            <AntiforgeryToken />
+            <input type="hidden" name="BulkKey" value="@bulkKey" />
+            <div class="ui-results-head"><p><strong>@p.Items.Count</strong> request@(p.Items.Count == 1 ? "" : "s") on page @p.Page</p><p>Only requests you may work on are shown.</p></div>
+            @if (p.Items.Count == 0) { <div class="ui-empty" data-tickets="none"><strong>Nothing here</strong>No requests in this view.</div> }
+            else
+            {
+                <div class="table-scroll ui-table" role="region" aria-label="Support requests" tabindex="0"><table data-tickets="@p.Items.Count">
+                    <thead><tr><th scope="col"><span class="sr-only">Select</span></th><th scope="col">Request</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">Updated</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+                    <tbody>
+                        @foreach (var t in p.Items)
+                        {
+                            <tr data-ticket="@t.Reference" data-row-link>
+                                <td><input type="checkbox" name="Select" value="@($"{t.Id}|{t.UpdatedAt.UtcTicks}")" aria-label="Select @t.Reference" /></td>
+                                <td><a href="/tickets/@t.Id" data-row-target><strong>@t.Title</strong></a><span class="ui-sub"><code>@t.Reference</code></span></td>
+                                <td><span class="ui-pill" data-tone="@(Named(c.States, t.StateId) == "closed" ? "approve" : "quiet")">@SupportTicketText.State(Named(c.States, t.StateId))</span></td>
+                                <td>@Named(c.Priorities, t.PriorityId)</td>
+                                <td>@t.UpdatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</td>
+                                <td class="ui-right"><a class="ui-button-ghost" href="/tickets/@t.Id">Open</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table></div>
+                <section class="ui-card" aria-label="Change selected requests">
+                    <h2 class="ui-card-title">Change selected (up to 20)</h2>
+                    <div class="media-filters">
+                        <label class="ui-field"><span>Status</span><select name="BulkState"><option value="">No change</option>@foreach (var s in c.States) {<option value="@s.Id">@SupportTicketText.State(s.Name)</option>}</select></label>
+                        <label class="ui-field"><span>Priority</span><select name="BulkPriority"><option value="">No change</option>@foreach (var x in c.Priorities) {<option value="@x.Id">@x.Name</option>}</select></label>
+                        <label class="ui-field"><span>Move to queue</span><select name="BulkGroup"><option value="">No change</option>@foreach (var g in c.TransferGroups) {<option value="@g.Id">@g.Name</option>}</select></label>
+                        <div class="beta-filter-actions"><button type="submit" data-bulk-apply>Apply to selected</button></div>
+                    </div>
+                    <p class="help">Each request is checked on its own. A request that changed since this page loaded is left as it is.</p>
+                </section>
+            }
+            <nav class="ui-actions" aria-label="Pages">
+                @if (p.Page > 1) { <a class="ui-button-ghost" href="@PageLink(p.Page - 1)">Previous</a> }
+                @if (p.HasMore) { <a class="ui-button-ghost" href="@PageLink(p.Page + 1)" data-tickets-next>Next</a> }
+            </nav>
+        </form>
+    }
+}
+@code {
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    [SupplyParameterFromQuery(Name = "query")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "group")] public long? Group { get; set; }
+    [SupplyParameterFromQuery(Name = "state")] public long? State { get; set; }
+    [SupplyParameterFromQuery(Name = "priority")] public long? Priority { get; set; }
+    [SupplyParameterFromQuery(Name = "owner")] public long? Owner { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+    [SupplyParameterFromQuery(Name = "descending")] public bool? Desc { get; set; }
+    [SupplyParameterFromQuery(Name = "page")] public int? PageNumber { get; set; }
+    private static readonly (string, string)[] Sorts = [("updated_at", "Last updated"), ("created_at", "Created"), ("priority_id", "Priority"), ("state_id", "Status")];
+    private string SortKey => Sorts.Any(s => s.Item1 == Sort) ? Sort! : "updated_at";
+    private bool Descending => Desc ?? true;
+    private TicketCapabilities? caps;
+    private TicketPage? page;
+    private List<TicketBulkResult>? bulkResults;
+    private string? problem, problemCode;
+    private int Status;
+    private string bulkKey = Guid.NewGuid().ToString("D");
+
+    private static string? Named(IReadOnlyList<TicketOption> options, long id) => options.FirstOrDefault(o => o.Id == id)?.Name;
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+    private string PageLink(int number) => $"/tickets?query={Uri.EscapeDataString(Query ?? "")}&group={Group}&state={State}&priority={Priority}&owner={Owner}&sort={SortKey}&descending={Descending.ToString().ToLowerInvariant()}&page={number}";
+    private void Fail(int status, string? code) => (problem, problemCode, Status) = (SupportTicketText.Problem(status, code), code ?? status.ToString(), status);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var capabilities = await Admin.TicketCapabilitiesAsync();
+        if (!capabilities.Ok) { Fail(capabilities.Status, capabilities.Code); return; }
+        caps = capabilities.Value;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.TicketsAsync(Math.Clamp(PageNumber ?? 1, 1, 100), 25, string.IsNullOrWhiteSpace(Query) ? null : Query.Trim(), Group, State, Priority, Owner, SortKey, Descending);
+        if (result.Ok) page = result.Value; else { page = null; Fail(result.Status, result.Code); }
+    }
+
+    private async Task BulkAsync()
+    {
+        long? Pick(string name) => long.TryParse(Field(name), out var v) && v > 0 ? v : null;
+        var (state, priority, group) = (Pick("BulkState"), Pick("BulkPriority"), Pick("BulkGroup"));
+        var selected = Context?.Request.Form["Select"].Select(v => v?.Split('|')).Where(v => v is { Length: 2 } && long.TryParse(v[0], out _) && long.TryParse(v[1], out _))
+            .Select(v => (Id: long.Parse(v![0]), At: new DateTimeOffset(long.Parse(v[1]), TimeSpan.Zero))).DistinctBy(v => v.Id).ToList() ?? [];
+        if (!Guid.TryParse(Field("BulkKey"), out var key) || selected.Count is < 1 or > 20 || state is null && priority is null && group is null)
+        {
+            problem = "Choose one to twenty requests and at least one change."; problemCode = "bulk-invalid";
+            await LoadAsync(); return;
+        }
+        var items = selected.Select(s => new TicketBulkItem(s.Id, new TicketChange(Derive(key, s.Id), s.At, group, null, state, priority))).ToList();
+        var result = await Admin.BulkTicketsAsync(new TicketBulk(items));
+        if (result.Ok) bulkResults = result.Value; else Fail(result.Status, result.Code);
+        bulkKey = Guid.NewGuid().ToString("D");
+        await LoadAsync();
+    }
+
+    // One posted key per form, one stable operation per ticket: a resubmitted form is recognised, not reapplied.
+    private static Guid Derive(Guid key, long id) => new(SHA256.HashData(Encoding.UTF8.GetBytes($"{key:D}:{id}")).AsSpan(0, 16));
+}

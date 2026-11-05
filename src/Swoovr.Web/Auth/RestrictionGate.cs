@@ -8,12 +8,12 @@ namespace Swoovr.Web.Auth;
 /// and a sign-in lock shows its own screen) and sees the restricted
 /// screen until the action is lifted. Before rendering a signed-in page this asks the API for the member's account state
 /// (`/api/me`, which stays open to barred members) and redirects to /account/restricted. The API refuses every other
-/// member route on its own; this only decides what the browser shows. The account page, notices (to read and appeal), notifications, account standing (#49, #50),
+/// member route on its own; this only decides what the browser shows. The account page, notices (to read and appeal), notifications, account standing (#49, #50), support requests,
 /// sign-in and sign-out, and static files stay reachable. An account pending deletion (D170) goes to /account/deletion instead.
 /// </summary>
 public static class RestrictionGate
 {
-    private static readonly string[] Open = ["/safety", "/me/meeting-safety", "/account", "/me/notices", "/me/notifications", "/me/standing", "/bff", "/signin-oidc", "/signout", "/not-found", "/error", "/_framework", "/_content", "/settings"];
+    private static readonly string[] Open = ["/safety", "/me/meeting-safety", "/account", "/me/notices", "/me/notifications", "/me/standing", "/me/support", "/bff", "/signin-oidc", "/signout", "/not-found", "/error", "/_framework", "/_content", "/settings"];
 
     public static void UseRestrictionGate(this WebApplication app) => app.Use(async (context, next) =>
     {

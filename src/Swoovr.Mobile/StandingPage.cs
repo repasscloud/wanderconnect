@@ -26,7 +26,7 @@ public sealed class StandingPage : ContentPage
         body.Children.Add(ReportFollowUpPage.SupportCard());
 		body.Children.Add(Ui.Text(StandingText.Intro, "FooterClaims"));
         body.Children.Add(Ui.Card(Ui.Text("Contact Swoovr support", "SectionHeading"),
-            Ui.Button("Contact Support", "StandingSupportWeb", () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)), primary: false),
+            Ui.Button("Contact Support", "StandingSupportWeb", () => Ui.PushAsync(new SupportPage()), primary: false),
             Ui.Button("Email Support", "StandingSupportEmail", () => Launcher.Default.OpenAsync(new Uri("mailto:" + StandingText.SupportEmail)), primary: false),
             Ui.Text(StandingText.SupportHelp, "FooterClaims")));
 		if ((await Ui.Members!.StandingAsync()).Value is not { } s)
@@ -37,7 +37,7 @@ public sealed class StandingPage : ContentPage
         if(s.EmailChangeProblem is {} issue)
             body.Children.Add(Ui.Card(Ui.Text(AccountText.EmailChangeHeading,"SectionHeading"),
                 Ui.Text(AccountText.EmailChangeMessage(issue),id:"EmailChangeMessage"),Ui.Text(AccountText.EmailChangeHelp),
-                Ui.Button("Contact Support","EmailChangeSupport",()=>Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)),primary:false),
+                Ui.Button("Contact Support","EmailChangeSupport",()=>Ui.PushAsync(new SupportPage()),primary:false),
                 Ui.Button("Sign in again","EmailChangeRefresh",async()=>{if(await MainPage.RefreshSignInAsync())await Shell.Current.Navigation.PopToRootAsync();else body.Children.Add(Ui.Text("Sign-in was cancelled or unavailable. Try again or contact Support."));},primary:false)));
 		var status = new List<View> { Ui.Text($"Status: {StandingText.State(s.State)}", "SectionHeading", "StandingState") };
 		if (s.Actions.Count == 0) status.Add(Ui.Text("Nothing to do.", "FooterClaims", "StandingNoActions"));
@@ -72,7 +72,7 @@ public sealed class StandingPage : ContentPage
         {
             reports.Add(Ui.Text(StandingText.Report(r), id: $"StandingReport_{r.Reference}"));
             reports.Add(Ui.Button($"Contact support about {r.Reference}", $"StandingSupport_{r.Reference}",
-                () => Launcher.Default.OpenAsync(new Uri(StandingText.SupportLink(r.Reference))), primary: false));
+                () => Ui.PushAsync(new SupportPage(compose: true, reference: r.Reference)), primary: false));
         }
 		reports.Add(Ui.Text(StandingText.Privacy, "FooterClaims"));
 		body.Children.Add(Ui.Card([.. reports]));

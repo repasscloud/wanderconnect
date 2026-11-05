@@ -1,0 +1,52 @@
+# DEFAULT local-only override of upstream v17.5.2. Never expose the Rails/DB/cache services.
+services:
+  zammad-nginx:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+    ports: !override
+      - "127.0.0.1:8095:8080"
+    networks:
+      default:
+      integration:
+        aliases: [swoovr-zammad]
+  zammad-railsserver:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+    networks: [default, integration]
+    # Local only: system CAs plus the throwaway forwarder certificate, so OpenID Connect discovery can reach the local Keycloak.
+    environment:
+      SSL_CERT_FILE: /swoovr-local-tls/bundle.pem
+    volumes:
+      - ../../.local/zammad/tls:/swoovr-local-tls:ro
+  # Local only: the staff identity provider's issuer is http://localhost:8180 (what browsers use). Zammad's server-side
+  # OpenID Connect calls resolve that inside the Rails container, so this forwards its loopback port 8180 to the local
+  # Keycloak (see local-keycloak-forward.rb). It reuses the pinned Zammad image's Ruby, so no extra image. A hosted
+  # deployment uses one public HTTPS issuer and none of this.
+  zammad-keycloak-forward:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+    network_mode: "service:zammad-railsserver"
+    depends_on: [zammad-railsserver]
+    restart: unless-stopped
+    entrypoint: ["ruby", "/swoovr-local-forward.rb"]
+    volumes:
+      - ./local-keycloak-forward.rb:/swoovr-local-forward.rb:ro
+      - ../../.local/zammad/tls:/swoovr-local-tls:ro
+  zammad-scheduler:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+    networks: [default, integration]
+  zammad-backup:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+  zammad-init:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+  zammad-websocket:
+    image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+  zammad-elasticsearch:
+    image: elasticsearch@sha256:1f537272deddf92b5c94bcaeb25180c2d0e1558f7d21bcbaf3fdaa74400c4607
+  zammad-memcached:
+    image: memcached@sha256:c29847751abb41f4c268c84fb3087fee05d4edcbda44409ccb5086e26148e8a7
+  zammad-postgresql:
+    image: postgres@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
+  zammad-redis:
+    image: redis@sha256:9f8d2d789b9a1d1e3f283f979aa9cbf393373806472e1ccd460e2f9c869b833b
+networks:
+  integration:
+    external: true
+    name: swoovr-ticketing

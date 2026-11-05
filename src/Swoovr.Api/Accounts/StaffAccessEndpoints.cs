@@ -108,7 +108,7 @@ public static class StaffAccessEndpoints
         });
 
         // §5: the root admin or the security and legal officer records a conflict; any staff member may declare their own.
-        access.MapPost("/exclusions", async (StaffExclusionRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
+        access.MapPost("/exclusions", async (StaffExclusionRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, Ticketing.TicketingStaffSignal helpdesk, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AnyStaffAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
@@ -126,6 +126,8 @@ public static class StaffAccessEndpoints
                 db.StaffExclusions.Add(new StaffExclusion { StaffAccountId = request.StaffAccountId, SubjectAccountId = request.SubjectAccountId, Reason = request.Reason.Trim(), CreatedBy = me, CreatedAt = now });
             Audit.Record(db, now, me, "account", "access.excluded", "account", request.StaffAccountId.ToString(), request.SubjectAccountId.ToString());
             await db.SaveChangesAsync(cancellationToken);
+            // A conflict switches off the staff member's direct helpdesk sign-in (Zammad can't hide one member from one agent).
+            helpdesk.Nudge();
             return Results.Ok();
         });
 
@@ -164,7 +166,7 @@ public static class StaffAccessEndpoints
         // §11, §15: revoking a staff member removes their roles and grants and ends their sessions (the API refuses every token
         // authenticated through the admitted issuer-skew cutoff). Root admin only; never the root admin themselves.
         app.MapPost("/api/admin/staff/{id:guid}/revoke", async (Guid id, StaffRevokeRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
-            CancellationToken cancellationToken) =>
+            Ticketing.TicketingStaffSignal helpdesk, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await AnyStaffAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
@@ -190,6 +192,8 @@ public static class StaffAccessEndpoints
             if(target.SessionsRevokedAt is null||target.SessionsRevokedAt<cutoff)target.SessionsRevokedAt=cutoff;
             Audit.Record(db, now, me, "account", "staff.revoked", "account", id.ToString(), $"roles:{roles};grants:{grants}");
             await db.SaveChangesAsync(cancellationToken);
+            // Their helpdesk identities are switched off and web sessions ended by the next synchronisation, started now.
+            helpdesk.Nudge();
             return Results.Ok(new StaffRevokeResult(roles, grants, false));
         });
     }

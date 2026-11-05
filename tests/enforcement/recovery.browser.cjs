@@ -35,7 +35,7 @@ const {web,createMember,memberToken,rootAdminToken,cli,sql,call,claims,elevate,m
   await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',source.email);await page.fill('#password',member.password);
   await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
   const warning=page.locator('[data-email-change-problem="identifier-restricted"]');await warning.waitFor();
-  equal(await warning.locator('[data-email-support]').getAttribute('href'),'https://swoovr.com/support','approved support link');
+  equal(await warning.locator('[data-email-support]').getAttribute('href'),'/me/support','native support request');
   assert.ok((await warning.innerText()).includes('previously accepted email'));checks++;
   assert.ok(!(await warning.innerText()).includes(sourceId));checks++;
   const output=process.env.SWOOVR_SCREENSHOTS;

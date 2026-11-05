@@ -7520,6 +7520,438 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.TicketingCaseLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AppealId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appeal_id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("linked_at");
+
+                    b.Property<Guid>("LinkedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_by");
+
+                    b.Property<long>("ProviderTicketId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_ticket_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticketing_case_link");
+
+                    b.HasIndex("CaseId")
+                        .HasDatabaseName("ix_ticketing_case_link_case_id");
+
+                    b.HasIndex("ProviderTicketId", "CaseId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_case_link_provider_ticket_id_case_id")
+                        .HasFilter("appeal_id IS NULL");
+
+                    b.HasIndex("ProviderTicketId", "CaseId", "AppealId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_case_link_provider_ticket_id_case_id_appeal_id")
+                        .HasFilter("appeal_id IS NOT NULL");
+
+                    b.ToTable("ticketing_case_link");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingGuest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deactivated_at");
+
+                    b.Property<byte[]>("EmailLookup")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("email_lookup");
+
+                    b.Property<byte[]>("EmailProtected")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("email_protected");
+
+                    b.Property<long?>("ProviderUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_user_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticketing_guest");
+
+                    b.HasIndex("EmailLookup")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_guest_email_lookup");
+
+                    b.HasIndex("ProviderUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_guest_provider_user_id");
+
+                    b.ToTable("ticketing_guest");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingGuestChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("AddressLookup")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("address_lookup");
+
+                    b.Property<byte[]>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<byte[]>("EmailLookup")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("email_lookup");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_attempts");
+
+                    b.Property<DateTimeOffset?>("SupersededAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("superseded_at");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticketing_guest_challenge");
+
+                    b.HasIndex("AddressLookup", "CreatedAt")
+                        .HasDatabaseName("ix_ticketing_guest_challenge_address_lookup_created_at");
+
+                    b.HasIndex("EmailLookup", "CreatedAt")
+                        .HasDatabaseName("ix_ticketing_guest_challenge_email_lookup_created_at");
+
+                    b.ToTable("ticketing_guest_challenge");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingGuestGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("GuestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("guest_id");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticketing_guest_grant");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_guest_grant_token_hash");
+
+                    b.HasIndex("GuestId", "ExpiresAt")
+                        .HasDatabaseName("ix_ticketing_guest_grant_guest_id_expires_at");
+
+                    b.ToTable("ticketing_guest_grant");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingIdentity", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deactivated_at");
+
+                    b.Property<long?>("ProviderUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_user_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_ticketing_identity");
+
+                    b.HasIndex("ProviderUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_identity_provider_user_id");
+
+                    b.ToTable("ticketing_identity");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<long?>("ProviderArticleId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_article_id");
+
+                    b.Property<long?>("ProviderTicketId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_ticket_id");
+
+                    b.Property<string>("RequestDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_digest");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticketing_operation");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_ticketing_operation_account_id_created_at");
+
+                    b.ToTable("ticketing_operation");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingStaff", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("AppliedDigest")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("applied_digest");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<long?>("ProviderUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_user_id");
+
+                    b.Property<DateTimeOffset?>("SessionsRevokedApplied")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sessions_revoked_applied");
+
+                    b.Property<DateTimeOffset?>("SyncedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("synced_at");
+
+                    b.Property<byte[]>("TokenProtected")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("token_protected");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.Property<bool>("WebActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("web_active");
+
+                    b.Property<long?>("WebProviderUserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("web_provider_user_id");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_ticketing_staff");
+
+                    b.HasIndex("NextAttemptAt")
+                        .HasDatabaseName("ix_ticketing_staff_next_attempt_at");
+
+                    b.HasIndex("ProviderUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_staff_provider_user_id");
+
+                    b.HasIndex("WebProviderUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_staff_web_provider_user_id");
+
+                    b.ToTable("ticketing_staff");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingWebhookWork", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("BodyDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("body_digest");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("DeliveryId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("delivery_id");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<long?>("ProviderArticleId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_article_id");
+
+                    b.Property<long?>("ProviderCustomerId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_customer_id");
+
+                    b.Property<long>("ProviderTicketId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("provider_ticket_id");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticketing_webhook_work");
+
+                    b.HasIndex("BodyDigest")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_webhook_work_body_digest");
+
+                    b.HasIndex("DeliveryId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ticketing_webhook_work_delivery_id");
+
+                    b.HasIndex("CompletedAt", "NextAttemptAt")
+                        .HasDatabaseName("ix_ticketing_webhook_work_completed_at_next_attempt_at");
+
+                    b.ToTable("ticketing_webhook_work");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8846,6 +9278,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_text_harm_review_moderation_cases_case_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.TicketingGuestGrant", b =>
+                {
+                    b.HasOne("Swoovr.Domain.TicketingGuest", null)
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticketing_guest_grant_ticketing_guest_guest_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.Trip", b =>

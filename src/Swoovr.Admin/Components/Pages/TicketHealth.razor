@@ -1,0 +1,73 @@
+@page "/tickets/diagnostics"
+@* Integration health for administrators: whether the helpdesk answers, and how much durable work is waiting or uncertain.
+   No conversation content. Helpdesk configuration (queues, triggers, webhook, fields) is not routine work: it is provisioned
+   by the deployment and changed in the helpdesk's own administration by an administrator. *@
+@inject AdminClient Admin
+<PageTitle>Support integration health — Swoovr admin</PageTitle>
+<p class="breadcrumb"><a href="/tickets">Support requests</a> / Integration health</p>
+<header class="ui-page-head"><h1>Integration health</h1><p>The helpdesk connection and the work Swoovr is tracking for it.</p></header>
+@if (diagnostics is { } d)
+{
+    <div class="ui-stats ui-stats-4" data-ticket-diagnostics="@d.Provider">
+        <div class="ui-stat"><strong>@(d.Provider == "reachable" ? "Reachable" : d.Provider)</strong><span>Helpdesk</span></div>
+        <div class="ui-stat"><strong>@d.Mappings</strong><span>Member records</span></div>
+        <div class="ui-stat @(d.UncertainMappings + d.UncertainOperations > 0 ? "is-alert" : null)"><strong>@(d.UncertainMappings + d.UncertainOperations)</strong><span>Waiting to be confirmed</span></div>
+        <div class="ui-stat @(d.FailedDeliveries > 0 ? "is-alert" : null)"><strong>@d.PendingDeliveries</strong><span>Helpdesk events waiting (@d.FailedDeliveries retrying)</span></div>
+    </div>
+    <p class="help">Unconfirmed work is never repeated automatically. It is matched against the helpdesk before anything is sent again.</p>
+    @if (d.Staff is { } staff)
+    {
+        <section class="ui-card" aria-label="Staff access in the helpdesk" data-ticket-staff-sync="@(staff.Configured ? "configured" : "off")">
+            <h2 class="ui-card-title">Staff access in the helpdesk</h2>
+            @if (!staff.Configured)
+            {
+                <p>Staff access isn't being copied to the helpdesk, so staff can't use it yet.</p>
+            }
+            else
+            {
+                <div class="ui-stats ui-stats-4">
+                    <div class="ui-stat"><strong>@staff.Mirrored</strong><span>Staff copied from Swoovr</span></div>
+                    <div class="ui-stat"><strong>@staff.WebSignIn</strong><span>Can sign in to the helpdesk directly</span></div>
+                    <div class="ui-stat @(staff.Failed > 0 ? "is-alert" : null)" data-ticket-staff-failed="@staff.Failed"><strong>@staff.Failed</strong><span>Not applied yet (retrying)</span></div>
+                    <div class="ui-stat @(staff.UnmanagedAgents > 0 ? "is-alert" : null)" data-ticket-staff-unmanaged="@staff.UnmanagedAgents"><strong>@(staff.UnmanagedAgents?.ToString() ?? "Unknown")</strong><span>Helpdesk agents Swoovr doesn't manage</span></div>
+                </div>
+                <p class="help">Swoovr roles decide every staff member's helpdesk queues. Changes made in the helpdesk are undone at the next check.
+                    Last applied @When(staff.LastSyncedAt); last checked @When(staff.LastVerifiedAt).</p>
+                <form method="post" @formname="staff-sync" @onsubmit="SyncAsync" data-enhance="false" data-ticket-staff-sync-now>
+                    <AntiforgeryToken />
+                    <button type="submit" class="ui-button-ghost">Check staff access now</button>
+                </form>
+                @if (syncMessage is not null) { <p class="notice" role="status" data-ticket-staff-sync-result>@syncMessage</p> }
+            }
+        </section>
+    }
+}
+else { <div class="ui-empty" role="alert" data-ticket-diagnostics="unavailable"><strong>Not available</strong>@message</div> }
+@if (caps is { } c)
+{
+    <section class="ui-card" aria-label="Your access">
+        <h2 class="ui-card-title">Your queues</h2>
+        <p>@(c.Groups.Count == 0 ? "None." : string.Join(", ", c.Groups.Select(g => g.Name)))</p>
+        <p class="help">Your Swoovr role decides your queues. The restricted, legal, privacy and security queues also need elevated access and a sign-in within the last 15 minutes. You can only work them here, never in the helpdesk directly.</p>
+    </section>
+}
+@code {
+    private Swoovr.Contracts.TicketDiagnostics? diagnostics;
+    private TicketCapabilities? caps;
+    private string? message, syncMessage;
+    private static string When(DateTimeOffset? at) => at is { } value ? value.ToLocalTime().ToString("d MMM yyyy, HH:mm") : "never";
+    private async Task SyncAsync()
+    {
+        var result = await Admin.TicketStaffSyncAsync();
+        syncMessage = result.Ok && result.Value is { } run
+            ? run.Failed > 0 ? $"Checked {run.Checked} staff. {run.Failed} couldn't be updated and will be retried." : run.Drifted > 0 ? $"Checked {run.Checked} staff. Undid helpdesk changes for {run.Drifted}." : $"Checked {run.Checked} staff. Everything matches Swoovr."
+            : SupportTicketText.Problem(result.Status, result.Code);
+        if ((await Admin.TicketDiagnosticsAsync()).Value is { } refreshed) diagnostics = refreshed;
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.TicketDiagnosticsAsync();
+        if (result.Ok) diagnostics = result.Value; else message = SupportTicketText.Problem(result.Status, result.Code);
+        caps = (await Admin.TicketCapabilitiesAsync()).Value;
+    }
+}

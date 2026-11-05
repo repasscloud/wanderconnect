@@ -13,6 +13,6 @@ public sealed class ReportFollowUpPage:ContentPage
     }
     public static View SupportCard()=>Ui.Card(Ui.Text("Support and complaints","SectionHeading"),
         Ui.Text(ReportFollowUpText.SafetyHelp),Ui.Button("Safety & Support","ReportSafetySupport",()=>Ui.PushAsync(new SafetyPage()),primary:false),
-        Ui.Text(ReportFollowUpText.ComplaintHelp),Ui.Button("Contact Support","ReportComplaintWeb",()=>Launcher.Default.OpenAsync(new Uri(StandingText.SupportUrl)),primary:false),
+        Ui.Text(ReportFollowUpText.ComplaintHelp),Ui.Button("Contact Support","ReportComplaintWeb",()=>Ui.PushAsync(new SupportPage()),primary:false),
         Ui.Button("Email Support","ReportComplaintEmail",()=>Launcher.Default.OpenAsync(new Uri("mailto:"+StandingText.SupportEmail)),primary:false),Ui.Text(ReportFollowUpText.Availability,"FooterClaims"));
 }
