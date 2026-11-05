@@ -96,6 +96,7 @@ Notice kinds, with a second fictional member (Sam) acting on the web and Alex on
 | Message | Pass: push `accepted`; never emailed | That chat |
 | Conversation ended | Pass: neutral text "A conversation has ended on Swoovr." | The ended chat |
 | Block | Pass: after Alex blocked Sam, Sam couldn't reach the chat, profile or Explore, and Alex received no notice; Alex sees Sam under Connections → Blocked with Unblock | — |
+| Messages switch off (Push on) | Pass: after unblocking and reconnecting, Sam's message was recorded push `off` with nothing shown; the reconnection request still pushed (Requests on) | — |
 
 Found on the device and fixed in PR #209:
 - **No permission prompt:** the app never asked for notification permission.
@@ -104,7 +105,7 @@ Found on the device and fixed in PR #209:
 - **Sign-in left push off:** after signing out and back in, the device stayed unregistered until "Enable" was tapped. Sign-in and opening while signed in now fetch a fresh token when permission is already granted.
 
 Not yet tested on the device:
-- per-kind switches (messages, requests, connections, travel);
+- per-kind switches other than Messages (requests, connections, travel; same code path);
 - travel, meeting-safety, photo-decision and safety-policy notices on the device;
 - iOS/APNs (waiting on the Apple key).
 
