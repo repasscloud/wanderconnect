@@ -80,6 +80,28 @@ public static class PushRegistration
         await Task.CompletedTask;
 #endif
     }
+    /// <summary>
+    /// Signing out deletes this device's provider token. When the member signs in again and notifications are already allowed,
+    /// fetch a fresh token and register it, so push resumes without tapping "Enable" (found on the owner's Galaxy A14: after
+    /// sign-out and sign-in the device stayed unregistered). Never prompts; AskOnceAsync owns the one-time question.
+    /// </summary>
+    public static async Task RestoreTokenAsync()
+    {
+        try
+        {
+            if (!await Ui.SignedInAsync() || !string.IsNullOrEmpty(await SecureStorage.Default.GetAsync(TokenKey))) return;
+#if ANDROID && SWOOVR_FCM
+            if (OperatingSystem.IsAndroidVersionAtLeast(33) && await Permissions.CheckStatusAsync<Permissions.PostNotifications>() != PermissionStatus.Granted) return;
+            var result = await Firebase.Messaging.FirebaseMessaging.Instance.GetToken().AsAsync<Java.Lang.String>();
+            if (result is not null) await SaveTokenAsync(result.ToString()!);
+#elif IOS && SWOOVR_APNS
+            var settings = await UserNotifications.UNUserNotificationCenter.Current.GetNotificationSettingsAsync();
+            if (settings.AuthorizationStatus == UserNotifications.UNAuthorizationStatus.Authorized)
+                MainThread.BeginInvokeOnMainThread(UIKit.UIApplication.SharedApplication.RegisterForRemoteNotifications);
+#endif
+        }
+        catch (Exception) { /* Best effort: "Enable notifications on this device" still registers. */ }
+    }
     public static async Task EnableAsync()
     {
         try
