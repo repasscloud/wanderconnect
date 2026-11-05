@@ -7,7 +7,7 @@ namespace Swoovr.Mobile;
 /// <summary>Only platform-issued tokens reach hosted APIs. Local simulation is a separate Debug-only path.</summary>
 public static class PushRegistration
 {
-    private const string TokenKey = "swoovr.push.token", DeviceKey = "swoovr.push.device", InstallKey = "swoovr.push.installation";
+    private const string TokenKey = "swoovr.push.token", DeviceKey = "swoovr.push.device", InstallKey = "swoovr.push.installation", AskedKey = "swoovr.push.permission-asked";
     private static readonly SemaphoreSlim registration = new(1, 1);
     private static bool signingOut;
     private static bool ProviderEnabled =>
@@ -59,6 +59,26 @@ public static class PushRegistration
     {
         if (!Guid.TryParse(Preferences.Default.Get(InstallKey, ""), out var id)) Preferences.Default.Set(InstallKey, (id = Guid.NewGuid()).ToString());
         return id;
+    }
+    /// <summary>
+    /// Android 13+ shows nothing until the app asks, while Firebase still issues a token and the device registers. So a signed-in
+    /// member is asked once per install (after sign-in, or on first opening while signed in). Declining is respected:
+    /// Android isn't asked again, and "Enable notifications on this device" or system settings still turn it on.
+    /// </summary>
+    public static async Task AskOnceAsync()
+    {
+#if ANDROID && SWOOVR_FCM
+        try
+        {
+            if (!OperatingSystem.IsAndroidVersionAtLeast(33) || Preferences.Default.Get(AskedKey, false) || !await Ui.SignedInAsync()) return;
+            if (await Permissions.CheckStatusAsync<Permissions.PostNotifications>() == PermissionStatus.Granted) { Preferences.Default.Set(AskedKey, true); return; }
+            Preferences.Default.Set(AskedKey, true);
+            await EnableAsync();
+        }
+        catch (Exception e) when (e is InvalidOperationException or PermissionException) { }
+#else
+        await Task.CompletedTask;
+#endif
     }
     public static async Task EnableAsync()
     {

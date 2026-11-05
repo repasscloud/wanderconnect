@@ -49,6 +49,7 @@ public sealed class AppSignIn
 		await session.SaveAsync(await signIn.CompleteAsync(request, result.Properties));
 		PushRegistration.Resume();
 		await PushRegistration.RegisterAsync();
+		await PushRegistration.AskOnceAsync();
 		await PushRegistration.OpenPendingAsync();
 		return true;
 	}
