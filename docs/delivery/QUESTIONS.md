@@ -2681,7 +2681,7 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - Issue: [#204](https://github.com/repasscloud/wanderconnect/issues/204). Status: ANSWERED B plus queue matrix and direct Zammad access (D327), owner 5 November 2026; built in PR [#203](https://github.com/repasscloud/wanderconnect/pull/203).
 - Sensitive helpdesk queues (Legal, Restricted T&S, Privacy, Security) require elevation, a recent sign-in and a pinned TLS client certificate per staff account (DEFAULT). The Admin host presents none, so those queues are unreachable (not leaked) in Admin.
 - A: per-staff certificates for the Admin host. B (**chosen and built**): drop the certificate rule; role + elevation + fresh direct sign-in. C: B now, desktop/managed-device check once Swoovr has attestation.
-- Built: B, the owner's queue matrix (Appeals per the written answer), and Swoovr-mirrored Zammad web access through the staff realm (D327).
+- Built: B, the owner's queue matrix (Appeals Trust & Safety and Admin only, confirmed), and Swoovr-mirrored Zammad web access through the staff realm (D327).
 
 ### Q134 — Show emailed messages from a member's address inside the app?
 

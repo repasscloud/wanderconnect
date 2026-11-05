@@ -78,7 +78,6 @@ Swoovr roles decide every staff member's queues; Zammad is never managed as a se
 
 ## Known limitations and owner decisions
 
-- Appeals follows the owner's written answer (Trust & Safety and Admin only); the final matrix row on #204 still showed Support ✅ (D327 note).
 - Emailed customer messages aren't shown to members or guests in Swoovr (D328, owner kept the default).
 - Device attestation for sensitive work (Q133 option C) is not built.
 - A Zammad session already open when access is removed ends within a minute (the next synchronisation). Zammad's own session lifetime otherwise applies.
