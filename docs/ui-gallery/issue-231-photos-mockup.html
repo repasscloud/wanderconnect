@@ -274,7 +274,10 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
 .viewer-side dd { font:600 .875rem/1.4 var(--font); }
 .viewer-actions { display:grid; gap:8px; }
 .viewer-actions .btn { width:100%; justify-content:flex-start; }
-.reveal { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); }
+/* Centred without transform: .btn:active's scale() would replace a translate and make the button jump on press. */
+.reveal { position:absolute; left:0; right:0; bottom:16px; margin:0 auto; width:max-content; }
+.viewer-actions .btn { white-space:normal; text-align:left; min-width:0; }
+.viewer-side { overflow-x:hidden; }
 @container app (max-width:899px) {
   .viewer { padding:0; }
   .viewer-panel { grid-template-columns:1fr; height:100%; width:100%; border-radius:0; border:0; grid-template-rows:auto 1fr; }
@@ -354,6 +357,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       </optgroup>
       <optgroup label="Private albums">
         <option value="album">Album (/me/photos/albums/1)</option>
+        <option value="album:viewer">· Viewer: an adult photo in an album</option>
         <option value="album:upload">· Upload straight into this album</option>
         <option value="album:pick">· Add from library</option>
         <option value="album-new">New album (empty slot)</option>
@@ -428,7 +432,8 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
         <li>Each album has <b>Share in modes</b> switches. In a chat in that mode, the member can share the album; they can stop sharing at any time.</li>
         <li>Library meter shows profile photos and album-only photos separately against one 60-spot total (D293).</li>
         <li><span class="label">DEFAULT</span>Album-only photos and album covers are blurred on the owner's own screens until tapped, so they're not exposed on a shared screen.</li>
-        <li><span class="label">DEFAULT</span>Removing an album-only photo from its album keeps it in the library (it still uses a spot) until deleted.</li>
+        <li><span class="label">CONFIRMED</span>(owner, 7 Nov 2026) Library photos in an album have <b>Remove</b> (from this album; it stays in the library) and <b>Delete</b> (everywhere). Adult photos live only in their album, so they have <b>Delete</b> only: a bin icon on the tile, no ✕ and no Remove. They can't be added to another album.</li>
+        <li><span class="label">DEFAULT</span>Deleting an album deletes the adult photos in it (they have nowhere else to live); its library photos stay in the library.</li>
       </ul></div>
       <div><h3>Explicit media (owner, 6 Nov 2026, #231 comment)</h3><ul>
         <li><span class="label">CONFIRMED</span>Supersedes D178: adult content is allowed for <b>ID Verified</b> members. Explicit library uploads are approved for private albums only.</li>
@@ -535,7 +540,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
             <section class="card" aria-labelledby="album-photos-title">
               <div class="mode-head"><h2 class="card-title" id="album-photos-title">Photos</h2><span class="count" data-album-photo-count></span></div>
               <ul class="grid" data-album-grid></ul>
-              <p class="foot-note">Removing a photo from this album keeps it in your library.</p>
+              <p class="foot-note">✕ removes a photo from this album; it stays in your library. Adult photos only live in this album, so they can only be deleted.</p>
             </section>
             <section class="card album-settings" aria-labelledby="album-settings-title">
               <h2 class="card-title" id="album-settings-title">Album settings</h2>
@@ -547,7 +552,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
               </fieldset>
               <div class="field"><span class="small" style="font-weight:600">Shared with</span><p class="small muted" data-album-shared></p></div>
               <div class="actions"><button type="button" class="btn btn-secondary btn-pill" data-delete-album>Delete album</button></div>
-              <p class="foot-note">Deleting the album stops all sharing. Its photos stay in your library.</p>
+              <p class="foot-note">Deleting the album stops all sharing. Library photos stay in your library; adult photos in this album are deleted.</p>
             </section>
           </div>
         </section>
@@ -870,8 +875,13 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     $('[data-album-title]').textContent = a.name;
     $('[data-album-name]').value = a.name;
     $('[data-album-photo-count]').textContent = `${a.photos.length} of ${PER_ALBUM}`;
-    const tiles = a.photos.map((id, i) => `<li class="tile">${shot(photo(id), { label: `Photo ${i + 1} in ${a.name}`, ctx: 'album' })}
-      <button type="button" class="x" data-remove-album="${id}" aria-label="Remove photo ${i + 1} from ${esc(a.name)}">${icon('x')}</button></li>`);
+    // Library photos: ✕ removes from this album (stays in the library). Adult photos: bin deletes everywhere.
+    const tiles = a.photos.map((id, i) => {
+      const p = photo(id), adult = p.state === 'album-only';
+      return `<li class="tile">${shot(p, { label: `Photo ${i + 1} in ${a.name}`, ctx: 'album' })}
+      ${adult ? `<button type="button" class="x" data-delete="${id}" aria-label="Delete photo ${i + 1}">${icon('trash')}</button>`
+              : `<button type="button" class="x" data-remove-album="${id}" aria-label="Remove photo ${i + 1} from this album">${icon('x')}</button>`}</li>`;
+    });
     if (a.photos.length < PER_ALBUM) tiles.push(`<li class="tile"><button type="button" class="add-tile" data-open="album-pick">${icon('plus')}Add photos</button></li>`);
     $('[data-album-grid]').innerHTML = tiles.join('');
     $('[data-album-modes]').innerHTML = switches(a.modes, 'data-album-mode');
@@ -916,7 +926,8 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       acts.push(`<button type="button" class="btn btn-secondary" data-move="${id}:1" ${pos >= modes[state.mode].length - 1 ? 'disabled' : ''}>${icon('chev')}Move later</button>`);
       acts.push(`<button type="button" class="btn btn-secondary" data-remove-mode="${id}">${icon('x')}Remove from ${label}</button>`);
     }
-    if (ctx === 'album') acts.push(`<button type="button" class="btn btn-secondary" data-remove-album="${id}">${icon('x')}Remove from ${esc(currentAlbum().name)}</button>`);
+    // Adult (album-only) photos live only in their album: removing would orphan them, so they can only be deleted.
+    if (ctx === 'album' && p.state !== 'album-only') acts.push(`<button type="button" class="btn btn-secondary" data-remove-album="${id}">${icon('x')}Remove</button>`);
     if (p.state === 'not-approved') acts.push(`<a class="btn" href="#" data-goto="appeal">${icon('flag')}Appeal this decision</a>`);
     acts.push(`<button type="button" class="btn btn-secondary" data-delete="${id}">${icon('trash')}Delete</button>`);
     viewer.querySelector('[data-viewer-actions]').innerHTML = acts.join('');
@@ -931,9 +942,10 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       d.classList.add('dialog-wide');
       const forAlbum = kind === 'album-pick', a = currentAlbum();
       const chosen = forAlbum ? a.photos : modes[state.mode], max = forAlbum ? PER_ALBUM : PER_MODE;
-      const pool = photos.filter(p => p.state === 'approved' || (forAlbum && p.state === 'album-only'));
+      // Only approved library photos can be picked. Adult photos stay in the one album they were uploaded to.
+      const pool = photos.filter(p => p.state === 'approved');
       const title = forAlbum ? `Add to ${esc(a.name)}` : `Add photos to ${modeLabel(state.mode)}`;
-      d.innerHTML = head(title) + `<p class="small muted">Tap photos to add or remove them. <b data-pick-count>${chosen.length}</b> of ${max} selected.${forAlbum ? '' : ' Photos only for private albums can\'t be used in a mode.'}</p>
+      d.innerHTML = head(title) + `<p class="small muted">Tap photos to add or remove them. <b data-pick-count>${chosen.length}</b> of ${max} selected.${forAlbum ? ' Adult photos are uploaded straight into an album and stay there.' : ' Photos only for private albums can\'t be used in a mode.'}</p>
         <ul class="grid" data-pick-grid>${pool.length ? pool.map(p => `<li class="tile"><button type="button" class="shot ${p.state === 'album-only' && !p.revealed ? 'blurred' : ''}" data-pick="${p.id}" aria-pressed="${chosen.includes(p.id)}" aria-label="Photo, ${esc(whereLine(p))}">${art(p)}${p.state === 'album-only' ? `<span class="veil" style="background:rgba(0,0,0,.2)">${icon('lock')}</span>` : ''}<span class="badge light" data-check hidden>${icon('star')}Selected</span></button></li>`).join('') : '<li style="grid-column:1/-1"><p class="empty">No approved photos yet. Add photos first.</p></li>'}</ul>
         <div class="dialog-foot"><button type="button" class="btn btn-secondary" data-close>Cancel</button><button type="button" class="btn" data-pick-done="${kind}">Done</button></div>`;
       d.dataset.chosen = JSON.stringify(chosen);
@@ -1051,7 +1063,8 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     $$('[data-chat-only]').forEach(el => el.hidden = screen !== 'chat');
     renderNav(); renderAll();
     (state.viewport === 'desktop' ? window : app).scrollTo({ top: 0 });
-    if (sub === 'viewer') openViewer(modes[state.mode][1] || photos[0]?.id, 'mode');
+    if (sub === 'viewer' && screen === 'album') { const a = currentAlbum(); const id = a?.photos.find(x => photo(x).state === 'album-only') ?? a?.photos[0]; if (id) openViewer(id, 'album'); }
+    else if (sub === 'viewer') openViewer(modes[state.mode][1] || photos[0]?.id, 'mode');
     if (sub === 'viewer-rejected') { const r = photos.find(p => p.state === 'not-approved'); if (r) openViewer(r.id, 'library'); }
     if (sub === 'pick') openDialog(screen === 'album' ? 'album-pick' : 'pick');
     if (sub === 'upload') openDialog(screen === 'album' ? 'album-upload' : 'upload');
@@ -1114,7 +1127,9 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       [l[i], l[i + d]] = [l[i + d], l[i]]; renderAll(); return;
     }
     if ((el = q('[data-remove-album]'))) {
-      const a = currentAlbum(), id = Number(el.dataset.removeAlbum); a.photos = a.photos.filter(x => x !== id);
+      const a = currentAlbum(), id = Number(el.dataset.removeAlbum);
+      if (photo(id)?.state === 'album-only') return; // adult photos can only be deleted
+      a.photos = a.photos.filter(x => x !== id);
       if (!viewer.hidden) closeOverlays();
       toast(`Removed from ${a.name}. It's still in your library.`); renderAll(); return;
     }
@@ -1159,7 +1174,9 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     }
     if ((el = q('[data-delete-album]'))) {
       const a = currentAlbum(); albums = albums.filter(x => x !== a); shares = shares.filter(s => s.album !== a.id);
-      state.album = albums[0]?.id || 0; toast(`${a.name} deleted. Its photos are still in your library.`); go('photos'); return;
+      const adult = new Set(a.photos.filter(id => photo(id)?.state === 'album-only'));
+      photos = photos.filter(p => !adult.has(p.id));
+      state.album = albums[0]?.id || 0; toast(adult.size ? `${a.name} deleted, with its ${adult.size} adult photo${adult.size === 1 ? '' : 's'}. Library photos are still in your library.` : `${a.name} deleted. Its photos are still in your library.`); go('photos'); return;
     }
     if ((el = q('[data-create-album]'))) {
       if (albums.length >= ALBUMS) return;
@@ -1216,6 +1233,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     if (['light', 'dark'].includes(part)) setTheme(part);
     if (['typical', 'new', 'full'].includes(part)) { state.member = part; setPressed('member', part); seed(part); }
     if (part === 'unverified') { state.verified = false; setPressed('verified', 'no'); seed(state.member); }
+    if (/^a\d$/.test(part)) state.album = Number(part.slice(1));
     if (part === 'accepts') { state.recipient = true; setPressed('recipient', 'yes'); }
     if (part === 'notes') { notes.hidden = false; document.getElementById('notes-toggle').setAttribute('aria-pressed', 'true'); }
   }
