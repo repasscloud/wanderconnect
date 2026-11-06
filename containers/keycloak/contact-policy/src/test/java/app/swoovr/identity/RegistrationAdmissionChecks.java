@@ -27,6 +27,11 @@ public final class RegistrationAdmissionChecks {
         check(!RegistrationAdmission.validAvailabilityReply(503,Map.of("betaEnabled",true,"publicEnabled",true,"revision",1)));
         check(!RegistrationAdmission.validAvailabilityReply(200,Map.of("publicEnabled",true,"revision",1)));
         check(!RegistrationAdmission.validAvailabilityReply(200,null));
+        // D335: only beta-on/public-off names invite-only; closed, public and unreadable refusals are neutral.
+        check(RegistrationAdmission.refusalKeyFor(Map.of("betaEnabled",true,"publicEnabled",false,"revision",1)).equals("swoovrRegistrationInviteOnly"));
+        check(RegistrationAdmission.refusalKeyFor(Map.of("betaEnabled",true,"publicEnabled",true,"revision",1)).equals("swoovrRegistrationClosed"));
+        check(RegistrationAdmission.refusalKeyFor(Map.of("betaEnabled",false,"publicEnabled",true,"revision",1)).equals("swoovrRegistrationClosed"));
+        check(RegistrationAdmission.refusalKeyFor(null).equals("swoovrRegistrationClosed"));
         check(RegisteredNameValidation.valid("Zoë","李",false));
         check(RegisteredNameValidation.valid("Ari",null,true));
         check(!RegisteredNameValidation.valid("Ari",null,false));

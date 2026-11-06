@@ -14,7 +14,17 @@ static class PrivacyNoticeChecks
         string Text(string id) => string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == id).Paragraphs);
         var all = string.Join(" ", PrivacyNotice.Sections.SelectMany(s => s.Paragraphs));
 
-        Expect(!PrivacyNotice.StatusLabel.Contains("draft", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("approved 4 November 2026") && PrivacyNotice.Version == "0.18, 4 November 2026", "0.18 approved 4 November 2026 (issue 186), never draft");
+        Expect(!PrivacyNotice.StatusLabel.Contains("draft", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("approved 6 November 2026") && PrivacyNotice.Version == "0.19, 6 November 2026", "0.19 approved 6 November 2026 (issue 208), never draft");
+        // Issue 208 / D333–D334: helpdesk collection, self-hosted Zammad, support retention, customer retirement, logs and backups.
+        Expect(Text("collect").Contains("Customer support: when you contact us") && Text("collect").Contains("internal case notes"), "support information collected (issue 208 §2)");
+        Expect(Text("sharing").Contains("self-hosted customer support system using Zammad") && Text("sharing").Contains("not an independent recipient") && Text("sharing").Contains("email service provider"), "self-hosted Zammad, not a recipient (issue 208 §3)");
+        Expect(Text("retention").Contains("General Support tickets, including guest and email-only enquiries, are normally retained for up to 24 months after final closure")
+            && Text("retention").Contains("at least 7 years where legally required") && Text("retention").Contains("up to 5 years after closure, legal and law-enforcement cases for up to 7 years")
+            && Text("retention").Contains("privacy requests for up to 3 years") && Text("retention").Contains("security incidents for up to 5 years"), "approved helpdesk retention periods (D333)");
+        Expect(!all.Contains("30-day General Support") && !Text("retention").Contains("serious-incident schedule uses 24 months"), "no withdrawn 30-day purge, no 24-month serious-incident period");
+        Expect(Text("retention").Contains("retire your associated customer support account") && Text("retention").Contains("retired identifier") && !Text("retention").Contains("anonymous"), "customer retirement after final deletion, never called anonymous (issue 208 §5)");
+        Expect(Text("retention").Contains("no more than 35 days") && Text("retention").Contains("daily 30-day, weekly 4-week and monthly 12-month") && Text("retention").Contains("up to 90 days"), "helpdesk backups distinguished, logs 90 days (issue 208 §6, §8)");
+        Expect(Text("retention").Contains("Trust & Safety cases, including serious incidents, normally follow a five-year retention schedule"), "serious incidents follow the five-year Trust & Safety schedule (issue 208 §7)");
         // Issue 186 (Q130 A): the persistent Safety & Support country is disclosed with its limits.
         var device = string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == "device").Paragraphs);
         Expect(device.Contains("up to 12 months") && device.Contains("not used to determine your physical location") && device.Contains("personalise advertising") && device.Contains("change your country selection"), "country preference disclosed with its limits");
@@ -29,8 +39,9 @@ static class PrivacyNoticeChecks
         Expect(Text("messages").Contains("30 days"), "unsent messages kept 30 days (D167)");
         Expect(Text("holds").Contains("legal hold") && Text("holds").Contains("even if you delete your account"), "evidence holds (D189, D195)");
         Expect(Text("founders").Contains("founder recovery token") && Text("founders").Contains("Also delete my founder recovery token"), "the founder token (D173, #22)");
+        // D231's review exceptions as reworded by issue 208 §7 (owner text): 12 months minimum, holds extend, reassess before disposal.
         Expect(Text("retention").Contains("12 months") && Text("retention").Contains("24 months")
-            && Text("retention").Contains("overlapping legal holds") && Text("retention").Contains("unknown provenance"), "review retention exceptions and fail-closed provenance (D231)");
+            && Text("retention").Contains("applicable legal holds may extend retention") && Text("retention").Contains("records are reassessed"), "review retention exceptions and hold extension (D231, issue 208)");
         Expect(Text("moderation-reporting").Contains("36 months") && Text("moderation-reporting").Contains("not verified residence"), "reporting receipt purpose and independent retention (D268)");
         Expect(Text("retention").Contains("30 days") && Text("retention").Contains("2 years"), "deletion and retention (D170)");
         Expect(Text("modes").Contains("Show my main about") && Text("modes").Contains("never your exact location"), "mode consent and distance bands (D199)");
@@ -52,6 +63,6 @@ static class PrivacyNoticeChecks
             && Text("international").Contains("Biometric Information Privacy Act"), "CCPA disclosures, US state appeals and biometric retention policy");
         Expect(Text("choices").Contains("access") && Text("choices").Contains("correct") && Text("choices").Contains("30 days"), "access, correction and complaint handling (APP 1.4(d)–(e))");
         Expect(Text("sharing").Contains("Didit") && Text("sharing").Contains("Twilio") && Text("sharing").Contains("MailerSend"), "service providers named");
-        Console.WriteLine($"PASS: approved privacy notice 0.18 ({checks}).");
+        Console.WriteLine($"PASS: approved privacy notice 0.19 ({checks}).");
     }
 }

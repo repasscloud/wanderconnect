@@ -3,20 +3,44 @@ using System.Net;
 namespace Swoovr.Web.Auth;
 
 /// <summary>issue 178: the invite-only response for /account/create when public sign-up is off (set in Admin), in the same
-/// header, colour mode, card, buttons and footer as the rest of Swoovr. Static HTML so it works before WebAssembly.</summary>
+/// header, colour mode, card, buttons and footer as the rest of Swoovr. Static HTML so it works before WebAssembly.
+/// D335 (#157, owner 5 November 2026): the invite-only wording appears only while beta registration is on and public
+/// registration is off; closed (both off) or an unreadable setting gets a neutral "Registration is closed" card with no beta
+/// wording, waitlist or invitation button.</summary>
 public static class InviteOnlyPage
 {
     public static string Html(bool betaInvitations, string version, string? measurementId = null)
     {
-        var invited = betaInvitations
-            ? """<a class="button button-secondary" href="/account/create?invited=true" data-enhance-nav="false" data-beta-invited>I have a beta invitation</a>"""
-            : "";
+        var title = betaInvitations ? "Swoovr is invite-only right now" : "Registration is closed";
+        var card = betaInvitations
+            ? """
+              <section class="card invite-only" aria-labelledby="invite-only-title" data-invite-only>
+              <p class="eyebrow">Create account</p>
+              <h1 id="invite-only-title">Swoovr is invite-only right now</h1>
+              <p class="invite-only-lede">We're not accepting public sign-ups just yet. Join the waitlist and we'll let you know when there's a place for you.</p>
+              <div class="invite-only-actions">
+              <a class="primary-button" href="https://swoovr.com/beta" rel="noopener" data-beta-waitlist>Join the beta waitlist</a>
+              <a class="button button-secondary" href="/account/create?invited=true" data-enhance-nav="false" data-beta-invited>I have a beta invitation</a>
+              </div>
+              <p class="invite-only-switch">Already have an account? <a href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
+              </section>
+              """
+            : """
+              <section class="card invite-only" aria-labelledby="registration-closed-title" data-registration-closed>
+              <p class="eyebrow">Create account</p>
+              <h1 id="registration-closed-title">Registration is closed</h1>
+              <p class="invite-only-lede">We're not accepting new accounts right now. If you already have an account, you can still sign in.</p>
+              <div class="invite-only-actions">
+              <a class="primary-button" href="/account/sign-in" data-enhance-nav="false">Sign in</a>
+              </div>
+              </section>
+              """;
         return $$"""
             <!doctype html>
             <html lang="en" data-scheme="standard" data-theme="light">
             <head>
             <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Swoovr is invite-only — Swoovr</title>
+            <title>{{title}} — Swoovr</title>
             <script src="/appearance-palettes.js"></script><script src="/appearance-core.js"></script><script src="/appearance-bootstrap.js"></script>
             <link rel="stylesheet" href="/themes.css"><link rel="stylesheet" href="/app.css">
             </head>
@@ -29,16 +53,7 @@ public static class InviteOnlyPage
             <button type="button" data-mode-choice="dark" aria-pressed="false" title="Dark"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span class="visually-hidden">Dark</span></button>
             </div></header>
             <main id="main-content" tabindex="-1">
-            <section class="card invite-only" aria-labelledby="invite-only-title" data-invite-only>
-            <p class="eyebrow">Create account</p>
-            <h1 id="invite-only-title">Swoovr is invite-only right now</h1>
-            <p class="invite-only-lede">We're not accepting public sign-ups just yet. Join the waitlist and we'll let you know when there's a place for you.</p>
-            <div class="invite-only-actions">
-            <a class="primary-button" href="https://swoovr.com/beta" rel="noopener" data-beta-waitlist>Join the beta waitlist</a>
-            {{invited}}
-            </div>
-            <p class="invite-only-switch">Already have an account? <a href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
-            </section>
+            {{card}}
             </main>
             <footer class="app-footer"><nav aria-label="Information"><a href="/terms">Terms</a> <a href="/community-guidelines">Community Guidelines</a> <a href="/privacy">Privacy Notice</a> <a href="/safety/advice">Safety Advice</a> <a href="https://swoovr.com/support">Support</a></nav><small class="app-version">{{WebUtility.HtmlEncode(version)}}</small></footer>
             </div>

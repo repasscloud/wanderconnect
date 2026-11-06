@@ -36,7 +36,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R018 | Done | Cases, evidence, sanctions, appeals stay in Swoovr; links are references; closing a request changes nothing (runtime check) |
 | R019 | Done | No evidence copied; sensitive-looking uploads refused; owner's file list with content checks (D330, malware scanning OPEN Q135); secure document collection deferred |
 | R020 | Done | Visibility split documented in `API.md`/`IMPLEMENTATION.md`; Admin shows linked cases with deep links into Swoovr case screens |
-| R021 | Partly / OPEN | Sensitive queues need elevation + a sign-in within 15 minutes (D327); never on a Zammad web sign-in; conflict exclusions enforced in Admin and by switching off web sign-in. Jurisdiction-specific retention for helpdesk data is a legal decision (OPEN, see `OPERATIONS.md`) |
+| R021 | Partly / OPEN | Sensitive queues need elevation + a sign-in within 15 minutes (D327); never on a Zammad web sign-in; conflict exclusions enforced in Admin and by switching off web sign-in. Retention policy decided (D333, #207); automated retention and customer retirement not built yet (Q136, #224, `RETENTION-OPTIONS.md`) |
 
 ## Public website, guest support and email
 
@@ -99,7 +99,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R059 | Done | Staff OIDC sessions (Admin and Zammad web via the staff realm) vs per-staff provider tokens vs provisioning/identity/staff-directory tokens |
 | R060 | Done | Timeouts, no blind write retry, operation keys, lost-response reconciliation, outage behaviour (events harness), redacted logs |
 | R061 | Done / External | Pinned digests, upgrade/rollback procedure and full isolated restore (`OPERATIONS.md`, restore harness); production DR drills: External |
-| R062 | OPEN (legal) | Upstream Compose and AGPL-3.0 licence retained; deployment obligations need legal review (no legal conclusion given) |
+| R062 | Done (D333) | Upstream Compose and AGPL-3.0 licence retained. Owner/legal, #207: unmodified official Zammad used only through its API and webhooks has no source-offer or public-notice obligation; reassess before any change to Zammad itself, its extensions or its distribution |
 
 ## Thirteen groups and the stock Users group
 
@@ -107,4 +107,4 @@ The 13 named groups are provisioned idempotently (twice without duplication) wit
 
 ## Original discovery questions
 
-Answered by the implementation rather than by a separate discovery report: identity mapping (R002–R007), actor/token design (`API.md`), visibility and leakage controls (R012, R041), Trust & Safety boundary (R017–R021), guest flow (`GUEST-API.md`), email (R026–R027), Admin capabilities (R029–R037), webhooks (R038–R050), uploads (R051–R056), operations and recovery (`OPERATIONS.md`), licensing (R062, OPEN).
+Answered by the implementation rather than by a separate discovery report: identity mapping (R002–R007), actor/token design (`API.md`), visibility and leakage controls (R012, R041), Trust & Safety boundary (R017–R021), guest flow (`GUEST-API.md`), email (R026–R027), Admin capabilities (R029–R037), webhooks (R038–R050), uploads (R051–R056), operations and recovery (`OPERATIONS.md`), licensing (R062, D333).

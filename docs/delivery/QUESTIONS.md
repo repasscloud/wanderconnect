@@ -2694,3 +2694,9 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - Issue: [#221](https://github.com/repasscloud/wanderconnect/issues/221). Status: OPEN, raised 6 November 2026 while building #220 (D330, PR [#218](https://github.com/repasscloud/wanderconnect/pull/218)).
 - Members can now attach images, documents, text, video and audio to support requests. The API checks each file's content matches its type and never renders files in the page; no malware scanner is configured, and staff download the files.
 - A (recommended before production): scan on upload (for example ClamAV beside the API) and refuse or quarantine anything flagged. B (DEFAULT, built): signature checks only, staff download with endpoint protection. C: fewer binary types until a scanner exists.
+
+### Q136 — How to run helpdesk retention and customer retirement
+
+- Issue: [#224](https://github.com/repasscloud/wanderconnect/issues/224). Status: OPEN, raised 6 November 2026 from [#207](https://github.com/repasscloud/wanderconnect/issues/207) (policy decided, D333).
+- Options in [zammad/RETENTION-OPTIONS.md](zammad/RETENTION-OPTIONS.md). 136.1 where the job runs: A (recommended) step in the API's hourly `RetentionWorker` / `retention purge`; B external scheduler (crontab, Container Apps Job, supercronic sidecar) calling the same CLI; SQL-only and Zammad's own scheduler not recommended. 136.2 category: 2a (recommended) Zammad group plus audited Admin override; 2b Zammad custom field; 2c group only. 136.3 retired login: 3a (recommended) `retired-{random}`; 3b `retired-{memberId}`.
+- Customer retirement on final deletion is built first whatever is chosen.

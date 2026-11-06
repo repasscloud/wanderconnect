@@ -15,6 +15,17 @@ import org.keycloak.util.JsonSerialization;
 public final class RegistrationAdmission {
     private RegistrationAdmission() { }
     static final String MESSAGE="Swoovr is currently invite-only";
+    /** D335 (#157, 5 Nov 2026): the invite-only wording only while beta registration is the open route; otherwise neutral. */
+    static final String INVITE_ONLY_KEY="swoovrRegistrationInviteOnly",CLOSED_KEY="swoovrRegistrationClosed";
+    /** A refused creation names beta only when the authority says beta registration is on; closed or unreadable is neutral. */
+    public static String refusalKey(KeycloakSession session){
+        if(!applies(session))return INVITE_ONLY_KEY;
+        return refusalKeyFor(availability(session));
+    }
+    /** Pure rule for {@link #refusalKey}: invite-only wording only for a validated beta-on, public-off reply. */
+    static String refusalKeyFor(Map<?,?> state){
+        return state!=null&&Boolean.TRUE.equals(state.get("betaEnabled"))&&!Boolean.TRUE.equals(state.get("publicEnabled"))?INVITE_ONLY_KEY:CLOSED_KEY;
+    }
     private static final HttpClient HTTP=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).followRedirects(HttpClient.Redirect.NEVER).build();
     public static boolean applies(KeycloakSession session) {
         var realm=session.getContext().getRealm();
@@ -34,20 +45,26 @@ public final class RegistrationAdmission {
     /** Display availability only; reads no email and grants no creation permission. Every POST rechecks admission. */
     public static boolean available(KeycloakSession session) {
         if(!applies(session))return session.getContext().getRealm().isRegistrationAllowed();
+        return availability(session)!=null;
+    }
+    /** The authority's validated reply (at least one route open), or null when closed, unreadable or misconfigured. */
+    static Map<?,?> availability(KeycloakSession session) {
         CompletableFuture<HttpResponse<byte[]>> pending=null;
         try {
             String endpoint=System.getenv("SWOOVR_REGISTRATION_AUTHORITY_URL");
-            if(endpoint==null)return false;
+            if(endpoint==null)return null;
             URI admission=URI.create(endpoint);
             boolean local="local-development-only".equals(session.getContext().getRealm().getAttribute("swoovr.environment"));
             if(admission.getHost()==null||admission.getUserInfo()!=null||admission.getQuery()!=null||admission.getFragment()!=null||!admission.getPath().equals("/api/registration/admission")
-                ||!("https".equals(admission.getScheme())||local&&"http".equals(admission.getScheme())))return false;
+                ||!("https".equals(admission.getScheme())||local&&"http".equals(admission.getScheme())))return null;
             URI uri=admission.resolve("/api/registration");
             var request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(5)).header(ProviderProtocol.HEADER,ProviderProtocol.INITIAL).GET().build();
             pending=HTTP.sendAsync(request,info->new MailerSendEmailSender.LimitedBody());
             var reply=pending.get(5,TimeUnit.SECONDS);
-            return reply.body().length<=4096&&validAvailabilityReply(reply.statusCode(),JsonSerialization.readValue(reply.body(),Map.class));
-        }catch(Exception refused){if(refused instanceof InterruptedException)Thread.currentThread().interrupt();return false;}
+            if(reply.body().length>4096)return null;
+            Map<?,?> body=JsonSerialization.readValue(reply.body(),Map.class);
+            return validAvailabilityReply(reply.statusCode(),body)?body:null;
+        }catch(Exception refused){if(refused instanceof InterruptedException)Thread.currentThread().interrupt();return null;}
         finally{if(pending!=null&&!pending.isDone())pending.cancel(true);}
     }
     public static boolean allows(KeycloakSession session,String email) {

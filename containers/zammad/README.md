@@ -22,7 +22,7 @@ Generated secrets and captured token results live in ignored `.local/zammad/` wi
 
 Start the existing platform first. Re-run `up` after its Mailpit anchor is recreated to restore the private network connection. No changes to OIDC URLs or Swoovr's existing launcher are required.
 
-This stack is local infrastructure. Remote hosting, TLS, mailbox/DNS setup and legal licensing assessment remain external acceptance work. The separately deployed public Cloudflare website is outside this implementation.
+This stack is local infrastructure. Remote hosting, TLS and mailbox/DNS setup remain external acceptance work. Licensing is decided (D333, #207): keep this unmodified upstream Compose file and `LICENSE`; reassess before modifying Zammad itself. The separately deployed public Cloudflare website is outside this implementation.
 
 Local provider/security acceptance (after provisioning):
 

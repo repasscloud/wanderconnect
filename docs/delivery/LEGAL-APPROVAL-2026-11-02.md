@@ -31,6 +31,10 @@ SHA-256 identifies the owner-supplied text before this approval record was added
 
 No issue is closed solely by this approval record. No deployment, migration, acceptance activation or merge is performed.
 
+## Privacy notice 0.19 approved — 6 November 2026 (D334)
+
+Owner, [#208](https://github.com/repasscloud/wanderconnect/issues/208), wording supplied in the issue and approval date confirmed 6 November 2026. Version 0.19 adds the helpdesk disclosures that follow [#207](https://github.com/repasscloud/wanderconnect/issues/207) (D333): support information collected, self-hosted Zammad, support retention periods, customer retirement after final deletion, 35-day helpdesk backups kept separate from the other backup schedules, and 90-day helpdesk logs. Serious incidents now follow the five-year Trust & Safety schedule. `PrivacyNotice` reads "approved 6 November 2026", version "0.19, 6 November 2026", on web and mobile. The retention and retirement mechanics themselves are not built yet (Q136, [#224](https://github.com/repasscloud/wanderconnect/issues/224)).
+
 ## Privacy notice 0.18 approved — 4 November 2026 (D319)
 
 Owner, [#186](https://github.com/repasscloud/wanderconnect/issues/186): "Legal approved." Version 0.18 adds the owner-supplied "device" and "collect" wording for the remembered Safety & Support country (up to 12 months; not location, residence or advertising). `PrivacyNotice` now reads "approved 4 November 2026", version "0.18, 4 November 2026", on web and mobile.
