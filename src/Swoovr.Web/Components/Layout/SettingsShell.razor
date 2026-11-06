@@ -1,20 +1,31 @@
+@using Microsoft.AspNetCore.Components.Sections
 @* issue 180: every Me / settings page shares one shell: a 240px sidebar on desktop (owner's order, current page
-   highlighted, no collapsible label) and a "Settings" menu above the page on phones. Each entry is its own page. *@
+   highlighted). Issue 217: on phones and tablets the same list is a side sheet opened from a menu button in the app
+   header (a native popover: the browser opens, closes and light-dismisses it); nothing sits above the page heading.
+   Privacy & safety opens /me/safety and Account standing has its own entry. Each entry is its own page; sub-pages
+   (for example /me/standing/history) keep their parent highlighted. *@
+<SectionContent SectionName="@HeaderActions">
+    <button type="button" class="settings-menu-button" popovertarget="settings-menu" aria-controls="settings-menu" aria-label="Settings menu" data-settings-menu-button><Icon Name="menu" Size="22" /></button>
+</SectionContent>
 <div class="settings-shell" data-settings-shell="@Current">
-    <nav class="settings-nav" aria-label="Settings">
-        <details data-settings-menu open>
-            <summary><span class="settings-menu-label">Settings</span><span class="settings-menu-current">@CurrentLabel</span></summary>
-            <ul>
-                @foreach (var item in Items)
-                {
-                    <li><a href="@item.Href" aria-current="@(item.Key == Current ? "page" : null)" data-settings-link="@item.Key"><Icon Name="@item.Icon" Size="20" /><span>@item.Label</span></a></li>
-                }
-            </ul>
-        </details>
+    <nav class="settings-nav" id="settings-menu" popover="auto" aria-label="Settings" data-settings-menu>
+        <div class="settings-menu-head">
+            <h2>Settings</h2>
+            <button type="button" class="settings-menu-close" popovertarget="settings-menu" popovertargetaction="hide" aria-label="Close menu"><Icon Name="x" Size="22" /></button>
+        </div>
+        <ul>
+            @foreach (var item in Items)
+            {
+                <li><a href="@item.Href" aria-current="@(item.Key == Current ? "page" : null)" data-settings-link="@item.Key"><Icon Name="@item.Icon" Size="20" /><span>@item.Label</span></a></li>
+            }
+        </ul>
     </nav>
     <div class="settings-main">@ChildContent</div>
 </div>
 @code {
+    /// <summary>The app header's slot for page-specific controls (MainLayout's SectionOutlet).</summary>
+    public const string HeaderActions = "header-actions";
+
     [Parameter, EditorRequired] public string Current { get; set; } = "";
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
@@ -25,12 +36,12 @@
         new("photos", "Photos", "/me/photos", "image"),
         new("matching", "Who I'd like to meet", "/me/matching", "users"),
         new("verification", "Verification", "/me/verification", "shield"),
-        new("privacy", "Privacy & safety", "/me/standing", "lock"),
+        new("privacy", "Privacy & safety", "/me/safety", "lock"),
+        new("standing", "Account standing", "/me/standing", "flag"),
         new("notifications", "Notifications", "/me/notifications", "bell"),
         new("appearance", "Appearance", "/settings/appearance", "palette"),
         new("support", "Support", "/me/support", "mail"),
         new("membership", "Membership & billing", "/account/membership", "card"),
         new("account", "Account settings", "/account", "settings"),
     ];
-    private string CurrentLabel => Items.FirstOrDefault(i => i.Key == Current)?.Label ?? "Settings";
 }

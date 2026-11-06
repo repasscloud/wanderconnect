@@ -8,11 +8,24 @@
 @inject IConfiguration Configuration
 @inject IHostEnvironment Environment
 <PageTitle>Safety & Support — Swoovr</PageTitle>
+@* Issue 217: the country selector sits beside the heading (tablet and desktop) or under Emergency assistance (phones);
+   one form, placed by CSS. A signed-in member's default is their Home City's country; nothing on the page explains it. *@
 <article class="safety-v2">
     <header class="safety-hero" data-safety-page="@(pack?.Country ?? "none")" data-country-source="@source">
         <h1>@SafetyText.Title</h1>
-        <p class="policy-lede">Find emergency assistance, support services and resources to help you stay safe.</p>
     </header>
+    <form method="get" action="/safety" class="safety-country-bar" data-country-form data-enhance="false">
+        <label for="safety-country">Country</label>
+        <select id="safety-country" name="country" data-country-select>
+            @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
+            @foreach (var option in pack?.Countries ?? [])
+            {
+                <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
+            }
+        </select>
+        @* safety-country.js submits on change; without script the button updates the page. *@
+        <noscript><button type="submit" class="button button-secondary button-small">Update</button></noscript>
+    </form>
     <div class="safety-grid">
         <div class="safety-primary">
             <section class="card safety-emergency" aria-labelledby="emergency-title" data-safety-services="@(pack?.Country ?? "none")"
@@ -71,22 +84,7 @@
                 </section>
             }
         </div>
-        <aside class="safety-secondary" aria-label="Country, reporting and resources">
-            <form method="get" action="/safety" class="card safety-country-card" data-country-form data-enhance="false">
-                <h2 class="safety-card-title"><Icon Name="globe" Size="20" />Your location</h2>
-                <div class="field"><label for="safety-country">Country or region</label>
-                    <select id="safety-country" name="country" data-country-select>
-                        @if (pack?.Country is null) { <option value="" selected>Choose a country</option> }
-                        @foreach (var option in pack?.Countries ?? [])
-                        {
-                            <option value="@option.Code" selected="@(option.Code == pack?.Country)">@option.Name@(option.Readiness == "demo" ? " (demo)" : option.Readiness == "not-ready" ? " (not yet checked)" : "")</option>
-                        }
-                    </select></div>
-                @* The hint explains automatic or missing choices; a manual choice needs no explanation (issue 181). *@
-                <p class="safety-hint" data-country-hint="@source">@(source == "manual" ? "" : SafetyText.Hint(source))</p>
-                @* safety-country.js submits on change; without script the button updates the page. *@
-                <noscript><button type="submit" class="button button-secondary button-small">Update</button></noscript>
-            </form>
+        <aside class="safety-secondary" aria-label="Reporting and resources">
             <section class="card safety-report" aria-labelledby="report-title" @attributes="ReportAttributes">
                 <h2 id="report-title" class="safety-card-title"><Icon Name="shield" Size="20" />Report a safety concern</h2>
                 <p>Report harassment, threats, abusive behaviour or other safety concerns involving Swoovr members.</p>
@@ -100,7 +98,7 @@
                     @if (SignedIn) { <li><a href="/me/meeting-safety">I'm meeting someone<Icon Name="arrow-right" Size="18" /></a></li> }
                     <li><a href="/safety/advice">Safety Advice<Icon Name="arrow-right" Size="18" /></a></li>
                     <li><a href="/community-guidelines">Community Guidelines<Icon Name="arrow-right" Size="18" /></a></li>
-                    <li><a href="@(SignedIn ? "/me/standing" : "/privacy#security")">Privacy &amp; account safety<Icon Name="arrow-right" Size="18" /></a></li>
+                    <li><a href="@(SignedIn ? "/me/safety" : "/privacy#security")">@(SignedIn ? "Privacy & safety" : "Privacy & account safety")<Icon Name="arrow-right" Size="18" /></a></li>
                     <li><a href="/community-guidelines#guidance-2">Reporting and blocking<Icon Name="arrow-right" Size="18" /></a></li>
                 </ul>
             </nav>
@@ -149,10 +147,26 @@
         manual ??= SafetyText.Manual(HttpContext.Request.Cookies[Cookie]);
         var trusted = !Environment.IsDevelopment() && Configuration.GetValue("Location:CloudflareHeaders", false);
         var (fallbackCountry, fallbackSource) = SafetyText.Default(HttpContext.Request.Headers["CF-IPCountry"], trusted, Configuration["Safety:FallbackCountry"]);
-        (var country, source) = manual is not null ? (manual, "manual") : (fallbackCountry, fallbackSource);
+        // Issue 217: a signed-in member without a choice gets their Home City's country before any network guess.
+        var home = manual is null && SignedIn ? await HomeCountryAsync() : null;
+        (var country, source) = SafetyText.Choose(manual, home, fallbackCountry, fallbackSource);
         try { pack = await new SafetyClient(Clients.CreateClient(Swoovr.Web.Auth.Bff.ApiClient)).PackAsync(country ?? "XX"); }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
         unavailable = pack is null;
+    }
+
+    /// <summary>The signed-in member's Home City country from their own profile, read with their access token; null on any failure.</summary>
+    private async Task<string?> HomeCountryAsync()
+    {
+        try
+        {
+            if (await Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions.GetTokenAsync(HttpContext, "access_token") is not { } token) return null;
+            var http = Clients.CreateClient(Swoovr.Web.Auth.Bff.ApiClient);
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            return SafetyText.HomeCountry((await new MemberClient(http).ProfileAsync(HttpContext.RequestAborted)).Value?.HomeCity);
+        }
+        catch (HttpRequestException) { return null; }
+        catch (TaskCanceledException) { return null; }
     }
 }

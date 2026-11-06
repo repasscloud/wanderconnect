@@ -26,7 +26,7 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
         this.root = new Uri(baseUrl.AbsoluteUri.TrimEnd('/') + "/api/v1/");
         this.token = token;
         this.from = from is null ? null : Id(from.Value);
-        http.Timeout = TimeSpan.FromSeconds(20);
+        http.Timeout = Timeout.InfiniteTimeSpan; // per request: CallTimeout or UploadTimeout (issue 220)
         http.MaxResponseContentBufferSize = 4 * 1024 * 1024;
     }
 
@@ -64,8 +64,12 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
         ValidateText(draft.Title, 200); ValidateText(draft.Body, 16000);
         if(draft.Source is not("member" or "staff" or "guest"))throw new ArgumentException("Invalid source.");
         if (!Guid.TryParse(draft.OperationReference, out _)) throw new ArgumentException("Invalid operation reference.");
+        var files = draft.Attachments ?? [];
+        CheckUploads(files);
+        // Issue 220: files travel with the first article; byte arrays are written as base64 straight into the request stream.
         return ReadWrite(Ticket, await Send(HttpMethod.Post, "tickets", new { title = draft.Title, customer_id = Id(draft.CustomerId), group_id = Id(draft.GroupId),
-            swoovr_operation = draft.OperationReference, swoovr_source=draft.Source, article = new { body = draft.Body, type = "note", content_type = "text/plain", @internal = false, sender = "Customer" } }, ct));
+            swoovr_operation = draft.OperationReference, swoovr_source=draft.Source, article = new { body = draft.Body, type = "note", content_type = "text/plain", @internal = false, sender = "Customer",
+                attachments = Uploads(files) } }, ct, slow: files.Count > 0));
     }
 
     public async Task<SupportTicket> ChangeTicketAsync(long id, SupportTicketChange change, CancellationToken ct)
@@ -90,7 +94,28 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
             @internal = internalNote, sender = customer ? "Customer" : "Agent" }, ct));
     }
 
-    private async Task<JsonElement> Send(HttpMethod method, string path, object? payload, CancellationToken ct, long? onBehalf = null)
+    /// <summary>Per-request time limits (issue 220): ordinary calls keep 20 seconds; a message carrying files gets 10 minutes.</summary>
+    internal static readonly TimeSpan CallTimeout = TimeSpan.FromSeconds(20), UploadTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Issue 220 (D330): the provider's own outer guard on files it sends. The API has already applied the full policy
+    /// (Contracts' SupportAttachmentPolicy: types, content and per-type sizes); Infrastructure can't reference Contracts,
+    /// so these mirror its count, largest-file and total limits.
+    /// </summary>
+    internal const int MaxUploads = 5;
+    internal const long MaxUploadBytes = 100 * 1024 * 1024, MaxUploadTotal = 150 * 1024 * 1024;
+    internal static void CheckUploads(IReadOnlyList<SupportUpload> files)
+    {
+        if (files.Count > MaxUploads || files.Any(f => f.Data.Length < 1 || f.Data.LongLength > MaxUploadBytes || string.IsNullOrWhiteSpace(f.Filename) || string.IsNullOrWhiteSpace(f.ContentType))
+            || files.Sum(f => (long)f.Data.Length) > MaxUploadTotal)
+            throw new ArgumentException("Invalid support attachments.");
+    }
+
+    /// <summary>Zammad's attachment shape; byte[] serialises as base64 without an intermediate string.</summary>
+    internal static object[] Uploads(IReadOnlyList<SupportUpload> files) =>
+        files.Select(f => (object)new Dictionary<string, object> { ["filename"] = f.Filename, ["mime-type"] = f.ContentType, ["data"] = f.Data }).ToArray();
+
+    private async Task<JsonElement> Send(HttpMethod method, string path, object? payload, CancellationToken ct, long? onBehalf = null, bool slow = false)
     {
         bool write = method != HttpMethod.Get;
         using var request = new HttpRequestMessage(method, new Uri(root, path));
@@ -98,9 +123,11 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
         if((onBehalf ?? from) is long actor) request.Headers.TryAddWithoutValidation("From",actor.ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (payload is not null) request.Content = JsonContent.Create(payload);
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        limit.CancelAfter(slow ? UploadTimeout : CallTimeout);
         try
         {
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, ct);
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, limit.Token);
             if (!response.IsSuccessStatusCode)
             {
                 var code = response.StatusCode switch {
@@ -110,7 +137,7 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
                     _ => "provider-unavailable" };
                 throw new TicketingProviderException(code, write && (int)response.StatusCode >= 500);
             }
-            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            var bytes = await response.Content.ReadAsByteArrayAsync(limit.Token);
             if (bytes.Length == 0) return default;
             using var document = JsonDocument.Parse(bytes);
             return document.RootElement.Clone();

@@ -22,9 +22,10 @@ public sealed record MyReportView(Guid Id, string SubjectType, string Category, 
 /// <summary>
 /// Someone the member has dealt with (D190: reporting stays available after a block, disconnect or deletion): a
 /// conversation or request to report through, the name they knew (or "Deleted member"), and the state now:
-/// connected, pending, blocked, disconnected, ended, declined or deleted.
+/// connected, pending, blocked, disconnected, ended, declined or deleted. LastInteractionAt (issue 217) is the latest
+/// message, answer or ending, else Since; the list comes newest first.
 /// </summary>
-public sealed record SafetyPerson(string SubjectType, Guid SubjectId, string Name, string State, DateTimeOffset Since);
+public sealed record SafetyPerson(string SubjectType, Guid SubjectId, string Name, string State, DateTimeOffset Since, DateTimeOffset? LastInteractionAt = null);
 
 /// <summary>
 /// A notice about an action on the member's own account (D135). Sanction details are the member's own: the kind, the

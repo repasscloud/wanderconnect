@@ -7,7 +7,10 @@ public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArtic
 public sealed record TicketStaffFields(long GroupId,long OwnerId,Guid? CustomerAccountId,IReadOnlyDictionary<string,string> Classification,bool Guest=false);
 public sealed record TicketPage(IReadOnlyList<TicketSummary> Items,int Page,int PageSize,bool HasMore);
 /// <param name="Reference">Optional SW- report reference of the member's own report; the API links the request to that case only if it is theirs.</param>
-public sealed record TicketCreate(Guid OperationId,string Title,string Body,string? Reference=null);
+/// <param name="Attachments">Issue 220: files with the first message (SupportAttachmentPolicy); members send them through the upload route.</param>
+public sealed record TicketCreate(Guid OperationId,string Title,string Body,string? Reference=null,IReadOnlyList<TicketUpload>? Attachments=null);
+/// <summary>Issue 220: the member closes their own request. A closed request can't be reopened.</summary>
+public sealed record TicketClose(Guid OperationId);
 /// <summary>A safe reference from a support request to a Swoovr case or appeal. Swoovr stays authoritative for outcomes.</summary>
 public sealed record TicketLink(Guid CaseId,Guid? AppealId=null);
 public sealed record TicketLinkView(Guid CaseId,Guid? AppealId,string CaseStatus,DateTimeOffset LinkedAt);
@@ -34,6 +37,9 @@ public sealed record TicketDownload(string Filename,string ContentType,byte[] Da
 
 public sealed record TicketOwner(long Id,string Name,IReadOnlyList<long> GroupIds);
 public sealed record TicketCategory(string Id,IReadOnlyList<string> Subcategories);
+/// <summary>Issue 223: open support requests by status for the Admin overview, within the caller's queues. More: past the first 100 checked.</summary>
+public sealed record TicketStateCount(long StateId,string Name,int Count);
+public sealed record TicketOverview(IReadOnlyList<TicketStateCount> States,bool More);
 public sealed record TicketMemberOptions(IReadOnlyList<TicketOption> States,IReadOnlyList<TicketOption> Priorities,string AttachmentPolicy);
 
 // Guest support (no membership): for the separately built public website. See docs/delivery/zammad/GUEST-API.md.

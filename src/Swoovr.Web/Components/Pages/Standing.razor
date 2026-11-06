@@ -1,20 +1,32 @@
 @page "/me/standing"
-<PageTitle>Account standing — Swoovr</PageTitle>
-<SettingsShell Current="privacy">
-<div class="reading-page">
+@page "/me/standing/history"
+@page "/me/standing/reports"
+@inject NavigationManager Navigation
+<PageTitle>@Title — Swoovr</PageTitle>
+<SettingsShell Current="standing">
+<div class="reading-page me-page">
 @if (!signedIn)
 {
-    <div class="page-heading"><h1>Account standing</h1><p>Sign in to see your account standing.</p></div>
+    <div class="page-heading"><h1>@StandingText.Title</h1><p>Sign in to see your account standing.</p></div>
     <p class="account-actions"><a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
 }
 else
 {
-    <StandingPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+    @* issue 217: the summary plus the full Account history and Your reports lists, one panel in three modes. *@
+    <StandingPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" Mode="@mode" />
 }
 </div>
 </SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     private bool signedIn;
-    protected override void OnInitialized() => signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+    private string mode = "summary";
+    private string Title => mode switch { "history" => "Account history", "reports" => "Your reports", _ => StandingText.Title };
+
+    protected override void OnInitialized()
+    {
+        signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+        var path = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].TrimEnd('/');
+        mode = path.EndsWith("/history", StringComparison.OrdinalIgnoreCase) ? "history" : path.EndsWith("/reports", StringComparison.OrdinalIgnoreCase) ? "reports" : "summary";
+    }
 }

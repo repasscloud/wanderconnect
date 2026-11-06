@@ -1,0 +1,25 @@
+@* Issue 217: one row per person the member dealt with (D190), the same on Privacy & safety and People you've dealt
+   with: initial, name, state, last interaction and how, and a Report button to the dedicated report page. *@
+<ul class="me-items" data-safety-people="@People.Count()">
+    @foreach (var p in People)
+    {
+        <li class="me-item" data-safety-person="@p.SubjectId" data-safety-state="@p.State">
+            <div class="me-person">
+                <span class="me-avatar" aria-hidden="true">@Initial(p.Name)</span>
+                <div class="me-item-main">
+                    <p class="me-item-title">@p.Name</p>
+                    <p class="me-meta">@MemberText.SafetyState(p.State) · last interaction @StandingText.Date(p.LastInteractionAt ?? p.Since) · @SafetyText.Via(p.SubjectType)</p>
+                </div>
+            </div>
+            <a class="button button-secondary me-pill-button me-item-action" href="@SafetyText.ReportPath(p, Meeting, From)" data-safety-report="@p.SubjectId" aria-label="Report @p.Name">Report</a>
+        </li>
+    }
+</ul>
+@code {
+    [Parameter, EditorRequired] public IEnumerable<SafetyPerson> People { get; set; } = [];
+    [Parameter] public string? Meeting { get; set; }
+    /// <summary>"hub" or "people": where the report page's Back and Cancel return.</summary>
+    [Parameter] public string From { get; set; } = "hub";
+
+    private static string Initial(string name) => name.Trim() is { Length: > 0 } n ? char.ToUpperInvariant(n[0]).ToString() : "?";
+}

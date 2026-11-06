@@ -95,7 +95,7 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         // Read access again after the provider fetch; a transfer/revocation cannot expose a fetched private projection.
         ticket=await TicketAsync(id,false,ct);
         var views=articles.Where(a=>a.TicketId==id&&(staff||a.CustomerVisible)).Select(a=>new TicketArticle(a.Id,TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
-            a.Attachments.Where(x=>x.ContentType=="text/plain"&&x.Size<=65536).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),x.ContentType,x.Size)).ToArray(),staff?a.Type:null)).ToArray();
+            a.Attachments.Where(x=>SupportAttachmentPolicy.Allowed(TicketingProjection.Filename(x.Filename),x.Size)).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),SupportAttachmentPolicy.TypeOf(TicketingProjection.Filename(x.Filename))!.Value.Mime,x.Size)).ToArray(),staff?a.Type:null)).ToArray();
         return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct));
     }
     private async Task<TicketStaffFields> StaffFieldsAsync(SupportTicket ticket,CancellationToken ct)
@@ -123,15 +123,8 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var clauses=new List<string>();if(terms.Length>0)clauses.Add("("+terms+")");
         if(staff)
         {
-            var facts=await FactsAsync(ct);var allowed=new List<long>();
-            foreach(var g in facts.Directory.Groups)if(await GroupAsync(g.Id,"read",ct))allowed.Add(g.Id);
-            if(group is long chosen){if(!allowed.Contains(chosen))throw Refuse(404);allowed=[chosen];}
-            if(allowed.Count==0)return new([],page,size,false);
-            clauses.Add("("+string.Join(" OR ",allowed.Select(g=>"group_id:"+g))+")");
-            // Exclusions are applied before pagination by bounded exact customer IDs.
-            var excluded=await StaffAccessEndpoints.ExcludedSubjects(Db,Me).ToArrayAsync(ct);
-            var customerIds=await Db.Set<TicketingIdentity>().Where(m=>excluded.Contains(m.AccountId)&&m.ProviderUserId!=null).Select(m=>m.ProviderUserId!.Value).ToArrayAsync(ct);
-            foreach(var customer in customerIds)clauses.Add("NOT customer_id:"+customer);
+            if(await StaffScopeAsync(group,ct) is not { } scope)return new([],page,size,false);
+            clauses.AddRange(scope);
         }
         else
         {
@@ -155,11 +148,53 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         if(!exhausted&&sourcePage>100&&visible.Count<target)throw Refuse(503,"ticket-search-scope-too-large");
         return new(visible.Skip((page-1)*size).Take(size).ToArray(),page,size,visible.Count>page*size);
     }
+    /// <summary>A staff member's search scope: the queues they can read (or the one chosen) and the customers their conflicts exclude. Null when they read no queue.</summary>
+    private async Task<List<string>?> StaffScopeAsync(long? group,CancellationToken ct)
+    {
+        var facts=await FactsAsync(ct);var allowed=new List<long>();
+        foreach(var g in facts.Directory.Groups)if(await GroupAsync(g.Id,"read",ct))allowed.Add(g.Id);
+        if(group is long chosen){if(!allowed.Contains(chosen))throw Refuse(404);allowed=[chosen];}
+        if(allowed.Count==0)return null;
+        var clauses=new List<string>{"("+string.Join(" OR ",allowed.Select(g=>"group_id:"+g))+")"};
+        // Exclusions are applied before pagination by bounded exact customer IDs.
+        var excluded=await StaffAccessEndpoints.ExcludedSubjects(Db,Me).ToArrayAsync(ct);
+        var customerIds=await Db.Set<TicketingIdentity>().Where(m=>excluded.Contains(m.AccountId)&&m.ProviderUserId!=null).Select(m=>m.ProviderUserId!.Value).ToArrayAsync(ct);
+        foreach(var customer in customerIds)clauses.Add("NOT customer_id:"+customer);
+        return clauses;
+    }
+
+    /// <summary>
+    /// Issue 223 (D332): open requests by status for the Admin overview, within the caller's queues and with the same
+    /// per-ticket checks as the list (so no excluded or unavailable request is counted). Bounded to the 100 most recently
+    /// updated open requests; More says there are others. Every status that isn't closed, merged or removed is listed.
+    /// </summary>
+    public async Task<TicketOverview> OverviewAsync(CancellationToken ct)
+    {
+        if(!staff)throw Refuse();
+        var directory=await DirectoryAsync(ct);
+        var open=directory.States.Where(s=>s.Kind is not(null or "closed" or "merged" or "removed")).ToArray();
+        var counts=open.ToDictionary(s=>s.Id,_=>0);
+        if(open.Length==0||await StaffScopeAsync(null,ct) is not { } clauses)return new(open.Select(s=>new TicketStateCount(s.Id,s.Name,0)).ToArray(),false);
+        clauses.Add("("+string.Join(" OR ",open.Select(s=>"state_id:"+s.Id))+")");
+        var expression=string.Join(" AND ",clauses);
+        if(expression.Length>1000)throw Refuse(503,"ticket-search-scope-too-large");
+        var rows=await provider.SearchAsync(expression,1,100,"updated_at",true,ct);
+        foreach(var row in rows)
+        {
+            try{var checkedTicket=await TicketAsync(row.Id,false,ct);if(counts.ContainsKey(checkedTicket.StateId))counts[checkedTicket.StateId]++;}
+            catch(TicketingAccessException e)when(e.Status is 403 or 404){}
+            catch(TicketingProviderException e)when(e.Code is "provider-forbidden" or "provider-not-found"){}
+        }
+        return new(open.Select(s=>new TicketStateCount(s.Id,s.Name,counts[s.Id])).ToArray(),rows.Count>=100);
+    }
+
     public async Task<TicketMemberOptions> MemberOptionsAsync(CancellationToken ct)
     {
         var directory=await DirectoryAsync(ct);
-        return new(directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),"Ordinary UTF-8 .txt; 64 KiB each; 3 per reply. No identity documents or sensitive evidence.");
+        return new(directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),AttachmentPolicyText);
     }
+    /// <summary>Issue 220 (D330): the owner's list and limits, in one line for clients.</summary>
+    public static string AttachmentPolicyText=>$"{string.Join(" ",SupportAttachmentPolicy.AllowedExtensions)}; up to {SupportAttachmentPolicy.MaxAttachmentsPerMessage} per message, {SupportAttachmentPolicy.MaxTotalMessageBytes/(1024*1024)} MB in all. No identity documents or sensitive evidence.";
     /// <summary>The staff member behind either of their Zammad identities, or null for anything Swoovr doesn't manage.</summary>
     private static (Guid Staff,bool Web)? StaffOf(SupportActor actor)
     {
@@ -201,7 +236,7 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
             var label=await Db.Accounts.Where(a=>a.Id==who.Value.Staff&&a.Realm==AccountRealm.Staff).Select(a=>a.Email).SingleOrDefaultAsync(ct);
             owners.Add(new(actor.Id,string.IsNullOrWhiteSpace(label)?"Staff member "+actor.Id:label,groups.ToArray()));
         }
-        return new(read,transfers,facts.Directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),facts.Directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),true,"Ordinary UTF-8 .txt; 64 KiB each; 3 per reply. No identity documents or sensitive evidence.",
+        return new(read,transfers,facts.Directory.States.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),facts.Directory.Priorities.Select(s=>new TicketOption(s.Id,s.Name)).ToArray(),true,AttachmentPolicyText,
             owners,
             Categories, ["ordinary","restricted"],Resolutions);
     }
@@ -219,7 +254,9 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var customer=await operations.EnsureCustomerAsync(customerAccount,account.Email,ct);
         var directory=await DirectoryAsync(ct);var group=directory.Groups.SingleOrDefault(g=>g.Name=="General Support")??throw Refuse(503);
         if(staff&&!await GroupAsync(group.Id,"create",ct))throw Refuse();
-        var created=await operations.CreateTicketAsync(customerAccount,request.OperationId,new(request.Title,request.Body,customer,group.Id,request.OperationId.ToString("D"),staff?"staff":"member"),ct);
+        // Issue 220: files may come with the first message.
+        var uploads=request.Attachments is { Count: >0 } files?TicketingProjection.MemberAttachments(files.Select(f=>(f.Filename,f.Data))):null;
+        var created=await operations.CreateTicketAsync(customerAccount,request.OperationId,new(request.Title,request.Body,customer,group.Id,request.OperationId.ToString("D"),staff?"staff":"member",uploads),ct);
         // DEFAULT: a member's own report reference links the request to that report's case. Someone else's or an unknown
         // reference is ignored without a word, so references can't be probed. Nothing from the report is sent to the helpdesk.
         if(!staff&&SupportReference.Normalise(request.Reference) is { } reference
@@ -309,9 +346,9 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         if(!await CanReplyAsync(ticket,ct))throw Refuse(409,"ticket-follow-up-unavailable");
         ValidateText(request.Body,16000);
         if(!staff&&request.Private)throw Refuse();
-        var uploads=(request.Attachments??[]).Select(a=>{TicketingProjection.ValidateAttachment(a.Filename,a.ContentType,a.Data);return new SupportUpload(TicketingProjection.Filename(a.Filename),a.ContentType,a.Data);}).ToArray();
-        if(uploads.Length>3)throw new ArgumentException("At most three attachments.");
-        var operation=await IntentAsync(request.OperationId,"reply",request,id,ct);
+        var uploads=TicketingProjection.MemberAttachments((request.Attachments??[]).Select(a=>(a.Filename,a.Data)));
+        // A digest of the files rather than their bytes (large uploads); a reply without files keeps its earlier digest.
+        var operation=await IntentAsync(request.OperationId,"reply",uploads.Count==0?request:new{request.OperationId,request.Body,request.Private,Files=Fingerprints(uploads)},id,ct);
         if(operation.State!=TicketingOperationState.Applied)
         {
             if(!freshIntents.Contains(operation.Id))
@@ -374,8 +411,33 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var attachment=article.Attachments.SingleOrDefault(a=>a.Id==attachmentId)??throw Refuse(404);
         var data=await provider.DownloadAsync(id,articleId,attachmentId,ct);
         await TicketAsync(id,false,ct);
-        TicketingProjection.ValidateAttachment(attachment.Filename,data.ContentType,data.Data);
-        return new(attachment.Filename,"text/plain",data.Data);
+        var checkedFile=TicketingProjection.MemberAttachment(attachment.Filename,data.Data);
+        return new(checkedFile.Filename,checkedFile.ContentType,data.Data);
+    }
+    /// <summary>Name, size and SHA-256 of each file: what an operation's digest covers.</summary>
+    public static IReadOnlyList<string> Fingerprints(IEnumerable<SupportUpload> files)=>files.Select(f=>$"{f.Filename}:{f.Data.Length}:{Convert.ToHexStringLower(SHA256.HashData(f.Data))}").ToArray();
+    /// <summary>
+    /// Issue 220 (D330): the member closes their own open request, as themselves, so Zammad applies its customer rules.
+    /// Closing twice is fine. Whether a closed request takes replies stays the queue's follow-up rule (not reopened).
+    /// </summary>
+    public async Task<TicketDetail> CloseAsync(long id,TicketClose request,CancellationToken ct)
+    {
+        if(staff)throw Refuse();
+        var ticketKey=new Guid(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ticket:"+id)).AsSpan(0,16));
+        await using var ticketLease=await AccountLifecycleLease.AcquireAsync(Db,ticketKey,ct);
+        var ticket=await TicketAsync(id,true,ct);
+        var directory=await DirectoryAsync(ct);
+        var kind=directory.States.SingleOrDefault(s=>s.Id==ticket.StateId)?.Kind;
+        if(kind is "merged" or "removed")throw Refuse(409,"ticket-follow-up-unavailable");
+        if(kind=="closed")return await DetailAsync(id,ct);
+        var closed=directory.States.FirstOrDefault(s=>s.Kind=="closed"&&s.Name=="closed")??directory.States.FirstOrDefault(s=>s.Kind=="closed")??throw Refuse(503,"ticket-provider-unavailable");
+        var operation=await IntentAsync(request.OperationId,"close",request,id,ct);
+        if(operation.State!=TicketingOperationState.Applied)
+        {
+            try{await provider.ChangeTicketAsync(id,new(null,null,closed.Id,null),ct);await FinishAsync(operation,TicketingOperationState.Applied);}
+            catch(TicketingProviderException e){await FinishAsync(operation,e.Uncertain?TicketingOperationState.Uncertain:TicketingOperationState.Rejected);throw;}
+        }
+        return await DetailAsync(id,ct);
     }
     public async Task<IReadOnlyList<TicketTextModule>> TextModulesAsync(CancellationToken ct)=>(await provider.TextModulesAsync(ct)).Select(m=>new TicketTextModule(m.Id,TicketingProjection.Plain(m.Name,"text/plain"),TicketingProjection.Plain(m.Body,"text/html"))).ToArray();
     public async Task<IReadOnlyList<TicketMacro>> MacrosAsync(CancellationToken ct)=>(await provider.MacrosAsync(ct)).Select(m=>new TicketMacro(m.Id,TicketingProjection.Plain(m.Name,"text/plain"),m.Supported)).ToArray();

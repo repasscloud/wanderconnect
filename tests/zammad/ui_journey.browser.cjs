@@ -60,15 +60,21 @@ async function signIn(page, start, email, password) {
       if (!found) await s.waitForTimeout(3000);
     }
     check(found, `staff queue lists the new request (search index caught up in ${Math.round((Date.now() - listed) / 1000)} s)`);
+    // Issue 223: open requests show on the overview by status, each linking to the filtered queue.
+    await s.goto(admin + '/');
+    await s.waitForSelector('[data-ticket-overview]', { timeout: 60000 });
+    const newTile = s.locator('[data-ticket-overview-state="new"]');
+    check(await newTile.count() === 1 && Number((await newTile.locator('strong').textContent()).replace('+', '')) >= 1, 'the overview counts the new request');
+    check(/\/tickets\?state=\d+$/.test(await newTile.getAttribute('href')), 'the tile opens the queue filtered to that status');
     await s.goto(admin + '/tickets/' + id);
     await s.waitForSelector(`[data-ticket-detail="TK-${id}"]`);
     check((await s.textContent('[data-ticket-articles]')).includes(question), 'staff read the member message in Swoovr Admin');
     const note = `Private staff note ${run}: checked registry, nothing to flag.`, reply = `Public reply ${run}: open Account, then Profile, then edit your name.`;
-    await s.fill('[data-ticket-reply-body]', note); await s.selectOption('[data-ticket-visibility]', 'private');
+    await s.fill('[data-ticket-reply-body]', note); await s.check('[data-ticket-visibility="private"]');
     await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
     await s.waitForSelector('[data-ticket-article][data-private="true"]');
     check((await s.locator('[data-ticket-article][data-private="true"]').textContent()).includes(note), 'staff private note recorded and marked staff only');
-    await s.fill('[data-ticket-reply-body]', reply); await s.selectOption('[data-ticket-visibility]', 'public');
+    await s.fill('[data-ticket-reply-body]', reply); await s.check('[data-ticket-visibility="public"]');
     await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
     await s.waitForFunction(r => document.querySelector('[data-ticket-articles]')?.textContent.includes(r), reply);
     check(true, 'staff public reply sent');
@@ -106,6 +112,33 @@ async function signIn(page, start, email, password) {
     await m.goto(web + '/me/support');
     await m.waitForSelector(`[data-support-ticket="TK-${id}"]`);
     check(true, 'member list shows the request');
+    check(await m.locator('[data-support-urgent-link]').getAttribute('href') === 'https://swoovr.com/support', 'urgent and safety matters go to urgent support (issue 220)');
+    check(await m.locator('#settings-menu [data-settings-link="support"][aria-current="page"]').count() === 1, 'Support sits in the Me menu (issue 219)');
+
+    // Issue 220: a photo with the first message, the file downloadable, and the member closing their own request.
+    const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000' + '1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082', 'hex');
+    await m.goto(web + '/me/support/new');
+    await m.waitForSelector('[data-support-pick]', { state: 'attached' });
+    await m.fill('[data-support-title]', `Photo help ${run}`); await m.fill('[data-support-body]', `Fictional journey ${run}: screenshot attached.`);
+    await m.setInputFiles('[data-support-pick]', [{ name: 'screen.png', mimeType: 'image/png', buffer: png }]);
+    await m.waitForSelector('[data-support-upload]');
+    await m.setInputFiles('[data-support-pick]', [{ name: 'setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') }]);
+    await m.waitForSelector('[data-support-files-problem]');
+    check(await m.locator('[data-support-send]').isDisabled(), 'a file type outside the list blocks sending');
+    await m.locator('[data-support-upload]').nth(1).locator('button').click();
+    await m.waitForFunction(() => !document.querySelector('[data-support-files-problem]'));
+    await Promise.all([m.waitForURL(/\/me\/support\/\d+$/, { timeout: 120000 }), m.click('[data-support-send]')]);
+    await m.waitForSelector('[data-support-attachment]', { timeout: 60000 });
+    check((await m.textContent('[data-support-articles]')).includes('screen.png'), 'the photo arrives with the first message');
+    const download = m.waitForEvent('download');
+    await m.locator('[data-support-attachment] button').first().click();
+    check((await download).suggestedFilename() === 'screen.png', 'the member can download it');
+    await m.click('[data-support-close]');
+    await m.click('[data-support-close-yes]');
+    await m.waitForFunction(() => document.querySelector('[data-support-detail] [data-support-state]')?.textContent.trim() === 'Closed', null, { timeout: 60000 });
+    check(true, 'the member closed their own request');
+    check(await m.locator('[data-support-reply-body]').count() === 0 && await m.locator('[data-support-closed]').count() === 1, 'a closed request takes no reply and is not reopened');
+    await m.screenshot({ path: path.join(shots, 'member-closed-390.png'), fullPage: true });
 
     let otherSignedIn = true;
     try { await signIn(o, web + '/account/sign-in?intro=done', 'fictional.sam@example.test', env.SWOOVR_LOCAL_MEMBER_PASSWORD); } catch { otherSignedIn = false; }
@@ -152,7 +185,7 @@ async function signIn(page, start, email, password) {
     await s.waitForSelector(`[data-ticket-detail="TK-${gt.id}"]`);
     check(await s.locator('[data-ticket-guest]').count() === 1, 'staff see the request marked as a guest, not a member');
     const guestReply = `Guest reply ${run}: yes, from Membership settings.`;
-    await s.fill('[data-ticket-reply-body]', guestReply); await s.selectOption('[data-ticket-visibility]', 'public');
+    await s.fill('[data-ticket-reply-body]', guestReply); await s.check('[data-ticket-visibility="public"]');
     await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
     await s.waitForSelector('[data-result="ok"]');
     const [, gd] = await guestCall('/tickets/' + gt.id, 'GET', null, grant.grant);

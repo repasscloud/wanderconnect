@@ -2,8 +2,13 @@
 @* One support request. Public replies reach the member; private notes never do (the API leaves them, and their files, out of
    every member view). Each form posts its own operation key: a resubmitted form is recognised by the API, and after an
    uncertain result the same key is kept so "Send again" reconciles instead of duplicating. A refusal (for example after a
-   transfer to a queue this person can't open) removes what was shown. *@
+   transfer to a queue this person can't open) removes what was shown.
+   Issue 222 (owner, D331): the conversation and reply box take the main column; facts, assignment, classification, the
+   quick action and linked cases sit beside them as compact cards. Reply or private note is a two-way toggle; text modules
+   are grouped; files follow the owner's list (D330) and go to the API as multipart. After an uncertain send with files,
+   staff attach the same files again: the operation's digest covers their names, sizes and hashes. *@
 @inject AdminClient Admin
+@inject IHttpClientFactory Clients
 <PageTitle>Support request — Swoovr admin</PageTitle>
 <p class="breadcrumb"><a href="/tickets">Support requests</a> / @(detail?.Ticket.Reference ?? "Request")</p>
 @if (message is not null) { <p class="notice@(status == 401 ? " notice-action" : "")" role="@(ok ? "status" : "alert")" data-result="@resultCode"><span>@message</span>@if (status == 401) { <a href="/sign-in?reauth=true&returnUrl=/tickets/@Id" class="ui-button-primary notice-button" data-enhance-nav="false">Sign in again</a> }</p> }
@@ -14,133 +19,147 @@
 else
 {
     var d = detail; var t = d.Ticket; var s = d.Staff;
-    <header class="ui-page-head" data-ticket-detail="@t.Reference">
-        <h1>@t.Title</h1>
-        <p><code>@t.Reference</code> · updated @t.UpdatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</p>
+    <header class="ui-page-head ticket-head" data-ticket-detail="@t.Reference">
+        <div class="ticket-title-row"><h1>@t.Title</h1></div>
+        <p class="ticket-meta"><code>@t.Reference</code><span>@Named(caps.Priorities, t.PriorityId)</span>@if (s is not null) { <span>@(Named(caps.Groups, s.GroupId) ?? "Another queue")</span> }<span>Updated @t.UpdatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</span></p>
     </header>
-    <div class="acct-grid">
-        <section class="ui-card" aria-label="Request facts">
-            <dl class="media-meta">
-                <dt>Status</dt><dd data-ticket-state>@SupportTicketText.State(Named(caps.States, t.StateId))</dd>
-                <dt>Priority</dt><dd>@Named(caps.Priorities, t.PriorityId)</dd>
-                @if (s is not null)
-                {
-                    <dt>Queue</dt><dd data-ticket-group>@(Named(caps.Groups, s.GroupId) ?? "Another queue")</dd>
-                    <dt>Owner</dt><dd data-ticket-owner>@(caps.Owners.FirstOrDefault(o => o.Id == s.OwnerId)?.Name ?? "Unassigned")</dd>
-                    <dt>Member</dt><dd>@if (s.CustomerAccountId is { } member) { <a href="/accounts/@member" data-ticket-member>Open account</a> } else if (s.Guest) { <span data-ticket-guest>Guest (verified email, not a member)</span> } else { <span data-ticket-email-sender>Email sender (not a verified Swoovr identity)</span> }</dd>
-                    @foreach (var (key, label) in Attributes) { if (s.Classification.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v)) { <dt>@label</dt><dd data-ticket-attr="@key">@v</dd> } }
-                }
-            </dl>
-            <p class="help">Closing a request never lifts a sanction or decides an appeal; record those in the case or appeal.</p>
-        </section>
-        @if (d.CanReply)
-        {
-            <section class="ui-card" aria-label="Assignment and status">
-                <h2 class="ui-card-title">Assignment and status</h2>
-                <form method="post" @formname="change" @onsubmit="ChangeAsync" data-enhance="false" data-ticket-change>
-                    <AntiforgeryToken />
-                    <input type="hidden" name="OpKey" value="@changeKey" /><input type="hidden" name="Expected" value="@t.UpdatedAt.UtcTicks" />
-                    <label class="ui-field"><span>Status</span><select name="StateId">@foreach (var o in caps.States) {<option value="@o.Id" selected="@(o.Id == t.StateId)">@SupportTicketText.State(o.Name)</option>}</select></label>
-                    <label class="ui-field"><span>Priority</span><select name="PriorityId">@foreach (var o in caps.Priorities) {<option value="@o.Id" selected="@(o.Id == t.PriorityId)">@o.Name</option>}</select></label>
-                    <label class="ui-field"><span>Owner</span><select name="OwnerId"><option value="">No change</option>@foreach (var o in caps.Owners.Where(o => s is null || o.GroupIds.Contains(s.GroupId))) {<option value="@o.Id" selected="@(o.Id == s?.OwnerId)">@o.Name</option>}</select></label>
-                    <label class="ui-field"><span>Move to queue (escalate)</span><select name="GroupId"><option value="">No change</option>@foreach (var g in caps.TransferGroups.Where(g => g.Id != s?.GroupId)) {<option value="@g.Id">@g.Name</option>}</select></label>
-                    <p class="help">Moving to a queue you can't open removes your access straight away.</p>
-                    <button type="submit" data-ticket-change-save>Save</button>
-                </form>
+    <div class="ticket-layout">
+        <div class="ticket-main">
+            <section class="ui-card" aria-label="Conversation">
+                <h2>Conversation</h2>
+                <ol class="ticket-thread" data-ticket-articles="@d.Articles.Count">
+                    @foreach (var a in d.Articles)
+                    {
+                        <li data-ticket-article="@a.Id" data-private="@(a.Private ? "true" : "false")" class="ticket-message@(a.Private ? " ticket-note" : a.Sender == "Customer" ? " ticket-member" : "")">
+                            <div class="ticket-message-head"><strong>@SupportTicketText.Sender(a.Sender, false)</strong>
+                                @if (a.Private) { <span class="ui-pill" data-tone="escalate">Private note — staff only</span> } else if (a.Sender == "Customer" && a.Channel == "email") { <span class="ui-pill" data-tone="reject" data-ticket-email>By email — sender not verified, not shown to the member</span> } else { <span class="ui-pill" data-tone="quiet">@(a.Sender == "Customer" ? "From the member" : "Sent to member")</span> }
+                                <span class="help">@a.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span></div>
+                            <p class="ticket-body">@a.Body</p>
+                            @if (a.Attachments.Count > 0)
+                            {
+                                <ul class="ticket-files">
+                                    @foreach (var x in a.Attachments) { <li data-ticket-attachment="@x.Id"><a href="/tickets/@Id/articles/@a.Id/attachments/@x.Id" download>@x.Filename</a><span class="help">@SupportAttachmentPolicy.Size(x.Size)</span></li> }
+                                </ul>
+                            }
+                        </li>
+                    }
+                </ol>
             </section>
-            <section class="ui-card" aria-label="Classification">
-                <h2 class="ui-card-title">Classification</h2>
-                <form method="post" @formname="classify" @onsubmit="ClassifyAsync" data-enhance="false" data-ticket-classify>
-                    <AntiforgeryToken />
-                    <input type="hidden" name="OpKey" value="@classifyKey" /><input type="hidden" name="Expected" value="@t.UpdatedAt.UtcTicks" />
-                    <label class="ui-field"><span>Category and subcategory</span><select name="Category"><option value="">Not set</option>
-                        @foreach (var c in caps.Categories) { <optgroup label="@c.Id">@foreach (var sub in c.Subcategories) { <option value="@($"{c.Id}/{sub}")" selected="@(Attr("swoovr_category") == c.Id && Attr("swoovr_subcategory") == sub)">@c.Id / @sub</option> }</optgroup> }</select></label>
-                    <label class="ui-field"><span>Sensitivity</span><select name="Sensitivity">@foreach (var v in caps.Sensitivities) {<option value="@v" selected="@(Attr("swoovr_sensitivity") == v)">@v</option>}</select></label>
-                    <label class="ui-field"><span>Resolution</span><select name="Resolution">@foreach (var v in caps.Resolutions) {<option value="@v" selected="@(Attr("swoovr_resolution") == v)">@v</option>}</select></label>
-                    <button type="submit" class="secondary" data-ticket-classify-save>Save classification</button>
-                </form>
-            </section>
-            @if (macros.Any(m => m.Supported))
+            @if (d.CanReply)
             {
-                <section class="ui-card" aria-label="Macros">
-                    <h2 class="ui-card-title">Macros</h2>
-                    <form method="post" @formname="macro" @onsubmit="MacroAsync" data-enhance="false" data-ticket-macro>
+                <section class="ui-card ticket-composer-card" aria-label="Reply or add a private note">
+                    <form method="post" @formname="reply" @onsubmit="ReplyAsync" enctype="multipart/form-data" class="ticket-composer" data-enhance="false" data-ticket-reply="@(replyLocked ? "uncertain" : "ready")">
                         <AntiforgeryToken />
-                        <input type="hidden" name="OpKey" value="@macroKey" /><input type="hidden" name="Expected" value="@t.UpdatedAt.UtcTicks" />
-                        <label class="ui-field"><span>Macro</span><select name="Macro">@foreach (var m in macros.Where(m => m.Supported)) {<option value="@m.Id">@m.Name</option>}</select></label>
-                        <button type="submit" class="secondary" data-ticket-macro-apply>Apply macro</button>
+                        <input type="hidden" name="OpKey" value="@replyKey" />
+                        @if (replyLocked) { <input type="hidden" name="Visibility" value="@(replyPrivate ? "private" : "public")" /> <p class="help">@(replyPrivate ? "Private note (staff only)" : "Reply to the member")</p> }
+                        else
+                        {
+                            <fieldset class="ticket-seg"><legend class="visually-hidden">Who sees this</legend>
+                                <label><input type="radio" name="Visibility" value="public" checked="@(!replyPrivate)" data-ticket-visibility="public" /><span>Reply to member</span></label>
+                                <label><input type="radio" name="Visibility" value="private" checked="@replyPrivate" data-ticket-visibility="private" /><span>Private note</span></label>
+                            </fieldset>
+                        }
+                        <label class="ticket-compose"><span class="visually-hidden">Message</span><textarea name="Body" rows="7" maxlength="16000" placeholder="Write a reply or a private note" readonly="@replyLocked" data-ticket-reply-body>@replyBody</textarea></label>
+                        <div class="ticket-tools">
+                                @if (!replyLocked && modules.Count > 0)
+                                {
+                                    <div class="ticket-inline">
+                                        <label class="ui-field"><span>Text module</span><select name="Module">
+                                            @foreach (var group in modules.GroupBy(m => Group(m.Name)))
+                                            {
+                                                <optgroup label="@group.Key">@foreach (var m in group) {<option value="@m.Id">@Short(m.Name)</option>}</optgroup>
+                                            }
+                                        </select></label>
+                                        <button type="submit" name="Do" value="insert" class="secondary" data-ticket-module-insert>Insert</button>
+                                    </div>
+                                }
+                                <label class="ui-field ticket-files-input"><span>@(replyLocked ? "Attach the same files again" : "Files (optional)")</span><input type="file" name="Files" multiple accept="@SupportAttachmentPolicy.Accept" data-ticket-files /></label>
+                        </div>
+                        <p class="help">@SupportTicketText.StaffAttachmentHelp</p>
+                        <div class="ticket-actions"><button type="submit" name="Do" value="send" data-ticket-reply-send>@(replyLocked ? "Send again" : "Send")</button></div>
                     </form>
-                    @if (macros.Any(m => !m.Supported)) { <p class="help">Some helpdesk macros include actions Swoovr can't run and aren't listed.</p> }
                 </section>
             }
-        }
-    </div>
-    <section class="ui-card" aria-label="Linked cases and appeals" data-ticket-links="@links.Count">
-        <h2 class="ui-card-title">Linked cases and appeals</h2>
-        @if (links.Count == 0) { <p class="help">No case or appeal is linked.</p> }
-        else
-        {
-            <ul class="list">@foreach (var l in links) { <li data-ticket-link="@l.CaseId"><a href="/cases/@l.CaseId">Case @l.CaseId.ToString()[..8]</a> · @l.CaseStatus@if (l.AppealId is { } appeal) { <span> · appeal <code>@appeal.ToString()[..8]</code></span> }</li> }</ul>
-        }
-        <p class="help">A link is a reference only. Evidence stays in the case, and decisions are made there: closing this request never lifts a sanction or decides an appeal.</p>
-        @if (d.CanReply)
-        {
-            <form method="post" @formname="link" @onsubmit="LinkAsync" class="media-filters" data-enhance="false" data-ticket-link-form>
-                <AntiforgeryToken />
-                <label class="ui-field"><span>Case ID</span><input name="CaseId" required maxlength="36" autocomplete="off" /></label>
-                <label class="ui-field"><span>Appeal ID (optional)</span><input name="AppealId" maxlength="36" autocomplete="off" /></label>
-                <div class="beta-filter-actions"><button type="submit" class="secondary" data-ticket-link-save>Link</button></div>
-            </form>
-        }
-    </section>
-    <section class="ui-card" aria-label="Conversation">
-        <h2 class="ui-card-title">Conversation</h2>
-        <ol class="list" data-ticket-articles="@d.Articles.Count">
-            @foreach (var a in d.Articles)
-            {
-                <li data-ticket-article="@a.Id" data-private="@(a.Private ? "true" : "false")" class="@(a.Private ? "ticket-note" : null)">
-                    <div class="ui-card-row"><strong>@SupportTicketText.Sender(a.Sender, false)</strong>
-                        @if (a.Private) { <span class="ui-pill" data-tone="escalate">Private note — staff only</span> } else if (a.Sender == "Customer" && a.Channel == "email") { <span class="ui-pill" data-tone="reject" data-ticket-email>By email — sender not verified, not shown to the member</span> } else { <span class="ui-pill" data-tone="quiet">Sent to member</span> }
-                        <span class="help">@a.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span></div>
-                    <p class="ticket-body">@a.Body</p>
-                    @foreach (var x in a.Attachments) { <p class="help" data-ticket-attachment="@x.Id"><a href="/tickets/@Id/articles/@a.Id/attachments/@x.Id" download>@x.Filename</a> (@x.Size bytes)</p> }
-                </li>
-            }
-        </ol>
-    </section>
-    @if (d.CanReply)
-    {
-        <section class="ui-card" aria-label="Reply or add a note">
-            <h2 class="ui-card-title">Reply or add a private note</h2>
-            <form method="post" @formname="reply" @onsubmit="ReplyAsync" enctype="multipart/form-data" data-enhance="false" data-ticket-reply="@(replyLocked ? "uncertain" : "ready")">
-                <AntiforgeryToken />
-                <input type="hidden" name="OpKey" value="@replyKey" />
-                @* After an uncertain send, the same files go again unchanged so the API can reconcile the same operation. *@
-                @foreach (var k in kept) { <input type="hidden" name="KeptName" value="@k.Filename" /><input type="hidden" name="KeptData" value="@Convert.ToBase64String(k.Data)" /> }
-                @if (replyLocked) { <input type="hidden" name="Visibility" value="@(replyPrivate ? "private" : "public")" /> }
-                <label class="ui-field"><span>Message</span><textarea name="Body" rows="8" maxlength="16000" readonly="@replyLocked" data-ticket-reply-body>@replyBody</textarea></label>
-                @if (!replyLocked)
-                {
-                    <label class="ui-field"><span>Who sees this</span><select name="Visibility" data-ticket-visibility>
-                        <option value="public" selected="@(!replyPrivate)">Reply to the member</option>
-                        <option value="private" selected="@replyPrivate">Private note (staff only)</option></select></label>
-                }
-                else { <p class="help">@(replyPrivate ? "Private note (staff only)" : "Reply to the member")</p> }
-                @if (!replyLocked)
-                {
-                    <label class="ui-field"><span>Attach text files (optional)</span><input type="file" name="Files" multiple accept=".txt,text/plain" /></label>
-                    @if (modules.Count > 0)
+            else { <p class="help" data-ticket-readonly>You can read this request but can't change it.</p> }
+        </div>
+        <aside class="ticket-side" aria-label="Request details">
+            <section class="ui-card" aria-label="Request facts">
+                <h2>Request</h2>
+                <dl class="ticket-facts">
+                    <dt>Status</dt><dd data-ticket-state>@SupportTicketText.State(Named(caps.States, t.StateId))</dd>
+                    <dt>Priority</dt><dd>@Named(caps.Priorities, t.PriorityId)</dd>
+                    @if (s is not null)
                     {
-                        <label class="ui-field"><span>Text module</span><select name="Module">@foreach (var m in modules) {<option value="@m.Id">@m.Name</option>}</select></label>
-                        <button type="submit" name="Do" value="insert" class="secondary" data-ticket-module-insert>Insert text module</button>
+                        <dt>Queue</dt><dd data-ticket-group>@(Named(caps.Groups, s.GroupId) ?? "Another queue")</dd>
+                        <dt>Owner</dt><dd data-ticket-owner>@(caps.Owners.FirstOrDefault(o => o.Id == s.OwnerId)?.Name ?? "Unassigned")</dd>
+                        <dt>Member</dt><dd>@if (s.CustomerAccountId is { } member) { <a href="/accounts/@member" data-ticket-member>Open account</a> } else if (s.Guest) { <span data-ticket-guest>Guest (verified email, not a member)</span> } else { <span data-ticket-email-sender>Email sender (not a verified Swoovr identity)</span> }</dd>
+                        @foreach (var (key, label) in Attributes) { if (s.Classification.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v)) { <dt>@label</dt><dd data-ticket-attr="@key">@v</dd> } }
                     }
+                </dl>
+                <p class="help">Closing a request never lifts a sanction or decides an appeal; record those in the case or appeal.</p>
+            </section>
+            @if (d.CanReply)
+            {
+                <section class="ui-card" aria-label="Assignment and status">
+                    <h2>Assignment and status</h2>
+                    <form method="post" @formname="change" @onsubmit="ChangeAsync" class="ticket-form" data-enhance="false" data-ticket-change>
+                        <AntiforgeryToken />
+                        <input type="hidden" name="OpKey" value="@changeKey" /><input type="hidden" name="Expected" value="@t.UpdatedAt.UtcTicks" />
+                        <div class="ticket-pair">
+                            <label class="ui-field"><span>Status</span><select name="StateId">@foreach (var o in caps.States) {<option value="@o.Id" selected="@(o.Id == t.StateId)">@SupportTicketText.State(o.Name)</option>}</select></label>
+                            <label class="ui-field"><span>Priority</span><select name="PriorityId">@foreach (var o in caps.Priorities) {<option value="@o.Id" selected="@(o.Id == t.PriorityId)">@o.Name</option>}</select></label>
+                        </div>
+                        <label class="ui-field"><span>Owner</span><select name="OwnerId"><option value="">No change</option>@foreach (var o in caps.Owners.Where(o => s is null || o.GroupIds.Contains(s.GroupId))) {<option value="@o.Id" selected="@(o.Id == s?.OwnerId)">@o.Name</option>}</select></label>
+                        <label class="ui-field"><span>Move to queue</span><select name="GroupId"><option value="">No change</option>@foreach (var g in caps.TransferGroups.Where(g => g.Id != s?.GroupId)) {<option value="@g.Id">@g.Name</option>}</select></label>
+                        <p class="help">Moving to a queue you can't open removes your access straight away.</p>
+                        <div class="ticket-actions"><button type="submit" data-ticket-change-save>Save</button></div>
+                    </form>
+                </section>
+                <section class="ui-card" aria-label="Classification">
+                    <h2>Classification</h2>
+                    <form method="post" @formname="classify" @onsubmit="ClassifyAsync" class="ticket-form" data-enhance="false" data-ticket-classify>
+                        <AntiforgeryToken />
+                        <input type="hidden" name="OpKey" value="@classifyKey" /><input type="hidden" name="Expected" value="@t.UpdatedAt.UtcTicks" />
+                        <label class="ui-field"><span>Category</span><select name="Category"><option value="">Not set</option>
+                            @foreach (var c in caps.Categories) { <optgroup label="@c.Id">@foreach (var sub in c.Subcategories) { <option value="@($"{c.Id}/{sub}")" selected="@(Attr("swoovr_category") == c.Id && Attr("swoovr_subcategory") == sub)">@sub</option> }</optgroup> }</select></label>
+                        <div class="ticket-pair">
+                            <label class="ui-field"><span>Sensitivity</span><select name="Sensitivity">@foreach (var v in caps.Sensitivities) {<option value="@v" selected="@(Attr("swoovr_sensitivity") == v)">@v</option>}</select></label>
+                            <label class="ui-field"><span>Resolution</span><select name="Resolution">@foreach (var v in caps.Resolutions) {<option value="@v" selected="@(Attr("swoovr_resolution") == v)">@v</option>}</select></label>
+                        </div>
+                        <div class="ticket-actions"><button type="submit" class="secondary" data-ticket-classify-save>Save classification</button></div>
+                    </form>
+                </section>
+                @if (macros.Any(m => m.Supported))
+                {
+                    <section class="ui-card" aria-label="Quick action">
+                        <form method="post" @formname="macro" @onsubmit="MacroAsync" class="ticket-inline" data-enhance="false" data-ticket-macro>
+                            <AntiforgeryToken />
+                            <input type="hidden" name="OpKey" value="@macroKey" /><input type="hidden" name="Expected" value="@t.UpdatedAt.UtcTicks" />
+                            <label class="ui-field"><span>Quick action</span><select name="Macro">@foreach (var m in macros.Where(m => m.Supported)) {<option value="@m.Id">@m.Name</option>}</select></label>
+                            <button type="submit" class="secondary" data-ticket-macro-apply>Apply</button>
+                        </form>
+                    </section>
                 }
-                <p class="help">@SupportTicketText.AttachmentHelp Don't add identity documents or case evidence; link the case instead.</p>
-                <button type="submit" name="Do" value="send" data-ticket-reply-send>@(replyLocked ? "Send again" : "Send")</button>
-            </form>
-        </section>
-    }
-    else { <p class="help" data-ticket-readonly>You can read this request but can't change it.</p> }
+            }
+            <section class="ui-card" aria-label="Linked cases and appeals" data-ticket-links="@links.Count">
+                <h2>Linked cases and appeals</h2>
+                @if (links.Count == 0) { <p class="help">None linked. A link is a reference only; evidence and decisions stay in the case.</p> }
+                else
+                {
+                    <ul class="ticket-links">@foreach (var l in links) { <li data-ticket-link="@l.CaseId"><a href="/cases/@l.CaseId">Case @l.CaseId.ToString()[..8]</a> · @l.CaseStatus@if (l.AppealId is { } appeal) { <span> · appeal <code>@appeal.ToString()[..8]</code></span> }</li> }</ul>
+                }
+                @if (d.CanReply)
+                {
+                    <form method="post" @formname="link" @onsubmit="LinkAsync" class="ticket-form" data-enhance="false" data-ticket-link-form>
+                        <AntiforgeryToken />
+                        <label class="ui-field"><span>Case ID</span><input name="CaseId" required maxlength="36" autocomplete="off" /></label>
+                        <label class="ui-field"><span>Appeal ID (optional)</span><input name="AppealId" maxlength="36" autocomplete="off" /></label>
+                        <div class="ticket-actions"><button type="submit" class="secondary" data-ticket-link-save>Link</button></div>
+                    </form>
+                }
+            </section>
+        </aside>
+    </div>
 }
 @code {
     [Parameter] public long Id { get; set; }
@@ -150,7 +169,6 @@ else
     private TicketCapabilities? caps;
     private List<TicketMacro> macros = [];
     private List<TicketTextModule> modules = [];
-    private List<TicketUpload> kept = [];
     private List<TicketLinkView> links = [];
     private string? message, resultCode, replyBody;
     private int status;
@@ -158,6 +176,9 @@ else
     private string changeKey = Guid.NewGuid().ToString("D"), classifyKey = Guid.NewGuid().ToString("D"), macroKey = Guid.NewGuid().ToString("D"), replyKey = Guid.NewGuid().ToString("D");
 
     private static string? Named(IReadOnlyList<TicketOption> options, long id) => options.FirstOrDefault(o => o.Id == id)?.Name;
+    // Text modules named "Group · Name" (issue 222) are grouped; others sit under "Swoovr".
+    private static string Group(string name) => name.Split(" · ", 2) is [var group, _] ? group : "Swoovr";
+    private static string Short(string name) => name.Split(" · ", 2) is [_, var rest] ? rest : name;
     private string? Attr(string key) => detail?.Staff?.Classification.GetValueOrDefault(key);
     private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
     private long? Pick(string name) => long.TryParse(Field(name), out var v) && v > 0 ? v : null;
@@ -220,7 +241,7 @@ else
     {
         var result = await Admin.ApplyTicketMacroAsync(Id, Pick("Macro") ?? 0, new TicketMacroApply(PostedKey, Expected));
         if (Uncertain(result)) macroKey = PostedKey.ToString("D");
-        if (result.Ok) Report(200, null, "Macro applied."); else Report(result.Status, result.Code);
+        if (result.Ok) Report(200, null, "Done."); else Report(result.Status, result.Code);
         await LoadAsync();
     }
 
@@ -244,30 +265,33 @@ else
         }
         if (string.IsNullOrWhiteSpace(replyBody)) { Report(400, "invalid-request"); return; }
         var uploads = new List<TicketUpload>();
-        var names = Context?.Request.Form["KeptName"].ToArray() ?? []; var data = Context?.Request.Form["KeptData"].ToArray() ?? [];
-        for (var i = 0; i < Math.Min(Math.Min(names.Length, data.Length), 3); i++)
-        {
-            try { uploads.Add(new TicketUpload(names[i] ?? "", "text/plain", Convert.FromBase64String(data[i] ?? ""))); }
-            catch (FormatException) { Report(400, "invalid-request"); return; }
-        }
         foreach (var file in Context?.Request.Form.Files.GetFiles("Files") ?? [])
         {
             if (file.Length == 0) continue;
-            if (uploads.Count >= 3 || file.Length > 65536) { Report(400, "invalid-request"); replyKey = PostedKey.ToString("D"); return; }
             using var memory = new MemoryStream();
             await file.CopyToAsync(memory);
-            uploads.Add(new TicketUpload(file.FileName, "text/plain", memory.ToArray()));
+            uploads.Add(new TicketUpload(file.FileName, "application/octet-stream", memory.ToArray()));
         }
-        var result = await Admin.ReplyTicketAsync(Id, new TicketReply(PostedKey, replyBody.Trim(), replyPrivate, uploads.Count == 0 ? null : uploads));
+        if (SupportAttachmentPolicy.Problem(uploads.Select(u => (u.Filename, (long)u.Data.Length)).ToList()) is { } problem)
+        {
+            (status, ok, message, resultCode) = (400, false, problem, "invalid-request");
+            replyKey = PostedKey.ToString("D");
+            return;
+        }
+        var result = uploads.Count == 0
+            ? await Admin.ReplyTicketAsync(Id, new TicketReply(PostedKey, replyBody.Trim(), replyPrivate))
+            : await AdminTransfers.Create(Clients).ReplyTicketWithFilesAsync(Id, PostedKey, replyBody.Trim(), replyPrivate, uploads);
         if (result.Ok)
         {
-            detail = result.Value; replyBody = null; replyLocked = false; kept = [];
+            detail = result.Value; replyBody = null; replyLocked = false;
             Report(200, null, replyPrivate ? "Private note added." : "Reply sent to the member.");
             return;
         }
         replyLocked = Uncertain(result);
-        if (replyLocked) (replyKey, kept) = (PostedKey.ToString("D"), uploads);
+        if (replyLocked) replyKey = PostedKey.ToString("D");
         Report(result.Status, result.Code);
+        // Files aren't kept in the page; the same files sent again give the same operation digest, so nothing is duplicated.
+        if (replyLocked && uploads.Count > 0) message += " Attach the same files again, then Send again.";
         if (result.Status is 403 or 404) detail = null;
     }
 }

@@ -116,7 +116,10 @@ public sealed class SupportTicketPage(long id, IReadOnlyList<TicketOption> state
                 rows.Add(Ui.Button($"View {x.Filename}", "SupportAttachment_" + x.Id, async () =>
                 {
                     var file = await Ui.Members!.TicketAttachmentAsync(id, a.Id, x.Id);
-                    shown.Text = file.Ok ? new System.Text.UTF8Encoding(false, false).GetString(file.Value!.Data) : SupportTicketText.Problem(file.Status, file.Code);
+                    // Issue 220: members can now attach photos, documents, video and audio on the web; only text is shown here.
+                    shown.Text = !file.Ok ? SupportTicketText.Problem(file.Status, file.Code)
+                        : file.Value!.ContentType.StartsWith("text/", StringComparison.Ordinal) ? new System.Text.UTF8Encoding(false, false).GetString(file.Value.Data)
+                        : $"{x.Filename} can be downloaded from Support on swoovr.app.";
                 }, primary: false));
                 rows.Add(shown);
             }

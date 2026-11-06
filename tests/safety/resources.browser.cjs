@@ -114,7 +114,8 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     const page = await phone.newPage();
     await page.goto(web + '/safety');
     await page.waitForSelector('[data-safety-page="AU"]'); pass();
-    assert.equal(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'fallback'); pass();
+    assert.equal(await page.getAttribute('[data-country-source]', 'data-country-source'), 'fallback'); pass();
+    assert.equal(await page.locator('[data-country-hint]').count(), 0, 'no explanation of where the country came from (issue 217)'); pass();
     assert.ok((await page.textContent('[data-safety-services]')).includes('000') && (await page.textContent('#emergency-title')).includes('Emergency assistance'), 'emergency assistance first'); pass();
     assert.equal(await page.getAttribute('[data-call="000"]', 'href'), 'tel:000', 'a deliberate tap, nothing dials by itself'); pass();
     assert.ok(await page.locator('[data-swoovr-guest-actions] [data-serious-entry]').count() === 1 && await page.getAttribute('[data-swoovr-guest-actions] [data-serious-entry]', 'href') === 'https://swoovr.com/support' && await page.locator('[data-swoovr-actions]').count() === 0, "Swoovr reporting apart; guests go to support (D308)"); pass();
@@ -130,11 +131,11 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     await Promise.all([page.waitForURL(/country=AU/), page.selectOption('[data-country-select]', 'AU')]);
     assert.equal((await phone.cookies()).find(c => c.name === 'swoovr.safety-country')?.value, 'AU', 'a new choice replaces the saved one'); pass();
     await phone.clearCookies(); await page.goto(web + '/safety');
-    assert.notEqual(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'manual', 'cleared preference falls back'); pass();
+    assert.notEqual(await page.getAttribute('[data-country-source]', 'data-country-source'), 'manual', 'cleared preference falls back'); pass();
     assert.equal((await phone.cookies()).some(c => c.name === 'swoovr.safety-country'), false, 'an automatic country is never saved as a choice'); pass();
     await Promise.all([page.waitForURL(/country=NZ/), page.selectOption('[data-country-select]', 'NZ')]);
     await page.waitForSelector('[data-safety-page="NZ"]');
-    assert.equal(await page.getAttribute('[data-country-hint]', 'data-country-hint'), 'manual'); pass();
+    assert.equal(await page.getAttribute('[data-country-source]', 'data-country-source'), 'manual'); pass();
     assert.ok(await page.locator('[data-safety-warning]').count() === 1, 'not-ready packs warn'); pass();
     await page.goto(web + '/safety');
     await page.waitForSelector('[data-safety-page="NZ"]', { timeout: 10000 }); pass();
@@ -152,9 +153,18 @@ const { api, web, admin, createMember, createStaff, memberToken, staffToken, roo
     await me.goto(web + '/account/sign-in?intro=done');
     await me.fill('#username', member.email); await me.fill('#password', member.password);
     await Promise.all([me.waitForURL(web+'/explore'),me.click('#kc-login')]);await me.goto(web+'/account');
+    // Issue 217: signed in, /safety starts from the Home City's country (Adelaide → AU); ?country= still wins.
+    await me.goto(web + '/safety');
+    await me.waitForSelector('[data-safety-page="AU"]', { timeout: 20000 });
+    assert.equal(await me.getAttribute('[data-country-source]', 'data-country-source'), 'home', 'the Home City country, not a network guess'); pass();
+    assert.equal(await me.getAttribute('a[href="/me/safety"]', 'href'), '/me/safety', 'Privacy & safety, not account standing'); pass();
+    await me.goto(web + '/safety?country=NZ');
+    await me.waitForSelector('[data-safety-page="NZ"]'); pass();
+    await context.clearCookies({ name: 'swoovr.safety-country' });
     await me.goto(web + '/me/safety');
     await me.waitForSelector('[data-safety-services="AU"]', { timeout: 20000 });
     assert.ok((await me.textContent('[data-safety-services]')).includes('000')); pass();
+    assert.equal(await me.getAttribute('[data-safety-services]', 'data-country-source'), 'home'); pass();
     await me.selectOption('[data-country-select]', 'GB');
     await me.waitForSelector('[data-safety-services="GB"]');
     assert.ok((await me.textContent('[data-safety-warning]')).startsWith('Demonstration only')); pass();

@@ -1,27 +1,54 @@
 @page "/me/safety"
-<PageTitle>Safety — Swoovr</PageTitle>
-<div class="column">
+@page "/me/safety/people"
+@page "/me/safety/report"
+@inject NavigationManager Navigation
+@* Issue 217: Me → Privacy & safety (/me/safety) with its People you've dealt with list and the dedicated serious
+   incident report page, all inside the settings shell. Old report links (/me/safety?type=…&id=…) still work: they
+   now open /me/safety/report with the same query. *@
+<PageTitle>@Title — Swoovr</PageTitle>
+<SettingsShell Current="privacy">
+<div class="reading-page me-page">
 @if (!signedIn)
 {
-    <div class="page-heading"><h1>Safety</h1><p>If you're in immediate danger, contact your local emergency services now. Sign in to report a serious safety incident.</p></div>
+    <div class="page-heading"><h1>Privacy &amp; safety</h1><p>If you're in immediate danger, contact your local emergency services now. Sign in to report a serious safety incident.</p></div>
     <p class="account-actions"><a class="primary-link" href="/safety" data-public-safety>Safety &amp; Support contacts</a> <a class="primary-link" href="/account/sign-in" data-enhance-nav="false">Sign in</a></p>
+}
+else if (view == "people")
+{
+    <SafetyPeoplePanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
+}
+else if (view == "report")
+{
+    <SeriousReportPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" DefaultCountry="@defaultCountry" />
 }
 else
 {
     <SafetyPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" DefaultCountry="@defaultCountry" DefaultSource="@defaultSource" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    private bool signedIn;
     [Inject] private IConfiguration Configuration { get; set; } = default!;
     [Inject] private IHostEnvironment Environment { get; set; } = default!;
+    private bool signedIn;
+    private string view = "hub";
     private string? defaultCountry;
     private string defaultSource = "unknown";
+    private string Title => view switch { "people" => "People you've dealt with", "report" => "Report a serious safety incident", _ => "Privacy & safety" };
 
     protected override void OnInitialized()
     {
         signedIn = HttpContext.User.Identity?.IsAuthenticated == true;
+        var uri = new Uri(Navigation.Uri);
+        var path = uri.AbsolutePath.TrimEnd('/');
+        view = path.EndsWith("/people", StringComparison.OrdinalIgnoreCase) ? "people" : path.EndsWith("/report", StringComparison.OrdinalIgnoreCase) ? "report" : "hub";
+        // Links made before issue 217 put the report on /me/safety itself.
+        if (view == "hub" && SafetyText.Query(Navigation.Uri, "type") is { Length: > 0 } && SafetyText.Query(Navigation.Uri, "id") is { Length: > 0 })
+        {
+            Navigation.NavigateTo("/me/safety/report" + uri.Query, replace: true);
+            return;
+        }
         // issue 103: the host decides the default country (the API behind the BFF can't see Cloudflare's header).
         var trusted = !Environment.IsDevelopment() && Configuration.GetValue("Location:CloudflareHeaders", false);
         (defaultCountry, defaultSource) = SafetyText.Default(HttpContext.Request.Headers["CF-IPCountry"], trusted, Configuration["Safety:FallbackCountry"]);

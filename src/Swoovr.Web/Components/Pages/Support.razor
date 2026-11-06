@@ -3,9 +3,10 @@
 @page "/me/support/{Id:long}"
 @* Native support requests. Open while restricted or suspended (like notices and standing), so a barred member can still
    ask for help; the API applies the same support exemptions. Signed-out visitors use email (the public support site is
-   built separately). *@
+   built separately). Issue 219: inside the Me / settings shell like every other Me page. *@
 <PageTitle>Support — Swoovr</PageTitle>
-<div class="reading-page">
+<SettingsShell Current="support">
+<div class="reading-page me-page">
 @if (!signedIn)
 {
     <div class="page-heading"><h1>Support</h1><p>Sign in to contact support about your account, or email <a href="@("mailto:" + StandingText.SupportEmail)">@StandingText.SupportEmail</a>.</p></div>
@@ -16,6 +17,7 @@ else
     <SupportPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" Id="Id" New="@isNew" Reference="@Reference" />
 }
 </div>
+</SettingsShell>
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
     [Parameter] public long? Id { get; set; }

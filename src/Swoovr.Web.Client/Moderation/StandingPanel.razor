@@ -1,93 +1,187 @@
-@* #50: account standing in one place: verification, what to do, sanctions in force, decisions and the member's own
-   reports with support references. Open while restricted or suspended. Built by the API from the member's own records;
-   it never shows who reported anyone or anything internal. *@
+@* #50: account standing in one place, built by the API from the member's own records; it never shows who reported
+   anyone or anything internal. Open while restricted or suspended.
+   Issue 217 (owner review on PR 218): a compact status tag instead of a status card; a banner and "Actions in force"
+   only when something applies; no verification summary (Me → Verification owns it); the three latest decisions and
+   reports, each with a full paginated page (Mode "history" and "reports"); one support card with buttons. *@
 @inject MemberClient Members
-<div class="page-heading" data-standing="@(standing is null ? loaded ? "failed" : "loading" : "ready")">
-    <p class="breadcrumb"><a href="/account">Me</a> / @StandingText.Title</p>
-    <h1>@StandingText.Title</h1>
-    <p>@StandingText.Intro</p>
+<div class="me-page-head" data-standing="@(standing is null ? loaded ? "failed" : "loading" : "ready")">
+    @if (Mode != "summary") { <a class="me-back" href="/me/standing"><Icon Name="back" Size="18" />@StandingText.Title</a> }
+    <div class="me-title-row">
+        <h1>@Heading</h1>
+        @if (Mode == "summary" && standing is { } head)
+        {
+            <span class="me-tag@(head.State == "active" ? "" : " me-tag-ink")"><span class="me-dot" aria-hidden="true"></span><span data-standing-state="@head.State">@StandingText.State(head.State)</span></span>
+        }
+    </div>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (standing is null) { <p role="status">Your account standing isn't available right now.</p> }
 </div>
-<section class="card account-section" aria-labelledby="support-heading" data-standing-support>
-    <h2 id="support-heading">Contact Swoovr support</h2>
-    <p><a href="@SupportTicketText.MemberPath" data-support-web>Contact Support</a> · <a href="@("mailto:" + StandingText.SupportEmail)" data-support-email>Email Support</a></p>
-    <p class="field-help">@StandingText.SupportHelp</p>
-</section>
 @if (standing is { } s)
 {
-    <EmailChangeNotice Problem="@s.EmailChangeProblem" />
-    <section class="card account-section" aria-labelledby="state-heading">
-        <h2 id="state-heading">Status: <span data-standing-state="@s.State">@StandingText.State(s.State)</span></h2>
-        @if (s.Actions.Count > 0)
+    @if (Mode == "summary")
+    {
+        <EmailChangeNotice Problem="@s.EmailChangeProblem" />
+        @if (s.Actions.Count > 0 || s.InForce.Count > 0)
         {
-            <h3>To do</h3>
-            <ul class="request-list" data-standing-actions="@s.Actions.Count">
-                @foreach (var a in s.Actions) { <li data-standing-action="@a.Code"><a href="@a.Link">@StandingText.Action(a.Code)</a></li> }
-            </ul>
-        }
-        else { <p class="field-help" data-standing-actions="none">Nothing to do.</p> }
-    </section>
-    <section class="card account-section" aria-labelledby="verification-heading">
-        <h2 id="verification-heading">Verification</h2>
-        <dl class="standing-facts" data-standing-verification>
-            <div><dt>Email</dt><dd data-verify="email">@(s.Verification.EmailVerified ? "Verified" : "Not verified")</dd></div>
-            <div><dt>Mobile number</dt><dd data-verify="phone">@(s.Verification.PhoneVerified ? "Verified" : s.Verification.PhoneRequired ? "Needed" : "Not added")</dd></div>
-            <div><dt>Age</dt><dd data-verify="age">@StandingText.Age(s.Verification.AgeStatus)</dd></div>
-            <div><dt>Date of birth</dt><dd data-verify="dob">@StandingText.Dob(s.Verification)</dd></div>
-            <div><dt>ID</dt><dd data-verify="id">@StandingText.Id(s.Verification.IdStatus)</dd></div>
-        </dl>
-    </section>
-    <section class="card account-section" aria-labelledby="in-force-heading">
-        <h2 id="in-force-heading">Actions in force</h2>
-        @if (s.InForce.Count == 0) { <p class="field-help" data-standing-in-force="none">@StandingText.NothingInForce</p> }
-        else
-        {
-            <ul class="request-list" data-standing-in-force="@s.InForce.Count">
-                @foreach (var x in s.InForce)
+            <section class="me-banner" aria-labelledby="standing-banner-title" data-standing-actions="@s.Actions.Count">
+                <Icon Name="alert" Size="24" />
+                <div class="me-banner-text">
+                    <p class="me-banner-title" id="standing-banner-title">@StandingText.BannerTitle(s)</p>
+                    @if (s.InForce.Count > 0 && s.Actions.Count > 0) { <p>@StandingText.BannerTodo</p> }
+                </div>
+                @if (s.Actions.Count > 0)
                 {
-                    <li data-standing-sanction="@x.Id" data-standing-kind="@x.Kind">
-                        <p><strong>@StandingText.Sanction(x)</strong></p>
-                        <p>@x.Reason</p>
-                        @if (x.AppealStatus is { } appeal) { <p class="field-help">Appeal @MemberText.AppealStatus(appeal).</p> }
-                        else if (x.AppealBy is { } by) { <p class="field-help" data-standing-appeal-by>You can appeal until @by.ToString("d MMM yyyy"). <a href="/me/notices">Appeal</a></p> }
-                        else { <p class="field-help" data-standing-appeal="closed">This can't be appealed any more.</p> }
-                    </li>
+                    <div class="me-actions">
+                        @foreach (var a in s.Actions) { <a class="button button-small me-pill-button" href="@a.Link" data-standing-action="@a.Code">@StandingText.Action(a.Code)</a> }
+                    </div>
                 }
-            </ul>
+            </section>
         }
-    </section>
-    <section class="card account-section" aria-labelledby="decisions-heading">
-        <h2 id="decisions-heading">Decisions about your account</h2>
-        @if (s.Decisions.Count == 0) { <p class="field-help" data-standing-decisions="none">@StandingText.NoDecisions</p> }
-        else
-        {
-            <ul class="request-list" data-standing-decisions="@s.Decisions.Count">
-                @foreach (var d in s.Decisions) { <li data-standing-decision="@d.Kind">@StandingText.Decision(d)</li> }
-            </ul>
-        }
-    </section>
-    <section class="card account-section" aria-labelledby="reports-heading">
-        <h2 id="reports-heading">Your reports</h2>
-        <p class="field-help">@StandingText.ReferenceHelp</p>
-        @if (s.Reports.Count == 0) { <p class="field-help" data-standing-reports="none">@StandingText.NoReports</p> }
-        else
-        {
-            <ul class="request-list" data-standing-reports="@s.Reports.Count">
-                @foreach (var r in s.Reports) { <li data-standing-report="@r.Reference">@StandingText.Report(r) <a href="@StandingText.SupportLink(r.Reference)">Contact support about @r.Reference</a></li> }
-            </ul>
-        }
-        <p class="field-help">@StandingText.Privacy</p>
-    </section>
+        <div class="me-two-col">
+            <div class="me-col">
+                @if (s.InForce.Count > 0)
+                {
+                    <section class="me-card" aria-labelledby="in-force-heading">
+                        <h2 class="me-card-title" id="in-force-heading">Actions in force</h2>
+                        <div class="me-sanctions" data-standing-in-force="@s.InForce.Count">
+                            @foreach (var x in s.InForce)
+                            {
+                                <article class="me-sanction" data-standing-sanction="@x.Id" data-standing-kind="@x.Kind">
+                                    <div class="me-sanction-head"><h3>@StandingText.Kind(x.Kind)</h3><span class="me-tag me-tag-ink">In force</span></div>
+                                    <dl class="me-facts">
+                                        <div><dt>Since</dt><dd>@StandingText.Date(x.StartsAt)</dd></div>
+                                        <div><dt>Until</dt><dd>@(x.EndsAt is { } end ? StandingText.Date(end) : x.Kind == "termination" ? "Permanent" : "Until lifted")</dd></div>
+                                    </dl>
+                                    <p class="me-sanction-reason">@x.Reason</p>
+                                    @if (x.AppealStatus is { } appeal)
+                                    {
+                                        <div class="me-appeal"><div class="me-appeal-text"><strong>Appeal @MemberText.AppealStatus(appeal)</strong></div></div>
+                                    }
+                                    else if (x.AppealBy is { } by)
+                                    {
+                                        <div class="me-appeal" data-standing-appeal-by>
+                                            <div class="me-appeal-text"><strong>You can appeal this decision</strong><span>Until @StandingText.Date(by)</span></div>
+                                            <a class="button" href="/me/notices">Appeal</a>
+                                        </div>
+                                    }
+                                    else { <p class="me-meta" data-standing-appeal="closed">This can't be appealed any more.</p> }
+                                </article>
+                            }
+                        </div>
+                    </section>
+                }
+                @if (s.Decisions.Count == 0 && s.Reports.Count == 0)
+                {
+                    <section class="me-card" aria-label="History"><p class="me-empty" data-standing-decisions="none" data-standing-reports="none">@StandingText.NoHistory</p></section>
+                }
+                else
+                {
+                    <section class="me-card" aria-labelledby="decisions-heading">
+                        <h2 class="me-card-title" id="decisions-heading">Decisions about your account</h2>
+                        @if (s.Decisions.Count == 0) { <p class="me-empty" data-standing-decisions="none">@StandingText.NoDecisions</p> }
+                        else { @DecisionList(s.Decisions.Take(Latest)) }
+                        @if (s.Decisions.Count > Latest)
+                        {
+                            <div class="me-card-foot"><span class="me-meta">Showing @Latest of @s.Decisions.Count</span><a class="button button-secondary me-pill-button" href="/me/standing/history" data-standing-history>See full history</a></div>
+                        }
+                    </section>
+                    <section class="me-card" aria-labelledby="reports-heading">
+                        <h2 class="me-card-title" id="reports-heading">Your reports</h2>
+                        @if (s.Reports.Count == 0) { <p class="me-empty" data-standing-reports="none">@StandingText.NoReports</p> }
+                        else { @ReportList(s.Reports.Take(Latest)) }
+                        <div class="me-card-foot"><span class="me-meta">@StandingText.Privacy</span>
+                            @if (s.Reports.Count > Latest) { <a class="button button-secondary me-pill-button" href="/me/standing/reports" data-standing-all-reports>See all reports</a> }</div>
+                    </section>
+                }
+            </div>
+            <div class="me-col">
+                <section class="me-card" aria-labelledby="help-heading" data-standing-support>
+                    <h2 class="me-card-title" id="help-heading">Need help?</h2>
+                    <div class="me-stack">
+                        <a class="button" href="@SupportTicketText.MemberPath" data-support-web>Contact support</a>
+                        <a class="button button-secondary" href="@("mailto:" + StandingText.SupportEmail)" data-support-email>Email @StandingText.SupportEmail</a>
+                        <a class="button button-secondary" href="/me/notices">Notices and reports</a>
+                    </div>
+                </section>
+            </div>
+        </div>
+    }
+    else
+    {
+        var all = Mode == "history" ? s.Decisions.Count : s.Reports.Count;
+        var pages = Math.Max(1, (all + PageSize - 1) / PageSize);
+        var current = Math.Clamp(page, 1, pages);
+        <section class="me-card" aria-label="@Heading">
+            @if (all == 0) { <p class="me-empty">@(Mode == "history" ? StandingText.NoDecisions : StandingText.NoReports)</p> }
+            else if (Mode == "history") { @DecisionList(s.Decisions.Skip((current - 1) * PageSize).Take(PageSize)) }
+            else { @ReportList(s.Reports.Skip((current - 1) * PageSize).Take(PageSize)) }
+            @if (pages > 1)
+            {
+                <nav class="me-pager" aria-label="Pages" data-standing-pager="@current/@pages">
+                    <button type="button" class="button button-secondary me-pill-button" disabled="@(current == 1)" @onclick="() => page = current - 1">Previous</button>
+                    <span class="me-meta">Page @current of @pages</span>
+                    <button type="button" class="button button-secondary me-pill-button" disabled="@(current == pages)" @onclick="() => page = current + 1">Next</button>
+                </nav>
+            }
+            @if (Mode == "reports") { <p class="me-meta me-foot-note">@StandingText.Privacy</p> }
+        </section>
+    }
 }
-<ReportSupport HideChannels="true" />
 @code {
+    /// <summary>"summary" (/me/standing), "history" (/me/standing/history) or "reports" (/me/standing/reports).</summary>
+    [Parameter] public string Mode { get; set; } = "summary";
+
+    /// <summary>DEFAULT (issue 217): three latest on the summary, ten per page on the full lists.</summary>
+    private const int Latest = 3, PageSize = 10;
     private bool loaded;
+    private int page = 1;
     private AccountStandingView? standing;
+    private Dictionary<string, string> categories = [];
+
+    private string Heading => Mode switch { "history" => "Account history", "reports" => "Your reports", _ => StandingText.Title };
 
     protected override async Task OnInitializedAsync()
     {
         standing = (await Members.StandingAsync()).Value;
         loaded = true;
+        if (standing is { Reports.Count: > 0 })
+        {
+            // The report's category id becomes the label the member chose from (routine and serious lists).
+            foreach (var serious in new[] { false, true })
+                foreach (var c in (await Members.ReportCategoriesAsync(serious)).Value ?? [])
+                    categories.TryAdd(c.Id, c.Label);
+        }
     }
+
+    private RenderFragment DecisionList(IEnumerable<StandingDecision> decisions) =>
+        @<ul class="me-items" data-standing-decisions="@decisions.Count()">
+            @foreach (var d in decisions)
+            {
+                <li class="me-item" data-standing-decision="@d.Kind">
+                    <div class="me-item-main">
+                        <div class="me-item-line"><span class="me-item-title">@StandingText.Kind(d.Kind)</span>
+                            @if (d.State is { } state && StandingText.SanctionState(state) is { Length: > 0 } label) { <span class="me-tag@(state == "in-force" ? " me-tag-ink" : " me-tag-quiet")">@StandingText.Capitalise(label)</span> }</div>
+                        <p class="me-meta">@StandingText.Date(d.At)@(StandingText.DecisionDetail(d) is { } detail ? " · " + detail : "")</p>
+                    </div>
+                    @if (StandingText.DecisionLink(d) is { } link) { <a class="button button-secondary me-pill-button me-item-action" href="@link.Href">@link.Label</a> }
+                </li>
+            }
+        </ul>;
+
+    private RenderFragment ReportList(IEnumerable<StandingReport> reports) =>
+        @<ul class="me-items">
+            @foreach (var r in reports)
+            {
+                <li class="me-item" data-standing-report="@r.Reference">
+                    <div class="me-item-main">
+                        <div class="me-item-line"><span class="me-ref">@r.Reference</span>
+                            <span class="me-tag@(r.Status == "closed" ? " me-tag-quiet" : "")">@MemberText.ReportStatus(r.Status)</span>
+                            @if (r.Serious) { <span class="me-tag me-tag-ink">Serious incident</span> }</div>
+                        <p class="me-meta">@StandingText.Date(r.CreatedAt)@(categories.TryGetValue(r.Category, out var label) ? " · " + label : "")</p>
+                        @if (StandingText.Outcome(r.Outcome) is { } outcome) { <p class="me-outcome">@outcome</p> }
+                    </div>
+                    <a class="button button-secondary me-pill-button me-item-action" href="@SupportTicketText.NewLink(r.Reference)" aria-label="Contact support about @r.Reference">Contact support</a>
+                </li>
+            }
+        </ul>;
 }

@@ -31,6 +31,17 @@ else
     </ul>
 
 }
+@* Issue 223 (D332): support requests that aren't closed, by status, in this person's queues; each opens the filtered queue. *@
+@if (tickets is { States.Count: > 0 } support)
+{
+    <ul class="tiles" data-ticket-overview>
+        @foreach (var s in support.States)
+        {
+            <li><a href="@($"/tickets?state={s.StateId}")" data-ticket-overview-state="@s.Name"><strong>@s.Count@(support.More && s.Count > 0 ? "+" : "")</strong> @SupportTicketText.State(s.Name).ToLowerInvariant() support requests</a></li>
+        }
+    </ul>
+    @if (support.More) { <p class="help" data-ticket-overview-more>Counts the 100 most recently updated open requests. Open the queue to see them all.</p> }
+}
 @if(photoWorkload is{}photos)
 {
     <ul class="tiles" data-photo-workload><li><a href="/media"><strong>@photos.ManualReview</strong> awaiting media review</a></li><li><a href="/media"><strong>@photos.PendingScreening</strong> waiting for screening</a></li><li><a href="/media/appeals"><strong>@photos.Appeals</strong> media appeals</a></li></ul>
@@ -42,9 +53,15 @@ else
     private PhotoWorkload? photoWorkload;
     private bool legalOnly;
     private LeOverview? le;
+    private TicketOverview? tickets;
 
     protected override async Task OnInitializedAsync()
     {
+        // Issue 223: refused (no ticket role, or the helpdesk unavailable) simply doesn't show.
+        // A slow helpdesk never blocks the rest of the overview.
+        try { tickets = (await Admin.TicketOverviewAsync()).Value; }
+        catch (TaskCanceledException) { tickets = null; }
+        catch (HttpRequestException) { tickets = null; }
         // D195: the officer's case timers (refused for everyone else, so it simply doesn't show).
         photoWorkload=(await Admin.PhotoWorkloadAsync()).Value;
         le = (await Admin.LeOverviewAsync()).Value;

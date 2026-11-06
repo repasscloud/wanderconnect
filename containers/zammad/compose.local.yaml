@@ -4,6 +4,10 @@ services:
     image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
     ports: !override
       - "127.0.0.1:8095:8080"
+    # Issue 220 (D330): a support message may carry 150 MB of files, about 200 MB once base64-encoded for the API.
+    # Hosted Zammad needs the same value (docs/delivery/zammad/OPERATIONS.md).
+    environment:
+      NGINX_CLIENT_MAX_BODY_SIZE: 220M
     networks:
       default:
       integration:

@@ -43,29 +43,41 @@ public sealed partial class ZammadTicketingProvider
     public async Task<SupportArticle> ReplyWithOperationAsync(long id,string body,bool internalNote,bool customer,IReadOnlyList<SupportUpload> attachments,string operationReference,CancellationToken ct)
     {
         ValidateText(body,16000);
-        if(!Guid.TryParseExact(operationReference,"D",out _)||internalNote&&customer||attachments.Count>3||attachments.Any(a=>a.Data.Length>65536))throw new ArgumentException("Invalid support article.");
+        if(!Guid.TryParseExact(operationReference,"D",out _)||internalNote&&customer)throw new ArgumentException("Invalid support article.");
+        CheckUploads(attachments);
         return ReadWrite(Article,await Send(HttpMethod.Post,"ticket_articles",new{ticket_id=Id(id),body,type="note",content_type="text/plain",@internal=internalNote,sender=customer?"Customer":"Agent",message_id=$"swoovr-operation-{operationReference}@swoovr.invalid",preferences=new{swoovr_operation=operationReference},
-            attachments=attachments.Select(a=>new Dictionary<string,string>{{"filename",a.Filename},{"mime-type",a.ContentType},{"data",Convert.ToBase64String(a.Data)}}).ToArray()},ct));
+            attachments=Uploads(attachments)},ct,slow:attachments.Count>0));
     }
     public async Task<SupportArticle> ReplyAsync(long id,string body,bool internalNote,bool customer,IReadOnlyList<SupportUpload> attachments,CancellationToken ct)
     {
         ValidateText(body,16000);
-        if(internalNote&&customer||attachments.Count>3||attachments.Any(a=>a.Data.Length>65536))throw new ArgumentException("Invalid support article.");
+        if(internalNote&&customer)throw new ArgumentException("Invalid support article.");
+        CheckUploads(attachments);
         return ReadWrite(Article,await Send(HttpMethod.Post,"ticket_articles",new{ticket_id=Id(id),body,type="note",content_type="text/plain",@internal=internalNote,sender=customer?"Customer":"Agent",
-            attachments=attachments.Select(a=>new Dictionary<string,string>{{"filename",a.Filename},{"mime-type",a.ContentType},{"data",Convert.ToBase64String(a.Data)}}).ToArray()},ct));
+            attachments=Uploads(attachments)},ct,slow:attachments.Count>0));
     }
     public async Task<SupportDownload> DownloadAsync(long ticket,long article,long attachment,CancellationToken ct)
     {
         using var request=new HttpRequestMessage(HttpMethod.Get,new Uri(root,$"ticket_attachment/{Id(ticket)}/{Id(article)}/{Id(attachment)}"));
         request.Headers.Authorization=new AuthenticationHeaderValue("Token","token="+token);
         if(from is long actor)request.Headers.TryAddWithoutValidation("From",actor.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        // Issue 220: files up to the largest allowed (100 MB), streamed with our own cap instead of the client's 4 MB buffer.
+        using var limit=CancellationTokenSource.CreateLinkedTokenSource(ct);
+        limit.CancelAfter(UploadTimeout);
         try
         {
-            using var response=await http.SendAsync(request,HttpCompletionOption.ResponseContentRead,ct);
+            using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,limit.Token);
             if(!response.IsSuccessStatusCode)throw new TicketingProviderException((int)response.StatusCode is 401 or 403 or 404?"provider-forbidden":"provider-unavailable");
-            var bytes=await response.Content.ReadAsByteArrayAsync(ct);
-            if(bytes.Length>65536)throw new TicketingProviderException("attachment-too-large");
-            return new(bytes,response.Content.Headers.ContentType?.MediaType??"application/octet-stream");
+            if(response.Content.Headers.ContentLength>MaxUploadBytes)throw new TicketingProviderException("attachment-too-large");
+            await using var stream=await response.Content.ReadAsStreamAsync(limit.Token);
+            using var memory=new MemoryStream();
+            var buffer=new byte[81920];int read;
+            while((read=await stream.ReadAsync(buffer,limit.Token))>0)
+            {
+                if(memory.Length+read>MaxUploadBytes)throw new TicketingProviderException("attachment-too-large");
+                memory.Write(buffer,0,read);
+            }
+            return new(memory.ToArray(),response.Content.Headers.ContentType?.MediaType??"application/octet-stream");
         }
         catch(HttpRequestException){throw new TicketingProviderException("provider-unavailable");}
         catch(OperationCanceledException)when(!ct.IsCancellationRequested){throw new TicketingProviderException("provider-timeout");}

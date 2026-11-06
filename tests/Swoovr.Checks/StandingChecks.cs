@@ -61,6 +61,18 @@ static class StandingChecks
         Expect(StandingText.Sanction(new StandingSanction(Guid.NewGuid(), "suspension", "x", now, null, null, null)) == "Suspension since 29 Oct 2026, until lifted", "an open-ended suspension");
         Expect(StandingText.Dob(new StandingVerification(true, true, false, "attested", true, false, "correctionNeeded", "verified")).StartsWith("Differs"), "the correction prompt");
 
+        // Issue 217: the web page's wording and banner.
+        Expect(StandingText.Id("notStarted") == "Not verified", "no \"(optional)\" on an unverified ID");
+        Expect(StandingText.Date(now) == "29 Oct 2026", "one date style");
+        var verification = new StandingVerification(true, true, false, "attested", true, false, "none", "notStarted");
+        var restricted = new AccountStandingView("restricted", verification, [new("phone", "/account?phone=required")],
+            [new(Guid.NewGuid(), "restriction", "x", now, now.AddDays(7), now.AddDays(30), null)], [], []);
+        Expect(StandingText.BannerTitle(restricted) == "Your account is restricted until 5 Nov 2026", "the banner names the action in force and its end");
+        Expect(StandingText.BannerTitle(restricted with { InForce = [] }) == "Verify your mobile number", "a single to-do becomes the banner");
+        Expect(StandingText.DecisionLink(new StandingDecision("photo-not-approved", now, null, null, null, null)) == ("Photos", "/me/photos"), "a refused photo links to Photos");
+        Expect(StandingText.DecisionLink(new StandingDecision("warning", now, "issued", Guid.NewGuid(), null, now.AddDays(30))) == ("Appeal", "/me/notices"), "an appealable decision links to the appeal");
+        Expect(StandingText.Outcome("noBreachFound") == "We reviewed it and didn't find a breach of our rules." && StandingText.Outcome(null) is null, "a report's general outcome");
+
         Console.WriteLine($"PASS: account standing ({checks} checks).");
     }
 }
