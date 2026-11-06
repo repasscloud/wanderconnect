@@ -34,9 +34,9 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | --- | --- | --- |
 | R017 | Done | T&S queues are Zammad groups (Trust & Safety, Restricted, Legal, Privacy, Security); no second ticket system |
 | R018 | Done | Cases, evidence, sanctions, appeals stay in Swoovr; links are references; closing a request changes nothing (runtime check) |
-| R019 | Done | No evidence copied; sensitive-looking uploads refused; owner's file list with content checks (D330, malware scanning OPEN Q135); secure document collection deferred |
+| R019 | Done | No evidence copied; sensitive-looking uploads refused; owner's file list with content checks (D330) and ClamAV quarantine before Zammad plus scan-on-download (D336; Q137 open for direct Zammad downloads); secure document collection deferred |
 | R020 | Done | Visibility split documented in `API.md`/`IMPLEMENTATION.md`; Admin shows linked cases with deep links into Swoovr case screens |
-| R021 | Partly / OPEN | Sensitive queues need elevation + a sign-in within 15 minutes (D327); never on a Zammad web sign-in; conflict exclusions enforced in Admin and by switching off web sign-in. Retention policy decided (D333, #207); automated retention and customer retirement not built yet (Q136, #224, `RETENTION-OPTIONS.md`) |
+| R021 | Partly / OPEN | Sensitive queues need elevation + a sign-in within 15 minutes (D327); never on a Zammad web sign-in; conflict exclusions enforced in Admin and by switching off web sign-in. Retention policy decided (D333, #207) and built (D337: ledger, holds/case checks, data privacy deletion, customer retirement, restore reconcile; `OPERATIONS.md`) |
 
 ## Public website, guest support and email
 
@@ -85,7 +85,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 
 | ID | Status | Where / evidence |
 | --- | --- | --- |
-| R051 | Done (CONFIRMED owner, D330) | Owner's list: images, documents, text, video, audio; per-type limits, 5 per message, 150 MB in all; content must match type. Guests stay `.txt`. Malware scanning OPEN (Q135) |
+| R051 | Done (CONFIRMED owner, D330) | Owner's list: images, documents, text, video, audio; per-type limits, 5 per message, 150 MB in all; content must match type; scanned by ClamAV before reaching Zammad (D336). Guests stay `.txt`, scanned before sending. Malware scanning OPEN (Q135) |
 | R052–R054 | Excluded (deferred) | Secure identity-document upload is a separate workstream; no upload invitation or unfinished flow; sensitive-looking content refused |
 | R055 | Done | Ticket numbers are never credentials (guest + runtime checks) |
 | R056 | Excluded (deferred) | Reuse of R2 and the verification provider belongs to the deferred upload workstream |

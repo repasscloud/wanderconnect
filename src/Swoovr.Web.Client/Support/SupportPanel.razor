@@ -6,6 +6,7 @@
    reply-time expectation; files (photos, documents, text, video, audio) on the first message and on replies, sent as
    multipart by support-upload.js; Cancel on a new request; a conversation thread, oldest first with the reply box
    below it; and the member can close their own request (it is not reopened). *@
+@implements IDisposable
 @using System.Text.Json
 @inject MemberClient Members
 @inject NavigationManager Navigation
@@ -92,7 +93,7 @@ else if (detail is { } d)
                 <li class="me-message@(mine ? " me-message-mine" : "")" data-support-article="@a.Id" data-sender="@a.Sender">
                     <p class="me-message-who"><strong>@SupportTicketText.Sender(a.Sender, true)</strong> · <time>@When(a.CreatedAt)</time></p>
                     <div class="me-bubble">
-                        <p class="support-body">@a.Body</p>
+                        @if (a.Body.Length > 0) { <p class="support-body">@a.Body</p> }
                         @if (a.Attachments.Count > 0)
                         {
                             <ul class="me-files">
@@ -100,6 +101,15 @@ else if (detail is { } d)
                                 {
                                     <li data-support-attachment="@x.Id"><span class="me-file-name">@x.Filename</span><span class="me-meta">@SupportAttachmentPolicy.Size(x.Size)</span>
                                         <button type="button" class="button button-secondary me-pill-button" disabled="@(downloading == x.Id)" @onclick="() => SaveAsync(a.Id, x.Id)">@(downloading == x.Id ? "Downloading…" : "Download")</button></li>
+                                }
+                            </ul>
+                        }
+                        @if (a.Held.Count > 0)
+                        {
+                            <ul class="me-files">
+                                @foreach (var h in a.Held)
+                                {
+                                    <li data-support-held="@h.Status"><span class="me-file-name">@h.Filename</span><span class="me-meta">@SupportAttachmentPolicy.Size(h.Size) · @SupportTicketText.HeldStatus(h.Status)</span></li>
                                 }
                             </ul>
                         }
@@ -217,7 +227,36 @@ else if (problem is null) { <p role="status" class="me-meta">Loading…</p> }
         var result = await Members.TicketAsync(id);
         // A refusal removes what was shown: access may have been withdrawn since the last load.
         if (result.Ok) detail = result.Value; else { detail = null; Fail(result.Status, result.Code); }
+        Watch();
     }
+
+    // D336 (issue 221): while a file is being checked for malware, the conversation refreshes every 5 seconds (up to 10 minutes),
+    // so released files appear without a reload. The text being typed in the reply box is untouched.
+    private CancellationTokenSource? watching;
+    private bool Checking => detail?.Articles.Any(a => a.Held.Any(h => h.Status == "checking")) == true;
+    private void Watch()
+    {
+        if (!Checking || watching is not null || Id is not long id) return;
+        watching = new CancellationTokenSource();
+        _ = WatchAsync(id, watching.Token);
+    }
+    private async Task WatchAsync(long id, CancellationToken token)
+    {
+        try
+        {
+            for (var round = 0; round < 120 && Checking; round++)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), token);
+                var before = detail;
+                var result = await Members.TicketAsync(id, token);
+                // A reply or close that landed meanwhile is newer than this refresh; never put the older view back.
+                if (result.Ok) await InvokeAsync(() => { if (ReferenceEquals(detail, before)) { detail = result.Value; StateHasChanged(); } });
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally { watching = null; }
+    }
+    public void Dispose() { watching?.Cancel(); watching?.Dispose(); }
 
     private async Task PickedAsync(ChangeEventArgs _)
     {
@@ -280,6 +319,7 @@ else if (problem is null) { <p role="status" class="me-meta">Loading…</p> }
         {
             detail = updated; body = null; locked = false; operation = Guid.NewGuid(); filesProblem = null;
             files = (await JS.InvokeAsync<List<PickedFile>>("swoovrSupport.clear", FilesInput)) ?? [];
+            Watch();
             return;
         }
         locked = Uncertain(status, code);

@@ -28,7 +28,8 @@ async function signIn(page, start, email, password) {
   let pages = [];
   const browser = await chromium.launch(process.env.SWOOVR_BROWSER_CHANNEL ? { channel: process.env.SWOOVR_BROWSER_CHANNEL } : {});
   try {
-    const member = await browser.newContext({ viewport: { width: 390, height: 844 } }), staff = await browser.newContext({ viewport: { width: 1280, height: 900 } }), other = await browser.newContext();
+    // bypassCSP lets the harness's waitForFunction predicates run under the app's strict CSP (test contexts only).
+    const member = await browser.newContext({ viewport: { width: 390, height: 844 }, bypassCSP: true }), staff = await browser.newContext({ viewport: { width: 1280, height: 900 }, bypassCSP: true }), other = await browser.newContext({ bypassCSP: true });
     const m = await member.newPage(), s = await staff.newPage(), o = await other.newPage(); pages = [['member', m], ['staff', s], ['other', o]];
     await signIn(m, web + '/account/sign-in?intro=done', 'fictional.alex@example.test', env.SWOOVR_LOCAL_MEMBER_PASSWORD);
     await m.goto(web + '/me/support/new?reference=SW-ABC234');
@@ -138,6 +139,11 @@ async function signIn(page, start, email, password) {
     await m.waitForFunction(() => document.querySelector('[data-support-detail] [data-support-state]')?.textContent.trim() === 'Closed', null, { timeout: 60000 });
     check(true, 'the member closed their own request');
     check(await m.locator('[data-support-reply-body]').count() === 0 && await m.locator('[data-support-closed]').count() === 1, 'a closed request takes no reply and is not reopened');
+    // Issue 228: staff see the closed request without a reply box (they can still reopen it from its status).
+    const closedId = m.url().match(/(\d+)$/)[1];
+    await s.goto(admin + '/tickets/' + closedId);
+    await s.waitForSelector(`[data-ticket-detail="TK-${closedId}"]`, { timeout: 60000 });
+    check(await s.locator('[data-ticket-closed]').count() === 1 && await s.locator('[data-ticket-reply]').count() === 0 && await s.locator('[data-ticket-change]').count() === 1, 'Admin offers no reply on a closed request, only its status');
     await m.screenshot({ path: path.join(shots, 'member-closed-390.png'), fullPage: true });
 
     let otherSignedIn = true;

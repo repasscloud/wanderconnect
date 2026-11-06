@@ -2,8 +2,18 @@ namespace Swoovr.Contracts;
 
 public sealed record TicketSummary(long Id,string Reference,string Title,long StateId,long PriorityId,DateTimeOffset UpdatedAt);
 public sealed record TicketAttachment(long Id,string Filename,string ContentType,long Size);
-public sealed record TicketArticle(long Id,string Body,bool Private,string Sender,DateTimeOffset CreatedAt,IReadOnlyList<TicketAttachment> Attachments,string? Channel=null);
-public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArticle> Articles,TicketStaffFields? Staff=null,bool CanReply=true);
+public sealed record TicketArticle(long Id,string Body,bool Private,string Sender,DateTimeOffset CreatedAt,IReadOnlyList<TicketAttachment> Attachments,string? Channel=null)
+{
+    /// <summary>D336: files of this message still in quarantine ("checking") or refused ("blocked"); released files are in a later article.</summary>
+    public IReadOnlyList<TicketHeldFile> Held { get; init; } = [];
+}
+/// <summary>D336: Status "checking" or "blocked". Detection (signature name) is shown to staff only.</summary>
+public sealed record TicketHeldFile(string Filename,long Size,string Status,string? Detection=null);
+public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArticle> Articles,TicketStaffFields? Staff=null,bool CanReply=true)
+{
+    /// <summary>Issue 228: closed (or merged) in the helpdesk. Swoovr offers no reply on a closed request; staff reopen it by changing its status.</summary>
+    public bool Closed { get; init; }
+}
 public sealed record TicketStaffFields(long GroupId,long OwnerId,Guid? CustomerAccountId,IReadOnlyDictionary<string,string> Classification,bool Guest=false);
 public sealed record TicketPage(IReadOnlyList<TicketSummary> Items,int Page,int PageSize,bool HasMore);
 /// <param name="Reference">Optional SW- report reference of the member's own report; the API links the request to that case only if it is theirs.</param>
@@ -29,7 +39,15 @@ public sealed record TicketTextModule(long Id,string Name,string Body);
 public sealed record TicketMacro(long Id,string Name,bool Supported);
 public sealed record TicketMacroApply(Guid OperationId,DateTimeOffset ExpectedUpdatedAt);
 public sealed record TicketDiagnostics(string Provider,long Mappings,long UncertainMappings,long UncertainOperations,long PendingDeliveries,long FailedDeliveries,
-    TicketStaffSyncStatus? Staff=null);
+    TicketStaffSyncStatus? Staff=null)
+{
+    /// <summary>D336: the malware scanner and quarantined files.</summary>
+    public TicketScanStatus? Scanning { get; init; }
+    /// <summary>D337: helpdesk retention.</summary>
+    public TicketRetentionStatus? Retention { get; init; }
+}
+public sealed record TicketScanStatus(string Scanner,bool Healthy,long Waiting,long Retrying,long Blocked,long Released);
+public sealed record TicketRetentionStatus(bool Configured,long Tracked,long Open,long Held,long Failed,long Disposed,long RetirementsWaiting);
 /// <summary>Staff permission mirroring into the helpdesk. UnmanagedAgents counts helpdesk agents Swoovr doesn't control (null if not checked).</summary>
 public sealed record TicketStaffSyncStatus(bool Configured,long Mirrored,long WebSignIn,long Failed,DateTimeOffset? LastSyncedAt,DateTimeOffset? LastVerifiedAt,long? UnmanagedAgents);
 public sealed record TicketStaffSyncRun(int Checked,int Changed,int Failed,int Drifted);
@@ -49,3 +67,8 @@ public sealed record GuestGrantRequest(string Email,string Code);
 public sealed record GuestGrant(string Grant,DateTimeOffset ExpiresAt);
 public sealed record GuestTicketCreate(Guid OperationId,string Category,string Title,string Body);
 public sealed record GuestCategory(string Id,string Label);
+
+/// <summary>D337 (#224): a ticket's helpdesk retention. Categories: General, Billing, FinancialRecord, TrustAndSafety, Legal, Privacy, Security.</summary>
+public sealed record TicketRetentionView(string Category,string GroupCategory,string? OverrideCategory,string? OverrideReason,DateTimeOffset? ClosedAt,DateTimeOffset? RetainUntil,string State,string? KeptFor,bool CanChange);
+/// <summary>Null Category clears the override. A reason is always required (audited).</summary>
+public sealed record TicketRetentionChange(string? Category,string Reason);

@@ -50,6 +50,17 @@ directory.assign_attributes(firstname: 'Swoovr', lastname: 'Staff directory', em
   password: input.fetch('password'), role_ids: [directory_role.id], created_by_id: actor, updated_by_id: actor)
 directory.save!
 directory.group_names_access_map = {}
+# Retention (D337, #224): reads ticket metadata in every group and deletes only through data privacy tasks. It belongs to
+# no Agent role, so it is never an assignable owner and staff synchronisation never manages it.
+retention_role = Role.find_or_initialize_by(name: 'Swoovr retention')
+retention_role.assign_attributes(active: true, default_at_signup: false, created_by_id: actor, updated_by_id: actor)
+retention_role.save!
+%w[admin.data_privacy ticket.agent].each { |permission| retention_role.permission_grant(permission) }
+retention = User.find_or_initialize_by(login: 'swoovr-retention')
+retention.assign_attributes(firstname: 'Swoovr', lastname: 'Retention', email: 'retention@example.test', active: true,
+  password: input.fetch('password'), role_ids: [retention_role.id], created_by_id: actor, updated_by_id: actor)
+retention.save!
+retention.group_ids_access_map = Group.pluck(:id).to_h { |id| [id, ['read']] }
 def api_token(user, label, permissions)
   token = Token.find_by(action: 'api', user_id: user.id, name: label)
   token ||= Token.create!(action: 'api', persistent: true, user_id: user.id, name: label,
@@ -202,4 +213,5 @@ puts "SWOOVR_PROVISION_RESULT=" + JSON.generate({version: Version.get, groups: g
   customer_role_id: customer_role.id, agent_role_id: agent_role.id,
   provisioning_token: api_token(admin, 'swoovr-local-provisioning', ['admin', 'ticket.agent']),
   identity_token: api_token(identity, 'swoovr-local-identity', ['admin.user']),
-  staff_directory_token: api_token(directory, 'swoovr-local-staff-directory', ['admin.user', 'admin.session', 'ticket.agent'])})
+  staff_directory_token: api_token(directory, 'swoovr-local-staff-directory', ['admin.user', 'admin.session', 'ticket.agent']),
+  retention_token: api_token(retention, 'swoovr-local-retention', ['admin.data_privacy', 'ticket.agent'])})

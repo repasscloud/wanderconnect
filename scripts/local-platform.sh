@@ -261,6 +261,8 @@ case "$command" in
     fi
     if $screening; then dc --profile screening up -d --wait --wait-timeout 360 screening
     else dc --profile screening stop screening; fi
+    # D336: ClamAV first (its first start downloads the signature database, which can take a few minutes).
+    dc up -d --wait --wait-timeout 600 clamav
     dc up -d --wait api web admin
     record
     # Bounded readiness wait uses Node inside the shared namespace, not host tools.

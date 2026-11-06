@@ -45,6 +45,8 @@ static class StaffConflictPersistenceChecks
                 new Account { Id = independent, Issuer = "https://issuer.example.test/realms/staff", Subject = "fictional-" + independent, Realm = AccountRealm.Staff, Status = AccountStatus.Active, CreatedAt = now, LastSeenAt = now });
             db.MemberProfiles.Add(new MemberProfile { AccountId = member, PublicId = Guid.NewGuid(), DisplayName = "Fictional Conflict Tester", AgeStatus = AgeStatus.Attested, DateOfBirth = new DateOnly(1990, 1, 1) });
             db.StaffMemberLinks.Add(new StaffMemberLink { StaffAccountId = staff, MemberAccountId = member, LinkedAt = now.AddYears(-3), LinkedBy = independent });
+            // D337: the member's helpdesk customer mapping, which final deletion must hand to the retirement worker.
+            db.Add(new TicketingIdentity { AccountId = member, ProviderUserId = 990000 + Random.Shared.Next(9999), State = TicketingOperationState.Applied, CreatedAt = now, UpdatedAt = now });
             await db.SaveChangesAsync();
             var evidence = scope.ServiceProvider.GetRequiredService<EvidencePreservation>();
             var hold = await LegalHoldEndpoints.PlaceAsync(db, evidence, AccountRole.Legal, independent, "Fictional held personal association", [member], [], null, null, null, null, null, "staff", now, CancellationToken.None);
@@ -54,10 +56,13 @@ static class StaffConflictPersistenceChecks
             var account = await db.Accounts.SingleAsync(a => a.Id == member);await db.Entry(account).ReloadAsync();
             check("fake unconfirmed identity deletion preserves finalizing state", first.Waiting == 1 && account.Status == AccountStatus.PendingDeletion && account.DeletionFinalizingAt is not null);
             check("actual finalization prevents cancellation after provider uncertainty", !AccountDeletionPolicy.Cancel(account));
+            check("helpdesk retirement is not requested before final deletion completes (D337)", await db.Set<TicketingIdentity>().AsNoTracking().AnyAsync(i => i.AccountId == member && i.RetirementRequestedAt == null));
             identity.DeleteConfirmed = true;
             var retry = await deletion.PurgeAsync(now, CancellationToken.None, member);
             check("fake confirmed retry finishes deletion once", retry.Deleted == 1 && identity.Deletes == 2 && await db.Accounts.AnyAsync(a => a.Id == member && a.Status == AccountStatus.Deleted));
             check("ordinary member profile and current link are erased", !await db.MemberProfiles.AnyAsync(p => p.AccountId == member) && !await db.StaffMemberLinks.AnyAsync(l => l.MemberAccountId == member));
+            check("final deletion requests helpdesk customer retirement in the same transaction (D337)", await db.Set<TicketingIdentity>().AsNoTracking()
+                .AnyAsync(i => i.AccountId == member && i.RetirementRequestedAt != null && i.DeactivatedAt != null && i.RetiredAt == null));
             check("independent held copies survive member deletion", await db.EvidenceItems.AnyAsync(e => e.HoldId == hold.Id));
             check("deletion preserves staff personal exclusion for retained evidence", await StaffAccessEndpoints.ExcludedAsync(db, staff, [member], CancellationToken.None));
             check("independent officer remains eligible", !await StaffAccessEndpoints.ExcludedAsync(db, independent, [member], CancellationToken.None));

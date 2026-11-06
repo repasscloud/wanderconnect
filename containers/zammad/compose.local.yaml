@@ -38,6 +38,13 @@ services:
     networks: [default, integration]
   zammad-backup:
     image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
+    # D333 (#207): helpdesk backups are kept at most 35 days (upstream default 10). The job deletes old files only when it
+    # makes the next daily backup, with `find -mtime +HOLD_DAYS` (age in whole days greater than HOLD_DAYS), so a file can
+    # reach HOLD_DAYS + 2 days before it goes: 33 keeps every backup under 35 days. Hosted Zammad sets the same, with
+    # encrypted, access-controlled backup storage; legal holds are handled by Swoovr, never by keeping backups longer.
+    environment:
+      HOLD_DAYS: "33"
+      TZ: Australia/Adelaide
   zammad-init:
     image: ghcr.io/zammad/zammad@sha256:17dec4f83fc18bad7195d7d44df8dca35e04df882e6315385adf230ea759a614
   zammad-websocket:

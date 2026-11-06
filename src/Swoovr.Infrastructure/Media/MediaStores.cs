@@ -126,10 +126,12 @@ public static class MediaKeys
     public static string Quarantine(Guid id) => $"quarantine/{id:N}";
     public static string Photo(Guid id) => $"photos/{id:N}";
     public static string Evidence(Guid id) => $"evidence/{id:N}";
+    /// <summary>D336: a quarantined support attachment (never served directly; released only after a clean scan).</summary>
+    public static string Attachment(Guid id) => $"attachments/{id:N}";
 
     public static bool Valid(string key)
     {
         var parts = key.Split('/');
-        return parts.Length == 2 && parts[0] is "quarantine" or "photos" or "evidence" or "selftest" && Guid.TryParseExact(parts[1], "N", out _);
+        return parts.Length == 2 && parts[0] is "quarantine" or "photos" or "evidence" or "selftest" or "attachments" && Guid.TryParseExact(parts[1], "N", out _);
     }
 }

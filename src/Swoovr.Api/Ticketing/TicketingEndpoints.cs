@@ -54,6 +54,8 @@ public static class TicketingEndpoints
             var request=new TicketReply(operation,form.Field("body")??"",form.Field("private")=="true",form.Files);
             return await Run(c,a,f,t,true,(r,ct)=>r.ReplyAsync(id,request,ct));
         });
+        admin.MapGet("/{id:long}/retention",(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.RetentionAsync(id,ct)));
+        admin.MapPut("/{id:long}/retention",(long id,TicketRetentionChange request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.SetRetentionAsync(id,request,ct)));
         admin.MapGet("/{id:long}/links",(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.LinksAsync(id,ct)));
         admin.MapPost("/{id:long}/links",(long id,TicketLink request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.LinkAsync(id,request,ct)));
         admin.MapPost("/{id:long}/macros/{macro:long}",(long id,long macro,TicketMacroApply request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ApplyMacroAsync(id,macro,request,ct)));

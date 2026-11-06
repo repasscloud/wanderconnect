@@ -79,6 +79,7 @@ StaffAccessChecks.Run();
 SecurityOperationsChecks.Run();
 LocationPrivacyChecks.Run();
 PrivacyNoticeChecks.Run();
+HelpdeskRetentionAndScanningChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();

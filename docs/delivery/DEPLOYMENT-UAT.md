@@ -141,6 +141,8 @@ After paired receipts, run the concrete operator command `recovery-permissions <
 
 Point isolated test revisions at the reconciled targets/recovery bucket, keep public ingress/invitations off, run the core smoke plus held/deleted-data, old credentials/session/push refusal and authority receipt checks. Record actual recovery duration/provenance and approval. Promotion/DNS changes require owner approval. Rollback to previous image digests is allowed only with schema compatibility and the same currently authoritative data; stop workers, restore the reviewed complete parameters/digests and recheck health. Never clear a restore fence, restart divergent sources or replay an old database to make a rollback appear successful. A migration/data rollback requires the paired reconciled restore process, not an image-only command.
 
+A helpdesk (Zammad) restore has its own sequence, ending with `retention helpdesk --reconcile` before staff use it: [BACKUP-RESTORE.md](BACKUP-RESTORE.md#helpdesk-zammad-backups-and-restore).
+
 ## Smoke and final admission gate
 
 After approved deployment, use two fresh approved participants and a private operator terminal. Real registration/email/phone/identity/policy steps stay in the normal browser/provider, with truthful adult details and mutually compatible visible Friends profiles in the same market. Local repository fixtures are fictional adults@example.test and are never presented as real-delivery evidence. Do not try to send real mail to example.test or substitute provider simulation to make UAT pass.

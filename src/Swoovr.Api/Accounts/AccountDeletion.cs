@@ -305,6 +305,10 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         if (!terminated) await db.ContactHistories.Where(h => h.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberPhones.Where(p => p.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberProfiles.Where(p => p.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // D333/D337 (#207, #224): final deletion requests retirement of the member's helpdesk customer in this same
+        // transaction; the helpdesk step of the retention run retires it, whether or not the member ever returns to support.
+        await db.Set<TicketingIdentity>().Where(i => i.AccountId == id && i.RetirementRequestedAt == null)
+            .ExecuteUpdateAsync(u => u.SetProperty(i => i.RetirementRequestedAt, now).SetProperty(i => i.DeactivatedAt, i => i.DeactivatedAt ?? now), cancellationToken);
         // Kept for two years (D170): reports, moderation cases and their evidence, sanctions, appeals and audit entries.
         AccountDeletionPolicy.Tombstone(account, now);
         Audit.Record(db, now, null, "system", "account.deleted", "account", id.ToString(), terminated ? "terminated-hold" : null);

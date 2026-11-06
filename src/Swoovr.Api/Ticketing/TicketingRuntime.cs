@@ -17,6 +17,7 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     private Task<SupportDirectory>? directoryTask;
     private Task<SupportDirectory> DirectoryAsync(CancellationToken ct)=>directoryTask??=provider.DirectoryAsync(ct);
     private Guid Me=>current.Account!.Id;
+    private SupportAttachmentQuarantine Quarantine=>accounts.Services.GetRequiredService<SupportAttachmentQuarantine>();
     private static TicketingAccessException Refuse(int status=403,string code="ticket-unavailable")=>new(status,code);
     private AccountRole Role(string group)=>new[]{AccountRole.Legal,AccountRole.TrustSafety,AccountRole.Admin,AccountRole.Support}.FirstOrDefault(r=>current.Allows(r)&&TicketingPolicy.CanAccessGroup(r,group));
     /// <summary>
@@ -94,20 +95,24 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var articles=await provider.GetArticlesAsync(id,ct);
         // Read access again after the provider fetch; a transfer/revocation cannot expose a fetched private projection.
         ticket=await TicketAsync(id,false,ct);
-        var views=articles.Where(a=>a.TicketId==id&&(staff||a.CustomerVisible)).Select(a=>new TicketArticle(a.Id,TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
-            a.Attachments.Where(x=>SupportAttachmentPolicy.Allowed(TicketingProjection.Filename(x.Filename),x.Size)).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),SupportAttachmentPolicy.TypeOf(TicketingProjection.Filename(x.Filename))!.Value.Mime,x.Size)).ToArray(),staff?a.Type:null)).ToArray();
-        return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct));
+        // D336: files still in quarantine show under their message; a release article shows as its files alone.
+        var (held,releases)=await Quarantine.ViewAsync(id,staff,ct);
+        var views=articles.Where(a=>a.TicketId==id&&(staff||a.CustomerVisible)).Select(a=>new TicketArticle(a.Id,a.OperationReference is {} op&&releases.Contains(op)?"":TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
+            a.Attachments.Where(x=>SupportAttachmentPolicy.Allowed(TicketingProjection.Filename(x.Filename),x.Size)).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),SupportAttachmentPolicy.TypeOf(TicketingProjection.Filename(x.Filename))!.Value.Mime,x.Size)).ToArray(),staff?a.Type:null){Held=held[a.Id].ToArray()}).ToArray();
+        return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct)){Closed=await ClosedAsync(ticket,ct)};
     }
     private async Task<TicketStaffFields> StaffFieldsAsync(SupportTicket ticket,CancellationToken ct)
     {
         var member=await CustomerAccountAsync(ticket.CustomerId,ct);
         return new(ticket.GroupId,ticket.OwnerId,member,ticket.Classification,member is null&&await Db.Set<TicketingGuest>().AnyAsync(g=>g.ProviderUserId==ticket.CustomerId,ct));
     }
+    private async Task<bool> ClosedAsync(SupportTicket ticket,CancellationToken ct)=>(await DirectoryAsync(ct)).States.SingleOrDefault(s=>s.Id==ticket.StateId)?.Kind is "closed" or "merged";
     private async Task<bool> CanReplyAsync(SupportTicket ticket,CancellationToken ct)
     {
         if(staff)return await GroupAsync(ticket.GroupId,"change",ct);
+        // Issue 228: a closed request takes no reply in Swoovr, whatever the helpdesk's follow-up setting for its group.
         var directory=await DirectoryAsync(ct);var kind=directory.States.SingleOrDefault(s=>s.Id==ticket.StateId)?.Kind;
-        return kind is not null&&kind is not("merged" or "removed")&&(kind!="closed"||directory.Groups.SingleOrDefault(g=>g.Id==ticket.GroupId)?.FollowUpPolicy=="yes");
+        return kind is not null&&kind is not("merged" or "removed" or "closed");
     }
     public async Task<TicketPage> ListAsync(int page,int size,string? query,long? group,long? state,long? priority,long? owner,string sort,bool descending,CancellationToken ct)
     {
@@ -256,7 +261,17 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         if(staff&&!await GroupAsync(group.Id,"create",ct))throw Refuse();
         // Issue 220: files may come with the first message.
         var uploads=request.Attachments is { Count: >0 } files?TicketingProjection.MemberAttachments(files.Select(f=>(f.Filename,f.Data))):null;
-        var created=await operations.CreateTicketAsync(customerAccount,request.OperationId,new(request.Title,request.Body,customer,group.Id,request.OperationId.ToString("D"),staff?"staff":"member",uploads),ct);
+        // D336: files go into quarantine first; the request reaches the helpdesk with its text only, and the files follow once scanned clean.
+        var quarantine=Quarantine;
+        var stored=uploads is {Count:>0}?await quarantine.StoreAsync(uploads,ct):[];
+        SupportTicket created;
+        try{created=await operations.CreateTicketAsync(customerAccount,request.OperationId,new(request.Title,request.Body,customer,group.Id,request.OperationId.ToString("D"),staff?"staff":"member",uploads),ct,sendAttachments:false);}
+        catch{await quarantine.DiscardAsync(stored);throw;}
+        if(stored.Count>0)
+        {
+            var first=(await provider.GetArticlesAsync(created.Id,ct)).Where(a=>a.TicketId==created.Id).Select(a=>(long?)a.Id).Min();
+            await quarantine.RecordAsync(request.OperationId,created.Id,first,staff?AttachmentSource.Staff:AttachmentSource.Member,Me,false,stored,ct);
+        }
         // DEFAULT: a member's own report reference links the request to that report's case. Someone else's or an unknown
         // reference is ignored without a word, so references can't be probed. Nothing from the report is sent to the helpdesk.
         if(!staff&&SupportReference.Normalise(request.Reference) is { } reference
@@ -344,6 +359,7 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     {
         var ticket=await TicketAsync(id,true,ct);
         if(!await CanReplyAsync(ticket,ct))throw Refuse(409,"ticket-follow-up-unavailable");
+        if(await ClosedAsync(ticket,ct))throw Refuse(409,"ticket-closed"); // issue 228: staff reopen it first
         ValidateText(request.Body,16000);
         if(!staff&&request.Private)throw Refuse();
         var uploads=TicketingProjection.MemberAttachments((request.Attachments??[]).Select(a=>(a.Filename,a.Data)));
@@ -351,16 +367,25 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var operation=await IntentAsync(request.OperationId,"reply",uploads.Count==0?request:new{request.OperationId,request.Body,request.Private,Files=Fingerprints(uploads)},id,ct);
         if(operation.State!=TicketingOperationState.Applied)
         {
+            // D336: the reply's text goes now; its files wait in quarantine until scanned clean.
+            var quarantine=Quarantine;var source=staff?AttachmentSource.Staff:AttachmentSource.Member;
+            var stored=uploads.Count>0?await quarantine.StoreAsync(uploads,ct):[];
             if(!freshIntents.Contains(operation.Id))
             {
                 var actor=await provider.ActorAsync(ct);
                 var matches=(await provider.GetArticlesAsync(id,ct)).Where(a=>a.TicketId==id&&a.OperationReference==operation.Id.ToString("D")&&a.AuthorId==actor.Id&&a.Internal==request.Private).ToArray();
-                if(matches.Length!=1)throw Refuse(409,"ticket-reconciliation-required");
+                if(matches.Length!=1){await quarantine.DiscardAsync(stored);throw Refuse(409,"ticket-reconciliation-required");}
                 await FinishAsync(operation,TicketingOperationState.Applied,matches[0].Id);
+                await quarantine.RecordAsync(operation.Id,id,matches[0].Id,source,Me,request.Private,stored,ct);
                 return await DetailAsync(id,ct);
             }
-            try{var article=await provider.ReplyWithOperationAsync(id,request.Body,request.Private,!staff,uploads,operation.Id.ToString("D"),ct);await FinishAsync(operation,TicketingOperationState.Applied,article.Id);}
-            catch(TicketingProviderException e){await FinishAsync(operation,e.Uncertain?TicketingOperationState.Uncertain:TicketingOperationState.Rejected);throw;}
+            try
+            {
+                var article=await provider.ReplyWithOperationAsync(id,request.Body,request.Private,!staff,[],operation.Id.ToString("D"),ct);
+                await FinishAsync(operation,TicketingOperationState.Applied,article.Id);
+                await quarantine.RecordAsync(operation.Id,id,article.Id,source,Me,request.Private,stored,ct);
+            }
+            catch(TicketingProviderException e){await quarantine.DiscardAsync(stored);await FinishAsync(operation,e.Uncertain?TicketingOperationState.Uncertain:TicketingOperationState.Rejected);throw;}
         }
         return await DetailAsync(id,ct);
     }
@@ -405,6 +430,45 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         }
         catch(TicketingProviderException e){await FinishAsync(operation,e.Uncertain?TicketingOperationState.Uncertain:TicketingOperationState.Rejected);throw;}
     }
+    /// <summary>D337 (136.2 2a): the ticket's retention, from its group unless Admin or Legal overrode it.</summary>
+    public async Task<TicketRetentionView> RetentionAsync(long id,CancellationToken ct)
+    {
+        var ticket=await TicketAsync(id,false,ct);
+        var row=await Db.Set<HelpdeskTicketRetention>().AsNoTracking().SingleOrDefaultAsync(r=>r.ProviderTicketId==id,ct)??await ObserveAsync(ticket,ct,save:false);
+        return RetentionView(row);
+    }
+    public async Task<TicketRetentionView> SetRetentionAsync(long id,TicketRetentionChange request,CancellationToken ct)
+    {
+        if(!CanChangeRetention)throw Refuse();
+        if(string.IsNullOrWhiteSpace(request.Reason)||request.Reason.Trim().Length>500||request.Reason.Contains('\0'))throw new ArgumentException("A reason of up to 500 characters is required.");
+        HelpdeskRetentionCategory? category=request.Category is null?null:Enum.TryParse<HelpdeskRetentionCategory>(request.Category,false,out var parsed)&&Enum.IsDefined(parsed)?parsed:throw new ArgumentException("Unknown retention category.");
+        var ticket=await TicketAsync(id,false,ct);
+        var row=await Db.Set<HelpdeskTicketRetention>().SingleOrDefaultAsync(r=>r.ProviderTicketId==id,ct)??await ObserveAsync(ticket,ct,save:true);
+        if(row.State is HelpdeskRetentionState.Disposing or HelpdeskRetentionState.Disposed)throw Refuse(409,"ticket-retention-disposed");
+        var previous=HelpdeskRetentionPolicy.Effective(row);
+        (row.OverrideCategory,row.OverrideReason,row.OverriddenBy,row.OverriddenAt)=(category,category is null?null:request.Reason.Trim(),category is null?null:Me,category is null?null:clock.GetUtcNow());
+        // Reclassifying reassesses at once (D333); a failed or waiting attempt starts again from the new period.
+        row.RetainUntil=HelpdeskRetentionPolicy.RetainUntil(row.ClosedAt,HelpdeskRetentionPolicy.Effective(row));
+        (row.Attempts,row.NextAttemptAt,row.FailureCode)=(0,null,null);
+        if(row.State==HelpdeskRetentionState.Failed)row.State=HelpdeskRetentionState.Retained;
+        Swoovr.Api.Accounts.Audit.Record(Db,clock.GetUtcNow(),Me,"staff","helpdesk.retention.changed","helpdesk-ticket",id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            System.Text.Json.JsonSerializer.Serialize(new{previous=previous.ToString(),next=HelpdeskRetentionPolicy.Effective(row).ToString(),reason=request.Reason.Trim()}));
+        await Db.SaveChangesAsync(ct);
+        return RetentionView(row);
+    }
+    private bool CanChangeRetention=>staff&&(current.Allows(AccountRole.Admin)||current.Allows(AccountRole.Legal));
+    private async Task<HelpdeskTicketRetention> ObserveAsync(SupportTicket ticket,CancellationToken ct,bool save)
+    {
+        var directory=await DirectoryAsync(ct);
+        var closed=directory.States.FirstOrDefault(s=>s.Id==ticket.StateId)?.Kind is "closed" or "merged";
+        var row=new HelpdeskTicketRetention{ProviderTicketId=ticket.Id,FirstSeenAt=clock.GetUtcNow()};
+        // The hourly sweep replaces the close time with Zammad's last_close_at.
+        HelpdeskRetentionPolicy.Observe(row,ticket.CustomerId,ticket.GroupId,directory.Groups.FirstOrDefault(g=>g.Id==ticket.GroupId)?.Name,closed,closed?ticket.UpdatedAt:null,clock.GetUtcNow());
+        if(save){Db.Add(row);await Db.SaveChangesAsync(ct);}
+        return row;
+    }
+    private TicketRetentionView RetentionView(HelpdeskTicketRetention row)=>new(HelpdeskRetentionPolicy.Effective(row).ToString(),row.Category.ToString(),row.OverrideCategory?.ToString(),
+        row.OverrideReason,row.ClosedAt,row.RetainUntil,row.State.ToString(),row.FailureCode is "held-account" or "held-case" or "open-case" or "open-appeal"?row.FailureCode:null,CanChangeRetention);
     public async Task<TicketDownload> DownloadAsync(long id,long articleId,long attachmentId,CancellationToken ct)
     {
         var detail=await DetailAsync(id,ct);var article=detail.Articles.SingleOrDefault(a=>a.Id==articleId)??throw Refuse(404);
@@ -412,6 +476,8 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var data=await provider.DownloadAsync(id,articleId,attachmentId,ct);
         await TicketAsync(id,false,ct);
         var checkedFile=TicketingProjection.MemberAttachment(attachment.Filename,data.Data);
+        // D336: nothing is served without a fresh clean scan (emailed files and files from before scanning are scanned now).
+        await Quarantine.RequireCleanAsync(data.Data,ct);
         return new(checkedFile.Filename,checkedFile.ContentType,data.Data);
     }
     /// <summary>Name, size and SHA-256 of each file: what an operation's digest covers.</summary>
@@ -463,7 +529,26 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         }
         var staffStatus=new TicketStaffSyncStatus(configured,await rows.LongCountAsync(s=>s.ProviderUserId!=null,ct),await rows.LongCountAsync(s=>s.WebActive,ct),await rows.LongCountAsync(s=>s.FailureCode!=null,ct),
             await rows.MaxAsync(s=>(DateTimeOffset?)s.SyncedAt,ct),await rows.MaxAsync(s=>(DateTimeOffset?)s.VerifiedAt,ct),unmanaged);
-        return new("reachable",await Db.Set<TicketingIdentity>().LongCountAsync(ct),await Db.Set<TicketingIdentity>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain,ct),await Db.Set<TicketingOperation>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain||i.State==TicketingOperationState.Pending,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null&&i.FailureCode!=null,ct),staffStatus);
+        return new("reachable",await Db.Set<TicketingIdentity>().LongCountAsync(ct),await Db.Set<TicketingIdentity>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain,ct),await Db.Set<TicketingOperation>().LongCountAsync(i=>i.State==TicketingOperationState.Uncertain||i.State==TicketingOperationState.Pending,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null,ct),await Db.Set<TicketingWebhookWork>().LongCountAsync(i=>i.CompletedAt==null&&i.FailureCode!=null,ct),staffStatus){Scanning=await ScanStatusAsync(ct),Retention=await RetentionStatusAsync(ct)};
+    }
+    private async Task<TicketScanStatus> ScanStatusAsync(CancellationToken ct)
+    {
+        var scanner=accounts.Services.GetRequiredService<IAttachmentMalwareScanner>();
+        using var quick=CancellationTokenSource.CreateLinkedTokenSource(ct);quick.CancelAfter(TimeSpan.FromSeconds(5));
+        var holds=Db.Set<SupportAttachmentHold>();
+        return new(scanner.Name,await scanner.HealthyAsync(quick.Token),
+            await holds.LongCountAsync(h=>h.ReleasedAt==null&&(h.State==AttachmentScanState.Pending||h.State==AttachmentScanState.Scanning||h.State==AttachmentScanState.Clean),ct),
+            await holds.LongCountAsync(h=>h.State==AttachmentScanState.Failed&&h.Attempts<AttachmentScanPolicy.MaximumAttempts,ct),
+            await holds.LongCountAsync(h=>h.State==AttachmentScanState.Infected||h.State==AttachmentScanState.Unsupported||h.State==AttachmentScanState.Failed&&h.Attempts>=AttachmentScanPolicy.MaximumAttempts,ct),
+            await holds.LongCountAsync(h=>h.ReleasedAt!=null&&h.State==AttachmentScanState.Clean,ct));
+    }
+    private async Task<TicketRetentionStatus> RetentionStatusAsync(CancellationToken ct)
+    {
+        var rows=Db.Set<HelpdeskTicketRetention>();
+        return new(actors.Retention() is not null,await rows.LongCountAsync(ct),await rows.LongCountAsync(r=>r.State==HelpdeskRetentionState.Open,ct),
+            await rows.LongCountAsync(r=>r.FailureCode=="held-account"||r.FailureCode=="held-case"||r.FailureCode=="open-case"||r.FailureCode=="open-appeal",ct),
+            await rows.LongCountAsync(r=>r.State==HelpdeskRetentionState.Failed,ct),await rows.LongCountAsync(r=>r.State==HelpdeskRetentionState.Disposed,ct),
+            await Db.Set<TicketingIdentity>().LongCountAsync(i=>i.RetirementRequestedAt!=null&&i.RetiredAt==null,ct));
     }
     /// <summary>Admin: apply and verify every staff member's helpdesk permissions now (normally every minute / ten minutes).</summary>
     public async Task<TicketStaffSyncRun> SyncStaffAsync(CancellationToken ct)

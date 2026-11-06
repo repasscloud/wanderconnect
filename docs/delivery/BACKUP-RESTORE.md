@@ -41,6 +41,31 @@ python3 scripts/backups/backup.py --store "$STORE" complete-keycloak --generatio
 
 The operator-owned `swoovr_operations` schema is excluded from all archives. Importing a previously ready database cannot import serving approval. The actual API refuses fenced startup before migrations, workers or ingress. Paired Keycloak readiness requires the matching completed API receipt. Recovery never mints application authentication tokens.
 
+## Helpdesk (Zammad) backups and restore
+
+Zammad's own backups are separate from the Swoovr backups above (D333: at most 35 days; D337).
+
+**How they're made.** The upstream `zammad-backup` container (`containers/zammad/compose.upstream.yaml`, unedited) runs Zammad's own backup loop. Nothing in Swoovr schedules it.
+- Once a day at `BACKUP_TIME` (default 03:00, `TZ Australia/Adelaide`), it writes `<timestamp>_zammad_db.psql.gz` (a `pg_dump` of Zammad's database, attachments included because storage is in the database) and `<timestamp>_zammad_files.tar.gz` (`/opt/zammad/storage`) into the `zammad-backup` volume.
+- At the same run it deletes copies older than `HOLD_DAYS` (`find -mtime +HOLD_DAYS`). Swoovr sets **33**: deletion only happens at the next daily run, so every copy is gone before it is 35 days old.
+- The search index isn't backed up; Zammad rebuilds it.
+
+**What it doesn't do (hosted work, not built):**
+- encrypt the files;
+- copy them off the host;
+- monitor that tonight's run happened.
+
+Hosted Zammad must put the backup volume on encrypted, access-controlled storage, ship copies off the host under the same 35-day limit, and alert when no new backup appears within 26 hours. Legal holds never extend helpdesk backups; Swoovr preserves held records itself.
+
+**Restoring Zammad** (any restore, including a partial one):
+1. Restore with Zammad's documented procedure (the same image's `zammad-restore` command, from the `restore` folder of the backup volume). Keep staff out of Zammad and keep the Swoovr API's helpdesk workers stopped (`Ticketing:Events:Worker=false`, `Ticketing:Staff:Worker=false`, `Attachments:Scanning:Worker=false`) until step 3.
+2. Confirm the Swoovr API can reach the restored Zammad, with the same tokens (or re-provision: `containers/zammad/provision.rb`).
+3. **Run `dotnet Swoovr.Api.dll retention helpdesk --reconcile`** with the API's settings, and check that it exits 0. It deletes again every ticket Swoovr already disposed of, re-retires every retired customer, then runs the normal retention step. Swoovr keeps disposed-ticket IDs for 60 days, longer than any helpdesk backup.
+4. Let Zammad's scheduler finish the data privacy tasks, then run `dotnet Swoovr.Api.dll retention purge`. Its "Helpdesk:" line should show the restored tickets deleted.
+5. Re-enable the workers and let staff back in.
+
+If the **Swoovr** database is restored as well, restore it first (the sequence above), then reconcile the helpdesk. A Swoovr restore older than a helpdesk deletion forgets that deletion; the ledger then simply rediscovers and re-deletes the ticket when it is due again.
+
 ## Evidence and limits
 
 Local synthetic drills exercised actual PostgreSQL17, age1.3.2, application private local media and pinned Keycloak26.8.1. They proved authenticated decryption, corruption/wrong-key refusal, fresh-target quarantine, actual startup refusal, current deletion/hold replay, ordinary expiry, session/device reset and surviving/deleted fictional credentials. Azure SDK calls were tested against protocol fakes and real SDK signatures only. Bicep compilation proves syntax/types, not tenant policy, permissions, private networking, replication, scheduling, monitoring or hosted restoration. Complete an approved Azure restore drill before admitting UAT testers. See VALIDATION.md for exact commands/results and failed attempts.

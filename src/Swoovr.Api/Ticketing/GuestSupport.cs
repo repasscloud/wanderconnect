@@ -16,7 +16,7 @@ namespace Swoovr.Api.Ticketing;
 /// and member IDs are never credentials. Responses never reveal whether an address is known, a member or a guest.
 /// </summary>
 public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IEmailSender email, TimeProvider clock,
-    IConfiguration configuration, TicketingActorFactory actors, GuestBotCheck bot)
+    IConfiguration configuration, TicketingActorFactory actors, GuestBotCheck bot, SupportAttachmentQuarantine quarantine)
 {
     public const string Received = "sent-if-allowed";
     private static TicketingAccessException Refuse(int status = 404, string code = "ticket-unavailable") => new(status, code);
@@ -171,8 +171,9 @@ public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IE
             a.Attachments.Where(x => x.ContentType == "text/plain" && x.Size <= 65536).Select(x => new TicketAttachment(x.Id, TicketingProjection.Filename(x.Filename), x.ContentType, x.Size)).ToArray())).ToArray();
         var directory = await actor.DirectoryAsync(ct);
         var kind = directory.States.SingleOrDefault(s => s.Id == ticket.StateId)?.Kind;
-        var canReply = kind is not null and not ("merged" or "removed") && (kind != "closed" || directory.Groups.SingleOrDefault(g => g.Id == ticket.GroupId)?.FollowUpPolicy == "yes");
-        return new(TicketingRuntime.Summary(ticket), views, null, canReply);
+        // Issue 228: a closed request takes no reply in Swoovr, whatever the helpdesk's follow-up setting.
+        var canReply = kind is not null and not ("merged" or "removed" or "closed");
+        return new(TicketingRuntime.Summary(ticket), views, null, canReply) { Closed = kind is "closed" or "merged" };
     }
 
     public async Task<TicketDetail> ReplyAsync(TicketingGuest guest, long id, TicketReply request, CancellationToken ct)
@@ -181,6 +182,8 @@ public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IE
         Text(request.Body, 16000);
         var uploads = (request.Attachments ?? []).Select(a => { TicketingProjection.ValidateAttachment(a.Filename, a.ContentType, a.Data); return new SupportUpload(TicketingProjection.Filename(a.Filename), a.ContentType, a.Data); }).ToArray();
         if (uploads.Length > 3 || request.OperationId == Guid.Empty) throw new ArgumentException("Invalid reply.");
+        // D336: a guest's small text files are scanned before they're sent (409 blocked, 503 scanner unavailable); never unscanned.
+        foreach (var upload in uploads) await quarantine.RequireCleanAsync(upload.Data, ct);
         var (actor, customer) = await ActorAsync(guest, ct);
         var detail = await DetailAsync(guest, id, ct);
         if (!detail.CanReply) throw Refuse(409, "ticket-follow-up-unavailable");
@@ -230,6 +233,7 @@ public sealed class GuestSupport(SwoovrDbContext db, ContactHistoryKeys keys, IE
         var data = await actor.DownloadAsync(id, article, attachment, ct);
         await OwnAsync(actor, customer, id, ct);
         TicketingProjection.ValidateAttachment(item.Filename, data.ContentType, data.Data);
+        await quarantine.RequireCleanAsync(data.Data, ct);
         return new(item.Filename, "text/plain", data.Data);
     }
 

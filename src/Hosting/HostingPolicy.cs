@@ -54,6 +54,12 @@ public static class HostingPolicy
         Choice("Media:Store","r2");foreach(var key in new[]{"Bucket","AccessKeyId","SecretAccessKey"})Require("Media:R2:"+key);Url("Media:R2:Endpoint");Url("Media:Screening:BaseUrl");
         foreach(var key in new[]{"ApiKey","WorkflowId","WebhookSecret"})Require("Didit:"+key);Url("Didit:BaseUrl",false);
         foreach(var key in new[]{"Moderation:EscalationEmail","Moderation:EscalationBackupEmail"})Require(key);
+        // D336 (#221): production always scans support attachments before they can be downloaded; never switched off.
+        if(!Flag("Attachments:Scanning:Enabled",true))errors.Add("required-enabled:Attachments:Scanning:Enabled");
+        if(!Flag("Attachments:Scanning:Worker",true))errors.Add("required-enabled:Attachments:Scanning:Worker");
+        Require("Attachments:Scanning:ClamAv:Host");
+        // D337 (#224): a configured helpdesk needs its retention identity, so tickets don't outlive their retention periods.
+        if(Has("Ticketing:Zammad:BaseUrl"))Require("Ticketing:Zammad:RetentionToken");
         if(Encoding.UTF8.GetByteCount(Read("Founders:Secrets:1")??"")<32)errors.Add("invalid-key:Founders:Secrets:1");
         if(Encoding.UTF8.GetByteCount(Read("Phone:CodeKey")??"")<32)errors.Add("invalid-key:Phone:CodeKey");
         Ring("Bans:HmacKeys",int.MaxValue,longKey:true);Ring("ContactHistory:Keys");Base64("ContactHistory:LookupKey");Ring("Evidence:Keys");Ring("IdentityStore:Keys");Base64("IdentityStore:HmacKey");Ring("Push:TokenKeys",int.MaxValue);Base64("Push:TokenLookupKey");

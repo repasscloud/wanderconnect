@@ -9,6 +9,19 @@ public sealed class TicketingIdentity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? DeactivatedAt { get; set; }
+    /// <summary>D333/D337: set in the same transaction as final account deletion; the retirement worker then retires the customer.</summary>
+    public DateTimeOffset? RetirementRequestedAt { get; set; }
+    /// <summary>136.3 3a: the opaque `retired-…` login, chosen before the first attempt so retries are idempotent.</summary>
+    public string? RetiredLogin { get; set; }
+    public DateTimeOffset? RetiredAt { get; set; }
+    public int RetirementAttempts { get; set; }
+    public DateTimeOffset? NextRetirementAt { get; set; }
+    public string? RetirementFailure { get; set; }
+    /// <summary>The retired customer itself was deleted once none of its tickets remained.</summary>
+    public DateTimeOffset? CustomerDeletedAt { get; set; }
+    /// <summary>The Zammad data privacy task deleting the retired customer.</summary>
+    public long? CustomerDeletionTaskId { get; set; }
+    public bool Retiring => RetirementRequestedAt is not null;
 }
 public enum TicketingOperationState { Pending, Applied, Uncertain, Rejected }
 

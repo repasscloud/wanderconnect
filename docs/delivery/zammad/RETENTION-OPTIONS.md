@@ -1,6 +1,6 @@
 # Helpdesk retention and customer retirement: how it can work (#207)
 
-Status: **options for the owner** (Q136, [#224](https://github.com/repasscloud/wanderconnect/issues/224)). The policy is decided (D333). This page is only about *how* to run it. Nothing here is built yet.
+Status: **decided and built.** The owner chose 136.1 **A**, 136.2 **2a** and 136.3 **3a** on [#224](https://github.com/repasscloud/wanderconnect/issues/224) (D337). The options below are kept as the record of what was considered. How to operate it is in [OPERATIONS.md](OPERATIONS.md#helpdesk-retention-d337).
 
 ## What's decided (D333, from #207)
 
