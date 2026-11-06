@@ -51,7 +51,8 @@ else
                     }
                 </ol>
             </section>
-            @if (d.CanReply)
+            @if (d.CanReply && d.Closed) { <p class="help" data-ticket-closed>This request is closed.</p> }
+            @if (d.CanReply && !d.Closed)
             {
                 <section class="ui-card ticket-composer-card" aria-label="Reply or add a private note">
                     <form method="post" @formname="reply" @onsubmit="ReplyAsync" enctype="multipart/form-data" class="ticket-composer" data-enhance="false" data-ticket-reply="@(replyLocked ? "uncertain" : "ready")">

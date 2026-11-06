@@ -166,6 +166,9 @@ services:
       # Signatures need about 1.5 GB per loaded copy. A concurrent reload would hold two copies while freshclam also
       # test-loads one; at 3 GB clamd was OOM-killed. Reloads pause scanning briefly instead.
       CLAMD_CONF_ConcurrentDatabaseReload: "no"
+      # Loopback only: the API shares this namespace and reaches it on 127.0.0.1. The namespace is also attached to the
+      # helpdesk network, so listening on every address would let the Zammad containers reach the scanner.
+      CLAMD_CONF_TCPAddr: 127.0.0.1
     volumes:
       - clamav-db:/var/lib/clamav
     mem_limit: 4g

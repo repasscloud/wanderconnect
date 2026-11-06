@@ -179,6 +179,11 @@ public sealed class SupportAttachmentQuarantine(SwoovrDbContext db, IServiceProv
                 }
                 if (article is null)
                 {
+                    // Issue 228: a request closed while its files were checked stays closed. The files still go to the
+                    // helpdesk (staff keep the record), and the request is closed again straight after.
+                    var directory = await author.DirectoryAsync(ct);
+                    var ticket = await author.GetTicketAsync(first.ProviderTicketId, ct) ?? throw new TicketingProviderException("provider-not-found");
+                    var closedState = directory.States.SingleOrDefault(s => s.Id == ticket.StateId && s.Kind == "closed");
                     var uploads = new List<SupportUpload>();
                     foreach (var file in clean)
                     {
@@ -188,6 +193,7 @@ public sealed class SupportAttachmentQuarantine(SwoovrDbContext db, IServiceProv
                     }
                     article = await author.ReplyWithOperationAsync(first.ProviderTicketId, ReleaseBody(clean.Select(f => f.Filename)), first.Private, first.Source == AttachmentSource.Member,
                         uploads, operation.ToString("D"), ct);
+                    if (closedState is not null) await author.ChangeTicketAsync(first.ProviderTicketId, new(null, null, closedState.Id, null), ct);
                 }
                 foreach (var file in files) (file.ReleasedAt, file.ReleaseArticleId) = (now, article.Id);
                 await db.SaveChangesAsync(ct);

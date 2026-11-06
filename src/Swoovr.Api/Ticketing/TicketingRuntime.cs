@@ -99,18 +99,20 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var (held,releases)=await Quarantine.ViewAsync(id,staff,ct);
         var views=articles.Where(a=>a.TicketId==id&&(staff||a.CustomerVisible)).Select(a=>new TicketArticle(a.Id,a.OperationReference is {} op&&releases.Contains(op)?"":TicketingProjection.Plain(a.Body,a.ContentType),a.Internal,a.Sender,a.CreatedAt,
             a.Attachments.Where(x=>SupportAttachmentPolicy.Allowed(TicketingProjection.Filename(x.Filename),x.Size)).Select(x=>new TicketAttachment(x.Id,TicketingProjection.Filename(x.Filename),SupportAttachmentPolicy.TypeOf(TicketingProjection.Filename(x.Filename))!.Value.Mime,x.Size)).ToArray(),staff?a.Type:null){Held=held[a.Id].ToArray()}).ToArray();
-        return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct));
+        return new(Summary(ticket),views,staff?await StaffFieldsAsync(ticket,ct):null,await CanReplyAsync(ticket,ct)){Closed=await ClosedAsync(ticket,ct)};
     }
     private async Task<TicketStaffFields> StaffFieldsAsync(SupportTicket ticket,CancellationToken ct)
     {
         var member=await CustomerAccountAsync(ticket.CustomerId,ct);
         return new(ticket.GroupId,ticket.OwnerId,member,ticket.Classification,member is null&&await Db.Set<TicketingGuest>().AnyAsync(g=>g.ProviderUserId==ticket.CustomerId,ct));
     }
+    private async Task<bool> ClosedAsync(SupportTicket ticket,CancellationToken ct)=>(await DirectoryAsync(ct)).States.SingleOrDefault(s=>s.Id==ticket.StateId)?.Kind is "closed" or "merged";
     private async Task<bool> CanReplyAsync(SupportTicket ticket,CancellationToken ct)
     {
         if(staff)return await GroupAsync(ticket.GroupId,"change",ct);
+        // Issue 228: a closed request takes no reply in Swoovr, whatever the helpdesk's follow-up setting for its group.
         var directory=await DirectoryAsync(ct);var kind=directory.States.SingleOrDefault(s=>s.Id==ticket.StateId)?.Kind;
-        return kind is not null&&kind is not("merged" or "removed")&&(kind!="closed"||directory.Groups.SingleOrDefault(g=>g.Id==ticket.GroupId)?.FollowUpPolicy=="yes");
+        return kind is not null&&kind is not("merged" or "removed" or "closed");
     }
     public async Task<TicketPage> ListAsync(int page,int size,string? query,long? group,long? state,long? priority,long? owner,string sort,bool descending,CancellationToken ct)
     {
@@ -357,6 +359,7 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     {
         var ticket=await TicketAsync(id,true,ct);
         if(!await CanReplyAsync(ticket,ct))throw Refuse(409,"ticket-follow-up-unavailable");
+        if(await ClosedAsync(ticket,ct))throw Refuse(409,"ticket-closed"); // issue 228: staff reopen it first
         ValidateText(request.Body,16000);
         if(!staff&&request.Private)throw Refuse();
         var uploads=TicketingProjection.MemberAttachments((request.Attachments??[]).Select(a=>(a.Filename,a.Data)));

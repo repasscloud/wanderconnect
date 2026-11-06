@@ -139,6 +139,11 @@ async function signIn(page, start, email, password) {
     await m.waitForFunction(() => document.querySelector('[data-support-detail] [data-support-state]')?.textContent.trim() === 'Closed', null, { timeout: 60000 });
     check(true, 'the member closed their own request');
     check(await m.locator('[data-support-reply-body]').count() === 0 && await m.locator('[data-support-closed]').count() === 1, 'a closed request takes no reply and is not reopened');
+    // Issue 228: staff see the closed request without a reply box (they can still reopen it from its status).
+    const closedId = m.url().match(/(\d+)$/)[1];
+    await s.goto(admin + '/tickets/' + closedId);
+    await s.waitForSelector(`[data-ticket-detail="TK-${closedId}"]`, { timeout: 60000 });
+    check(await s.locator('[data-ticket-closed]').count() === 1 && await s.locator('[data-ticket-reply]').count() === 0 && await s.locator('[data-ticket-change]').count() === 1, 'Admin offers no reply on a closed request, only its status');
     await m.screenshot({ path: path.join(shots, 'member-closed-390.png'), fullPage: true });
 
     let otherSignedIn = true;

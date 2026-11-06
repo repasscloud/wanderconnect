@@ -9,7 +9,11 @@ public sealed record TicketArticle(long Id,string Body,bool Private,string Sende
 }
 /// <summary>D336: Status "checking" or "blocked". Detection (signature name) is shown to staff only.</summary>
 public sealed record TicketHeldFile(string Filename,long Size,string Status,string? Detection=null);
-public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArticle> Articles,TicketStaffFields? Staff=null,bool CanReply=true);
+public sealed record TicketDetail(TicketSummary Ticket,IReadOnlyList<TicketArticle> Articles,TicketStaffFields? Staff=null,bool CanReply=true)
+{
+    /// <summary>Issue 228: closed (or merged) in the helpdesk. Swoovr offers no reply on a closed request; staff reopen it by changing its status.</summary>
+    public bool Closed { get; init; }
+}
 public sealed record TicketStaffFields(long GroupId,long OwnerId,Guid? CustomerAccountId,IReadOnlyDictionary<string,string> Classification,bool Guest=false);
 public sealed record TicketPage(IReadOnlyList<TicketSummary> Items,int Page,int PageSize,bool HasMore);
 /// <param name="Reference">Optional SW- report reference of the member's own report; the API links the request to that case only if it is theirs.</param>
