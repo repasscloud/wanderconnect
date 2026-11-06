@@ -428,6 +428,29 @@ public sealed partial class AdminClient(HttpClient transport)
         return response.IsSuccessStatusCode ? new((int)response.StatusCode, true, null) : await ReadAsync<bool>(response, cancellationToken);
     }
 
+    /// <summary>
+    /// Issue 222 (D331): a staff reply or private note with files, sent as multipart to the API's upload route (the JSON
+    /// route stays capped at 300,000 bytes). Use an AdminClient whose HttpClient allows long transfers.
+    /// </summary>
+    public async Task<ApiResult<TicketDetail>> ReplyTicketWithFilesAsync(long id, Guid operationId, string body, bool isPrivate, IReadOnlyList<TicketUpload> files, CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(operationId.ToString("D")), "operationId" },
+            { new StringContent(body), "body" },
+            { new StringContent(isPrivate ? "true" : "false"), "private" },
+        };
+        foreach (var file in files)
+        {
+            var content = new ByteArrayContent(file.Data);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            form.Add(content, "files", file.Filename);
+        }
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"api/admin/tickets/{id}/replies/upload") { Content = form };
+        using var response = await http.SendAsync(request, cancellationToken);
+        return await ReadAsync<TicketDetail>(response, cancellationToken);
+    }
+
     private async Task<ApiResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body, body.GetType()) };

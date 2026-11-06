@@ -22,6 +22,14 @@ builder.Services.AddHttpClient<Swoovr.Client.AdminClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
     http.Timeout = TimeSpan.FromSeconds(10);
 }).AddHttpMessageHandler<StaffTokenHandler>();
+// Issue 222: support files to and from the helpdesk may take minutes; only ticket uploads and attachment downloads use this.
+builder.Services.AddHttpClient(Swoovr.Admin.AdminTransfers.Client, http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
+    http.Timeout = TimeSpan.FromMinutes(11);
+}).AddHttpMessageHandler<StaffTokenHandler>();
+// A staff reply may carry the owner's 150 MB of files (D330); the request limit is raised for that page's posts only (below).
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o => o.MultipartBodyLengthLimit = Swoovr.Contracts.SupportAttachmentPolicy.MaxUploadRequestBytes);
 
 var cookieSecurity = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
 var auth = builder.Services.AddAuthentication(options =>
@@ -74,6 +82,9 @@ if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/error", create
 app.Use(async(context,next)=>
 {
     if(context.Request.Path.StartsWithSegments("/code-reports")||context.Request.Path.StartsWithSegments("/beta-scorecard")||context.Request.Path.StartsWithSegments("/beta"))context.Response.Headers.CacheControl="no-store";
+    // Issue 222: a support request's reply form may carry the owner's file list (D330); every other request keeps the default limit.
+    if(Swoovr.Admin.AdminTransfers.IsTicketPost(context.Request)&&context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is {IsReadOnly:false} size)
+        size.MaxRequestBodySize=Swoovr.Contracts.SupportAttachmentPolicy.MaxUploadRequestBytes;
     await next(context);
 });
 app.UseAuthentication();
@@ -135,9 +146,9 @@ app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admi
     return await admin.MediaAsync("api/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
 }).RequireAuthorization();
 // A support request's plain-text attachment, fetched server-side with the staff member's token; the API rechecks access.
-app.MapGet("/tickets/{id:long}/articles/{article:long}/attachments/{attachment:long}", async (long id, long article, long attachment, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
+app.MapGet("/tickets/{id:long}/articles/{article:long}/attachments/{attachment:long}", async (long id, long article, long attachment, IHttpClientFactory clients, CancellationToken cancellationToken) =>
 {
-    var result = await admin.TicketAttachmentAsync(id, article, attachment, cancellationToken);
+    var result = await Swoovr.Admin.AdminTransfers.Create(clients).TicketAttachmentAsync(id, article, attachment, cancellationToken);
     // Issue 220: the type the API derived from the checked file (members may now send photos, documents, video and audio).
     return result.Ok ? Results.File(result.Value!.Data, result.Value.ContentType == "text/plain" ? "text/plain; charset=utf-8" : result.Value.ContentType, result.Value.Filename) : Results.NotFound();
 }).RequireAuthorization();

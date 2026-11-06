@@ -105,6 +105,74 @@ text = TextModule.find_or_initialize_by(name: 'Swoovr support acknowledgement')
 text.assign_attributes(content: 'Thank you for contacting Swoovr support. We will review your request.', active: true,
   created_by_id: actor, updated_by_id: actor)
 text.save!
+# Issue 222 (owner, D331): canned replies, named "Group · Response" so Swoovr Admin groups them. Re-running updates the text.
+{
+  'General support' => {
+    'Request received' => 'Thank you for contacting Swoovr Support. We have received your request and will review it.',
+    'Under review' => 'Your request is currently being reviewed by our support team. We will provide an update when more information is available.',
+    'Additional information required' => 'We need some additional information to assist with your request. Please reply with the requested details so we can continue.',
+    'Request updated' => 'Your support request has been updated. Please review the latest response for further information.',
+    'Escalated' => 'Your request has been referred to the appropriate team for further review.',
+    'Delayed response' => 'Your request is taking longer than expected to review. Thank you for your patience.'
+  },
+  'Account and access' => {
+    'Account access' => 'We have received your account access request and will review the information provided.',
+    'Password reset' => 'Please use the password reset option on the Swoovr sign-in page. If you continue to experience difficulties, reply to this request.',
+    'MFA assistance' => 'We have received your request for assistance with multi-factor authentication. Additional identity verification may be required before changes can be made.',
+    'Account restriction' => 'Your request regarding an account restriction has been received and will be reviewed.',
+    'Account deletion' => 'We have received your account deletion enquiry. We will review your request and provide information about the next steps.',
+    'Account details' => 'We have received your request to update your account information. Additional verification may be required.'
+  },
+  'Trust & Safety' => {
+    'Report received' => 'Thank you for bringing this matter to our attention. Your report has been received and will be reviewed in accordance with our Community Guidelines.',
+    'Safety review' => 'Your report has been referred to our Trust & Safety team for further assessment.',
+    'Harassment report' => 'We have received your report concerning harassment or inappropriate behaviour. Our Trust & Safety team will review the information provided.',
+    'Impersonation' => 'We have received your impersonation report. Additional information may be requested to assist our investigation.',
+    'Content report' => "Thank you for reporting this content. We will assess it against Swoovr's Community Guidelines.",
+    'Appeal received' => 'Your appeal has been received and will be reviewed. We will notify you when a decision has been made.',
+    'Investigation completed' => 'Our review of your report has been completed. For privacy and safety reasons, we may not be able to disclose any action taken against another account.'
+  },
+  'Identity and photo verification' => {
+    'Verification assistance' => 'We have received your verification support request and will review the issue.',
+    'Verification unsuccessful' => 'We understand you have experienced difficulties completing verification. Our team will review the information available and advise on the next steps.',
+    'Photo moderation' => 'Your enquiry regarding photo moderation has been received. We will review the matter against our content requirements.',
+    'Identity verification' => 'Your identity verification enquiry has been received. Additional verification steps may be required to protect your account.'
+  },
+  'Billing and subscriptions' => {
+    'Billing enquiry' => 'We have received your billing enquiry and will review the details provided.',
+    'Refund request' => 'Your refund request has been received and will be assessed against the applicable payment terms and refund requirements.',
+    'Subscription cancellation' => 'We have received your enquiry regarding subscription cancellation. We will review your request and provide further information.',
+    'Payment issue' => 'We have received your report of a payment issue and will investigate the details.',
+    'Unrecognised charge' => 'We have received your report of an unrecognised charge. We may request additional transaction information to assist our investigation.'
+  },
+  'Business partners' => {
+    'Partnership enquiry' => 'Thank you for your interest in partnering with Swoovr. We have received your enquiry and will review the information provided.',
+    'Existing partner support' => 'Your business partner support request has been received and will be reviewed by the appropriate team.',
+    'Partner payments' => 'We have received your enquiry regarding partner payments or settlements and will review the relevant transaction details.',
+    'Offer or redemption issue' => 'We have received your report concerning a partner offer or redemption. We will review the issue and provide an update.'
+  },
+  'Resolution and closure' => {
+    'Resolved' => 'Your support request has been resolved. If you require further assistance, please contact Swoovr Support.',
+    'Closed — no response' => 'We have closed this request as we have not received the additional information required to proceed. You may submit a new request if you still require assistance.',
+    'Closed — no further action' => 'Our review of your request is complete, and no further action is required at this time.',
+    'Closed — unable to proceed' => 'We are unable to proceed with your request based on the information currently available. You may submit a new request with additional details.',
+    'Duplicate request' => 'This request has been closed because it duplicates an existing support request. Please refer to your original request for further updates.',
+    'Closed — referred elsewhere' => 'This request has been closed following referral to the appropriate team or service. Any further communication will be provided through the relevant channel.'
+  },
+  'System and technical issues' => {
+    'Technical issue received' => 'We have received your report of a technical issue and will investigate.',
+    'Known issue' => 'The issue you reported is known to our technical team. We are working to address it and will provide updates when available.',
+    'Unable to reproduce' => 'We have been unable to reproduce the reported issue. Please provide any additional details, screenshots or steps that may assist our investigation.',
+    'Issue resolved' => 'The technical issue you reported has been addressed. Please check whether the problem is resolved on your device.',
+    'Feature suggestion' => 'Thank you for your suggestion. Your feedback has been recorded for consideration in future product development.'
+  }
+}.each do |group, replies|
+  replies.each do |label, content|
+    module_row = TextModule.find_or_initialize_by(name: "#{group} · #{label}")
+    module_row.assign_attributes(content: content, active: true, created_by_id: actor, updated_by_id: actor)
+    module_row.save!
+  end
+end
 macro = Macro.find_or_initialize_by(name: 'Swoovr close ticket')
 macro.assign_attributes(perform: {'ticket.state_id' => {'value' => Ticket::State.find_by!(name: 'closed').id}},
   active: true, ux_flow_next_up: 'none', created_by_id: actor, updated_by_id: actor)

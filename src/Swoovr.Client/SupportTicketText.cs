@@ -28,6 +28,9 @@ public static partial class SupportTicketText
     public const string UrgentUrl = "https://swoovr.com/support";
     public static string MemberAttachmentHelp =>
         $"Add up to {SupportAttachmentPolicy.MaxAttachmentsPerMessage} files (photos, PDF, Word, Excel, text, video or audio), {SupportAttachmentPolicy.MaxTotalMessageBytes / (1024 * 1024)} MB in all. " + SensitiveHelp;
+    /// <summary>Issue 222: Admin's reply box, the same list as members (D330).</summary>
+    public static string StaffAttachmentHelp =>
+        $"Up to {SupportAttachmentPolicy.MaxAttachmentsPerMessage} files (photos, PDF, Word, Excel, text, video or audio), {SupportAttachmentPolicy.MaxTotalMessageBytes / (1024 * 1024)} MB in all. Don't add identity documents or case evidence; link the case instead.";
     public const string CloseLabel = "Close request";
     public const string CloseConfirm = "Close this request? It can't be reopened. Start a new request if you need help again.";
     public const string Closed = "This request is closed.";

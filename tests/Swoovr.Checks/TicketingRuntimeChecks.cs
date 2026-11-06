@@ -39,7 +39,7 @@ internal static class TicketingRuntimeChecks
         try{TicketingProjection.MemberAttachments(Enumerable.Range(0,6).Select(i=>($"p{i}.png",png)));Check(false,"six files accepted");}catch(ArgumentException){}
         Check(Swoovr.Contracts.SupportAttachmentPolicy.Problem([("a.png",10),("b.mov",Swoovr.Contracts.SupportAttachmentPolicy.MaxVideoBytes),("c.mp4",Swoovr.Contracts.SupportAttachmentPolicy.MaxVideoBytes)])?.Contains("150 MB")==true,"the message total");
         Check(Swoovr.Contracts.SupportAttachmentPolicy.Problem([("a.exe",10)])?.Contains("can't be attached")==true&&Swoovr.Contracts.SupportAttachmentPolicy.Problem([("a.heic",10),("b.m4a",10)]) is null,"what a member reads before sending");
-        Check(TicketingEndpoints.IsUpload("/api/me/tickets/upload")&&TicketingEndpoints.IsUpload("/api/me/tickets/12/replies/upload")&&!TicketingEndpoints.IsUpload("/api/me/tickets/12/replies")&&!TicketingEndpoints.IsUpload("/api/admin/tickets/upload"),"only the member upload routes take large bodies");
+        Check(TicketingEndpoints.IsUpload("/api/me/tickets/upload")&&TicketingEndpoints.IsUpload("/api/me/tickets/12/replies/upload")&&!TicketingEndpoints.IsUpload("/api/me/tickets/12/replies")&&!TicketingEndpoints.IsUpload("/api/admin/tickets/upload")&&TicketingEndpoints.IsUpload("/api/admin/tickets/12/replies/upload")&&!TicketingEndpoints.IsUpload("/api/admin/tickets/12/replies"),"only the upload routes take large bodies (members; staff replies, issue 222)");
         Check(TicketingRuntime.Fingerprints([new("a.png","image/png",png)]).Single().StartsWith("a.png:64:"),"an operation's digest covers file names, sizes and hashes");
     }
 

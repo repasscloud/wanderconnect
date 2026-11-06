@@ -64,11 +64,11 @@ async function signIn(page, start, email, password) {
     await s.waitForSelector(`[data-ticket-detail="TK-${id}"]`);
     check((await s.textContent('[data-ticket-articles]')).includes(question), 'staff read the member message in Swoovr Admin');
     const note = `Private staff note ${run}: checked registry, nothing to flag.`, reply = `Public reply ${run}: open Account, then Profile, then edit your name.`;
-    await s.fill('[data-ticket-reply-body]', note); await s.selectOption('[data-ticket-visibility]', 'private');
+    await s.fill('[data-ticket-reply-body]', note); await s.check('[data-ticket-visibility="private"]');
     await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
     await s.waitForSelector('[data-ticket-article][data-private="true"]');
     check((await s.locator('[data-ticket-article][data-private="true"]').textContent()).includes(note), 'staff private note recorded and marked staff only');
-    await s.fill('[data-ticket-reply-body]', reply); await s.selectOption('[data-ticket-visibility]', 'public');
+    await s.fill('[data-ticket-reply-body]', reply); await s.check('[data-ticket-visibility="public"]');
     await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
     await s.waitForFunction(r => document.querySelector('[data-ticket-articles]')?.textContent.includes(r), reply);
     check(true, 'staff public reply sent');
@@ -179,7 +179,7 @@ async function signIn(page, start, email, password) {
     await s.waitForSelector(`[data-ticket-detail="TK-${gt.id}"]`);
     check(await s.locator('[data-ticket-guest]').count() === 1, 'staff see the request marked as a guest, not a member');
     const guestReply = `Guest reply ${run}: yes, from Membership settings.`;
-    await s.fill('[data-ticket-reply-body]', guestReply); await s.selectOption('[data-ticket-visibility]', 'public');
+    await s.fill('[data-ticket-reply-body]', guestReply); await s.check('[data-ticket-visibility="public"]');
     await Promise.all([s.waitForLoadState('load'), s.click('[data-ticket-reply-send]')]);
     await s.waitForSelector('[data-result="ok"]');
     const [, gd] = await guestCall('/tickets/' + gt.id, 'GET', null, grant.grant);

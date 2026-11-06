@@ -45,6 +45,14 @@ public static class TicketingEndpoints
         admin.MapGet("/{id:long}",(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.DetailAsync(id,ct)));
         admin.MapPut("/{id:long}",(long id,TicketChange request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ChangeAsync(id,request,ct)));
         admin.MapPost("/{id:long}/replies",(long id,TicketReply request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ReplyAsync(id,request,ct)));
+        // Issue 222: staff replies and private notes take the same files as members (multipart from the Admin server).
+        admin.MapPost("/{id:long}/replies/upload",async(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>
+        {
+            if(await UploadAsync(c) is not { } form)return Problem(400,"invalid-request");
+            if(!Guid.TryParse(form.Field("operationId"),out var operation)||form.Field("private") is not("true" or "false"))return Problem(400,"invalid-request");
+            var request=new TicketReply(operation,form.Field("body")??"",form.Field("private")=="true",form.Files);
+            return await Run(c,a,f,t,true,(r,ct)=>r.ReplyAsync(id,request,ct));
+        });
         admin.MapGet("/{id:long}/links",(long id,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.LinksAsync(id,ct)));
         admin.MapPost("/{id:long}/links",(long id,TicketLink request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.LinkAsync(id,request,ct)));
         admin.MapPost("/{id:long}/macros/{macro:long}",(long id,long macro,TicketMacroApply request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ApplyMacroAsync(id,macro,request,ct)));
@@ -64,7 +72,8 @@ public static class TicketingEndpoints
         }));
     }
     /// <summary>The upload routes (issue 220): the only member ticket routes allowed a large body.</summary>
-    public static bool IsUpload(PathString path)=>path.Value is { } p&&System.Text.RegularExpressions.Regex.IsMatch(p,"^/api/me/tickets(/[0-9]{1,18}/replies)?/upload$");
+    public static bool IsUpload(PathString path)=>path.Value is { } p&&(System.Text.RegularExpressions.Regex.IsMatch(p,"^/api/me/tickets(/[0-9]{1,18}/replies)?/upload$")
+        ||System.Text.RegularExpressions.Regex.IsMatch(p,"^/api/admin/tickets/[0-9]{1,18}/replies/upload$"));
 
     private sealed record UploadForm(Dictionary<string,string> Fields,List<TicketUpload> Files){public string? Field(string name)=>Fields.GetValueOrDefault(name);}
 
@@ -103,7 +112,7 @@ public static class TicketingEndpoints
                 }
                 else
                 {
-                    if(name is not("operationId" or "title" or "body" or "reference")||form.Fields.ContainsKey(name))return null;
+                    if(name is not("operationId" or "title" or "body" or "reference" or "private")||form.Fields.ContainsKey(name))return null;
                     using var text=new StreamReader(section.Body,new System.Text.UTF8Encoding(false,true));
                     var chars=new char[16001];var count=await text.ReadBlockAsync(chars,0,chars.Length);
                     if(count>16000)return null;

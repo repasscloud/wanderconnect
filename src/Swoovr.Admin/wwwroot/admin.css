@@ -666,3 +666,48 @@ a.ad-stat:hover { border-color: color-mix(in srgb, var(--muted) 55%, var(--borde
   .ad-dl dd { padding-top: 4px; }
   .ad-form-row .ad-fieldset { grid-template-columns: 1fr; }
 }
+
+/* Issue 222 (D331): one support request. Conversation and reply in the main column; compact cards beside them. Controls
+   never touch: inline select-and-button rows have a gap, form actions sit on their own row. */
+.ticket-head { display: grid; gap: 8px; }
+.ticket-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ticket-title-row h1 { margin: 0; }
+.ticket-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; color: var(--muted); font-size: .8125rem; }
+.ticket-layout { display: grid; gap: 16px; align-items: start; }
+.ticket-main, .ticket-side { display: grid; gap: 16px; min-width: 0; }
+.ticket-main > .ui-card, .ticket-side > .ui-card { margin: 0; }
+@media (min-width: 1100px) { .ticket-layout { grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; } .ticket-side { position: sticky; top: 16px; } }
+.ticket-thread { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ticket-message { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.ticket-member { background: var(--soft); }
+.ticket-note { border-style: dashed; border-color: color-mix(in srgb, var(--muted) 60%, var(--border)); }
+.ticket-message-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+.ticket-message-head .help { margin-left: auto; }
+.ticket-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.ticket-files { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.ticket-files li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.ticket-files a { font-weight: 600; overflow-wrap: anywhere; }
+.ticket-composer, .ticket-form { display: grid; gap: 12px; }
+.ticket-seg { display: inline-flex; justify-self: start; gap: 2px; margin: 0; padding: 3px; border: 0; border-radius: 10px; background: var(--soft); }
+.ticket-seg label { position: relative; }
+.ticket-seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.ticket-seg span { display: inline-flex; align-items: center; min-height: 32px; padding: 0 14px; border-radius: 8px; color: var(--muted); font-size: .8125rem; font-weight: 600; }
+.ticket-seg input:checked + span { background: var(--surface); color: var(--text); outline: 1px solid var(--border); outline-offset: -1px; }
+.ticket-seg input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ticket-compose textarea { box-sizing: border-box; width: 100%; min-height: 160px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--muted) 45%, var(--border)); border-radius: 10px; background: var(--surface); color: var(--text); font: .9375rem/1.5 var(--font); resize: vertical; }
+.ticket-compose textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ticket-composer:has(input[value="private"]:checked) .ticket-compose textarea { border-style: dashed; background: var(--soft); }
+.ticket-tools { display: grid; gap: 12px; }
+@media (min-width: 700px) { .ticket-tools { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; } }
+.ticket-inline { display: flex; align-items: flex-end; gap: 8px; margin: 0; }
+.ticket-inline .ui-field { flex: 1 1 auto; }
+.ticket-inline > button { flex: none; height: 40px; min-height: 40px; padding: 0 16px; border-radius: 8px; }
+.ticket-files-input input[type="file"] { height: auto; min-height: 40px; padding: 8px 10px; }
+.ticket-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.ticket-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+.ticket-actions > button { height: 40px; min-height: 40px; padding: 0 18px; border-radius: 8px; }
+.ticket-form .help, .ticket-composer .help { margin: 0; }
+.ticket-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0 0 12px; font-size: .875rem; }
+.ticket-facts dt { color: var(--muted); }
+.ticket-facts dd { margin: 0; overflow-wrap: anywhere; }
+.ticket-links { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; font-size: .875rem; }
