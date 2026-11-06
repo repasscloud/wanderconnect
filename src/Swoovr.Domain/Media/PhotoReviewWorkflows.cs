@@ -43,7 +43,8 @@ public static class PhotoReviewPolicy
         && (code.StartsWith("REJECT_", StringComparison.Ordinal) || code == "LEGACY_REJECT") && at <= now && now < at + AppealWindow;
     public static string MemberReason(string code) => code switch
     {
-        "REJECT_EXPLICIT_BETA" => "This photo does not meet the current non-explicit photo rules.",
+        // #231: explicit content is allowed only in private albums of ID Verified members (supersedes D178).
+        "REJECT_EXPLICIT_BETA" => "Nudity or sexual content can't be used on your profile. If you're ID Verified, you can upload it into a private album instead.",
         "REJECT_IMPERSONATION" => "Use only photos you have the right to share, without impersonating someone else.",
         "REJECT_PRIVACY" => "This photo contains personal or location information that cannot be shown.",
         "REJECT_VIOLENCE" => "Graphic or disturbing images cannot be shown.",

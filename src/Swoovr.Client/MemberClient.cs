@@ -319,13 +319,18 @@ public sealed partial class MemberClient(HttpClient transport)
         SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Get, "api/me/photos"), cancellationToken);
 
     /// <summary>Uploads a photo into quarantine (202, state "checking"); replaces names an approved photo it should take over from.</summary>
-    public Task<ApiResult<MyPhotoView>> UploadPhotoAsync(byte[] data, string fileName, string contentType, Guid? replaces = null, CancellationToken cancellationToken = default)
+    public Task<ApiResult<MyPhotoView>> UploadPhotoAsync(byte[] data, string fileName, string contentType, Guid? replaces = null, CancellationToken cancellationToken = default) =>
+        UploadPhotoAsync(data, fileName, contentType, replaces, null, cancellationToken);
+
+    /// <summary>#231: album names a private album to upload straight into (never together with replaces).</summary>
+    public Task<ApiResult<MyPhotoView>> UploadPhotoAsync(byte[] data, string fileName, string contentType, Guid? replaces, Guid? album, CancellationToken cancellationToken = default)
     {
         var form = new MultipartFormDataContent();
         var file = new ByteArrayContent(data);
         file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
         form.Add(file, "file", string.IsNullOrWhiteSpace(fileName) ? "photo" : fileName);
         if (replaces is { } id) form.Add(new StringContent(id.ToString()), "replaces");
+        if (album is { } into) form.Add(new StringContent(into.ToString()), "album");
         return SendAsync<MyPhotoView>(new HttpRequestMessage(HttpMethod.Post, "api/me/photos") { Content = form }, cancellationToken);
     }
 
@@ -338,6 +343,23 @@ public sealed partial class MemberClient(HttpClient transport)
 
     public Task<ApiResult<MyPhotosView>> PlaceModePhotosAsync(string mode, IReadOnlyList<Guid> ids, Guid? mainMediaId, CancellationToken cancellationToken = default) =>
         SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Put, "api/me/photos/placement") { Content = JsonContent.Create(new PhotoPlacementUpdate(mode, ids, mainMediaId)) }, cancellationToken);
+
+    /// <summary>#231: private albums (4 per member, 10 photos each).</summary>
+    public Task<ApiResult<MyPhotosView>> CreateAlbumAsync(string name, IReadOnlyList<string> modes, CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Post, "api/me/photos/albums") { Content = JsonContent.Create(new PhotoAlbumCreate(name, modes)) }, cancellationToken);
+
+    public Task<ApiResult<MyPhotosView>> UpdateAlbumAsync(Guid id, string name, IReadOnlyList<string> modes, IReadOnlyList<Guid> photos, CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Put, $"api/me/photos/albums/{id}") { Content = JsonContent.Create(new PhotoAlbumUpdate(name, modes, photos)) }, cancellationToken);
+
+    public Task<ApiResult<MyPhotosView>> DeleteAlbumAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync<MyPhotosView>(new HttpRequestMessage(HttpMethod.Delete, $"api/me/photos/albums/{id}"), cancellationToken);
+
+    /// <summary>#231: "Receive explicit media" per mode (ID Verified only).</summary>
+    public Task<ApiResult<ExplicitMediaSettings>> ExplicitMediaAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ExplicitMediaSettings>(new HttpRequestMessage(HttpMethod.Get, "api/me/explicit-media"), cancellationToken);
+
+    public Task<ApiResult<ExplicitMediaSettings>> SetExplicitMediaAsync(string mode, bool receive, CancellationToken cancellationToken = default) =>
+        SendAsync<ExplicitMediaSettings>(new HttpRequestMessage(HttpMethod.Put, "api/me/explicit-media") { Content = JsonContent.Create(new ExplicitMediaUpdate(mode, receive)) }, cancellationToken);
 
     private async Task<int> StatusAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

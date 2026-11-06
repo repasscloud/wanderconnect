@@ -67,6 +67,13 @@ public sealed class MediaItem
     public string? Purpose { get; set; }
     /// <summary>The conversation a chat photo was sent in.</summary>
     public Guid? ConversationId { get; set; }
+    /// <summary>#231: the private album this photo was uploaded straight into (null for a library upload).</summary>
+    public Guid? AlbumId { get; set; }
+    /// <summary>
+    /// #231: a reviewer approved this adult photo for private albums only (owner ID Verified). It is never placed in a mode
+    /// or added to another album; removing it from its album isn't possible, only deleting it.
+    /// </summary>
+    public bool AlbumOnly { get; set; }
     public DateTimeOffset? PreservationPendingAt { get; set; }
     public DateTimeOffset? PreservationCompletedAt { get; set; }
     public DateTimeOffset? NextPreservationAt { get; set; }
@@ -169,6 +176,13 @@ public static class MediaPolicy
     public static bool CaseReviewable(MediaItem item) => item.ScreenedAt is not null
         && item.Status is MediaStatus.Passed or MediaStatus.Uncertain or MediaStatus.Rejected or MediaStatus.Removed;
 
+    /// <summary>
+    /// #231: the owner may see their own rejected photo (blurred by the client) while it can still be appealed, so they know
+    /// which one it was. Never a blocked item: it reads like any refusal without a preview (procedure §4).
+    /// </summary>
+    public static bool OwnerPreview(MediaItem item, DateTimeOffset now) =>
+        item is { Status: MediaStatus.Rejected, RemovedAt: null, Purpose: null, RejectedRetainUntil: { } until } && until > now;
+
     /// <summary>What the member is told about their own photo. Blocked reads exactly like a rejection (procedure §4: never tip anyone off).</summary>
     public static string MemberState(MediaStatus status) => status switch
     {
@@ -192,7 +206,7 @@ public static class MediaPolicy
     public static (Guid Media, string Variant)? ReadLink(byte[] key, string token, DateTimeOffset now)
     {
         var parts = token.Split('.');
-        if (parts.Length != 4 || !Guid.TryParseExact(parts[0], "N", out var media) || parts[1] is not ("member" or "review" or "case" or "inspection" or "appeal")
+        if (parts.Length != 4 || !Guid.TryParseExact(parts[0], "N", out var media) || parts[1] is not ("member" or "review" or "case" or "inspection" or "appeal" or "own")
             || !long.TryParse(parts[2], out var seconds)) return null;
         var expected = HMACSHA256.HashData(key, Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}.{parts[2]}"));
         if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(Base64Url(expected)), Encoding.ASCII.GetBytes(parts[3]))) return null;

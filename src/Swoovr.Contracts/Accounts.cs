@@ -229,6 +229,14 @@ public static class ProblemCodes
     public const string UnknownPhoto = "unknown-photo";
     public const string PhotoNotApproved = "photo-not-approved";
     public const string InvalidPlacement = "invalid-placement";
+    /// <summary>#231 private albums and explicit media.</summary>
+    public const string AlbumLimit = "album-limit";
+    public const string AlbumFull = "album-full";
+    public const string UnknownAlbum = "unknown-album";
+    public const string InvalidAlbum = "invalid-album";
+    public const string AlbumOnlyPhoto = "album-only-photo";
+    public const string IdVerificationRequired = "id-verification-required";
+    public const string AlbumApprovalNotAllowed = "album-approval-not-allowed";
     public const string InvalidDecision = "invalid-decision";
     /// <summary>#103: safety resources.</summary>
     public const string UnknownCountry = "unknown-country";

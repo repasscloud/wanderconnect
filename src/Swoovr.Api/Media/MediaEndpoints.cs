@@ -19,6 +19,7 @@ public static class MediaEndpoints
     public static void Map(WebApplication app)
     {
         PhotoReviewWorkflows.Map(app);
+        PhotoAlbumEndpoints.Map(app);
         var api = app.MapGroup("/api").RequireAuthorization();
         api.MapPost("/me/photos", async (HttpRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -45,9 +46,17 @@ public static class MediaEndpoints
             Guid? replaces = null;
             if (form.TryGetValue("replaces", out var value) && value.ToString() is { Length: > 0 } text)
             {
-                if (!Guid.TryParse(text, out var id) || !await db.MediaItems.AnyAsync(i => i.Id == id && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null, cancellationToken))
+                if (!Guid.TryParse(text, out var id) || !await db.MediaItems.AnyAsync(i => i.Id == id && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null && !i.AlbumOnly, cancellationToken))
                     return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownPhoto, "That photo isn't yours to replace.");
                 replaces = id;
+            }
+            // #231: optionally straight into one of the member's private albums (never together with a replacement).
+            Guid? album = null;
+            if (form.TryGetValue("album", out var albumValue) && albumValue.ToString() is { Length: > 0 } albumText)
+            {
+                if (replaces is not null || !Guid.TryParse(albumText, out var albumId))
+                    return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidAlbum, "Choose one of your albums.");
+                album = albumId;
             }
             using var buffer = new MemoryStream();
             await file.CopyToAsync(buffer, cancellationToken);
@@ -59,7 +68,14 @@ public static class MediaEndpoints
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoLimit, $"You can keep up to {MediaPolicy.MaxKept} photos. Delete one first.");
             if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == null && i.CreatedAt > now - TimeSpan.FromHours(1), cancellationToken) >= MediaPolicy.UploadsPerHour)
                 return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.UploadLimit, "You've uploaded a lot of photos in the last hour. Try again later.");
-            var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), replaces, now, cancellationToken);
+            if (album is { } target)
+            {
+                if (!await db.PhotoAlbums.AnyAsync(a => a.Id == target && a.AccountId == me, cancellationToken))
+                    return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownAlbum, "That album isn't available.");
+                if (await db.PhotoAlbumItems.CountAsync(e => e.AlbumId == target, cancellationToken) >= PhotoAlbumPolicy.MaxPhotos)
+                    return Problem(StatusCodes.Status409Conflict, ProblemCodes.AlbumFull, $"An album holds up to {PhotoAlbumPolicy.MaxPhotos} photos.");
+            }
+            var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), replaces, now, cancellationToken, album: album);
             return error switch
             {
                 MediaUploadError.None => Results.Accepted($"/api/me/photos/{item!.Id}", View(item, [], null)),
@@ -102,7 +118,7 @@ public static class MediaEndpoints
             var stored = await db.MediaPlacements.Where(p => p.AccountId == me && p.Scope == update.Scope).Select(p => p.MediaId).ToListAsync(cancellationToken);
             if (!MediaPolicy.PlacementAllowed(ids, stored, max) || update.MainMediaId is { } main && !ids.Contains(main))
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidPlacement, $"Choose up to {max} photos, including an optional main from that gallery. Existing excess photos can be reordered or removed.");
-            var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null).Select(i => i.Id).ToListAsync(cancellationToken);
+            var approved = await db.MediaItems.Where(i => ids.Contains(i.Id) && i.AccountId == me && i.Purpose == null && i.Status == MediaStatus.Passed && i.RemovedAt == null && !i.AlbumOnly).Select(i => i.Id).ToListAsync(cancellationToken);
             if (approved.Count != ids.Count)
                 return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotoNotApproved, "Only your approved photos can be shown.");
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -146,7 +162,15 @@ public static class MediaEndpoints
             var pending = eligible.Where(i => i.Status == MediaStatus.Pending && i.RemovedAt == null);
             var since = now.AddDays(-30); var ids = eligible.Select(i => i.Id);
             var counts = await db.Set<MediaDecisionRecord>().Where(d => d.At >= since && ids.Contains(d.MediaId) && d.Decision != "escalate").GroupBy(d => d.Code).Select(g => new { Code = g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Code, g => g.Count, cancellationToken);
-            return Results.Ok(new MediaReviewQueue(items.Select(i => new MediaReviewItem(i.Id, i.AccountId, i.CreatedAt, SignalReason(i.Signals), Signals(i.Signals), i.Screener ?? "unknown", i.KnownContentChecked, i.Purpose)).ToList(),
+            // #231: whether each photo went straight into an album it is still in, and whether its owner is ID Verified.
+            var owners = items.Select(i => i.AccountId).Distinct().ToList();
+            var verified = (await db.MemberProfiles.Where(m => owners.Contains(m.AccountId) && m.IdStatus == VerificationStatus.Verified).Select(m => m.AccountId).ToListAsync(cancellationToken)).ToHashSet();
+            var itemIds = items.Select(i => i.Id).ToList();
+            var inAlbums = (await db.PhotoAlbumItems.Where(e => itemIds.Contains(e.MediaId)).Select(e => new { e.AlbumId, e.MediaId }).ToListAsync(cancellationToken))
+                .Select(e => (e.AlbumId, e.MediaId)).ToHashSet();
+            string Destination(MediaItem i) => i.AlbumId is { } home && inAlbums.Contains((home, i.Id)) ? "album" : "library";
+            return Results.Ok(new MediaReviewQueue(items.Select(i => new MediaReviewItem(i.Id, i.AccountId, i.CreatedAt, SignalReason(i.Signals), Signals(i.Signals), i.Screener ?? "unknown", i.KnownContentChecked, i.Purpose,
+                Destination(i), verified.Contains(i.AccountId))).ToList(),
                 await pending.CountAsync(cancellationToken), await pending.CountAsync(i => i.CreatedAt < now.AddHours(-1), cancellationToken), MediaReviewReasons.All.Select(ReasonView).ToList(), counts, since, p, total, 25,
                 await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, cancellationToken), PhotoReviewPolicy.NoticeVersion, PhotoReviewPolicy.Notice));
         });
@@ -216,12 +240,27 @@ public static class MediaEndpoints
             if (await PhotoReviewWorkflows.AckUntilAsync(db, actor, now, cancellationToken) is null) return PhotoReviewWorkflows.AckRequired();
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
             if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
+            // #231 (owner, 6 November 2026; supersedes D178): an adult photo may be approved for private albums only, when it was
+            // uploaded into an album it is still in and its owner is ID Verified. It is marked before it passes, so it is never
+            // visible as an ordinary library photo.
+            var albumApproval = review.Code == "APPROVED_ALBUM_EXPLICIT";
+            if (albumApproval)
+            {
+                var owner = await db.MemberProfiles.AsNoTracking().SingleOrDefaultAsync(p => p.AccountId == item.AccountId, cancellationToken);
+                var inAlbum = item.AlbumId is { } home && await db.PhotoAlbumItems.AnyAsync(e => e.AlbumId == home && e.MediaId == item.Id, cancellationToken);
+                if (owner is null || !inAlbum || item.Status != MediaStatus.Uncertain || !ExplicitMediaPolicy.AlbumApprovalAllowed(item, owner))
+                    return Problem(StatusCodes.Status409Conflict, ProblemCodes.AlbumApprovalNotAllowed,
+                        "Only a photo uploaded into a private album by an ID Verified member can be approved for albums only.");
+                await db.MediaItems.Where(i => i.Id == item.Id).ExecuteUpdateAsync(u => u.SetProperty(i => i.AlbumOnly, true), cancellationToken);
+            }
             var applied = request.Decision switch
             {
                 "approve" => await pipeline.PassAsync(item, actor, now, cancellationToken,review),
                 "reject" => await pipeline.RejectAsync(item, actor, review.Notes, now, cancellationToken,review),
                 _ => await pipeline.BlockAsync(item, actor, "escalated-by-reviewer", now, cancellationToken,review),
             };
+            if (!applied && albumApproval)
+                await db.MediaItems.Where(i => i.Id == item.Id && i.Status != MediaStatus.Passed).ExecuteUpdateAsync(u => u.SetProperty(i => i.AlbumOnly, false), cancellationToken);
             if (!applied) return Problem(StatusCodes.Status409Conflict, ProblemCodes.UnknownPhoto, "That photo isn't waiting for a decision.");
             return Results.Ok(new { item.Id, state = request.Decision switch { "approve" => "approved", "reject" => "rejected", _ => "escalated" } });
         });
@@ -238,8 +277,8 @@ public static class MediaEndpoints
     private static MediaReviewReasonView ReasonView(MediaReviewReasonDefinition reason)=>new(reason.Code,reason.Decision,reason.Code switch
     {
         "APPROVED_STANDARD"=>"Meets current photo rules","APPROVED_NON_EXPLICIT"=>"Non-explicit image permitted by current rules",
-        "APPROVED_AFTER_REVIEW"=>"Acceptable after manual review","APPROVED_FALSE_POSITIVE"=>"Automated flag cleared after review",
-        "REJECT_EXPLICIT_BETA"=>"Explicit content","REJECT_IMPERSONATION"=>"Impersonation or unauthorised image use",
+        "APPROVED_AFTER_REVIEW"=>"Acceptable after manual review","APPROVED_ALBUM_EXPLICIT"=>"Adult content — private albums only (ID Verified owner, album upload)","APPROVED_FALSE_POSITIVE"=>"Automated flag cleared after review",
+        "REJECT_EXPLICIT_BETA"=>"Explicit content not allowed here","REJECT_IMPERSONATION"=>"Impersonation or unauthorised image use",
         "REJECT_PRIVACY"=>"Prohibited personal or location information","REJECT_VIOLENCE"=>"Graphic violence or disturbing content",
         "REJECT_HATE"=>"Hate or prohibited extremist imagery","REJECT_SPAM"=>"Spam or prohibited promotion","REJECT_IMAGE_QUALITY"=>"Technical or image-quality requirements",
         "REJECT_OTHER"=>"Other violation — notes required","ESCALATE_CHILD_SAFETY"=>"Child-safety concern — specialist review",
@@ -268,8 +307,9 @@ public static class MediaEndpoints
         return document.RootElement.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : null;
     }
 
-    private static MyPhotoView View(MediaItem item, IReadOnlyList<string> scopes, string? link) =>
-        new(item.Id, MediaPolicy.MemberState(item.Status), item.Status == MediaStatus.Passed ? link : null, item.CreatedAt, scopes, item.ReplacesId);
+    private static MyPhotoView View(MediaItem item, IReadOnlyList<string> scopes, string? link, string? preview = null) =>
+        new(item.Id, MediaPolicy.MemberState(item.Status), item.Status == MediaStatus.Passed ? link : null, item.CreatedAt, scopes, item.ReplacesId,
+            item.AlbumOnly, item.AlbumId, preview);
 
     public static async Task<MyPhotosView> OwnAsync(SwoovrDbContext db, MediaLinks links, Guid me, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -280,8 +320,18 @@ public static class MediaEndpoints
         var profile = await db.MemberProfiles.SingleAsync(p => p.AccountId == me, cancellationToken);
         var tier = await Moderation.Entitlements.TierAsync(db, profile, now, cancellationToken);
         var mains = places.Where(p => p.Scope != MediaPolicy.Main && p.IsMain).GroupBy(p => p.Scope).ToDictionary(g => g.Key, g => g.First().MediaId);
-        return new(items.Select(i => View(i, places.Where(p => p.MediaId == i.Id && p.Scope != MediaPolicy.Main).Select(p => p.Scope).ToList(), links.For(i.Id, "member", now))).ToList(),
-            null, modes, MediaPolicy.ModeLimit(tier), MediaPolicy.MaxKept, mains, Wire(tier));
+        // #231: private albums, in creation order; entries in their own order.
+        var albums = await db.PhotoAlbums.Where(a => a.AccountId == me).OrderBy(a => a.CreatedAt).ToListAsync(cancellationToken);
+        var albumIds = albums.Select(a => a.Id).ToList();
+        var entries = await db.PhotoAlbumItems.Where(e => albumIds.Contains(e.AlbumId)).OrderBy(e => e.Position).ToListAsync(cancellationToken);
+        var albumModes = await db.PhotoAlbumModes.Where(m => albumIds.Contains(m.AlbumId)).ToListAsync(cancellationToken);
+        var albumViews = albums.Select(a => new PhotoAlbumView(a.Id, a.Name, entries.Where(e => e.AlbumId == a.Id).Select(e => e.MediaId).ToList(),
+            albumModes.Where(m => m.AlbumId == a.Id).Select(m => m.ModeId).Order().ToList(), a.CreatedAt)).ToList();
+        // #231: the owner's own not-approved photo, while it can still be appealed, through an owner-only link (never a blocked one).
+        string? Preview(MediaItem i) => MediaPolicy.OwnerPreview(i, now) ? links.For(i.Id, "own", now) : null;
+        return new(items.Select(i => View(i, places.Where(p => p.MediaId == i.Id && p.Scope != MediaPolicy.Main).Select(p => p.Scope).ToList(), links.For(i.Id, "member", now), Preview(i))).ToList(),
+            null, modes, MediaPolicy.ModeLimit(tier), MediaPolicy.MaxKept, mains, Wire(tier), albumViews, PhotoAlbumPolicy.MaxAlbums, PhotoAlbumPolicy.MaxPhotos,
+            ExplicitMediaPolicy.Allowed(profile));
     }
 
     /// <summary>
@@ -293,7 +343,7 @@ public static class MediaEndpoints
     {
         var rows = await (from p in db.MediaPlacements join i in db.MediaItems on p.MediaId equals i.Id
                           where accounts.Contains(p.AccountId) && modes.Contains(p.Scope)
-                                && i.Status == MediaStatus.Passed && i.RemovedAt == null
+                                && i.Status == MediaStatus.Passed && i.RemovedAt == null && !i.AlbumOnly
                           orderby p.Position select new { p.AccountId, p.Scope, p.MediaId, p.IsMain, p.Position }).ToListAsync(cancellationToken);
         var limits = await LimitsAsync(db, accounts, now, cancellationToken);
         var visible = rows.GroupBy(r => (r.AccountId, r.Scope)).SelectMany(g => g.Take(limits.GetValueOrDefault(g.Key.AccountId, MediaPolicy.ModeLimit(PlanTier.Free)))).ToList();

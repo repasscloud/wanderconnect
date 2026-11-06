@@ -45,7 +45,7 @@ public static class ProfilePrivacy
         // D203: the photos shown, by id and SHA-256 of the stored image (the main photo in core, each mode's own in the mode).
         var limit = (await Media.MediaEndpoints.LimitsAsync(db, [account], now, cancellationToken)).GetValueOrDefault(account, MediaPolicy.ModeLimit(PlanTier.Free));
         var photos = (await (from p in db.MediaPlacements join i in db.MediaItems on p.MediaId equals i.Id
-                             where p.AccountId == account && p.Scope != MediaPolicy.Main && i.Status == MediaStatus.Passed && i.RemovedAt == null
+                             where p.AccountId == account && p.Scope != MediaPolicy.Main && i.Status == MediaStatus.Passed && i.RemovedAt == null && !i.AlbumOnly
                              orderby p.Position select new { p.Scope, i.Id, i.Sha256, p.IsMain }).ToListAsync(cancellationToken))
             .GroupBy(p => p.Scope).ToDictionary(g => g.Key, g => g.Take(limit).Select(p => new { p.Id, Sha256 = Convert.ToHexStringLower(p.Sha256), p.IsMain }).ToList());
         var snapshots = new List<(string Mode, object Content)>

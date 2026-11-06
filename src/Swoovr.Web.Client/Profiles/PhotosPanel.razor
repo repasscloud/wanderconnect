@@ -1,157 +1,310 @@
-@* D293: one shared library; every mode's gallery and main are explicit independent choices. *@
+@* Issue 231 redesign (mockup docs/ui-gallery/issue-231-photos-mockup.html). D293: one shared library; every mode's gallery and
+   main are explicit choices. Private albums (4 × 10) live under the library; adult photos are approved for albums only. *@
 @inject MemberClient Members
-<div class="page-heading" data-photos-panel="@(loaded ? "ready" : "loading")">
-    <p class="breadcrumb"><a href="/account">Me</a> / <a href="/me/profile">Profile</a> / Photos</p>
-    <h1>Your photos</h1>
-    <p class="field-help">@PhotoText.Rules</p>
+@inject NavigationManager Navigation
+<div class="ph-page" data-photos-panel="@(loaded ? "ready" : "loading")">
+    <div class="ph-head">
+        <h1>Photos</h1>
+        @if (photos is not null)
+        {
+            <label class="button ph-upload @(busy || Full ? "is-disabled" : null)">
+                <span>Add photos</span>
+                <InputFile class="visually-hidden" OnChange="UploadAsync" multiple accept="image/jpeg,image/png,image/webp" disabled="@(busy || Full)" data-photo-input />
+            </label>
+        }
+    </div>
+    @* Issue 231: the rules span the whole content width; no narrow container. *@
+    <p class="ph-rules">@PhotoText.Rules</p>
+    <p role="status" aria-live="polite" class="ph-status" data-photo-status="@status">@message</p>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (refused is not null) { <p role="status" data-photos-refused="@refused">We couldn't load your photos.</p> }
-</div>
-@if (decisions.Count > 0)
-{
-    <section class="card account-section" aria-labelledby="photo-decisions-heading">
-        <h2 id="photo-decisions-heading">Photo decisions and appeals</h2>
-        <p class="field-help">Rejected photos stay hidden. Eligible decisions can be appealed once within 30 days; a different Admin makes the final decision.</p>
-        @foreach (var decision in decisions)
-        {
-            <article data-photo-decision="@decision.Id"><p>@decision.Reason</p><p class="field-help">@decision.At.ToLocalTime().ToString("d MMM yyyy") @(decision.AppealId is null ? "" : decision.AppealOutcome is null ? "· Appeal awaiting review" : "· Appeal " + decision.AppealOutcome)</p>
-            @if (decision.CanAppeal)
-            {
-                <form class="stack" @onsubmit="() => AppealAsync(decision.Id)"><label for="@($"appeal-{decision.Id}")">Why should this decision be reviewed?</label><textarea id="@($"appeal-{decision.Id}")" maxlength="1000" required value="@appealTexts.GetValueOrDefault(decision.Id)" @oninput="e => appealTexts[decision.Id] = e.Value as string ?? string.Empty"></textarea><button type="submit" class="button" disabled="@busy">Submit photo appeal</button></form>
-            }</article>
-        }
-    </section>
-}
-@if (loaded && refused is null && photos is not null)
-{
-    <section class="card account-section" aria-labelledby="upload-heading">
-        <h2 id="upload-heading">Shared photo library</h2>
-        <p class="field-help" data-library-usage>@photos.Photos.Count of @photos.MaxKept photos. Upload once, then choose where each photo shows.</p>
-        <label for="photo-input" class="field-help">Add photos</label>
-        <InputFile id="photo-input" OnChange="UploadAsync" multiple accept="image/jpeg,image/png,image/webp" disabled="@busy" data-photo-input />
-        <p class="field-help">JPEG, PNG or WebP, up to 10 MB each.</p>
-        <p role="status" aria-live="polite" class="field-help" data-photo-status="@status">@message</p>
-    </section>
-    @if (modes.Count > 0)
+    else if (photos is not null)
     {
-        <section class="card account-section" aria-labelledby="modes-photos-heading">
-            <h2 id="modes-photos-heading">Photos for each mode</h2>
-            <p class="field-help">@photos.Tier: up to @photos.MaxPerMode photos per mode, including its main. Free 8 · Plus 16 · Premium 24.</p>
-            <p class="field-help">Choose a main photo in each mode. Without one, your profile uses a placeholder.</p>
-            <div class="mode-choices" aria-label="Choose a mode">
-                @foreach (var mode in modes)
+        @if (Full) { <p class="ph-banner" data-library-full><strong>Your library is full.</strong> Delete a photo to add a new one.</p> }
+
+        <section class="card ph-card" aria-labelledby="library-usage-title">
+            <div class="ph-usage-line"><h2 id="library-usage-title">Library</h2><span data-library-usage><strong>@photos.Photos.Count</strong> of @photos.MaxKept spots used</span></div>
+            <div class="ph-meter" aria-hidden="true"><span style="width:@Percent(ProfileCount)%"></span><span class="alt" style="width:@Percent(AlbumOnlyCount)%"></span></div>
+            <p class="ph-legend"><span><i></i>@ProfileCount profile photos</span>@if (photos.IdVerified) {<span><i class="alt"></i>@AlbumOnlyCount in private albums only</span>}</p>
+        </section>
+
+        @if (modes.Count > 0)
+        {
+            var label = ModeLabel(selectedMode);
+            var chosen = InMode(selectedMode);
+            var main = photos.Mains?.GetValueOrDefault(selectedMode);
+            <section class="card ph-card" aria-labelledby="modes-photos-heading" data-mode-photos="@selectedMode" data-mode-photo-count="@chosen.Count">
+                <h2 id="modes-photos-heading">Photos for each mode</h2>
+                <p class="field-help">Choose a main photo in each mode. Without one, your profile uses a placeholder.</p>
+                <div class="ph-tabs" role="tablist" aria-label="Mode">
+                    @foreach (var mode in modes)
+                    {
+                        <button type="button" role="tab" class="chip ph-chip" aria-selected="@(selectedMode == mode.Id ? "true" : "false")" aria-pressed="@(selectedMode == mode.Id ? "true" : "false")"
+                                @onclick="() => selectedMode = mode.Id" data-photo-mode="@mode.Id">@mode.Label <span class="ph-count">@InMode(mode.Id).Count</span></button>
+                    }
+                </div>
+                <div class="ph-subhead"><h3>In @label</h3><span class="ph-count">@Math.Min(chosen.Count, photos.MaxPerMode) of @photos.MaxPerMode</span></div>
+                <ul class="ph-grid">
+                    @for (var i = 0; i < chosen.Count; i++)
+                    {
+                        var index = i; var photo = chosen[i]; var hidden = index >= photos.MaxPerMode;
+                        <li class="ph-tile @(dragging == photo.Id ? "is-dragging" : null)" draggable="true" data-assigned-photo="@photo.Id" data-mode-photo-hidden="@(hidden ? "true" : "false")"
+                            @ondragstart="() => dragging = photo.Id" @ondragend="() => dragging = null" @ondragover:preventDefault="true" @ondrop="() => DropAsync(index)">
+                            <button type="button" class="ph-open" @onclick="() => Open(photo.Id, Context.Mode)" aria-label="@(main == photo.Id ? "Main photo" : $"Photo {index + 1}") in @label"><PhotoShot Photo="photo" Alt="" /></button>
+                            @if (main == photo.Id) { <span class="ph-badge">Main</span> }
+                            <span class="ph-order">@(index + 1)</span>
+                            <button type="button" class="ph-x" disabled="@busy" @onclick="() => PlaceAsync(selectedMode, Ids(chosen).Where(c => c != photo.Id).ToList())" aria-label="Remove photo @(index + 1) from @label" data-remove-mode-photo="@photo.Id">×</button>
+                            @if (hidden) { <span class="ph-tile-note">Hidden by your plan</span> }
+                        </li>
+                    }
+                    <li class="ph-tile"><button type="button" class="ph-add" disabled="@(busy || chosen.Count >= photos.MaxPerMode)" @onclick="() => dialog = Dialog.PickMode" data-add-mode-photos>@(chosen.Count >= photos.MaxPerMode ? "Mode is full" : "+ Add photos")</button></li>
+                </ul>
+                <p class="field-help" data-mode-main="@(main is null ? "none" : "set")">@(chosen.Count == 0 ? $"No photos in {label} yet. Your {label} profile uses a placeholder." : main is null ? $"No main photo in {label}, so a placeholder shows. Open a photo and choose Make main." : $"Drag to change the order. Removing a photo from {label} keeps it in your library.")</p>
+            </section>
+        }
+
+        <section class="card ph-card" aria-labelledby="albums-title" data-albums="@Albums.Count">
+            <div class="ph-subhead"><h2 id="albums-title">Private albums</h2><span class="ph-count">@Albums.Count of @photos.MaxAlbums</span></div>
+            <p class="field-help">@PhotoText.AlbumsIntro</p>
+            @if (!photos.IdVerified) { <p class="field-help" data-albums-need-id><strong>@PhotoText.AlbumsNeedId</strong> <a href="/me/verification">Verify your ID</a> to add adult photos.</p> }
+            <ul class="ph-albums">
+                @foreach (var album in Albums)
                 {
-                    <button type="button" class="chip" aria-pressed="@(selectedMode == mode.Id ? "true" : "false")" disabled="@busy" @onclick="() => selectedMode = mode.Id" data-photo-mode="@mode.Id">@mode.Label</button>
+                    <li><a class="ph-album" href="/me/photos/albums/@album.Id" data-album="@album.Id">
+                        <span class="ph-cover">@foreach (var photo in album.Photos.Take(4).Select(Photo).OfType<MyPhotoView>()) {<PhotoShot Photo="photo" Alt="" />}</span>
+                        <span class="ph-album-name">@album.Name</span>
+                        <span class="field-help">@album.Photos.Count of @photos.MaxAlbumPhotos · @(album.Modes.Count == 0 ? "Not in any mode" : string.Join(", ", album.Modes.Select(ModeLabel)))</span>
+                    </a></li>
+                }
+                @for (var i = Albums.Count; i < photos.MaxAlbums; i++)
+                {
+                    <li><button type="button" class="ph-album ph-album-new" @onclick="() => { newAlbumName = string.Empty; newAlbumModes.Clear(); dialog = Dialog.NewAlbum; }" data-new-album><span class="ph-cover ph-cover-empty">+ New album</span><span class="ph-album-name muted">Empty</span><span class="field-help">Up to @photos.MaxAlbumPhotos photos</span></button></li>
+                }
+            </ul>
+        </section>
+
+        <section class="card ph-card" aria-labelledby="mine-heading">
+            <h2 id="mine-heading">All photos</h2>
+            <div class="ph-filters" role="group" aria-label="Filter photos">
+                @foreach (var (key, text) in Filters)
+                {
+                    <button type="button" class="chip ph-chip" aria-pressed="@(filter == key ? "true" : "false")" @onclick="() => filter = key" data-photo-filter="@key">@text</button>
                 }
             </div>
-            @foreach (var mode in modes.Where(m => m.Id == selectedMode))
-            {
-                var chosen = photos.Modes.GetValueOrDefault(mode.Id) ?? [];
-                var main = photos.Mains?.GetValueOrDefault(mode.Id);
-                <fieldset class="stack" data-mode-photos="@mode.Id" data-mode-photo-count="@chosen.Count">
-                    <legend>@mode.Label — @Math.Min(chosen.Count, photos.MaxPerMode) of @photos.MaxPerMode visible</legend>
-                    @if (chosen.Count > photos.MaxPerMode) { <p class="field-help">Extra photos are kept and hidden. Move a photo earlier to show it, or upgrade your plan.</p> }
-                    @if (main is null || !chosen.Take(photos.MaxPerMode).Contains(main.Value)) { <p class="field-help" data-mode-main="none">No main photo selected — a placeholder shows.</p> }
-                    else { <button type="button" class="link-button" disabled="@busy" @onclick="() => PlaceAsync(mode.Id, chosen.ToList(), null, true)" data-clear-mode-main="@mode.Id">Use a placeholder instead of a main photo</button> }
-                    <ul class="photo-grid">
-                        @foreach (var id in chosen)
-                        {
-                            var photo = photos.Photos.FirstOrDefault(p => p.Id == id);
-                            var index = chosen.ToList().IndexOf(id);
-                            if (photo is null) { continue; }
-                            <li class="photo-item" data-assigned-photo="@id" data-mode-photo-hidden="@(index >= photos.MaxPerMode ? "true" : "false")">
-                                @if (photo.Link is not null) { <img src="@PhotoText.Web(photo.Link)" alt="Photo @(index + 1) in @mode.Label" loading="lazy" /> }
-                                <p class="field-help">@(main == id ? "Main photo" : $"Photo {index + 1}") @(index >= photos.MaxPerMode ? "· Hidden by your plan" : "")</p>
-                                @if (main != id && index < photos.MaxPerMode) { <button type="button" class="link-button" disabled="@busy" @onclick="() => PlaceAsync(mode.Id, chosen.ToList(), id, true)" data-mode-make-main="@id">Make main in @mode.Label</button> }
-                                <button type="button" class="link-button" disabled="@(busy || index == 0)" @onclick="() => PlaceAsync(mode.Id, Move(chosen, index, -1))" aria-label="Move photo @(index + 1) earlier in @mode.Label">Move earlier</button>
-                                <button type="button" class="link-button" disabled="@(busy || index == chosen.Count - 1)" @onclick="() => PlaceAsync(mode.Id, Move(chosen, index, 1))" aria-label="Move photo @(index + 1) later in @mode.Label">Move later</button>
-                                <button type="button" class="link-button" disabled="@busy" @onclick="() => PlaceAsync(mode.Id, chosen.Where(c => c != id).ToList())" data-remove-mode-photo="@id">Remove from @mode.Label</button>
-                            </li>
-                        }
-                    </ul>
-                    <p class="field-help">Removing from this mode keeps the photo in your library and other modes.</p>
-                    <div class="photo-grid">
-                        @foreach (var photo in Approved)
-                        {
-                            var on = chosen.Contains(photo.Id);
-                            <label class="option"><input type="checkbox" checked="@on" disabled="@(busy || !on && chosen.Count >= photos.MaxPerMode)"
-                                @onchange="e => PlaceAsync(mode.Id, Toggle(chosen, photo.Id, e.Value is true))" data-mode-photo="@($"{mode.Id}:{photo.Id}")" />
-                                <img src="@PhotoText.Web(photo.Link!)" alt="" class="photo-thumb" /> Show in @mode.Label</label>
-                        }
-                    </div>
-                </fieldset>
-            }
+            @if (photos.Photos.Count == 0) { <p class="ph-empty" data-photos="none">No photos yet. Add photos when you're ready.</p> }
+            else if (Library.Count == 0) { <p class="ph-empty">No photos match this filter.</p> }
+            <ul class="ph-grid" data-photos="@photos.Photos.Count">
+                @foreach (var photo in Library)
+                {
+                    <li class="ph-tile" data-photo="@photo.Id" data-photo-state="@photo.State">
+                        <button type="button" class="ph-open" @onclick="() => Open(photo.Id, Context.Library)" aria-label="Open photo, @Where(photo)"><PhotoShot Photo="photo" Revealed="revealed.Contains(photo.Id)" Alt="" /></button>
+                        <div class="ph-tile-meta"><span class="ph-where" title="@Where(photo)">@Where(photo)</span>
+                            <button type="button" class="button button-secondary ph-xs" disabled="@busy" @onclick="() => AskDelete(photo.Id)" data-delete-photo="@photo.Id">Delete</button></div>
+                    </li>
+                }
+            </ul>
+            <p class="field-help">Deleting a photo removes it from every mode and album.</p>
         </section>
-    }
-    <section class="card account-section" aria-labelledby="mine-heading">
-        <h2 id="mine-heading">All library photos</h2>
-        <p class="field-help">Deleting from your library removes the photo from every mode.</p>
-        @if (photos.Photos.Count == 0) { <p class="field-help" data-photos="none">No photos yet. Add photos above when you're ready.</p> }
-        <ul class="photo-grid" data-photos="@photos.Photos.Count">
-            @foreach (var photo in photos.Photos)
-            {
-                <li class="photo-item" data-photo="@photo.Id" data-photo-state="@photo.State">
-                    @if (photo.Link is not null) { <img src="@PhotoText.Web(photo.Link)" alt="Your library photo" loading="lazy" data-photo-image="@photo.Id" /> }
-                    else { <div class="photo-placeholder" aria-hidden="true"></div> }
-                    <p class="field-help" data-photo-state-text>@PhotoText.State(photo.State)</p>
-                    @if (confirmDelete == photo.Id)
+
+        @if (decisions.Count > 0)
+        {
+            <section class="card ph-card" aria-labelledby="photo-decisions-heading">
+                <h2 id="photo-decisions-heading">Photo decisions and appeals</h2>
+                <p class="field-help">You can appeal a decision once, within 30 days. A different person on the Swoovr team reviews it.</p>
+                <ul class="ph-items">
+                    @foreach (var decision in decisions)
                     {
-                        <p class="field-help">Delete from your library and every mode?</p>
-                        <button type="button" class="link-button" disabled="@busy" @onclick="() => DeleteAsync(photo.Id)" data-confirm-delete-photo="@photo.Id">Delete everywhere</button>
-                        <button type="button" class="link-button" @onclick="() => confirmDelete = null">Keep photo</button>
+                        var photo = Photo(decision.MediaId);
+                        <li class="ph-item" data-photo-decision="@decision.Id">
+                            <span class="ph-item-thumb">@if (photo is not null) {<button type="button" class="ph-open" @onclick="() => Open(photo.Id, Context.Library)" aria-label="Open the photo that wasn't approved"><PhotoShot Photo="photo" Alt="" /></button>}</span>
+                            <div class="ph-item-main">
+                                <p><strong>A photo wasn't approved</strong> <span class="ph-tag">@(decision.AppealId is null ? decision.CanAppeal ? "Can appeal" : "Final" : decision.AppealOutcome is null ? "Appeal being reviewed" : "Appeal " + decision.AppealOutcome)</span></p>
+                                <p class="field-help">@decision.At.ToLocalTime().ToString("d MMM yyyy") · @decision.Reason</p>
+                                @if (decision.CanAppeal && appealing == decision.Id)
+                                {
+                                    <form class="stack" @onsubmit="() => AppealAsync(decision.Id)">
+                                        <label for="@($"appeal-{decision.Id}")">Why should this decision be reviewed?</label>
+                                        <textarea id="@($"appeal-{decision.Id}")" maxlength="1000" required value="@appealTexts.GetValueOrDefault(decision.Id)" @oninput="e => appealTexts[decision.Id] = e.Value as string ?? string.Empty"></textarea>
+                                        <div class="ph-row"><button type="submit" class="button button-small" disabled="@busy">Send appeal</button><button type="button" class="button button-secondary button-small" @onclick="() => appealing = null">Cancel</button></div>
+                                    </form>
+                                }
+                            </div>
+                            <div class="ph-row">
+                                @if (decision.CanAppeal && appealing != decision.Id) { <button type="button" class="button button-small" @onclick="() => appealing = decision.Id" data-photo-appeal="@decision.Id">Appeal</button> }
+                                @if (photo is not null) { <button type="button" class="button button-secondary button-small" @onclick="() => AskDelete(photo.Id)">Delete</button> }
+                            </div>
+                        </li>
                     }
-                    else { <button type="button" class="link-button" disabled="@busy" @onclick="() => confirmDelete = photo.Id" data-delete-photo="@photo.Id">Delete from library</button> }
-                </li>
+                </ul>
+            </section>
+        }
+    }
+</div>
+
+@if (photos is not null && viewing is { } open && Photo(open.Id) is { } shown)
+{
+    var list = ViewerList(open.Context); var at = list.IndexOf(open.Id); var label = ModeLabel(selectedMode);
+    <PhotoViewer Photo="shown" Index="at" Count="list.Count" Revealed="revealed.Contains(shown.Id)" RevealedChanged="on => Reveal(shown.Id, on)"
+                 OnStep="by => Step(list, at, by)" OnClose="() => viewing = null">
+        <Facts>
+            <dl class="ph-facts">
+                <div><dt>Status</dt><dd>@PhotoText.Short(shown.State, shown.AlbumOnly)</dd></div>
+                <div><dt>Modes</dt><dd>@(ModesOf(shown) is { Length: > 0 } m ? m : "—")</dd></div>
+                <div><dt>Albums</dt><dd>@(AlbumsOf(shown) is { Length: > 0 } a ? a : "—")</dd></div>
+                <div><dt>Uploaded</dt><dd>@shown.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</dd></div>
+            </dl>
+        </Facts>
+        <Actions>
+            @if (open.Context == Context.Mode)
+            {
+                var ids = Ids(InMode(selectedMode));
+                @if (photos.Mains?.GetValueOrDefault(selectedMode) != shown.Id && at < photos.MaxPerMode)
+                {
+                    <button type="button" class="button" disabled="@busy" @onclick="() => PlaceAsync(selectedMode, Front(ids, shown.Id), shown.Id, true)" data-mode-make-main="@shown.Id">Make main in @label</button>
+                }
+                <button type="button" class="button button-secondary" disabled="@(busy || at <= 0)" @onclick="() => PlaceAsync(selectedMode, Move(ids, at, -1))">Move earlier</button>
+                <button type="button" class="button button-secondary" disabled="@(busy || at >= ids.Count - 1)" @onclick="() => PlaceAsync(selectedMode, Move(ids, at, 1))">Move later</button>
+                <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => RemoveFromModeAsync(shown.Id)">Remove from @label</button>
             }
-        </ul>
-    </section>
+            @if (shown.State == "not-approved" && decisions.FirstOrDefault(d => d.MediaId == shown.Id && d.CanAppeal) is { } appealable)
+            {
+                <button type="button" class="button" @onclick="() => { viewing = null; appealing = appealable.Id; }">Appeal this decision</button>
+            }
+            <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => AskDelete(shown.Id)">Delete</button>
+        </Actions>
+    </PhotoViewer>
 }
+
+@if (photos is not null && dialog == Dialog.PickMode)
+{
+    <PhotoPicker Title="@($"Add photos to {ModeLabel(selectedMode)}")" Hint="Photos only for private albums can't be used in a mode."
+                 Pool="Approved" Chosen="Ids(InMode(selectedMode))" Max="photos.MaxPerMode" OnCancel="() => dialog = null" OnDone="PickedAsync" />
+}
+
+@if (photos is not null && dialog == Dialog.Delete && Photo(deleteId) is { } doomed)
+{
+    <div class="ph-overlay" @onclick="() => dialog = null">
+        <div class="ph-dialog" role="dialog" aria-modal="true" aria-labelledby="ph-delete-title" @onclick:stopPropagation="true">
+            <div class="ph-dialog-head"><h2 id="ph-delete-title">Delete this photo?</h2><button type="button" class="ph-close" @onclick="() => dialog = null" aria-label="Close">×</button></div>
+            <div class="ph-row"><span class="ph-item-thumb"><PhotoShot Photo="doomed" Alt="" /></span>
+                <p>@(UsedIn(doomed) is { Length: > 0 } used ? $"It's removed from {used} and your library." : "It's removed from your library.") This can't be undone.</p></div>
+            <div class="ph-dialog-foot"><button type="button" class="button button-secondary" @onclick="() => dialog = null">Keep</button><button type="button" class="button" disabled="@busy" @onclick="() => DeleteAsync(doomed.Id)" data-confirm-delete-photo="@doomed.Id">Delete</button></div>
+        </div>
+    </div>
+}
+
+@if (photos is not null && dialog == Dialog.NewAlbum)
+{
+    <div class="ph-overlay" @onclick="() => dialog = null">
+        <form class="ph-dialog" role="dialog" aria-modal="true" aria-labelledby="ph-album-title" @onclick:stopPropagation="true" @onsubmit="CreateAlbumAsync" data-new-album-form>
+            <div class="ph-dialog-head"><h2 id="ph-album-title">New private album</h2><button type="button" class="ph-close" @onclick="() => dialog = null" aria-label="Close">×</button></div>
+            <div class="field"><label for="album-name">Name</label><input id="album-name" maxlength="40" required placeholder="For example: Weekend away" @bind="newAlbumName" data-album-name /></div>
+            <fieldset><legend>Share in modes</legend>
+                @foreach (var mode in modes)
+                {
+                    <label class="ph-switch-row"><span>@mode.Label</span><input type="checkbox" class="ph-switch" checked="@newAlbumModes.Contains(mode.Id)" @onchange="e => Toggle(newAlbumModes, mode.Id, e.Value is true)" /></label>
+                }
+            </fieldset>
+            <p class="field-help">You have @(photos.MaxAlbums - Albums.Count) of @photos.MaxAlbums albums left. Each holds up to @photos.MaxAlbumPhotos photos.</p>
+            <div class="ph-dialog-foot"><button type="button" class="button button-secondary" @onclick="() => dialog = null">Cancel</button><button type="submit" class="button" disabled="@busy" data-create-album>Create album</button></div>
+        </form>
+    </div>
+}
+
 @code {
-    private string selectedMode = "dating";
-    private Guid? confirmDelete;
-    private List<PhotoDecisionView> decisions = [];
-    private Dictionary<Guid, string> appealTexts = [];
+    private enum Context { Mode, Library }
+    private enum Dialog { PickMode, Delete, NewAlbum }
+    private static readonly (string Key, string Text)[] AllFilters = [("all", "All"), ("used", "In a mode"), ("unused", "Not in a mode"), ("album-only", "Albums only"), ("review", "Checking or not approved")];
+
     private MyPhotosView? photos;
+    private List<PhotoDecisionView> decisions = [];
     private List<ConnectionModeView> modes = [];
+    private readonly Dictionary<Guid, string> appealTexts = [];
+    private readonly HashSet<Guid> revealed = [];
+    private readonly List<string> newAlbumModes = [];
+    private string selectedMode = "dating", filter = "all", newAlbumName = string.Empty;
+    private (Guid Id, Context Context)? viewing;
+    private Dialog? dialog;
+    private Guid deleteId;
+    private Guid? appealing, dragging;
     private bool loaded, busy;
     private string? refused, message, status;
-    private List<MyPhotoView> Approved => photos?.Photos.Where(p => p.State == "approved" && p.Link is not null).ToList() ?? [];
+
+    private IReadOnlyList<PhotoAlbumView> Albums => photos?.Albums ?? [];
+    private bool Full => photos is not null && photos.Photos.Count >= photos.MaxKept;
+    private int AlbumOnlyCount => photos?.Photos.Count(p => p.AlbumOnly) ?? 0;
+    private int ProfileCount => (photos?.Photos.Count ?? 0) - AlbumOnlyCount;
+    private string Percent(int count) => photos is null || photos.MaxKept == 0 ? "0" : (count * 100.0 / photos.MaxKept).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    private IEnumerable<(string Key, string Text)> Filters => AllFilters.Where(f => f.Key != "album-only" || photos?.IdVerified == true || AlbumOnlyCount > 0);
+    private List<MyPhotoView> Approved => photos?.Photos.Where(p => p.State == "approved" && !p.AlbumOnly && p.Link is not null).ToList() ?? [];
+    private MyPhotoView? Photo(Guid id) => photos?.Photos.FirstOrDefault(p => p.Id == id);
+    private List<MyPhotoView> InMode(string mode) => (photos?.Modes.GetValueOrDefault(mode) ?? []).Select(Photo).OfType<MyPhotoView>().ToList();
+    private static List<Guid> Ids(IEnumerable<MyPhotoView> list) => list.Select(p => p.Id).ToList();
+    private string ModeLabel(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
+    private string ModesOf(MyPhotoView p) => string.Join(", ", modes.Where(m => photos!.Modes.GetValueOrDefault(m.Id)?.Contains(p.Id) == true).Select(m => m.Label));
+    private string AlbumsOf(MyPhotoView p) => string.Join(", ", Albums.Where(a => a.Photos.Contains(p.Id)).Select(a => a.Name));
+    private string UsedIn(MyPhotoView p) => string.Join(", ", new[] { ModesOf(p), AlbumsOf(p) }.Where(s => s.Length > 0));
+    private string Where(MyPhotoView p)
+    {
+        if (p.State is "checking" or "in-review") return "Being checked";
+        if (p.State == "not-approved") return "Not approved";
+        var used = modes.Where(m => photos!.Modes.GetValueOrDefault(m.Id)?.Contains(p.Id) == true).Select(m => m.Label).ToList();
+        var albums = Albums.Count(a => a.Photos.Contains(p.Id));
+        if (albums > 0) used.Add(albums == 1 ? "1 album" : $"{albums} albums");
+        return used.Count > 0 ? string.Join(" · ", used) : "Not used yet";
+    }
+    private List<MyPhotoView> Library => (photos?.Photos ?? []).Where(p => filter switch
+    {
+        "used" => ModesOf(p).Length > 0,
+        "unused" => p.State == "approved" && !p.AlbumOnly && ModesOf(p).Length == 0,
+        "album-only" => p.AlbumOnly,
+        "review" => p.State is "checking" or "in-review" or "not-approved",
+        _ => true,
+    }).ToList();
+    private List<Guid> ViewerList(Context context) => context == Context.Mode ? Ids(InMode(selectedMode)) : Ids(Library);
+
     protected override async Task OnInitializedAsync()
     {
         decisions = (await Members.PhotoDecisionsAsync()).Value ?? [];
         var result = await Members.PhotosAsync();
         if (result.Ok) photos = result.Value; else refused = result.Code ?? result.Status.ToString();
         if (await Members.ModesAsync() is { Ok: true } catalogue) modes = catalogue.Value!.ToList();
+        if (modes.Count > 0 && modes.All(m => m.Id != selectedMode)) selectedMode = modes[0].Id;
         loaded = true;
     }
-    private static List<Guid> Toggle(IReadOnlyList<Guid> chosen, Guid id, bool on) => on ? [.. chosen, id] : chosen.Where(c => c != id).ToList();
-    private static List<Guid> Move(IReadOnlyList<Guid> chosen, int index, int offset)
+
+    private void Open(Guid id, Context context) => viewing = (id, context);
+    private void Step(List<Guid> list, int at, int by) { if (at + by >= 0 && at + by < list.Count) viewing = (list[at + by], viewing!.Value.Context); }
+    private void Reveal(Guid id, bool on) { if (on) revealed.Add(id); else revealed.Remove(id); }
+    private void AskDelete(Guid id) { deleteId = id; viewing = null; dialog = Dialog.Delete; }
+    private static void Toggle(List<string> list, string value, bool on) { list.Remove(value); if (on) list.Add(value); }
+    private static List<Guid> Move(List<Guid> ids, int index, int by) { var r = ids.ToList(); (r[index], r[index + by]) = (r[index + by], r[index]); return r; }
+    private static List<Guid> Front(List<Guid> ids, Guid id) => [id, .. ids.Where(x => x != id)];
+
+    private async Task DropAsync(int target)
     {
-        var result = chosen.ToList(); (result[index], result[index + offset]) = (result[index + offset], result[index]); return result;
+        if (dragging is not { } id) return;
+        var ids = Ids(InMode(selectedMode)); var from = ids.IndexOf(id); dragging = null;
+        if (from < 0 || from == target) return;
+        ids.RemoveAt(from); ids.Insert(target, id);
+        await PlaceAsync(selectedMode, ids);
     }
-    private async Task UploadAsync(InputFileChangeEventArgs e)
+
+    private async Task RemoveFromModeAsync(Guid id)
     {
-        busy = true;
-        try
-        {
-            if (e.FileCount > 60 || e.FileCount + (photos?.Photos.Count ?? 0) > (photos?.MaxKept ?? 60)) { (status, message) = ("photo-limit", "Choose fewer photos, or delete photos from your library first."); return; }
-            var files = e.GetMultipleFiles(60);
-            var failures = 0;
-            for (var index = 0; index < files.Count; index++)
-            {
-                var file = files[index]; message = $"Uploading {index + 1} of {files.Count}…"; StateHasChanged();
-                if (file.Size > 10 * 1024 * 1024) { failures++; continue; }
-                using var stream = file.OpenReadStream(10 * 1024 * 1024); using var buffer = new MemoryStream(); await stream.CopyToAsync(buffer);
-                var result = await Members.UploadPhotoAsync(buffer.ToArray(), file.Name, file.ContentType);
-                if (!result.Ok) failures++;
-            }
-            (status, message) = failures == 0 ? ("checking", "Uploaded. Photos are checked before anyone can see them.") : ("error", $"{failures} upload(s) weren't accepted. Use JPEG, PNG or WebP up to 10 MB, and check your library allowance.");
-            await RefreshAsync();
-        }
-        finally { busy = false; }
-        for (var i = 0; i < 20 && photos?.Photos.Any(p => p.State == "checking") == true; i++) { await Task.Delay(1500); await RefreshAsync(); StateHasChanged(); }
+        viewing = null;
+        await PlaceAsync(selectedMode, Ids(InMode(selectedMode)).Where(c => c != id).ToList());
+        if (status == "saved") message = $"Removed from {ModeLabel(selectedMode)}. It's still in your library.";
     }
-    private async Task RefreshAsync() { if (await Members.PhotosAsync() is { Ok: true } result) photos = result.Value; }
+
+    private async Task PickedAsync(List<Guid> chosen)
+    {
+        dialog = null;
+        // Keep the mode's existing order, then add new picks at the end.
+        var current = Ids(InMode(selectedMode));
+        await PlaceAsync(selectedMode, [.. current.Where(chosen.Contains), .. chosen.Where(c => !current.Contains(c))]);
+    }
+
     private async Task PlaceAsync(string scope, List<Guid> ids, Guid? main = null, bool changeMain = false)
     {
         busy = true;
@@ -161,16 +314,53 @@
         if (result.Ok) (photos, status, message) = (result.Value, "saved", "Saved."); else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
         busy = false;
     }
-    private async Task AppealAsync(Guid id)
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
     {
-        busy = true; var result = await Members.AppealPhotoAsync(id, appealTexts.GetValueOrDefault(id) ?? "");
-        (status, message) = result.Ok ? ("appealed", "Photo appeal submitted. A different Admin will review it.") : ("error", "This appeal could not be submitted. Check the explanation and whether the decision is still eligible.");
-        decisions = (await Members.PhotoDecisionsAsync()).Value ?? []; busy = false;
+        busy = true;
+        try
+        {
+            if (e.FileCount + (photos?.Photos.Count ?? 0) > (photos?.MaxKept ?? 60)) { (status, message) = ("photo-limit", "Choose fewer photos, or delete photos from your library first."); return; }
+            var files = e.GetMultipleFiles(60); var failures = 0;
+            for (var index = 0; index < files.Count; index++)
+            {
+                var file = files[index]; message = $"Uploading {index + 1} of {files.Count}…"; StateHasChanged();
+                if (file.Size > 10 * 1024 * 1024) { failures++; continue; }
+                using var stream = file.OpenReadStream(10 * 1024 * 1024); using var buffer = new MemoryStream(); await stream.CopyToAsync(buffer);
+                if (!(await Members.UploadPhotoAsync(buffer.ToArray(), file.Name, file.ContentType)).Ok) failures++;
+            }
+            (status, message) = failures == 0 ? ("checking", "Uploaded. Photos are checked before anyone can see them.") : ("error", $"{failures} upload(s) weren't accepted. Use JPEG, PNG or WebP up to 10 MB, and check your library allowance.");
+            await RefreshAsync();
+        }
+        finally { busy = false; }
+        for (var i = 0; i < 20 && photos?.Photos.Any(p => p.State == "checking") == true; i++) { await Task.Delay(1500); await RefreshAsync(); StateHasChanged(); }
     }
+
+    private async Task RefreshAsync() { if (await Members.PhotosAsync() is { Ok: true } result) photos = result.Value; }
+
     private async Task DeleteAsync(Guid id)
     {
         busy = true; var result = await Members.DeletePhotoAsync(id);
-        if (result.Ok) (photos, status, message) = (result.Value, "deleted", "Deleted from your library and every mode."); else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
-        confirmDelete = null; busy = false;
+        if (result.Ok) { (photos, status, message) = (result.Value, "deleted", "Photo deleted."); decisions = (await Members.PhotoDecisionsAsync()).Value ?? decisions; }
+        else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
+        dialog = null; busy = false;
+    }
+
+    private async Task AppealAsync(Guid id)
+    {
+        busy = true; var result = await Members.AppealPhotoAsync(id, appealTexts.GetValueOrDefault(id) ?? "");
+        (status, message) = result.Ok ? ("appealed", "Appeal sent. A different person on the Swoovr team will review it.") : ("error", "This appeal couldn't be sent. Check the explanation and whether the decision can still be appealed.");
+        decisions = (await Members.PhotoDecisionsAsync()).Value ?? []; appealing = null; busy = false;
+    }
+
+    private async Task CreateAlbumAsync()
+    {
+        busy = true;
+        var before = Albums.Select(a => a.Id).ToHashSet();
+        var result = await Members.CreateAlbumAsync(newAlbumName, newAlbumModes.ToList());
+        busy = false;
+        if (!result.Ok) { (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code)); return; }
+        photos = result.Value; dialog = null;
+        if (Albums.FirstOrDefault(a => !before.Contains(a.Id)) is { } created) Navigation.NavigateTo($"/me/photos/albums/{created.Id}");
     }
 }

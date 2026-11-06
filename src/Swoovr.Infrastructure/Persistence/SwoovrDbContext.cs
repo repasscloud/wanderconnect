@@ -110,6 +110,10 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MediaItem> MediaItems => Set<MediaItem>();
     public DbSet<MediaPlacement> MediaPlacements => Set<MediaPlacement>();
     public DbSet<MediaReviewView> MediaReviewViews => Set<MediaReviewView>();
+    public DbSet<PhotoAlbum> PhotoAlbums => Set<PhotoAlbum>();
+    public DbSet<PhotoAlbumItem> PhotoAlbumItems => Set<PhotoAlbumItem>();
+    public DbSet<PhotoAlbumMode> PhotoAlbumModes => Set<PhotoAlbumMode>();
+    public DbSet<ExplicitMediaPreference> ExplicitMediaPreferences => Set<ExplicitMediaPreference>();
     public DbSet<SafetyCountry> SafetyCountries => Set<SafetyCountry>();
     public DbSet<SafetyResource> SafetyResources => Set<SafetyResource>();
     public DbSet<SafetyRevision> SafetyRevisions => Set<SafetyRevision>();
@@ -413,6 +417,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             item.HasIndex(i => i.Sha256);
             item.Property(i => i.Purpose).HasMaxLength(16);
             item.HasIndex(i => i.ConversationId);
+            item.Property(i => i.AlbumOnly).HasDefaultValue(false);
         });
         model.Entity<MediaEscalationDelivery>(delivery =>
         {
@@ -431,6 +436,30 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             placement.HasIndex(p => new { p.AccountId, p.Scope }, "ix_media_placements_one_main").IsUnique().HasFilter("is_main = true");
             placement.HasOne<MediaItem>().WithMany().HasForeignKey(p => p.MediaId).OnDelete(DeleteBehavior.Cascade);
             placement.HasIndex(p => p.MediaId);
+        });
+        // #231: private albums (4 per member, 10 photos each) and the per-mode "Receive explicit media" choice.
+        model.Entity<PhotoAlbum>(album =>
+        {
+            album.Property(a => a.Name).HasMaxLength(PhotoAlbumPolicy.NameMax);
+            album.HasIndex(a => new { a.AccountId, a.CreatedAt });
+        });
+        model.Entity<PhotoAlbumItem>(entry =>
+        {
+            entry.HasKey(e => new { e.AlbumId, e.MediaId });
+            entry.HasOne<PhotoAlbum>().WithMany().HasForeignKey(e => e.AlbumId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasOne<MediaItem>().WithMany().HasForeignKey(e => e.MediaId).OnDelete(DeleteBehavior.Cascade);
+            entry.HasIndex(e => e.MediaId);
+        });
+        model.Entity<PhotoAlbumMode>(mode =>
+        {
+            mode.HasKey(m => new { m.AlbumId, m.ModeId });
+            mode.Property(m => m.ModeId).HasMaxLength(32);
+            mode.HasOne<PhotoAlbum>().WithMany().HasForeignKey(m => m.AlbumId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<ExplicitMediaPreference>(preference =>
+        {
+            preference.HasKey(p => new { p.AccountId, p.ModeId });
+            preference.Property(p => p.ModeId).HasMaxLength(32);
         });
         model.Entity<MediaReviewView>(view =>
         {

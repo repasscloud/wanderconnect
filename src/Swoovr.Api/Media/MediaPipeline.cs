@@ -54,7 +54,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
 
     /// <param name="conversation">For a chat photo (#41): the conversation it's sent in; the item's purpose is then "attachment".</param>
     public async Task<(MediaItem? Item, MediaUploadError Error)> UploadAsync(Guid account, byte[] upload, Guid? replaces, DateTimeOffset now, CancellationToken cancellationToken,
-        Guid? conversation = null, bool deferScreening = false)
+        Guid? conversation = null, bool deferScreening = false, Guid? album = null)
     {
         var processed = processor.Process(upload);
         if (processed.Error != MediaUploadError.None) return (null, processed.Error);
@@ -65,11 +65,18 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             ReplacesId = replaces, Purpose = conversation is null ? null : AttachmentPolicy.Purpose, ConversationId = conversation,
             // The uploading host screens it straight away; the sweep only takes it if that didn't happen.
             NextScreenAt = now + TimeSpan.FromMinutes(2),
+            // #231: uploaded straight into a private album (the caller checked ownership and room under the media lease).
+            AlbumId = conversation is null ? album : null,
         };
         item.ObjectKey = MediaKeys.Quarantine(item.Id);
         await Store!.PutAsync(item.ObjectKey, processed.Data, item.ContentType, cancellationToken);
         db.MediaItems.Add(item);
-        Audit.Record(db, now, account, "account", "media.uploaded", "media", item.Id.ToString(), replaces is not null ? "replacement" : conversation is not null ? "attachment" : null);
+        if (item.AlbumId is { } into)
+        {
+            var last = await db.PhotoAlbumItems.Where(e => e.AlbumId == into).MaxAsync(e => (int?)e.Position, cancellationToken) ?? -1;
+            db.PhotoAlbumItems.Add(new PhotoAlbumItem { AlbumId = into, MediaId = item.Id, Position = last + 1 });
+        }
+        Audit.Record(db, now, account, "account", "media.uploaded", "media", item.Id.ToString(), replaces is not null ? "replacement" : conversation is not null ? "attachment" : item.AlbumId is not null ? "album" : null);
         await db.SaveChangesAsync(cancellationToken);
         if (!deferScreening) ScheduleScreening(item.Id);
         return (item, MediaUploadError.None);
@@ -158,6 +165,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         var owns=db.Database.CurrentTransaction is null;
         await using var transaction=owns?await db.Database.BeginTransactionAsync(token):null;
         if(refused)await db.MediaPlacements.Where(p=>p.MediaId==item.Id).ExecuteDeleteAsync(token);
+        // #231: a refused photo leaves every album too (the owner still sees it in the library while it can be appealed).
+        if(refused)await db.PhotoAlbumItems.Where(e=>e.MediaId==item.Id).ExecuteDeleteAsync(token);
         if(refused)await services.GetRequiredService<Swoovr.Api.Moderation.ModerationTransparencyRecorder>().StageMediaDecisionAsync(item,inspected,now,token);
         if(inspected)await services.GetRequiredService<Swoovr.Api.Moderation.ModerationInspectionRecorder>().CompletedAsync(
             Swoovr.Api.Moderation.ModerationInspectionRecorder.ImageDefinition,item.Id,false,candidate,token);
@@ -220,6 +229,13 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
         var places = item.ReplacesId is { } old
             ? await db.MediaPlacements.Where(p => p.AccountId == item.AccountId && p.MediaId == old).ToListAsync(cancellationToken) : [];
         foreach (var place in places) place.MediaId = item.Id;
+        // #231: a replaced library photo keeps its album positions (album entries are keyed by photo, so re-add them).
+        if (item.ReplacesId is { } previous)
+            foreach (var entry in await db.PhotoAlbumItems.Where(e => e.MediaId == previous).ToListAsync(cancellationToken))
+            {
+                db.PhotoAlbumItems.Remove(entry);
+                db.PhotoAlbumItems.Add(new PhotoAlbumItem { AlbumId = entry.AlbumId, MediaId = item.Id, Position = entry.Position });
+            }
         // D293: approval adds to the shared library only. No mode or main is inferred.
         // Explicit replacement keeps the existing mode placements and their main selections.
         Audit.Record(db, now, reviewer, reviewer is null ? "system" : "account", "media.passed", "media", item.Id.ToString(), reviewer is null ? null : "review");
@@ -298,6 +314,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     {
         // Hide immediately, even while a classifier owns the source. Physical deletion waits for that lease.
         await db.MediaItems.Where(i => i.Id == item.Id && i.RemovedAt == null).ExecuteUpdateAsync(u => u.SetProperty(i => i.RemovedAt, now), cancellationToken);
+        // #231: it leaves its albums at once too (album entries are metadata, never evidence).
+        await db.PhotoAlbumItems.Where(e => e.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
         Audit.Record(db, now, actor, "account", "media.removed", "media", item.Id.ToString());
         await db.SaveChangesAsync(cancellationToken);
         queue.Enqueue(item.Id);
@@ -311,6 +329,7 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     {
         if (item.Status is MediaStatus.Pending or MediaStatus.Passed or MediaStatus.Uncertain) (item.Status, item.NextScreenAt) = (MediaStatus.Removed, null);
         await db.MediaPlacements.Where(p => p.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
+        await db.PhotoAlbumItems.Where(e => e.MediaId == item.Id).ExecuteDeleteAsync(cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         if (item.ObjectKey is not null) await DeleteObjectIfAllowedAsync(item, now, cancellationToken);
         await Profiles.ProfilePrivacy.CaptureAsync(db, item.AccountId, now, cancellationToken);
@@ -392,6 +411,9 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
     public static async Task RemoveAllAsync(SwoovrDbContext db, Guid account, DateTimeOffset now, CancellationToken cancellationToken)
     {
         await db.MediaPlacements.Where(p => p.AccountId == account).ExecuteDeleteAsync(cancellationToken);
+        // #231: albums (their entries and modes cascade) and the explicit media choices go with the profile.
+        await db.PhotoAlbums.Where(a => a.AccountId == account).ExecuteDeleteAsync(cancellationToken);
+        await db.ExplicitMediaPreferences.Where(p => p.AccountId == account).ExecuteDeleteAsync(cancellationToken);
         await db.MediaItems.Where(i => i.AccountId == account && (i.Status == MediaStatus.Pending || i.Status == MediaStatus.Passed || i.Status == MediaStatus.Uncertain))
             .ExecuteUpdateAsync(u => u.SetProperty(i => i.Status, MediaStatus.Removed).SetProperty(i => i.RemovedAt, now).SetProperty(i => i.NextScreenAt, (DateTimeOffset?)null), cancellationToken);
         await db.MediaItems.Where(i => i.AccountId == account && i.RemovedAt == null).ExecuteUpdateAsync(u => u.SetProperty(i => i.RemovedAt, now), cancellationToken);
@@ -460,6 +482,8 @@ public sealed partial class MediaPipeline(IServiceProvider services, IPhotoProce
             "inspection" => MediaPolicy.ProfileInspectable(item),
             "case" => MediaPolicy.CaseReviewable(item),
             "appeal" => item is { Status: MediaStatus.Rejected, RemovedAt: null, RejectedRetainUntil: not null } && item.RejectedRetainUntil > DateTimeOffset.UtcNow,
+            // #231: the owner's own rejected photo while it can be appealed (the link is only issued to the owner).
+            "own" => MediaPolicy.OwnerPreview(item, DateTimeOffset.UtcNow),
             _ => item is { Status: MediaStatus.Uncertain, RemovedAt: null },
         };
         if (!allowed || Store is null || item.ObjectKey is null || item.ObjectKey.StartsWith("evidence/")) return null;

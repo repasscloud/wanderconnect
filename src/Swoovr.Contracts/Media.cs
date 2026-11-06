@@ -4,10 +4,32 @@ namespace Swoovr.Contracts;
 /// One of the member's own photos (D203). State: `checking`, `in-review`, `approved`, `not-approved` (refused, for any
 /// reason) or `removed`. Link is a short-lived signed path (`api/media/{token}`), only once approved.
 /// </summary>
-public sealed record MyPhotoView(Guid Id, string State, string? Link, DateTimeOffset CreatedAt, IReadOnlyList<string> Scopes, Guid? Replaces = null);
+/// <param name="AlbumOnly">#231: an adult photo approved for private albums only; it can't go in a mode and can only be deleted.</param>
+/// <param name="AlbumId">#231: the album it was uploaded straight into.</param>
+/// <param name="Preview">#231: the owner's own not-approved photo while it can be appealed (show blurred by default).</param>
+public sealed record MyPhotoView(Guid Id, string State, string? Link, DateTimeOffset CreatedAt, IReadOnlyList<string> Scopes, Guid? Replaces = null,
+    bool AlbumOnly = false, Guid? AlbumId = null, string? Preview = null);
 
 /// <summary>D293 shared library, full retained mode galleries and explicitly selected mode mains. Legacy Main is always null.</summary>
-public sealed record MyPhotosView(IReadOnlyList<MyPhotoView> Photos, Guid? Main, IReadOnlyDictionary<string, IReadOnlyList<Guid>> Modes, int MaxPerMode, int MaxKept, IReadOnlyDictionary<string, Guid>? Mains = null, string Tier = "free");
+/// #231 adds private albums (MaxAlbums each holding MaxAlbumPhotos) and whether the member is ID Verified (adult album photos).
+public sealed record MyPhotosView(IReadOnlyList<MyPhotoView> Photos, Guid? Main, IReadOnlyDictionary<string, IReadOnlyList<Guid>> Modes, int MaxPerMode, int MaxKept, IReadOnlyDictionary<string, Guid>? Mains = null, string Tier = "free",
+    IReadOnlyList<PhotoAlbumView>? Albums = null, int MaxAlbums = 4, int MaxAlbumPhotos = 10, bool IdVerified = false);
+
+/// <summary>#231: a private album. Photos are library photo ids in order; Modes are the profiles it may be shared in.</summary>
+public sealed record PhotoAlbumView(Guid Id, string Name, IReadOnlyList<Guid> Photos, IReadOnlyList<string> Modes, DateTimeOffset CreatedAt);
+
+/// <summary>#231: create an album (name 1–40 characters) allowed in the given modes.</summary>
+public sealed record PhotoAlbumCreate(string? Name, IReadOnlyList<string>? Modes);
+
+/// <summary>
+/// #231: replace an album's name, modes and photo order. Photos may only add approved library photos; an album-only photo
+/// can't be dropped here (delete it instead).
+/// </summary>
+public sealed record PhotoAlbumUpdate(string? Name, IReadOnlyList<string>? Modes, IReadOnlyList<Guid>? Photos);
+
+/// <summary>#231: "Receive explicit media" per profile (mode). Only ID Verified members can turn it on.</summary>
+public sealed record ExplicitMediaSettings(bool IdVerified, IReadOnlyDictionary<string, bool> Modes);
+public sealed record ExplicitMediaUpdate(string? Mode, bool Receive);
 
 /// <summary>A full replacement for one mode gallery, including its optional main selection. Null clears the main.</summary>
 public sealed record PhotoPlacementUpdate(string Scope, IReadOnlyList<Guid> MediaIds, Guid? MainMediaId = null);
@@ -17,8 +39,10 @@ public sealed record PhotoView(Guid Id, string Link);
 
 /// <summary>An uncertain photo waiting for review (admins only). No image: viewing needs a recorded purpose.</summary>
 /// <param name="Purpose">Null for a profile photo; "attachment" for a photo sent in chat (#41).</param>
+/// <param name="Destination">#231: "album" when uploaded straight into a private album, else "library".</param>
+/// <param name="OwnerIdVerified">#231: whether APPROVED_ALBUM_EXPLICIT is possible (album upload from an ID Verified owner).</param>
 public sealed record MediaReviewItem(Guid Id, Guid AccountId, DateTimeOffset CreatedAt, string Reason, IReadOnlyList<string> Signals, string Screener, bool KnownContentChecked,
-    string? Purpose = null);
+    string? Purpose = null, string? Destination = null, bool OwnerIdVerified = false);
 
 /// <summary>The review queue and how many uploads are still waiting for a usable screening answer.</summary>
 public sealed record MediaReviewReasonView(string Code,string Decision,string Label,bool RequiresNotes,bool Selectable=true);

@@ -123,6 +123,7 @@ public static class DeletionEndpoints
             {
                 var bytes = await pipeline.ExportBytesAsync(item, cancellationToken);
                 photos.Add(new { id = item.Id, state = MediaPolicy.MemberState(item.Status), item.CreatedAt, shownIn = places.Where(p => p.MediaId == item.Id).Select(p => p.Scope).ToList(),
+                    albumOnly = item.AlbumOnly, uploadedToAlbum = item.AlbumId,
                     contentType = bytes is null ? null : item.ContentType, sha256 = bytes is null ? null : Convert.ToHexStringLower(item.Sha256),
                     dataBase64 = bytes is null ? null : Convert.ToBase64String(bytes) });
             }
