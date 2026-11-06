@@ -138,7 +138,8 @@ app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admi
 app.MapGet("/tickets/{id:long}/articles/{article:long}/attachments/{attachment:long}", async (long id, long article, long attachment, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
 {
     var result = await admin.TicketAttachmentAsync(id, article, attachment, cancellationToken);
-    return result.Ok ? Results.File(result.Value!.Data, "text/plain; charset=utf-8", result.Value.Filename) : Results.NotFound();
+    // Issue 220: the type the API derived from the checked file (members may now send photos, documents, video and audio).
+    return result.Ok ? Results.File(result.Value!.Data, result.Value.ContentType == "text/plain" ? "text/plain; charset=utf-8" : result.Value.ContentType, result.Value.Filename) : Results.NotFound();
 }).RequireAuthorization();
 app.MapGet("/code-reports/{year:int}/export",async(int year,Swoovr.Client.AdminClient admin,CancellationToken token)=>
 {

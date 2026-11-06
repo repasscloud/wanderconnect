@@ -2688,3 +2688,9 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - Issue: [#205](https://github.com/repasscloud/wanderconnect/issues/205). Status: ANSWERED A (D328), owner 5 November 2026; PR [#203](https://github.com/repasscloud/wanderconnect/pull/203).
 - Email senders can be forged. DEFAULT (built): emailed customer messages and email-opened tickets aren't shown to members/guests; staff see them labelled "sender not verified".
 - A (**chosen**): keep; no change. B: show them marked "received by email". C: show only when SPF/DKIM/DMARC aligns with the verified address (needs the real mailbox).
+
+### Q135 — Malware scanning for member support attachments
+
+- Issue: [#221](https://github.com/repasscloud/wanderconnect/issues/221). Status: OPEN, raised 6 November 2026 while building #220 (D330, PR [#218](https://github.com/repasscloud/wanderconnect/pull/218)).
+- Members can now attach images, documents, text, video and audio to support requests. The API checks each file's content matches its type and never renders files in the page; no malware scanner is configured, and staff download the files.
+- A (recommended before production): scan on upload (for example ClamAV beside the API) and refuse or quarantine anything flagged. B (DEFAULT, built): signature checks only, staff download with endpoint protection. C: fewer binary types until a scanner exists.

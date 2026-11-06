@@ -21,7 +21,8 @@ public sealed record SupportArticle(long Id, long TicketId, string Body, string 
     /// </summary>
     public bool CustomerVisible => !Internal && !(Sender == "Customer" && Type == "email");
 }
-public sealed record SupportTicketDraft(string Title, string Body, long CustomerId, long GroupId, string OperationReference,string Source="member");
+public sealed record SupportTicketDraft(string Title, string Body, long CustomerId, long GroupId, string OperationReference,string Source="member",
+    IReadOnlyList<SupportUpload>? Attachments=null);
 public sealed record SupportTicketChange(long? GroupId = null, long? OwnerId = null, long? StateId = null, long? PriorityId = null);
 
 /// <summary>Implemented with a credential whose provider permissions match the resolved actor; never a universal agent token.</summary>

@@ -106,6 +106,33 @@ async function signIn(page, start, email, password) {
     await m.goto(web + '/me/support');
     await m.waitForSelector(`[data-support-ticket="TK-${id}"]`);
     check(true, 'member list shows the request');
+    check(await m.locator('[data-support-urgent-link]').getAttribute('href') === 'https://swoovr.com/support', 'urgent and safety matters go to urgent support (issue 220)');
+    check(await m.locator('#settings-menu [data-settings-link="support"][aria-current="page"]').count() === 1, 'Support sits in the Me menu (issue 219)');
+
+    // Issue 220: a photo with the first message, the file downloadable, and the member closing their own request.
+    const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000' + '1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082', 'hex');
+    await m.goto(web + '/me/support/new');
+    await m.waitForSelector('[data-support-pick]', { state: 'attached' });
+    await m.fill('[data-support-title]', `Photo help ${run}`); await m.fill('[data-support-body]', `Fictional journey ${run}: screenshot attached.`);
+    await m.setInputFiles('[data-support-pick]', [{ name: 'screen.png', mimeType: 'image/png', buffer: png }]);
+    await m.waitForSelector('[data-support-upload]');
+    await m.setInputFiles('[data-support-pick]', [{ name: 'setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') }]);
+    await m.waitForSelector('[data-support-files-problem]');
+    check(await m.locator('[data-support-send]').isDisabled(), 'a file type outside the list blocks sending');
+    await m.locator('[data-support-upload]').nth(1).locator('button').click();
+    await m.waitForFunction(() => !document.querySelector('[data-support-files-problem]'));
+    await Promise.all([m.waitForURL(/\/me\/support\/\d+$/, { timeout: 120000 }), m.click('[data-support-send]')]);
+    await m.waitForSelector('[data-support-attachment]', { timeout: 60000 });
+    check((await m.textContent('[data-support-articles]')).includes('screen.png'), 'the photo arrives with the first message');
+    const download = m.waitForEvent('download');
+    await m.locator('[data-support-attachment] button').first().click();
+    check((await download).suggestedFilename() === 'screen.png', 'the member can download it');
+    await m.click('[data-support-close]');
+    await m.click('[data-support-close-yes]');
+    await m.waitForFunction(() => document.querySelector('[data-support-detail] [data-support-state]')?.textContent.trim() === 'Closed', null, { timeout: 60000 });
+    check(true, 'the member closed their own request');
+    check(await m.locator('[data-support-reply-body]').count() === 0 && await m.locator('[data-support-closed]').count() === 1, 'a closed request takes no reply and is not reopened');
+    await m.screenshot({ path: path.join(shots, 'member-closed-390.png'), fullPage: true });
 
     let otherSignedIn = true;
     try { await signIn(o, web + '/account/sign-in?intro=done', 'fictional.sam@example.test', env.SWOOVR_LOCAL_MEMBER_PASSWORD); } catch { otherSignedIn = false; }

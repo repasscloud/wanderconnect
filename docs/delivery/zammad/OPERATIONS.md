@@ -38,6 +38,7 @@ Template with placeholders: `containers/zammad/api.env.example`. Names match the
 - The local Keycloak forwarder (`containers/zammad/local-keycloak-forward.rb`, throwaway self-signed certificate) exists only because the local issuer is plain `http://localhost:8180`. It is not needed with a hosted HTTPS issuer.
 - Mailbox: connect `support@swoovr.com` as a Zammad email channel (IMAP/SMTP or a provider), set SPF/DKIM/DMARC, choose aliases (billing, appeals, safety, legal, privacy, security, press, partnerships, community) as Zammad email filters into queues. A sender address is never authorisation; Swoovr hides emailed customer messages from in-app views.
 - Search: after any restore or upgrade, rebuild the index (`rake zammad:searchindex:rebuild`).
+- Attachments (D330): set `NGINX_CLIENT_MAX_BODY_SIZE=220M` on Zammad's nginx (150 MB of files is about 200 MB once base64-encoded), as `containers/zammad/compose.local.yaml` does locally. Consider Zammad's filesystem attachment storage rather than the database for large files.
 
 ## Backup and restore
 

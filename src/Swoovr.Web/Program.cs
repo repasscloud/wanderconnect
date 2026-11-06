@@ -24,6 +24,7 @@ builder.Services.AddHttpClient<Swoovr.Client.SessionClient>(http => {
 });
 builder.Services.AddMemberSignIn(builder.Configuration, builder.Environment);
 builder.Services.AddBff(builder.Configuration);
+builder.Services.AddBffTransfers(builder.Configuration);
 // D143: realtime messages reach the browser through the web host's relay; the member's token stays here.
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<Swoovr.Web.Auth.MessagesRelays>();

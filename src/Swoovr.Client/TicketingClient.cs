@@ -10,6 +10,8 @@ public sealed partial class MemberClient
     public Task<ApiResult<TicketSummary>> CreateTicketAsync(TicketCreate request,CancellationToken token=default)=>SendAsync<TicketSummary>(new(HttpMethod.Post,"api/me/tickets"){Content=JsonContent.Create(request)},token);
     public Task<ApiResult<TicketDetail>> ReplyTicketAsync(long id,TicketReply request,CancellationToken token=default)=>SendAsync<TicketDetail>(new(HttpMethod.Post,$"api/me/tickets/{id}/replies"){Content=JsonContent.Create(request)},token);
     public Task<ApiResult<TicketDownload>> TicketAttachmentAsync(long id,long article,long attachment,CancellationToken token=default)=>SendAsync<TicketDownload>(new(HttpMethod.Get,$"api/me/tickets/{id}/articles/{article}/attachments/{attachment}"),token);
+    /// <summary>Issue 220: the member closes their own request (it is not reopened).</summary>
+    public Task<ApiResult<TicketDetail>> CloseTicketAsync(long id,TicketClose request,CancellationToken token=default)=>SendAsync<TicketDetail>(new(HttpMethod.Post,$"api/me/tickets/{id}/close"){Content=JsonContent.Create(request)},token);
 }
 public sealed partial class AdminClient
 {

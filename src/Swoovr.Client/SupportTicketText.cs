@@ -18,6 +18,19 @@ public static partial class SupportTicketText
     public const string OutcomeHelp = "Closing a support request doesn't change a decision or an appeal. Those are shown in Account standing.";
     public const string AttachmentHelp = "You can add up to three plain text (.txt) files of 64 KB each.";
     public const string Unavailable = "Support isn't available right now. Try again soon, or email support@swoovr.com.";
+    // ---- Issue 220 (D330): the member support pages.
+    public const string ListIntro = "Questions about your account, a report or a decision.";
+    /// <summary>The owner's expectation for replies (issue 220), shown instead of "no fixed response time" on these pages.</summary>
+    public const string ResponseTime = "We review every request and reply within 2 days.";
+    public const string UrgentTitle = "Urgent or about your safety?";
+    public const string UrgentHelp = "Don't wait for a reply here. Contact Swoovr's urgent support now, and if you're in immediate danger call your local emergency services.";
+    public const string UrgentLabel = "Get urgent help";
+    public const string UrgentUrl = "https://swoovr.com/support";
+    public static string MemberAttachmentHelp =>
+        $"Add up to {SupportAttachmentPolicy.MaxAttachmentsPerMessage} files (photos, PDF, Word, Excel, text, video or audio), {SupportAttachmentPolicy.MaxTotalMessageBytes / (1024 * 1024)} MB in all. " + SensitiveHelp;
+    public const string CloseLabel = "Close request";
+    public const string CloseConfirm = "Close this request? It can't be reopened. Start a new request if you need help again.";
+    public const string Closed = "This request is closed.";
     public const string TitleLabel = "Subject";
     public const string BodyLabel = "How can we help?";
     public const string ReplyLabel = "Your reply";

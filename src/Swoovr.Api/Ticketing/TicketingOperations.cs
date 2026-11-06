@@ -112,7 +112,10 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
             ?? await db.Set<TicketingGuest>().AsNoTracking().Where(row => row.Id == accountId && row.State == TicketingOperationState.Applied && row.DeactivatedAt == null).Select(row => row.ProviderUserId).SingleOrDefaultAsync(ct);
         if (mapped is null || mapped != draft.CustomerId)
             throw new InvalidOperationException("Customer identity is not available.");
-        var digest = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(draft)));
+        // Issue 220: with files, the digest covers their names, sizes and hashes rather than every byte; without files it is unchanged.
+        var digest = Convert.ToHexStringLower(SHA256.HashData(draft.Attachments is { Count: > 0 } files
+            ? JsonSerializer.SerializeToUtf8Bytes(draft with { Attachments = null }).Concat(JsonSerializer.SerializeToUtf8Bytes(TicketingRuntime.Fingerprints(files))).ToArray()
+            : JsonSerializer.SerializeToUtf8Bytes(draft)));
         var operation = await db.Set<TicketingOperation>().SingleOrDefaultAsync(row => row.Id == operationId, ct);
         if (operation is not null)
         {

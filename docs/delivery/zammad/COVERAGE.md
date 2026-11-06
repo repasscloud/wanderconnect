@@ -34,7 +34,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | --- | --- | --- |
 | R017 | Done | T&S queues are Zammad groups (Trust & Safety, Restricted, Legal, Privacy, Security); no second ticket system |
 | R018 | Done | Cases, evidence, sanctions, appeals stay in Swoovr; links are references; closing a request changes nothing (runtime check) |
-| R019 | Done | No evidence copied; sensitive-looking uploads refused; `.txt` only; secure document collection deferred |
+| R019 | Done | No evidence copied; sensitive-looking uploads refused; owner's file list with content checks (D330, malware scanning OPEN Q135); secure document collection deferred |
 | R020 | Done | Visibility split documented in `API.md`/`IMPLEMENTATION.md`; Admin shows linked cases with deep links into Swoovr case screens |
 | R021 | Partly / OPEN | Sensitive queues need elevation + a sign-in within 15 minutes (D327); never on a Zammad web sign-in; conflict exclusions enforced in Admin and by switching off web sign-in. Jurisdiction-specific retention for helpdesk data is a legal decision (OPEN, see `OPERATIONS.md`) |
 
@@ -56,7 +56,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | --- | --- | --- |
 | R029 | Done | `/tickets`: search, queue/status/priority/owner filters, sort, paging, bulk (journey + runtime) |
 | R030 | Done | `/tickets/{id}`: threaded conversation, private notes marked "staff only" |
-| R031 | Done | Public reply/private note, `.txt` attachments, close/reopen via status, follow-up per queue policy |
+| R031 | Done | Public reply/private note, attachments (D330), close/reopen via status, member close (issue 220), follow-up per queue policy |
 | R032 | Done | Owner, escalation/transfer, priority, category/subcategory, sensitivity, resolution, supported macros, text modules |
 | R033 | Done | Member account link, guest/email-sender labels, linked cases/appeals panel |
 | R034 | Done | Lookup by GUID, `swoovr-{GUID}`, mapped numeric ID or exact email; shared email → ambiguity (runtime) |
@@ -85,7 +85,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 
 | ID | Status | Where / evidence |
 | --- | --- | --- |
-| R051 | Done (DEFAULT) | `.txt` only, 64 KiB, 3 per reply; binary formats refused until a scanning product is configured |
+| R051 | Done (CONFIRMED owner, D330) | Owner's list: images, documents, text, video, audio; per-type limits, 5 per message, 150 MB in all; content must match type. Guests stay `.txt`. Malware scanning OPEN (Q135) |
 | R052–R054 | Excluded (deferred) | Secure identity-document upload is a separate workstream; no upload invitation or unfinished flow; sensitive-looking content refused |
 | R055 | Done | Ticket numbers are never credentials (guest + runtime checks) |
 | R056 | Excluded (deferred) | Reuse of R2 and the verification provider belongs to the deferred upload workstream |
