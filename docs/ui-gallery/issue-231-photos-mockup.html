@@ -358,6 +358,9 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
         <option value="album:pick">· Add from library</option>
         <option value="album-new">New album (empty slot)</option>
       </optgroup>
+      <optgroup label="Privacy &amp; safety (/me/safety)">
+        <option value="explicit">Receive explicit media (per profile)</option>
+      </optgroup>
       <optgroup label="Appeals">
         <option value="appeal">Appeal a photo decision</option>
       </optgroup>
@@ -385,6 +388,18 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       <button type="button" data-value="typical" aria-pressed="true">Typical</button>
       <button type="button" data-value="new" aria-pressed="false">New</button>
       <button type="button" data-value="full" aria-pressed="false">Library full</button>
+    </div>
+  </div>
+  <div class="review-group"><span>Sam</span>
+    <div class="seg" data-control="verified">
+      <button type="button" data-value="yes" aria-pressed="true">ID Verified</button>
+      <button type="button" data-value="no" aria-pressed="false">Not ID Verified</button>
+    </div>
+  </div>
+  <div class="review-group" data-chat-only><span>Jordan</span>
+    <div class="seg" data-control="recipient">
+      <button type="button" data-value="yes" aria-pressed="false">Accepts explicit</button>
+      <button type="button" data-value="no" aria-pressed="true">Doesn't accept</button>
     </div>
   </div>
   <div class="review-group review-end">
@@ -415,10 +430,16 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
         <li><span class="label">DEFAULT</span>Album-only photos and album covers are blurred on the owner's own screens until tapped, so they're not exposed on a shared screen.</li>
         <li><span class="label">DEFAULT</span>Removing an album-only photo from its album keeps it in the library (it still uses a spot) until deleted.</li>
       </ul></div>
-      <div><h3>Still open (needs owner decision)</h3><ul>
-        <li><span class="label">OPEN</span>Adult photos conflict with <b>D178</b> (CONFIRMED: no explicit content anywhere in the beta; albums only for non-explicit photos, after re-reading App Store and Google Play policy). The issue would supersede it; needs an explicit decision, and the native apps may need albums-only content hidden.</li>
-        <li><span class="label">OPEN</span>4 albums for every tier conflicts with the tier spec (QUESTIONS.md: Free gets 1 album, Plus/Premium more).</li>
-        <li><span class="label">OPEN</span>Where photo appeals go. Mockup: the existing media appeals queue (a different Admin decides), with an option to ask for the photo to go into a private album instead. Zammad only if the member contacts Support.</li>
+      <div><h3>Explicit media (owner, 6 Nov 2026, #231 comment)</h3><ul>
+        <li><span class="label">CONFIRMED</span>Supersedes D178: adult content is allowed for <b>ID Verified</b> members. Explicit library uploads are approved for private albums only.</li>
+        <li><span class="label">CONFIRMED</span>4 albums for every tier (supersedes the tier spec's "Free 1 album"), 10 photos each.</li>
+        <li><span class="label">CONFIRMED</span>Members who aren't ID Verified keep albums, non-explicit photos only. Try the <b>Sam: Not ID Verified</b> switch.</li>
+        <li><span class="label">CONFIRMED</span><b>Receive explicit media</b> is set for each profile in Privacy &amp; safety, off by default, ID Verified only (Screen → Receive explicit media).</li>
+        <li><span class="label">CONFIRMED</span>Sharing explicit media with someone who doesn't accept it is blocked; only the sender is told. Try the <b>Jordan</b> switch on the chat share screen: <i>Just for matches</i> becomes "Can't share".</li>
+        <li><span class="label">CONFIRMED</span>Approved non-explicit photos send to anyone. Camera and photo library photos skip the Swoovr check only when both people are ID Verified and the recipient accepts explicit media in that profile.</li>
+        <li><span class="label">CONFIRMED</span>Photo appeals go to the media appeals queue (a different Admin decides). Zammad only if the member contacts Support.</li>
+      </ul></div>
+      <div><h3>Still open</h3><ul>
         <li><span class="label">OPEN</span>Does a not-approved photo use a library spot while it can still be appealed? Mockup: yes, until deleted.</li>
         <li><span class="label">OPEN</span>Does sharing an album expire, or last until the member stops sharing? Mockup: until stopped, or until either person disconnects.</li>
       </ul></div>
@@ -479,6 +500,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
               <span class="count" data-album-count></span>
             </div>
             <p class="small muted">Only people you share an album with can see it, in a chat in a mode you've allowed. Up to 10 photos per album, from your library.</p>
+            <p class="small" data-when-unverified><b>Adult photos need ID verification.</b> Your albums can hold non-explicit photos now. <a href="#">Verify your ID</a> to add adult photos and share them with people who accept explicit media.</p>
             <ul class="albums" data-albums></ul>
           </section>
 
@@ -539,6 +561,19 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
             <fieldset><legend>Share in modes</legend><div data-new-album-modes></div></fieldset>
             <p class="foot-note">You have <span data-free-albums></span> of 4 albums left. Each holds up to 10 photos.</p>
             <div class="actions"><button type="button" class="btn" data-create-album>Create album</button><a class="btn btn-secondary" href="#" data-goto="photos">Cancel</a></div>
+          </section>
+        </section>
+
+        <!-- ======== /me/safety · Explicit media ======== -->
+        <section data-screen="explicit" class="col" hidden aria-labelledby="explicit-title">
+          <h1 id="explicit-title" style="font:700 clamp(1.75rem,1.4rem + 1.2vw,2.25rem)/1.1 var(--font);letter-spacing:-.8px">Privacy &amp; safety</h1>
+          <section class="card" aria-labelledby="explicit-card-title" style="max-width:720px">
+            <h2 class="card-title" id="explicit-card-title"><svg class="icon"><use href="#i-eye"/></svg>Receive explicit media</h2>
+            <p class="small muted">Choose, for each profile, whether people can send you explicit photos in chat. It's off until you turn it on.</p>
+            <div class="banner" data-when-unverified><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><p><b>Only ID Verified members can send or receive explicit media.</b> Verify your ID to turn this on.</p><a class="btn btn-pill" href="#">Verify your ID</a></div>
+            <div data-explicit-modes></div>
+            <p class="foot-note">If someone tries to send you explicit media in a profile where this is off, it isn't delivered and you won't be notified. Approved, non-explicit photos can always be sent.</p>
+            <p class="foot-note">When you and the other person are both ID Verified and this is on, photos taken or chosen in a chat in that profile arrive straight away, without waiting for a Swoovr check.</p>
           </section>
         </section>
 
@@ -685,18 +720,24 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     modes = { dating: [1, 4, 2, 7, 9], friends: [4, 2, 5], activities: [3, 7, 10, 2], business: [16] };
     mains = { dating: 1, friends: 4, activities: 3 };
     albums = [
-      { id: 1, name: 'Weekend away', photos: [2, 9, 13, 14, 1, 7], modes: ['dating'] },
+      { id: 1, name: 'Weekend away', photos: [2, 9, 1, 7, 6, 3], modes: ['dating'] },
       { id: 2, name: 'Just for matches', photos: [13, 14, 15, 4], modes: ['dating'] },
       { id: 3, name: 'Travel', photos: [3, 10, 2, 6, 16], modes: ['friends', 'activities'] }
     ];
     shares = [{ album: 1, who: 'Jordan', mode: 'dating' }, { album: 3, who: 'Casey', mode: 'friends' }];
     if (kind === 'full') { while (photos.length < LIMIT) photos.push(mk('approved')); }
+    if (!state.verified) { // Not ID Verified: albums hold non-explicit photos only.
+      const adult = new Set(photos.filter(p => p.state === 'album-only').map(p => p.id));
+      photos = photos.filter(p => !adult.has(p.id));
+      albums.forEach(a => a.photos = a.photos.filter(id => !adult.has(id)));
+    }
   }
   const photo = id => photos.find(p => p.id === id);
   const decisions = () => photos.filter(p => p.state === 'not-approved').map(p => ({ p, appealed: p.id === 17 }));
 
   // ---------- State ----------
-  const state = { screen: 'photos', viewport: 'desktop', member: 'typical', mode: 'dating', filter: 'all', album: 1, viewer: null, toastTimer: 0 };
+  const state = { screen: 'photos', viewport: 'desktop', member: 'typical', mode: 'dating', filter: 'all', album: 1, viewer: null, toastTimer: 0,
+                  verified: true, recipient: false, explicit: { dating: true, friends: false, activities: false, business: false } };
 
   function usage() {
     const albumOnly = photos.filter(p => p.state === 'album-only').length;
@@ -736,6 +777,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     $('[data-meter-album]').style.width = (u.albumOnly / LIMIT * 100) + '%';
     $('[data-legend-profile]').textContent = `${u.profile} profile photos`;
     $('[data-legend-album]').textContent = `${u.albumOnly} in private albums only`;
+    $('[data-legend-album]').parentElement.hidden = !state.verified;
     $$('[data-when="full"]').forEach(el => el.hidden = u.total < LIMIT);
   }
 
@@ -791,7 +833,8 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       : p.state === 'checking' || p.state === 'not-approved');
   }
   function renderLibrary() {
-    $('[data-filters]').innerHTML = FILTERS.map(([id, l]) => {
+    if (!state.verified && state.filter === 'album-only') state.filter = 'all';
+    $('[data-filters]').innerHTML = FILTERS.filter(([id]) => state.verified || id !== 'album-only').map(([id, l]) => {
       const n = state.filter === id ? '' : '';
       return `<button type="button" class="chip" aria-pressed="${state.filter === id}" data-filter="${id}">${l}${n}</button>`;
     }).join('');
@@ -903,12 +946,12 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
       d.innerHTML = head('Add photos') + `
         <fieldset><legend>Where should they go?</legend>
           <label class="choice"><input type="radio" name="dest" value="library" ${intoAlbum ? '' : 'checked'}><span><strong>My photos</strong><span>Use them in your modes and albums. No nudity or sexual content.</span></span></label>
-          <label class="choice"><input type="radio" name="dest" value="album" ${intoAlbum ? 'checked' : ''} ${albums.length ? '' : 'disabled'}><span><strong>A private album</strong><span>Adult photos are allowed here only. They stay in your albums and can't be used on your profile.</span></span></label>
+          <label class="choice"><input type="radio" name="dest" value="album" ${intoAlbum ? 'checked' : ''} ${albums.length ? '' : 'disabled'}><span><strong>A private album</strong><span>${state.verified ? 'Adult photos are allowed here only. They stay in your albums and can\'t be used on your profile.' : 'Non-explicit photos only until you verify your ID.'}</span></span></label>
         </fieldset>
         <div class="field" data-album-select ${intoAlbum ? '' : 'hidden'}><label for="dest-album">Album</label><select id="dest-album">${opts}</select></div>
         <div class="drop">${icon('upload')}<p class="small"><b>Choose photos</b> or drag them here</p><p class="foot-note">JPEG, PNG or WebP, up to 10 MB each. ${LIMIT - usage().total} library spots left.</p>
           <button type="button" class="btn btn-secondary btn-pill" data-fake-upload ${usage().total >= LIMIT ? 'disabled' : ''}>Choose photos</button></div>
-        <p class="foot-note" data-dest-rules>${intoAlbum ? albumRules : libraryRules}</p>
+        <p class="foot-note" data-dest-rules>${intoAlbum ? albumRules() : libraryRules}</p>
         <p class="status" role="status" data-upload-status></p>
         <div class="dialog-foot"><button type="button" class="btn" data-close>Done</button></div>`;
     }
@@ -921,10 +964,17 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     }
     if (kind === 'share') {
       const avail = albums.filter(a => a.modes.includes('dating'));
-      d.innerHTML = head('Share with Jordan') + `<p class="small muted">Albums you've allowed in Dating. Jordan can see the album until you stop sharing, or either of you disconnects.</p>
+      const hasAdult = a => a.photos.some(id => photo(id)?.state === 'album-only');
+      const blocked = a => hasAdult(a) && !state.recipient;
+      d.innerHTML = head('Share with Jordan') + `
+        <div class="chips"><button type="button" class="chip" data-direct="Camera">Camera</button><button type="button" class="chip" data-direct="Photo library">Photo library</button><button type="button" class="chip" data-direct="My photos">From my photos</button></div>
+        <p class="foot-note">${state.verified && state.recipient ? 'You and Jordan are both ID Verified and Jordan accepts explicit media in Dating, so camera and photo library photos arrive straight away.' : 'Camera and photo library photos are checked before Jordan sees them. Your approved, non-explicit photos send straight away.'}</p>
+        <h3 style="font:700 1rem/1.3 var(--font)">Private albums</h3>
+        <p class="small muted">Albums you've allowed in Dating. Jordan can see an album until you stop sharing, or either of you disconnects.</p>
         <ul class="sheet-list">${avail.length ? avail.map(a => {
           const on = shares.some(s => s.album === a.id && s.who === 'Jordan');
-          return `<li><button type="button" data-share="${a.id}">${cover(a)}<span style="flex:1;min-width:0"><b>${esc(a.name)}</b><br><span class="small muted">${a.photos.length} photos</span></span>${on ? '<span class="tag">Shared</span>' : `<span class="btn btn-pill">Share</span>`}</button></li>`;
+          const no = blocked(a) && !on;
+          return `<li><button type="button" data-share="${a.id}" ${no ? 'aria-disabled="true"' : ''}>${cover(a)}<span style="flex:1;min-width:0"><b>${esc(a.name)}</b><br><span class="small muted">${a.photos.length} photos${hasAdult(a) ? ' · includes explicit photos' : ''}</span>${no ? '<br><span class="small"><b>Jordan doesn\'t accept explicit media.</b></span>' : ''}</span>${on ? '<span class="tag">Shared</span>' : no ? '<span class="tag tag-quiet">Can\'t share</span>' : '<span class="btn btn-pill">Share</span>'}</button></li>`;
         }).join('') : '<li><p class="empty">No albums are allowed in Dating. Turn on Dating in an album\'s settings.</p></li>'}</ul>
         <div class="dialog-foot"><a class="btn btn-secondary" href="#" data-goto="photos">Manage albums</a><button type="button" class="btn" data-close>Done</button></div>`;
     }
@@ -932,7 +982,9 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     d.querySelector('[data-close]')?.focus();
   }
   const libraryRules = 'Photos are checked before anyone can see them. No nudity or sexual content, no one under 18, and only photos you have the right to share.';
-  const albumRules = 'Photos are checked before anyone can see them. Adult content is allowed in private albums only. Never anyone under 18, nothing without consent, and only photos you have the right to share. Each one uses a library spot.';
+  const albumRules = () => state.verified
+    ? 'Photos are checked before anyone can see them. Adult content is allowed in private albums only. Never anyone under 18, nothing without consent, and only photos you have the right to share. Each one uses a library spot.'
+    : 'Photos are checked before anyone can see them. No nudity or sexual content until you verify your ID. Each one uses a library spot.';
 
   function syncPick(d) {
     const chosen = JSON.parse(d.dataset.chosen), max = Number(d.dataset.max);
@@ -958,14 +1010,18 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
   // ---------- Screens ----------
   function renderNav() {
     $$('[data-nav-list]').forEach(ul => ul.innerHTML = navItems.map(([key, label, ic]) =>
-      `<li><a href="#" data-nav="${key}"${key === 'photos' ? ' aria-current="page"' : ''}>${icon(ic)}<span>${esc(label)}</span></a></li>`).join(''));
+      `<li><a href="#" data-nav="${key}"${key === (state.screen === 'explicit' ? 'me-safety' : 'photos') ? ' aria-current="page"' : ''}>${icon(ic)}<span>${esc(label)}</span></a></li>`).join(''));
   }
   function renderAll() {
     renderUsage(); renderModes(); renderAlbums(); renderLibrary(); renderDecisions(); renderAlbum(); renderNewAlbum();
     $('[data-appeal-photo]').innerHTML = photos.find(p => p.state === 'not-approved') ? shot(photos.find(p => p.state === 'not-approved'), { label: 'Open the photo', ctx: 'library' }) : '<p class="empty">No decision to appeal.</p>';
     $('[data-chat-avatar]').innerHTML = art({ id: 'av', hue: 200, scene: 'portrait' });
-    renderChat();
+    renderChat(); renderExplicit();
+    $$('[data-when-unverified]').forEach(el => el.hidden = state.verified);
     if (state.viewer && !viewer.hidden) { if (photo(state.viewer.id)) renderViewer(); else closeOverlays(); }
+  }
+  function renderExplicit() {
+    $('[data-explicit-modes]').innerHTML = MODES.map(([id, l]) => `<label class="switch-row"><span>${l}</span><input type="checkbox" class="switch" data-explicit="${id}" ${state.verified && state.explicit[id] ? 'checked' : ''} ${state.verified ? '' : 'disabled'}></label>`).join('');
   }
   function renderChat() {
     const body = $('[data-chat-body]');
@@ -992,7 +1048,8 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     $$('[data-tab]').forEach(t => { if (t.hasAttribute('aria-current')) t.setAttribute('aria-current', 'page'); });
     const sel = $('#screen-select');
     sel.value = [...sel.options].some(o => o.value === target) ? target : screen;
-    renderAll();
+    $$('[data-chat-only]').forEach(el => el.hidden = screen !== 'chat');
+    renderNav(); renderAll();
     (state.viewport === 'desktop' ? window : app).scrollTo({ top: 0 });
     if (sub === 'viewer') openViewer(modes[state.mode][1] || photos[0]?.id, 'mode');
     if (sub === 'viewer-rejected') { const r = photos.find(p => p.state === 'not-approved'); if (r) openViewer(r.id, 'library'); }
@@ -1014,6 +1071,8 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     if (c === 'viewport') setViewport(v);
     if (c === 'theme') setTheme(v);
     if (c === 'member') setMember(v);
+    if (c === 'verified') { state.verified = v === 'yes'; setPressed('verified', v); setMember(state.member); }
+    if (c === 'recipient') { state.recipient = v === 'yes'; setPressed('recipient', v); renderAll(); if (!dialog.hidden) openDialog('share'); }
   }));
   menuButton.addEventListener('click', () => { drawer.hidden = false; menuButton.setAttribute('aria-expanded', 'true'); drawer.querySelector('[data-close]').focus(); });
   document.addEventListener('keydown', e => {
@@ -1030,7 +1089,7 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     if (t === drawer || t === viewer || t === dialog || q('[data-close]')) { closeOverlays(); return; }
     let el;
     if ((el = q('[data-goto]'))) { e.preventDefault(); go(el.dataset.goto); return; }
-    if ((el = q('[data-nav]'))) { e.preventDefault(); if (el.dataset.nav === 'photos') go('photos'); return; }
+    if ((el = q('[data-nav]'))) { e.preventDefault(); if (el.dataset.nav === 'photos') go('photos'); if (el.dataset.nav === 'me-safety') go('explicit'); return; }
     if ((el = q('[data-tab]'))) { e.preventDefault(); go(el.dataset.tab === 'chats' ? 'chat' : 'photos'); return; }
     if ((el = q('[data-mode]'))) { state.mode = el.dataset.mode; renderModes(); return; }
     if ((el = q('[data-filter]'))) { state.filter = el.dataset.filter; renderLibrary(); return; }
@@ -1082,12 +1141,14 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     if ((el = q('[data-fake-upload]'))) {
       const d = dialog.querySelector('[data-dialog]'), toAlbum = d.querySelector('input[name=dest]:checked').value === 'album';
       if (usage().total >= LIMIT) return;
-      const p = mk('checking', toAlbum ? 'portrait' : SCENES[(seq + 1) % SCENES.length], undefined, '2026-11-06'); photos.push(p);
+      const p = mk('checking', toAlbum && state.verified ? 'portrait' : SCENES[(seq + 1) % SCENES.length], undefined, '2026-11-06'); photos.push(p);
       if (toAlbum) { const a = albums.find(x => x.id === Number(d.querySelector('#dest-album').value)); if (a && a.photos.length < PER_ALBUM) a.photos.push(p.id); }
       d.querySelector('[data-upload-status]').textContent = toAlbum ? 'Uploaded to the album. It shows there once it\'s checked.' : 'Uploaded. Photos are checked before anyone can see them.';
       renderAll(); return;
     }
+    if ((el = q('[data-direct]'))) { closeOverlays(); toast(state.verified && state.recipient ? `${el.dataset.direct}: sent.` : el.dataset.direct === 'My photos' ? 'Approved photo sent.' : `${el.dataset.direct}: sent for a quick check. Jordan sees it once it's approved.`); return; }
     if ((el = q('[data-share]'))) {
+      if (el.getAttribute('aria-disabled') === 'true') { toast("Jordan doesn't accept explicit media, so this album can't be shared."); return; }
       const id = Number(el.dataset.share);
       if (!shares.some(s => s.album === id && s.who === 'Jordan')) shares.push({ album: id, who: 'Jordan', mode: 'dating' });
       closeOverlays(); toast('Album shared with Jordan.'); renderAll(); return;
@@ -1115,8 +1176,9 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
     if (t.name === 'dest') {
       const album = t.value === 'album';
       dialog.querySelector('[data-album-select]').hidden = !album;
-      dialog.querySelector('[data-dest-rules]').textContent = album ? albumRules : libraryRules;
+      dialog.querySelector('[data-dest-rules]').textContent = album ? albumRules() : libraryRules;
     }
+    if (t.matches('[data-explicit]')) { state.explicit[t.dataset.explicit] = t.checked; toast(`Explicit media ${t.checked ? 'on' : 'off'} in ${modeLabel(t.dataset.explicit)}.`); }
     if (t.matches('[data-album-mode]')) {
       const a = currentAlbum(), m = t.dataset.albumMode;
       a.modes = t.checked ? [...a.modes, m] : a.modes.filter(x => x !== m); renderAlbums();
@@ -1149,10 +1211,12 @@ fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
   seed('typical'); renderNav();
   let target = 'photos';
   for (const part of location.hash.slice(1).split(',')) {
-    if (/^(photos|album|album-new|appeal|chat)(:[a-z-]+)?$/.test(part)) target = part;
+    if (/^(photos|album|album-new|appeal|chat|explicit)(:[a-z-]+)?$/.test(part)) target = part;
     if (['desktop', 'tablet', 'phone'].includes(part)) setViewport(part);
     if (['light', 'dark'].includes(part)) setTheme(part);
     if (['typical', 'new', 'full'].includes(part)) { state.member = part; setPressed('member', part); seed(part); }
+    if (part === 'unverified') { state.verified = false; setPressed('verified', 'no'); seed(state.member); }
+    if (part === 'accepts') { state.recipient = true; setPressed('recipient', 'yes'); }
     if (part === 'notes') { notes.hidden = false; document.getElementById('notes-toggle').setAttribute('aria-pressed', 'true'); }
   }
   go(target);
