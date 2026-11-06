@@ -20,7 +20,7 @@ else
 {
     var d = detail; var t = d.Ticket; var s = d.Staff;
     <header class="ui-page-head ticket-head" data-ticket-detail="@t.Reference">
-        <div class="ticket-title-row"><h1>@t.Title</h1><span class="ui-pill" data-tone="@(Named(caps.States, t.StateId) == "closed" ? "quiet" : "approve")" data-ticket-state>@SupportTicketText.State(Named(caps.States, t.StateId))</span></div>
+        <div class="ticket-title-row"><h1>@t.Title</h1></div>
         <p class="ticket-meta"><code>@t.Reference</code><span>@Named(caps.Priorities, t.PriorityId)</span>@if (s is not null) { <span>@(Named(caps.Groups, s.GroupId) ?? "Another queue")</span> }<span>Updated @t.UpdatedAt.ToUniversalTime().ToString("d MMM yyyy HH:mm") UTC</span></p>
     </header>
     <div class="ticket-layout">
@@ -86,7 +86,7 @@ else
             <section class="ui-card" aria-label="Request facts">
                 <h2>Request</h2>
                 <dl class="ticket-facts">
-                    <dt>Status</dt><dd>@SupportTicketText.State(Named(caps.States, t.StateId))</dd>
+                    <dt>Status</dt><dd data-ticket-state>@SupportTicketText.State(Named(caps.States, t.StateId))</dd>
                     <dt>Priority</dt><dd>@Named(caps.Priorities, t.PriorityId)</dd>
                     @if (s is not null)
                     {
