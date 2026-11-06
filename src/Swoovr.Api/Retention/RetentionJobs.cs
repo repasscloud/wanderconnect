@@ -3,9 +3,13 @@ using Swoovr.Api.Media;
 
 namespace Swoovr.Api.Retention;
 
-public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0, int IdentifierRestrictionsExpired = 0, int IdentifierHistoriesDisposed = 0, int IdentifierReceiptsExpired = 0, int OperationalHoldsExpired = 0);
+public sealed record RetentionJobRun(SafetyRetentionRun Safety, PurgeRun? Accounts, MessageRetentionRun? Messages, int MediaDeleted, int MediaKept, bool FailedClosed, int ConflictRecordsExpired = 0, int IdentifierRestrictionsExpired = 0, int IdentifierHistoriesDisposed = 0, int IdentifierReceiptsExpired = 0, int OperationalHoldsExpired = 0)
+{
+    /// <summary>D337: the helpdesk step's outcome; null when it didn't run (an earlier step failed closed) or failed.</summary>
+    public Swoovr.Api.Ticketing.HelpdeskRetentionRun? Helpdesk { get; init; }
+}
 
-public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational, Swoovr.Infrastructure.Persistence.SwoovrDbContext db, Swoovr.Api.Safety.MeetingSafetyRetention meetingSafety, Swoovr.Api.Moderation.TextHarmRetention textHarm,Swoovr.Api.Moderation.ModerationTransparencyRetention reporting,Swoovr.Api.Notifications.PolicyNoticeRetention policyNotices,Swoovr.Api.Analytics.BetaJourneyRetention betaJourney,BetaEnrolmentRetention betaEnrolments)
+public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accounts, MessageRetention messages, MediaPipeline media, StaffConflictHistory conflicts, BannedIdentifierRegistry bans, RegistryExpiry expiry, RegistryDisposal disposal, OperationalRetention operational, Swoovr.Infrastructure.Persistence.SwoovrDbContext db, Swoovr.Api.Safety.MeetingSafetyRetention meetingSafety, Swoovr.Api.Moderation.TextHarmRetention textHarm,Swoovr.Api.Moderation.ModerationTransparencyRetention reporting,Swoovr.Api.Notifications.PolicyNoticeRetention policyNotices,Swoovr.Api.Analytics.BetaJourneyRetention betaJourney,BetaEnrolmentRetention betaEnrolments,Swoovr.Api.Ticketing.HelpdeskRetention helpdesk,ILogger<RetentionJobs> log)
 {
     public async Task<RetentionJobRun> RunAsync(DateTimeOffset now, CancellationToken token,bool restoring=false)
     {
@@ -31,8 +35,16 @@ public sealed class RetentionJobs(SafetyRetention safety, AccountDeletion accoun
         var history=await disposal.RunAsync(now,token);
         await AuditRetention.RunAsync(db,now,token);
         var meetingsPreserved=await meetingSafety.RunAsync(now,token);
-        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, !meetingsPreserved || records.FailedClosed || associations.HoldStatusUnavailable || attempts is null || history.FailedClosed,
-            associations.Expired, expiredBans, history.HistoriesDisposed, history.ReceiptsExpired,records.HoldsDisposed);
+        // D337: helpdesk retention runs after account deletion, so customers finally deleted this run are retired in it.
+        // A helpdesk outage never fails the other retention work; due items simply wait for the next run.
+        Swoovr.Api.Ticketing.HelpdeskRetentionRun? desk=null;
+        if(!restoring)
+        {
+            try{desk=await helpdesk.RunAsync(now,token);}
+            catch(Exception error)when(error is not OperationCanceledException||!token.IsCancellationRequested){log.LogError("Helpdesk retention failed ({ErrorType}); due items retry next run.",error.GetType().Name);}
+        }
+        return new(reviews, deleted, expired, objects.Value.Deleted, objects.Value.Kept, !meetingsPreserved || records.FailedClosed || associations.HoldStatusUnavailable || attempts is null || history.FailedClosed || desk?.HoldStatusUnavailable==true,
+            associations.Expired, expiredBans, history.HistoriesDisposed, history.ReceiptsExpired,records.HoldsDisposed){Helpdesk=desk};
     }
 }
 

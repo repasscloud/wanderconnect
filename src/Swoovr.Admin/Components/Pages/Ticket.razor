@@ -34,11 +34,17 @@ else
                             <div class="ticket-message-head"><strong>@SupportTicketText.Sender(a.Sender, false)</strong>
                                 @if (a.Private) { <span class="ui-pill" data-tone="escalate">Private note — staff only</span> } else if (a.Sender == "Customer" && a.Channel == "email") { <span class="ui-pill" data-tone="reject" data-ticket-email>By email — sender not verified, not shown to the member</span> } else { <span class="ui-pill" data-tone="quiet">@(a.Sender == "Customer" ? "From the member" : "Sent to member")</span> }
                                 <span class="help">@a.CreatedAt.ToUniversalTime().ToString("d MMM HH:mm") UTC</span></div>
-                            <p class="ticket-body">@a.Body</p>
+                            @if (a.Body.Length > 0) { <p class="ticket-body">@a.Body</p> }
                             @if (a.Attachments.Count > 0)
                             {
                                 <ul class="ticket-files">
                                     @foreach (var x in a.Attachments) { <li data-ticket-attachment="@x.Id"><a href="/tickets/@Id/articles/@a.Id/attachments/@x.Id" download>@x.Filename</a><span class="help">@SupportAttachmentPolicy.Size(x.Size)</span></li> }
+                                </ul>
+                            }
+                            @if (a.Held.Count > 0)
+                            {
+                                <ul class="ticket-files">
+                                    @foreach (var h in a.Held) { <li data-ticket-held="@h.Status"><span>@h.Filename</span><span class="help">@SupportAttachmentPolicy.Size(h.Size) · @SupportTicketText.HeldStatus(h.Status)@(h.Detection is { } found ? $" ({found})" : "")</span></li> }
                                 </ul>
                             }
                         </li>
@@ -158,6 +164,32 @@ else
                     </form>
                 }
             </section>
+            @if (retention is { } rt)
+            {
+                <section class="ui-card" aria-label="Retention" data-ticket-retention="@rt.Category" data-ticket-retention-state="@rt.State">
+                    <h2>Retention</h2>
+                    <dl class="ticket-facts">
+                        <dt>Category</dt><dd>@RetentionName(rt.Category)@if (rt.OverrideCategory is not null) { <span> · changed from @RetentionName(rt.GroupCategory)</span> }</dd>
+                        <dt>Kept until</dt><dd>@(rt.RetainUntil is { } until ? until.ToString("d MMM yyyy") : rt.State == "Open" ? "Open" : "—")</dd>
+                        @if (rt.KeptFor is { } kept) { <dt>Kept for</dt><dd data-ticket-retention-kept="@kept">@KeptName(kept)</dd> }
+                        @if (rt.OverrideReason is { } why) { <dt>Reason</dt><dd>@why</dd> }
+                    </dl>
+                    @if (rt.CanChange && rt.State is not ("Disposing" or "Disposed"))
+                    {
+                        <form method="post" @formname="retention" @onsubmit="RetentionAsync" class="ticket-form" data-enhance="false" data-ticket-retention-form>
+                            <AntiforgeryToken />
+                            <label class="ui-field"><span>Category</span>
+                                <select name="RetentionCategory">
+                                    <option value="" selected="@(rt.OverrideCategory is null)">From group (@RetentionName(rt.GroupCategory))</option>
+                                    @foreach (var (value, name) in RetentionCategories) { <option value="@value" selected="@(rt.OverrideCategory == value)">@name</option> }
+                                </select>
+                            </label>
+                            <label class="ui-field"><span>Reason</span><input name="RetentionReason" required maxlength="500" autocomplete="off" /></label>
+                            <div class="ticket-actions"><button type="submit" class="secondary" data-ticket-retention-save>Save</button></div>
+                        </form>
+                    }
+                </section>
+            }
         </aside>
     </div>
 }
@@ -170,6 +202,13 @@ else
     private List<TicketMacro> macros = [];
     private List<TicketTextModule> modules = [];
     private List<TicketLinkView> links = [];
+    private TicketRetentionView? retention;
+    // D337 (#224): D333's categories and periods.
+    private static readonly (string, string)[] RetentionCategories = [("General", "General support · 24 months"), ("Billing", "Billing correspondence · 24 months"),
+        ("FinancialRecord", "Financial record · 7 years"), ("TrustAndSafety", "Trust & Safety · 5 years"), ("Legal", "Legal and law enforcement · 7 years"),
+        ("Privacy", "Privacy request · 3 years"), ("Security", "Security incident · 5 years")];
+    private static string RetentionName(string category) => RetentionCategories.FirstOrDefault(c => c.Item1 == category).Item2 ?? category;
+    private static string KeptName(string reason) => reason switch { "held-account" => "Legal hold on the member", "held-case" => "Legal hold on a linked case", "open-case" => "Linked case still open", "open-appeal" => "Linked appeal undecided", _ => reason };
     private string? message, resultCode, replyBody;
     private int status;
     private bool ok, replyLocked, replyPrivate;
@@ -192,6 +231,7 @@ else
         caps = capabilities.Value;
         await LoadAsync();
         if (detail is not null) links = (await Admin.TicketLinksAsync(Id)).Value ?? [];
+        if (detail is not null) retention = (await Admin.TicketRetentionAsync(Id)).Value;
         if (detail?.CanReply == true)
         {
             macros = (await Admin.TicketMacrosAsync()).Value ?? [];
@@ -243,6 +283,13 @@ else
         if (Uncertain(result)) macroKey = PostedKey.ToString("D");
         if (result.Ok) Report(200, null, "Done."); else Report(result.Status, result.Code);
         await LoadAsync();
+    }
+
+    private async Task RetentionAsync()
+    {
+        var category = Field("RetentionCategory") is { Length: > 0 } chosen ? chosen : null;
+        var result = await Admin.SetTicketRetentionAsync(Id, new TicketRetentionChange(category, Field("RetentionReason")));
+        if (result.Ok) { retention = result.Value; Report(200, null, "Retention saved."); } else Report(result.Status, result.Code);
     }
 
     private async Task LinkAsync()

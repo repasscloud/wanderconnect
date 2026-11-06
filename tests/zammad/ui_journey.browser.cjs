@@ -28,7 +28,8 @@ async function signIn(page, start, email, password) {
   let pages = [];
   const browser = await chromium.launch(process.env.SWOOVR_BROWSER_CHANNEL ? { channel: process.env.SWOOVR_BROWSER_CHANNEL } : {});
   try {
-    const member = await browser.newContext({ viewport: { width: 390, height: 844 } }), staff = await browser.newContext({ viewport: { width: 1280, height: 900 } }), other = await browser.newContext();
+    // bypassCSP lets the harness's waitForFunction predicates run under the app's strict CSP (test contexts only).
+    const member = await browser.newContext({ viewport: { width: 390, height: 844 }, bypassCSP: true }), staff = await browser.newContext({ viewport: { width: 1280, height: 900 }, bypassCSP: true }), other = await browser.newContext({ bypassCSP: true });
     const m = await member.newPage(), s = await staff.newPage(), o = await other.newPage(); pages = [['member', m], ['staff', s], ['other', o]];
     await signIn(m, web + '/account/sign-in?intro=done', 'fictional.alex@example.test', env.SWOOVR_LOCAL_MEMBER_PASSWORD);
     await m.goto(web + '/me/support/new?reference=SW-ABC234');

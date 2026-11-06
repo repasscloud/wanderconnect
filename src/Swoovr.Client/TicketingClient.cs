@@ -31,6 +31,8 @@ public sealed partial class AdminClient
     public Task<ApiResult<TicketStaffSyncRun>> TicketStaffSyncAsync(CancellationToken token=default)=>SendAsync<TicketStaffSyncRun>(HttpMethod.Post,"api/admin/tickets/staff-sync",null,token);
     public Task<ApiResult<TicketDiagnostics>> TicketDiagnosticsAsync(CancellationToken token=default)=>SendAsync<TicketDiagnostics>(HttpMethod.Get,"api/admin/tickets/diagnostics",null,token);
     public Task<ApiResult<TicketDownload>> TicketAttachmentAsync(long id,long article,long attachment,CancellationToken token=default)=>SendAsync<TicketDownload>(HttpMethod.Get,$"api/admin/tickets/{id}/articles/{article}/attachments/{attachment}",null,token);
+    public Task<ApiResult<TicketRetentionView>> TicketRetentionAsync(long id,CancellationToken token=default)=>SendAsync<TicketRetentionView>(HttpMethod.Get,$"api/admin/tickets/{id}/retention",null,token);
+    public Task<ApiResult<TicketRetentionView>> SetTicketRetentionAsync(long id,TicketRetentionChange request,CancellationToken token=default)=>SendAsync<TicketRetentionView>(HttpMethod.Put,$"api/admin/tickets/{id}/retention",request,token);
     public Task<ApiResult<List<TicketLinkView>>> TicketLinksAsync(long id,CancellationToken token=default)=>SendAsync<List<TicketLinkView>>(HttpMethod.Get,$"api/admin/tickets/{id}/links",null,token);
     public Task<ApiResult<List<TicketLinkView>>> LinkTicketAsync(long id,TicketLink request,CancellationToken token=default)=>SendAsync<List<TicketLinkView>>(HttpMethod.Post,$"api/admin/tickets/{id}/links",request,token);
 }

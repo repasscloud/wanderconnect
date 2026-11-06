@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Swoovr.Api.Accounts;
 using Swoovr.Api.Auth;
 using Swoovr.Domain;
@@ -68,6 +69,9 @@ public static class ProviderSetup
             services.AddScoped<Recovery.BackupBundle>();
             services.AddScoped<Recovery.RestoreReconciliation>();
             services.AddScoped<Retention.MessageRetention>();
+            // D337 (#224): helpdesk retention runs inside the same hourly retention run and `retention purge`.
+            services.TryAddScoped<Ticketing.TicketingActorFactory>();
+            services.AddScoped<Ticketing.HelpdeskRetention>();
             services.AddScoped<Retention.RetentionJobs>();
         }
         services.AddScoped<Microsoft.EntityFrameworkCore.Diagnostics.ISaveChangesInterceptor, Retention.PreservationSaveInterceptor>();

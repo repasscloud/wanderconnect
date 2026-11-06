@@ -24,7 +24,7 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
             db.Add(row);
             await db.SaveChangesAsync(ct);
         }
-        if (row.DeactivatedAt is not null) throw new InvalidOperationException("Customer mapping is inactive.");
+        if (row.DeactivatedAt is not null || row.RetirementRequestedAt is not null) throw new InvalidOperationException("Customer mapping is inactive.");
         if (row.ProviderUserId is long mapped)
         {
             // Numeric mapping is identity; a changed/matching address never relinks a customer.
@@ -103,7 +103,9 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
         }
     }
 
-    public async Task<SupportTicket> CreateTicketAsync(Guid accountId, Guid operationId, SupportTicketDraft draft, CancellationToken ct)
+    /// <param name="sendAttachments">D336: false for quarantined member/staff files. They still bind the operation's digest,
+    /// but reach the helpdesk only after scanning, as a separate follow-up.</param>
+    public async Task<SupportTicket> CreateTicketAsync(Guid accountId, Guid operationId, SupportTicketDraft draft, CancellationToken ct, bool sendAttachments = true)
     {
         if (accountId == Guid.Empty || operationId == Guid.Empty || draft.OperationReference != operationId.ToString("D")) throw new ArgumentException("Invalid operation identity.");
         await using var lease = await AccountLifecycleLease.AcquireAsync(db, accountId, ct);
@@ -139,7 +141,7 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
         await db.SaveChangesAsync(ct);
         try
         {
-            var ticket = await actorProvider.CreateTicketAsync(draft, ct);
+            var ticket = await actorProvider.CreateTicketAsync(sendAttachments ? draft : draft with { Attachments = null }, ct);
             if (ticket.CustomerId != draft.CustomerId) throw new TicketingProviderException("provider-identity-mismatch", true);
             operation.ProviderTicketId = ticket.Id;
             operation.State = TicketingOperationState.Applied;
@@ -163,6 +165,8 @@ public sealed class TicketingOperations(SwoovrDbContext db, ITicketingProvider i
         await using var lease=await AccountLifecycleLease.AcquireAsync(db,accountId,ct);
         var row=await db.Set<TicketingIdentity>().SingleOrDefaultAsync(i=>i.AccountId==accountId,ct);
         if(row?.ProviderUserId is not long id)return null;
+        // D337: a customer being retired (final deletion) is never reactivated or rewritten here.
+        if(row.RetirementRequestedAt is not null)return null;
         var account=await db.Accounts.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==accountId&&a.Realm==AccountRealm.Members,ct);
         var active=account?.Status==AccountStatus.Active;
         var email=active?account!.Email:null;

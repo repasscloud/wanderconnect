@@ -125,6 +125,8 @@ def api_settings(config, output=None):
     import json
     target = output or ENV.parent
     zammad = {'BaseUrl': 'http://swoovr-zammad:8080/', 'IdentityToken': config['identity_token'], 'StaffDirectoryToken': config['staff_directory_token']}
+    # D337 (#224): the retention identity (ticket metadata + data privacy deletion).
+    if config.get('retention_token'): zammad['RetentionToken'] = config['retention_token']
     settings = {'Ticketing': {'Zammad': zammad}}
     private_write(target / 'api.json', json.dumps(settings))
     lines = ['Ticketing__Zammad__' + key + '=' + value for key, value in zammad.items()]
@@ -134,7 +136,11 @@ def api_settings(config, output=None):
     lines.extend(['Ticketing__Guest__AllowedOrigins__0=http://localhost:5099', 'Ticketing__Guest__FrontendUrl=http://localhost:5099/support'])
     # Local only: a short missed-event sweep so reconciliation can be observed (default 10 minutes).
     lines.append('Ticketing__Events__ReconcileMinutes=2')
-    private_write(target / 'api.env', '\n'.join(lines) + '\n')
+    # Keep private lines this script doesn't manage (for example the owner's local push settings), after its own.
+    managed = {line.split('=', 1)[0] for line in lines}
+    existing = (target / 'api.env').read_text().splitlines() if (target / 'api.env').exists() else []
+    kept = [line for line in existing if line.split('=', 1)[0] not in managed and not line.startswith('Ticketing__')]
+    private_write(target / 'api.env', '\n'.join(lines + kept) + '\n')
     return settings
 
 

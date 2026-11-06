@@ -15,6 +15,30 @@
         <div class="ui-stat @(d.FailedDeliveries > 0 ? "is-alert" : null)"><strong>@d.PendingDeliveries</strong><span>Helpdesk events waiting (@d.FailedDeliveries retrying)</span></div>
     </div>
     <p class="help">Unconfirmed work is never repeated automatically. It is matched against the helpdesk before anything is sent again.</p>
+    @if (d.Scanning is { } scan)
+    {
+        <section class="ui-card" aria-label="Attachment scanning" data-ticket-scanning="@(scan.Healthy ? "healthy" : "unhealthy")">
+            <h2 class="ui-card-title">Attachment scanning</h2>
+            <div class="ui-stats ui-stats-4">
+                <div class="ui-stat @(scan.Healthy ? null : "is-alert")"><strong>@(scan.Healthy ? "Answering" : "Not answering")</strong><span>Malware scanner</span></div>
+                <div class="ui-stat"><strong>@scan.Waiting</strong><span>Files being checked</span></div>
+                <div class="ui-stat @(scan.Retrying > 0 ? "is-alert" : null)"><strong>@scan.Retrying</strong><span>Retrying</span></div>
+                <div class="ui-stat @(scan.Blocked > 0 ? "is-alert" : null)" data-ticket-scanning-blocked="@scan.Blocked"><strong>@scan.Blocked</strong><span>Blocked</span></div>
+            </div>
+        </section>
+    }
+    @if (d.Retention is { } ret)
+    {
+        <section class="ui-card" aria-label="Helpdesk retention" data-ticket-retention-health="@(ret.Configured ? "configured" : "off")">
+            <h2 class="ui-card-title">Helpdesk retention</h2>
+            <div class="ui-stats ui-stats-4">
+                <div class="ui-stat @(ret.Configured ? null : "is-alert")"><strong>@(ret.Configured ? ret.Tracked.ToString() : "Off")</strong><span>Requests tracked</span></div>
+                <div class="ui-stat"><strong>@ret.Held</strong><span>Kept for a hold, case or appeal</span></div>
+                <div class="ui-stat @(ret.Failed > 0 ? "is-alert" : null)"><strong>@ret.Failed</strong><span>Deletions retrying</span></div>
+                <div class="ui-stat @(ret.RetirementsWaiting > 0 ? "is-alert" : null)"><strong>@ret.RetirementsWaiting</strong><span>Deleted members to retire</span></div>
+            </div>
+        </section>
+    }
     @if (d.Staff is { } staff)
     {
         <section class="ui-card" aria-label="Staff access in the helpdesk" data-ticket-staff-sync="@(staff.Configured ? "configured" : "off")">

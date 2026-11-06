@@ -150,7 +150,9 @@ app.MapGet("/tickets/{id:long}/articles/{article:long}/attachments/{attachment:l
 {
     var result = await Swoovr.Admin.AdminTransfers.Create(clients).TicketAttachmentAsync(id, article, attachment, cancellationToken);
     // Issue 220: the type the API derived from the checked file (members may now send photos, documents, video and audio).
-    return result.Ok ? Results.File(result.Value!.Data, result.Value.ContentType == "text/plain" ? "text/plain; charset=utf-8" : result.Value.ContentType, result.Value.Filename) : Results.NotFound();
+    if (result.Ok) return Results.File(result.Value!.Data, result.Value.ContentType == "text/plain" ? "text/plain; charset=utf-8" : result.Value.ContentType, result.Value.Filename);
+    // D336: a file the malware check didn't clear (or can't check now) says so, instead of a bare "not found".
+    return result.Status is 409 or 503 ? Results.Text(Swoovr.Client.SupportTicketText.Problem(result.Status, result.Code), "text/plain; charset=utf-8", statusCode: result.Status) : Results.NotFound();
 }).RequireAuthorization();
 app.MapGet("/code-reports/{year:int}/export",async(int year,Swoovr.Client.AdminClient admin,CancellationToken token)=>
 {

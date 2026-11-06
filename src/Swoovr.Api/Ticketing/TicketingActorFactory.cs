@@ -17,6 +17,9 @@ public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvi
 {
     private readonly List<HttpClient> clients=[];
     public ZammadTicketingProvider Identity()=>Provider(configuration["Ticketing:Zammad:IdentityToken"]);
+    /// <summary>D337: the retention identity (ticket metadata in every group, data privacy deletion only). Null when not configured.</summary>
+    public ITicketingRetentionProvider? Retention()=>string.IsNullOrWhiteSpace(configuration["Ticketing:Zammad:RetentionToken"])?null:Provider(configuration["Ticketing:Zammad:RetentionToken"]);
+    public bool Configured=>Uri.TryCreate(configuration["Ticketing:Zammad:BaseUrl"],UriKind.Absolute,out _)&&!string.IsNullOrWhiteSpace(configuration["Ticketing:Zammad:IdentityToken"]);
     private ZammadTicketingProvider Provider(string? token,long? from=null)
     {
         if(!Uri.TryCreate(configuration["Ticketing:Zammad:BaseUrl"],UriKind.Absolute,out var url)||string.IsNullOrWhiteSpace(token))throw new TicketingAccessException(503,"ticketing-unavailable");
@@ -95,5 +98,7 @@ public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvi
         if(effective.Id!=providerId||!effective.Active||effective.Login!=TicketingPolicy.StaffLogin(current.Account.Id)||effective.Roles.Count!=1||effective.Roles[0]!="Agent")throw new TicketingAccessException(403,"ticket-staff-actor-invalid");
         return actor;
     }
+    /// <summary>D336: a staff member's own Zammad identity for background work they started (releasing their scanned files).</summary>
+    public ITicketingWorkspaceProvider StaffFor(long providerId,string token)=>Provider(token);
     public void Dispose(){foreach(var client in clients)client.Dispose();}
 }

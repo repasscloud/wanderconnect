@@ -67,6 +67,9 @@ public static partial class SupportTicketText
     };
 
     /// <summary>One sentence per refusal. Never echoes provider detail.</summary>
+    /// <summary>D336: a file still in quarantine ("checking") or refused ("blocked").</summary>
+    public static string HeldStatus(string status) => status == "blocked" ? "Blocked by the malware check" : "Checking for malware";
+
     public static string Problem(int status, string? code) => code switch
     {
         "ticket-changed" => "This request changed while you were working on it. The latest version is shown.",
@@ -82,6 +85,11 @@ public static partial class SupportTicketText
         "transfer-to-restricted-group-first" => "Move the request to a restricted queue before marking it restricted.",
         "ticket-macro-unsupported" => "That macro includes actions Swoovr can't run. Use the individual controls instead.",
         "ticket-case-unavailable" => "That case or appeal doesn't exist, or isn't available to your role.",
+        // D336 (#221): malware scanning.
+        "attachment-blocked" => "This file can't be opened. The malware check didn't clear it.",
+        "attachment-scan-unavailable" => "This file can't be checked right now. Try again in a few minutes.",
+        "attachments-unavailable" => "Files can't be accepted right now. Send your message without them, or try again later.",
+        "ticket-retention-disposed" => "This request is already being deleted under its retention period.",
         "ticket-search-scope-too-large" => "That search covers too much. Narrow it with a queue or status.",
         _ => status switch
         {

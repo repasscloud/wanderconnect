@@ -112,6 +112,9 @@ services:
       MeetingSafety__PublicBaseUrl: http://localhost:5081/
       TextHarm__Enabled: "true"
       Retention__Worker: "true"
+      # D336: support attachments are scanned by the local ClamAV, exactly as hosted (D321: localhost matches UAT).
+      Attachments__Scanning__ClamAv__Host: 127.0.0.1
+      Attachments__Scanning__ClamAv__Port: "3310"
     volumes:
       - api-data:/app/.local
       - ./tests/fixtures/geonames:/fixtures/geonames:ro
@@ -148,6 +151,29 @@ services:
       Api__BaseUrl: http://127.0.0.1:5080/
     volumes:
       - admin-keys:/home/app/.aspnet/DataProtection-Keys
+  # D336 (#221): the owner-approved ClamAV image, pinned by digest and unmodified; limits come from its CLAMD_CONF_*
+  # settings. It shares the private namespace (port 3310 is never published) and keeps its signature database in a
+  # volume; freshclam inside the container updates signatures automatically. A file over a limit is never cleared.
+  clamav:
+    <<: *app
+    image: clamav/clamav@sha256:c21aa18cc0a358678255a3dfb343a4555b58f71b97d7b869df8fdf7ea0a5b4b1
+    environment:
+      CLAMD_CONF_StreamMaxLength: 160M
+      CLAMD_CONF_MaxFileSize: 160M
+      CLAMD_CONF_MaxScanSize: 400M
+      CLAMD_CONF_AlertExceedsMax: "yes"
+      CLAMD_CONF_MaxThreads: "4"
+      # Signatures need about 1.5 GB per loaded copy. A concurrent reload would hold two copies while freshclam also
+      # test-loads one; at 3 GB clamd was OOM-killed. Reloads pause scanning briefly instead.
+      CLAMD_CONF_ConcurrentDatabaseReload: "no"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    mem_limit: 4g
+    cpus: 2
+    # Under VM-wide memory pressure the kernel kills the largest process; prefer short-lived ones (a Rails runner,
+    # a build) over the long-lived scanner. An 8 GB Docker VM is tight for the whole stack; 12 GB is comfortable.
+    oom_score_adj: -500
+    security_opt: [no-new-privileges:true]
   screening:
     <<: *app
     # Built by the launcher from the sibling image-moderation-api if missing.
@@ -181,3 +207,4 @@ volumes:
   web-keys: *volume
   admin-keys: *volume
   model-cache: *volume
+  clamav-db: *volume

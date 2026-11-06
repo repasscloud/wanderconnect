@@ -283,10 +283,20 @@ public static class Cli
                 Console.WriteLine($"Retention: {run.ContentDisposed} case content sets, {run.CasesDisposed} case records, {run.CopiesDisposed} evidence copies disposed; {run.ReviewRequired} require restricted review.");
                 return run.HoldStatusUnavailable ? 1 : 0;
             }
+            // D337 (#224): after any Zammad restore, before staff use the helpdesk: tickets Swoovr already disposed are deleted
+            // again and retired customers are retired again (their Swoovr ledger rows outlive the 35-day helpdesk backups).
+            case ["retention", "helpdesk", "--reconcile"]:
+            {
+                var desk = await scope.ServiceProvider.GetRequiredService<Ticketing.HelpdeskRetention>().RunAsync(now, CancellationToken.None, reconcile: true);
+                Console.WriteLine($"Helpdesk reconciled: {desk.Retired} customers retired again, {desk.DeletionsRequested} deletions requested, {desk.Observed} tickets observed.");
+                if (desk.TicketsSkipped) Console.Error.WriteLine("Helpdesk ticket retention is not configured (Ticketing:Zammad:RetentionToken); only customers were reconciled.");
+                return desk.TicketsSkipped || desk.HoldStatusUnavailable ? 1 : 0;
+            }
             case ["retention", "purge"]:
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.RetentionJobs>().RunAsync(now, CancellationToken.None);
                 Console.WriteLine($"Retention: {run.Safety.ContentDisposed} case content sets, {run.Safety.CasesDisposed} case records, {run.Safety.CopiesDisposed} copies; {run.Safety.ReviewRequired} require restricted review; {run.MediaDeleted} media objects deleted; {run.ConflictRecordsExpired} minimal staff associations expired; {run.IdentifierRestrictionsExpired} scheduled identifier restrictions expired; {run.IdentifierHistoriesDisposed} inactive identifier histories disposed; {run.IdentifierReceiptsExpired} minimal dispositions expired; {run.OperationalHoldsExpired} released operational groups expired.");
+                if (run.Helpdesk is { } desk) Console.WriteLine($"Helpdesk: {desk.Retired} customers retired, {desk.Observed} tickets observed, {desk.DeletionsRequested} deletions requested, {desk.Disposed} tickets deleted, {desk.Held} kept for holds/cases, {desk.Failed} failed, {desk.CustomersDeleted} customers deleted, {desk.LogsPurged} integration records past 90 days purged{(desk.TicketsSkipped ? "; ticket retention not configured" : "")}.");
                 if (run.FailedClosed) Console.Error.WriteLine("Retention stopped: preservation status or membership was unavailable.");
                 return run.FailedClosed || run.Accounts?.Waiting > 0 ? 1 : 0;
             }
