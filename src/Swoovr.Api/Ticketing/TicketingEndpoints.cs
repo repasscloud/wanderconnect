@@ -35,6 +35,7 @@ public static class TicketingEndpoints
         });
         member.MapPost("/{id:long}/close",(long id,TicketClose request,HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,false,(r,ct)=>r.CloseAsync(id,request,ct)));
         admin.MapGet("",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.ListAsync(Int(c,"page",1),Int(c,"pageSize",25),c.Request.Query["query"],Long(c,"group"),Long(c,"state"),Long(c,"priority"),Long(c,"owner"),c.Request.Query["sort"].FirstOrDefault()??"updated_at",!bool.TryParse(c.Request.Query["descending"],out var desc)||desc,ct)));
+        admin.MapGet("/overview",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.OverviewAsync(ct)));
         admin.MapGet("/capabilities",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.CapabilitiesAsync(ct)));
         admin.MapGet("/diagnostics",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.DiagnosticsAsync(ct)));
         admin.MapPost("/staff-sync",(HttpContext c,AccountResolver a,TicketingActorFactory f,TimeProvider t)=>Run(c,a,f,t,true,(r,ct)=>r.SyncStaffAsync(ct)));

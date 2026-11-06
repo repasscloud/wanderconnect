@@ -37,6 +37,9 @@ public sealed record TicketDownload(string Filename,string ContentType,byte[] Da
 
 public sealed record TicketOwner(long Id,string Name,IReadOnlyList<long> GroupIds);
 public sealed record TicketCategory(string Id,IReadOnlyList<string> Subcategories);
+/// <summary>Issue 223: open support requests by status for the Admin overview, within the caller's queues. More: past the first 100 checked.</summary>
+public sealed record TicketStateCount(long StateId,string Name,int Count);
+public sealed record TicketOverview(IReadOnlyList<TicketStateCount> States,bool More);
 public sealed record TicketMemberOptions(IReadOnlyList<TicketOption> States,IReadOnlyList<TicketOption> Priorities,string AttachmentPolicy);
 
 // Guest support (no membership): for the separately built public website. See docs/delivery/zammad/GUEST-API.md.

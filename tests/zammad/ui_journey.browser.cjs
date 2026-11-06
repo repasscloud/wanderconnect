@@ -60,6 +60,12 @@ async function signIn(page, start, email, password) {
       if (!found) await s.waitForTimeout(3000);
     }
     check(found, `staff queue lists the new request (search index caught up in ${Math.round((Date.now() - listed) / 1000)} s)`);
+    // Issue 223: open requests show on the overview by status, each linking to the filtered queue.
+    await s.goto(admin + '/');
+    await s.waitForSelector('[data-ticket-overview]', { timeout: 60000 });
+    const newTile = s.locator('[data-ticket-overview-state="new"]');
+    check(await newTile.count() === 1 && Number((await newTile.locator('strong').textContent()).replace('+', '')) >= 1, 'the overview counts the new request');
+    check(/\/tickets\?state=\d+$/.test(await newTile.getAttribute('href')), 'the tile opens the queue filtered to that status');
     await s.goto(admin + '/tickets/' + id);
     await s.waitForSelector(`[data-ticket-detail="TK-${id}"]`);
     check((await s.textContent('[data-ticket-articles]')).includes(question), 'staff read the member message in Swoovr Admin');

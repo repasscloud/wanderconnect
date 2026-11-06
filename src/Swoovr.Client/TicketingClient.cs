@@ -17,6 +17,8 @@ public sealed partial class AdminClient
 {
     public Task<ApiResult<TicketPage>> TicketsAsync(int page=1,int pageSize=25,string? query=null,long? group=null,long? state=null,long? priority=null,long? owner=null,string sort="updated_at",bool descending=true,CancellationToken token=default)=>SendAsync<TicketPage>(HttpMethod.Get,$"api/admin/tickets?page={page}&pageSize={pageSize}&query={Uri.EscapeDataString(query??"")}&group={group}&state={state}&priority={priority}&owner={owner}&sort={Uri.EscapeDataString(sort)}&descending={descending}",null,token);
     public Task<ApiResult<TicketDetail>> TicketAsync(long id,CancellationToken token=default)=>SendAsync<TicketDetail>(HttpMethod.Get,$"api/admin/tickets/{id}",null,token);
+    /// <summary>Issue 223: open requests by status in the caller's queues, for the overview.</summary>
+    public Task<ApiResult<TicketOverview>> TicketOverviewAsync(CancellationToken token=default)=>SendAsync<TicketOverview>(HttpMethod.Get,"api/admin/tickets/overview",null,token);
     public Task<ApiResult<TicketSummary>> CreateTicketAsync(TicketOnBehalf request,CancellationToken token=default)=>SendAsync<TicketSummary>(HttpMethod.Post,"api/admin/tickets",request,token);
     public Task<ApiResult<TicketDetail>> ReplyTicketAsync(long id,TicketReply request,CancellationToken token=default)=>SendAsync<TicketDetail>(HttpMethod.Post,$"api/admin/tickets/{id}/replies",request,token);
     public Task<ApiResult<TicketSummary>> ChangeTicketAsync(long id,TicketChange request,CancellationToken token=default)=>SendAsync<TicketSummary>(HttpMethod.Put,$"api/admin/tickets/{id}",request,token);

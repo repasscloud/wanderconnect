@@ -123,15 +123,8 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         var clauses=new List<string>();if(terms.Length>0)clauses.Add("("+terms+")");
         if(staff)
         {
-            var facts=await FactsAsync(ct);var allowed=new List<long>();
-            foreach(var g in facts.Directory.Groups)if(await GroupAsync(g.Id,"read",ct))allowed.Add(g.Id);
-            if(group is long chosen){if(!allowed.Contains(chosen))throw Refuse(404);allowed=[chosen];}
-            if(allowed.Count==0)return new([],page,size,false);
-            clauses.Add("("+string.Join(" OR ",allowed.Select(g=>"group_id:"+g))+")");
-            // Exclusions are applied before pagination by bounded exact customer IDs.
-            var excluded=await StaffAccessEndpoints.ExcludedSubjects(Db,Me).ToArrayAsync(ct);
-            var customerIds=await Db.Set<TicketingIdentity>().Where(m=>excluded.Contains(m.AccountId)&&m.ProviderUserId!=null).Select(m=>m.ProviderUserId!.Value).ToArrayAsync(ct);
-            foreach(var customer in customerIds)clauses.Add("NOT customer_id:"+customer);
+            if(await StaffScopeAsync(group,ct) is not { } scope)return new([],page,size,false);
+            clauses.AddRange(scope);
         }
         else
         {
@@ -155,6 +148,46 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
         if(!exhausted&&sourcePage>100&&visible.Count<target)throw Refuse(503,"ticket-search-scope-too-large");
         return new(visible.Skip((page-1)*size).Take(size).ToArray(),page,size,visible.Count>page*size);
     }
+    /// <summary>A staff member's search scope: the queues they can read (or the one chosen) and the customers their conflicts exclude. Null when they read no queue.</summary>
+    private async Task<List<string>?> StaffScopeAsync(long? group,CancellationToken ct)
+    {
+        var facts=await FactsAsync(ct);var allowed=new List<long>();
+        foreach(var g in facts.Directory.Groups)if(await GroupAsync(g.Id,"read",ct))allowed.Add(g.Id);
+        if(group is long chosen){if(!allowed.Contains(chosen))throw Refuse(404);allowed=[chosen];}
+        if(allowed.Count==0)return null;
+        var clauses=new List<string>{"("+string.Join(" OR ",allowed.Select(g=>"group_id:"+g))+")"};
+        // Exclusions are applied before pagination by bounded exact customer IDs.
+        var excluded=await StaffAccessEndpoints.ExcludedSubjects(Db,Me).ToArrayAsync(ct);
+        var customerIds=await Db.Set<TicketingIdentity>().Where(m=>excluded.Contains(m.AccountId)&&m.ProviderUserId!=null).Select(m=>m.ProviderUserId!.Value).ToArrayAsync(ct);
+        foreach(var customer in customerIds)clauses.Add("NOT customer_id:"+customer);
+        return clauses;
+    }
+
+    /// <summary>
+    /// Issue 223 (D332): open requests by status for the Admin overview, within the caller's queues and with the same
+    /// per-ticket checks as the list (so no excluded or unavailable request is counted). Bounded to the 100 most recently
+    /// updated open requests; More says there are others. Every status that isn't closed, merged or removed is listed.
+    /// </summary>
+    public async Task<TicketOverview> OverviewAsync(CancellationToken ct)
+    {
+        if(!staff)throw Refuse();
+        var directory=await DirectoryAsync(ct);
+        var open=directory.States.Where(s=>s.Kind is not(null or "closed" or "merged" or "removed")).ToArray();
+        var counts=open.ToDictionary(s=>s.Id,_=>0);
+        if(open.Length==0||await StaffScopeAsync(null,ct) is not { } clauses)return new(open.Select(s=>new TicketStateCount(s.Id,s.Name,0)).ToArray(),false);
+        clauses.Add("("+string.Join(" OR ",open.Select(s=>"state_id:"+s.Id))+")");
+        var expression=string.Join(" AND ",clauses);
+        if(expression.Length>1000)throw Refuse(503,"ticket-search-scope-too-large");
+        var rows=await provider.SearchAsync(expression,1,100,"updated_at",true,ct);
+        foreach(var row in rows)
+        {
+            try{var checkedTicket=await TicketAsync(row.Id,false,ct);if(counts.ContainsKey(checkedTicket.StateId))counts[checkedTicket.StateId]++;}
+            catch(TicketingAccessException e)when(e.Status is 403 or 404){}
+            catch(TicketingProviderException e)when(e.Code is "provider-forbidden" or "provider-not-found"){}
+        }
+        return new(open.Select(s=>new TicketStateCount(s.Id,s.Name,counts[s.Id])).ToArray(),rows.Count>=100);
+    }
+
     public async Task<TicketMemberOptions> MemberOptionsAsync(CancellationToken ct)
     {
         var directory=await DirectoryAsync(ct);
