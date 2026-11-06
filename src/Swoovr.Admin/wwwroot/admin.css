@@ -727,3 +727,9 @@ a.ad-stat:hover { border-color: color-mix(in srgb, var(--muted) 55%, var(--borde
   .ticket-head h1 { font-size: 1.5rem; line-height: 1.2; }
   .ticket-meta { gap: 2px 12px; }
 }
+/* A short section label on phones ("Rep & Res"); the full one stays for screen readers. */
+.section-short { display: none; }
+@media (max-width: 600px) {
+  .section-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .section-short { display: inline; }
+}
