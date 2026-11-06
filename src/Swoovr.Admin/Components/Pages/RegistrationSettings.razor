@@ -10,8 +10,8 @@
 {
     <div class="ui-stats ui-stats-4" data-registration-state="@policy.State">
         <div class="ui-stat"><strong>@StateLabel(policy.State)</strong><span>Registration</span></div>
-        <div class="ui-stat"><strong>@OnOff(policy.BetaEnabled)</strong><span>Invited beta</span></div>
-        <div class="ui-stat"><strong>@OnOff(policy.PublicEnabled)</strong><span>Public</span></div>
+        <div class="ui-stat"><strong>@OnOff(policy.BetaEnabled)</strong><span>Beta registration</span></div>
+        <div class="ui-stat"><strong>@OnOff(policy.PublicEnabled)</strong><span>Public registration</span></div>
         <div class="ui-stat"><strong>@policy.Revision</strong><span>Revision</span></div>
     </div>
     @if(policy.CanChange)
@@ -21,7 +21,7 @@
             <form method="post" @formname="registration-policy" @onsubmit="SaveAsync" data-enhance="true" class="ui-form" data-registration-form>
                 <AntiforgeryToken /><input type="hidden" name="revision" value="@policy.Revision" />
                 <fieldset class="ui-group"><legend>Registration</legend>
-                    <label class="beta-check"><input type="checkbox" name="beta" value="yes" checked="@policy.BetaEnabled" /><span>Invited beta registration and beta tracking</span></label>
+                    <label class="beta-check"><input type="checkbox" name="beta" value="yes" checked="@policy.BetaEnabled" /><span>Beta registration (invitations and beta enrolments)</span></label>
                     <label class="beta-check"><input type="checkbox" name="public" value="yes" checked="@policy.PublicEnabled" /><span>Public registration</span></label>
                 </fieldset>
                 <fieldset class="ui-group"><legend>Confirmation</legend>
@@ -40,7 +40,7 @@
     private string? message,resultCode;
     private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
     private static string OnOff(bool on)=>on?"On":"Off";
-    private static string StateLabel(string state)=>state switch{"public-with-beta-tracking"=>"Public + beta","public"=>"Public","invite-only"=>"Invite only","closed"=>"Closed",_=>state};
+    private static string StateLabel(string state)=>state switch{"public-with-beta-tracking"=>"Public and beta registration","public"=>"Public registration","invite-only"=>"Beta registration only","closed"=>"Registration closed",_=>state};
     protected override async Task OnInitializedAsync()=>await LoadAsync();
     private async Task LoadAsync()
     {

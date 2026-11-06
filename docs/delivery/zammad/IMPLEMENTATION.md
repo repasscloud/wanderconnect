@@ -23,7 +23,7 @@ All items remain pending until evidence is recorded. Each source catalogue secti
 
 - DEFAULT: work on `codex/feature/zammad-integration` in the existing checkout; its only initial untracked file is the authorised handoff. No unrelated tracked modifications were present.
 - DEFAULT: preserve existing platform ports and OIDC issuers. Connect its Mailpit network anchor to a dedicated shared network using aliases; Zammad uses a separate Compose project and database.
-- OPEN external gates: production mailbox/DNS/provider inputs, remote hosting, actual device acceptance, legal retention/licensing review. These do not block authorised local engineering.
+- OPEN external gates: production mailbox/DNS/provider inputs, remote hosting, actual device acceptance. Retention and licensing are decided (D333); building retention is Q136 (#224). These do not block authorised local engineering.
 
 ## Evidence and next actions
 

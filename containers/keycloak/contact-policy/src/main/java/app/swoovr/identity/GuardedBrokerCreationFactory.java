@@ -21,7 +21,7 @@ public final class GuardedBrokerCreationFactory extends IdpCreateUserIfUniqueAut
             boolean existing=context.getAuthenticationSession().getAuthNote(EXISTING_USER_INFO)!=null
                 ||username!=null&&checkExistingUser(context,username,serialized,broker)!=null;
             if(!existing&&!RegistrationAdmission.allows(context.getSession(),broker.getEmail())) {
-                context.failureChallenge(AuthenticationFlowError.ACCESS_DENIED,context.form().setError("swoovrRegistrationInviteOnly").createErrorPage(Response.Status.FORBIDDEN));
+                context.failureChallenge(AuthenticationFlowError.ACCESS_DENIED,context.form().setError(RegistrationAdmission.refusalKey(context.getSession())).createErrorPage(Response.Status.FORBIDDEN));
                 return;
             }
             super.authenticateImpl(context,serialized,broker);

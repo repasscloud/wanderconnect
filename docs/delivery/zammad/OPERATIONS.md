@@ -82,5 +82,5 @@ Swoovr roles decide every staff member's queues; Zammad is never managed as a se
 - Emailed customer messages aren't shown to members or guests in Swoovr (D328, owner kept the default).
 - Device attestation for sensitive work (Q133 option C) is not built.
 - A Zammad session already open when access is removed ends within a minute (the next synchronisation). Zammad's own session lifetime otherwise applies.
-- Retention periods for helpdesk data, jurisdiction-specific obligations and AGPL deployment obligations need legal review.
+- Retention periods and the AGPL position are decided (D333, #207). Not built yet: automated ticket retention, customer retirement on final account deletion, 35-day backups (`HOLD_DAYS`, `TZ=Australia/Adelaide`) and reconciliation after a restore. Options are in `RETENTION-OPTIONS.md` (Q136, #224). Until customer retirement is built, a finally deleted member's Zammad customer is only switched off when Swoovr next touches it.
 - The staff queue uses Zammad's asynchronous search index; new tickets appear after indexing (about a second locally). `TK-` lookups don't depend on it. A newly created staff identity also appears in owner choices only after indexing.

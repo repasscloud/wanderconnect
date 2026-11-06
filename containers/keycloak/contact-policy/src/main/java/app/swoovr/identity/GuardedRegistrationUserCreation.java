@@ -19,7 +19,7 @@ public final class GuardedRegistrationUserCreation extends RegistrationUserCreat
         var form=context.getHttpRequest().getDecodedFormParameters();
         if(!RegistrationAdmission.allows(context.getSession(),form.getFirst("email"))) {
             context.error("registration_disabled");
-            context.validationError(form,List.of(new FormMessage(null,"swoovrRegistrationInviteOnly")));
+            context.validationError(form,List.of(new FormMessage(null,RegistrationAdmission.refusalKey(context.getSession()))));
             return;
         }
         if(RegistrationAdmission.applies(context.getSession())&&!RegisteredNameValidation.valid(form.getFirst("firstName"),form.getFirst("lastName"),"true".equals(form.getFirst("swoovr_mononym")))) {

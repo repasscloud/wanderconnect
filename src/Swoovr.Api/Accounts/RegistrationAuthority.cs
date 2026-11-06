@@ -25,7 +25,8 @@ public static class RegistrationAuthority
     public static async Task RequireAdoptionAsync(SwoovrDbContext db,string? verifiedEmail,CancellationToken token)
     {
         var row=await ReadAsync(db,token,lockForAdoption:true);
+        // D335: invite-only wording only while beta registration is the open route; closed or unreadable stays neutral.
         if(!RegistrationAvailability.Allows(row?.Policy,await InvitedAsync(db,verifiedEmail,token)))
-            throw new IdentifierCheckException(403,"registration-closed","Swoovr is currently invite-only");
+            throw new IdentifierCheckException(403,"registration-closed",row is{BetaEnabled:true,PublicEnabled:false}?"Swoovr is currently invite-only":"Registration is closed");
     }
 }

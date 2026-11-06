@@ -18,6 +18,9 @@
             <h2>${msg("swoovrRegistrationInviteOnly")}</h2>
             <p>${msg("swoovrRegistrationInviteOnlyText")}</p>
             <p><a href="https://swoovr.com/beta">${msg("swoovrBetaWaitlist")}</a></p>
+        <#elseif message?? && message.summary?contains(msg("swoovrRegistrationClosed"))>
+            <h2>${msg("swoovrRegistrationClosed")}</h2>
+            <p>${msg("swoovrRegistrationClosedText")}</p>
         </#if>
         <form id="kc-register-form" class="${properties.kcFormClass!}" action="${url.registrationAction}" method="post" novalidate="novalidate">
             <@userProfileCommons.userProfileFormFields; callback, attribute>
