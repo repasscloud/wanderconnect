@@ -1,0 +1,872 @@
+{
+  "linux/amd64": {
+    "SLSA": {
+      "buildConfig": {
+        "digestMapping": {
+          "sha256:20ee9cf68095efe17bcc1b7bc46a62bab57dff874ecad5dba16b6c9593e56308": "step0",
+          "sha256:a97379b4eb192e8d1188a64b218b95e99dd97332697e46debb44b0831a04e671": "step1",
+          "sha256:c31771df6e3c94e5cce0b036ad70d7e98857d2e6eaacdc2ff776a6f161ee373c": "step2"
+        },
+        "llbDefinition": [
+          {
+            "id": "step0",
+            "op": {
+              "Op": {
+                "source": {
+                  "identifier": "docker-image://docker.io/clamav/clamav-debian:1.5.4_base@sha256:1474f1d18827ec86ec2142a6e3d590008e755b415ad765db32bf829063653a95"
+                }
+              },
+              "constraints": {},
+              "platform": {
+                "Architecture": "amd64",
+                "OS": "linux"
+              }
+            }
+          },
+          {
+            "id": "step1",
+            "inputs": [
+              "step0:0"
+            ],
+            "op": {
+              "Op": {
+                "exec": {
+                  "meta": {
+                    "args": [
+                      "/bin/sh",
+                      "-c",
+                      "freshclam --foreground --stdout || true \u0026\u0026     rm -f /var/lib/clamav/freshclam.dat /var/lib/clamav/mirrors.dat || true"
+                    ],
+                    "cwd": "/",
+                    "env": [
+                      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                      "DEBIAN_FRONTEND=noninteractive",
+                      "TZ=Etc/UTC"
+                    ],
+                    "removeMountStubsRecursive": true
+                  },
+                  "mounts": [
+                    {
+                      "dest": "/"
+                    }
+                  ]
+                }
+              },
+              "constraints": {},
+              "platform": {
+                "Architecture": "amd64",
+                "OS": "linux"
+              }
+            }
+          },
+          {
+            "id": "step2",
+            "inputs": [
+              "step1:0"
+            ],
+            "op": {
+              "Op": {}
+            }
+          }
+        ]
+      },
+      "buildType": "https://mobyproject.org/buildkit@v1",
+      "builder": {
+        "id": "https://clamav-jenkins.talos.cisco.com/job/ClamAV/job/clamav-docker/job/clamav-debian/job/clamav-debian-docker-1.5/68/"
+      },
+      "invocation": {
+        "configSource": {
+          "entryPoint": "Dockerfile.add-db"
+        },
+        "environment": {
+          "platform": "linux/amd64"
+        },
+        "parameters": {
+          "args": {
+            "build-arg:BASE_IMAGE": "docker.io/clamav/clamav-debian:1.5.4_base",
+            "no-cache": ""
+          },
+          "frontend": "dockerfile.v0",
+          "locals": [
+            {
+              "name": "context"
+            },
+            {
+              "name": "dockerfile"
+            }
+          ]
+        }
+      },
+      "materials": [
+        {
+          "digest": {
+            "sha256": "1474f1d18827ec86ec2142a6e3d590008e755b415ad765db32bf829063653a95"
+          },
+          "uri": "pkg:docker/clamav/clamav-debian@1.5.4_base?platform=linux%2Famd64"
+        },
+        {
+          "digest": {
+            "sha256": "873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315"
+          },
+          "uri": "pkg:docker/docker/buildkit-syft-scanner@stable-1"
+        }
+      ],
+      "metadata": {
+        "buildFinishedOn": "2026-11-02T07:15:32.502054891Z",
+        "buildInvocationID": "19go489dgppfiyfq1dhezg7nk",
+        "buildStartedOn": "2026-11-02T07:12:41.505179491Z",
+        "completeness": {
+          "environment": true,
+          "materials": false,
+          "parameters": true
+        },
+        "https://mobyproject.org/buildkit@v1#metadata": {
+          "layers": {
+            "step0:0": [
+              [
+                {
+                  "digest": "sha256:6fc242d221a673263eabd14a9ad9584d3177c96e5cb504c891497338e2f912f5",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 29855236
+                },
+                {
+                  "digest": "sha256:a81a119fd9f92f24a74069944224a26c6fde7853a1b1a697166c007b35c573ab",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 7582556
+                },
+                {
+                  "digest": "sha256:8ec7ae8c2f3425afabff8f79f65e92f81acb1afa88c2c82619cf9eafa8d42f90",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 42476460
+                },
+                {
+                  "digest": "sha256:301e9e63258c2eab3ce99e8296b3a2d825b545d7e001102e6ed58fa0e6d00db8",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 344
+                },
+                {
+                  "digest": "sha256:89d2a9fae2b143db0ca9e34f350d42823dbc2f0855af9e10a0a7f7b8dc2f3eb4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1560
+                },
+                {
+                  "digest": "sha256:67955449600347e39920c9da397d02f50e95df14d1d2e8a137b93176875a2e8a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1225
+                }
+              ]
+            ],
+            "step1:0": [
+              [
+                {
+                  "digest": "sha256:6fc242d221a673263eabd14a9ad9584d3177c96e5cb504c891497338e2f912f5",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 29855236
+                },
+                {
+                  "digest": "sha256:a81a119fd9f92f24a74069944224a26c6fde7853a1b1a697166c007b35c573ab",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 7582556
+                },
+                {
+                  "digest": "sha256:8ec7ae8c2f3425afabff8f79f65e92f81acb1afa88c2c82619cf9eafa8d42f90",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 42476460
+                },
+                {
+                  "digest": "sha256:301e9e63258c2eab3ce99e8296b3a2d825b545d7e001102e6ed58fa0e6d00db8",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 344
+                },
+                {
+                  "digest": "sha256:89d2a9fae2b143db0ca9e34f350d42823dbc2f0855af9e10a0a7f7b8dc2f3eb4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1560
+                },
+                {
+                  "digest": "sha256:67955449600347e39920c9da397d02f50e95df14d1d2e8a137b93176875a2e8a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1225
+                },
+                {
+                  "digest": "sha256:305e99c20b046eaef39da71f8e4a6d1c3d3c7bb18a1e5de97901f5dbaa15247c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 112852499
+                }
+              ]
+            ]
+          },
+          "source": {
+            "infos": [
+              {
+                "data": "QVJHIEJBU0VfSU1BR0UKRlJPTSAke0JBU0VfSU1BR0V9CgpSVU4gZnJlc2hjbGFtIC0tZm9yZWdyb3VuZCAtLXN0ZG91dCB8fCB0cnVlICYmIFwKICAgIHJtIC1mIC92YXIvbGliL2NsYW1hdi9mcmVzaGNsYW0uZGF0IC92YXIvbGliL2NsYW1hdi9taXJyb3JzLmRhdCB8fCB0cnVl",
+                "digestMapping": {
+                  "sha256:4380f922d925a7fd21b4f727b23f615b93fa5c39ef1b8c06abdb772e058d82a3": "step1",
+                  "sha256:59de6fe1224d34012ad288c167332153e6d2eeed50cd1da7c895e9554688ec5c": "step0"
+                },
+                "filename": "Dockerfile.add-db",
+                "language": "Dockerfile",
+                "llbDefinition": [
+                  {
+                    "id": "step0",
+                    "op": {
+                      "Op": {
+                        "source": {
+                          "attrs": {
+                            "local.differ": "none",
+                            "local.followpaths": "[\"Dockerfile.add-db\",\"Dockerfile.add-db.dockerignore\"]",
+                            "local.sharedkeyhint": "dockerfile"
+                          },
+                          "identifier": "local://dockerfile"
+                        }
+                      },
+                      "constraints": {}
+                    }
+                  },
+                  {
+                    "id": "step1",
+                    "inputs": [
+                      "step0:0"
+                    ],
+                    "op": {
+                      "Op": {}
+                    }
+                  }
+                ]
+              }
+            ],
+            "locations": {
+              "step0": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 2
+                        },
+                        "start": {
+                          "line": 2
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step1": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 4
+                        },
+                        "start": {
+                          "line": 4
+                        }
+                      },
+                      {
+                        "end": {
+                          "line": 5
+                        },
+                        "start": {
+                          "line": 5
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "vcs": {
+            "localdir:context": ".",
+            "localdir:dockerfile": ".",
+            "revision": "fa59fca15872bb8a914ba4c68188bcc8a502cbdf",
+            "source": "https://github.com/Cisco-Talos/clamav.git"
+          }
+        },
+        "reproducible": false
+      }
+    }
+  },
+  "linux/arm64": {
+    "SLSA": {
+      "buildConfig": {
+        "digestMapping": {
+          "sha256:263a21449f07b74bf7dc98f8c5512b9971a104566bbbcb0ba0a8c35852aff85b": "step2",
+          "sha256:30a8d1d9ebfb21864dbf3797f9c090e58c20282df4273272c7d7a9bd0880d52c": "step0",
+          "sha256:9a1ea058fe82dd3e8af419a7453626ce0498fb7543da35e8f8c2db43e57d596f": "step1"
+        },
+        "llbDefinition": [
+          {
+            "id": "step0",
+            "op": {
+              "Op": {
+                "source": {
+                  "identifier": "docker-image://docker.io/clamav/clamav-debian:1.5.4_base@sha256:1474f1d18827ec86ec2142a6e3d590008e755b415ad765db32bf829063653a95"
+                }
+              },
+              "constraints": {},
+              "platform": {
+                "Architecture": "arm64",
+                "OS": "linux"
+              }
+            }
+          },
+          {
+            "id": "step1",
+            "inputs": [
+              "step0:0"
+            ],
+            "op": {
+              "Op": {
+                "exec": {
+                  "meta": {
+                    "args": [
+                      "/bin/sh",
+                      "-c",
+                      "freshclam --foreground --stdout || true \u0026\u0026     rm -f /var/lib/clamav/freshclam.dat /var/lib/clamav/mirrors.dat || true"
+                    ],
+                    "cwd": "/",
+                    "env": [
+                      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                      "DEBIAN_FRONTEND=noninteractive",
+                      "TZ=Etc/UTC"
+                    ],
+                    "removeMountStubsRecursive": true
+                  },
+                  "mounts": [
+                    {
+                      "dest": "/"
+                    }
+                  ]
+                }
+              },
+              "constraints": {},
+              "platform": {
+                "Architecture": "arm64",
+                "OS": "linux"
+              }
+            }
+          },
+          {
+            "id": "step2",
+            "inputs": [
+              "step1:0"
+            ],
+            "op": {
+              "Op": {}
+            }
+          }
+        ]
+      },
+      "buildType": "https://mobyproject.org/buildkit@v1",
+      "builder": {
+        "id": "https://clamav-jenkins.talos.cisco.com/job/ClamAV/job/clamav-docker/job/clamav-debian/job/clamav-debian-docker-1.5/68/"
+      },
+      "invocation": {
+        "configSource": {
+          "entryPoint": "Dockerfile.add-db"
+        },
+        "environment": {
+          "platform": "linux/amd64"
+        },
+        "parameters": {
+          "args": {
+            "build-arg:BASE_IMAGE": "docker.io/clamav/clamav-debian:1.5.4_base",
+            "no-cache": ""
+          },
+          "frontend": "dockerfile.v0",
+          "locals": [
+            {
+              "name": "context"
+            },
+            {
+              "name": "dockerfile"
+            }
+          ]
+        }
+      },
+      "materials": [
+        {
+          "digest": {
+            "sha256": "1474f1d18827ec86ec2142a6e3d590008e755b415ad765db32bf829063653a95"
+          },
+          "uri": "pkg:docker/clamav/clamav-debian@1.5.4_base?platform=linux%2Farm64"
+        },
+        {
+          "digest": {
+            "sha256": "873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315"
+          },
+          "uri": "pkg:docker/docker/buildkit-syft-scanner@stable-1"
+        }
+      ],
+      "metadata": {
+        "buildFinishedOn": "2026-11-02T07:15:32.502054891Z",
+        "buildInvocationID": "19go489dgppfiyfq1dhezg7nk",
+        "buildStartedOn": "2026-11-02T07:12:41.505179491Z",
+        "completeness": {
+          "environment": true,
+          "materials": false,
+          "parameters": true
+        },
+        "https://mobyproject.org/buildkit@v1#metadata": {
+          "layers": {
+            "step0:0": [
+              [
+                {
+                  "digest": "sha256:2b70e040f7d132c8d366ee0223462552686510fb372ea5a83822973c30f19e36",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 30213496
+                },
+                {
+                  "digest": "sha256:ef6970008c1ab111c05f7a876a2dc3fad5c4498cea92ae6ee26a98a590447141",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 7488748
+                },
+                {
+                  "digest": "sha256:52ace04ab6db8b9789555a0fd6aacac40561e0b723be61f36e4d1512e3ffb675",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 39889673
+                },
+                {
+                  "digest": "sha256:130dd50cc2c82bf5d515c8e12bd43dfacfb3d7d865ffc1fd2aff90b99000662c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 345
+                },
+                {
+                  "digest": "sha256:89d2a9fae2b143db0ca9e34f350d42823dbc2f0855af9e10a0a7f7b8dc2f3eb4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1560
+                },
+                {
+                  "digest": "sha256:67955449600347e39920c9da397d02f50e95df14d1d2e8a137b93176875a2e8a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1225
+                }
+              ]
+            ],
+            "step1:0": [
+              [
+                {
+                  "digest": "sha256:2b70e040f7d132c8d366ee0223462552686510fb372ea5a83822973c30f19e36",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 30213496
+                },
+                {
+                  "digest": "sha256:ef6970008c1ab111c05f7a876a2dc3fad5c4498cea92ae6ee26a98a590447141",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 7488748
+                },
+                {
+                  "digest": "sha256:52ace04ab6db8b9789555a0fd6aacac40561e0b723be61f36e4d1512e3ffb675",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 39889673
+                },
+                {
+                  "digest": "sha256:130dd50cc2c82bf5d515c8e12bd43dfacfb3d7d865ffc1fd2aff90b99000662c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 345
+                },
+                {
+                  "digest": "sha256:89d2a9fae2b143db0ca9e34f350d42823dbc2f0855af9e10a0a7f7b8dc2f3eb4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1560
+                },
+                {
+                  "digest": "sha256:67955449600347e39920c9da397d02f50e95df14d1d2e8a137b93176875a2e8a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1225
+                },
+                {
+                  "digest": "sha256:40d75bb4810eabd11c6233a1af8a4a9a7b8b1464dc937a3c2f5868046e7ab656",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 112852512
+                }
+              ]
+            ]
+          },
+          "source": {
+            "infos": [
+              {
+                "data": "QVJHIEJBU0VfSU1BR0UKRlJPTSAke0JBU0VfSU1BR0V9CgpSVU4gZnJlc2hjbGFtIC0tZm9yZWdyb3VuZCAtLXN0ZG91dCB8fCB0cnVlICYmIFwKICAgIHJtIC1mIC92YXIvbGliL2NsYW1hdi9mcmVzaGNsYW0uZGF0IC92YXIvbGliL2NsYW1hdi9taXJyb3JzLmRhdCB8fCB0cnVl",
+                "digestMapping": {
+                  "sha256:4380f922d925a7fd21b4f727b23f615b93fa5c39ef1b8c06abdb772e058d82a3": "step1",
+                  "sha256:59de6fe1224d34012ad288c167332153e6d2eeed50cd1da7c895e9554688ec5c": "step0"
+                },
+                "filename": "Dockerfile.add-db",
+                "language": "Dockerfile",
+                "llbDefinition": [
+                  {
+                    "id": "step0",
+                    "op": {
+                      "Op": {
+                        "source": {
+                          "attrs": {
+                            "local.differ": "none",
+                            "local.followpaths": "[\"Dockerfile.add-db\",\"Dockerfile.add-db.dockerignore\"]",
+                            "local.sharedkeyhint": "dockerfile"
+                          },
+                          "identifier": "local://dockerfile"
+                        }
+                      },
+                      "constraints": {}
+                    }
+                  },
+                  {
+                    "id": "step1",
+                    "inputs": [
+                      "step0:0"
+                    ],
+                    "op": {
+                      "Op": {}
+                    }
+                  }
+                ]
+              }
+            ],
+            "locations": {
+              "step0": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 2
+                        },
+                        "start": {
+                          "line": 2
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step1": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 4
+                        },
+                        "start": {
+                          "line": 4
+                        }
+                      },
+                      {
+                        "end": {
+                          "line": 5
+                        },
+                        "start": {
+                          "line": 5
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "vcs": {
+            "localdir:context": ".",
+            "localdir:dockerfile": ".",
+            "revision": "fa59fca15872bb8a914ba4c68188bcc8a502cbdf",
+            "source": "https://github.com/Cisco-Talos/clamav.git"
+          }
+        },
+        "reproducible": false
+      }
+    }
+  },
+  "linux/ppc64le": {
+    "SLSA": {
+      "buildConfig": {
+        "digestMapping": {
+          "sha256:b853f13909e018a3738c89b90d04c08ba85a6809892844c2c18e4a32359da57a": "step0",
+          "sha256:cc9f01308b9b664c83ce7eda226652213482478915e0341cb9f85fdbacf872d5": "step1",
+          "sha256:e2c8ae516c519648a518f2cc81fee4c37d41d23ac71d15277bd3e74cde45d0ce": "step2"
+        },
+        "llbDefinition": [
+          {
+            "id": "step0",
+            "op": {
+              "Op": {
+                "source": {
+                  "identifier": "docker-image://docker.io/clamav/clamav-debian:1.5.4_base@sha256:1474f1d18827ec86ec2142a6e3d590008e755b415ad765db32bf829063653a95"
+                }
+              },
+              "constraints": {},
+              "platform": {
+                "Architecture": "ppc64le",
+                "OS": "linux"
+              }
+            }
+          },
+          {
+            "id": "step1",
+            "inputs": [
+              "step0:0"
+            ],
+            "op": {
+              "Op": {
+                "exec": {
+                  "meta": {
+                    "args": [
+                      "/bin/sh",
+                      "-c",
+                      "freshclam --foreground --stdout || true \u0026\u0026     rm -f /var/lib/clamav/freshclam.dat /var/lib/clamav/mirrors.dat || true"
+                    ],
+                    "cwd": "/",
+                    "env": [
+                      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                      "DEBIAN_FRONTEND=noninteractive",
+                      "TZ=Etc/UTC"
+                    ],
+                    "removeMountStubsRecursive": true
+                  },
+                  "mounts": [
+                    {
+                      "dest": "/"
+                    }
+                  ]
+                }
+              },
+              "constraints": {},
+              "platform": {
+                "Architecture": "ppc64le",
+                "OS": "linux"
+              }
+            }
+          },
+          {
+            "id": "step2",
+            "inputs": [
+              "step1:0"
+            ],
+            "op": {
+              "Op": {}
+            }
+          }
+        ]
+      },
+      "buildType": "https://mobyproject.org/buildkit@v1",
+      "builder": {
+        "id": "https://clamav-jenkins.talos.cisco.com/job/ClamAV/job/clamav-docker/job/clamav-debian/job/clamav-debian-docker-1.5/68/"
+      },
+      "invocation": {
+        "configSource": {
+          "entryPoint": "Dockerfile.add-db"
+        },
+        "environment": {
+          "platform": "linux/amd64"
+        },
+        "parameters": {
+          "args": {
+            "build-arg:BASE_IMAGE": "docker.io/clamav/clamav-debian:1.5.4_base",
+            "no-cache": ""
+          },
+          "frontend": "dockerfile.v0",
+          "locals": [
+            {
+              "name": "context"
+            },
+            {
+              "name": "dockerfile"
+            }
+          ]
+        }
+      },
+      "materials": [
+        {
+          "digest": {
+            "sha256": "1474f1d18827ec86ec2142a6e3d590008e755b415ad765db32bf829063653a95"
+          },
+          "uri": "pkg:docker/clamav/clamav-debian@1.5.4_base?platform=linux%2Fppc64le"
+        },
+        {
+          "digest": {
+            "sha256": "873a7458c3c8ac8e32c7b796c10e1600b07b963d2aa000a72a2d97aaaa2d6315"
+          },
+          "uri": "pkg:docker/docker/buildkit-syft-scanner@stable-1"
+        }
+      ],
+      "metadata": {
+        "buildFinishedOn": "2026-11-02T07:15:32.502054891Z",
+        "buildInvocationID": "19go489dgppfiyfq1dhezg7nk",
+        "buildStartedOn": "2026-11-02T07:12:41.505179491Z",
+        "completeness": {
+          "environment": true,
+          "materials": false,
+          "parameters": true
+        },
+        "https://mobyproject.org/buildkit@v1#metadata": {
+          "layers": {
+            "step0:0": [
+              [
+                {
+                  "digest": "sha256:f490fb2987a662c38eed3607aecc06172dd51be9288e6586d2882b2c76f0ea1a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 33666263
+                },
+                {
+                  "digest": "sha256:ae9a0386e14d2af15b3d9ede89d3de68dfcb6a505449520a4ef09f6e7650bc89",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 8219781
+                },
+                {
+                  "digest": "sha256:2a2a775a00e496024f6d58bfb829a790ab35d3f158d2f1551a3915546e3c9385",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 42216326
+                },
+                {
+                  "digest": "sha256:3ffd6cec832e9b7bedb9169ba9682eb9a464882d85d8935a6735d13ea6489343",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 348
+                },
+                {
+                  "digest": "sha256:89d2a9fae2b143db0ca9e34f350d42823dbc2f0855af9e10a0a7f7b8dc2f3eb4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1560
+                },
+                {
+                  "digest": "sha256:67955449600347e39920c9da397d02f50e95df14d1d2e8a137b93176875a2e8a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1225
+                }
+              ]
+            ],
+            "step1:0": [
+              [
+                {
+                  "digest": "sha256:f490fb2987a662c38eed3607aecc06172dd51be9288e6586d2882b2c76f0ea1a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 33666263
+                },
+                {
+                  "digest": "sha256:ae9a0386e14d2af15b3d9ede89d3de68dfcb6a505449520a4ef09f6e7650bc89",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 8219781
+                },
+                {
+                  "digest": "sha256:2a2a775a00e496024f6d58bfb829a790ab35d3f158d2f1551a3915546e3c9385",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 42216326
+                },
+                {
+                  "digest": "sha256:3ffd6cec832e9b7bedb9169ba9682eb9a464882d85d8935a6735d13ea6489343",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 348
+                },
+                {
+                  "digest": "sha256:89d2a9fae2b143db0ca9e34f350d42823dbc2f0855af9e10a0a7f7b8dc2f3eb4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1560
+                },
+                {
+                  "digest": "sha256:67955449600347e39920c9da397d02f50e95df14d1d2e8a137b93176875a2e8a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1225
+                },
+                {
+                  "digest": "sha256:434cb6b5c4d957a1b066c05ab247a43c9080afe00456e56967f02a23b46cf077",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 112852508
+                }
+              ]
+            ]
+          },
+          "source": {
+            "infos": [
+              {
+                "data": "QVJHIEJBU0VfSU1BR0UKRlJPTSAke0JBU0VfSU1BR0V9CgpSVU4gZnJlc2hjbGFtIC0tZm9yZWdyb3VuZCAtLXN0ZG91dCB8fCB0cnVlICYmIFwKICAgIHJtIC1mIC92YXIvbGliL2NsYW1hdi9mcmVzaGNsYW0uZGF0IC92YXIvbGliL2NsYW1hdi9taXJyb3JzLmRhdCB8fCB0cnVl",
+                "digestMapping": {
+                  "sha256:4380f922d925a7fd21b4f727b23f615b93fa5c39ef1b8c06abdb772e058d82a3": "step1",
+                  "sha256:59de6fe1224d34012ad288c167332153e6d2eeed50cd1da7c895e9554688ec5c": "step0"
+                },
+                "filename": "Dockerfile.add-db",
+                "language": "Dockerfile",
+                "llbDefinition": [
+                  {
+                    "id": "step0",
+                    "op": {
+                      "Op": {
+                        "source": {
+                          "attrs": {
+                            "local.differ": "none",
+                            "local.followpaths": "[\"Dockerfile.add-db\",\"Dockerfile.add-db.dockerignore\"]",
+                            "local.sharedkeyhint": "dockerfile"
+                          },
+                          "identifier": "local://dockerfile"
+                        }
+                      },
+                      "constraints": {}
+                    }
+                  },
+                  {
+                    "id": "step1",
+                    "inputs": [
+                      "step0:0"
+                    ],
+                    "op": {
+                      "Op": {}
+                    }
+                  }
+                ]
+              }
+            ],
+            "locations": {
+              "step0": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 2
+                        },
+                        "start": {
+                          "line": 2
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step1": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 4
+                        },
+                        "start": {
+                          "line": 4
+                        }
+                      },
+                      {
+                        "end": {
+                          "line": 5
+                        },
+                        "start": {
+                          "line": 5
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "vcs": {
+            "localdir:context": ".",
+            "localdir:dockerfile": ".",
+            "revision": "fa59fca15872bb8a914ba4c68188bcc8a502cbdf",
+            "source": "https://github.com/Cisco-Talos/clamav.git"
+          }
+        },
+        "reproducible": false
+      }
+    }
+  }
+}

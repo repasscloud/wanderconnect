@@ -230,7 +230,7 @@ else if (problem is null) { <p role="status" class="me-meta">Loading…</p> }
         Watch();
     }
 
-    // D336 (#221): while a file is being checked for malware, the conversation refreshes every 5 seconds (up to 10 minutes),
+    // D336 (issue 221): while a file is being checked for malware, the conversation refreshes every 5 seconds (up to 10 minutes),
     // so released files appear without a reload. The text being typed in the reply box is untouched.
     private CancellationTokenSource? watching;
     private bool Checking => detail?.Articles.Any(a => a.Held.Any(h => h.Status == "checking")) == true;

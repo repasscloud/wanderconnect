@@ -24,6 +24,8 @@ Template with placeholders: `containers/zammad/api.env.example`. Names match the
 | --- | --- |
 | `Ticketing:Zammad:BaseUrl` | Zammad base URL (HTTPS, or HTTP only to loopback/the private `swoovr-zammad` host) |
 | `Ticketing:Zammad:IdentityToken` | Customer lifecycle token (cannot read tickets on its own) |
+| `Ticketing:Zammad:RetentionToken` | Retention identity (D337): reads ticket metadata in every group, deletes only through data privacy tasks; required on hosted hosts |
+| `Attachments:Scanning:ClamAv:Host`, `Port`, `TimeoutSeconds`, `MaxStreamBytes` | ClamAV for support attachments (D336); required on hosted hosts. `Attachments:Scanning:Enabled=false` is Development only |
 | `Ticketing:Zammad:StaffDirectoryToken` | Staff directory credential; enables staff synchronisation (none: staff can't use the helpdesk) |
 | `Ticketing:Staff:Worker`, `SyncSeconds`, `VerifyMinutes` | Staff synchronisation on/off (default on), interval (60 s), full verification against Zammad (10 min) |
 | `Ticketing:Zammad:WebhookSecret` | HMAC secret shared with the Zammad webhook (≥32 chars); enables the event worker |
@@ -82,5 +84,29 @@ Swoovr roles decide every staff member's queues; Zammad is never managed as a se
 - Emailed customer messages aren't shown to members or guests in Swoovr (D328, owner kept the default).
 - Device attestation for sensitive work (Q133 option C) is not built.
 - A Zammad session already open when access is removed ends within a minute (the next synchronisation). Zammad's own session lifetime otherwise applies.
-- Retention periods and the AGPL position are decided (D333, #207). Not built yet: automated ticket retention, customer retirement on final account deletion, 35-day backups (`HOLD_DAYS`, `TZ=Australia/Adelaide`) and reconciliation after a restore. Options are in `RETENTION-OPTIONS.md` (Q136, #224). Until customer retirement is built, a finally deleted member's Zammad customer is only switched off when Swoovr next touches it.
+- Retention periods and the AGPL position are decided (D333, #207) and built (D337); see "Helpdesk retention" below.
+- Emailed attachments in Zammad's own web UI are not scanned when downloaded there (Q137, #226). Every download through Swoovr is scanned.
 - The staff queue uses Zammad's asynchronous search index; new tickets appear after indexing (about a second locally). `TK-` lookups don't depend on it. A newly created staff identity also appears in owner choices only after indexing.
+
+## Attachment scanning (D336)
+
+- **Service:** the pinned `clamav/clamav@sha256:c21aa18c…` image, unmodified, with its `CLAMD_CONF_*` limits (see `compose.local.yaml`).
+  - Give it about 4 GB of memory.
+  - Persist `/var/lib/clamav` so freshclam updates survive restarts.
+  - Allow outbound HTTPS to the ClamAV mirror.
+  - Never publish port 3310; only the API reaches it.
+- **API settings:** `Attachments:Scanning:ClamAv:Host`, plus optionally `Port` (3310), `TimeoutSeconds` (120) and `MaxStreamBytes` (160 MB; must cover the largest allowed file). Hosted hosts refuse to start without a host, or with scanning or its worker switched off.
+- **Monitoring:** alert on `GET /health/attachments` returning 503 (scanner not answering; its body counts waiting files). Admin → Support requests → Integration health shows the scanner, files being checked, retrying and blocked.
+  - The scanner container can report itself healthy after clamd has died (for example after an out-of-memory kill), so monitor this endpoint, not the container status.
+- **Outage:** messages still go through and their files wait in quarantine. Once ClamAV answers again they are scanned and released automatically. Nothing is ever released unscanned.
+- **Blocked files** stay in Swoovr's quarantine (never in Zammad) for 30 days, then the copy is removed. The hold row keeps the facts: name, size, hash, detection.
+- **Supply chain:** `docs/delivery/supply-chain/clamav-c21aa18cc0a3/`. Regenerate it with syft and grype for any new digest, and have the owner approve the digest.
+
+## Helpdesk retention (D337)
+
+- **Runs as part of the hourly retention run** (`Retention:Worker`), or on demand with `dotnet Swoovr.Api.dll retention purge`. To schedule it externally instead, set `Retention:Worker=false` and run that command hourly (crontab or a Container Apps Job).
+- **Needs** `Ticketing:Zammad:RetentionToken`: the `swoovr-retention` identity, provisioned by `containers/zammad/provision.rb` (read on every group, plus `admin.data_privacy`). Without it, customers are still retired but tickets are kept, and the run says so.
+- **Zammad performs deletions** with its scheduler's data privacy job. The ledger shows `Disposing` until Zammad reports the task completed.
+- **Backups:** `HOLD_DAYS 35`, `TZ Australia/Adelaide` on `zammad-backup`. Keep backups encrypted and access-controlled. Legal holds never extend backups; Swoovr holds the records instead.
+- **After any Zammad restore,** before staff use it: `dotnet Swoovr.Api.dll retention helpdesk --reconcile`. It deletes again the tickets Swoovr already disposed of (ledger rows are kept 60 days) and retires the retired customers again.
+- **Overrides:** Admin or Legal can change a request's retention category on its Admin page, with a reason (audited). Kept-for-hold/case/appeal and failing deletions show in Integration health.
