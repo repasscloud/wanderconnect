@@ -711,3 +711,19 @@ a.ad-stat:hover { border-color: color-mix(in srgb, var(--muted) 55%, var(--borde
 .ticket-facts dt { color: var(--muted); }
 .ticket-facts dd { margin: 0; overflow-wrap: anywhere; }
 .ticket-links { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; font-size: .875rem; }
+
+/* Phones: the header stays on one tidy row: menu, the section (shortened if needed), search and theme as compact
+   buttons, and the account as its avatar (the name stays readable to screen readers). */
+@media (max-width: 600px) {
+  .admin-header { flex-wrap: nowrap; height: auto; min-height: 60px; padding: 8px 12px; gap: 8px; }
+  .page-context { flex: 1 1 auto; min-width: 0; line-height: 1.35; }
+  .page-context > span, .page-context strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-tools { flex: none; gap: 6px; }
+  .jump-button { width: 36px; padding: 0; justify-content: center; }
+  .theme-button { padding: 0 10px; }
+  .staff-menu summary { gap: 4px; min-height: 40px; }
+  .staff-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ticket-head { gap: 6px; }
+  .ticket-head h1 { font-size: 1.5rem; line-height: 1.2; }
+  .ticket-meta { gap: 2px 12px; }
+}
