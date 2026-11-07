@@ -50,6 +50,7 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   if (await admin.locator('[data-lock-state=locked]').count()) await dialog(admin, 'unlock', async d => { await d.locator('select[name=reasonCode]').selectOption('applied-in-error'); });
   await admin.selectOption('form:has([data-op=lock]) select[name=reasonCode]', 'trust-safety-investigation');
   await admin.click('[data-op=lock]'); await confirm(admin);
+  const lockedAt = Date.now();
   ok(await admin.locator('[data-lock-state=locked]').count() === 1, 'sign-in locked');
   const ref = (await admin.locator('[data-lock-reference]').textContent()).trim();
   ok(/^SW-[A-Z2-9]{6}$/.test(ref), 'public reference ' + ref);
@@ -62,6 +63,9 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   const again = await m.request.fetch('http://localhost:5081/bff/api/me/profile', { headers: { 'X-Swoovr-Bff': '1' } });
   ok(again.status() === 401 && !again.headers()['x-swoovr-session-ended'], 'old web session no longer signed in');
   // Signing in again shows the D323 locked screen with the same reference (not "We couldn't load your account").
+  // The lock's session cutoff is 30 seconds ahead (issuer clock skew, SessionRevocationPolicy), so a sign-in inside that
+  // window is refused too; wait it out first.
+  await m.waitForTimeout(Math.max(0, lockedAt + 35000 - Date.now()));
   await m.goto('http://localhost:5081/account/sign-in?intro=done'); await m.waitForLoadState('networkidle');
   if (await m.locator('#username').count()) {
     await m.fill('#username', 'fictional.alex@example.test'); await m.fill('#password', env.SWOOVR_LOCAL_MEMBER_PASSWORD);
