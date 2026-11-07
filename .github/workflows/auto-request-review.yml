@@ -14,16 +14,16 @@ permissions:
 
 jobs:
   request-review:
-    name: Request rpc-bot Review
+    name: Request bot-rpc Review
     runs-on: ubuntu-latest
 
-    # Skip draft PRs and PRs created by rpc-bot.
+    # Skip draft PRs and PRs created by bot-rpc.
     if: |
       github.event.pull_request.draft == false &&
-      github.event.pull_request.user.login != 'rpc-bot'
+      github.event.pull_request.user.login != 'bot-rpc'
 
     steps:
-      - name: Request review from rpc-bot
+      - name: Request review from bot-rpc
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -32,7 +32,7 @@ jobs:
           gh api \
             --method POST \
             "repos/$GH_REPO/pulls/$PR_NUMBER/requested_reviewers" \
-            -f "reviewers[]=rpc-bot"
+            -f "reviewers[]=bot-rpc"
 
 #
 # How it works: in scripts/check_design.py, the "disabled workflows" rule skips only the files you list:
