@@ -29,9 +29,15 @@ static class StaffManagementPersistenceChecks
         db.Invitations.Add(new Invitation{Id=Guid.NewGuid(),Realm=AccountRealm.Staff,Email="fictional.target@example.test",Role=AccountRole.Admin,CreatedAt=now,ExpiresAt=now.AddDays(1)});
         await db.SaveChangesAsync();
         var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["Staff:LocalPasswords"]="true"}).Build();
-        using var services=new ServiceCollection().AddSingleton(db).AddSingleton(TimeProvider.System).BuildServiceProvider();
+        using var services=new ServiceCollection().AddSingleton(db).AddSingleton<IConfiguration>(config).AddSingleton(TimeProvider.System).BuildServiceProvider();
         var resolver=new AccountResolver(services,keycloak,new SessionEvidencePolicy(new()),TimeProvider.System,config,new DevEnvironment(),NullLogger<AccountResolver>.Instance);
-        var user=new ClaimsPrincipal(new ClaimsIdentity([new("iss",issuer),new("sub",subject),new("email_verified","true"),new("auth_time",now.AddSeconds(-3).ToUnixTimeSeconds().ToString()),new("iat",now.ToUnixTimeSeconds().ToString()),new("amr","pwd"),new("amr","otp")],"checks"));
+        var user=new ClaimsPrincipal(new ClaimsIdentity([new("iss",issuer),new("sub",subject),new("email_verified","true"),new("auth_time",now.AddSeconds(-20).ToUnixTimeSeconds().ToString()),new("iat",now.ToUnixTimeSeconds().ToString()),new("amr","pwd"),new("amr","otp"),new("sid","staff-check-session"),new("azp","swoovr-admin-web")],"checks"));
+        var begin=await MfaEndpoints.BeginAsync(user,resolver,TimeProvider.System,config,CancellationToken.None);
+        var challenge=((IValueHttpResult)begin).Value as MfaElevationChallenge ?? throw new Exception("MFA challenge missing");
+        var freshClaims=user.Claims.Where(c=>c.Type!="auth_time").Append(new Claim("auth_time",DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()));
+        user=new ClaimsPrincipal(new ClaimsIdentity(freshClaims,"checks"));
+        var complete=await MfaEndpoints.CompleteAsync(new(challenge.Challenge),user,resolver,TimeProvider.System,config,CancellationToken.None);
+        check("staff management requires separate fresh MFA elevation",Status(complete)==200);
         var provider=new FakeStaff();var signal=new TicketingStaffSignal();
         var request=new StaffAccountUpdate("Fictional","Employee","fictional.target@example.test",null,"active",["support","business"],0,"role-change",true);
         var result=await StaffAccountEndpoints.UpdateAsync(target,request,user,resolver,provider,TimeProvider.System,signal,CancellationToken.None);
@@ -62,7 +68,7 @@ static class StaffManagementPersistenceChecks
         db.RoleGrants.Add(new RoleGrant{Id=Guid.NewGuid(),AccountId=actor,Role=AccountRole.Admin,GrantedAt=now});await db.SaveChangesAsync();
         var race=new CutoffRace(options,actor);
         await using var raceDb=new SwoovrDbContext(new DbContextOptionsBuilder<SwoovrDbContext>(options).AddInterceptors(race).Options);
-        using var raceServices=new ServiceCollection().AddSingleton(raceDb).AddSingleton(TimeProvider.System).BuildServiceProvider();
+        using var raceServices=new ServiceCollection().AddSingleton(raceDb).AddSingleton<IConfiguration>(config).AddSingleton(TimeProvider.System).BuildServiceProvider();
         var raceResolver=new AccountResolver(raceServices,keycloak,new SessionEvidencePolicy(new()),TimeProvider.System,config,new DevEnvironment(),NullLogger<AccountResolver>.Instance);
         var authorization=await StaffAccountEndpoints.AuthorizeAsync(user,raceResolver,true,CancellationToken.None);
         check("revocation between resolution and actor reload cannot preserve staff authority",race.Fired&&authorization.Actor is null&&authorization.Denied is Microsoft.AspNetCore.Http.HttpResults.UnauthorizedHttpResult);
@@ -91,6 +97,8 @@ static class StaffManagementPersistenceChecks
         public Task<IdentityAccountInfo?> AccountAsync(string s,CancellationToken ct)=>Task.FromResult<IdentityAccountInfo?>(null);
         public Task<string?> CreateAccountAsync(IdentityAccountUpdate u,CancellationToken ct)=>Task.FromResult<string?>(Guid.NewGuid().ToString());
         public Task<bool> RequireActionsAsync(string s,IReadOnlyList<string>a,CancellationToken ct)=>Task.FromResult(!Fail);
+        public Task<bool> SetMfaRequiredAsync(string s,bool r,CancellationToken ct)=>Task.FromResult(!Fail);
+        public Task<bool> ClearMfaAsync(string s,bool r,CancellationToken ct)=>Task.FromResult(!Fail);
         public Task<bool> PasswordEmailAsync(string s,CancellationToken ct)=>Task.FromResult(!Fail);
         public Task<bool> SignOutOtherSessionsAsync(string s,string? k,CancellationToken ct)=>throw new NotSupportedException();
         public Task<bool> DeleteUserAsync(string s,CancellationToken ct)=>throw new NotSupportedException();

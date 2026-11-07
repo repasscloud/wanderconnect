@@ -30,6 +30,10 @@ public sealed class Account
     /// <summary>Null until a current approved ID result can compare these exact declarations.</summary>
     public bool? RegisteredNamesMatchId { get; set; }
     /// <summary>#206: compare-and-swap for internal staff management forms, never a credential revision.</summary>
+    public bool MfaRequired { get; set; }
+    public AccountRole? MfaRequirementRole { get; set; }
+    public bool MfaResetPending { get; set; }
+    public DateTimeOffset? MfaLastResetAt { get; set; }
     public long StaffRevision { get; set; }
     public DateTimeOffset? StaffLastSignInAt { get; set; }
     public AccountStatus Status { get; set; }

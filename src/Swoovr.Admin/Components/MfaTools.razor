@@ -1,0 +1,47 @@
+@inject AdminClient Admin
+<section class="ui-card ui-section" aria-labelledby="mfa-tools-heading">
+<h2 id="mfa-tools-heading">Multi-factor authentication</h2>
+@if (message is not null) { <p role="status">@message</p> }
+@if (view is { } security)
+{
+    <p>@MfaText.Status(security.Status) · @(security.Required ? "Required" : "Optional")</p>
+    <p>Registered methods: @string.Join(", ",security.Methods.Select(MfaText.Method))</p>
+    @if(security.LastReset is{}reset) { <p>Last credential reset: @reset.ToString("u")</p> }
+    @if(!Staff && workspace?.MemberOperations == true)
+    {
+        <form method="post" @formname="mfa-requirement" @onsubmit="RequireAsync" class="ui-form">
+            <AntiforgeryToken />
+            <label><input type="checkbox" name="required" value="yes" checked="@security.Required" />Require MFA</label>
+            <label class="ui-field">Reason or case reference<input name="reason" required maxlength="80" placeholder="security-review or case:1234" pattern="[a-z][a-z0-9-]{2,63}(:[0-9]{1,18})?" /></label>
+            <label><input type="checkbox" name="confirm" value="yes" required />Confirm this policy change; existing sessions will end</label>
+            <button type="submit">Save MFA requirement</button>
+            <p>Removing the requirement keeps existing authenticator credentials.</p>
+        </form>
+    }
+    @if(AllowReset && workspace?.Administration == true)
+    {
+        <details><summary>Clear MFA credentials</summary>
+        <form method="post" @formname="mfa-reset" @onsubmit="ResetAsync" class="ui-form">
+            <AntiforgeryToken />
+            <label class="ui-field">Recovery case reference<input name="case" required maxlength="23" placeholder="case:1234" pattern="case:[0-9]{1,18}" /></label>
+            <label><input type="checkbox" name="identityVerified" value="yes" required />I independently verified this recovery request using the approved identity verification procedure</label>
+            <label><input type="checkbox" name="confirm" value="yes" required />Confirm credential clearing and sign-out of existing sessions</label>
+            <button type="submit">Clear MFA credentials</button>
+            @if(Staff || security.Required) { <p>MFA remains mandatory. The account must enrol again.</p> }
+        </form></details>
+    }
+    @if(workspace?.Administration==true) { <p><a href="/sign-in?elevate=true" data-enhance-nav="false">Verify MFA for a privileged action</a></p> }
+}
+</section>
+@code {
+    [Parameter] public Guid AccountId { get; set; }
+    [Parameter] public bool Staff { get; set; }
+    [Parameter] public bool AllowReset { get; set; } = true;
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private MfaView? view;private StaffWorkspace? workspace;private string? message;
+    private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
+    protected override async Task OnInitializedAsync(){workspace=(await Admin.WorkspaceAsync()).Value;await LoadAsync();}
+    private async Task LoadAsync(){var r=await Admin.MfaAsync(AccountId);view=r.Value;if(!r.Ok)message=AdminText.Refusal(r.Status,r.Code);}
+    private async Task RequireAsync(){var r=await Admin.RequireMfaAsync(AccountId,new(Field("required")=="yes",Field("reason"),Field("confirm")=="yes"));message=r.Ok?"MFA requirement updated. Existing credentials were preserved.":AdminText.Refusal(r.Status,r.Code);await LoadAsync();}
+    private async Task ResetAsync(){var r=await Admin.ResetMfaAsync(AccountId,new(Field("case"),Field("identityVerified")=="yes",Field("confirm")=="yes"));message=r.Ok?"MFA credentials cleared; existing sessions ended. Mandatory enrolment remains enforced where required.":AdminText.Refusal(r.Status,r.Code);await LoadAsync();}
+}

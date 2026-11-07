@@ -38,6 +38,7 @@ public sealed class SessionEvidencePolicy(SessionEvidenceOptions options)
     // Reference values configured by scripts/auth/realms.mjs.
     public const string Password = "pwd";
     public const string OneTimePassword = "otp";
+    public const string RecoveryCode = "recovery-code";
     public const string HardwareKey = "hwk";
     public const string EmailLink = "swoovr-email-link";
 
@@ -49,7 +50,7 @@ public sealed class SessionEvidencePolicy(SessionEvidenceOptions options)
         var age = now - facts.AuthenticatedAt;
         var fresh = age >= TimeSpan.FromSeconds(-5) && age <= options.MaxAge;
         var method = MethodOf(facts.Realm, amr, facts.IdentityProvider);
-        var multiFactor = method != SignInMethod.Unknown && amr.Contains(OneTimePassword);
+        var multiFactor = method != SignInMethod.Unknown && (amr.Contains(OneTimePassword) || amr.Contains(RecoveryCode));
         return new(method, multiFactor, fresh && method != SignInMethod.Unknown);
     }
 

@@ -4,7 +4,7 @@ using Swoovr.Client;
 using Swoovr.Contracts;
 using System.Text.Json;
 
-if(args is ["--staff-management-checks"]){StaffManagementChecks.Run();await IdentityDirectoryChecks.Run();await PersistenceChecks.Run(staffOnly:true);return;}
+if(args is ["--staff-management-checks"]){MfaChecks.Run();StaffManagementChecks.Run();await IdentityDirectoryChecks.Run();await PersistenceChecks.Run(staffOnly:true);return;}
 
 if(args is ["--ticketing-lifecycle-live",var lifecyclePath]){await TicketingLifecycleLiveChecks.Run(lifecyclePath);return;}
 
@@ -56,6 +56,7 @@ FallbackKeyChecks.Run();
 ApiContractChecks.Run();
 AccessPolicyChecks.Run();
 StaffManagementChecks.Run();
+MfaChecks.Run();
 await IdentityDirectoryChecks.Run();
 AccountPolicyChecks.Run();
 AccountSearchChecks.Run();

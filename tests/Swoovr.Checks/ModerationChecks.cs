@@ -64,7 +64,7 @@ static class ModerationChecks
         // D136: local password staff only when the API allows it; never for the root admin's rule or venues.
         var supportByPassword = new AccessSession(AccountRole.Support, AccountRealm.Staff, SignInMethod.EmailPassword, false, true, true, true, false, new HashSet<Guid>());
         Expect(!new AccountAccessPolicy().Allows(supportByPassword, AccountRole.Support), "password staff refused by default (Entra only)");
-        Expect(new AccountAccessPolicy(localPasswordStaff: true).Allows(supportByPassword, AccountRole.Support), "local password staff allowed when switched on");
+        Expect(new AccountAccessPolicy(localPasswordStaff: true).Allows(supportByPassword with { MultiFactor = true }, AccountRole.Support), "local password staff allowed when switched on");
         Expect(!new AccountAccessPolicy(true).Allows(supportByPassword with { Method = SignInMethod.Google }, AccountRole.Support), "never social sign-in");
         Expect(!new AccountAccessPolicy(true).Allows(supportByPassword with { IsFresh = false }, AccountRole.Support), "needs a fresh session");
         Expect(!new AccountAccessPolicy(true).Allows(supportByPassword with { EmailVerified = false }, AccountRole.Support), "needs a verified email");

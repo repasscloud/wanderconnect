@@ -139,8 +139,10 @@ public static class MediaEndpoints
             var links = services.GetRequiredService<MediaLinks>();
             if (links.Key is null || MediaPolicy.ReadLink(links.Key, token, clock.GetUtcNow()) is not var (id, variant)) return Results.NotFound();
             var item = await db.MediaItems.FindAsync([id], cancellationToken);
-            if (item is null || await services.GetRequiredService<MediaPipeline>().ServeAsync(item, variant, cancellationToken) is not { } bytes) return Results.NotFound();
-            context.Response.Headers.CacheControl = "private, max-age=300";
+            if (item is null) return Results.NotFound();
+            if (await MfaEvidenceAccess.CheckAsync(item.Id,item.AccountId,variant,context.User,services.GetRequiredService<AccountResolver>(),clock.GetUtcNow(),cancellationToken) is { } denied) return denied;
+            if (await services.GetRequiredService<MediaPipeline>().ServeAsync(item, variant, cancellationToken) is not { } bytes) return Results.NotFound();
+            context.Response.Headers.CacheControl = MfaEvidenceAccess.StaffVariant(variant) ? "no-store" : "private, max-age=300";
             context.Response.Headers.XContentTypeOptions = "nosniff";
             return Results.File(bytes, "image/jpeg");
         });

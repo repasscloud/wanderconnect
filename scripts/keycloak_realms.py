@@ -55,6 +55,8 @@ def user_profile():
     # Written by the built-in registration terms step (the 18+ checkbox, D40); undeclared attributes are dropped.
     for name in ['swoovr_email_request_binding','swoovr_email_requested_ms','swoovr_email_verified_binding','swoovr_email_verified_ms','swoovr_email_request_session_sha256']:
         attributes.append(attribute(name, 'Provider email verification evidence', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}, 'validations': {'length': {'max': 64}}}))
+    for name in ['swoovrMfaRequired','swoovrMfaSetupOwned']:
+        attributes.append(attribute(name, 'MFA policy', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}, 'validations': {'length': {'max': 5}}}))
     attributes.append(attribute('terms_and_conditions', 'Adult attestation time', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}}))
     return {'attributes': attributes, 'groups': [], 'unmanagedAttributePolicy': None}
 
@@ -161,7 +163,9 @@ realms = {
     'swoovr-staff-dev': realm('swoovr-staff-dev', 'Swoovr staff', registration=False, passkeys=False,
                               clients=[web_client('swoovr-admin-web', 'SWOOVR_STAFF_WEB_SECRET', base=admin_web), zammad_client()]),
 }
-realms['swoovr-members-dev']['eventsListeners'] = ['jboss-logging','swoovr-contact-clocks']
+realms['swoovr-members-dev']['eventsListeners'] = ['jboss-logging','swoovr-contact-clocks','swoovr-mfa-audit']
+realms['swoovr-staff-dev']['eventsListeners'] = ['jboss-logging','swoovr-mfa-audit']
+realms['swoovr-staff-dev']['attributes']['swoovr.mfa.required'] = 'true'
 realms['swoovr-staff-dev']['resetPasswordAllowed'] = False  # Entra owns employee passwords; root admin is reset by master admin.
 
 

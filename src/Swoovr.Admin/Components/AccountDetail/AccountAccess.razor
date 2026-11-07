@@ -2,6 +2,7 @@
 @* issue 190 §10 (D323): sign-in locks. The API refuses every protected member request while a lock is active, whatever session
    or token the member holds, and ends their Keycloak sessions. The member sees the locked screen and the reference only. *@
 @{ var held = Locks.FirstOrDefault(l => l.Active); var may = Permissions?.Lock == true; }
+<MfaTools AccountId="Account.Id" />
 <div class="acct-grid">
     <section class="ui-card" data-lock-state="@(held is null ? "unlocked" : "locked")">
         <div class="ui-card-head"><h2>Sign-in</h2><span class="ui-pill" data-tone="@(held is null ? "approve" : "reject")">@(held is null ? "Allowed" : "Locked")</span></div>

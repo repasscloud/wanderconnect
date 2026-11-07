@@ -2716,3 +2716,8 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 
 - Issue: [#233](https://github.com/repasscloud/wanderconnect/issues/233). Status: OPEN, raised 7 November 2026 while building #231 (D338).
 - A refused photo stays in the member's library, blurred, for the 30-day appeal window. A (recommended, current behaviour): it uses a library spot until deleted or the window closes. B: it doesn't count, so a refusal never blocks uploads, but the library can hold more than 60 items.
+
+### Q140 — Operational identity review for MFA recovery
+
+- Issue: [#243](https://github.com/repasscloud/wanderconnect/issues/243). Status: OPEN, raised 7 November 2026 while implementing [#193](https://github.com/repasscloud/wanderconnect/issues/193).
+- Which approved identity-review procedure, evidence and training/record requirements should independent Admins use before resetting lost MFA? The implementation requires elevated independent Admin, case reference, identity-review attestation and confirmation, prevents self/Root reset and preserves mandatory staff enrolment. An attestation does not prove identity or case outcome. Operational assisted recovery awaits the approved runbook; independent enrolment, enforcement and native recovery work continues. No new document collection or bypass is proposed.

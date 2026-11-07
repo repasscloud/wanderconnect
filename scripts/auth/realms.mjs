@@ -171,11 +171,55 @@ export async function applyStaffMfa(api, name) {
   return changes;
 }
 
+// #193: account-console credential deletion cannot bypass the API's enforced-MFA policy.
+// Application-initiated native actions remain available through the Swoovr clients.
+export async function applyMfaSelfServiceBoundary(api, name) {
+  const changes = [];
+  if (!['swoovr-members-dev', 'swoovr-staff-dev'].includes(name)) return changes;
+  const realm = await api('');
+  if (realm.realm !== name || realm.attributes?.['swoovr.environment'] !== 'local-development-only') throw new Error('Expected local realm for MFA configuration');
+  const attributes = { ...realm.attributes };
+  if (name === 'swoovr-staff-dev') attributes['swoovr.mfa.required'] = 'true';
+  const listeners = [...new Set([...(realm.eventsListeners ?? ['jboss-logging']), 'swoovr-mfa-audit'])];
+  if (JSON.stringify(attributes) !== JSON.stringify(realm.attributes) || JSON.stringify(listeners) !== JSON.stringify(realm.eventsListeners)) {
+    await api('', 'PUT', { ...realm, attributes, eventsListeners: listeners }); changes.push('MFA policy and audit');
+  }
+  for (const id of ['account-console', 'account']) {
+    const [client] = await api('/clients?clientId=' + id);
+    if (client?.enabled !== false && client?.id) { await api('/clients/' + client.id, 'PUT', { ...client, enabled: false }); changes.push('managed MFA self-service ' + id); }
+  }
+  const recovery = await api('/authentication/required-actions/CONFIGURE_RECOVERY_AUTHN_CODES');
+  if (!recovery.enabled || recovery.defaultAction) {
+    await api('/authentication/required-actions/CONFIGURE_RECOVERY_AUTHN_CODES', 'PUT', { ...recovery, enabled: true, defaultAction: false }); changes.push('native recovery codes');
+  }
+  const executions = await api('/authentication/flows/browser/executions');
+  const otp = executions.find(e => e.providerId === 'auth-otp-form');
+  const recoveryForm = executions.find(e => e.providerId === 'auth-recovery-authn-code-form');
+  if (!otp || !recoveryForm) throw new Error('Native recovery-code feature is unavailable; enable it before configuring MFA');
+  for (const execution of [otp, recoveryForm]) {
+    if (execution.requirement !== 'ALTERNATIVE') await api('/authentication/flows/browser/executions', 'PUT', { id: execution.id, requirement: 'ALTERNATIVE' });
+  }
+  const config = { alias: 'swoovr-amr-recovery-code', config: { 'default.reference.value': 'recovery-code', 'default.reference.maxAge': amrMaxAgeSeconds } };
+  if (!recoveryForm.authenticationConfig) await api('/authentication/executions/' + recoveryForm.id + '/config', 'POST', config);
+  else {
+    const existing = await api('/authentication/config/' + recoveryForm.authenticationConfig);
+    if (existing.alias !== config.alias) throw new Error('Unmanaged recovery-code AMR configuration');
+    await api('/authentication/config/' + existing.id, 'PUT', { ...config, id: existing.id });
+  }
+  return changes;
+}
+
+async function localSecret(key) {
+  const env = await readFile('.local/docker.env', 'utf8').catch(() => '');
+  return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
+}
+
 export async function applyAll({ open = realm => localRealmApi({ realm }), secret = () => localSecret('SWOOVR_MEMBERS_API_ADMIN_SECRET') } = {}) {
   const result = {};
   for (const name of realms) {
     const api = await open(name);
     result[name] = [...await applyRealm(api, name), ...await applyStaffMfa(api, name)];
+    if (process.argv.includes('--managed-mfa')) result[name].push(...await applyMfaSelfServiceBoundary(api, name));
     if (name === 'swoovr-members-dev') result[name].push(...await applyAccountsClient(api, await secret()));
   }
   return result;

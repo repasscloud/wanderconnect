@@ -618,6 +618,16 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             item.Property(o => o.Note).HasMaxLength(1000);
             item.HasIndex(o => new { o.AccountId, o.At });
         });
+        model.Entity<MfaElevation>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.ChallengeDigest).HasMaxLength(64);
+            e.Property(r => r.SessionDigest).HasMaxLength(64);
+            e.Property(r => r.ClientId).HasMaxLength(100);
+            e.HasIndex(r => r.ChallengeDigest).IsUnique();
+            e.HasIndex(r => new { r.AccountId, r.SessionDigest, r.ExpiresAt });
+            e.HasOne<Account>().WithMany().HasForeignKey(r => r.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
         model.Entity<RoleGrant>(grant =>
         {
             grant.HasOne<Account>().WithMany().HasForeignKey(g => g.AccountId).OnDelete(DeleteBehavior.Cascade);

@@ -183,6 +183,7 @@ public static class StaffAccessPolicy
             "contact-history" => ("contact-history", null, false),
             "access" => ("access", Id(4), false),
             "staff" => ("staff", Id(3), false),
+            "mfa" => ("mfa", Id(3), false),
             "accounts" when parts.Length > 4 && parts[4] == "identity" => ("identity", Id(3), false),
             "accounts" when parts.Length > 4 && parts[4] is "date-of-birth" or "dob-history" => ("identity", Id(3), false),
             "accounts" when parts.Length > 4 && parts[4] is "profile-preview" or "profile-photos" or "action-history" or "assurance" or "dob-correction" => ("account-inspection", Id(3), false),

@@ -1,0 +1,13 @@
+@inject AdminClient Admin
+<section class="ui-card ui-section" aria-labelledby="mfa-elevation-title">
+<h2 id="mfa-elevation-title">MFA verification</h2>
+@if (status?.Elevated == true) { <p role="status">MFA elevation is active for this staff session.</p> }
+else { <p>Verify MFA again before a privileged operation. Your roles and recorded-purpose requirements still apply.</p> }
+@if (Result == "denied") { <p role="alert">MFA elevation could not be confirmed. Start again after signing in. Verification must use this same staff session.</p> }
+<a href="/sign-in?elevate=true" class="ui-button-primary" data-enhance-nav="false">Verify MFA</a>
+</section>
+@code {
+    [SupplyParameterFromQuery(Name="mfa")] public string? Result { get; set; }
+    private MfaElevationView? status;
+    protected override async Task OnInitializedAsync() => status = (await Admin.MfaElevationAsync()).Value;
+}

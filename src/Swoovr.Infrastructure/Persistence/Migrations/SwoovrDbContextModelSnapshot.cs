@@ -143,6 +143,23 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen_at");
 
+                    b.Property<DateTimeOffset?>("MfaLastResetAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("mfa_last_reset_at");
+
+                    b.Property<bool>("MfaRequired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mfa_required");
+
+                    b.Property<string>("MfaRequirementRole")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mfa_requirement_role");
+
+                    b.Property<bool>("MfaResetPending")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mfa_reset_pending");
+
                     b.Property<string>("Realm")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -4934,6 +4951,72 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("message_hides");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MfaElevation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset?>("AuthenticatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("authenticated_at");
+
+                    b.Property<string>("ChallengeDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("challenge_digest");
+
+                    b.Property<DateTimeOffset>("ChallengeExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("challenge_expires_at");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("client_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("InitialAuthenticationAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("initial_authentication_at");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<string>("SessionDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("session_digest");
+
+                    b.HasKey("Id")
+                        .HasName("pk_mfa_elevation");
+
+                    b.HasIndex("ChallengeDigest")
+                        .IsUnique()
+                        .HasDatabaseName("ix_mfa_elevation_challenge_digest");
+
+                    b.HasIndex("AccountId", "SessionDigest", "ExpiresAt")
+                        .HasDatabaseName("ix_mfa_elevation_account_id_session_digest_expires_at");
+
+                    b.ToTable("mfa_elevation");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.ModeFilter", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -9468,6 +9551,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_message_hides_messages_message_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MfaElevation", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_mfa_elevation_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.ModeFilter", b =>

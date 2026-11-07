@@ -85,6 +85,8 @@ public static class StaffAccountEndpoints
         if (!current.Allows(AccountRole.Admin)) return (null, Results.Forbid());
         if (mutation && (!current.Evidence.MultiFactor || !current.RecentlyAuthenticated(resolver.Services.GetRequiredService<TimeProvider>().GetUtcNow())))
             return (null, Problem(403, ProblemCodes.StaleSession, "Sign in again with MFA before managing staff access."));
+        if (mutation && !await MfaElevationService.HasAsync(current,user,resolver.Db,resolver.Services.GetRequiredService<IConfiguration>(),resolver.Services.GetRequiredService<TimeProvider>().GetUtcNow(),ct))
+            return (null, MfaElevationService.Required());
         return (current, null);
     }
 

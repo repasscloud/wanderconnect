@@ -131,6 +131,7 @@ internal static class Ui
 		var card = Card(Text(text, id: id));
 		if (code is ProblemCodes.AccountRestricted or ProblemCodes.AccountSuspended)
 			((VerticalStackLayout)card.Content!).Children.Add(Button("Read the notice", id + "Notices", () => PushAsync(new NoticesPage())));
+		if (code == "mfa-required") ((VerticalStackLayout)card.Content!).Children.Add(Button("Account security", id + "Mfa", () => PushAsync(new MfaPage())));
 		if (code == ProblemCodes.AgeVerificationRequired)
 			((VerticalStackLayout)card.Content!).Children.Add(Button("Verify my ID", id + "Verify", () => PushAsync(new VerificationPage())));
 		return card;

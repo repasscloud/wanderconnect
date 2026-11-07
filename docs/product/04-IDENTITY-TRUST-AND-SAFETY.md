@@ -1,5 +1,7 @@
 # Identity, authentication and trust
 
+7 November 2026 clarification: the confirmed mandatory staff MFA requirements in #196/#206/#193 supersede older optional-staff wording below. Member MFA remains optional unless explicitly imposed through authorised staff controls. See [MFA management](../delivery/MFA-MANAGEMENT.md) for implementation and acceptance limits.
+
 ## 1. Authentication
 
 CONFIRMED: **Keycloak is the authentication backend**. Owner corrected the earlier IdentityCloak name on 16 October 2026; use the official Keycloak project. Do not claim configured integration. Identity verification/document/liveness is a separate capability and provider decision. Keycloak selection does not resolve that decision.

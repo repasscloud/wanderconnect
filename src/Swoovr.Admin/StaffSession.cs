@@ -54,6 +54,7 @@ public static class AdminText
     public static string Refusal(int status, string? code) => (status, code) switch
     {
         (401, _) => "Your session has ended. Sign in to continue.",
+        (403, "mfa-elevation-required") => "Verify MFA again under Elevated access before this privileged action.",
         (403, "stale-session") => "For your security, this action needs a recent sign-in.",
         (403, "elevated-access-required") => "This needs time-limited access with a recorded purpose. Ask for it under Elevated access, then repeat it.",
         (403, "conflict-of-interest") => "A conflict of interest keeps you away from this member's records.",

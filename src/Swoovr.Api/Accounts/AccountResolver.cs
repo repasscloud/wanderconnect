@@ -36,8 +36,8 @@ public sealed record CurrentAccount(
                 || area == AccountRole.Support && Roles.Any(r => r.Role == AccountRole.TrustSafety);
         var venues = Roles.Where(r => r.Role == AccountRole.VenuePartner && r.VenueId is not null).Select(r => r.VenueId!.Value).ToHashSet();
         // Without a database there are no grants, so only the implicit member role can exist.
-        var active = Account is null ? true : Account.Status == AccountStatus.Active;
-        return new AccessSession(holds ? area : AccountRole.Unknown, Facts.Realm, Evidence.Method, Evidence.MultiFactor,
+        var active = Account is null ? true : Account.Status == AccountStatus.Active && (area == AccountRole.Member || !Account.MfaResetPending);
+        return new AccessSession(holds ? area : AccountRole.Unknown, Facts.Realm, Evidence.Method, Evidence.MultiFactor && (!IsRootAdmin || Facts.AuthenticationMethods.Contains(SessionEvidencePolicy.OneTimePassword)),
             Facts.EmailVerified, Evidence.IsFresh, active, IsRootAdmin, venues);
     }
 
