@@ -218,3 +218,30 @@ test('staff MFA flow is mandatory without changing member or venue flows', async
   assert.equal(writes[0].body.requirement, 'CONDITIONAL');
   assert.equal(writes[3].body.attributes['swoovr.mfa.required'], 'true');
 });
+
+test('staff directory phone is declared for admins without enabling unmanaged member attributes', async () => {
+  const staff=await generatedProfile('swoovr-staff-dev');
+  const phone=staff.attributes.find(a=>a.name==='phoneNumber');
+  assert.ok(phone,'native profile must retain the staff-directory field');
+  assert.deepEqual(phone.permissions,{view:['admin'],edit:['admin']});
+  assert.equal(phone.validations.length.max,32);
+  assert.equal((await generatedProfile('swoovr-members-dev')).attributes.some(a=>a.name==='phoneNumber'),false);
+});
+
+test('managed launcher MFA configuration closes unrestricted credential self-service', async () => {
+  const states=[];
+  const result=await applyAll({managedMfa:true,secret:async()=>undefined,open:async name=>{
+    const {api,state}=fakeRealm(name,{terms:name==='swoovr-members-dev'?'REQUIRED':'DISABLED'});states.push(state);
+    state.clients.push(...['account','account-console'].map(id=>({id,clientId:id,enabled:true})));
+    state.browser.push({id:'recovery',providerId:'auth-recovery-authn-code-form',requirement:'DISABLED'});
+    return async(path,method,body)=>{
+      if(path==='/authentication/required-actions/CONFIGURE_RECOVERY_AUTHN_CODES')return method==='PUT'?undefined:{enabled:false,defaultAction:false};
+      if(path.startsWith('/clients/')&&method==='PUT'){Object.assign(state.clients.find(c=>c.id===body.id),body);return;}
+      return api(path,method,body);
+    };
+  }});
+  for(const state of states.filter(s=>s.realm.realm!=='swoovr-venues-dev')) {
+    assert.ok(state.clients.filter(c=>['account','account-console'].includes(c.clientId)).every(c=>c.enabled===false));
+    assert.ok(result[state.realm.realm].includes('native recovery codes'));
+  }
+});

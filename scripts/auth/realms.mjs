@@ -214,12 +214,12 @@ async function localSecret(key) {
   return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
 }
 
-export async function applyAll({ open = realm => localRealmApi({ realm }), secret = () => localSecret('SWOOVR_MEMBERS_API_ADMIN_SECRET') } = {}) {
+export async function applyAll({ open = realm => localRealmApi({ realm }), secret = () => localSecret('SWOOVR_MEMBERS_API_ADMIN_SECRET'), managedMfa = process.argv.includes('--managed-mfa') } = {}) {
   const result = {};
   for (const name of realms) {
     const api = await open(name);
     result[name] = [...await applyRealm(api, name), ...await applyStaffMfa(api, name)];
-    if (process.argv.includes('--managed-mfa')) result[name].push(...await applyMfaSelfServiceBoundary(api, name));
+    if (managedMfa) result[name].push(...await applyMfaSelfServiceBoundary(api, name));
     if (name === 'swoovr-members-dev') result[name].push(...await applyAccountsClient(api, await secret()));
   }
   return result;

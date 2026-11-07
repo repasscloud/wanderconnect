@@ -1,6 +1,7 @@
 package app.swoovr.identity;
 
 import org.keycloak.Config;
+import org.keycloak.common.Version;
 import org.keycloak.events.Event;
 import org.keycloak.events.EventListenerProvider;
 import org.keycloak.events.EventListenerProviderFactory;
@@ -12,7 +13,9 @@ import org.keycloak.models.KeycloakSessionFactory;
 public final class MfaAuditListenerFactory implements EventListenerProviderFactory {
     private static final System.Logger LOG=System.getLogger("app.swoovr.identity.mfa");
     @Override public String getId(){return "swoovr-mfa-audit";}
-    @Override public void init(Config.Scope config){ContactEntityProviderFactory.requirePinnedVersion();}
+    @Override public void init(Config.Scope config){
+        if(!"26.8.1".equals(Version.VERSION))throw new IllegalStateException("Swoovr MFA audit requires tested Keycloak26.8.1.");
+    }
     @Override public void postInit(KeycloakSessionFactory factory) { }
     @Override public void close() { }
     @Override public EventListenerProvider create(KeycloakSession session){return new EventListenerProvider(){

@@ -39,7 +39,7 @@ def attribute(name, display, required, extra=None):
     return value
 
 
-def user_profile():
+def user_profile(name=None):
     attributes = [
         attribute('username', '${username}', False, {'validations': {'length': {'min': 3, 'max': 255}, 'username-prohibited-characters': {}, 'up-username-not-idn-homograph': {}}, 'permissions': {'view': ['admin', 'user'], 'edit': ['admin']}}),
         # Prototype order and placeholders (docs/design/reference/screens/06-create-account.png).
@@ -52,6 +52,8 @@ def user_profile():
         attribute('email', '${email}', True, {'validations': {'email': {}, 'length': {'max': 255}},
                                                'annotations': {'inputTypePlaceholder': '${swoovrPlaceholder.username}'}}),
     ]
+    if name == 'swoovr-staff-dev':
+        attributes.append(attribute('phoneNumber', 'Staff contact phone', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}, 'validations': {'length': {'max': 32}}}))
     # Written by the built-in registration terms step (the 18+ checkbox, D40); undeclared attributes are dropped.
     for name in ['swoovr_email_request_binding','swoovr_email_requested_ms','swoovr_email_verified_binding','swoovr_email_verified_ms','swoovr_email_request_session_sha256']:
         attributes.append(attribute(name, 'Provider email verification evidence', False, {'permissions': {'view': ['admin'], 'edit': ['admin']}, 'validations': {'length': {'max': 64}}}))
@@ -141,7 +143,7 @@ def realm(name, display, *, registration, clients, passkeys):
         'clients': clients, 'users': [], 'identityProviders': [],
         'components': {'org.keycloak.userprofile.UserProfileProvider': [{
             'providerId': 'declarative-user-profile', 'subComponents': {},
-            'config': {'kc.user.profile.config': [json.dumps(user_profile(), separators=(',', ':'))]}}]},
+            'config': {'kc.user.profile.config': [json.dumps(user_profile(name), separators=(',', ':'))]}}]},
         **brute_force,
     }
     # Keycloak 26.8.1 runs passkeys inside the password form, so a passkey sign-in carries the

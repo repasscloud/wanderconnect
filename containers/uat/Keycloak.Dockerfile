@@ -35,7 +35,8 @@ RUN set -eu; \
         cp /tmp/mfa-service "/local/META-INF/services/$(basename "$service")"; \
       fi; \
     done; \
-    jar --create --file /output/swoovr-mfa.jar -C /local .
+    jar --create --file /output/swoovr-mfa.jar -C /local .; \
+    java -classpath '/build/tests:/output/swoovr-mfa.jar:/keycloak-libs/*' app.swoovr.identity.MfaAuditChecks
 
 # Stock development entrypoint/SMTP/theme mounts are retained. No hosted entrypoint or realm/data is copied.
 FROM keycloak-base AS local

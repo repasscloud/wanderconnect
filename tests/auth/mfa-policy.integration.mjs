@@ -1,4 +1,5 @@
-// Opt-in: compiled public provider JAR, an owned Keycloak container and a disposable PostgreSQL database only.
+// Opt-in: compiled public provider JAR or --runtime-image=<Compose-built local image>.
+// Uses an owned Keycloak container and disposable PostgreSQL database only.
 // No application/production deployment. Secrets, HTML, token bodies and recovery values are never printed or persisted.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -12,7 +13,8 @@ import { totp } from '../../scripts/auth/totp.mjs';
 import { enrollmentSecret } from '../../scripts/local/platform.mjs';
 
 const fetch=(url,options={})=>globalThis.fetch(url,{signal:AbortSignal.timeout(15000),...options});
-const jar = process.argv[2]; if (!jar) throw Error('Pass a newly compiled public provider JAR path');
+const jar = process.argv[2], runtimeImage=process.argv.find(a=>a.startsWith('--runtime-image='))?.slice('--runtime-image='.length);
+if (!jar && !runtimeImage) throw Error('Pass a newly compiled public provider JAR path or --runtime-image=<Compose-built image>');
 const docker = (...args) => execFileSync('docker', args, { encoding:'utf8', stdio:['pipe','pipe','pipe'] });
 const inspect = name => JSON.parse(docker('inspect',name))[0];
 const tag=randomBytes(6).toString('hex'), container='swoovr-mfa-check-'+tag, database='swoovr_mfa_check_'+tag;
@@ -92,7 +94,7 @@ try{
  docker('exec','swoovr-platform-postgres-1','psql','-p','5433','-U',pgEnv.POSTGRES_USER,'-d','postgres','-c','CREATE DATABASE '+database);created=true;
  const environment=[['KC_BOOTSTRAP_ADMIN_USERNAME','mfa-check'],['KC_BOOTSTRAP_ADMIN_PASSWORD',bootstrap],['KC_DB','postgres'],['KC_DB_URL','jdbc:postgresql://'+endpoint.IPAddress+':5433/'+database],['KC_DB_USERNAME',pgEnv.POSTGRES_USER],['KC_DB_PASSWORD',pgEnv.POSTGRES_PASSWORD],['JAVA_OPTS_APPEND','-Xms128m -Xmx384m']].map(([k,v])=>k+'='+v).join('\n');
  const envFile=join(directory,'runtime.env');await writeFile(envFile,environment,{mode:0o600});
- docker('run','-d','--name',container,'--label','swoovr.owned-mfa-check='+tag,'--memory','768m','--cpus','1','--network',network,'--env-file',envFile,'-p','127.0.0.1:'+port+':8080','-v',resolve(jar)+':/opt/keycloak/providers/swoovr-mfa.jar:ro','quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244','start-dev','--features=update-email,recovery-codes','--log-level=INFO');started=true;
+ docker('run','-d','--name',container,'--label','swoovr.owned-mfa-check='+tag,'--memory','768m','--cpus','1','--network',network,'--env-file',envFile,'-p','127.0.0.1:'+port+':8080',...(runtimeImage?[]:['-v',resolve(jar)+':/opt/keycloak/providers/swoovr-mfa.jar:ro']),runtimeImage??'quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244','start-dev','--features=update-email,recovery-codes','--log-level=INFO');started=true;
  for(let i=0;i<90;i++){try{if((await fetch(base+'/realms/master/.well-known/openid-configuration')).ok)break;}catch{}if(i===89)throw Error('Isolated provider did not become ready');await new Promise(r=>setTimeout(r,1000));}
  const token=await fetch(base+'/realms/master/protocol/openid-connect/token',{method:'POST',body:new URLSearchParams({grant_type:'password',client_id:'admin-cli',username:'mfa-check',password:bootstrap})});check(token.ok,'isolated management authority');bearer=(await token.json()).access_token;
  for(const [realm,email,required] of [['swoovr-staff-dev','fictional.staff@example.test',true],['swoovr-members-dev','fictional.member@example.test',false]]){
@@ -102,8 +104,9 @@ try{
   spec.attributes['swoovr.registrationTerms']='DISABLED';spec.registrationAllowed=false;
   await api('', '', 'POST',spec);const open=(path,method,body)=>api(realm,path,method,body);
   await applyRealm(open,realm);await applyStaffMfa(open,realm);await applyMfaSelfServiceBoundary(open,realm);
-  await api(realm,'/users','POST',{username:email,email,emailVerified:true,enabled:true,firstName:'Fictional',lastName:'Adult',requiredActions:[],credentials:[{type:'password',temporary:false,value:password}]});
+  await api(realm,'/users','POST',{username:email,email,emailVerified:true,enabled:true,firstName:'Fictional',lastName:'Adult',attributes:required?{phoneNumber:['+61400000000']}:{},requiredActions:[],credentials:[{type:'password',temporary:false,value:password}]});
   const [user]=await api(realm,'/users?username='+encodeURIComponent(email)+'&exact=true');
+  if(required)check(user.attributes?.phoneNumber?.[0]==='+61400000000','staff directory phone survives the native user profile');
   const first=await login(realm,email);console.log('Native first login completed for '+realm);check(first.enrolled===required,'staff must enrol while optional member can sign in without MFA');
   if(required){const second=await login(realm,email,first.fixture);check(second.otp&&second.claims.amr?.includes('otp'),'staff repeated login proves native OTP AMR');check(second.claims.sid===first.claims.sid&&second.claims.auth_time>first.claims.auth_time,'native forced reauthentication retains sid and advances signed auth_time');}
   else{
