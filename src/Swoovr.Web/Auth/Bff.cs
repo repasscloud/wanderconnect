@@ -119,6 +119,10 @@ public static partial class Bff
             var client = clients.CreateClient(TicketUpload().IsMatch(path) || TicketAttachment().IsMatch(path) ? ApiTransferClient : ApiClient);
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
             context.Response.StatusCode = (int)response.StatusCode;
+            // #201: the API refused a token this host still holds, so a session cutoff retired it. End the local session and tell
+            // the app where to go (sign in again, which then shows the account's real state, such as the locked screen).
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                context.Response.Headers[RetiredSession.Header] = await RetiredSessions.EndAsync(context);
             context.Response.Headers.Append("Vary", ApiContract.Header);
             if (response.Headers.TryGetValues(ApiContract.Header, out var selectedVersions))
                 context.Response.Headers[ApiContract.Header] = selectedVersions.ToArray();

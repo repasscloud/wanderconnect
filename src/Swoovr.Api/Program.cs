@@ -51,6 +51,9 @@ if(persistence && builder.Configuration.GetValue("MeetingSafety:Enabled",false) 
 if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)&&builder.Configuration.GetValue("TextHarm:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Moderation.TextHarmWorker>();
 builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
+// #198: open messaging connections close when their account's sessions are retired (at once for staff actions, else by the sweep).
+builder.Services.AddSingleton<Swoovr.Api.Connections.MessagesConnections>();
+if (persistence) builder.Services.AddHostedService<Swoovr.Api.Connections.MessagesSessionSweep>();
 var app = builder.Build();
 HostRuntime.Use(app,HostKind.Api);
 if(app.Services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>().Resolve(app.Configuration["Policies:RequiredVersion"],DateTimeOffset.UtcNow).State==Swoovr.Domain.PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("No matching effective approved policy exists for Policies:RequiredVersion.");

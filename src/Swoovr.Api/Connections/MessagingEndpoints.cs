@@ -519,7 +519,7 @@ public static class MessagingEndpoints
 /// group. Clients send through the REST routes, so every send passes the same server-side checks.
 /// </summary>
 [Authorize]
-public sealed class MessagesHub(AccountResolver accounts) : Hub
+public sealed class MessagesHub(AccountResolver accounts, MessagesConnections connections) : Hub
 {
     public static string Group(Guid account) => "account:" + account;
 
@@ -527,7 +527,16 @@ public sealed class MessagesHub(AccountResolver accounts) : Hub
     {
         var (current, denied) = await MemberAsync(Context.User!, accounts, Context.ConnectionAborted);
         if (denied is not null || current?.Account is null) { Context.Abort(); return; }
+        // #198: remember the sign-in this connection was opened with, so a later session cutoff closes it.
+        var context = Context;
+        connections.Add(context.ConnectionId, new(current.Account.Id, current.Facts.AuthenticatedAt, context.User!.FindFirstValue("iat"), context.Abort));
         await Groups.AddToGroupAsync(Context.ConnectionId, Group(current.Account.Id), Context.ConnectionAborted);
         await base.OnConnectedAsync();
+    }
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        connections.Remove(Context.ConnectionId);
+        return base.OnDisconnectedAsync(exception);
     }
 }

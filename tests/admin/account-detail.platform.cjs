@@ -1,7 +1,8 @@
 // Issue 190 / issue 191 (D322, D323): account detail end to end against the managed local platform
 // (./scripts/local-platform.sh up). Signs in as the fictional root admin (password + TOTP), the fictional Trust & Safety
 // and Support staff, and the managed fictional member alex; opens the date of birth with a purpose; locks alex and checks
-// that the live member session is refused by the API and shown the locked screen with the same reference; removes the
+// that the live member session is refused by the API and ended, and that signing in again shows the locked screen with the
+// same reference (issue 201); removes the
 // lock; grants Plus, applies Photo Verified and warns the test-created fictional account; checks role limits in the UI.
 // Run: NODE_PATH=<dir with playwright> node tests/admin/account-detail.platform.cjs   (channel msedge)
 // The test-created account id below is local data; set SWOOVR_TEST_ACCOUNT to another fictional member if needed.
@@ -54,16 +55,21 @@ async function confirm(p) { const d = p.locator('dialog.ad-dialog[open]'); await
   ok(/^SW-[A-Z2-9]{6}$/.test(ref), 'public reference ' + ref);
   ok((await admin.locator('[data-account-state=locked]').count()) === 1, 'header shows Sign-in locked');
   const api = await m.request.fetch('http://localhost:5081/bff/api/me/profile', { headers: { 'X-Swoovr-Bff': '1' } });
-  const body = await api.json().catch(() => ({}));
-  // Since 4a54b5c a lock also retires the member's tokens: the live session ends (401), or is refused as locked (403).
-  ok(api.status() === 401 || api.status() === 403 && body.code === 'account-locked' && body.reference === ref, 'existing session refused by the API: ' + api.status() + ' ' + (body.code ?? ''));
-  await m.goto('http://localhost:5081/account'); await m.waitForLoadState('networkidle');
-  const lockedScreen = m.url().includes('/account/restricted?state=locked');
-  // Issue 201: after token retirement the web shows "couldn't load your account" rather than the locked screen.
-  ok(lockedScreen || /couldn't load your account|sign in/i.test(await m.locator('main').innerText()), 'member no longer sees their account: ' + m.url().slice(21));
-  if (lockedScreen) ok((await m.locator('[data-locked-reference]').getAttribute('data-locked-reference')) === ref, 'member sees the same reference');
-  else console.log('NOTE issue 201: locked screen not shown after token retirement');
-  
+  // Since 4a54b5c a lock also retires the member's tokens, so the live session is refused (401). Issue 201: the web host ends
+  // that session and names where to go next (sign in again, or home for a sign-in under a minute old).
+  ok(api.status() === 401, 'existing session refused by the API: ' + api.status());
+  ok(['/account/sign-in', '/'].includes(api.headers()['x-swoovr-session-ended']), 'web session ended: ' + api.headers()['x-swoovr-session-ended']);
+  const again = await m.request.fetch('http://localhost:5081/bff/api/me/profile', { headers: { 'X-Swoovr-Bff': '1' } });
+  ok(again.status() === 401 && !again.headers()['x-swoovr-session-ended'], 'old web session no longer signed in');
+  // Signing in again shows the D323 locked screen with the same reference (not "We couldn't load your account").
+  await m.goto('http://localhost:5081/account/sign-in?intro=done'); await m.waitForLoadState('networkidle');
+  if (await m.locator('#username').count()) {
+    await m.fill('#username', 'fictional.alex@example.test'); await m.fill('#password', env.SWOOVR_LOCAL_MEMBER_PASSWORD);
+    await Promise.all([m.waitForNavigation(), m.click('#kc-login')]); await m.waitForLoadState('networkidle');
+  }
+  ok(m.url().includes('/account/restricted?state=locked'), 'member sees the locked screen after signing in again: ' + m.url().slice(21));
+  ok((await m.locator('[data-locked-reference]').getAttribute('data-locked-reference')) === ref, 'member sees the same reference');
+  ok(!/couldn't load your account/i.test(await m.locator('main').innerText()), 'no "couldn\'t load your account" message');
   await dialog(admin, 'unlock', async d => { await d.locator('select[name=reasonCode]').selectOption('investigation-closed'); });
   ok(await admin.locator('[data-lock-state=unlocked]').count() === 1, 'lock removed');
   ok((await admin.locator('[data-locks] tr[data-active=false]').count()) >= 1, 'lock history kept');
