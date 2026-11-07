@@ -41,3 +41,14 @@ New data (migration `AccountDetailControls`, tables and nullable or defaulted co
 - Staff edits of email, mobile and names beyond the existing member and name-review flows (issue 190 §9).
 - Native app locked-screen check on a device (shared text is wired, not run on a simulator).
 - Deferred by the owner (focus is the admin and member web apps): the native restriction banner and tailored member wording when a paused feature is used, in [#197](https://github.com/repasscloud/wanderconnect/issues/197).
+
+## Retired sessions (D339, 7 November 2026)
+
+- **Sign out everywhere closes live messaging (#198).** Open messaging connections from before the cutoff now close at once on
+  the API instance that handled the action. A 15-second sweep closes the rest (other instances, contact retirement, restores).
+  A sign-in lock closes all of the member's connections.
+- **A locked member sees the locked screen again (#201).** After a lock retires the member's tokens, the web ends its own session
+  on the first refused call and sends the member to sign in again; after signing in they see "Your account is temporarily
+  locked" with the same `SW-` reference. `tests/admin/account-detail.platform.cjs` now requires this (it used to accept either).
+- Evidence: `SessionRetirementChecks` (registry, cutoff and redirect rules; sweep against disposable PostgreSQL). The managed
+  platform run of `account-detail.platform.cjs` and a live two-device hub check are listed as not yet run in the PR.

@@ -46,7 +46,7 @@ public static class AccountControlEndpoints
         });
 
         admin.MapPost("/accounts/{id:guid}/locks", async (Guid id, AccountLockRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
-            IIdentityAdmin identity, CancellationToken token) =>
+            IIdentityAdmin identity, Swoovr.Api.Connections.MessagesConnections connections, CancellationToken token) =>
         {
             var (current, denied) = await LockStaffAsync(user, accounts, token);
             if (denied is not null) return denied;
@@ -73,6 +73,8 @@ public static class AccountControlEndpoints
             RetireSessions(account, now);
             Audit.Record(db, now, current.Account.Id, "account", "account.locked", "account", id.ToString(), $"{role}:{request.ReasonCode}:{reference}");
             await db.SaveChangesAsync(token);
+            // #198: open messaging connections stop receiving at once, not when they next reconnect.
+            connections.End(id);
             // The API gate refuses every request at once; ending Keycloak sessions also stops silent refreshes on every device.
             var signedOut = identity.Configured && await identity.SignOutEverywhereAsync(account.Subject, token);
             if (signedOut) { Audit.Record(db, now, current.Account.Id, "account", "sessions.revoked", "account", id.ToString(), "lock"); await db.SaveChangesAsync(token); }
@@ -100,7 +102,7 @@ public static class AccountControlEndpoints
         });
 
         admin.MapPost("/accounts/{id:guid}/sign-out", async (Guid id, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, IIdentityAdmin identity,
-            CancellationToken token) =>
+            Swoovr.Api.Connections.MessagesConnections connections, CancellationToken token) =>
         {
             var (current, denied) = await LockStaffAsync(user, accounts, token);
             if (denied is not null) return denied;
@@ -115,6 +117,8 @@ public static class AccountControlEndpoints
             RetireSessions(account, now);
             Audit.Record(db, now, current.Account.Id, "account", "sessions.revoked", "account", id.ToString(), ActingRole(current).ToString());
             await db.SaveChangesAsync(token);
+            // #198: an already-open messaging connection from before the cutoff closes now (on this instance; others sweep).
+            connections.Retire(id, account.SessionsRevokedAt, now);
             if (!await identity.SignOutEverywhereAsync(account.Subject, token)) return Problem(502, ProblemCodes.InvalidRequest, "Sign-out didn't complete. Try again.");
             return Results.NoContent();
         });

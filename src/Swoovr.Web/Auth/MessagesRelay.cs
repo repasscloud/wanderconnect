@@ -25,7 +25,7 @@ public sealed class MessagesRelayHub(MessagesRelays relays) : Hub
             Context.Abort();
             return;
         }
-        if (!await relays.OpenAsync(Context.ConnectionId, token, Context.ConnectionAborted)) { Context.Abort(); return; }
+        if (!await relays.OpenAsync(Context.ConnectionId, token, Context.Abort, Context.ConnectionAborted)) { Context.Abort(); return; }
         await base.OnConnectedAsync();
     }
 
@@ -42,11 +42,18 @@ public sealed class MessagesRelays(IHubContext<MessagesRelayHub> browsers, IConf
     private readonly ConcurrentDictionary<string, HubConnection> open = new();
     private readonly Uri hub = new(new Uri(configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/"), "hubs/messages");
 
-    public async Task<bool> OpenAsync(string browser, string token, CancellationToken cancellationToken)
+    public async Task<bool> OpenAsync(string browser, string token, Action closeBrowser, CancellationToken cancellationToken)
     {
         var api = new HubConnectionBuilder().WithUrl(hub, options => options.AccessTokenProvider = () => Task.FromResult<string?>(token)).Build();
         foreach (var name in new[] { "message", "deleted", "closed" })
             api.On<JsonElement>(name, payload => browsers.Clients.Client(browser).SendAsync(name, payload));
+        // #198: when the API closes the connection (for example after sign out everywhere), the browser's connection closes
+        // too, and a reconnect is checked again from the start.
+        api.Closed += _ =>
+        {
+            if (open.ContainsKey(browser)) closeBrowser();
+            return Task.CompletedTask;
+        };
         try { await api.StartAsync(cancellationToken); }
         catch (Exception error) when (error is HttpRequestException or OperationCanceledException or InvalidOperationException)
         {

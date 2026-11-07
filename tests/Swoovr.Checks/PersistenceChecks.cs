@@ -132,6 +132,7 @@ static class PersistenceChecks
             await Messaging(options, Check);
             await FallbackKeyPersistenceChecks.Run(options, Check);
             await StaffConflictPersistenceChecks.Run(options, Check);
+            await SessionRetirementChecks.Persistence(options, Check);
             await BannedIdentifierPersistenceChecks.Run(options, Check);
             await EmailRetirementPersistenceChecks.Run(options, Check);
             await OperationalRetentionChecks.Run(options, Check);

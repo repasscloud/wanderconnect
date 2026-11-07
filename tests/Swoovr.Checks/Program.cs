@@ -69,6 +69,7 @@ MatchingChecks.Run();
 AppParityChecks.Run();
 ArrivalChecks.Run();
 MessagingChecks.Run();
+SessionRetirementChecks.Run();
 DobCorrectionChecks.Run();
 AccountInspectionChecks.Run();
 DeletionChecks.Run();
