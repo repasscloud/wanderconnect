@@ -247,6 +247,13 @@ case "$command" in
     fi
     dc build keycloak api web admin
     dc up -d --wait --wait-timeout 360 mailpit postgres keycloak
+    # Recreating the network anchor drops manually attached helpdesk networks.
+    # Restore the existing integration before starting API consumers; do not create a helpdesk here.
+    if docker network inspect swoovr-ticketing >/dev/null 2>&1; then
+      if ! docker inspect swoovr-platform-mailpit-1 --format '{{json .NetworkSettings.Networks}}' | python3 -c 'import json,sys; sys.exit(0 if "swoovr-ticketing" in json.load(sys.stdin) else 1)'; then
+        docker network connect --alias swoovr-platform swoovr-ticketing swoovr-platform-mailpit-1
+      fi
+    fi
     record
     # New named volumes are root-owned: initialise only the managed app/portal
     # volume mountpoints. Serving apps still run as the image's non-root app user.

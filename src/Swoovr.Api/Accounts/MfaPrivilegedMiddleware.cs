@@ -8,6 +8,8 @@ public sealed class MfaPrivilegedMiddleware(RequestDelegate next)
     public static bool Requires(string method,string template)
     {
         if(!template.StartsWith("/api/admin/",StringComparison.Ordinal))return false;
+        // Recording the safety notice grants no media access. Reveal and decision routes retain elevation.
+        if(method=="POST"&&template=="/api/admin/media/safety-ack")return false;
         var write=method is not("GET" or "HEAD" or "OPTIONS");
         if(template.StartsWith("/api/admin/mfa/elevation",StringComparison.Ordinal))return false;
         if(template.StartsWith("/api/admin/staff",StringComparison.Ordinal)||template.StartsWith("/api/admin/invitations",StringComparison.Ordinal)

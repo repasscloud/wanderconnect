@@ -166,7 +166,14 @@ else
     private string QueueUrl(int page,Guid? focus=null)=>$"/media?page={page}"+(Kind is null?"":"&kind="+Uri.EscapeDataString(Kind))+(Reason is null?"":"&reason="+Uri.EscapeDataString(Reason))+(focus is null?"":"&review="+focus);
     private async Task LoadAsync(){var result=await Admin.MediaReviewPageAsync(Page,Kind,Reason);queue=result.Value;if(!result.Ok)loadError=AdminText.Refusal(result.Status,result.Code);}
     private string Field(string name)=>Context?.Request.HasFormContentType==true?Context.Request.Form[name].ToString():"";
-    private async Task AcknowledgeAsync(){var status=await Admin.AcknowledgePhotoSafetyAsync(queue?.NoticeVersion??"",Field("confirmed")=="on");message=status<300?null:"Tick “I understand” first.";await LoadAsync();}
+    private async Task AcknowledgeAsync()
+    {
+        if(Field("confirmed")!="on"){message="Tick “I understand” first.";return;}
+        var result=await Admin.AcknowledgePhotoSafetyAsync(queue?.NoticeVersion??"",true);
+        resultCode=result.Code;
+        message=result.Ok?null:result.Code=="invalid-safety-ack"?"The safety notice changed. Read the current notice and acknowledge it again.":AdminText.Refusal(result.Status,result.Code);
+        await LoadAsync();
+    }
     private async Task ToggleAsync(Guid id)
     {
         // SSR posts have no retained component state: an explicit posted conceal flag is read, never inferred from session.

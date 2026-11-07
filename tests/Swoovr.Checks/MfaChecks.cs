@@ -25,6 +25,7 @@ static class MfaChecks
         Check(Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("POST","/api/admin/appeals/{id:guid}/decide"),"administrative appeal mutation requires elevation");
         Check(Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("GET","/api/admin/cases/{id:guid}/content"),"private content elevation independent of navigation");
         Check(!Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("POST","/api/admin/mfa/elevation/begin"),"requesting elevation needs no existing elevation");
+        Check(!Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("POST","/api/admin/media/safety-ack"),"recording a safety acknowledgement grants no privileged media access");
         Check(Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("GET","/api/admin/cases/{id:guid}/text-candidates/{review:guid}"),"private screened text requires elevation");
         Check(Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("POST","/api/admin/accounts/{id:guid}/identity"),"actual identity route requires elevation");
         Check(Swoovr.Api.Accounts.MfaPrivilegedMiddleware.Requires("POST","/api/admin/media/{id:guid}/case-view"),"actual private media issuance requires elevation");
