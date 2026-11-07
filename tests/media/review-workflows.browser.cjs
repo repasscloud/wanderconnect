@@ -62,11 +62,15 @@ if(process.env.Media__Screening__Simulate!=='blocked')throw Error('Photo workflo
    assert.equal((await h.call(token,`/api/me/photos/decisions/${old.id}/appeal`,{method:'POST',body:{text:'Old rejection'}})).status,409,'direct stale decision appeal refused');
    const nextAppeal=await h.call(token,`/api/me/photos/decisions/${newest.id}/appeal`,{method:'POST',body:{text:'Newest rejection'}});assert.equal(nextAppeal.status,201);
    assert.equal((await h.call(tokens.first,'/api/admin/media/workload')).body.appeals,0);assert.equal((await h.call(tokens.first,'/api/admin/media/appeals')).body.total,0,'original reviewer workload and queue agree');
+   // Issue 232: the original reviewer is told the appeal waits for another Admin instead of seeing an empty queue.
+   assert.equal((await h.call(tokens.first,'/api/admin/media/workload')).body.awaitingOtherAdmin,1);assert.equal((await h.call(tokens.first,'/api/admin/media/appeals')).body.awaitingOtherAdmin,1,'original reviewer sees it waits for another Admin');
+   assert.equal((await h.call(tokens.second,'/api/admin/media/workload')).body.awaitingOtherAdmin,0);
    assert.equal((await h.call(tokens.second,'/api/admin/media/workload')).body.appeals,1);assert.equal((await h.call(tokens.second,'/api/admin/media/appeals')).body.total,1);
    const specialist=await h.call(tokens.second,`/api/admin/media/appeals/${nextAppeal.body.id}/resolve`,{method:'POST',body:{outcome:'approve',reason:'Fictional fresh re-screen with labelled blocked simulation'}});
    assert.equal(specialist.status,200);assert.equal(specialist.body.outcome,'unavailable','specialist result closes appeal generically');
    assert.equal(await h.sql(`SELECT outcome FROM media_appeals WHERE id='${nextAppeal.body.id}' AND decided_at IS NOT NULL`),'unavailable');
    assert.equal((await h.call(tokens.second,'/api/admin/media/workload')).body.appeals,0);assert.equal((await h.call(tokens.second,'/api/admin/media/appeals')).body.total,0);
+   assert.equal((await h.call(tokens.first,'/api/admin/media/workload')).body.awaitingOtherAdmin,0,'decided appeal no longer waits for another Admin');
    assert.ok(!(await h.call(token,'/api/me/photos/decisions')).body.filter(d=>d.mediaId===ids[3]).some(d=>d.canAppeal));
    await page.goto(h.admin+'/sign-in');await page.fill('#username',people.support.email);await page.fill('#password',people.support.password);await page.click('#kc-login');await page.waitForURL(h.admin+'/**');await page.goto(h.admin+'/media');await page.locator('[data-media-item]').first().locator('[data-review-open]').click();
    await page.waitForSelector('dialog:modal');await page.keyboard.press('Escape');await page.waitForSelector('[data-photo-dialog]',{state:'detached'});

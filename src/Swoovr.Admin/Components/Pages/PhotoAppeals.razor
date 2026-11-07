@@ -4,10 +4,15 @@
 <MediaTabs Active="appeals" />
 @if(message is not null){<p class="notice" role="status">@message</p>}
 @if(appeals is null){<div class="ui-empty"><strong>Appeals unavailable</strong>Media appeals are decided by Admin staff.</div>}
+else if(appeals.Items.Count==0&&appeals.AwaitingOtherAdmin>0)
+{
+    @* Issue 232: appeals against this Admin's own decision go to a different Admin (D298); say so instead of looking empty. *@
+    <div class="ui-empty" data-awaiting-other-admin="@appeals.AwaitingOtherAdmin"><strong>No appeals for you to decide</strong>@MediaText.AwaitingOtherAdmin(appeals.AwaitingOtherAdmin). You made the original decision, so a different Admin decides the appeal.</div>
+}
 else if(appeals.Items.Count==0){<div class="ui-empty"><strong>No appeals waiting</strong>New appeals appear here.</div>}
 else
 {
-    <div class="ui-results-head"><p><strong>@appeals.Total</strong> waiting for a decision</p></div>
+    <div class="ui-results-head"><p><strong>@appeals.Total</strong> waiting for a decision</p>@if(appeals.AwaitingOtherAdmin>0){<p class="ui-help" data-awaiting-other-admin="@appeals.AwaitingOtherAdmin">Also @MediaText.AwaitingOtherAdmin(appeals.AwaitingOtherAdmin) because you made the original decision.</p>}</div>
     <section class="ui-card">
     @foreach(var row in appeals.Items)
     {

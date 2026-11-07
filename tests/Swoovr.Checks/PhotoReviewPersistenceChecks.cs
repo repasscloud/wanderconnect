@@ -28,6 +28,16 @@ static class PhotoReviewPersistenceChecks
         var media = new MediaItem { Id = Guid.NewGuid(), AccountId = owner.Id, Status = MediaStatus.Rejected, CreatedAt = now, RejectedRetainUntil = now.AddDays(30) }; db.MediaItems.Add(media);
         var decision = PhotoReviewWorkflows.Stage(db, media, first.Id, "reject", "REJECT_OTHER", "Private fictional reviewer note", now); await db.SaveChangesAsync();
         var appeal = new MediaAppeal { Id = Guid.NewGuid(), DecisionId = decision.Id, MediaId = media.Id, AccountId = owner.Id, Text = "Fictional member explanation", SubmittedAt = now }; db.Add(appeal); await db.SaveChangesAsync();
+        // Issue 232: the deciding Admin can't see or decide the appeal (D298) but is told it waits for another Admin.
+        check("Issue 232 deciding Admin sees the appeal only as waiting for another Admin",
+            !await PhotoReviewWorkflows.PendingAppeals(db, first.Id).AnyAsync(a => a.Id == appeal.Id)
+            && await PhotoReviewWorkflows.AppealsAwaitingOtherAdmin(db, first.Id).CountAsync(a => a.Id == appeal.Id) == 1);
+        check("Issue 232 a different Admin can decide it and is not told it waits for another Admin",
+            await PhotoReviewWorkflows.PendingAppeals(db, second.Id).CountAsync(a => a.Id == appeal.Id) == 1
+            && !await PhotoReviewWorkflows.AppealsAwaitingOtherAdmin(db, second.Id).AnyAsync(a => a.Id == appeal.Id));
+        db.StaffExclusions.Add(new StaffExclusion { StaffAccountId = first.Id, SubjectAccountId = owner.Id, Reason = "Fictional conflict", CreatedBy = second.Id, CreatedAt = now }); await db.SaveChangesAsync();
+        check("Issue 232 an excluded Admin is not told about the member's appeal", !await PhotoReviewWorkflows.AppealsAwaitingOtherAdmin(db, first.Id).AnyAsync(a => a.Id == appeal.Id));
+        db.StaffExclusions.RemoveRange(db.StaffExclusions.Where(e => e.StaffAccountId == first.Id && e.SubjectAccountId == owner.Id)); await db.SaveChangesAsync();
         await using (var transaction = await db.Database.BeginTransactionAsync())
         {
             db.Add(new MediaAppeal { Id = Guid.NewGuid(), DecisionId = decision.Id, MediaId = media.Id, AccountId = owner.Id, Text = "Duplicate", SubmittedAt = now });

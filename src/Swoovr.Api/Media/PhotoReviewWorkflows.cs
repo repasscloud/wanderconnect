@@ -25,6 +25,15 @@ public static class PhotoReviewWorkflows
         return from a in db.Set<MediaAppeal>() join d in db.Set<MediaDecisionRecord>() on a.DecisionId equals d.Id
                where a.DecidedAt == null && d.ActorId != actor && eligible.Contains(a.MediaId) select a;
     }
+    /// <summary>Issue 232: undecided appeals against this Admin's own decision. D298 sends them to a different Admin, so
+    /// <see cref="PendingAppeals"/> leaves them out; this count lets the deciding Admin see they are waiting rather than lost.
+    /// Same eligibility as the queue, so excluded or linked members and the Admin's own media are never counted.</summary>
+    public static IQueryable<MediaAppeal> AppealsAwaitingOtherAdmin(SwoovrDbContext db, Guid actor)
+    {
+        var eligible = Eligible(db, actor).Where(i => i.Status == MediaStatus.Rejected).Select(i => i.Id);
+        return from a in db.Set<MediaAppeal>() join d in db.Set<MediaDecisionRecord>() on a.DecisionId equals d.Id
+               where a.DecidedAt == null && d.ActorId == actor && eligible.Contains(a.MediaId) select a;
+    }
     public static Task<Guid> LatestDecisionAsync(SwoovrDbContext db, Guid media, CancellationToken token) => db.Set<MediaDecisionRecord>()
         .Where(d => d.MediaId == media && d.Decision != "reconsider-request").OrderByDescending(d => d.At).ThenByDescending(d => d.Id).Select(d => d.Id).FirstOrDefaultAsync(token);
     public static void FinalizeUnavailableAppeal(SwoovrDbContext db, MediaAppeal appeal, MediaItem item, Guid actor, DateTimeOffset now)
@@ -77,7 +86,8 @@ public static class PhotoReviewWorkflows
                 await eligible.CountAsync(i => i.Status == MediaStatus.Pending && i.RemovedAt == null, token),
                 current.Allows(AccountRole.Admin) ? await eligible.CountAsync(i => i.Status == MediaStatus.Blocked, token) : 0,
                 current.Allows(AccountRole.Admin) ? await PendingAppeals(db, current.Account!.Id).CountAsync(token) : 0,
-                current.Allows(AccountRole.Admin) ? await eligible.CountAsync(i => i.Status == MediaStatus.Rejected && i.RemovedAt == null, token) : 0));
+                current.Allows(AccountRole.Admin) ? await eligible.CountAsync(i => i.Status == MediaStatus.Rejected && i.RemovedAt == null, token) : 0,
+                current.Allows(AccountRole.Admin) ? await AppealsAwaitingOtherAdmin(db, current.Account!.Id).CountAsync(token) : 0));
         });
         admin.MapGet("/history", async (int? page, string? decision, ClaimsPrincipal user, AccountResolver accounts, CancellationToken token) =>
         {
@@ -92,11 +102,11 @@ public static class PhotoReviewWorkflows
         admin.MapGet("/appeals", async (int? page, ClaimsPrincipal user, AccountResolver accounts, CancellationToken token) =>
         {
             var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, token); if (denied is not null) return denied;
-            var db = accounts.Db!; var eligible = Eligible(db, current!.Account!.Id, current.Allows(AccountRole.Admin)).Where(i => i.Status != MediaStatus.Blocked).Select(i => i.Id); var actor = current.Account!.Id;
+            var db = accounts.Db!; var actor = current!.Account!.Id;
             var query = PendingAppeals(db, actor);
             var p = Math.Clamp(page ?? 1, 1, 100000); var total = await query.CountAsync(token);
             var rows = await query.OrderBy(a => a.SubmittedAt).ThenBy(a => a.Id).Skip((p - 1) * 25).Take(25).Select(a => new PhotoAppealView(a.Id, a.DecisionId, a.MediaId, a.AccountId, a.SubmittedAt, a.Text, a.Outcome, a.DecidedAt)).ToListAsync(token);
-            return Results.Ok(new PhotoAppealPage(rows, p, total));
+            return Results.Ok(new PhotoAppealPage(rows, p, total, AwaitingOtherAdmin: await AppealsAwaitingOtherAdmin(db, actor).CountAsync(token)));
         });
         admin.MapPost("/appeals/{id:guid}/resolve", ResolveAsync);
         admin.MapPost("/{id:guid}/reconsider", ReconsiderAsync);

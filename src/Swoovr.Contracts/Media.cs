@@ -63,12 +63,15 @@ public sealed record MediaDecision(string? Decision, string? Reason,string? Reas
 public sealed record MediaDecisionResult(Guid Id,string State);
 
 public sealed record MediaSafetyAck(string Version, bool Confirmed);
-public sealed record PhotoWorkload(int ManualReview, int PendingScreening, int Specialist, int Appeals, int Rejected);
+/// <param name="Appeals">Undecided media appeals this Admin may decide.</param>
+/// <param name="AwaitingOtherAdmin">Issue 232: undecided appeals against this Admin's own decision. D298 sends them to a different
+/// Admin, so they are counted, never listed or decidable here.</param>
+public sealed record PhotoWorkload(int ManualReview, int PendingScreening, int Specialist, int Appeals, int Rejected, int AwaitingOtherAdmin = 0);
 public sealed record PhotoDecisionView(Guid Id, Guid MediaId, string Decision, string Reason, DateTimeOffset At, bool CanAppeal,
     Guid? AppealId = null, string? AppealOutcome = null);
 public sealed record PhotoAppealRequest(string? Text);
 public sealed record PhotoAppealResolution(string? Outcome, string? Reason);
 public sealed record PhotoAppealView(Guid Id, Guid DecisionId, Guid MediaId, Guid AccountId, DateTimeOffset SubmittedAt, string Text, string? Outcome, DateTimeOffset? DecidedAt);
-public sealed record PhotoAppealPage(IReadOnlyList<PhotoAppealView> Items, int Page, int Total, int PageSize = 25);
+public sealed record PhotoAppealPage(IReadOnlyList<PhotoAppealView> Items, int Page, int Total, int PageSize = 25, int AwaitingOtherAdmin = 0);
 public sealed record PhotoDecisionHistory(Guid Id, Guid MediaId, Guid AccountId, Guid? ActorId, string Decision, string Code, DateTimeOffset At);
 public sealed record PhotoDecisionPage(IReadOnlyList<PhotoDecisionHistory> Items, int Page, int Total, int PageSize = 25);

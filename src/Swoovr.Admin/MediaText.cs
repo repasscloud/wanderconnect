@@ -51,4 +51,7 @@ public static class MediaText
     public static string Signal(string signal) => signal;
 
     public static string Kind(string? purpose) => purpose == "attachment" ? "Chat attachment" : "Profile photo";
+
+    /// <summary>Issue 232: appeals against this Admin's own decision, which a different Admin decides (D298).</summary>
+    public static string AwaitingOtherAdmin(int count) => count == 1 ? "1 appeal waiting for another Admin" : $"{count} appeals waiting for another Admin";
 }
