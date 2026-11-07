@@ -81,6 +81,18 @@ static class SignInChecks
         var unknown = SignInEndpoints.View(new([S("this-web", "swoovr-web")], [], true, false), null, options);
         Check(!unknown.CurrentKnown && !unknown.Sessions[0].Current, "without a session id nothing is marked as this device");
 
+        // Open messaging connections of an ended session close; the rest stay open.
+        var hub = new Swoovr.Api.Connections.MessagesConnections();
+        var (alex, sam) = (Guid.NewGuid(), Guid.NewGuid());
+        var aborted = new List<string>();
+        void Open(string id, Guid account, string? sid) => hub.Add(id, new(account, now.AddHours(-1), now.AddMinutes(-1).ToUnixTimeSeconds().ToString(), () => aborted.Add(id), sid));
+        Open("alex-phone", alex, "phone-app"); Open("alex-old", alex, "old_web-2"); Open("alex-here", alex, "this-web"); Open("alex-unknown", alex, null); Open("sam-same-sid", sam, "phone-app");
+        Check(hub.EndSessions(alex, ["phone-app"]) == 1 && aborted.SequenceEqual(["alex-phone"]), "ending one session closes only that device's connection");
+        Check(hub.EndSessions(alex, SignInPolicy.Others(sessions, "this-web")) == 1 && aborted.Order().SequenceEqual(["alex-old", "alex-phone"]), "sign out others closes every other device's connection");
+        Check(hub.Count == 3 && !aborted.Contains("alex-here") && !aborted.Contains("alex-unknown") && !aborted.Contains("sam-same-sid"),
+            "this device, connections without a session id and other members stay open");
+        Check(hub.EndSessions(alex, []) == 0, "no ended sessions closes nothing");
+
         // Shared wording.
         Check(SignInText.Device("web") == "Web browser" && SignInText.Device("app") == "Swoovr app" && SignInText.Device("x") == "Other sign-in", "device labels");
         Check(SignInText.LastActive(now.AddMinutes(-2), now) == "Active now" && SignInText.LastActive(now.AddMinutes(-30), now) == "Active 30 minutes ago"

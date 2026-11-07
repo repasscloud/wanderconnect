@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Swoovr.Api.Auth;
+using Swoovr.Api.Connections;
 using Swoovr.Contracts;
 using Swoovr.Domain;
 using static Swoovr.Api.Accounts.AccountEndpoints;
@@ -11,7 +12,8 @@ namespace Swoovr.Api.Accounts;
 /// Apple/Google sign-ins through the existing `swoovr-api-accounts` service client (view-users, manage-users). Members realm only.
 /// Never returns tokens, credentials, addresses, provider user ids or Keycloak session ids. Ending another session stops its
 /// refreshes at once; an access token that device already holds lapses within its lifetime (5 minutes), the same guarantee as
-/// the #87 number-change sign-out.
+/// the #87 number-change sign-out. Its open messaging connections close at once on this API instance and, on any instance,
+/// when their access token expires (the hub's CloseOnAuthenticationExpiration).
 /// </summary>
 public static class SignInEndpoints
 {
@@ -28,7 +30,7 @@ public static class SignInEndpoints
         });
 
         me.MapPost("/sessions/{handle}/sign-out", async (string handle, ClaimsPrincipal user, AccountResolver accounts, IIdentityAdmin identity,
-            KeycloakOptions keycloak, TimeProvider clock, CancellationToken token) =>
+            KeycloakOptions keycloak, TimeProvider clock, MessagesConnections connections, CancellationToken token) =>
         {
             var (current, denied) = await MembersOnlyAsync(user, accounts, identity, token);
             if (denied is not null) return denied;
@@ -41,12 +43,14 @@ public static class SignInEndpoints
             if (await identity.SignInsAsync(account.Subject, token) is not { } signIns) return Unavailable();
             if (SignInPolicy.Find(signIns.Sessions, handle, sid) is not { } session) return Results.NotFound();
             if (!await identity.EndSessionAsync(account.Subject, session.Id, token)) return Unavailable();
+            // Open messaging connections of that device stop receiving now (this instance) or at token expiry (any instance).
+            connections.EndSessions(account.Id, [session.Id]);
             await AuditAsync(accounts, clock, account.Id, "sessions.ended", "one", token);
             return await RefreshedAsync(identity, account.Subject, sid, keycloak, signIns with { Sessions = signIns.Sessions.Where(s => s.Id != session.Id).ToList() }, token);
         });
 
         me.MapPost("/sessions/sign-out-others", async (ClaimsPrincipal user, AccountResolver accounts, IIdentityAdmin identity,
-            KeycloakOptions keycloak, TimeProvider clock, CancellationToken token) =>
+            KeycloakOptions keycloak, TimeProvider clock, MessagesConnections connections, CancellationToken token) =>
         {
             var (current, denied) = await MembersOnlyAsync(user, accounts, identity, token);
             if (denied is not null) return denied;
@@ -56,7 +60,10 @@ public static class SignInEndpoints
             if (await identity.SignInsAsync(account.Subject, token) is not { } signIns) return Unavailable();
             var others = SignInPolicy.Others(signIns.Sessions, sid);
             var ok = true;
-            foreach (var other in others) ok &= await identity.EndSessionAsync(account.Subject, other, token);
+            var ended = new List<string>();
+            foreach (var other in others)
+                if (await identity.EndSessionAsync(account.Subject, other, token)) ended.Add(other); else ok = false;
+            connections.EndSessions(account.Id, ended);
             if (others.Count > 0) await AuditAsync(accounts, clock, account.Id, "sessions.ended", ok ? "others" : "others-partial", token);
             return ok ? await RefreshedAsync(identity, account.Subject, sid, keycloak, signIns with { Sessions = signIns.Sessions.Where(s => s.Id == sid).ToList() }, token)
                 : Unavailable();

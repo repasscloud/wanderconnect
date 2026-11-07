@@ -14,7 +14,8 @@ namespace Swoovr.Api.Connections;
 /// </summary>
 public sealed class MessagesConnections
 {
-    public sealed record Entry(Guid Account, DateTimeOffset AuthenticatedAt, string? IssuedAt, Action Abort);
+    /// <summary>SessionId is the token's Keycloak `sid` (#185), so ending one session closes only that device's connections.</summary>
+    public sealed record Entry(Guid Account, DateTimeOffset AuthenticatedAt, string? IssuedAt, Action Abort, string? SessionId = null);
 
     private readonly ConcurrentDictionary<string, Entry> open = new();
 
@@ -26,6 +27,10 @@ public sealed class MessagesConnections
     /// <summary>Closes the account's connections whose sign-in the cutoff refuses (the same rule as every API request).</summary>
     public int Retire(Guid account, DateTimeOffset? cutoff, DateTimeOffset now) =>
         Close(e => e.Account == account && SessionRevocationPolicy.Refuses(cutoff, e.AuthenticatedAt, e.IssuedAt, now));
+
+    /// <summary>#185: closes the account's connections opened under the ended Keycloak sessions (on this instance; others close on token expiry).</summary>
+    public int EndSessions(Guid account, IReadOnlyCollection<string> sessionIds) =>
+        Close(e => e.Account == account && e.SessionId is { } sid && sessionIds.Contains(sid));
 
     /// <summary>Closes every connection of the account (it is no longer active).</summary>
     public int End(Guid account) => Close(e => e.Account == account);
