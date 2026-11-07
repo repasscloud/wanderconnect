@@ -47,10 +47,12 @@ public static class SafetySeed
             null, null, "https://www.accce.gov.au/report", "https://www.accce.gov.au/report", true),
         
         // New Zealand Safety Resources
-        R("6f1a0c1e-0002-4000-8000-000000000001", "NZ", SafetyResourceCategory.Emergency, 10, "Emergency services (111)", "Police, fire or ambulance in an emergency.",
-            "111", "111", "https://www.police.govt.nz/", "https://www.police.govt.nz/advice-services/how-report-crime-or-incident", true),
-        R("6f1a0c1e-0002-4000-8000-000000000002", "NZ", SafetyResourceCategory.PoliceNonEmergency, 20, "New Zealand Police 105", "Non-urgent police matters.",
-            "105", "105", "https://www.police.govt.nz/105support", "https://www.police.govt.nz/faq/why-has-police-introduced-non-emergency-number", false),
+        R("6f1a0c1e-0002-4000-8000-000000000001", "NZ", SafetyResourceCategory.Emergency, 10,
+            "Emergency services (111)", "Police, fire or ambulance in an emergency.",
+            "111", "111",
+            "https://www.police.govt.nz/",
+            "https://www.police.govt.nz/advice-services/how-report-crime-or-incident", true),
+
         R("6f1a0c1e-0002-4000-8000-000000000002", "NZ", SafetyResourceCategory.PoliceNonEmergency, 20,
             "New Zealand Police 105",
             "Report crimes or incidents that do not require an immediate police response. Available 24/7.",
