@@ -144,4 +144,10 @@ public interface IIdentityAdmin
     Task<bool> SignOutOtherSessionsAsync(string subject, string? keepSessionId, CancellationToken cancellationToken);
     /// <summary>Deletes the Keycloak user. True once it is gone (including when it was already gone).</summary>
     Task<bool> DeleteUserAsync(string subject, CancellationToken cancellationToken);
+    /// <summary>#185: the user's sessions, linked providers and credential types. Null when Keycloak couldn't be read.</summary>
+    Task<IdentitySignIns?> SignInsAsync(string subject, CancellationToken cancellationToken);
+    /// <summary>#185: ends one of the user's sessions. The id must be one of the user's own (checked by the caller). False on failure.</summary>
+    Task<bool> EndSessionAsync(string subject, string sessionId, CancellationToken cancellationToken);
+    /// <summary>#185: removes a linked provider, re-reading the user first so the last sign-in method is never removed.</summary>
+    Task<UnlinkOutcome> UnlinkProviderAsync(string subject, string alias, CancellationToken cancellationToken);
 }

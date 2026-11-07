@@ -101,8 +101,13 @@
   .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .settings-grid > #security { grid-column: 1 / -1; }
 }
+/* Issue 185: Active sessions and Linked sign-ins are rows nested under their own heading row. */
+.settings-sessions { list-style: none; margin: 0; padding: 0; }
+.settings-sub-row { padding: 12px 0 12px 16px; }
+.settings-sign-ins > .settings-status { padding-bottom: 8px; }
 @media (max-width: 599px) {
   .settings-card { padding: 18px 16px; }
+  .settings-sub-row { padding-left: 0; }
   .settings-row { flex-wrap: wrap; }
   .settings-banner { flex-wrap: wrap; }
 }

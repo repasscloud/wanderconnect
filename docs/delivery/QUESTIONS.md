@@ -2635,6 +2635,7 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 - Issue: [#180](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619036937), [update](https://github.com/repasscloud/wanderconnect/issues/180#issuecomment-6619358193). Status: ANSWERED A (D317), owner 4 November 2026. Follow-up: sessions and linked sign-ins, #185.
 - A (**Suggested**): Keycloak application-initiated actions now (change password, add passkey; change email once the realm enables update-email); active sessions and linked sign-ins as a follow-up API. B: enable Keycloak's account console, themed.
 - Built meanwhile: A for password and passkey (D314). Email change waits for the realm's update-email step.
+- Follow-up built: active sessions and linked sign-ins in Security & access (#185, D341 DEFAULT).
 
 ### Q127 — "Deactivate account"
 

@@ -277,6 +277,22 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<PhoneView>> ConfirmPhoneAsync(string number, string code, CancellationToken cancellationToken = default) =>
         SendAsync<PhoneView>(new HttpRequestMessage(HttpMethod.Post, "api/me/phone/confirm") { Content = JsonContent.Create(new PhoneConfirm(number, code)) }, cancellationToken);
 
+    /// <summary>#185: the member's active sessions and linked Apple/Google sign-ins.</summary>
+    public Task<ApiResult<SignInsView>> SignInsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<SignInsView>(new HttpRequestMessage(HttpMethod.Get, "api/me/sign-ins"), cancellationToken);
+
+    /// <summary>#185: signs out one other session (by its handle); 409 current-session for this device.</summary>
+    public Task<ApiResult<SignInsView>> EndSessionAsync(string handle, CancellationToken cancellationToken = default) =>
+        SendAsync<SignInsView>(new HttpRequestMessage(HttpMethod.Post, "api/me/sign-ins/sessions/" + Uri.EscapeDataString(handle) + "/sign-out"), cancellationToken);
+
+    /// <summary>#185: signs out every session except this one.</summary>
+    public Task<ApiResult<SignInsView>> EndOtherSessionsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<SignInsView>(new HttpRequestMessage(HttpMethod.Post, "api/me/sign-ins/sessions/sign-out-others"), cancellationToken);
+
+    /// <summary>#185: removes a linked sign-in (fresh sign-in needed, else 403 stale-session; 409 last-sign-in-method).</summary>
+    public Task<ApiResult<SignInsView>> RemoveLinkedSignInAsync(string provider, CancellationToken cancellationToken = default) =>
+        SendAsync<SignInsView>(new HttpRequestMessage(HttpMethod.Post, "api/me/sign-ins/linked/" + Uri.EscapeDataString(provider) + "/remove"), cancellationToken);
+
     /// <summary>The member's account deletion state (D170).</summary>
     public Task<ApiResult<DeletionView>> DeletionAsync(CancellationToken cancellationToken = default) =>
         SendAsync<DeletionView>(new HttpRequestMessage(HttpMethod.Get, "api/me/deletion"), cancellationToken);

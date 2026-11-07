@@ -1,0 +1,116 @@
+@* Issue 185 (Q126 A, D317, D341): Security & access → Active sessions and Linked sign-ins, Interactive WebAssembly through /bff/.
+   Lists the member's own Keycloak sessions (which Swoovr client, when it started, when it was last active; no address or
+   browser string) with Sign out per other session and Sign out of all other devices, then linked Apple/Google sign-ins with a
+   Remove step that keeps at least one way to sign in. Removing needs a fresh sign-in; the API answers stale-session and this
+   offers "Sign in again", which returns here. *@
+@inject MemberClient Members
+<div class="settings-sign-ins" data-sign-ins="@(view is not null ? "ready" : loaded ? "error" : "loading")">
+    <div class="settings-row" data-sessions>
+        <div class="settings-row-text">
+            <p class="settings-row-label" id="sessions-heading">Active sessions</p>
+            @if (!loaded) { <p class="settings-row-value" role="status">Loading…</p> }
+            else if (view is null) { <p class="settings-row-help" data-sign-ins-problem="@loadProblem">@SignInText.Problem(loadProblem)</p> }
+            else if (!view.CurrentKnown) { <p class="settings-row-help" data-sessions-current-unknown>@SignInText.Unknown</p> }
+            else { <p class="settings-row-help">Where you're signed in to Swoovr. Signing out a device ends its session there.</p> }
+        </div>
+        @if (view is { CurrentKnown: true } && view.Sessions.Any(s => !s.Current))
+        {
+            <button type="button" class="settings-row-action" disabled="@busy" @onclick="EndOthersAsync" data-sessions-end-others>Sign out of all other devices</button>
+        }
+    </div>
+    @if (view is not null)
+    {
+        <ul class="settings-sessions" aria-labelledby="sessions-heading">
+            @foreach (var session in view.Sessions)
+            {
+                <li class="settings-row settings-sub-row" data-session="@session.Handle" data-session-device="@session.Device" data-session-current="@(session.Current ? "true" : "false")">
+                    <div class="settings-row-text">
+                        <p class="settings-row-value">@SignInText.Device(session.Device)@if (session.Current) { <span class="settings-tag" data-session-this-device>This device</span> }</p>
+                        <p class="settings-row-help">@SignInText.Started(session.Started.ToLocalTime()) · @SignInText.LastActive(session.LastActive.ToLocalTime(), DateTimeOffset.Now)</p>
+                    </div>
+                    @if (!session.Current && view.CurrentKnown)
+                    {
+                        <button type="button" class="settings-row-action" disabled="@busy" @onclick="() => EndAsync(session.Handle)"
+                                aria-label="@($"Sign out {SignInText.Device(session.Device)}, {SignInText.Started(session.Started.ToLocalTime())}")" data-session-end>Sign out</button>
+                    }
+                </li>
+            }
+        </ul>
+        <div class="settings-row" data-linked>
+            <div class="settings-row-text">
+                <p class="settings-row-label" id="linked-heading">Linked sign-ins</p>
+                @if (view.Linked.Count == 0) { <p class="settings-row-help" data-linked-none>@SignInText.NoLinked</p> }
+            </div>
+        </div>
+        @if (view.Linked.Count > 0)
+        {
+            <ul class="settings-sessions" aria-labelledby="linked-heading">
+                @foreach (var linked in view.Linked)
+                {
+                    <li class="settings-row settings-sub-row" data-linked-provider="@linked.Provider">
+                        <div class="settings-row-text">
+                            <p class="settings-row-value">@linked.Label</p>
+                            @if (confirming == linked.Provider) { <p class="settings-row-help" role="status" data-linked-confirm>@SignInText.RemoveConfirm(linked.Label)</p> }
+                            else if (!linked.CanUnlink) { <p class="settings-row-help" data-linked-only>@SignInText.OnlyMethod</p> }
+                        </div>
+                        @if (linked.CanUnlink)
+                        {
+                            @if (confirming == linked.Provider)
+                            {
+                                <div class="settings-actions">
+                                    <button type="button" class="settings-row-action" disabled="@busy" @onclick="() => RemoveAsync(linked.Provider)" data-linked-remove-confirm>Remove</button>
+                                    <button type="button" class="settings-row-action" disabled="@busy" @onclick="() => confirming = null" data-linked-remove-cancel>Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <button type="button" class="settings-row-action" disabled="@busy" @onclick="() => (confirming, result, message) = (linked.Provider, null, null)"
+                                        aria-label="@($"Remove {linked.Label} sign-in")" data-linked-remove>Remove</button>
+                            }
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    }
+    @if (result == ProblemCodes.StaleSession)
+    {
+        <p class="settings-status" role="status" data-sign-ins-result="@result">For your security, sign in again before removing a linked sign-in. <a href="/account/reauthenticate?returnUrl=%2Faccount%23security" data-enhance-nav="false">Sign in again</a></p>
+    }
+    else { <p role="status" aria-live="polite" class="settings-status" data-sign-ins-result="@result">@message</p> }
+</div>
+@code {
+    private SignInsView? view;
+    private bool loaded, busy;
+    private string? loadProblem, confirming, result, message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var loadedView = await Members.SignInsAsync();
+        (view, loadProblem, loaded) = (loadedView.Value, loadedView.Value is null ? loadedView.Code ?? "failed" : null, true);
+    }
+
+    private Task EndAsync(string handle) => RunAsync(() => Members.EndSessionAsync(handle), "ended", "Signed out of that device.");
+
+    private Task EndOthersAsync() => RunAsync(() => Members.EndOtherSessionsAsync(), "ended-others", "Signed out of all other devices.");
+
+    private async Task RemoveAsync(string provider)
+    {
+        var label = view?.Linked.FirstOrDefault(l => l.Provider == provider)?.Label ?? provider;
+        await RunAsync(() => Members.RemoveLinkedSignInAsync(provider), "removed", $"{label} sign-in removed.");
+        confirming = null;
+    }
+
+    private async Task RunAsync(Func<Task<ApiResult<SignInsView>>> action, string done, string doneMessage)
+    {
+        (busy, result, message) = (true, null, null);
+        try
+        {
+            var outcome = await action();
+            if (outcome.Value is { } updated) (view, result, message) = (updated, done, doneMessage);
+            else (result, message) = (outcome.Code ?? "failed", outcome.Code == ProblemCodes.StaleSession ? null : SignInText.Problem(outcome.Code));
+        }
+        catch (HttpRequestException) { (result, message) = ("failed", SignInText.Problem(null)); }
+        finally { busy = false; }
+    }
+}

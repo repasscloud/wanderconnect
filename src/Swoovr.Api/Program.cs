@@ -112,6 +112,7 @@ AccountControlEndpoints.Map(app);
 if(persistence)AppearanceEndpoints.Map(app);
 DeletionEndpoints.Map(app);
 PhoneEndpoints.Map(app);
+SignInEndpoints.Map(app);
 ContactHistoryEndpoints.Map(app);
 RegistryAdminEndpoints.Map(app);
 StaffAccessEndpoints.Map(app);

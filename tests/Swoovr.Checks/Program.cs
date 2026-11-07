@@ -95,6 +95,7 @@ await EmailOutcomeChecks.Run();
 await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
 await PushProviderChecks.Run();
 await ContactIdentityChecks.Run();
+await SignInChecks.Run();
 EmailRetirementChecks.Run();
 await PhoneChecks.Run();
 ConnectionChecks.Run();

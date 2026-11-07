@@ -59,9 +59,27 @@ public sealed record DobGrantRequest(string? Reason);
 public sealed record DobGrantView(Guid Id,Guid AccountId,DateTimeOffset CreatedAt,DateTimeOffset ExpiresAt,DateTimeOffset? ConsumedAt,DateTimeOffset? RevokedAt);
 public sealed record DobHistoryView(Guid Id,DateOnly PreviousDateOfBirth,DateTimeOffset ChangedAt);
 
+/// <summary>
+/// #185 (D341): one of the member's own open sessions. Handle is an opaque per-session value, never Keycloak's session id.
+/// Device is web, app or other (the Swoovr client signed in to); Keycloak reports no browser or device name, and no address is shown.
+/// </summary>
+public sealed record SignInSessionView(string Handle, string Device, DateTimeOffset Started, DateTimeOffset LastActive, bool Current);
+
+/// <summary>#185: a linked Apple/Google sign-in: provider alias and label only. CanUnlink is false when it is the only sign-in method left.</summary>
+public sealed record LinkedSignInView(string Provider, string Label, bool CanUnlink);
+
+/// <summary>#185: Security &amp; access → Active sessions and Linked sign-ins. CurrentKnown is false when this session can't be identified.</summary>
+public sealed record SignInsView(IReadOnlyList<SignInSessionView> Sessions, IReadOnlyList<LinkedSignInView> Linked, bool HasPassword, bool HasPasskey, bool CurrentKnown);
+
 /// <summary>Problem codes the API returns in a problem response's "code" extension.</summary>
 public static class ProblemCodes
 {
+    /// <summary>#185: removing this linked sign-in would leave no way to sign in.</summary>
+    public const string LastSignInMethod="last-sign-in-method";
+    /// <summary>#185: the session to end is the caller's own; use Sign out instead.</summary>
+    public const string CurrentSession="current-session";
+    /// <summary>#185: the members realm couldn't be read or changed; nothing was changed.</summary>
+    public const string IdentityUnavailable="identity-unavailable";
     public const string RegisteredNamesRequired="registered-names-required";
     public const string DobConfirmationRequired="dob-confirmation-required";
     public const string RecordChanged="record-changed";
