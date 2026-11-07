@@ -50,7 +50,7 @@ h1 { font: var(--type-page-title); letter-spacing: -1px; margin-bottom: 8px; }
 h2 { font: var(--type-section); font-size: 1.0625rem; margin-bottom: 10px; }
 p { max-width: 65ch; }
 h1[tabindex="-1"]:focus { outline: none; }
-h1, h2, p, legend, label, .wordmark { overflow-wrap: anywhere; }
+h1, h2, p, legend, label { overflow-wrap: anywhere; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .icon { flex-shrink: 0; }
 .skip-link { position: absolute; left: 1rem; top: -10rem; padding: .8rem; background: var(--surface); color: var(--text); z-index: 40; }
@@ -255,7 +255,11 @@ button.segment:focus-visible { outline: 3px solid var(--text); outline-offset: 1
 
 /* Layout: header with the wordmark; the tab bar is a top nav on wide screens and the fixed bottom bar on phones. */
 .app-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 0 max(var(--gutter), calc((100vw - 1100px) / 2)); border-bottom: 1px solid var(--border); background: var(--surface); }
-.wordmark { font: 700 1.1875rem/1 var(--font); letter-spacing: 3px; text-transform: lowercase; text-decoration: none; }
+/* Issue 202 / D340 (owner, 7 November 2026): the top-left brand is "swoovr" in Nunito Bold, a subset holding only those
+   letters (docs/brand/fonts, SIL OFL 1.1). Nunito is for this wordmark only. */
+@font-face { font-family: 'Swoovr Nunito'; font-style: normal; font-weight: 700; font-display: block;
+  src: url('/fonts/nunito-swoovr-700.woff2') format('woff2'); }
+.wordmark { flex: none; color: var(--text); font: 700 1.75rem/1 'Swoovr Nunito', var(--font); letter-spacing: -.06em; text-decoration: none; }
 .tab-bar { display: flex; align-items: center; gap: 4px; }
 .tab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; color: var(--muted); font: 400 .875rem/1.2 var(--font); text-decoration: none; border-radius: 10px; }
 .tab .icon { width: 20px; height: 20px; }
@@ -269,6 +273,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 30px var(--gutter) 56px; }
 .app-footer p { margin: 0 auto; }
 @media (max-width: 759px) {
   .app-header { min-height: 56px; }
+  .wordmark { font-size: 1.5rem; }
   .tab-bar { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; min-height: calc(var(--tab-bar) + env(safe-area-inset-bottom)); align-items: flex-start; justify-content: space-around; gap: 0; padding: 10px 0 env(safe-area-inset-bottom); border-top: 1px solid var(--border); background: var(--surface); }
   .tab { flex: 1 1 0; max-width: 80px; min-width: 0; flex-direction: column; gap: 4px; padding: 0; min-height: 44px; font: var(--type-tab); text-align: center; }
   .tab .icon { width: 22px; height: 22px; stroke-width: 1.75; }

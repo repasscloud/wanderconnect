@@ -85,9 +85,9 @@ html, body, .pf-v5-c-login, .pf-v5-c-background-image {
 .pf-v5-c-login__main-body .subtitle { display: none; } /* "* Required fields": nothing is optional here */
 
 /* ---------- Top of the screen: brand row, or back chevron, then an icon ---------- */
-.sw-brand { display: flex; align-items: center; gap: 10px; color: var(--sw-text); }
-.sw-brand svg { width: 34px; height: 29px; fill: currentColor; }
-.sw-brand b { font-size: 19px; letter-spacing: 3px; font-weight: 700; }
+/* Issue 202 / D340: the official logo (docs/brand). 145px wide on phones, 174px on desktop. */
+.sw-brand { display: flex; align-items: center; color: var(--sw-text); line-height: 0; }
+.sw-brand svg { display: block; width: 145px; height: auto; aspect-ratio: 1160 / 360; margin-left: -4px; fill: currentColor; }
 .pf-v5-c-login__main a.sw-back {
   display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
   margin: -18px 0 0 -16px; border: 0; border-radius: 12px; color: var(--sw-text);
@@ -294,6 +294,7 @@ html:active-view-transition-type(sw-back)::view-transition-new(root) { animation
 
 /* DEFAULT desktop framing: preserve the canonical 420px form and the phone layout. */
 @media (min-width: 760px) {
+  .sw-brand svg { width: 174px; }
   html, body, .pf-v5-c-login { background: var(--sw-bg) !important; }
   .pf-v5-c-login__container { margin: clamp(24px, 6vh, 72px) auto; padding: 36px 28px; border: 1px solid var(--sw-border); border-radius: 20px; background: var(--sw-surface); }
   .pf-v5-c-login__main { min-height: 0; }
