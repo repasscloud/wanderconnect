@@ -52,3 +52,49 @@ New data (migration `AccountDetailControls`, tables and nullable or defaulted co
   locked" with the same `SW-` reference. `tests/admin/account-detail.platform.cjs` now requires this (it used to accept either).
 - Evidence: `SessionRetirementChecks` (registry, cutoff and redirect rules; sweep against disposable PostgreSQL). The managed
   platform run of `account-detail.platform.cjs` and a live two-device hub check are listed as not yet run in the PR.
+
+### Browser messaging across token expiry (#240, 8 November 2026)
+
+The five-minute closure comes from PR #239 (`ac20fe6`, D341), which enabled
+`CloseOnAuthenticationExpiration` to bound messaging access for an ended Keycloak session on any API instance.
+It is separate from D339's 15-second account-revocation sweep. The closure remains required; it is not a new idle timeout.
+
+The real browser regression was the relay's `Context.Abort()`: it sent a terminal SignalR close, so
+`WithAutomaticReconnect()` never reconnected. On base `a098b02`, two fictional adult Edge chat pages closed
+at 298–299 seconds and neither reopened through a 370-second idle observation. They had exchanged messages in
+both directions before the closure. Initial fixture/host setup and cleanup used the owned browser runner.
+The first run's Edge profile cleanup raised `ENOTEMPTY` and masked the assertion in the suite output; the enclosing
+runner still removed its private runtime directory and reported no resource cleanup errors. The recorded socket
+lifecycle independently establishes the failed reconnect.
+
+DEFAULT implementation correction: the upstream SignalR client's `Reconnecting` event preserves the API's
+reconnectable close through `IConnectionLifetimeNotificationFeature.RequestClose()`. A terminal upstream
+`Closed` event still aborts the browser, preventing retries after revocation or an API account refusal. A 30-second
+upstream retry delay lets the browser reauthenticate first; browser disconnect disposes the old upstream and
+cancels that retry. The relay registers before starting so a rejection immediately after the protocol handshake
+cannot be missed. Missing transport support, refused authentication/origin and failed initial upstream connections
+still abort. Token expiry, per-session closure, account cutoffs, locks and the sweep are unchanged. No client token
+is exposed, no session is extended, and the existing history reconciliation runs after reconnect.
+
+The focused `messaging-lifetime` owned suite opens actual chat pages, waits 370 seconds without navigation or
+polling, checks bidirectional send/receive before and after expiry and history without duplicates, then retires
+one account's sessions through the staff API. It requires prompt socket closure, no further received push and
+401 responses to attempts to send or read using the old browser session, with no post-revocation reconnect loop.
+The staff action uses actual Admin sign-in and fresh same-session MFA elevation. Lifecycle output contains timestamps,
+browser ordinal and close/reconnect metadata only. See the [owned runner](Q93-OWNED-BROWSER-RUNNER-2026-11-02.md)
+for isolation and execution instructions. Hosted, multi-instance and physical-device acceptance remain separate.
+
+Final local acceptance (8 November, Adelaide): owned run `8fce5b41999643759c48ae9535c84185`, exit 0.
+Both browser sockets closed at their original token expiry and reopened automatically in 83 ms and 59 ms.
+The 370-second observation, bidirectional delivery before/after and four-message history without duplicates passed.
+After real Admin MFA elevation and Sign out everywhere, the target socket closed in 214 ms with
+`allowReconnect: false`; no replacement socket opened, no further push appeared, and old-session send/read
+returned 401. Cleanup succeeded, and independent checks found zero run-owned users, cloned clients, databases
+or listeners. Private lifecycle evidence is under `.local/owned-browser-runs/8fce5b41999643759c48ae9535c84185/`.
+
+`./scripts/check.sh` passed (exit 0), including 765 PostgreSQL persistence cases, 14 session-retirement checks,
+38 sign-in checks, all HTTP smoke stages and Release build with zero warnings/errors. Its automatic selection
+of the older `.local/docker.env` initially failed database authentication; the successful check explicitly used
+the managed stack's credentials in `SWOOVR_TEST_DATABASE` (the suite creates its own throwaway database).
+Independent review found no remaining actionable issues. Sending specifically during the reconnect gap,
+hosted/multi-instance behavior and native physical devices were not exercised.
