@@ -44,7 +44,7 @@ else
 }
 @if(photoWorkload is{}photos)
 {
-    <ul class="tiles" data-photo-workload><li><a href="/media"><strong>@photos.ManualReview</strong> awaiting media review</a></li><li><a href="/media"><strong>@photos.PendingScreening</strong> waiting for screening</a></li><li><a href="/media/appeals"><strong>@photos.Appeals</strong> media appeals@if(photos.AwaitingOtherAdmin>0){<span class="tile-note" data-awaiting-other-admin="@photos.AwaitingOtherAdmin">@MediaText.AwaitingOtherAdmin(photos.AwaitingOtherAdmin)</span>}</a></li></ul>
+    <ul class="tiles" data-photo-workload><li><a href="/media"><strong>@photos.ManualReview</strong> awaiting media review</a></li><li><a href="/media"><strong>@photos.PendingScreening</strong> waiting for screening</a></li><li><a href="/media/appeals"><strong>@photos.Appeals</strong> media appeals @if(photos.AwaitingOtherAdmin>0){<span class="tile-note" data-awaiting-other-admin="@photos.AwaitingOtherAdmin">@MediaText.AwaitingOtherAdmin(photos.AwaitingOtherAdmin)</span>}</a></li></ul>
 }
 @code {
     private int open, urgent, appeals, status;
