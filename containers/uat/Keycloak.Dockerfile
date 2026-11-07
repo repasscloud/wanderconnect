@@ -23,6 +23,24 @@ RUN set -eu; \
     java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.RegistrationAdmissionChecks; \
     jar --create --file /output/swoovr-contact-policy.jar -C /build/main .
 
+# Local launchers need the MFA native-condition overrides without opting into unrelated hosted providers.
+# Reuse the pinned compilation above; package only MFA classes and their explicitly registered SPIs.
+FROM provider-build AS local-mfa-provider
+RUN set -eu; \
+    mkdir -p /local/app/swoovr/identity /local/META-INF/services; \
+    cp /build/main/app/swoovr/identity/Mfa*.class /local/app/swoovr/identity/; \
+    java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.MfaRequirementChecks; \
+    for service in /build/main/META-INF/services/*; do \
+      if grep '^app\.swoovr\.identity\.Mfa' "$service" > /tmp/mfa-service; then \
+        cp /tmp/mfa-service "/local/META-INF/services/$(basename "$service")"; \
+      fi; \
+    done; \
+    jar --create --file /output/swoovr-mfa.jar -C /local .
+
+# Stock development entrypoint/SMTP/theme mounts are retained. No hosted entrypoint or realm/data is copied.
+FROM keycloak-base AS local
+COPY --from=local-mfa-provider --chown=1000:0 /output/swoovr-mfa.jar /opt/keycloak/providers/swoovr-mfa.jar
+
 FROM keycloak-base AS keycloak-build
 # Q129 / D320: the release's product version (scripts/release_version.py); empty keeps the committed theme value.
 ARG SWOOVR_VERSION=
