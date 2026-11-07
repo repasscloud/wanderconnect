@@ -192,7 +192,7 @@
         <#if swBack?has_content>
           <a class="sw-back" href="${swBack}" aria-label="${msg("swoovrBack")}"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></a>
         <#elseif !swIcon?has_content>
-          <div class="sw-brand"><svg viewBox="140 30 420 356" aria-hidden="true"><use href="${url.resourcesPath}/img/bird.svg#bird"/></svg><b>swoovr</b></div>
+          <div class="sw-brand"><svg viewBox="0 0 1160 360" role="img" aria-label="Swoovr"><use href="${url.resourcesPath}/img/logo.svg#swoovr-logo"/></svg></div>
         </#if>
         <#if swIcon?has_content>
           <div class="sw-dot sw-dot-${swIcon}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="${url.resourcesPath}/img/icons.svg#${swIcon}"/></svg></div>

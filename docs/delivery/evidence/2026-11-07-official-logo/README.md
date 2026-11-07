@@ -1,0 +1,19 @@
+# Official logo on web surfaces (issue 202, D340), 7 November 2026
+
+`before/` is `main` at `86b8a07`; `after/` is branch `feature/official-svg-logo`. Both were rendered by headless Chrome from a static harness served over local HTTP. The harness uses each host's real stylesheets (`themes.css`, `app.css`, `admin.css`, the Keycloak `swoovr.css`), the generated logo copies, and the header markup copied straight out of `MainLayout.razor`, `AdminNavigation.razor`, `Admin/Program.cs` (signed-out page) and `template.ftl`. Page bodies are placeholders. No account, session or member data is involved.
+
+| File | Surface | Width | Theme |
+| --- | --- | --- | --- |
+| `member-standard-{light,dark}-1440.png` | Member web header | 1440px | Standard |
+| `member-pride-{light,dark}-1440.png` | Member web header | 1440px | Pride (personal scheme) |
+| `member-768.png` | Member web header | 768px | Standard light |
+| `phone-member-standard-{light,dark}.png` | Member web header | 320px and 375px | Standard |
+| `admin-{light,dark}.png` | Admin sidebar | 900px | Standard |
+| `admin-signed-out.png` | Admin signed-out page | 900px | Standard light |
+| `keycloak-1440.png`, `phone-keycloak.png` | Keycloak sign-in header | desktop; 320px and 375px | Standard light (the theme has no dark mode) |
+
+Result: every surface shows the official lockup in the theme text colour. Nothing scrolls sideways at 320px. Admin keeps "Administration" / "Staff workspace" as text.
+
+Not covered: the logo was not checked inside the running Blazor apps or a live Keycloak 26.8.1 container, and there's no screen-reader pass. The mobile app (MAUI) is out of scope.
+
+An earlier harness run caught a real defect: the generated SVG's comment contained a double hyphen, so browsers rejected the whole file. `check_design.py` now parses each generated copy as XML.
