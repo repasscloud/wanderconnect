@@ -345,7 +345,7 @@ public sealed partial class AdminClient(HttpClient transport)
     /// <summary>D203: uncertain photos waiting for review (admins only).</summary>
     public Task<ApiResult<MediaReviewQueue>> MediaReviewPageAsync(int page, string? kind = null, string? reason = null, CancellationToken token = default) =>
         SendAsync<MediaReviewQueue>(HttpMethod.Get, $"api/admin/media/review?page={page}" + (kind is null ? "" : "&kind=" + Uri.EscapeDataString(kind)) + (reason is null ? "" : "&reason=" + Uri.EscapeDataString(reason)), null, token);
-    public Task<int> AcknowledgePhotoSafetyAsync(string version, bool confirmed, CancellationToken token = default) => StatusAsync(HttpMethod.Post, "api/admin/media/safety-ack", new MediaSafetyAck(version, confirmed), token);
+    public Task<ApiResult<bool>> AcknowledgePhotoSafetyAsync(string version, bool confirmed, CancellationToken token = default) => ActionAsync(HttpMethod.Post, "api/admin/media/safety-ack", new MediaSafetyAck(version, confirmed), token);
     public Task<ApiResult<PhotoWorkload>> PhotoWorkloadAsync(CancellationToken token = default) => SendAsync<PhotoWorkload>(HttpMethod.Get, "api/admin/media/workload", null, token);
     public Task<ApiResult<PhotoDecisionPage>> PhotoHistoryAsync(int page = 1, string? decision = null, CancellationToken token = default) => SendAsync<PhotoDecisionPage>(HttpMethod.Get, $"api/admin/media/history?page={page}" + (decision is null ? "" : "&decision=" + Uri.EscapeDataString(decision)), null, token);
     public Task<ApiResult<PhotoAppealPage>> PhotoAppealsAsync(int page = 1, CancellationToken token = default) => SendAsync<PhotoAppealPage>(HttpMethod.Get, $"api/admin/media/appeals?page={page}", null, token);
