@@ -119,7 +119,7 @@ app.MapGet("/signed-out", (HttpContext context) =>
         <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex, nofollow"><title>Signed out — Swoovr admin</title>
         <link rel="stylesheet" href="/themes.css"><link rel="stylesheet" href="/admin.css"></head>
-        <body><main class="signed-out-page"><p class="admin-brand"><svg class="admin-logo" viewBox="0 0 1160 360" role="img" aria-label="Swoovr"><use href="/brand/logo.svg#swoovr-logo"/></svg><small>Staff workspace</small></p>
+        <body><main class="signed-out-page"><p class="admin-brand"><span class="wordmark">swoovr</span><small>Staff workspace</small></p>
         <h1>You're signed out.</h1><p>Your staff session has ended on this device.</p>
         <p><a class="ui-button-primary" href="/sign-in?reauth=true" data-enhance-nav="false" data-sign-in-again>Sign in again</a></p>
         <footer class="admin-version"><small data-app-version="{{Swoovr.Contracts.AppVersion.Current.ProductVersion}}">{{Swoovr.Contracts.AppVersion.Current.DisplayVersion}}</small></footer></main></body></html>

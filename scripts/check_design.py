@@ -90,8 +90,9 @@ for relative, generated in [('src/Swoovr.Web/wwwroot/themes.css',css), ('src/Swo
     if args.write: destination.write_text(generated)
     else: assert destination.exists() and destination.read_text() == generated, f'{relative} drifted; run --write'
 
-# Issue 202 / D340: the official logo (docs/brand, copied from swoovrcom-web) is the only brand mark on web surfaces.
-# Each host gets a copy whose fill follows the text colour and whose paths are grouped as #swoovr-logo for <use>.
+# Issue 202 / D340: Keycloak sign-in pages show the official logo (docs/brand, copied from swoovrcom-web); its copy's
+# fill follows the text colour and its paths are grouped as #swoovr-logo for <use>. Inside the apps the top-left brand
+# is the word "swoovr" in Nunito Bold (owner, 7 November 2026), from a self-hosted subset of only those letters.
 logo_source = (root / 'docs/brand/swoovr-logo.svg').read_text()
 assert 'viewBox="0 0 1160 360"' in logo_source and logo_source.count('<path ') == 2, 'docs/brand/swoovr-logo.svg is not the official lockup'
 assert set(re.findall(r'fill="([^"]*)"', logo_source)) == {'#0A0A0A'}, 'docs/brand/swoovr-logo.svg fills changed; update the generator'
@@ -101,17 +102,27 @@ logo = (logo_source[:first_path].replace('<defs></defs>', '')
         + '<g id="swoovr-logo">' + logo_source[first_path:last_close].replace('fill="#0A0A0A"', 'fill="currentColor"') + '</g></svg>\n')
 # Browsers drop an SVG that isn't well-formed XML (e.g. a double hyphen inside a comment), so parse it.
 assert ElementTree.fromstring(logo).find('{http://www.w3.org/2000/svg}g').get('id') == 'swoovr-logo', 'generated logo is not well-formed'
-for relative in ['src/Swoovr.Web/wwwroot/brand/logo.svg', 'src/Swoovr.Admin/wwwroot/brand/logo.svg', 'containers/keycloak/themes/swoovr/login/resources/img/logo.svg']:
+for relative in ['containers/keycloak/themes/swoovr/login/resources/img/logo.svg']:
     destination = root / relative
     if args.write: destination.parent.mkdir(parents=True, exist_ok=True); destination.write_text(logo)
     else: assert destination.exists() and destination.read_text() == logo, f'{relative} drifted; run --write'
-for relative in ['src/Swoovr.Web/Components/Layout/MainLayout.razor', 'src/Swoovr.Web/Auth/InviteOnlyPage.cs', 'src/Swoovr.Admin/Components/Layout/AdminNavigation.razor',
-                 'src/Swoovr.Admin/Program.cs', 'containers/keycloak/themes/swoovr/login/template.ftl']:
-    assert 'logo.svg#swoovr-logo' in (root / relative).read_text(), f'{relative} must show the official logo (docs/brand)'
-typed_brand = re.compile(r'class="wordmark"[^>]*>\s*swoovr\s*<|brand-word|<b>\s*swoovr\s*</b>', re.I)
-for path in [*root.glob('src/Swoovr.Web/**/*'), *root.glob('src/Swoovr.Web.Client/**/*'), *root.glob('src/Swoovr.Admin/**/*'), *root.glob('containers/keycloak/themes/**/*')]:
-    if path.is_file() and path.suffix in {'.razor', '.cs', '.ftl', '.html', '.css'} and not {'bin', 'obj'} & set(path.parts):
-        assert not typed_brand.search(path.read_text()), f'Typed brand text instead of the logo in {path.relative_to(root)}'
+assert 'logo.svg#swoovr-logo' in (root / 'containers/keycloak/themes/swoovr/login/template.ftl').read_text(), 'Keycloak must show the official logo (docs/brand)'
+for name in ['nunito-swoovr-700.woff2', 'OFL.txt']:
+    source = (root / 'docs/brand/fonts' / name).read_bytes()
+    for host in ['src/Swoovr.Web/wwwroot/fonts', 'src/Swoovr.Admin/wwwroot/fonts']:
+        destination = root / host / name
+        if args.write: destination.parent.mkdir(parents=True, exist_ok=True); destination.write_bytes(source)
+        else: assert destination.exists() and destination.read_bytes() == source, f'{host}/{name} drifted; run --write'
+wordmark = re.compile(r'class="wordmark"[^>]*>swoovr</(?:a|span)>')
+for relative in ['src/Swoovr.Web/Components/Layout/MainLayout.razor', 'src/Swoovr.Web/Auth/InviteOnlyPage.cs', 'src/Swoovr.Admin/Components/Layout/AdminNavigation.razor', 'src/Swoovr.Admin/Program.cs']:
+    assert wordmark.search((root / relative).read_text()), f'{relative} must show the Nunito "swoovr" wordmark'
+for relative in ['src/Swoovr.Web/wwwroot/app.css', 'src/Swoovr.Admin/wwwroot/admin.css']:
+    text = (root / relative).read_text()
+    assert "url('/fonts/nunito-swoovr-700.woff2')" in text and re.search(r"\.wordmark \{[^}]*font: 700 [^}]*'Swoovr Nunito'", text), f'{relative} must set the wordmark in Nunito Bold'
+    # Nunito is for the wordmark only; everything else stays on the one Swoovr type family.
+    code = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+    assert all(line.lstrip().startswith(('@font-face { font-family: \'Swoovr Nunito\'', '.wordmark {')) for line in code.splitlines() if 'Nunito' in line), f'Nunito outside the wordmark in {relative}'
+assert not any('logo.svg' in p.read_text() for p in [*root.glob('src/Swoovr.Web/**/*.razor'), *root.glob('src/Swoovr.Admin/**/*.razor')]), 'In-app pages use the Nunito wordmark, not the logo'
 
 # One type family (docs/design/reference/UI-STYLE.md): no Inter, system-ui, Segoe, Roboto, Open Sans or
 # platform-default stacks in any UI source; Georgia only through the web quote token.

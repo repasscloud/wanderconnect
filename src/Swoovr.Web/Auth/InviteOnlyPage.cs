@@ -46,7 +46,7 @@ public static class InviteOnlyPage
             </head>
             <body>
             <div class="public-layout">
-            <header class="app-header"><a class="wordmark" href="/" aria-label="Swoovr home"><svg viewBox="0 0 1160 360" aria-hidden="true" focusable="false"><use href="/brand/logo.svg#swoovr-logo"/></svg></a>
+            <header class="app-header"><a class="wordmark" href="/" aria-label="Swoovr home">swoovr</a>
             <div class="mode-toggle" role="group" aria-label="Colour mode" data-mode-toggle hidden>
             <button type="button" data-mode-choice="light" aria-pressed="false" title="Light"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="visually-hidden">Light</span></button>
             <button type="button" data-mode-choice="system" aria-pressed="false" title="Match device"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="visually-hidden">Match device</span></button>
