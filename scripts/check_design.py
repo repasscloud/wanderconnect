@@ -157,6 +157,14 @@ for path in [root/'README.md', root/'AGENTS.md', *root.glob('docs/**/*.md')]:
     for target in re.findall(r'\]\(([^\s)]+)\)',path.read_text()):
         if '://' in target or target.startswith('#'): continue
         assert (path.parent / target.split('#')[0]).exists(), (str(path),target)
+# GitHub Actions stay fully commented until the owner turns minutes back on, except the files named here.
+# Add a file only on the owner's say-so, with the date; every other workflow and template must stay commented.
+ENABLED_WORKFLOWS = {
+    '.github/workflows/locked-closed-issues.yml',  # owner, 7 November 2026: locks closed issues every 3 days (built-in token only)
+}
 for path in [*(root/'.github/workflows').glob('*'), *(root/'.github/workflow-templates').glob('*')]:
-    assert all(not line.strip() or line.lstrip().startswith('#') for line in path.read_text().splitlines()), f'Active workflow: {path}'
+    if path.relative_to(root).as_posix() in ENABLED_WORKFLOWS: continue
+    assert all(not line.strip() or line.lstrip().startswith('#') for line in path.read_text().splitlines()), f'Active workflow: {path} (add it to ENABLED_WORKFLOWS only if the owner enabled it)'
+for name in ENABLED_WORKFLOWS:
+    assert (root/name).is_file(), f'ENABLED_WORKFLOWS names a missing file: {name}'
 print(f'PASS: {count} contrast pairs, canonical token copies (web, client, MAUI, Keycloak, launch splash), one font family in {font_count} UI files, token-only colours in {len(web_styles)} web style sources, local Markdown links and disabled workflows.')
