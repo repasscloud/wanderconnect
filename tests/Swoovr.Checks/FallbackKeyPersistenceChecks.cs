@@ -52,6 +52,9 @@ static class FallbackKeyPersistenceChecks
         public Task<bool> SignOutEverywhereAsync(string subject, CancellationToken token) => throw new Exception("Unexpected identity provider call.");
         public Task<bool> SignOutOtherSessionsAsync(string subject, string? keep, CancellationToken token) => throw new Exception("Unexpected identity provider call.");
         public Task<bool> DeleteUserAsync(string subject, CancellationToken token) => throw new Exception("Unexpected identity provider call.");
+        public Task<IdentitySignIns?> SignInsAsync(string subject, CancellationToken token) => throw new Exception("Unexpected identity provider call.");
+        public Task<bool> EndSessionAsync(string subject, string sessionId, CancellationToken token) => throw new Exception("Unexpected identity provider call.");
+        public Task<UnlinkOutcome> UnlinkProviderAsync(string subject, string alias, CancellationToken token) => throw new Exception("Unexpected identity provider call.");
     }
     private sealed class NoVerificationCalls : IIdVerificationProvider
     {

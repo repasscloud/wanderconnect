@@ -340,7 +340,10 @@ public static class MessagingEndpoints
             return Results.Ok(texts.Select((text, i) => new ConversationStarter(shared.Distinct().ElementAt(i), text)).ToList());
         });
 
-        app.MapHub<MessagesHub>("/hubs/messages").RequireAuthorization();
+        // #185 (D341): a connection never outlives the access token it opened with, so a session ended in Keycloak (one device
+        // signed out from Security & access, on any API instance) stops receiving within the token lifetime. Clients reconnect
+        // with a refreshed token; a signed-out device can't refresh and stays disconnected.
+        app.MapHub<MessagesHub>("/hubs/messages", options => options.CloseOnAuthenticationExpiration = true).RequireAuthorization();
     }
 
     private static async Task<SendFacts> SendFactsAsync(SwoovrDbContext db, bool senderIsBot, Guid me, Guid other, Guid conversation, DateTimeOffset now,
@@ -529,7 +532,7 @@ public sealed class MessagesHub(AccountResolver accounts, MessagesConnections co
         if (denied is not null || current?.Account is null) { Context.Abort(); return; }
         // #198: remember the sign-in this connection was opened with, so a later session cutoff closes it.
         var context = Context;
-        connections.Add(context.ConnectionId, new(current.Account.Id, current.Facts.AuthenticatedAt, context.User!.FindFirstValue("iat"), context.Abort));
+        connections.Add(context.ConnectionId, new(current.Account.Id, current.Facts.AuthenticatedAt, context.User!.FindFirstValue("iat"), context.Abort, context.User!.FindFirstValue("sid")));
         await Groups.AddToGroupAsync(Context.ConnectionId, Group(current.Account.Id), Context.ConnectionAborted);
         await base.OnConnectedAsync();
     }

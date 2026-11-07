@@ -148,6 +148,9 @@ static class StaffConflictPersistenceChecks
         public Task<bool> DeleteUserAsync(string subject, CancellationToken token) { Deletes++;return Task.FromResult(DeleteConfirmed); }
         public Task<bool> SignOutEverywhereAsync(string subject, CancellationToken token) => throw new Exception("Unexpected fake signout.");
         public Task<bool> SignOutOtherSessionsAsync(string subject, string? keep, CancellationToken token) => throw new Exception("Unexpected fake signout.");
+        public Task<IdentitySignIns?> SignInsAsync(string subject, CancellationToken token) => throw new Exception("Unexpected fake sign-ins.");
+        public Task<bool> EndSessionAsync(string subject, string sessionId, CancellationToken token) => throw new Exception("Unexpected fake sign-ins.");
+        public Task<UnlinkOutcome> UnlinkProviderAsync(string subject, string alias, CancellationToken token) => throw new Exception("Unexpected fake sign-ins.");
     }
     private sealed class NoVerification : IIdVerificationProvider
     {
