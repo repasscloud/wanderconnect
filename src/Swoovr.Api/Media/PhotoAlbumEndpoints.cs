@@ -50,10 +50,14 @@ public static class PhotoAlbumEndpoints
             var photos = request.Photos ?? [];
             if (photos.Count > PhotoAlbumPolicy.MaxPhotos || photos.Distinct().Count() != photos.Count)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.AlbumFull, $"Choose up to {PhotoAlbumPolicy.MaxPhotos} different photos.");
+            // Same order as uploads (lifecycle, then media): an "albums only" approval holds the lifecycle lease while it
+            // checks the photo is still in its album, so it can't interleave with dropping that photo here.
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, token);
             await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, me, token);
             var album = await db.PhotoAlbums.SingleOrDefaultAsync(a => a.Id == id && a.AccountId == me, token);
             if (album is null) return UnknownAlbum();
-            var stored = await db.PhotoAlbumItems.Where(e => e.AlbumId == id).ToListAsync(token);
+            // Not tracked: the entries are deleted with ExecuteDelete and re-added with the same keys below.
+            var stored = await db.PhotoAlbumItems.AsNoTracking().Where(e => e.AlbumId == id).ToListAsync(token);
             var storedIds = stored.Select(e => e.MediaId).ToHashSet();
             var items = await db.MediaItems.Where(i => photos.Contains(i.Id) || storedIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, token);
             // Album-only photos live only here: they can't be dropped by an update, only deleted.
@@ -85,6 +89,12 @@ public static class PhotoAlbumEndpoints
             var (current, denied) = await MemberAsync(user, accounts, token);
             if (denied is not null) return denied;
             var (db, me, now) = (accounts.Db!, current!.Profile!.AccountId, clock.GetUtcNow());
+            // Hold the account's lifecycle and media authority (upload order) across the snapshot and the delete: an
+            // "albums only" approval or an album upload can't land in between and leave an orphaned adult photo. A later
+            // approval of a still-pending photo from this album is refused, because the photo is no longer in it.
+            // Both leases are re-entrant, so RemoveAsync below can take the media lease again.
+            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, token);
+            await using var lease = await AccountLifecycleLease.AcquireMediaAsync(db, me, token);
             var album = await db.PhotoAlbums.SingleOrDefaultAsync(a => a.Id == id && a.AccountId == me, token);
             if (album is null) return UnknownAlbum();
             var pipeline = accounts.Services.GetRequiredService<MediaPipeline>();
