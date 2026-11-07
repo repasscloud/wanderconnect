@@ -1,0 +1,42 @@
+
+name: Auto Request PR Review
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  request-review:
+    name: Request rpc-bot Review
+    runs-on: ubuntu-latest
+
+    # Skip draft PRs and PRs created by rpc-bot.
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'rpc-bot'
+
+    steps:
+      - name: Request review from rpc-bot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/$GH_REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            -f "reviewers[]=rpc-bot"
+
+#
+# How it works: in scripts/check_design.py, the "disabled workflows" rule skips only the files you list:
+# ENABLED_WORKFLOWS = {
+#     '.github/workflows/locked-closed-issues.yml',  # owner, 7 November 2026: ...
+# }
+#

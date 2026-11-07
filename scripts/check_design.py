@@ -196,6 +196,7 @@ for path in [root/'README.md', root/'AGENTS.md', *root.glob('docs/**/*.md')]:
 # Add a file only on the owner's say-so, with the date; every other workflow and template must stay commented.
 ENABLED_WORKFLOWS = {
     '.github/workflows/locked-closed-issues.yml',  # owner, 7 November 2026: locks closed issues every 3 days (built-in token only)
+    '.github/workflows/auto-request-review.yml',  # owner, 8 November 2026: automatically requests rpc-bot review on PRs
 }
 for path in [*(root/'.github/workflows').glob('*'), *(root/'.github/workflow-templates').glob('*')]:
     if path.relative_to(root).as_posix() in ENABLED_WORKFLOWS: continue
