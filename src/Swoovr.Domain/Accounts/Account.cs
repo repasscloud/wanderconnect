@@ -29,6 +29,9 @@ public sealed class Account
     public long RegisteredNamesRevision { get; set; }
     /// <summary>Null until a current approved ID result can compare these exact declarations.</summary>
     public bool? RegisteredNamesMatchId { get; set; }
+    /// <summary>#206: compare-and-swap for internal staff management forms, never a credential revision.</summary>
+    public long StaffRevision { get; set; }
+    public DateTimeOffset? StaffLastSignInAt { get; set; }
     public AccountStatus Status { get; set; }
     /// <summary>A short machine reason such as "underage-dob"; never free text from a client.</summary>
     public string? StatusReason { get; set; }

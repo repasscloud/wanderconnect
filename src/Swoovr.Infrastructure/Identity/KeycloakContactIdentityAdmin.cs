@@ -9,7 +9,7 @@ namespace Swoovr.Infrastructure.Identity;
 /// <summary>Composition supplies the canonical contract and trusted public member issuer; transport may use private DNS.</summary>
 public sealed record ContactPolicyContract(string Header, string Version, string Issuer, bool Enabled);
 
-public sealed partial class KeycloakIdentityAdmin
+public partial class KeycloakIdentityAdmin
 {
     private const int ContactResponseMax = 32 * 1024;
     public bool ContactRetirementConfigured => Configured && contactPolicy is {Enabled:true}

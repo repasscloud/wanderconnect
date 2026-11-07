@@ -179,6 +179,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sessions_revoked_at");
 
+                    b.Property<DateTimeOffset?>("StaffLastSignInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("staff_last_sign_in_at");
+
+                    b.Property<long>("StaffRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("staff_revision");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)

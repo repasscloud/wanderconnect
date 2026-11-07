@@ -29,6 +29,7 @@
 @if (workspace is { MemberOperations: true } or { Legal: true })
 {
 <div class="nav-group"><p class="nav-heading">Governance</p>
+@if (workspace?.Administration == true) { <a href="/staff" class="nav-link">Staff accounts</a> }
 <a href="/holds" class="@(IsActive("/holds") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/holds") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h14v11H5z M8 10V6a4 4 0 0 1 8 0v4 M12 14v3" /></svg><span>Legal holds</span></a>
 <a href="/law-enforcement" class="@(IsActive("/law-enforcement") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/law-enforcement") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 4v6c0 5-9 9-9 9s-9-4-9-9V7z M8 12l3 3 5-6" /></svg><span>Law enforcement</span></a>
 <a href="/disclosures" class="@(IsActive("/disclosures") ? "nav-link active" : "nav-link")" aria-current="@(IsActive("/disclosures") ? "page" : null)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6" /></svg><span>Disclosure register</span></a>

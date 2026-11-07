@@ -19,7 +19,7 @@ public sealed record IdentityAdminOptions(string BaseUrl, string Realm, string C
 /// token endpoint, then POST /admin/realms/{realm}/users/{id}/logout and DELETE /admin/realms/{realm}/users/{id}.
 /// The user id is the token's subject. Statuses only are logged: Keycloak's error bodies can echo user data.
 /// </summary>
-public sealed partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions options, TimeProvider clock, ILogger<KeycloakIdentityAdmin> log, ContactPolicyContract? contactPolicy = null) : IIdentityAdmin, IContactIdentityAdmin
+public partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdminOptions options, TimeProvider clock, ILogger<KeycloakIdentityAdmin> log, ContactPolicyContract? contactPolicy = null) : IIdentityAdmin, IContactIdentityAdmin, IIdentityDirectory
 {
     private string? token;
     private DateTimeOffset tokenExpires;
@@ -123,7 +123,7 @@ public sealed partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdmin
             ? DateTimeOffset.FromUnixTimeMilliseconds(Math.Min(ms, DateTimeOffset.MaxValue.ToUnixTimeMilliseconds())) : DateTimeOffset.UnixEpoch;
 
     /// <summary>A bounded admin GET returning a JSON array, or null (status only is logged).</summary>
-    private async Task<JsonDocument?> GetAsync(string path, string what, CancellationToken cancellationToken)
+    private async Task<JsonDocument?> GetAsync(string path, string what, CancellationToken cancellationToken, bool array = true)
     {
         try
         {
@@ -148,7 +148,7 @@ public sealed partial class KeycloakIdentityAdmin(HttpClient http, IdentityAdmin
                 buffer.Write(chunk, 0, read);
             }
             var document = JsonDocument.Parse(buffer.ToArray());
-            if (document.RootElement.ValueKind == JsonValueKind.Array) return document;
+            if (document.RootElement.ValueKind == (array ? JsonValueKind.Array : JsonValueKind.Object)) return document;
             document.Dispose();
             log.LogWarning("Keycloak {What} response was not a list.", what);
             return null;

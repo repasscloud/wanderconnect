@@ -32,7 +32,7 @@ public static class AccountLabels
     };
     public static string Sanction(string kind) => kind switch { "warning" => "Warning", "restriction" => "Restricted", "suspension" => "Suspended", "termination" => "Terminated", _ => Title(kind) };
     public static string Reason(string? code) => AccountReasons.Label(code);
-    public static string Role(string? role) => role switch { "admin" => "Admin", "trustSafety" => "Trust & Safety", "support" => "Support", "legal" => "Legal", null => "", _ => Title(role) };
+    public static string Role(string? role) => role switch { "business" => "Business", "admin" => "Admin", "trustSafety" => "Trust & Safety", "support" => "Support", "legal" => "Legal", null => "", _ => Title(role) };
     private static string Title(string value)
     {
         if (string.IsNullOrEmpty(value)) return value;

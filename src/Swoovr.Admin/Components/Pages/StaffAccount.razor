@@ -1,0 +1,61 @@
+@page "/staff/{Id:guid}"
+@inject AdminClient Admin
+<PageTitle>Staff account — Swoovr</PageTitle>
+<h1>Staff account</h1>
+@if (message is not null) { <p class="notice" role="status">@message</p> }
+@if (detail is { } d)
+{
+    <p>@d.Account.FirstName @d.Account.LastName · @d.Account.Status · Revision @d.Account.Revision</p>
+    @if (!d.ProviderAvailable) { <p role="alert">Identity information is unavailable. Try again before making changes.</p> }
+    else
+    {
+        <p>MFA: @(d.CredentialTypes.Contains("otp") ? "Enabled" : d.RequiredActions.Contains("CONFIGURE_TOTP") ? "Setup pending" : "Not configured") · Staff MFA required</p>
+        <p>Registered methods: @string.Join(", ", d.CredentialTypes) · Email @(d.EmailVerified ? "verified" : "awaiting verification")</p>
+        @if (d.CanManage)
+        {
+            <section class="ui-card ui-section"><h2>Account details and access</h2>
+            <form method="post" @formname="staff-details" @onsubmit="SaveAsync" class="ui-form">
+                <AntiforgeryToken /><input type="hidden" name="revision" value="@d.Account.Revision" />
+                <label class="ui-field">First name<input name="first" value="@d.Account.FirstName" required maxlength="100" /></label>
+                <label class="ui-field">Last name<input name="last" value="@d.Account.LastName" required maxlength="100" /></label>
+                <label class="ui-field">Email<input name="email" type="email" value="@d.Account.Email" required maxlength="254" /></label>
+                <label class="ui-field">Phone<input name="phone" type="tel" value="@d.Phone" maxlength="32" /></label>
+                <fieldset class="ui-group"><legend>Internal roles</legend>@foreach(var role in new[]{"support","trustSafety","admin","legal","business"}) { <label><input name="roles" value="@role" type="checkbox" checked="@d.Account.Roles.Contains(role)" />@AccountLabels.Role(role)</label> }</fieldset>
+                <label class="ui-field">Account status<select name="status">@foreach(var state in new[]{"active","locked","suspended"}) { <option value="@state" selected="@(d.Account.Status==state)">@state</option> }</select></label>
+                <label class="ui-field">Reason or case reference<input name="reason" required maxlength="80" placeholder="role-change or case:1234" pattern="[a-z][a-z0-9-]{2,63}(:[0-9]{1,18})?" /></label>
+                <label><input name="confirm" type="checkbox" value="yes" required />Confirm details and access changes; existing sessions will end</label>
+                <button type="submit" class="ui-button-primary">Save staff account</button>
+            </form></section>
+            <section class="ui-card ui-section"><h2>Security</h2>
+            <form method="post" @formname="staff-security" @onsubmit="SecurityAsync" class="ui-form">
+                <AntiforgeryToken /><input type="hidden" name="revision" value="@d.Account.Revision" />
+                <label class="ui-field">Action<select name="action"><option value="sign-out">Sign out everywhere</option><option value="require-mfa">Require authenticator enrolment</option></select></label>
+                <label class="ui-field">Reason or case reference<input name="reason" required maxlength="80" placeholder="security-review or case:1234" pattern="[a-z][a-z0-9-]{2,63}(:[0-9]{1,18})?" /></label>
+                <label><input name="confirm" type="checkbox" value="yes" required />Confirm security action</label>
+                <button type="submit" class="ui-button-primary">Apply security action</button>
+            </form></section>
+        }
+        <section class="ui-card ui-section"><h2>Sessions</h2><ul>@foreach(var s in d.Sessions) { <li>@s.Device · Started @s.Started.ToString("u") · Last active @s.LastActive.ToString("u")</li> }</ul></section>
+    }
+    <section class="ui-card ui-section"><h2>Audit history</h2><ul>@foreach(var entry in d.History) { <li>@entry.At.ToString("u") · @entry.Action</li> }</ul></section>
+}
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private HttpContext? Context { get; set; }
+    private StaffAccountDetail? detail; private string? message;
+    private string Field(string name) => Context?.Request.HasFormContentType == true ? Context.Request.Form[name].ToString() : "";
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private async Task LoadAsync() { var r = await Admin.StaffAccountAsync(Id); detail = r.Value; if (!r.Ok) message = AdminText.Refusal(r.Status,r.Code); }
+    private async Task SaveAsync()
+    {
+        if (!long.TryParse(Field("revision"),out var revision)) { message = "Reload this account before making changes."; return; }
+        var r = await Admin.UpdateStaffAsync(Id,new(Field("first"),Field("last"),Field("email"),Field("phone"),Field("status"),Context!.Request.Form["roles"].Select(v=>v!).ToArray(),revision,Field("reason"),Field("confirm")=="yes"));
+        message = r.Ok ? "Staff account updated. Previous sessions have ended." : AdminText.Refusal(r.Status,r.Code); await LoadAsync();
+    }
+    private async Task SecurityAsync()
+    {
+        if (!long.TryParse(Field("revision"),out var revision)) { message = "Reload this account before making changes."; return; }
+        var r = await Admin.StaffSecurityAsync(Id,new(Field("action"),revision,Field("reason"),Field("confirm")=="yes"));
+        message = r.Ok ? "Security action completed." : AdminText.Refusal(r.Status,r.Code); await LoadAsync();
+    }
+}

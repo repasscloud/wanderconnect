@@ -174,7 +174,7 @@ public static class StaffAccessEndpoints
             if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > StaffAccessPolicy.PurposeMax)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.PurposeRequired, "Record why (up to 500 characters).");
             var (db, now, me) = (accounts.Db!, clock.GetUtcNow(), current.Account!.Id);
-            await using var state=await AccountLifecycleLease.AcquireAsync(db,id,cancellationToken);
+            await using var state=await AccountLifecycleLease.AcquireManyAsync(db,[me,id],cancellationToken);
             await using var authority=await Swoovr.Api.Retention.PreservationLease.SharedAsync(db,cancellationToken);
             (current,denied)=await AnyStaffAsync(user,accounts,cancellationToken);if(denied is not null)return denied;
             if(!current!.IsRootAdmin)return Results.Forbid();now=clock.GetUtcNow();
@@ -188,6 +188,7 @@ public static class StaffAccessEndpoints
             if (target.Email is { } email)
                 await db.Invitations.Where(i => i.Email == email && i.Realm == AccountRealm.Staff && i.AcceptedAt == null && i.RevokedAt == null)
                     .ExecuteUpdateAsync(u => u.SetProperty(i => i.RevokedAt, now), cancellationToken);
+            target.StaffRevision++;
             var cutoff=SessionRevocationPolicy.Cutoff(now);
             if(target.SessionsRevokedAt is null||target.SessionsRevokedAt<cutoff)target.SessionsRevokedAt=cutoff;
             Audit.Record(db, now, me, "account", "staff.revoked", "account", id.ToString(), $"roles:{roles};grants:{grants}");

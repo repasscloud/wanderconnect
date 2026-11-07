@@ -10,7 +10,7 @@ using Swoovr.Infrastructure.Persistence;
 /// </summary>
 static class PersistenceChecks
 {
-    public static async Task Run(bool policiesOnly=false, bool ticketingOnly=false)
+    public static async Task Run(bool policiesOnly=false, bool ticketingOnly=false, bool staffOnly=false)
     {
         var admin = Environment.GetEnvironmentVariable("SWOOVR_TEST_DATABASE");
         if (string.IsNullOrWhiteSpace(admin))
@@ -30,6 +30,7 @@ static class PersistenceChecks
         {
             var connection = new NpgsqlConnectionStringBuilder(admin) { Database = name, Pooling = false }.ConnectionString;
             DbContextOptions<SwoovrDbContext> options = new DbContextOptionsBuilder<SwoovrDbContext>().UseNpgsql(connection).Options;
+            if(staffOnly) { await StaffManagementPersistenceChecks.Run(options,Check); Console.WriteLine($"PASS: {count} scoped staff management PostgreSQL checks.");return; }
             if(ticketingOnly)
             {
                 await TicketingPersistenceChecks.Run(options,Check);
@@ -156,6 +157,7 @@ static class PersistenceChecks
             await MeetingSafetyContactVerificationPersistenceChecks.Run(options, Check);
             await TicketingPersistenceChecks.Run(options, Check);
             await TicketingOperationChecks.Run(options, Check);
+            await StaffManagementPersistenceChecks.Run(options,Check);
         }
         finally
         {

@@ -116,6 +116,7 @@ SignInEndpoints.Map(app);
 ContactHistoryEndpoints.Map(app);
 RegistryAdminEndpoints.Map(app);
 StaffAccessEndpoints.Map(app);
+StaffAccountEndpoints.Map(app);
 Swoovr.Api.Security.SecurityEndpoints.Map(app);
 Swoovr.Api.Evidence.LegalHoldEndpoints.Map(app);
 Swoovr.Api.Evidence.LawEnforcementEndpoints.Map(app);
