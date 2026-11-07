@@ -47,8 +47,35 @@ public static class PhotoText
 
     public const string Rules = "Photos are checked before anyone can see them. No nudity or sexual content, no one under 18, and only photos you have the right to share. Location details in photos are removed.";
 
+    /// <summary>#231: what may go in a private album. Adult content needs ID Verified status (owner, 6 November 2026).</summary>
+    public static string AlbumRules(bool idVerified) => idVerified
+        ? "Photos are checked before anyone can see them. Adult content is allowed in private albums only. Never anyone under 18, nothing without consent, and only photos you have the right to share. Each one uses a library spot."
+        : "Photos are checked before anyone can see them. No nudity or sexual content until you verify your ID. Each one uses a library spot.";
+
+    public const string AlbumsIntro = "Only people you share an album with can see it, in a chat in a mode you've allowed. Up to 10 photos per album, from your library.";
+    public const string AlbumsNeedId = "Adult photos need ID verification. Your albums can hold non-explicit photos now.";
+    public const string ExplicitIntro = "Choose, for each profile, whether people can send you explicit photos in chat. It's off until you turn it on.";
+    public const string ExplicitNeedsId = "Only ID Verified members can send or receive explicit media. Verify your ID to turn this on.";
+    public const string ExplicitBlocked = "If someone tries to send you explicit media in a profile where this is off, it isn't delivered and you won't be notified. Approved, non-explicit photos can always be sent.";
+
+    /// <summary>#231: a member's own photo, as the library shows it.</summary>
+    public static string Short(string state, bool albumOnly) => state switch
+    {
+        "checking" => "Being checked",
+        "in-review" => "Being reviewed",
+        "not-approved" => "Not approved",
+        "removed" => "Removed",
+        _ => albumOnly ? "Approved for private albums only" : "Approved",
+    };
+
     public static string Refusal(string? code) => code switch
     {
+        "album-limit" => "You can have up to 4 albums.",
+        "album-full" => "An album holds up to 10 photos.",
+        "unknown-album" => "That album isn't available any more.",
+        "invalid-album" => "Give the album a name of up to 40 characters, and choose modes from the list.",
+        "album-only-photo" => "Adult photos in an album can only be deleted.",
+        "id-verification-required" => "Only ID Verified members can do this.",
         "photo-too-big" => "Photos can be up to 10 MB.",
         "photo-unsupported" => "Use a JPEG, PNG or WebP photo (not animated).",
         "photo-invalid" => "That photo couldn't be used. Photos need to be at least 200 pixels on each side.",
@@ -57,7 +84,7 @@ public static class PhotoText
         "attachment-limit" => "You can send up to 20 photos a day.",
         "photos-off" => "This person isn't accepting photos in chat.",
         "photo-not-approved" => "Only approved photos can be shown.",
-        "invalid-placement" => "Pick one main photo, or up to 6 photos for a mode.",
+        "invalid-placement" => "That's more photos than this mode can show. Remove one first.",
         "media-unavailable" => "Photos aren't available right now.",
         _ => "Something went wrong. Try again.",
     };

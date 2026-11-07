@@ -1,0 +1,46 @@
+@* Issue 231 (owner, 6 November 2026): "Receive explicit media", per profile (mode). Off by default; ID Verified only. *@
+@inject MemberClient Members
+<section class="me-card" aria-labelledby="explicit-heading" data-explicit-media="@(settings is null ? "loading" : settings.IdVerified ? "verified" : "unverified")">
+    <h2 class="me-card-title" id="explicit-heading"><Icon Name="image" Size="20" />Receive explicit media</h2>
+    <p class="me-card-lede">@PhotoText.ExplicitIntro</p>
+    @if (settings is null) { <p role="status">Loading…</p> }
+    else
+    {
+        @if (!settings.IdVerified)
+        {
+            <p class="ph-banner" data-explicit-needs-id>@PhotoText.ExplicitNeedsId <a class="button button-small" href="/me/verification">Verify your ID</a></p>
+        }
+        <div>
+            @foreach (var (mode, on) in settings.Modes)
+            {
+                <label class="ph-switch-row"><span>@Label(mode)</span>
+                    <input type="checkbox" class="ph-switch" checked="@on" disabled="@(busy || !settings.IdVerified && !on)" @onchange="e => SetAsync(mode, e.Value is true)" data-explicit-mode="@mode" /></label>
+            }
+        </div>
+        <p class="field-help">@PhotoText.ExplicitBlocked</p>
+        <p role="status" aria-live="polite" class="ph-status">@message</p>
+    }
+</section>
+@code {
+    private ExplicitMediaSettings? settings;
+    private List<ConnectionModeView> modes = [];
+    private bool busy;
+    private string? message;
+
+    private string Label(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Members.ModesAsync() is { Ok: true } catalogue) modes = catalogue.Value!.ToList();
+        settings = (await Members.ExplicitMediaAsync()).Value;
+    }
+
+    private async Task SetAsync(string mode, bool on)
+    {
+        busy = true;
+        var result = await Members.SetExplicitMediaAsync(mode, on);
+        busy = false;
+        if (result.Ok) { settings = result.Value; message = $"Explicit media {(on ? "on" : "off")} in {Label(mode)}."; }
+        else message = PhotoText.Refusal(result.Code);
+    }
+}

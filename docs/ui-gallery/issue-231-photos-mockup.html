@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photos Page Mockup</title>
+<!--
+  Issue #231 review mockup: redesign of the member Photos page (/me/photos) with private albums.
+  Screens: Photos (modes, private albums, library, decisions), Album, Upload, Photo viewer, Add-to-mode picker,
+  Photo appeal, and sharing an album in a chat.
+  Static, offline, fictional adult member. Nothing here calls the API. Photos are drawn shapes, not real images.
+  Tokens: Standard light/dark from src/Swoovr.Web/wwwroot/themes.css (generated from docs/design/themes.json).
+  Shell, header, settings nav and logo copied from docs/ui-gallery/issue-217-safety-standing-mockup.html.
+  Breakpoints are container queries so the review bar's Desktop / Tablet / Phone frame shows the real responsive layout.
+-->
+<style>
+:root[data-theme="light"] { --bg:#FAFAFA; --surface:#FFFFFF; --text:#0A0A0A; --muted:#6B6B6B; --primary:#0A0A0A; --onPrimary:#FAFAFA; --soft:#F4F4F4; --softText:#0A0A0A; --border:#E5E5E5; color-scheme:light; }
+:root[data-theme="dark"]  { --bg:#0A0A0A; --surface:#161616; --text:#F5F5F5; --muted:#A3A3A3; --primary:#F5F5F5; --onPrimary:#0A0A0A; --soft:#1F1F1F; --softText:#F5F5F5; --border:#2A2A2A; color-scheme:dark; }
+:root {
+  --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono:ui-monospace, "SF Mono", Menlo, monospace;
+  --scrim:color-mix(in srgb, var(--text) 40%, transparent);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="dark"] { --scrim:color-mix(in srgb, #000 72%, transparent); }
+* { box-sizing:border-box; }
+html { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+body { margin:0; background:color-mix(in srgb, var(--bg) 92%, var(--text)); color:var(--text); font:400 .9375rem/1.4 var(--font); }
+h1,h2,h3,p,dl,dd,figure { margin:0; }
+a { color:inherit; }
+button { font:inherit; color:inherit; }
+[hidden] { display:none !important; }
+.icon { width:20px; height:20px; flex:none; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+/* ---------- Review chrome (not part of the app) ---------- */
+.review { position:sticky; top:0; z-index:80; display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); font:400 .8125rem/1.3 var(--font); }
+.review strong { font-weight:700; }
+.review-group { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.review-group > span, .review-group > label { color:var(--muted); margin-right:4px; text-transform:uppercase; letter-spacing:.3px; font-size:.6875rem; }
+.review select { min-height:34px; padding:4px 30px 4px 12px; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text); font:600 .8125rem/1 var(--font); width:auto; }
+.seg { display:inline-flex; padding:3px; gap:2px; border-radius:999px; background:var(--soft); }
+.seg button { border:0; background:none; padding:6px 12px; border-radius:999px; font:600 .8125rem/1 var(--font); color:var(--muted); cursor:pointer; }
+.seg button[aria-pressed="true"] { background:var(--surface); color:var(--text); box-shadow:0 0 0 1px var(--border); }
+.seg button:focus-visible, .review select:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.review-end { margin-left:auto; }
+.stage { padding:24px 16px 64px; display:flex; justify-content:center; }
+.frame { width:100%; max-width:1440px; background:var(--bg); border:1px solid var(--border); border-radius:12px; overflow:hidden; position:relative; container:app / inline-size; transition:max-width .25s var(--ease); }
+.frame[data-viewport="tablet"] { max-width:820px; height:1180px; }
+.frame[data-viewport="phone"] { max-width:390px; height:844px; border-radius:28px; }
+.frame[data-viewport="tablet"] .app, .frame[data-viewport="phone"] .app { height:100%; overflow-y:auto; }
+.notes { max-width:1440px; margin:0 auto 24px; padding:0 16px; }
+.notes-inner { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; display:grid; gap:20px; }
+.notes h2 { font:700 1.25rem/1.3 var(--font); }
+.notes h3 { font:700 .9375rem/1.3 var(--font); margin-bottom:6px; }
+.notes ul { margin:0; padding-left:18px; display:grid; gap:4px; }
+.notes li { font:400 .875rem/1.5 var(--font); }
+.notes code { font:400 .8125rem/1 var(--mono); background:var(--soft); padding:2px 5px; border-radius:6px; }
+.notes-grid { display:grid; gap:20px; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); }
+.label { display:inline-block; font:700 .6875rem/1.6 var(--font); letter-spacing:.3px; padding:0 6px; border-radius:6px; border:1px solid var(--border); margin-right:4px; }
+
+/* ---------- App frame: header, tab bar, menu (issue 217 shell) ---------- */
+.app { min-height:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; grid-template-rows:auto 1fr auto; }
+.app-header { grid-column:1 / -1; grid-row:1; display:flex; align-items:center; min-height:64px; padding:0 24px; border-bottom:1px solid var(--border); background:var(--surface); }
+.brand { display:inline-flex; color:var(--text); }
+.logo { display:block; width:132px; height:auto; aspect-ratio:1160 / 360; }
+.app > .tab-bar { grid-column:2; grid-row:1; align-self:center; display:flex; gap:4px; padding-right:24px; z-index:1; }
+.menu-button { grid-column:3; grid-row:1; align-self:center; margin-right:16px; z-index:1; display:none; align-items:center; justify-content:center; width:44px; height:44px; border:1px solid var(--border); border-radius:12px; background:var(--surface); cursor:pointer; }
+.menu-button:focus-visible, .brand:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.tab { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 12px; color:var(--muted); font:400 .875rem/1.2 var(--font); text-decoration:none; border-radius:10px; }
+.tab[aria-current="page"] { color:var(--text); font-weight:700; }
+.tab[aria-current="page"] .icon { stroke-width:2.25; }
+main { grid-column:1 / -1; width:100%; max-width:1328px; margin:0 auto; padding:30px 24px 56px; }
+.app-footer { grid-column:1 / -1; padding:20px 24px 28px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:6px 16px; font:400 .75rem/1.6 var(--font); color:var(--muted); justify-content:center; }
+.app-footer a { text-decoration:none; }
+.app[data-shell="settings"] .menu-button { display:none; }
+@container app (max-width:899px) { .app[data-shell="settings"] .menu-button { display:inline-flex; } }
+@container app (max-width:759px) {
+  .app { grid-template-rows:auto 1fr auto auto; }
+  .app-header { min-height:56px; padding:0 16px; }
+  .logo { width:112px; }
+  .menu-button { margin-right:12px; }
+  .app > .tab-bar { grid-column:1 / -1; grid-row:4; align-self:end; padding:10px 0 14px; position:sticky; bottom:0; justify-content:space-around; gap:0; border-top:1px solid var(--border); background:var(--surface); z-index:5; }
+  .tab { flex:1 1 0; max-width:80px; flex-direction:column; gap:4px; padding:0; font:400 .6875rem/1.3 var(--font); text-align:center; }
+  .tab .icon { width:22px; height:22px; }
+  main { padding:20px 16px 40px; }
+  .app-footer { display:none; }
+}
+
+/* Overlays: drawer, dialogs, viewer. Fixed on desktop, inside the device frame on tablet and phone. */
+.overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; padding:24px; background:var(--scrim); }
+.frame[data-viewport="tablet"] .overlay, .frame[data-viewport="phone"] .overlay { position:absolute; }
+.drawer { justify-content:flex-end; align-items:stretch; padding:0; }
+.drawer-panel { width:min(340px, 88%); height:100%; overflow-y:auto; background:var(--surface); border-left:1px solid var(--border); padding:12px 12px 24px; display:grid; align-content:start; gap:8px; }
+.drawer-head, .dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.drawer-head { padding:4px 4px 8px 12px; }
+.drawer-head h2, .dialog-head h2 { font:700 1.125rem/1.3 var(--font); }
+.icon-button { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border:0; border-radius:12px; background:none; color:var(--muted); cursor:pointer; flex:none; }
+.icon-button:hover { color:var(--text); background:var(--soft); }
+.icon-button:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.dialog { width:min(560px, 100%); max-height:calc(100% - 16px); overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:16px 20px 20px; display:grid; gap:16px; container:card / inline-size; }
+.dialog-wide { width:min(760px, 100%); }
+.dialog-foot { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; padding-top:4px; }
+@container app (max-width:759px) {
+  .overlay:not(.drawer):not(.viewer) { align-items:flex-end; padding:0; }
+  .overlay:not(.drawer):not(.viewer) .dialog { border-radius:20px 20px 0 0; max-height:92%; border-bottom:0; }
+  .dialog-foot .btn { flex:1 1 0; }
+}
+
+/* ---------- Settings shell (issue 180) ---------- */
+.settings-shell { display:grid; gap:24px; align-items:start; }
+.settings-nav { display:none; }
+.nav-list { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.nav-list a { display:flex; align-items:center; gap:12px; min-height:44px; padding:0 12px; border-radius:10px; text-decoration:none; color:var(--muted); font:500 .9375rem/1.3 var(--font); }
+.nav-list a:hover { color:var(--text); background:var(--soft); }
+.nav-list a[aria-current="page"] { color:var(--text); background:var(--soft); font-weight:700; box-shadow:inset 3px 0 0 var(--text); }
+.nav-list a:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.settings-main { min-width:0; display:grid; gap:16px; align-content:start; container:page / inline-size; }
+@container app (min-width:900px) {
+  .settings-shell { grid-template-columns:240px minmax(0,1fr); gap:40px; }
+  .settings-nav { display:block; position:sticky; top:24px; }
+}
+
+/* ---------- Shared components ---------- */
+.page-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px; }
+.page-head h1 { font:700 clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem)/1.1 var(--font); letter-spacing:-.8px; }
+.back { display:inline-flex; align-items:center; gap:6px; min-height:36px; margin-bottom:-4px; color:var(--muted); text-decoration:none; font:600 .875rem/1 var(--font); }
+.back .icon { width:18px; height:18px; transform:rotate(180deg); }
+.back:hover { color:var(--text); }
+.back:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.card { margin:0; padding:24px; border:1px solid var(--border); border-radius:18px; background:var(--surface); min-width:0; container:card / inline-size; display:grid; gap:14px; align-content:start; }
+.card-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.card-title { display:flex; align-items:center; gap:10px; font:700 1.125rem/1.3 var(--font); }
+.card-title .icon { color:var(--muted); }
+.muted { color:var(--muted); }
+.small { font:400 .875rem/1.5 var(--font); }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:0 20px; border-radius:14px; border:1px solid var(--primary); background:var(--primary); color:var(--onPrimary); font:600 .9375rem/1 var(--font); text-decoration:none; cursor:pointer; white-space:nowrap; }
+.btn:active { transform:scale(.98); }
+.btn-secondary { background:var(--surface); color:var(--text); border-color:var(--border); }
+.btn-secondary:hover { border-color:var(--text); }
+.btn-pill { min-height:40px; padding:0 16px; border-radius:999px; font-size:.875rem; }
+.btn-xs { min-height:30px; padding:0 10px; border-radius:999px; font-size:.75rem; gap:4px; }
+.btn-xs .icon { width:14px; height:14px; }
+.btn:disabled { opacity:.4; cursor:default; }
+.btn:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, .chip:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.btn .icon { width:18px; height:18px; }
+.actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.tag { display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:999px; background:var(--soft); color:var(--softText); font:600 .75rem/1.5 var(--font); white-space:nowrap; }
+.tag-quiet { background:transparent; border:1px solid var(--border); color:var(--muted); padding:1px 9px; }
+.tag-ink { background:var(--text); color:var(--bg); }
+.field { display:grid; gap:8px; min-width:0; }
+.field > label, legend { font:600 .875rem/1.3 var(--font); }
+select, textarea, input[type=text] { width:100%; min-height:48px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background:var(--surface); color:var(--text); font:400 1rem/1.4 var(--font); }
+textarea { min-height:120px; resize:vertical; }
+fieldset { border:0; margin:0; padding:0; display:grid; gap:10px; min-width:0; }
+.choice { display:flex; align-items:flex-start; gap:10px; font:400 .9375rem/1.4 var(--font); padding:12px 14px; border:1px solid var(--border); border-radius:14px; cursor:pointer; }
+.choice:has(input:checked) { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); }
+.choice input { width:18px; height:18px; accent-color:var(--primary); margin:1px 0 0; flex:none; }
+.choice strong { display:block; font-weight:600; }
+.choice span span { display:block; color:var(--muted); font-size:.8125rem; margin-top:2px; }
+.foot-note { font:400 .8125rem/1.5 var(--font); color:var(--muted); }
+.chips { display:flex; flex-wrap:wrap; gap:8px; }
+.chip { display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text); font:600 .8125rem/1 var(--font); cursor:pointer; white-space:nowrap; }
+.chip[aria-pressed="true"] { background:var(--text); color:var(--bg); border-color:var(--text); }
+.chip .count { font-weight:400; opacity:.7; }
+.status { font:400 .875rem/1.4 var(--font); color:var(--muted); min-height:1.4em; }
+
+/* ---------- Photos page ---------- */
+/* #231: the rules line spans the full content width; no narrow container, no forced wrapping. */
+.rules { display:flex; gap:10px; align-items:flex-start; width:100%; padding:12px 16px; border-radius:14px; background:var(--soft); color:var(--softText); font:400 .875rem/1.5 var(--font); }
+.rules .icon { width:18px; height:18px; margin-top:1px; color:var(--muted); }
+.usage { display:grid; gap:8px; }
+.usage-line { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 16px; font:400 .875rem/1.4 var(--font); }
+.usage-line strong { font-weight:700; font-variant-numeric:tabular-nums; }
+.meter { height:8px; border-radius:999px; background:var(--soft); overflow:hidden; display:flex; }
+.meter span { display:block; height:100%; background:var(--text); }
+.meter span + span { background:color-mix(in srgb, var(--text) 45%, var(--surface)); }
+.legend { display:flex; flex-wrap:wrap; gap:4px 16px; font:400 .75rem/1.4 var(--font); color:var(--muted); }
+.legend i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; background:var(--text); }
+.legend i.alt { background:color-mix(in srgb, var(--text) 45%, var(--surface)); }
+.banner { display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px; padding:16px 20px; border-radius:16px; border:2px solid var(--text); background:var(--surface); }
+.banner p { flex:1 1 240px; }
+
+.mode-tabs { display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding:2px; margin:-2px; }
+.mode-tabs::-webkit-scrollbar { display:none; }
+.mode-head { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:4px 16px; }
+.mode-head h3 { font:700 1rem/1.3 var(--font); }
+.count { font:600 .8125rem/1.3 var(--font); color:var(--muted); font-variant-numeric:tabular-nums; }
+
+/* Photo tiles */
+.grid { list-style:none; margin:0; padding:0; display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); }
+@container card (max-width:479px) { .grid { grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; } }
+.tile { position:relative; display:grid; gap:6px; min-width:0; }
+.tile[draggable="true"] .shot { cursor:grab; }
+.tile.dragging { opacity:.4; }
+.tile.drop-target .shot { outline:2px dashed var(--text); outline-offset:2px; }
+.shot { position:relative; display:block; width:100%; aspect-ratio:3 / 4; border-radius:12px; overflow:hidden; border:0; padding:0; background:var(--soft); cursor:zoom-in; }
+.shot svg { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.shot:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.shot.blurred svg { filter:blur(14px) saturate(.7); transform:scale(1.2); }
+.shot.checking svg { opacity:.55; }
+.veil { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:8px; text-align:center; color:#fff; font:600 .75rem/1.3 var(--font); background:rgba(0,0,0,.28); }
+.veil .icon { width:22px; height:22px; }
+.badge { position:absolute; left:6px; top:6px; display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; background:rgba(10,10,10,.78); color:#fff; font:700 .6875rem/1.5 var(--font); }
+.badge.light { background:rgba(255,255,255,.92); color:#0A0A0A; }
+.badge .icon { width:12px; height:12px; }
+.order { position:absolute; left:6px; bottom:6px; min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:rgba(10,10,10,.6); color:#fff; font:700 .6875rem/22px var(--font); text-align:center; }
+.x { position:absolute; right:6px; top:6px; width:32px; height:32px; border-radius:50%; border:0; display:inline-flex; align-items:center; justify-content:center; background:rgba(10,10,10,.7); color:#fff; cursor:pointer; }
+.x .icon { width:16px; height:16px; stroke-width:2; }
+.x:focus-visible { outline:2px solid #fff; outline-offset:-4px; }
+.tile-meta { display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:0; }
+.tile-meta .where { font:400 .75rem/1.3 var(--font); color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.add-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:100%; aspect-ratio:3 / 4; border-radius:12px; border:1.5px dashed var(--border); background:none; color:var(--muted); font:600 .8125rem/1.3 var(--font); cursor:pointer; }
+.add-tile:hover { color:var(--text); border-color:var(--text); }
+.add-tile:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+.add-tile .icon { width:24px; height:24px; }
+.add-tile:disabled { opacity:.4; cursor:default; }
+.empty { padding:20px; border-radius:14px; border:1.5px dashed var(--border); color:var(--muted); font:400 .875rem/1.5 var(--font); text-align:center; }
+
+/* Albums */
+.albums { list-style:none; margin:0; padding:0; display:grid; gap:12px; grid-template-columns:repeat(4, minmax(0,1fr)); }
+@container card (max-width:719px) { .albums { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+.album { display:grid; gap:8px; text-align:left; padding:0; border:0; background:none; cursor:pointer; min-width:0; width:100%; }
+.album:focus-visible { outline:2px solid var(--text); outline-offset:4px; border-radius:14px; }
+.cover { position:relative; aspect-ratio:1; border-radius:14px; overflow:hidden; background:var(--soft); display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:2px; }
+.cover > span { position:relative; overflow:hidden; background:color-mix(in srgb, var(--muted) 18%, var(--surface)); }
+.cover svg { position:absolute; inset:0; width:100%; height:100%; }
+.cover.blurred svg { filter:blur(10px) saturate(.7); transform:scale(1.25); }
+.cover-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; aspect-ratio:1; border-radius:14px; border:1.5px dashed var(--border); color:var(--muted); font:600 .8125rem/1.3 var(--font); }
+.album-name { font:700 .9375rem/1.3 var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.album-meta { font:400 .75rem/1.4 var(--font); color:var(--muted); }
+.cover > .lock, .lock { position:absolute; right:8px; bottom:8px; width:28px; height:28px; border-radius:50%; background:rgba(10,10,10,.7); color:#fff; display:inline-flex; align-items:center; justify-content:center; }
+.lock .icon { width:15px; height:15px; }
+
+/* Decisions */
+.items { list-style:none; margin:0; padding:0; }
+.item { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px 16px; padding:14px 0; border-top:1px solid var(--border); }
+.items > .item:first-child { border-top:0; padding-top:2px; }
+.item-thumb { width:56px; }
+.item-thumb .shot { border-radius:10px; }
+.item-main { min-width:0; display:grid; gap:3px; }
+.item-line { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+.item-title { font:600 .9375rem/1.4 var(--font); }
+.item-meta { font:400 .8125rem/1.45 var(--font); color:var(--muted); }
+@container card (max-width:479px) { .item { grid-template-columns:auto minmax(0,1fr); } .item .item-action { grid-column:2; justify-self:start; } }
+
+/* Two-column page body on wide screens */
+.photos-cols { display:grid; gap:16px; align-items:start; }
+.col { display:grid; gap:16px; min-width:0; align-content:start; }
+
+/* Album page */
+.album-settings { display:grid; gap:14px; }
+.switch-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; border-top:1px solid var(--border); }
+.switch-row:first-of-type { border-top:0; }
+.switch { appearance:none; width:44px; height:26px; border-radius:999px; background:var(--border); position:relative; cursor:pointer; flex:none; margin:0; transition:background .15s; }
+.switch::after { content:""; position:absolute; left:3px; top:3px; width:20px; height:20px; border-radius:50%; background:var(--surface); box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .15s var(--ease); }
+.switch:checked { background:var(--text); }
+.switch:checked::after { transform:translateX(18px); }
+.switch:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+
+/* Viewer (lightbox) */
+.viewer { padding:24px; }
+.viewer-panel { width:min(980px, 100%); max-height:100%; display:grid; grid-template-columns:minmax(0,1fr) 300px; background:var(--surface); border:1px solid var(--border); border-radius:20px; overflow:hidden; }
+.viewer-stage { position:relative; background:#0A0A0A; display:flex; align-items:center; justify-content:center; min-height:0; }
+.viewer-stage .shot { width:auto; height:min(76vh, 760px); max-width:100%; border-radius:0; cursor:default; }
+.frame[data-viewport="tablet"] .viewer-stage .shot, .frame[data-viewport="phone"] .viewer-stage .shot { height:auto; width:100%; max-height:60vh; }
+.viewer-nav { position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,.9); color:#0A0A0A; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+.viewer-nav.prev { left:12px; } .viewer-nav.prev .icon { transform:rotate(180deg); }
+.viewer-nav.next { right:12px; }
+.viewer-nav:disabled { opacity:.3; cursor:default; }
+.viewer-side { padding:16px 20px 20px; display:grid; gap:14px; align-content:start; overflow-y:auto; container:card / inline-size; }
+.viewer-side dl { display:grid; gap:10px; }
+.viewer-side dt { font:400 .75rem/1.3 var(--font); color:var(--muted); }
+.viewer-side dd { font:600 .875rem/1.4 var(--font); }
+.viewer-actions { display:grid; gap:8px; }
+.viewer-actions .btn { width:100%; justify-content:flex-start; }
+/* Centred without transform: .btn:active's scale() would replace a translate and make the button jump on press. */
+.reveal { position:absolute; left:0; right:0; bottom:16px; margin:0 auto; width:max-content; }
+.viewer-actions .btn { white-space:normal; text-align:left; min-width:0; }
+.viewer-side { overflow-x:hidden; }
+@container app (max-width:899px) {
+  .viewer { padding:0; }
+  .viewer-panel { grid-template-columns:1fr; height:100%; width:100%; border-radius:0; border:0; grid-template-rows:auto 1fr; }
+}
+
+/* Upload */
+.drop { display:grid; justify-items:center; gap:10px; padding:28px 16px; border:1.5px dashed var(--border); border-radius:16px; text-align:center; }
+.drop .icon { width:28px; height:28px; color:var(--muted); }
+
+/* Chat */
+.chat { display:grid; grid-template-rows:auto 1fr auto; min-height:560px; border:1px solid var(--border); border-radius:18px; background:var(--surface); overflow:hidden; position:relative; }
+.chat-head { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); }
+.avatar { width:40px; height:40px; border-radius:50%; overflow:hidden; position:relative; flex:none; background:var(--soft); }
+.avatar svg { position:absolute; inset:0; width:100%; height:100%; }
+.chat-body { padding:16px; display:grid; gap:10px; align-content:end; }
+.bubble { max-width:72%; padding:10px 14px; border-radius:18px; font:400 .9375rem/1.4 var(--font); background:var(--soft); justify-self:start; }
+.bubble.me { justify-self:end; background:var(--text); color:var(--bg); }
+.share-card { justify-self:end; width:min(300px, 86%); border:1px solid var(--border); border-radius:18px; overflow:hidden; background:var(--surface); }
+.share-card .cover { border-radius:0; aspect-ratio:2 / 1; grid-template-columns:repeat(4, 1fr); grid-template-rows:1fr; }
+.share-body { padding:10px 14px 12px; display:grid; gap:6px; }
+.composer { display:flex; align-items:center; gap:8px; padding:10px 12px; border-top:1px solid var(--border); }
+.composer input { flex:1; min-height:44px; border-radius:999px; }
+.sheet-list { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.sheet-list button { width:100%; display:flex; align-items:center; gap:12px; padding:8px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer; text-align:left; }
+.sheet-list button:hover { border-color:var(--text); }
+.sheet-list .cover { width:56px; flex:none; border-radius:10px; }
+
+.toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:90; padding:10px 18px; border-radius:999px; background:var(--text); color:var(--bg); font:600 .875rem/1.3 var(--font); }
+.frame[data-viewport="tablet"] .toast, .frame[data-viewport="phone"] .toast { position:absolute; bottom:96px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 1160 360"><path fill="currentColor" fill-rule="evenodd" transform="translate(20.00000 18.00000) scale(1.000000)" d="M139 0C153.755264 7.892353 168.569412 15.313709 182.947464 22.516602C252.37085 57.295238 311.627411 86.980667 305 140C304.202057 150.107193 301.06955 159.719162 296.279846 168.835938C297.106506 168.971268 298.010498 169.491089 298.900879 170.167953C327.374664 144.083389 345.228699 148.062378 367 154C373 156 378 156 384 156C355 164 350 185 339 207C310 270 226 282 97 324C153.7 289.85 197.8 257.1 233.4 227.7C236.604 225.054 238.45 222.35 239.85 218.65C260.85 163.15 218.0 80.86 139 0ZM77 137C120 159 205 163 226 192C259.219879 239.585236 132.02446 263.793365 32.588951 282.71817C21.274101 284.871643 10.3187 286.956696 0 289C79 260 166 226 180 207C188.996353 193.205597 164.180161 181.929153 134.46019 168.424454C114.626785 159.41217 92.609497 149.407547 77 137Z"/><path fill="currentColor" fill-rule="evenodd" transform="translate(441.09677 152.04839) scale(1.112903)" d="M 39.100,10.786 C 39.865,10.617 40.656,10.472 41.479,10.418 C 42.301,10.363 43.193,10.438 44.034,10.461 C 44.876,10.483 45.699,10.534 46.527,10.552 C 47.355,10.570 48.166,10.579 49.000,10.567 C 49.835,10.554 50.688,10.504 51.535,10.476 C 52.382,10.447 53.245,10.395 54.084,10.395 C 54.923,10.395 55.765,10.397 56.569,10.476 C 57.374,10.555 58.144,10.712 58.913,10.869 C 59.682,11.025 60.402,11.282 61.182,11.415 C 61.962,11.548 62.827,11.497 63.593,11.667 C 64.360,11.837 65.048,12.189 65.781,12.437 C 66.513,12.685 67.251,12.915 67.988,13.157 C 68.724,13.399 69.482,13.603 70.200,13.888 C 70.917,14.173 71.600,14.523 72.292,14.866 C 72.984,15.210 73.654,15.604 74.350,15.951 C 75.047,16.298 75.785,16.589 76.470,16.948 C 77.154,17.307 77.799,17.693 78.459,18.106 C 79.118,18.519 79.770,18.965 80.427,19.425 C 81.085,19.885 81.850,20.317 82.403,20.866 C 82.957,21.416 83.419,22.033 83.749,22.723 C 84.079,23.414 84.238,24.212 84.385,25.010 C 84.532,25.808 84.608,26.677 84.633,27.510 C 84.657,28.343 84.631,29.206 84.532,30.009 C 84.433,30.811 84.285,31.593 84.036,32.325 C 83.787,33.057 83.440,33.735 83.038,34.399 C 82.636,35.063 82.095,35.662 81.625,36.310 C 81.155,36.958 80.739,37.676 80.218,38.288 C 79.696,38.900 79.138,39.517 78.495,39.979 C 77.851,40.442 77.078,40.759 76.357,41.060 C 75.637,41.362 74.902,41.565 74.172,41.787 C 73.443,42.009 72.721,42.382 71.982,42.393 C 71.244,42.405 70.471,42.106 69.741,41.856 C 69.012,41.605 68.289,41.264 67.606,40.891 C 66.923,40.518 66.294,40.054 65.641,39.617 C 64.989,39.180 64.348,38.699 63.689,38.269 C 63.030,37.838 62.370,37.403 61.687,37.034 C 61.004,36.665 60.307,36.345 59.592,36.057 C 58.878,35.770 58.135,35.563 57.399,35.308 C 56.662,35.054 55.947,34.663 55.173,34.531 C 54.398,34.399 53.579,34.515 52.753,34.516 C 51.926,34.518 51.063,34.555 50.213,34.540 C 49.364,34.526 48.495,34.443 47.654,34.427 C 46.813,34.412 45.969,34.373 45.168,34.448 C 44.367,34.523 43.587,34.644 42.847,34.877 C 42.107,35.110 41.421,35.502 40.725,35.845 C 40.029,36.188 39.252,36.447 38.668,36.933 C 38.085,37.419 37.580,38.077 37.223,38.759 C 36.866,39.442 36.631,40.255 36.526,41.028 C 36.422,41.802 36.446,42.632 36.598,43.402 C 36.751,44.173 37.047,44.971 37.442,45.651 C 37.836,46.330 38.381,46.959 38.966,47.479 C 39.551,48.000 40.271,48.390 40.951,48.774 C 41.630,49.159 42.336,49.481 43.044,49.787 C 43.753,50.092 44.471,50.359 45.204,50.608 C 45.936,50.857 46.682,51.087 47.438,51.280 C 48.195,51.472 48.989,51.567 49.743,51.764 C 50.497,51.962 51.227,52.218 51.961,52.465 C 52.694,52.713 53.391,53.048 54.144,53.248 C 54.897,53.447 55.723,53.473 56.479,53.664 C 57.236,53.855 57.950,54.149 58.685,54.393 C 59.419,54.637 60.153,54.883 60.887,55.129 C 61.621,55.375 62.354,55.627 63.089,55.868 C 63.825,56.110 64.575,56.315 65.302,56.576 C 66.030,56.837 66.751,57.113 67.453,57.436 C 68.156,57.759 68.829,58.161 69.519,58.514 C 70.208,58.867 70.895,59.214 71.589,59.555 C 72.283,59.895 72.990,60.202 73.681,60.557 C 74.373,60.912 75.064,61.292 75.737,61.684 C 76.409,62.077 77.066,62.476 77.717,62.911 C 78.367,63.346 79.006,63.793 79.640,64.296 C 80.274,64.798 80.921,65.350 81.521,65.925 C 82.121,66.500 82.717,67.119 83.240,67.745 C 83.762,68.371 84.206,69.030 84.654,69.680 C 85.103,70.329 85.514,70.980 85.932,71.641 C 86.349,72.302 86.802,72.958 87.158,73.648 C 87.514,74.337 87.785,75.058 88.066,75.777 C 88.348,76.496 88.609,77.224 88.846,77.961 C 89.084,78.699 89.393,79.411 89.492,80.205 C 89.590,80.999 89.385,81.915 89.440,82.727 C 89.495,83.538 89.630,84.310 89.821,85.074 C 90.013,85.839 90.562,86.559 90.586,87.313 C 90.611,88.066 90.156,88.831 89.970,89.596 C 89.784,90.361 89.573,91.110 89.470,91.902 C 89.368,92.695 89.487,93.573 89.354,94.352 C 89.221,95.132 88.916,95.846 88.672,96.581 C 88.429,97.316 88.138,98.031 87.893,98.765 C 87.648,99.498 87.546,100.284 87.203,100.981 C 86.860,101.678 86.274,102.296 85.837,102.947 C 85.400,103.599 85.006,104.235 84.581,104.890 C 84.156,105.546 83.756,106.229 83.286,106.883 C 82.816,107.536 82.310,108.209 81.760,108.810 C 81.210,109.410 80.611,109.979 79.986,110.486 C 79.361,110.993 78.659,111.381 78.010,111.850 C 77.360,112.318 76.723,112.813 76.089,113.297 C 75.455,113.780 74.871,114.347 74.205,114.752 C 73.540,115.156 72.812,115.430 72.095,115.723 C 71.378,116.015 70.626,116.229 69.905,116.507 C 69.184,116.784 68.480,117.088 67.769,117.387 C 67.057,117.685 66.379,118.072 65.636,118.298 C 64.894,118.524 64.070,118.551 63.313,118.742 C 62.556,118.932 61.870,119.298 61.094,119.441 C 60.318,119.584 59.428,119.448 58.655,119.601 C 57.882,119.753 57.230,120.195 56.458,120.356 C 55.685,120.517 54.844,120.546 54.021,120.567 C 53.199,120.589 52.359,120.505 51.522,120.486 C 50.685,120.468 49.841,120.453 48.999,120.458 C 48.157,120.462 47.312,120.498 46.472,120.515 C 45.632,120.532 44.791,120.564 43.961,120.560 C 43.130,120.557 42.299,120.554 41.486,120.494 C 40.674,120.434 39.861,120.350 39.086,120.199 C 38.311,120.047 37.615,119.722 36.837,119.585 C 36.059,119.448 35.211,119.478 34.418,119.377 C 33.624,119.275 32.837,119.152 32.074,118.976 C 31.311,118.799 30.591,118.523 29.840,118.318 C 29.089,118.113 28.311,117.972 27.569,117.746 C 26.826,117.521 26.092,117.277 25.385,116.965 C 24.679,116.653 24.023,116.216 23.329,115.873 C 22.636,115.530 21.943,115.189 21.224,114.907 C 20.504,114.625 19.710,114.523 19.014,114.184 C 18.318,113.845 17.698,113.317 17.048,112.874 C 16.398,112.432 15.777,111.956 15.114,111.529 C 14.452,111.101 13.723,110.767 13.072,110.310 C 12.421,109.854 11.768,109.364 11.208,108.788 C 10.648,108.211 10.157,107.508 9.712,106.851 C 9.267,106.194 8.871,105.545 8.540,104.847 C 8.209,104.148 7.903,103.419 7.724,102.659 C 7.545,101.899 7.400,101.059 7.467,100.286 C 7.534,99.513 7.892,98.773 8.125,98.022 C 8.357,97.271 8.559,96.485 8.863,95.778 C 9.167,95.071 9.543,94.445 9.949,93.780 C 10.356,93.115 10.855,92.453 11.299,91.787 C 11.744,91.122 12.076,90.339 12.616,89.787 C 13.157,89.236 13.868,88.884 14.542,88.479 C 15.216,88.075 15.948,87.688 16.661,87.360 C 17.374,87.032 18.065,86.641 18.821,86.511 C 19.578,86.381 20.425,86.434 21.200,86.579 C 21.975,86.724 22.763,87.057 23.471,87.380 C 24.180,87.704 24.788,88.115 25.451,88.518 C 26.114,88.920 26.782,89.380 27.449,89.795 C 28.116,90.210 28.778,90.618 29.453,91.006 C 30.128,91.393 30.825,91.727 31.498,92.119 C 32.172,92.511 32.797,93.023 33.494,93.357 C 34.191,93.691 34.965,93.837 35.682,94.124 C 36.399,94.412 37.069,94.824 37.796,95.082 C 38.524,95.340 39.291,95.480 40.049,95.673 C 40.807,95.866 41.570,96.084 42.344,96.238 C 43.118,96.393 43.881,96.564 44.693,96.599 C 45.504,96.634 46.366,96.465 47.215,96.450 C 48.063,96.435 48.943,96.490 49.784,96.509 C 50.624,96.529 51.467,96.654 52.259,96.565 C 53.051,96.477 53.777,96.185 54.536,95.978 C 55.295,95.771 56.097,95.603 56.811,95.324 C 57.526,95.045 58.163,94.720 58.825,94.305 C 59.486,93.889 60.156,93.377 60.780,92.829 C 61.404,92.281 62.117,91.680 62.570,91.016 C 63.024,90.352 63.357,89.600 63.501,88.847 C 63.645,88.094 63.603,87.266 63.432,86.501 C 63.262,85.736 62.894,84.933 62.476,84.258 C 62.059,83.583 61.511,82.967 60.929,82.451 C 60.346,81.934 59.661,81.537 58.981,81.157 C 58.301,80.778 57.551,80.505 56.847,80.174 C 56.144,79.842 55.466,79.479 54.762,79.167 C 54.058,78.856 53.355,78.556 52.624,78.304 C 51.893,78.051 51.113,77.890 50.375,77.652 C 49.636,77.415 48.940,77.091 48.193,76.878 C 47.446,76.665 46.650,76.564 45.893,76.375 C 45.135,76.186 44.385,75.980 43.646,75.745 C 42.908,75.510 42.196,75.211 41.461,74.966 C 40.727,74.721 39.974,74.520 39.240,74.275 C 38.506,74.030 37.789,73.741 37.056,73.494 C 36.322,73.247 35.576,73.031 34.839,72.792 C 34.102,72.553 33.350,72.352 32.635,72.059 C 31.921,71.766 31.265,71.332 30.553,71.034 C 29.840,70.737 29.084,70.540 28.359,70.272 C 27.634,70.005 26.904,69.759 26.204,69.430 C 25.505,69.101 24.829,68.708 24.162,68.298 C 23.494,67.887 22.848,67.408 22.200,66.966 C 21.553,66.524 20.913,66.138 20.278,65.645 C 19.643,65.153 18.999,64.586 18.391,64.008 C 17.783,63.430 17.181,62.795 16.629,62.178 C 16.077,61.561 15.566,60.936 15.078,60.306 C 14.590,59.677 14.138,59.054 13.699,58.402 C 13.261,57.750 12.814,57.082 12.448,56.395 C 12.081,55.707 11.761,55.003 11.502,54.277 C 11.242,53.550 11.085,52.789 10.890,52.034 C 10.695,51.279 10.533,50.503 10.332,49.749 C 10.131,48.994 9.822,48.284 9.683,47.509 C 9.544,46.735 9.543,45.927 9.501,45.103 C 9.459,44.279 9.423,43.403 9.431,42.565 C 9.439,41.727 9.412,40.858 9.548,40.074 C 9.683,39.291 10.083,38.633 10.243,37.866 C 10.404,37.099 10.375,36.252 10.513,35.473 C 10.650,34.694 10.845,33.937 11.068,33.193 C 11.292,32.449 11.585,31.731 11.856,31.009 C 12.127,30.286 12.345,29.548 12.693,28.857 C 13.042,28.165 13.493,27.507 13.949,26.858 C 14.404,26.210 14.955,25.600 15.427,24.965 C 15.899,24.330 16.300,23.688 16.782,23.046 C 17.263,22.404 17.758,21.716 18.314,21.113 C 18.870,20.509 19.488,19.930 20.116,19.425 C 20.745,18.920 21.427,18.518 22.085,18.082 C 22.742,17.645 23.395,17.210 24.062,16.805 C 24.729,16.401 25.398,16.010 26.086,15.654 C 26.774,15.297 27.492,15.006 28.188,14.667 C 28.885,14.327 29.566,13.953 30.263,13.617 C 30.959,13.280 31.645,12.924 32.366,12.649 C 33.087,12.373 33.836,12.166 34.590,11.963 C 35.343,11.760 36.135,11.627 36.887,11.431 C 37.639,11.235 38.335,10.955 39.100,10.786 Z M 278.142,10.837 C 278.918,10.698 279.715,10.607 280.519,10.538 C 281.323,10.470 282.143,10.444 282.967,10.427 C 283.791,10.409 284.627,10.423 285.464,10.435 C 286.301,10.446 287.146,10.478 287.988,10.496 C 288.830,10.514 289.677,10.541 290.517,10.544 C 291.358,10.547 292.200,10.523 293.029,10.514 C 293.858,10.506 294.687,10.452 295.492,10.492 C 296.296,10.531 297.085,10.598 297.858,10.751 C 298.630,10.904 299.354,11.247 300.126,11.409 C 300.898,11.571 301.725,11.565 302.490,11.724 C 303.255,11.883 303.980,12.128 304.714,12.363 C 305.449,12.599 306.168,12.886 306.898,13.137 C 307.627,13.387 308.376,13.588 309.093,13.868 C 309.810,14.147 310.488,14.520 311.200,14.813 C 311.911,15.107 312.661,15.310 313.362,15.629 C 314.063,15.947 314.737,16.331 315.407,16.725 C 316.076,17.118 316.708,17.602 317.380,17.991 C 318.052,18.380 318.774,18.659 319.441,19.059 C 320.109,19.459 320.750,19.924 321.388,20.390 C 322.025,20.855 322.652,21.331 323.269,21.852 C 323.885,22.373 324.488,22.939 325.087,23.513 C 325.685,24.088 326.273,24.697 326.861,25.298 C 327.449,25.899 328.030,26.519 328.612,27.119 C 329.195,27.720 329.792,28.305 330.356,28.899 C 330.920,29.492 331.500,30.059 331.996,30.680 C 332.491,31.302 332.905,31.967 333.330,32.628 C 333.755,33.289 334.117,33.990 334.547,34.646 C 334.977,35.303 335.486,35.912 335.909,36.568 C 336.331,37.224 336.717,37.901 337.081,38.584 C 337.445,39.266 337.757,39.970 338.092,40.665 C 338.427,41.359 338.802,42.036 339.090,42.750 C 339.379,43.463 339.573,44.216 339.820,44.947 C 340.067,45.677 340.340,46.397 340.573,47.134 C 340.806,47.870 341.014,48.617 341.219,49.365 C 341.424,50.113 341.615,50.869 341.803,51.623 C 341.992,52.378 342.232,53.110 342.351,53.893 C 342.470,54.675 342.398,55.535 342.519,56.321 C 342.640,57.107 342.918,57.844 343.075,58.609 C 343.233,59.374 343.389,60.114 343.462,60.910 C 343.535,61.706 343.494,62.550 343.511,63.387 C 343.527,64.223 343.559,65.087 343.564,65.930 C 343.568,66.774 343.574,67.626 343.535,68.445 C 343.496,69.264 343.436,70.062 343.330,70.847 C 343.225,71.632 343.048,72.383 342.902,73.155 C 342.755,73.927 342.568,74.693 342.450,75.479 C 342.331,76.264 342.328,77.092 342.190,77.867 C 342.052,78.642 341.817,79.378 341.621,80.130 C 341.426,80.882 341.232,81.635 341.017,82.379 C 340.801,83.123 340.568,83.859 340.329,84.593 C 340.089,85.327 339.836,86.055 339.580,86.782 C 339.324,87.509 339.095,88.247 338.792,88.955 C 338.488,89.662 338.109,90.337 337.759,91.025 C 337.408,91.713 337.061,92.403 336.689,93.082 C 336.316,93.761 335.951,94.443 335.524,95.099 C 335.096,95.754 334.600,96.380 334.122,97.015 C 333.643,97.649 333.120,98.266 332.654,98.907 C 332.188,99.549 331.804,100.231 331.325,100.863 C 330.846,101.495 330.327,102.095 329.780,102.701 C 329.233,103.306 328.629,103.898 328.042,104.495 C 327.454,105.093 326.853,105.701 326.256,106.284 C 325.660,106.867 325.073,107.456 324.464,107.993 C 323.856,108.530 323.248,109.047 322.607,109.508 C 321.966,109.969 321.277,110.331 320.619,110.756 C 319.960,111.181 319.310,111.624 318.657,112.059 C 318.004,112.493 317.368,112.964 316.701,113.364 C 316.034,113.763 315.342,114.107 314.654,114.458 C 313.967,114.809 313.274,115.147 312.574,115.470 C 311.875,115.792 311.181,116.127 310.459,116.395 C 309.737,116.664 308.980,116.846 308.244,117.081 C 307.508,117.315 306.773,117.553 306.043,117.801 C 305.312,118.048 304.590,118.315 303.861,118.566 C 303.132,118.817 302.439,119.152 301.669,119.307 C 300.900,119.461 300.039,119.402 299.243,119.492 C 298.448,119.582 297.658,119.678 296.896,119.845 C 296.134,120.013 295.456,120.379 294.669,120.497 C 293.882,120.615 293.007,120.556 292.173,120.553 C 291.338,120.550 290.494,120.493 289.662,120.478 C 288.829,120.464 288.012,120.454 287.179,120.463 C 286.346,120.472 285.504,120.515 284.665,120.532 C 283.826,120.548 282.948,120.637 282.143,120.563 C 281.339,120.490 280.601,120.258 279.838,120.091 C 279.075,119.924 278.336,119.705 277.563,119.560 C 276.791,119.414 275.971,119.377 275.204,119.218 C 274.436,119.059 273.711,118.800 272.959,118.606 C 272.206,118.411 271.437,118.257 270.689,118.052 C 269.941,117.847 269.193,117.642 268.470,117.375 C 267.747,117.109 267.049,116.783 266.353,116.453 C 265.657,116.124 264.980,115.746 264.293,115.395 C 263.605,115.044 262.919,114.687 262.227,114.347 C 261.535,114.006 260.828,113.701 260.140,113.352 C 259.452,113.003 258.765,112.654 258.098,112.253 C 257.432,111.851 256.795,111.376 256.141,110.941 C 255.487,110.505 254.794,110.146 254.174,109.638 C 253.553,109.130 253.015,108.463 252.418,107.894 C 251.822,107.324 251.232,106.721 250.596,106.223 C 249.961,105.725 249.218,105.386 248.606,104.906 C 247.994,104.426 247.412,103.949 246.924,103.342 C 246.436,102.735 246.148,101.915 245.679,101.261 C 245.209,100.608 244.587,100.053 244.107,99.422 C 243.626,98.792 243.229,98.131 242.796,97.478 C 242.363,96.825 241.947,96.158 241.510,95.505 C 241.072,94.852 240.586,94.221 240.171,93.560 C 239.755,92.899 239.338,92.240 239.017,91.541 C 238.696,90.841 238.511,90.084 238.244,89.361 C 237.977,88.639 237.710,87.916 237.415,87.205 C 237.120,86.494 236.745,85.817 236.476,85.095 C 236.208,84.374 236.048,83.607 235.804,82.875 C 235.559,82.143 235.220,81.451 235.011,80.704 C 234.803,79.957 234.664,79.182 234.553,78.395 C 234.442,77.608 234.467,76.765 234.345,75.982 C 234.224,75.199 233.986,74.464 233.826,73.697 C 233.666,72.930 233.442,72.189 233.386,71.380 C 233.329,70.571 233.461,69.685 233.488,68.841 C 233.515,67.998 233.544,67.155 233.548,66.321 C 233.552,65.486 233.526,64.664 233.509,63.833 C 233.493,63.002 233.456,62.169 233.450,61.336 C 233.444,60.503 233.427,59.653 233.475,58.835 C 233.523,58.017 233.596,57.203 233.738,56.428 C 233.880,55.652 234.174,54.951 234.327,54.184 C 234.481,53.417 234.501,52.593 234.658,51.824 C 234.814,51.056 235.038,50.311 235.268,49.573 C 235.498,48.835 235.792,48.125 236.039,47.395 C 236.287,46.665 236.479,45.911 236.754,45.192 C 237.029,44.473 237.391,43.789 237.691,43.081 C 237.991,42.372 238.284,41.661 238.554,40.939 C 238.824,40.218 239.002,39.459 239.310,38.754 C 239.618,38.048 240.014,37.379 240.404,36.707 C 240.793,36.035 241.216,35.377 241.646,34.723 C 242.076,34.069 242.510,33.419 242.983,32.780 C 243.457,32.142 244.007,31.530 244.485,30.894 C 244.962,30.259 245.367,29.594 245.848,28.965 C 246.329,28.337 246.824,27.738 247.368,27.121 C 247.912,26.505 248.512,25.850 249.113,25.268 C 249.713,24.686 250.348,24.135 250.973,23.630 C 251.599,23.125 252.231,22.713 252.864,22.238 C 253.496,21.763 254.132,21.259 254.768,20.779 C 255.404,20.299 256.037,19.817 256.681,19.360 C 257.324,18.902 257.966,18.443 258.629,18.034 C 259.292,17.625 259.976,17.264 260.660,16.905 C 261.344,16.545 262.044,16.223 262.734,15.878 C 263.425,15.534 264.109,15.173 264.802,14.837 C 265.496,14.500 266.183,14.149 266.896,13.859 C 267.609,13.569 268.338,13.318 269.079,13.097 C 269.820,12.875 270.588,12.716 271.344,12.530 C 272.100,12.343 272.863,12.174 273.615,11.980 C 274.368,11.787 275.104,11.561 275.859,11.370 C 276.613,11.180 277.365,10.976 278.142,10.837 Z M 390.164,10.870 C 390.941,10.723 391.721,10.585 392.519,10.505 C 393.316,10.426 394.130,10.405 394.949,10.394 C 395.769,10.382 396.601,10.413 397.435,10.436 C 398.269,10.459 399.113,10.508 399.954,10.533 C 400.796,10.558 401.644,10.591 402.486,10.585 C 403.329,10.579 404.177,10.528 405.009,10.498 C 405.841,10.467 406.677,10.363 407.477,10.402 C 408.278,10.440 409.053,10.532 409.812,10.728 C 410.570,10.925 411.246,11.447 412.027,11.580 C 412.808,11.712 413.730,11.380 414.497,11.525 C 415.263,11.670 415.903,12.186 416.627,12.448 C 417.351,12.711 418.105,12.873 418.841,13.101 C 419.577,13.328 420.326,13.532 421.042,13.814 C 421.757,14.095 422.444,14.445 423.132,14.788 C 423.821,15.131 424.483,15.530 425.173,15.872 C 425.862,16.215 426.583,16.496 427.270,16.844 C 427.957,17.192 428.639,17.542 429.295,17.961 C 429.952,18.381 430.556,18.922 431.209,19.360 C 431.863,19.798 432.567,20.162 433.216,20.588 C 433.866,21.014 434.481,21.436 435.107,21.916 C 435.733,22.396 436.357,22.922 436.973,23.468 C 437.589,24.014 438.206,24.601 438.803,25.190 C 439.399,25.779 439.990,26.397 440.554,27.003 C 441.118,27.610 441.666,28.219 442.186,28.829 C 442.707,29.439 443.195,30.032 443.678,30.661 C 444.160,31.291 444.610,31.965 445.082,32.604 C 445.553,33.243 446.047,33.856 446.507,34.495 C 446.967,35.135 447.425,35.781 447.842,36.440 C 448.259,37.099 448.698,37.747 449.009,38.449 C 449.320,39.151 449.446,39.930 449.708,40.652 C 449.971,41.375 450.274,42.081 450.584,42.783 C 450.894,43.486 451.305,44.146 451.568,44.868 C 451.832,45.591 451.977,46.362 452.162,47.116 C 452.348,47.870 452.488,48.642 452.683,49.393 C 452.878,50.144 453.144,50.868 453.331,51.621 C 453.519,52.374 453.615,53.159 453.809,53.910 C 454.004,54.661 454.380,55.347 454.499,56.129 C 454.617,56.911 454.527,57.768 454.519,58.601 C 454.511,59.434 454.310,60.350 454.451,61.125 C 454.592,61.900 455.299,62.571 455.367,63.250 C 455.434,63.930 454.950,64.573 454.857,65.201 C 454.764,65.829 454.890,66.321 454.811,67.018 C 454.732,67.715 454.425,68.563 454.384,69.384 C 454.343,70.206 454.539,71.109 454.564,71.948 C 454.588,72.787 454.636,73.631 454.531,74.418 C 454.426,75.205 454.117,75.916 453.932,76.671 C 453.747,77.427 453.607,78.199 453.420,78.952 C 453.233,79.705 453.041,80.455 452.809,81.190 C 452.576,81.925 452.277,82.634 452.027,83.362 C 451.778,84.090 451.551,84.825 451.313,85.558 C 451.076,86.291 450.854,87.030 450.603,87.757 C 450.351,88.485 450.107,89.214 449.804,89.920 C 449.502,90.626 449.164,91.317 448.789,91.993 C 448.415,92.669 447.991,93.324 447.555,93.975 C 447.120,94.626 446.604,95.245 446.176,95.898 C 445.747,96.552 445.417,97.243 444.984,97.895 C 444.551,98.547 444.067,99.182 443.575,99.809 C 443.083,100.436 442.497,101.017 442.032,101.656 C 441.568,102.296 441.279,103.017 440.790,103.647 C 440.302,104.276 439.711,104.916 439.100,105.433 C 438.489,105.951 437.768,106.298 437.123,106.752 C 436.477,107.205 435.832,107.614 435.226,108.154 C 434.620,108.695 434.114,109.500 433.487,109.995 C 432.860,110.490 432.124,110.708 431.465,111.122 C 430.805,111.536 430.194,112.071 429.532,112.479 C 428.870,112.888 428.182,113.234 427.493,113.575 C 426.803,113.916 426.088,114.195 425.394,114.526 C 424.700,114.857 424.015,115.211 423.329,115.561 C 422.642,115.911 421.969,116.294 421.276,116.626 C 420.582,116.957 419.893,117.297 419.166,117.549 C 418.439,117.801 417.670,117.952 416.915,118.138 C 416.160,118.323 415.384,118.456 414.638,118.660 C 413.892,118.864 413.211,119.217 412.439,119.363 C 411.667,119.509 410.775,119.391 410.006,119.537 C 409.237,119.682 408.584,120.058 407.826,120.235 C 407.068,120.411 406.278,120.551 405.459,120.597 C 404.640,120.642 403.750,120.532 402.914,120.507 C 402.078,120.481 401.267,120.450 400.443,120.445 C 399.620,120.439 398.809,120.448 397.971,120.474 C 397.134,120.501 396.253,120.610 395.420,120.603 C 394.587,120.597 393.747,120.580 392.975,120.435 C 392.203,120.291 391.548,119.902 390.788,119.736 C 390.028,119.569 389.194,119.566 388.416,119.436 C 387.637,119.306 386.871,119.146 386.118,118.956 C 385.366,118.766 384.651,118.493 383.901,118.299 C 383.150,118.104 382.356,118.008 381.616,117.788 C 380.876,117.569 380.161,117.293 379.458,116.982 C 378.756,116.671 378.116,116.206 377.402,115.923 C 376.688,115.640 375.896,115.551 375.176,115.282 C 374.457,115.012 373.749,114.707 373.084,114.307 C 372.419,113.906 371.847,113.290 371.187,112.876 C 370.527,112.463 369.803,112.191 369.124,111.824 C 368.445,111.456 367.738,111.169 367.114,110.670 C 366.489,110.170 365.992,109.363 365.380,108.827 C 364.769,108.291 364.078,107.913 363.444,107.454 C 362.810,106.996 362.206,106.593 361.579,106.075 C 360.951,105.556 360.249,104.954 359.680,104.345 C 359.111,103.737 358.631,103.063 358.166,102.426 C 357.701,101.789 357.377,101.146 356.888,100.521 C 356.398,99.896 355.705,99.316 355.229,98.678 C 354.753,98.041 354.467,97.347 354.031,96.698 C 353.594,96.049 353.015,95.450 352.610,94.786 C 352.204,94.122 351.931,93.407 351.597,92.715 C 351.263,92.022 350.956,91.318 350.605,90.633 C 350.253,89.947 349.816,89.295 349.488,88.600 C 349.160,87.905 348.895,87.185 348.635,86.462 C 348.376,85.739 348.176,84.989 347.929,84.260 C 347.683,83.530 347.378,82.824 347.155,82.086 C 346.932,81.348 346.791,80.581 346.590,79.832 C 346.388,79.083 346.113,78.354 345.947,77.593 C 345.781,76.833 345.672,76.064 345.593,75.267 C 345.513,74.471 345.511,73.634 345.470,72.814 C 345.430,71.994 345.427,71.145 345.349,70.347 C 345.270,69.550 345.148,68.786 344.999,68.028 C 344.850,67.269 344.568,66.599 344.455,65.797 C 344.342,64.994 344.241,64.035 344.320,63.213 C 344.399,62.391 344.728,61.615 344.928,60.867 C 345.128,60.118 345.444,59.512 345.522,58.720 C 345.600,57.929 345.332,56.930 345.396,56.117 C 345.459,55.304 345.721,54.596 345.903,53.844 C 346.084,53.092 346.300,52.358 346.485,51.603 C 346.670,50.849 346.793,50.057 347.012,49.315 C 347.231,48.574 347.550,47.884 347.800,47.157 C 348.051,46.430 348.275,45.685 348.514,44.953 C 348.754,44.221 348.992,43.495 349.237,42.765 C 349.482,42.035 349.698,41.289 349.983,40.575 C 350.268,39.861 350.583,39.161 350.947,38.482 C 351.311,37.803 351.745,37.161 352.164,36.503 C 352.584,35.844 353.033,35.185 353.464,34.529 C 353.895,33.874 354.312,33.209 354.751,32.567 C 355.191,31.924 355.616,31.301 356.102,30.676 C 356.587,30.050 357.116,29.427 357.664,28.814 C 358.212,28.200 358.799,27.589 359.389,26.992 C 359.978,26.395 360.595,25.805 361.200,25.232 C 361.806,24.658 362.417,24.094 363.024,23.552 C 363.630,23.011 364.222,22.479 364.839,21.983 C 365.456,21.487 366.079,21.017 366.725,20.573 C 367.372,20.129 368.053,19.734 368.717,19.319 C 369.381,18.903 370.052,18.494 370.711,18.081 C 371.370,17.667 371.994,17.204 372.672,16.838 C 373.350,16.472 374.086,16.222 374.779,15.886 C 375.472,15.550 376.141,15.164 376.829,14.820 C 377.518,14.477 378.196,14.107 378.911,13.826 C 379.626,13.545 380.385,13.370 381.118,13.134 C 381.851,12.899 382.582,12.662 383.311,12.413 C 384.040,12.165 384.734,11.814 385.491,11.643 C 386.249,11.473 387.077,11.519 387.855,11.390 C 388.634,11.262 389.387,11.018 390.164,10.870 Z M 612.076,10.770 C 612.925,10.659 613.815,10.591 614.690,10.605 C 615.564,10.619 616.469,10.694 617.324,10.854 C 618.179,11.013 619.037,11.242 619.818,11.563 C 620.599,11.884 621.352,12.287 622.011,12.779 C 622.670,13.271 623.260,13.868 623.774,14.516 C 624.288,15.164 624.726,15.903 625.095,16.667 C 625.465,17.431 625.761,18.264 625.993,19.099 C 626.224,19.935 626.383,20.811 626.483,21.682 C 626.584,22.552 626.615,23.442 626.596,24.321 C 626.576,25.200 626.493,26.087 626.366,26.954 C 626.239,27.820 626.055,28.685 625.833,29.517 C 625.610,30.350 625.356,31.182 625.029,31.948 C 624.701,32.713 624.351,33.470 623.866,34.109 C 623.381,34.749 622.788,35.323 622.119,35.784 C 621.450,36.245 620.651,36.605 619.852,36.875 C 619.053,37.146 618.189,37.292 617.325,37.407 C 616.462,37.521 615.564,37.532 614.672,37.564 C 613.780,37.595 612.867,37.564 611.975,37.594 C 611.083,37.625 610.184,37.638 609.318,37.747 C 608.451,37.855 607.603,38.030 606.777,38.245 C 605.951,38.459 605.152,38.756 604.362,39.034 C 603.573,39.312 602.803,39.594 602.039,39.914 C 601.276,40.235 600.526,40.555 599.782,40.955 C 599.039,41.356 598.297,41.814 597.580,42.319 C 596.863,42.823 596.152,43.392 595.483,43.983 C 594.813,44.575 594.161,45.216 593.560,45.868 C 592.959,46.519 592.397,47.201 591.878,47.894 C 591.359,48.587 590.886,49.299 590.446,50.026 C 590.007,50.753 589.609,51.497 589.241,52.254 C 588.874,53.011 588.543,53.783 588.240,54.567 C 587.937,55.352 587.667,56.150 587.423,56.958 C 587.179,57.767 586.966,58.588 586.777,59.419 C 586.588,60.249 586.427,61.091 586.287,61.941 C 586.147,62.791 586.034,63.651 585.938,64.518 C 585.841,65.384 585.769,66.260 585.707,67.140 C 585.646,68.021 585.604,68.909 585.569,69.801 C 585.534,70.692 585.514,71.590 585.497,72.490 C 585.479,73.390 585.471,74.295 585.463,75.200 C 585.456,76.106 585.453,77.015 585.452,77.925 C 585.450,78.834 585.453,79.746 585.456,80.659 C 585.460,81.571 585.466,82.485 585.472,83.399 C 585.478,84.312 585.486,85.227 585.493,86.140 C 585.500,87.054 585.508,87.967 585.514,88.879 C 585.521,89.791 585.527,90.702 585.531,91.611 C 585.534,92.520 585.537,93.428 585.536,94.333 C 585.536,95.237 585.533,96.140 585.526,97.039 C 585.520,97.938 585.507,98.832 585.497,99.728 C 585.486,100.624 585.470,101.515 585.462,102.415 C 585.454,103.315 585.445,104.215 585.448,105.129 C 585.452,106.043 585.460,106.961 585.484,107.898 C 585.508,108.836 585.580,109.810 585.594,110.751 C 585.608,111.693 585.713,112.704 585.567,113.545 C 585.421,114.386 585.201,115.197 584.719,115.797 C 584.237,116.398 583.458,116.836 582.676,117.150 C 581.893,117.465 580.928,117.602 580.024,117.686 C 579.121,117.769 578.175,117.694 577.256,117.653 C 576.337,117.611 575.413,117.489 574.509,117.438 C 573.605,117.387 572.730,117.342 571.833,117.346 C 570.936,117.349 570.045,117.396 569.127,117.459 C 568.208,117.521 567.245,117.694 566.321,117.721 C 565.398,117.748 564.445,117.807 563.586,117.620 C 562.728,117.432 561.864,117.072 561.173,116.597 C 560.482,116.122 559.879,115.458 559.442,114.769 C 559.005,114.081 558.745,113.288 558.549,112.467 C 558.352,111.647 558.301,110.750 558.264,109.847 C 558.228,108.945 558.292,107.989 558.330,107.052 C 558.367,106.115 558.447,105.157 558.488,104.223 C 558.529,103.289 558.558,102.366 558.576,101.449 C 558.595,100.532 558.599,99.626 558.600,98.722 C 558.601,97.817 558.591,96.920 558.583,96.022 C 558.574,95.123 558.559,94.229 558.548,93.330 C 558.536,92.432 558.525,91.533 558.516,90.631 C 558.507,89.730 558.499,88.826 558.492,87.921 C 558.486,87.016 558.480,86.109 558.476,85.202 C 558.471,84.294 558.468,83.385 558.466,82.476 C 558.463,81.566 558.462,80.655 558.461,79.744 C 558.460,78.833 558.460,77.922 558.461,77.010 C 558.462,76.098 558.463,75.186 558.464,74.274 C 558.466,73.362 558.468,72.450 558.471,71.539 C 558.473,70.627 558.476,69.716 558.479,68.806 C 558.481,67.896 558.484,66.986 558.487,66.077 C 558.490,65.168 558.494,64.260 558.497,63.352 C 558.500,62.444 558.503,61.537 558.506,60.629 C 558.509,59.722 558.512,58.816 558.515,57.909 C 558.518,57.003 558.520,56.097 558.523,55.191 C 558.525,54.285 558.527,53.379 558.529,52.473 C 558.531,51.567 558.533,50.661 558.534,49.755 C 558.535,48.850 558.536,47.944 558.537,47.038 C 558.537,46.131 558.537,45.225 558.536,44.318 C 558.536,43.412 558.535,42.505 558.533,41.598 C 558.531,40.690 558.529,39.783 558.526,38.874 C 558.523,37.966 558.519,37.057 558.515,36.148 C 558.510,35.238 558.505,34.329 558.499,33.418 C 558.493,32.507 558.486,31.595 558.478,30.683 C 558.471,29.771 558.462,28.857 558.452,27.943 C 558.443,27.029 558.432,26.114 558.420,25.198 C 558.409,24.281 558.389,23.361 558.382,22.445 C 558.375,21.530 558.317,20.591 558.380,19.705 C 558.443,18.819 558.499,17.925 558.759,17.129 C 559.019,16.334 559.426,15.562 559.941,14.930 C 560.455,14.298 561.144,13.740 561.847,13.340 C 562.549,12.939 563.342,12.698 564.156,12.527 C 564.970,12.357 565.842,12.333 566.730,12.316 C 567.618,12.300 568.550,12.383 569.484,12.428 C 570.418,12.472 571.383,12.563 572.334,12.584 C 573.285,12.604 574.255,12.569 575.192,12.551 C 576.128,12.532 577.067,12.451 577.951,12.474 C 578.835,12.497 579.703,12.513 580.497,12.690 C 581.290,12.867 582.050,13.100 582.711,13.535 C 583.373,13.971 584.002,14.596 584.468,15.303 C 584.933,16.010 585.313,16.913 585.505,17.777 C 585.698,18.642 585.644,19.569 585.623,20.491 C 585.602,21.413 585.391,22.388 585.379,23.309 C 585.366,24.231 585.356,25.460 585.548,26.020 C 585.739,26.581 586.111,26.837 586.525,26.671 C 586.940,26.504 587.491,25.692 588.035,25.021 C 588.579,24.350 589.181,23.382 589.790,22.643 C 590.398,21.904 591.037,21.215 591.687,20.586 C 592.336,19.958 593.007,19.409 593.686,18.871 C 594.365,18.332 595.060,17.846 595.760,17.357 C 596.460,16.867 597.167,16.389 597.886,15.934 C 598.604,15.478 599.330,15.031 600.074,14.625 C 600.817,14.219 601.570,13.832 602.344,13.495 C 603.118,13.159 603.914,12.869 604.716,12.605 C 605.518,12.340 606.344,12.131 607.157,11.909 C 607.970,11.686 608.775,11.461 609.595,11.272 C 610.414,11.082 611.227,10.881 612.076,10.770 Z M 90.114,12.777 C 90.872,12.571 91.676,12.503 92.497,12.447 C 93.318,12.391 94.189,12.428 95.040,12.441 C 95.892,12.454 96.759,12.509 97.605,12.526 C 98.450,12.543 99.277,12.549 100.113,12.546 C 100.948,12.542 101.772,12.524 102.617,12.505 C 103.461,12.487 104.330,12.432 105.178,12.434 C 106.025,12.437 106.906,12.402 107.700,12.520 C 108.494,12.639 109.214,12.857 109.942,13.143 C 110.669,13.429 111.450,13.818 112.064,14.238 C 112.677,14.657 113.189,15.066 113.622,15.658 C 114.054,16.250 114.341,17.077 114.660,17.792 C 114.979,18.506 115.280,19.211 115.536,19.946 C 115.793,20.681 115.955,21.461 116.200,22.202 C 116.445,22.944 116.764,23.653 117.005,24.395 C 117.246,25.138 117.398,25.917 117.647,26.657 C 117.897,27.396 118.246,28.093 118.500,28.831 C 118.754,29.568 118.929,30.338 119.169,31.081 C 119.410,31.823 119.695,32.548 119.945,33.287 C 120.195,34.026 120.427,34.772 120.669,35.514 C 120.910,36.257 121.145,37.002 121.395,37.741 C 121.645,38.480 121.922,39.208 122.167,39.948 C 122.413,40.689 122.627,41.443 122.869,42.185 C 123.111,42.927 123.366,43.664 123.621,44.401 C 123.876,45.137 124.154,45.865 124.400,46.605 C 124.646,47.346 124.857,48.101 125.099,48.843 C 125.340,49.586 125.596,50.322 125.848,51.060 C 126.101,51.798 126.371,52.529 126.613,53.271 C 126.854,54.013 127.048,54.776 127.299,55.514 C 127.550,56.252 127.877,56.960 128.121,57.701 C 128.365,58.442 128.519,59.221 128.765,59.962 C 129.010,60.702 129.342,61.407 129.595,62.145 C 129.848,62.883 130.040,63.649 130.283,64.390 C 130.526,65.131 130.819,65.842 131.053,66.590 C 131.287,67.337 131.448,68.121 131.689,68.875 C 131.929,69.628 132.148,70.510 132.495,71.111 C 132.842,71.711 133.410,72.607 133.770,72.480 C 134.129,72.354 134.340,71.055 134.653,70.352 C 134.966,69.649 135.347,68.979 135.648,68.264 C 135.948,67.549 136.183,66.794 136.456,66.064 C 136.730,65.333 137.045,64.623 137.291,63.883 C 137.537,63.142 137.715,62.373 137.935,61.622 C 138.155,60.871 138.327,60.100 138.612,59.375 C 138.898,58.651 139.338,57.991 139.647,57.277 C 139.956,56.562 140.198,55.820 140.466,55.089 C 140.735,54.358 141.023,53.634 141.260,52.890 C 141.496,52.145 141.588,51.341 141.884,50.621 C 142.180,49.901 142.730,49.287 143.035,48.571 C 143.340,47.854 143.484,47.072 143.714,46.324 C 143.943,45.577 144.148,44.819 144.412,44.086 C 144.677,43.354 145.058,42.669 145.300,41.927 C 145.542,41.185 145.582,40.359 145.866,39.634 C 146.150,38.909 146.698,38.294 147.006,37.579 C 147.313,36.864 147.470,36.086 147.711,35.343 C 147.952,34.601 148.201,33.861 148.452,33.123 C 148.703,32.385 148.978,31.656 149.219,30.913 C 149.459,30.171 149.603,29.388 149.897,28.667 C 150.190,27.946 150.679,27.306 150.980,26.588 C 151.281,25.871 151.436,25.092 151.704,24.361 C 151.972,23.629 152.254,22.904 152.587,22.200 C 152.921,21.495 153.276,20.798 153.705,20.134 C 154.134,19.470 154.736,18.882 155.161,18.214 C 155.586,17.546 155.746,16.732 156.257,16.125 C 156.768,15.518 157.543,14.970 158.227,14.570 C 158.910,14.169 159.635,13.998 160.359,13.721 C 161.083,13.444 161.821,13.097 162.571,12.907 C 163.321,12.718 164.126,12.444 164.856,12.585 C 165.587,12.726 166.263,13.394 166.954,13.754 C 167.645,14.114 168.332,14.314 169.005,14.746 C 169.677,15.178 170.430,15.751 170.988,16.346 C 171.546,16.940 171.895,17.660 172.352,18.314 C 172.809,18.968 173.293,19.611 173.731,20.271 C 174.169,20.932 174.672,21.565 174.981,22.279 C 175.290,22.993 175.340,23.816 175.585,24.557 C 175.831,25.298 176.181,25.995 176.455,26.724 C 176.729,27.453 176.997,28.184 177.230,28.930 C 177.463,29.676 177.572,30.473 177.851,31.200 C 178.130,31.927 178.599,32.576 178.905,33.291 C 179.212,34.006 179.449,34.751 179.693,35.492 C 179.937,36.234 180.116,37.002 180.369,37.739 C 180.622,38.477 180.904,39.202 181.211,39.918 C 181.519,40.633 181.930,41.305 182.211,42.031 C 182.492,42.757 182.669,43.526 182.899,44.273 C 183.130,45.020 183.333,45.778 183.595,46.513 C 183.856,47.247 184.211,47.942 184.468,48.678 C 184.726,49.414 184.842,50.208 185.138,50.928 C 185.433,51.648 185.950,52.276 186.241,52.998 C 186.532,53.720 186.647,54.515 186.883,55.260 C 187.119,56.005 187.376,56.740 187.656,57.467 C 187.935,58.194 188.258,58.902 188.559,59.620 C 188.859,60.338 189.188,61.044 189.458,61.775 C 189.728,62.506 189.944,63.260 190.178,64.005 C 190.412,64.750 190.561,65.526 190.861,66.246 C 191.160,66.966 191.693,67.601 191.974,68.323 C 192.256,69.045 192.200,69.913 192.548,70.576 C 192.897,71.239 193.714,72.365 194.062,72.302 C 194.411,72.238 194.400,70.906 194.640,70.196 C 194.880,69.487 195.223,68.770 195.503,68.045 C 195.783,67.320 196.081,66.592 196.319,65.847 C 196.557,65.102 196.696,64.319 196.931,63.574 C 197.166,62.829 197.476,62.115 197.728,61.377 C 197.980,60.639 198.196,59.886 198.440,59.145 C 198.685,58.404 198.948,57.670 199.196,56.930 C 199.443,56.190 199.681,55.447 199.924,54.705 C 200.166,53.962 200.397,53.216 200.650,52.478 C 200.903,51.741 201.196,51.020 201.443,50.279 C 201.689,49.539 201.884,48.777 202.130,48.036 C 202.375,47.295 202.674,46.577 202.915,45.834 C 203.156,45.092 203.331,44.322 203.573,43.580 C 203.816,42.838 204.099,42.113 204.369,41.382 C 204.638,40.651 204.959,39.942 205.189,39.194 C 205.419,38.447 205.464,37.623 205.748,36.899 C 206.032,36.174 206.582,35.559 206.894,34.846 C 207.205,34.132 207.369,33.358 207.617,32.618 C 207.865,31.878 208.134,31.147 208.381,30.407 C 208.627,29.667 208.849,28.916 209.096,28.176 C 209.343,27.436 209.622,26.709 209.861,25.966 C 210.101,25.223 210.289,24.458 210.534,23.717 C 210.779,22.976 211.065,22.252 211.333,21.521 C 211.601,20.789 211.924,20.079 212.145,19.329 C 212.365,18.578 212.294,17.711 212.657,17.017 C 213.020,16.323 213.737,15.744 214.323,15.165 C 214.909,14.587 215.503,13.951 216.174,13.546 C 216.846,13.140 217.586,12.916 218.351,12.732 C 219.115,12.549 219.933,12.496 220.762,12.445 C 221.590,12.394 222.469,12.413 223.322,12.425 C 224.174,12.436 225.036,12.488 225.877,12.514 C 226.718,12.540 227.534,12.578 228.367,12.583 C 229.201,12.588 230.028,12.577 230.876,12.544 C 231.725,12.511 232.607,12.407 233.460,12.384 C 234.312,12.362 235.186,12.304 235.994,12.409 C 236.801,12.515 237.622,12.658 238.304,13.017 C 238.986,13.375 239.610,13.927 240.087,14.558 C 240.563,15.188 241.034,16.088 241.161,16.798 C 241.287,17.509 241.008,18.104 240.844,18.821 C 240.680,19.538 240.407,20.349 240.176,21.100 C 239.945,21.851 239.718,22.595 239.456,23.328 C 239.194,24.061 238.857,24.763 238.602,25.500 C 238.348,26.237 238.219,27.028 237.928,27.750 C 237.636,28.472 237.152,29.113 236.853,29.831 C 236.554,30.550 236.371,31.317 236.135,32.061 C 235.899,32.806 235.684,33.560 235.437,34.300 C 235.189,35.039 234.907,35.765 234.649,36.501 C 234.392,37.236 234.123,37.967 233.890,38.713 C 233.657,39.459 233.540,40.253 233.251,40.976 C 232.961,41.699 232.449,42.329 232.153,43.049 C 231.858,43.769 231.741,44.563 231.479,45.297 C 231.217,46.031 230.833,46.714 230.581,47.452 C 230.330,48.191 230.207,48.982 229.970,49.726 C 229.733,50.471 229.406,51.178 229.160,51.918 C 228.914,52.659 228.753,53.435 228.492,54.169 C 228.232,54.904 227.907,55.611 227.596,56.325 C 227.284,57.038 226.902,57.723 226.624,58.450 C 226.346,59.177 226.153,59.939 225.928,60.689 C 225.703,61.438 225.519,62.204 225.276,62.946 C 225.032,63.688 224.734,64.406 224.468,65.139 C 224.202,65.871 223.924,66.598 223.680,67.340 C 223.437,68.081 223.306,68.870 223.007,69.588 C 222.709,70.307 222.187,70.933 221.889,71.653 C 221.591,72.372 221.456,73.158 221.221,73.903 C 220.985,74.648 220.743,75.390 220.476,76.122 C 220.210,76.854 219.863,77.553 219.621,78.295 C 219.379,79.037 219.309,79.851 219.026,80.576 C 218.742,81.301 218.224,81.929 217.920,82.645 C 217.617,83.362 217.439,84.131 217.204,84.876 C 216.969,85.621 216.770,86.381 216.512,87.117 C 216.255,87.852 215.906,88.551 215.659,89.290 C 215.411,90.030 215.316,90.833 215.026,91.556 C 214.736,92.278 214.220,92.907 213.919,93.624 C 213.617,94.342 213.459,95.119 213.217,95.861 C 212.975,96.603 212.712,97.337 212.467,98.078 C 212.222,98.819 211.995,99.568 211.749,100.308 C 211.502,101.048 211.287,101.800 210.988,102.519 C 210.689,103.238 210.248,103.898 209.956,104.620 C 209.664,105.342 209.516,106.125 209.237,106.850 C 208.958,107.576 208.616,108.268 208.282,108.974 C 207.948,109.681 207.679,110.434 207.233,111.090 C 206.787,111.745 206.181,112.302 205.607,112.908 C 205.033,113.514 204.400,114.158 203.790,114.726 C 203.179,115.294 202.632,115.949 201.944,116.317 C 201.256,116.685 200.423,116.729 199.664,116.933 C 198.905,117.136 198.197,117.440 197.392,117.540 C 196.588,117.640 195.683,117.547 194.837,117.533 C 193.991,117.518 193.112,117.560 192.315,117.454 C 191.518,117.348 190.774,117.189 190.054,116.899 C 189.334,116.609 188.677,116.105 187.995,115.713 C 187.312,115.321 186.590,115.052 185.959,114.547 C 185.327,114.042 184.797,113.291 184.206,112.682 C 183.615,112.073 182.929,111.518 182.412,110.895 C 181.894,110.272 181.427,109.652 181.101,108.944 C 180.776,108.237 180.709,107.391 180.460,106.650 C 180.210,105.908 179.861,105.231 179.604,104.496 C 179.348,103.762 179.216,102.966 178.923,102.243 C 178.631,101.521 178.146,100.882 177.849,100.163 C 177.552,99.444 177.379,98.672 177.141,97.928 C 176.902,97.185 176.665,96.441 176.417,95.701 C 176.169,94.961 175.901,94.230 175.653,93.490 C 175.405,92.750 175.236,91.978 174.929,91.262 C 174.623,90.547 174.098,89.922 173.814,89.197 C 173.530,88.472 173.512,87.637 173.226,86.913 C 172.940,86.189 172.399,85.571 172.096,84.854 C 171.793,84.137 171.646,83.355 171.407,82.612 C 171.167,81.869 170.923,81.128 170.659,80.394 C 170.396,79.661 170.062,78.957 169.826,78.212 C 169.590,77.468 169.525,76.652 169.242,75.927 C 168.959,75.202 168.432,74.578 168.129,73.861 C 167.827,73.143 167.702,72.349 167.429,71.621 C 167.155,70.893 166.785,70.214 166.486,69.492 C 166.187,68.770 165.919,68.008 165.634,67.289 C 165.349,66.569 165.013,65.911 164.778,65.174 C 164.543,64.437 164.561,63.064 164.226,62.866 C 163.891,62.667 163.129,63.399 162.766,63.982 C 162.404,64.565 162.286,65.608 162.051,66.363 C 161.816,67.119 161.606,67.785 161.355,68.516 C 161.103,69.248 160.801,70.009 160.543,70.750 C 160.285,71.492 160.110,72.250 159.807,72.966 C 159.505,73.682 159.012,74.320 158.726,75.045 C 158.441,75.769 158.319,76.562 158.094,77.311 C 157.870,78.061 157.667,78.819 157.380,79.542 C 157.093,80.266 156.673,80.934 156.373,81.652 C 156.072,82.370 155.848,83.120 155.576,83.850 C 155.304,84.579 155.043,85.314 154.738,86.030 C 154.433,86.746 154.031,87.422 153.746,88.147 C 153.462,88.871 153.255,89.628 153.030,90.377 C 152.806,91.127 152.650,91.905 152.399,92.643 C 152.147,93.381 151.792,94.077 151.521,94.807 C 151.250,95.537 151.068,96.304 150.773,97.024 C 150.478,97.745 150.040,98.406 149.752,99.129 C 149.465,99.852 149.284,100.620 149.047,101.364 C 148.810,102.108 148.610,102.868 148.331,103.595 C 148.052,104.322 147.667,105.006 147.373,105.726 C 147.078,106.446 146.881,107.202 146.566,107.915 C 146.250,108.628 145.866,109.324 145.480,110.004 C 145.093,110.684 144.718,111.346 144.246,111.994 C 143.775,112.642 143.263,113.395 142.649,113.893 C 142.036,114.391 141.225,114.544 140.564,114.984 C 139.902,115.424 139.360,116.134 138.680,116.534 C 138.001,116.933 137.257,117.212 136.487,117.381 C 135.717,117.549 134.896,117.524 134.062,117.543 C 133.227,117.562 132.332,117.506 131.483,117.492 C 130.633,117.478 129.751,117.579 128.964,117.459 C 128.177,117.338 127.447,117.134 126.761,116.771 C 126.076,116.409 125.534,115.713 124.853,115.283 C 124.171,114.853 123.240,114.697 122.674,114.190 C 122.107,113.684 121.927,112.879 121.454,112.245 C 120.981,111.612 120.328,111.029 119.837,110.390 C 119.345,109.750 118.830,109.116 118.504,108.408 C 118.178,107.700 118.163,106.867 117.881,106.142 C 117.599,105.417 117.104,104.778 116.813,104.056 C 116.522,103.334 116.370,102.555 116.135,101.810 C 115.901,101.064 115.666,100.319 115.406,99.585 C 115.145,98.850 114.823,98.141 114.573,97.402 C 114.323,96.663 114.137,95.898 113.904,95.152 C 113.670,94.406 113.462,93.650 113.171,92.928 C 112.880,92.206 112.445,91.544 112.156,90.821 C 111.867,90.098 111.699,89.326 111.440,88.591 C 111.180,87.856 110.865,87.144 110.600,86.411 C 110.335,85.679 110.142,84.916 109.849,84.195 C 109.556,83.474 109.132,82.807 108.842,82.085 C 108.552,81.362 108.350,80.604 108.109,79.861 C 107.868,79.118 107.642,78.369 107.398,77.628 C 107.154,76.887 106.903,76.148 106.643,75.414 C 106.383,74.679 106.069,73.966 105.836,73.220 C 105.604,72.474 105.535,71.660 105.247,70.937 C 104.958,70.214 104.404,69.601 104.106,68.882 C 103.808,68.163 103.714,67.360 103.460,66.623 C 103.206,65.885 102.851,65.190 102.583,64.459 C 102.314,63.727 102.073,62.985 101.849,62.235 C 101.626,61.485 101.528,60.683 101.243,59.959 C 100.957,59.235 100.443,58.605 100.136,57.890 C 99.829,57.175 99.654,56.405 99.400,55.668 C 99.145,54.931 98.851,54.210 98.608,53.468 C 98.365,52.727 98.186,51.958 97.939,51.218 C 97.693,50.478 97.364,49.772 97.127,49.027 C 96.890,48.283 96.785,47.484 96.517,46.753 C 96.249,46.021 95.827,45.354 95.519,44.639 C 95.211,43.924 94.947,43.191 94.668,42.464 C 94.389,41.737 94.072,41.026 93.843,40.278 C 93.614,39.531 93.577,38.703 93.292,37.979 C 93.007,37.255 92.441,36.647 92.131,35.933 C 91.820,35.219 91.678,34.435 91.430,33.696 C 91.183,32.956 90.898,32.231 90.645,31.494 C 90.391,30.756 90.152,30.013 89.910,29.271 C 89.668,28.529 89.438,27.781 89.191,27.041 C 88.944,26.301 88.680,25.567 88.429,24.829 C 88.178,24.092 87.938,23.354 87.684,22.614 C 87.430,21.875 87.099,21.147 86.904,20.392 C 86.708,19.636 86.581,18.898 86.511,18.082 C 86.441,17.265 86.243,16.226 86.483,15.493 C 86.723,14.760 87.345,14.138 87.950,13.686 C 88.555,13.233 89.356,12.984 90.114,12.777 Z M 453.081,12.720 C 453.815,12.504 454.658,12.474 455.478,12.440 C 456.299,12.406 457.166,12.502 458.004,12.515 C 458.843,12.528 459.678,12.522 460.510,12.517 C 461.342,12.512 462.168,12.490 462.998,12.487 C 463.829,12.484 464.660,12.495 465.494,12.498 C 466.328,12.501 467.164,12.513 468.002,12.507 C 468.839,12.502 469.703,12.435 470.522,12.467 C 471.341,12.500 472.171,12.490 472.915,12.702 C 473.658,12.915 474.284,13.403 474.981,13.744 C 475.679,14.085 476.491,14.293 477.098,14.749 C 477.704,15.205 478.241,15.822 478.621,16.480 C 479.001,17.137 479.119,17.962 479.377,18.693 C 479.636,19.424 479.870,20.156 480.172,20.864 C 480.473,21.571 480.902,22.224 481.188,22.939 C 481.473,23.654 481.654,24.415 481.884,25.153 C 482.114,25.892 482.296,26.649 482.566,27.370 C 482.837,28.091 483.203,28.773 483.507,29.481 C 483.810,30.188 484.117,30.895 484.388,31.616 C 484.659,32.337 484.834,33.098 485.131,33.809 C 485.428,34.519 485.890,35.161 486.171,35.878 C 486.453,36.595 486.539,37.392 486.821,38.109 C 487.103,38.826 487.567,39.467 487.864,40.177 C 488.161,40.888 488.328,41.652 488.601,42.372 C 488.875,43.092 489.207,43.788 489.504,44.499 C 489.801,45.209 490.108,45.915 490.384,46.634 C 490.660,47.353 490.871,48.099 491.162,48.812 C 491.453,49.525 491.850,50.194 492.131,50.911 C 492.412,51.628 492.559,52.401 492.850,53.114 C 493.140,53.827 493.585,54.476 493.874,55.190 C 494.163,55.903 494.311,56.675 494.585,57.395 C 494.859,58.115 495.216,58.802 495.518,59.510 C 495.820,60.218 496.128,60.922 496.399,61.643 C 496.669,62.364 496.845,63.125 497.142,63.838 C 497.439,64.550 497.894,65.213 498.181,65.919 C 498.467,66.626 498.592,67.343 498.861,68.077 C 499.130,68.811 499.443,69.658 499.797,70.322 C 500.150,70.986 500.572,71.953 500.982,72.061 C 501.393,72.168 501.926,71.558 502.258,70.966 C 502.590,70.374 502.683,69.252 502.973,68.510 C 503.264,67.767 503.717,67.213 504.003,66.511 C 504.289,65.809 504.412,65.018 504.691,64.298 C 504.969,63.577 505.371,62.897 505.671,62.187 C 505.971,61.477 506.221,60.756 506.492,60.036 C 506.762,59.316 506.993,58.574 507.294,57.864 C 507.595,57.155 508.023,56.500 508.299,55.781 C 508.574,55.062 508.660,54.264 508.948,53.550 C 509.237,52.836 509.682,52.187 510.027,51.497 C 510.373,50.806 510.735,50.123 511.021,49.408 C 511.307,48.693 511.463,47.924 511.744,47.207 C 512.025,46.490 512.412,45.817 512.707,45.106 C 513.001,44.394 513.239,43.659 513.513,42.939 C 513.787,42.220 514.051,41.495 514.351,40.786 C 514.650,40.077 515.032,39.402 515.311,38.684 C 515.590,37.966 515.741,37.195 516.024,36.479 C 516.307,35.762 516.712,35.097 517.009,34.387 C 517.307,33.676 517.566,32.951 517.808,32.217 C 518.049,31.484 518.210,30.717 518.458,29.986 C 518.706,29.255 518.972,28.532 519.295,27.833 C 519.617,27.133 520.057,26.481 520.392,25.787 C 520.728,25.093 521.038,24.388 521.310,23.667 C 521.581,22.946 521.732,22.174 522.020,21.460 C 522.308,20.746 522.751,20.096 523.039,19.383 C 523.328,18.670 523.404,17.873 523.752,17.181 C 524.099,16.489 524.573,15.815 525.126,15.231 C 525.679,14.646 526.394,14.089 527.069,13.674 C 527.744,13.258 528.433,12.944 529.175,12.737 C 529.917,12.531 530.707,12.476 531.520,12.434 C 532.333,12.391 533.210,12.468 534.053,12.483 C 534.897,12.499 535.744,12.520 536.582,12.526 C 537.419,12.532 538.249,12.524 539.080,12.519 C 539.910,12.513 540.735,12.500 541.562,12.494 C 542.390,12.488 543.212,12.485 544.045,12.483 C 544.878,12.480 545.719,12.469 546.560,12.480 C 547.401,12.491 548.321,12.381 549.092,12.546 C 549.863,12.712 550.633,12.968 551.185,13.474 C 551.737,13.980 552.159,14.817 552.405,15.581 C 552.651,16.345 552.719,17.261 552.660,18.058 C 552.600,18.855 552.322,19.636 552.050,20.362 C 551.778,21.089 551.315,21.706 551.028,22.417 C 550.741,23.128 550.597,23.906 550.327,24.628 C 550.056,25.351 549.745,26.061 549.406,26.754 C 549.067,27.447 548.604,28.084 548.292,28.788 C 547.979,29.491 547.794,30.249 547.531,30.974 C 547.267,31.699 547.028,32.434 546.712,33.136 C 546.395,33.838 545.970,34.495 545.632,35.188 C 545.294,35.881 544.950,36.573 544.683,37.296 C 544.416,38.019 544.322,38.813 544.030,39.525 C 543.737,40.237 543.274,40.879 542.928,41.569 C 542.581,42.259 542.227,42.946 541.948,43.664 C 541.670,44.382 541.541,45.162 541.255,45.877 C 540.969,46.592 540.531,47.244 540.234,47.954 C 539.938,48.665 539.738,49.415 539.475,50.140 C 539.211,50.864 538.978,51.601 538.652,52.299 C 538.326,52.997 537.847,53.632 537.518,54.330 C 537.189,55.027 536.945,55.759 536.678,56.482 C 536.412,57.205 536.214,57.957 535.918,58.667 C 535.621,59.378 535.249,60.057 534.899,60.746 C 534.549,61.434 534.161,62.107 533.817,62.798 C 533.474,63.489 533.112,64.173 532.839,64.893 C 532.565,65.613 532.460,66.403 532.175,67.118 C 531.890,67.833 531.424,68.474 531.127,69.184 C 530.830,69.895 530.660,70.658 530.395,71.381 C 530.130,72.105 529.869,72.830 529.536,73.526 C 529.203,74.221 528.719,74.854 528.398,75.555 C 528.077,76.255 527.875,77.005 527.611,77.729 C 527.347,78.453 527.124,79.194 526.815,79.899 C 526.506,80.605 526.096,81.269 525.757,81.961 C 525.417,82.654 525.054,83.337 524.777,84.056 C 524.500,84.774 524.374,85.556 524.092,86.272 C 523.811,86.989 523.434,87.667 523.088,88.357 C 522.742,89.047 522.309,89.701 522.016,90.413 C 521.723,91.125 521.598,91.907 521.330,92.629 C 521.062,93.351 520.747,94.054 520.409,94.748 C 520.071,95.441 519.615,96.086 519.302,96.790 C 518.989,97.493 518.797,98.248 518.530,98.971 C 518.264,99.693 518.013,100.422 517.703,101.127 C 517.394,101.833 517.028,102.515 516.673,103.202 C 516.319,103.889 515.905,104.551 515.576,105.247 C 515.247,105.944 514.976,106.661 514.699,107.380 C 514.422,108.100 514.330,108.906 513.912,109.566 C 513.495,110.226 512.782,110.756 512.193,111.340 C 511.604,111.925 510.972,112.477 510.379,113.075 C 509.786,113.672 509.236,114.364 508.636,114.926 C 508.037,115.487 507.446,116.050 506.782,116.443 C 506.119,116.835 505.413,117.089 504.655,117.282 C 503.897,117.474 503.061,117.555 502.233,117.596 C 501.406,117.636 500.492,117.625 499.690,117.526 C 498.889,117.426 498.144,117.260 497.422,117.000 C 496.701,116.739 496.042,116.336 495.361,115.965 C 494.680,115.594 493.977,115.248 493.336,114.774 C 492.696,114.299 492.081,113.714 491.516,113.118 C 490.952,112.521 490.430,111.837 489.950,111.195 C 489.469,110.553 489.054,109.917 488.632,109.265 C 488.209,108.613 487.802,107.956 487.413,107.283 C 487.025,106.609 486.611,105.932 486.299,105.226 C 485.987,104.521 485.807,103.772 485.540,103.050 C 485.273,102.328 484.998,101.605 484.698,100.896 C 484.397,100.186 484.011,99.513 483.735,98.794 C 483.458,98.076 483.326,97.297 483.039,96.583 C 482.751,95.868 482.302,95.221 482.009,94.509 C 481.716,93.797 481.550,93.032 481.279,92.311 C 481.008,91.590 480.710,90.880 480.381,90.183 C 480.051,89.486 479.655,88.816 479.302,88.129 C 478.949,87.442 478.570,86.766 478.261,86.061 C 477.951,85.355 477.709,84.622 477.446,83.898 C 477.182,83.174 476.994,82.418 476.678,81.716 C 476.361,81.013 475.883,80.378 475.547,79.684 C 475.211,78.989 474.930,78.272 474.662,77.550 C 474.393,76.828 474.227,76.063 473.937,75.350 C 473.646,74.637 473.209,73.985 472.917,73.272 C 472.624,72.560 472.451,71.798 472.180,71.077 C 471.909,70.356 471.629,69.639 471.290,68.946 C 470.951,68.253 470.456,67.624 470.146,66.919 C 469.836,66.214 469.690,65.441 469.429,64.716 C 469.168,63.991 468.907,63.265 468.581,62.567 C 468.254,61.869 467.800,61.224 467.470,60.527 C 467.140,59.830 466.865,59.111 466.600,58.387 C 466.335,57.663 466.176,56.896 465.880,56.185 C 465.583,55.475 465.176,54.810 464.822,54.123 C 464.468,53.436 464.095,52.757 463.755,52.065 C 463.415,51.372 463.057,50.687 462.784,49.967 C 462.510,49.247 462.402,48.458 462.116,47.743 C 461.831,47.028 461.361,46.389 461.070,45.676 C 460.779,44.963 460.644,44.186 460.368,43.467 C 460.092,42.747 459.716,42.070 459.415,41.361 C 459.113,40.653 458.829,39.937 458.559,39.216 C 458.289,38.494 458.093,37.742 457.794,37.032 C 457.495,36.322 457.046,35.675 456.765,34.958 C 456.484,34.241 456.386,33.448 456.107,32.730 C 455.828,32.013 455.439,31.340 455.090,30.651 C 454.742,29.962 454.308,29.307 454.014,28.596 C 453.721,27.885 453.594,27.106 453.327,26.383 C 453.061,25.659 452.752,24.951 452.415,24.257 C 452.078,23.562 451.619,22.919 451.306,22.217 C 450.993,21.515 450.808,20.773 450.539,20.047 C 450.270,19.321 449.809,18.598 449.692,17.859 C 449.575,17.120 449.606,16.301 449.837,15.614 C 450.068,14.926 450.537,14.217 451.077,13.735 C 451.618,13.252 452.348,12.936 453.081,12.720 Z M 284.092,35.835 C 283.326,36.003 282.644,36.239 281.891,36.423 C 281.139,36.607 280.331,36.733 279.577,36.939 C 278.822,37.145 278.084,37.374 277.364,37.661 C 276.645,37.948 275.944,38.288 275.260,38.661 C 274.576,39.034 273.912,39.453 273.263,39.898 C 272.613,40.342 271.986,40.821 271.361,41.327 C 270.735,41.834 270.119,42.374 269.509,42.939 C 268.898,43.503 268.267,44.105 267.697,44.716 C 267.128,45.327 266.579,45.967 266.093,46.605 C 265.607,47.243 265.218,47.892 264.783,48.543 C 264.347,49.195 263.853,49.831 263.480,50.515 C 263.107,51.199 262.808,51.920 262.547,52.648 C 262.285,53.377 262.155,54.153 261.911,54.889 C 261.668,55.625 261.305,56.317 261.087,57.063 C 260.869,57.809 260.750,58.592 260.603,59.367 C 260.456,60.142 260.377,60.938 260.207,61.712 C 260.037,62.485 259.701,63.223 259.583,64.007 C 259.465,64.790 259.426,65.623 259.499,66.411 C 259.571,67.199 259.844,67.963 260.018,68.736 C 260.192,69.509 260.395,70.272 260.543,71.048 C 260.692,71.825 260.718,72.638 260.912,73.393 C 261.105,74.147 261.455,74.844 261.706,75.577 C 261.958,76.311 262.174,77.058 262.419,77.793 C 262.663,78.528 262.831,79.290 263.172,79.987 C 263.514,80.685 264.036,81.324 264.468,81.978 C 264.900,82.633 265.299,83.270 265.763,83.914 C 266.228,84.558 266.705,85.224 267.256,85.843 C 267.808,86.463 268.457,87.082 269.074,87.632 C 269.691,88.182 270.320,88.669 270.958,89.143 C 271.596,89.616 272.244,90.043 272.903,90.474 C 273.561,90.904 274.230,91.340 274.909,91.725 C 275.587,92.111 276.257,92.497 276.973,92.787 C 277.689,93.076 278.452,93.251 279.204,93.460 C 279.957,93.669 280.720,93.867 281.486,94.038 C 282.251,94.209 282.995,94.408 283.796,94.487 C 284.597,94.566 285.452,94.503 286.291,94.510 C 287.129,94.517 287.982,94.525 288.825,94.527 C 289.669,94.529 290.519,94.538 291.350,94.520 C 292.181,94.502 293.020,94.528 293.810,94.421 C 294.600,94.314 295.348,94.106 296.090,93.878 C 296.833,93.650 297.533,93.306 298.266,93.054 C 298.999,92.803 299.776,92.676 300.488,92.369 C 301.199,92.062 301.877,91.639 302.533,91.212 C 303.190,90.785 303.771,90.242 304.429,89.806 C 305.087,89.370 305.817,89.034 306.483,88.595 C 307.149,88.157 307.848,87.728 308.424,87.175 C 308.999,86.623 309.445,85.923 309.934,85.283 C 310.424,84.642 310.874,83.971 311.361,83.335 C 311.848,82.700 312.400,82.117 312.855,81.471 C 313.309,80.824 313.777,80.165 314.088,79.456 C 314.400,78.747 314.481,77.952 314.723,77.216 C 314.965,76.479 315.284,75.770 315.540,75.037 C 315.795,74.304 316.095,73.588 316.254,72.819 C 316.413,72.049 316.451,71.238 316.494,70.422 C 316.537,69.606 316.508,68.761 316.512,67.923 C 316.515,67.085 316.516,66.236 316.518,65.393 C 316.520,64.550 316.528,63.704 316.523,62.866 C 316.519,62.029 316.540,61.185 316.492,60.370 C 316.443,59.555 316.410,58.740 316.230,57.978 C 316.051,57.216 315.672,56.529 315.417,55.797 C 315.162,55.065 314.943,54.322 314.703,53.586 C 314.463,52.850 314.296,52.088 313.976,51.380 C 313.655,50.673 313.200,50.002 312.781,49.340 C 312.362,48.678 311.927,48.045 311.462,47.408 C 310.997,46.771 310.522,46.144 309.990,45.517 C 309.459,44.890 308.870,44.241 308.274,43.646 C 307.678,43.051 307.039,42.471 306.414,41.949 C 305.790,41.427 305.165,40.984 304.527,40.514 C 303.889,40.044 303.256,39.541 302.588,39.128 C 301.920,38.715 301.224,38.354 300.519,38.037 C 299.814,37.719 299.096,37.457 298.357,37.222 C 297.618,36.988 296.863,36.784 296.085,36.630 C 295.308,36.477 294.464,36.444 293.693,36.299 C 292.922,36.155 292.233,35.915 291.460,35.763 C 290.687,35.610 289.885,35.442 289.056,35.384 C 288.228,35.326 287.316,35.341 286.489,35.416 C 285.661,35.492 284.858,35.667 284.092,35.835 Z M 396.096,35.828 C 395.326,35.995 394.636,36.231 393.880,36.418 C 393.125,36.604 392.318,36.733 391.563,36.947 C 390.809,37.160 390.077,37.424 389.353,37.701 C 388.628,37.978 387.921,38.285 387.216,38.609 C 386.510,38.932 385.776,39.201 385.120,39.643 C 384.464,40.084 383.918,40.767 383.281,41.257 C 382.643,41.747 381.941,42.116 381.294,42.583 C 380.647,43.050 379.921,43.475 379.400,44.060 C 378.878,44.644 378.633,45.438 378.163,46.088 C 377.694,46.738 377.075,47.326 376.583,47.962 C 376.092,48.598 375.605,49.226 375.215,49.903 C 374.825,50.581 374.548,51.312 374.245,52.027 C 373.942,52.742 373.650,53.458 373.397,54.191 C 373.143,54.924 372.976,55.688 372.722,56.425 C 372.468,57.163 372.071,57.864 371.870,58.616 C 371.669,59.369 371.577,60.135 371.517,60.942 C 371.458,61.750 371.529,62.613 371.514,63.460 C 371.499,64.308 371.434,65.182 371.427,66.028 C 371.421,66.873 371.405,67.723 371.474,68.534 C 371.543,69.345 371.689,70.119 371.841,70.894 C 371.993,71.669 372.196,72.423 372.386,73.184 C 372.577,73.944 372.765,74.710 372.984,75.459 C 373.204,76.208 373.430,76.952 373.701,77.679 C 373.971,78.406 374.274,79.120 374.608,79.822 C 374.942,80.523 375.266,81.234 375.704,81.890 C 376.143,82.546 376.750,83.114 377.239,83.756 C 377.728,84.398 378.163,85.102 378.636,85.740 C 379.109,86.379 379.502,87.053 380.078,87.586 C 380.654,88.120 381.424,88.504 382.091,88.941 C 382.758,89.377 383.408,89.808 384.081,90.207 C 384.753,90.606 385.439,90.970 386.127,91.336 C 386.815,91.701 387.503,92.077 388.209,92.399 C 388.914,92.722 389.636,92.990 390.360,93.272 C 391.083,93.554 391.795,93.881 392.549,94.091 C 393.303,94.301 394.073,94.466 394.881,94.532 C 395.689,94.598 396.555,94.491 397.398,94.485 C 398.240,94.479 399.094,94.487 399.938,94.496 C 400.782,94.504 401.627,94.540 402.464,94.539 C 403.301,94.538 404.146,94.555 404.957,94.489 C 405.769,94.423 406.574,94.336 407.335,94.142 C 408.095,93.949 408.795,93.614 409.520,93.327 C 410.244,93.040 410.974,92.730 411.681,92.420 C 412.388,92.109 413.080,91.821 413.763,91.465 C 414.445,91.108 415.117,90.726 415.777,90.281 C 416.437,89.835 417.090,89.325 417.722,88.792 C 418.355,88.258 418.976,87.671 419.572,87.078 C 420.168,86.485 420.748,85.855 421.298,85.234 C 421.847,84.613 422.390,83.991 422.869,83.352 C 423.348,82.713 423.795,82.082 424.171,81.401 C 424.547,80.720 424.802,79.974 425.125,79.266 C 425.447,78.558 425.813,77.868 426.106,77.151 C 426.400,76.434 426.655,75.710 426.885,74.965 C 427.114,74.220 427.285,73.441 427.481,72.681 C 427.677,71.920 427.902,71.168 428.062,70.402 C 428.221,69.635 428.346,68.889 428.438,68.083 C 428.531,67.278 428.605,66.412 428.619,65.567 C 428.633,64.722 428.620,63.828 428.523,63.014 C 428.426,62.201 428.197,61.453 428.035,60.686 C 427.873,59.918 427.691,59.186 427.551,58.408 C 427.411,57.630 427.376,56.784 427.198,56.016 C 427.019,55.248 426.745,54.528 426.481,53.798 C 426.218,53.069 425.985,52.328 425.616,51.640 C 425.247,50.952 424.708,50.325 424.268,49.669 C 423.828,49.013 423.406,48.363 422.976,47.704 C 422.546,47.045 422.145,46.371 421.689,45.713 C 421.234,45.055 420.776,44.363 420.246,43.757 C 419.715,43.150 419.139,42.569 418.508,42.076 C 417.878,41.582 417.135,41.221 416.463,40.796 C 415.790,40.370 415.145,39.923 414.474,39.525 C 413.802,39.126 413.136,38.732 412.433,38.404 C 411.731,38.075 410.992,37.810 410.259,37.552 C 409.525,37.295 408.789,37.065 408.033,36.857 C 407.277,36.648 406.481,36.486 405.724,36.301 C 404.966,36.116 404.263,35.898 403.487,35.748 C 402.710,35.599 401.896,35.458 401.064,35.403 C 400.233,35.348 399.325,35.348 398.497,35.419 C 397.669,35.490 396.865,35.662 396.096,35.828 Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.7c2 .6 3.2 2.4 3.5 5.3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.1A8 8 0 1 1 20 12Z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4.2 4-6.5 8-6.5s7.2 2.3 8 6.5"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 3 8.3 7 10 4-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.3-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h3"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20Z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.1A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3 3.6M6.4 7.6A16 16 0 0 0 2.5 12S6 18 12 18a9 9 0 0 0 4.3-1.1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-album" viewBox="0 0 24 24"><rect x="6" y="3" width="15" height="15" rx="2.5"/><path d="M3 7v11a3 3 0 0 0 3 3h11"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12 20 4l-5 16-3-7-8-1Z"/></symbol>
+</svg>
+
+<div class="review" role="region" aria-label="Mockup review controls">
+  <strong>Issue #231 mockup · Photos</strong>
+  <div class="review-group"><label for="screen-select">Screen</label>
+    <select id="screen-select">
+      <optgroup label="Photos (/me/photos)">
+        <option value="photos">Photos</option>
+        <option value="photos:viewer">· Photo viewer (click any photo)</option>
+        <option value="photos:viewer-rejected">· Viewer: a photo that wasn't approved</option>
+        <option value="photos:pick">· Add photos to a mode</option>
+        <option value="photos:upload">· Add photos (upload)</option>
+        <option value="photos:delete">· Delete a photo</option>
+      </optgroup>
+      <optgroup label="Private albums">
+        <option value="album">Album (/me/photos/albums/1)</option>
+        <option value="album:viewer">· Viewer: an adult photo in an album</option>
+        <option value="album:upload">· Upload straight into this album</option>
+        <option value="album:pick">· Add from library</option>
+        <option value="album-new">New album (empty slot)</option>
+      </optgroup>
+      <optgroup label="Privacy &amp; safety (/me/safety)">
+        <option value="explicit">Receive explicit media (per profile)</option>
+      </optgroup>
+      <optgroup label="Appeals">
+        <option value="appeal">Appeal a photo decision</option>
+      </optgroup>
+      <optgroup label="Chat (/chats)">
+        <option value="chat">Share an album in a Dating chat</option>
+        <option value="chat:share">· Choose an album to share</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="review-group"><span>Frame</span>
+    <div class="seg" data-control="viewport">
+      <button type="button" data-value="desktop" aria-pressed="true">Desktop</button>
+      <button type="button" data-value="tablet" aria-pressed="false">Tablet</button>
+      <button type="button" data-value="phone" aria-pressed="false">Phone</button>
+    </div>
+  </div>
+  <div class="review-group"><span>Theme</span>
+    <div class="seg" data-control="theme">
+      <button type="button" data-value="light" aria-pressed="true">Light</button>
+      <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <div class="review-group"><span>Member</span>
+    <div class="seg" data-control="member">
+      <button type="button" data-value="typical" aria-pressed="true">Typical</button>
+      <button type="button" data-value="new" aria-pressed="false">New</button>
+      <button type="button" data-value="full" aria-pressed="false">Library full</button>
+    </div>
+  </div>
+  <div class="review-group"><span>Sam</span>
+    <div class="seg" data-control="verified">
+      <button type="button" data-value="yes" aria-pressed="true">ID Verified</button>
+      <button type="button" data-value="no" aria-pressed="false">Not ID Verified</button>
+    </div>
+  </div>
+  <div class="review-group" data-chat-only><span>Jordan</span>
+    <div class="seg" data-control="recipient">
+      <button type="button" data-value="yes" aria-pressed="false">Accepts explicit</button>
+      <button type="button" data-value="no" aria-pressed="true">Doesn't accept</button>
+    </div>
+  </div>
+  <div class="review-group review-end">
+    <div class="seg"><button type="button" id="notes-toggle" aria-pressed="false" aria-controls="notes">Review notes</button></div>
+  </div>
+</div>
+
+<section class="notes" id="notes" hidden aria-label="Review notes">
+  <div class="notes-inner">
+    <h2>Issue #231: what changed and what's still open</h2>
+    <p class="small muted">Static mockup. Fictional adult member (Sam, Adelaide). Every screen in the Screen menu works, and most buttons do something (add, remove, reorder by dragging, set main, delete, open a photo). Photos are drawn shapes. Nothing is saved; reload to reset.</p>
+    <div class="notes-grid">
+      <div><h3>Basic issues → mockup</h3><ul>
+        <li>Rules line spans the full page width in its own band. No narrow container, no early wrap.</li>
+        <li><b>Photos for each mode</b>: pick a mode and you see only the photos <i>in</i> that mode, in order, main first. Each has a small ✕ to remove it from that mode. <b>Add photos</b> opens a picker. Drag to reorder (desktop); the viewer has Move earlier/later for keyboard and touch.</li>
+        <li>The "free: up to 8 photos per mode… Free 8 · Plus 16 · Premium 24" line is gone. Only a count shows ("5 of 8").</li>
+        <li>"Choose a main photo…" is a normal paragraph that wraps with its card.</li>
+        <li><b>All library photos</b> merged into one <b>Library</b> card with filters. Each tile says where it's used and has a small <b>Delete</b> button.</li>
+        <li>Click any photo to open it large in a viewer with previous/next and actions.</li>
+        <li>Not approved photos stay visible to their owner, blurred, with a <b>Not approved</b> label. The viewer can reveal it and offers <b>Appeal</b>.</li>
+        <li>Photo decisions and appeals moved to the bottom of the page.</li>
+      </ul></div>
+      <div><h3>Private albums (larger issues)</h3><ul>
+        <li>4 album slots for every member, 10 photos each. Every album photo uses a library spot; a library photo added to an album still uses only one spot.</li>
+        <li>Two ways in: add an existing library photo, or upload straight into an album. A photo uploaded into an album that a reviewer marks as adult is approved <b>for albums only</b>: it can't be put in a mode.</li>
+        <li>Each album has <b>Share in modes</b> switches. In a chat in that mode, the member can share the album; they can stop sharing at any time.</li>
+        <li>Library meter shows profile photos and album-only photos separately against one 60-spot total (D293).</li>
+        <li><span class="label">DEFAULT</span>Album-only photos and album covers are blurred on the owner's own screens until tapped, so they're not exposed on a shared screen.</li>
+        <li><span class="label">CONFIRMED</span>(owner, 7 Nov 2026) Library photos in an album have <b>Remove</b> (from this album; it stays in the library) and <b>Delete</b> (everywhere). Adult photos live only in their album, so they have <b>Delete</b> only: a bin icon on the tile, no ✕ and no Remove. They can't be added to another album.</li>
+        <li><span class="label">DEFAULT</span>Deleting an album deletes the adult photos in it (they have nowhere else to live); its library photos stay in the library.</li>
+      </ul></div>
+      <div><h3>Explicit media (owner, 6 Nov 2026, #231 comment)</h3><ul>
+        <li><span class="label">CONFIRMED</span>Supersedes D178: adult content is allowed for <b>ID Verified</b> members. Explicit library uploads are approved for private albums only.</li>
+        <li><span class="label">CONFIRMED</span>4 albums for every tier (supersedes the tier spec's "Free 1 album"), 10 photos each.</li>
+        <li><span class="label">CONFIRMED</span>Members who aren't ID Verified keep albums, non-explicit photos only. Try the <b>Sam: Not ID Verified</b> switch.</li>
+        <li><span class="label">CONFIRMED</span><b>Receive explicit media</b> is set for each profile in Privacy &amp; safety, off by default, ID Verified only (Screen → Receive explicit media).</li>
+        <li><span class="label">CONFIRMED</span>Sharing explicit media with someone who doesn't accept it is blocked; only the sender is told. Try the <b>Jordan</b> switch on the chat share screen: <i>Just for matches</i> becomes "Can't share".</li>
+        <li><span class="label">CONFIRMED</span>Approved non-explicit photos send to anyone. Camera and photo library photos skip the Swoovr check only when both people are ID Verified and the recipient accepts explicit media in that profile.</li>
+        <li><span class="label">CONFIRMED</span>Photo appeals go to the media appeals queue (a different Admin decides). Zammad only if the member contacts Support.</li>
+      </ul></div>
+      <div><h3>Still open</h3><ul>
+        <li><span class="label">OPEN</span>Does a not-approved photo use a library spot while it can still be appealed? Mockup: yes, until deleted.</li>
+        <li><span class="label">OPEN</span>Does sharing an album expire, or last until the member stops sharing? Mockup: until stopped, or until either person disconnects.</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<div class="stage">
+<div class="frame" id="frame" data-viewport="desktop">
+<div class="app" id="app" data-shell="settings">
+  <header class="app-header">
+    <a class="brand" href="#" aria-label="swoovr home"><svg class="logo" viewBox="0 0 1160 360" aria-hidden="true"><use href="#logo"/></svg></a>
+  </header>
+  <nav class="tab-bar" aria-label="Main">
+    <a class="tab" href="#"><svg class="icon"><use href="#i-search"/></svg><span>Explore</span></a>
+    <a class="tab" href="#"><svg class="icon"><use href="#i-users"/></svg><span>Connections</span></a>
+    <a class="tab" href="#" data-tab="chats"><svg class="icon"><use href="#i-chat"/></svg><span>Chats</span></a>
+    <a class="tab" href="#" data-tab="me" aria-current="page"><svg class="icon"><use href="#i-user"/></svg><span>Me</span></a>
+  </nav>
+  <button type="button" class="menu-button" id="menu-button" aria-label="Settings menu" aria-expanded="false" aria-controls="drawer"><svg class="icon"><use href="#i-menu"/></svg></button>
+
+  <main id="main">
+    <div class="settings-shell" id="shell">
+      <nav class="settings-nav" aria-label="Settings"><ul class="nav-list" data-nav-list></ul></nav>
+      <div class="settings-main">
+
+        <!-- ======== /me/photos ======== -->
+        <section data-screen="photos" class="col" aria-labelledby="photos-title">
+          <div class="page-head">
+            <h1 id="photos-title">Photos</h1>
+            <button type="button" class="btn btn-pill" data-open="upload"><svg class="icon"><use href="#i-upload"/></svg>Add photos</button>
+          </div>
+          <p class="rules"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span>Photos are checked before anyone can see them. No nudity or sexual content, no one under 18, and only photos you have the right to share. Location details in photos are removed.</span></p>
+          <div class="banner" data-when="full"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><p><b>Your library is full.</b> Delete a photo to add a new one.</p></div>
+
+          <section class="card" aria-labelledby="usage-title">
+            <div class="usage">
+              <div class="usage-line"><h2 id="usage-title" class="card-title" style="font-size:1rem">Library</h2><span><strong data-used></strong> of 60 spots used</span></div>
+              <div class="meter" aria-hidden="true"><span data-meter-profile></span><span data-meter-album></span></div>
+              <div class="legend"><span><i></i><span data-legend-profile></span></span><span><i class="alt"></i><span data-legend-album></span></span></div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="modes-title">
+            <div class="card-head">
+              <h2 class="card-title" id="modes-title">Photos for each mode</h2>
+            </div>
+            <p class="small muted">Choose a main photo in each mode. Without one, your profile uses a placeholder.</p>
+            <div class="mode-tabs" role="tablist" aria-label="Mode" data-mode-tabs></div>
+            <div class="mode-head"><h3 data-mode-heading></h3><span class="count" data-mode-count></span></div>
+            <ul class="grid" data-mode-grid></ul>
+            <p class="foot-note" data-mode-foot></p>
+          </section>
+
+          <section class="card" aria-labelledby="albums-title">
+            <div class="card-head">
+              <h2 class="card-title" id="albums-title"><svg class="icon"><use href="#i-lock"/></svg>Private albums</h2>
+              <span class="count" data-album-count></span>
+            </div>
+            <p class="small muted">Only people you share an album with can see it, in a chat in a mode you've allowed. Up to 10 photos per album, from your library.</p>
+            <p class="small" data-when-unverified><b>Adult photos need ID verification.</b> Your albums can hold non-explicit photos now. <a href="#">Verify your ID</a> to add adult photos and share them with people who accept explicit media.</p>
+            <ul class="albums" data-albums></ul>
+          </section>
+
+          <section class="card" aria-labelledby="library-title">
+            <div class="card-head">
+              <h2 class="card-title" id="library-title">All photos</h2>
+              <button type="button" class="btn btn-secondary btn-pill" data-open="upload"><svg class="icon"><use href="#i-plus"/></svg>Add photos</button>
+            </div>
+            <div class="chips" data-filters></div>
+            <ul class="grid" data-library></ul>
+            <p class="foot-note">Deleting a photo removes it from every mode and album.</p>
+          </section>
+
+          <section class="card" aria-labelledby="decisions-title" data-decisions-card>
+            <h2 class="card-title" id="decisions-title">Photo decisions and appeals</h2>
+            <p class="small muted">You can appeal a decision once, within 30 days. A different person on the Swoovr team reviews it.</p>
+            <ul class="items" data-decisions></ul>
+          </section>
+        </section>
+
+        <!-- ======== /me/photos/albums/{id} ======== -->
+        <section data-screen="album" class="col" hidden aria-labelledby="album-title">
+          <a class="back" href="#" data-goto="photos"><svg class="icon"><use href="#i-arrow"/></svg>Photos</a>
+          <div class="page-head">
+            <h1 id="album-title" data-album-title></h1>
+            <div class="actions">
+              <button type="button" class="btn btn-secondary btn-pill" data-open="album-pick"><svg class="icon"><use href="#i-plus"/></svg>From library</button>
+              <button type="button" class="btn btn-pill" data-open="album-upload"><svg class="icon"><use href="#i-upload"/></svg>Upload</button>
+            </div>
+          </div>
+          <div class="photos-cols" data-album-cols>
+            <section class="card" aria-labelledby="album-photos-title">
+              <div class="mode-head"><h2 class="card-title" id="album-photos-title">Photos</h2><span class="count" data-album-photo-count></span></div>
+              <ul class="grid" data-album-grid></ul>
+              <p class="foot-note">✕ removes a photo from this album; it stays in your library. Adult photos only live in this album, so they can only be deleted.</p>
+            </section>
+            <section class="card album-settings" aria-labelledby="album-settings-title">
+              <h2 class="card-title" id="album-settings-title">Album settings</h2>
+              <div class="field"><label for="album-name">Name</label><input type="text" id="album-name" maxlength="40" data-album-name></div>
+              <fieldset>
+                <legend>Share in modes</legend>
+                <p class="foot-note" style="margin-top:-4px">You can share this album in chats in these modes. Nobody sees it until you share it with them.</p>
+                <div data-album-modes></div>
+              </fieldset>
+              <div class="field"><span class="small" style="font-weight:600">Shared with</span><p class="small muted" data-album-shared></p></div>
+              <div class="actions"><button type="button" class="btn btn-secondary btn-pill" data-delete-album>Delete album</button></div>
+              <p class="foot-note">Deleting the album stops all sharing. Library photos stay in your library; adult photos in this album are deleted.</p>
+            </section>
+          </div>
+        </section>
+
+        <!-- ======== /me/photos/albums/new ======== -->
+        <section data-screen="album-new" class="col" hidden aria-labelledby="new-album-title">
+          <a class="back" href="#" data-goto="photos"><svg class="icon"><use href="#i-arrow"/></svg>Photos</a>
+          <h1 id="new-album-title" class="page-head" style="font:700 clamp(1.75rem,1.4rem + 1.2vw,2.25rem)/1.1 var(--font);letter-spacing:-.8px">New private album</h1>
+          <section class="card" style="max-width:640px">
+            <div class="field"><label for="new-album-name">Name</label><input type="text" id="new-album-name" maxlength="40" placeholder="For example: Weekend away"></div>
+            <fieldset><legend>Share in modes</legend><div data-new-album-modes></div></fieldset>
+            <p class="foot-note">You have <span data-free-albums></span> of 4 albums left. Each holds up to 10 photos.</p>
+            <div class="actions"><button type="button" class="btn" data-create-album>Create album</button><a class="btn btn-secondary" href="#" data-goto="photos">Cancel</a></div>
+          </section>
+        </section>
+
+        <!-- ======== /me/safety · Explicit media ======== -->
+        <section data-screen="explicit" class="col" hidden aria-labelledby="explicit-title">
+          <h1 id="explicit-title" style="font:700 clamp(1.75rem,1.4rem + 1.2vw,2.25rem)/1.1 var(--font);letter-spacing:-.8px">Privacy &amp; safety</h1>
+          <section class="card" aria-labelledby="explicit-card-title" style="max-width:720px">
+            <h2 class="card-title" id="explicit-card-title"><svg class="icon"><use href="#i-eye"/></svg>Receive explicit media</h2>
+            <p class="small muted">Choose, for each profile, whether people can send you explicit photos in chat. It's off until you turn it on.</p>
+            <div class="banner" data-when-unverified><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><p><b>Only ID Verified members can send or receive explicit media.</b> Verify your ID to turn this on.</p><a class="btn btn-pill" href="#">Verify your ID</a></div>
+            <div data-explicit-modes></div>
+            <p class="foot-note">If someone tries to send you explicit media in a profile where this is off, it isn't delivered and you won't be notified. Approved, non-explicit photos can always be sent.</p>
+            <p class="foot-note">When you and the other person are both ID Verified and this is on, photos taken or chosen in a chat in that profile arrive straight away, without waiting for a Swoovr check.</p>
+          </section>
+        </section>
+
+        <!-- ======== /me/photos/appeals/{id} ======== -->
+        <section data-screen="appeal" class="col" hidden aria-labelledby="appeal-title">
+          <a class="back" href="#" data-goto="photos"><svg class="icon"><use href="#i-arrow"/></svg>Photos</a>
+          <h1 id="appeal-title" style="font:700 clamp(1.75rem,1.4rem + 1.2vw,2.25rem)/1.1 var(--font);letter-spacing:-.8px">Appeal a photo decision</h1>
+          <div class="photos-cols" data-appeal-cols>
+            <section class="card" aria-label="The photo">
+              <div style="max-width:240px;position:relative" data-appeal-photo></div>
+              <dl class="viewer-side" style="padding:0">
+                <div><dt>Uploaded</dt><dd>28 Oct 2026</dd></div>
+                <div><dt>Decision</dt><dd>Not approved · 28 Oct 2026</dd></div>
+                <div><dt>Reason</dt><dd style="font-weight:400">Nudity or sexual content isn't allowed in profile photos.</dd></div>
+                <div><dt>Appeal by</dt><dd>27 Nov 2026</dd></div>
+              </dl>
+            </section>
+            <form class="card" aria-labelledby="appeal-form-title" data-appeal-form>
+              <h2 class="card-title" id="appeal-form-title">What would you like us to do?</h2>
+              <fieldset>
+                <legend class="sr-only">Request</legend>
+                <label class="choice"><input type="radio" name="ask" value="review" checked><span><strong>Review it again for my profile</strong><span>You think it follows the photo rules.</span></span></label>
+                <label class="choice"><input type="radio" name="ask" value="album"><span><strong>Allow it in a private album instead</strong><span>If it's allowed there, we'll tell you and you can upload it straight into an album.</span></span></label>
+              </fieldset>
+              <div class="field"><label for="appeal-text">Tell us why (optional for albums)</label><textarea id="appeal-text" maxlength="1000"></textarea><span class="foot-note">Up to 1,000 characters.</span></div>
+              <div class="actions"><button type="submit" class="btn">Send appeal</button><a class="btn btn-secondary" href="#" data-goto="photos">Cancel</a></div>
+              <p class="foot-note">You can appeal once. A different person on the Swoovr team decides, and we'll let you know by notification and email.</p>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ======== /chats/{id} ======== -->
+    <section data-screen="chat" hidden aria-label="Chat with Jordan">
+      <div class="chat">
+        <header class="chat-head">
+          <a class="icon-button" href="#" aria-label="Back to chats" data-goto="photos"><svg class="icon"><use href="#i-left"/></svg></a>
+          <span class="avatar" data-chat-avatar></span>
+          <div><p style="font-weight:700">Jordan</p><p class="small muted">Dating</p></div>
+        </header>
+        <div class="chat-body" data-chat-body>
+          <p class="bubble">That beach looks amazing. Where was it?</p>
+          <p class="bubble me">Robe, last summer. I've got a few more from that trip.</p>
+          <p class="bubble">I'd love to see them!</p>
+        </div>
+        <form class="composer" data-composer>
+          <button type="button" class="icon-button" aria-label="Share a photo or album" data-open="share"><svg class="icon"><use href="#i-plus"/></svg></button>
+          <label class="sr-only" for="msg">Message</label><input type="text" id="msg" placeholder="Message">
+          <button type="submit" class="icon-button" aria-label="Send"><svg class="icon"><use href="#i-send"/></svg></button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer"><a href="#">Terms</a><a href="#">Community Guidelines</a><a href="#">Privacy Notice</a><a href="#">Safety Advice</a><a href="#">Support</a></footer>
+</div>
+
+<!-- Overlays -->
+<div class="overlay drawer" id="drawer" hidden>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-head"><h2 id="drawer-title">Settings</h2><button type="button" class="icon-button" data-close aria-label="Close menu"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <ul class="nav-list" data-nav-list></ul>
+  </div>
+</div>
+
+<div class="overlay viewer" id="viewer" hidden>
+  <div class="viewer-panel" role="dialog" aria-modal="true" aria-label="Photo">
+    <div class="viewer-stage">
+      <div data-viewer-shot style="display:contents"></div>
+      <button type="button" class="viewer-nav prev" data-viewer-step="-1" aria-label="Previous photo"><svg class="icon"><use href="#i-arrow"/></svg></button>
+      <button type="button" class="viewer-nav next" data-viewer-step="1" aria-label="Next photo"><svg class="icon"><use href="#i-arrow"/></svg></button>
+    </div>
+    <div class="viewer-side">
+      <div class="dialog-head"><h2 data-viewer-title style="font:700 1.125rem/1.3 var(--font)"></h2><button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+      <dl data-viewer-facts></dl>
+      <div class="viewer-actions" data-viewer-actions></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="dialog" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" data-dialog></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement, frame = document.getElementById('frame'), app = document.getElementById('app');
+  const shell = document.getElementById('shell'), menuButton = document.getElementById('menu-button');
+  const drawer = document.getElementById('drawer'), viewer = document.getElementById('viewer'), dialog = document.getElementById('dialog');
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const icon = id => `<svg class="icon" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+  const LIMIT = 60, PER_MODE = 8, ALBUMS = 4, PER_ALBUM = 10;
+  const MODES = [['dating', 'Dating'], ['friends', 'Friends'], ['activities', 'Activities'], ['business', 'Business']];
+  const modeLabel = id => MODES.find(m => m[0] === id)[1];
+  const navItems = [
+    ['profile', 'Profile', 'user'], ['photos', 'Photos', 'image'], ['matching', "Who I'd like to meet", 'heart'], ['verification', 'Verification', 'shield'],
+    ['me-safety', 'Privacy & safety', 'lock'], ['standing', 'Account standing', 'flag'], ['notifications', 'Notifications', 'bell'],
+    ['appearance', 'Appearance', 'palette'], ['support', 'Support', 'mail'], ['membership', 'Membership & billing', 'card'], ['account', 'Account settings', 'settings']];
+
+  // ---------- Drawn stand-in photos (no real images) ----------
+  const SCENES = ['portrait', 'beach', 'mountain', 'city', 'food', 'portrait', 'park', 'portrait'];
+  let artSeq = 0; // unique gradient ids: a duplicate id inside a hidden screen would blank every copy
+  function art(p) {
+    const h = p.hue, id = 'g' + p.id + '-' + (++artSeq);
+    const sky = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${h} 45% 78%)"/><stop offset="1" stop-color="hsl(${(h + 30) % 360} 40% 58%)"/></linearGradient></defs><rect width="300" height="400" fill="url(#${id})"/>`;
+    const body = {
+      portrait: `<circle cx="150" cy="150" r="58" fill="hsl(${h} 25% 30%)"/><path d="M40 400c8-110 52-160 110-160s102 50 110 160Z" fill="hsl(${h} 25% 26%)"/>`,
+      beach: `<circle cx="220" cy="110" r="34" fill="hsl(45 90% 88%)"/><rect y="230" width="300" height="70" fill="hsl(200 50% 45%)"/><path d="M0 290q150-30 300 0v110H0Z" fill="hsl(40 55% 78%)"/>`,
+      mountain: `<path d="M-20 330 90 150l70 100 50-70 110 150Z" fill="hsl(${h} 18% 35%)"/><path d="m90 150 24 36-24-8-22 10Z" fill="#fff" opacity=".85"/><rect y="320" width="300" height="80" fill="hsl(120 22% 32%)"/>`,
+      city: `<rect x="20" y="190" width="50" height="210" fill="hsl(${h} 15% 25%)"/><rect x="80" y="130" width="60" height="270" fill="hsl(${h} 15% 20%)"/><rect x="150" y="220" width="45" height="180" fill="hsl(${h} 15% 28%)"/><rect x="205" y="160" width="75" height="240" fill="hsl(${h} 15% 22%)"/>`,
+      food: `<rect width="300" height="400" fill="hsl(${h} 25% 40%)"/><circle cx="150" cy="210" r="100" fill="#f4f1ea"/><circle cx="150" cy="210" r="70" fill="hsl(${(h + 40) % 360} 55% 55%)"/><circle cx="125" cy="190" r="16" fill="hsl(100 40% 40%)"/>`,
+      park: `<rect y="290" width="300" height="110" fill="hsl(110 30% 40%)"/><rect x="190" y="200" width="16" height="100" fill="hsl(25 30% 28%)"/><circle cx="198" cy="185" r="55" fill="hsl(115 32% 33%)"/><circle cx="85" cy="215" r="18" fill="hsl(${h} 25% 30%)"/><path d="M60 300c4-40 14-60 25-60s21 20 25 60Z" fill="hsl(${h} 25% 26%)"/>`
+    }[p.scene];
+    return `<svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${sky}${body}</svg>`;
+  }
+
+  // ---------- Fictional data ----------
+  // state: approved | checking | not-approved | album-only (adult; approved for private albums only)
+  let seq = 0;
+  const mk = (state = 'approved', scene, hue, uploaded = '2026-10-' + String(10 + (seq % 18)).padStart(2, '0')) =>
+    ({ id: ++seq, state, scene: scene || SCENES[seq % SCENES.length], hue: hue ?? (seq * 47) % 360, uploaded, revealed: false });
+
+  let photos, modes, mains, albums, shares;
+  function seed(kind) {
+    seq = 0; shares = [];
+    if (kind === 'new') {
+      photos = []; modes = { dating: [], friends: [], activities: [], business: [] }; mains = {}; albums = []; return;
+    }
+    photos = [
+      mk('approved', 'portrait', 20), mk('approved', 'beach', 190), mk('approved', 'mountain', 210), mk('approved', 'portrait', 280),
+      mk('approved', 'food', 15), mk('approved', 'city', 230), mk('approved', 'park', 90), mk('approved', 'portrait', 160),
+      mk('approved', 'beach', 170), mk('approved', 'mountain', 30), mk('checking', 'portrait', 340), mk('not-approved', 'portrait', 350),
+      mk('album-only', 'portrait', 10), mk('album-only', 'portrait', 330), mk('album-only', 'portrait', 300), mk('approved', 'city', 260),
+      mk('not-approved', 'portrait', 5), mk('approved', 'food', 50)
+    ];
+    photos[11].uploaded = '2026-10-28'; photos[16].uploaded = '2026-09-14';
+    modes = { dating: [1, 4, 2, 7, 9], friends: [4, 2, 5], activities: [3, 7, 10, 2], business: [16] };
+    mains = { dating: 1, friends: 4, activities: 3 };
+    albums = [
+      { id: 1, name: 'Weekend away', photos: [2, 9, 1, 7, 6, 3], modes: ['dating'] },
+      { id: 2, name: 'Just for matches', photos: [13, 14, 15, 4], modes: ['dating'] },
+      { id: 3, name: 'Travel', photos: [3, 10, 2, 6, 16], modes: ['friends', 'activities'] }
+    ];
+    shares = [{ album: 1, who: 'Jordan', mode: 'dating' }, { album: 3, who: 'Casey', mode: 'friends' }];
+    if (kind === 'full') { while (photos.length < LIMIT) photos.push(mk('approved')); }
+    if (!state.verified) { // Not ID Verified: albums hold non-explicit photos only.
+      const adult = new Set(photos.filter(p => p.state === 'album-only').map(p => p.id));
+      photos = photos.filter(p => !adult.has(p.id));
+      albums.forEach(a => a.photos = a.photos.filter(id => !adult.has(id)));
+    }
+  }
+  const photo = id => photos.find(p => p.id === id);
+  const decisions = () => photos.filter(p => p.state === 'not-approved').map(p => ({ p, appealed: p.id === 17 }));
+
+  // ---------- State ----------
+  const state = { screen: 'photos', viewport: 'desktop', member: 'typical', mode: 'dating', filter: 'all', album: 1, viewer: null, toastTimer: 0,
+                  verified: true, recipient: false, explicit: { dating: true, friends: false, activities: false, business: false } };
+
+  function usage() {
+    const albumOnly = photos.filter(p => p.state === 'album-only').length;
+    return { total: photos.length, albumOnly, profile: photos.length - albumOnly };
+  }
+  function where(p) {
+    const inModes = MODES.filter(([m]) => modes[m].includes(p.id)).map(([, l]) => l);
+    const inAlbums = albums.filter(a => a.photos.includes(p.id)).map(a => a.name);
+    return { inModes, inAlbums };
+  }
+  function whereLine(p) {
+    if (p.state === 'checking') return 'Being checked';
+    if (p.state === 'not-approved') return 'Not approved';
+    const { inModes, inAlbums } = where(p);
+    const parts = [...inModes];
+    if (inAlbums.length) parts.push(inAlbums.length === 1 ? '1 album' : `${inAlbums.length} albums`);
+    return parts.length ? parts.join(' · ') : 'Not used yet';
+  }
+
+  // A tile's photo. context decides the overlays.
+  function shot(p, { label, cls = '', open = true, ctx = '' } = {}) {
+    const blurred = (p.state === 'not-approved' || p.state === 'album-only') && !p.revealed;
+    let veil = '';
+    if (p.state === 'not-approved') veil = `<span class="veil">${icon('eyeoff')}Not approved</span>`;
+    else if (p.state === 'album-only' && blurred) veil = `<span class="veil">${icon('lock')}Albums only</span>`;
+    else if (p.state === 'checking') veil = `<span class="veil" style="background:rgba(0,0,0,.18)">${icon('clock')}Checking</span>`;
+    const tagName = open ? 'button' : 'span';
+    const attrs = open ? `type="button" data-view="${p.id}" data-ctx="${ctx}" aria-label="${esc(label || 'Open photo')}"` : 'aria-hidden="true"';
+    return `<${tagName} class="shot ${blurred ? 'blurred' : ''} ${p.state === 'checking' ? 'checking' : ''} ${cls}" ${attrs}>${art(p)}${veil}</${tagName}>`;
+  }
+
+  // ---------- Render: Photos ----------
+  function renderUsage() {
+    const u = usage();
+    $('[data-used]').textContent = u.total;
+    $('[data-meter-profile]').style.width = (u.profile / LIMIT * 100) + '%';
+    $('[data-meter-album]').style.width = (u.albumOnly / LIMIT * 100) + '%';
+    $('[data-legend-profile]').textContent = `${u.profile} profile photos`;
+    $('[data-legend-album]').textContent = `${u.albumOnly} in private albums only`;
+    $('[data-legend-album]').parentElement.hidden = !state.verified;
+    $$('[data-when="full"]').forEach(el => el.hidden = u.total < LIMIT);
+  }
+
+  function renderModes() {
+    $('[data-mode-tabs]').innerHTML = MODES.map(([id, l]) =>
+      `<button type="button" role="tab" class="chip" aria-selected="${id === state.mode}" aria-pressed="${id === state.mode}" data-mode="${id}">${l} <span class="count">${modes[id].length}</span></button>`).join('');
+    const list = modes[state.mode], label = modeLabel(state.mode), main = mains[state.mode];
+    $('[data-mode-heading]').textContent = `In ${label}`;
+    $('[data-mode-count]').textContent = `${list.length} of ${PER_MODE}`;
+    const tiles = list.map((id, i) => {
+      const p = photo(id), isMain = main === id;
+      return `<li class="tile" draggable="true" data-drag="${id}">
+        ${shot(p, { label: `${isMain ? 'Main photo' : 'Photo ' + (i + 1)} in ${label}`, ctx: 'mode' })}
+        ${isMain ? `<span class="badge light">${icon('star')}Main</span>` : ''}
+        <span class="order">${i + 1}</span>
+        <button type="button" class="x" data-remove-mode="${id}" aria-label="Remove photo ${i + 1} from ${label}">${icon('x')}</button>
+      </li>`;
+    });
+    const canAdd = list.length < PER_MODE;
+    tiles.push(`<li class="tile"><button type="button" class="add-tile" data-open="pick" ${canAdd ? '' : 'disabled'}>${icon('plus')}${canAdd ? 'Add photos' : 'Mode is full'}</button></li>`);
+    $('[data-mode-grid]').innerHTML = tiles.join('');
+    $('[data-mode-foot]').textContent = list.length === 0 ? `No photos in ${label} yet. Your ${label} profile uses a placeholder.`
+      : !main ? `No main photo in ${label}, so a placeholder shows. Open a photo and choose Make main.`
+      : `Drag to change the order. Removing a photo from ${label} keeps it in your library.`;
+  }
+
+  function cover(a, cls = '') {
+    const ps = a.photos.slice(0, 4).map(photo);
+    const anyAdult = ps.some(p => p.state === 'album-only');
+    const cells = [0, 1, 2, 3].map(i => `<span>${ps[i] ? art(ps[i]) : ''}</span>`).join('');
+    return `<span class="cover ${anyAdult ? 'blurred' : ''} ${cls}">${cells}<span class="lock" style="background:rgba(10,10,10,.7)">${icon('lock')}</span></span>`;
+  }
+
+  function renderAlbums() {
+    $('[data-album-count]').textContent = `${albums.length} of ${ALBUMS}`;
+    const cards = albums.map(a => {
+      const shared = shares.filter(s => s.album === a.id).length;
+      return `<li><button type="button" class="album" data-album="${a.id}">${cover(a)}
+        <span class="album-name">${esc(a.name)}</span>
+        <span class="album-meta">${a.photos.length} of ${PER_ALBUM} · ${a.modes.length ? a.modes.map(modeLabel).join(', ') : 'Not in any mode'}${shared ? ` · shared with ${shared}` : ''}</span></button></li>`;
+    });
+    for (let i = albums.length; i < ALBUMS; i++)
+      cards.push(`<li><button type="button" class="album" data-goto="album-new"><span class="cover-empty">${icon('plus')}New album</span><span class="album-name muted">Empty</span><span class="album-meta">Up to ${PER_ALBUM} photos</span></button></li>`);
+    $('[data-albums]').innerHTML = cards.join('');
+  }
+
+  const FILTERS = [['all', 'All'], ['used', 'In a mode'], ['unused', 'Not in a mode'], ['album-only', 'Albums only'], ['review', 'Checking or not approved']];
+  function libraryList() {
+    return photos.filter(p => state.filter === 'all' ? true
+      : state.filter === 'used' ? where(p).inModes.length > 0
+      : state.filter === 'unused' ? p.state === 'approved' && where(p).inModes.length === 0
+      : state.filter === 'album-only' ? p.state === 'album-only'
+      : p.state === 'checking' || p.state === 'not-approved');
+  }
+  function renderLibrary() {
+    if (!state.verified && state.filter === 'album-only') state.filter = 'all';
+    $('[data-filters]').innerHTML = FILTERS.filter(([id]) => state.verified || id !== 'album-only').map(([id, l]) => {
+      const n = state.filter === id ? '' : '';
+      return `<button type="button" class="chip" aria-pressed="${state.filter === id}" data-filter="${id}">${l}${n}</button>`;
+    }).join('');
+    const list = libraryList();
+    $('[data-library]').innerHTML = list.length ? list.map(p => `<li class="tile">
+        ${shot(p, { label: `Open photo, ${whereLine(p)}`, ctx: 'library' })}
+        <div class="tile-meta"><span class="where" title="${esc(whereLine(p))}">${esc(whereLine(p))}</span>
+        <button type="button" class="btn btn-secondary btn-xs" data-delete="${p.id}">Delete</button></div></li>`).join('')
+      : `<li style="grid-column:1/-1"><p class="empty">${photos.length ? 'No photos match this filter.' : 'No photos yet. Add photos when you\'re ready.'}</p></li>`;
+  }
+
+  function renderDecisions() {
+    const ds = decisions();
+    $('[data-decisions-card]').hidden = ds.length === 0;
+    $('[data-decisions]').innerHTML = ds.map(({ p, appealed }) => `<li class="item">
+      <div class="item-thumb">${shot(p, { label: 'Open the photo that wasn\'t approved', ctx: 'library' })}</div>
+      <div class="item-main"><div class="item-line"><span class="item-title">A photo wasn't approved</span>${appealed ? '<span class="tag">Appeal being reviewed</span>' : '<span class="tag tag-quiet">Can appeal</span>'}</div>
+      <p class="item-meta">${fmt(p.uploaded)} · Nudity or sexual content isn't allowed in profile photos.</p></div>
+      <div class="item-action actions">${appealed ? '' : `<a class="btn btn-pill" href="#" data-goto="appeal">Appeal</a>`}<button type="button" class="btn btn-secondary btn-pill" data-delete="${p.id}">Delete</button></div></li>`).join('');
+  }
+
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function fmt(d) { const [y, m, day] = d.split('-'); return `${Number(day)} ${MONTHS[Number(m) - 1]} ${y}`; }
+
+  // ---------- Render: Album ----------
+  function currentAlbum() { return albums.find(a => a.id === state.album) || albums[0]; }
+  function switches(selected, attr) {
+    return MODES.map(([id, l]) => `<label class="switch-row"><span>${l}</span><input type="checkbox" class="switch" ${attr}="${id}" ${selected.includes(id) ? 'checked' : ''}></label>`).join('');
+  }
+  function renderAlbum() {
+    const a = currentAlbum();
+    if (!a) return;
+    $('[data-album-title]').textContent = a.name;
+    $('[data-album-name]').value = a.name;
+    $('[data-album-photo-count]').textContent = `${a.photos.length} of ${PER_ALBUM}`;
+    // Library photos: ✕ removes from this album (stays in the library). Adult photos: bin deletes everywhere.
+    const tiles = a.photos.map((id, i) => {
+      const p = photo(id), adult = p.state === 'album-only';
+      return `<li class="tile">${shot(p, { label: `Photo ${i + 1} in ${a.name}`, ctx: 'album' })}
+      ${adult ? `<button type="button" class="x" data-delete="${id}" aria-label="Delete photo ${i + 1}">${icon('trash')}</button>`
+              : `<button type="button" class="x" data-remove-album="${id}" aria-label="Remove photo ${i + 1} from this album">${icon('x')}</button>`}</li>`;
+    });
+    if (a.photos.length < PER_ALBUM) tiles.push(`<li class="tile"><button type="button" class="add-tile" data-open="album-pick">${icon('plus')}Add photos</button></li>`);
+    $('[data-album-grid]').innerHTML = tiles.join('');
+    $('[data-album-modes]').innerHTML = switches(a.modes, 'data-album-mode');
+    const sh = shares.filter(s => s.album === a.id);
+    $('[data-album-shared]').innerHTML = sh.length ? sh.map(s => `${esc(s.who)} (${modeLabel(s.mode)}) <button type="button" class="btn btn-secondary btn-xs" data-unshare="${s.album}:${esc(s.who)}">Stop sharing</button>`).join('<br>') : 'Nobody yet. Share it from a chat.';
+  }
+  function renderNewAlbum() {
+    $('[data-new-album-modes]').innerHTML = switches([], 'data-new-mode');
+    $('[data-free-albums]').textContent = ALBUMS - albums.length;
+  }
+
+  // ---------- Viewer ----------
+  function viewerList(ctx) {
+    if (ctx === 'mode') return modes[state.mode];
+    if (ctx === 'album') return currentAlbum().photos;
+    return libraryList().map(p => p.id);
+  }
+  function openViewer(id, ctx) {
+    state.viewer = { id, ctx: ctx || 'library' };
+    renderViewer(); viewer.hidden = false;
+    viewer.querySelector('[data-close]').focus();
+  }
+  function renderViewer() {
+    const { id, ctx } = state.viewer, p = photo(id), list = viewerList(ctx), i = list.indexOf(id);
+    const w = where(p), label = modeLabel(state.mode);
+    viewer.querySelector('[data-viewer-shot]').innerHTML = shot(p, { open: false }) +
+      ((p.state === 'not-approved' || p.state === 'album-only') ? `<button type="button" class="btn btn-secondary btn-pill reveal" data-reveal="${p.id}">${icon(p.revealed ? 'eyeoff' : 'eye')}${p.revealed ? 'Hide photo' : 'Show photo'}</button>` : '');
+    viewer.querySelector('[data-viewer-step="-1"]').disabled = i <= 0;
+    viewer.querySelector('[data-viewer-step="1"]').disabled = i < 0 || i >= list.length - 1;
+    viewer.querySelector('[data-viewer-title]').textContent = list.length > 1 && i >= 0 ? `Photo ${i + 1} of ${list.length}` : 'Photo';
+    const stateText = { approved: 'Approved', checking: 'Checking — not visible to anyone yet', 'not-approved': 'Not approved — this photo can\'t be used on your profile', 'album-only': 'Approved for private albums only' }[p.state];
+    viewer.querySelector('[data-viewer-facts]').innerHTML = `
+      <div><dt>Status</dt><dd>${stateText}</dd></div>
+      <div><dt>Modes</dt><dd>${w.inModes.join(', ') || '—'}</dd></div>
+      <div><dt>Albums</dt><dd>${w.inAlbums.map(esc).join(', ') || '—'}</dd></div>
+      <div><dt>Uploaded</dt><dd>${fmt(p.uploaded)}</dd></div>`;
+    const acts = [];
+    if (ctx === 'mode') {
+      const pos = modes[state.mode].indexOf(id);
+      if (mains[state.mode] !== id) acts.push(`<button type="button" class="btn" data-make-main="${id}">${icon('star')}Make main in ${label}</button>`);
+      acts.push(`<button type="button" class="btn btn-secondary" data-move="${id}:-1" ${pos <= 0 ? 'disabled' : ''}>${icon('left')}Move earlier</button>`);
+      acts.push(`<button type="button" class="btn btn-secondary" data-move="${id}:1" ${pos >= modes[state.mode].length - 1 ? 'disabled' : ''}>${icon('chev')}Move later</button>`);
+      acts.push(`<button type="button" class="btn btn-secondary" data-remove-mode="${id}">${icon('x')}Remove from ${label}</button>`);
+    }
+    // Adult (album-only) photos live only in their album: removing would orphan them, so they can only be deleted.
+    if (ctx === 'album' && p.state !== 'album-only') acts.push(`<button type="button" class="btn btn-secondary" data-remove-album="${id}">${icon('x')}Remove</button>`);
+    if (p.state === 'not-approved') acts.push(`<a class="btn" href="#" data-goto="appeal">${icon('flag')}Appeal this decision</a>`);
+    acts.push(`<button type="button" class="btn btn-secondary" data-delete="${id}">${icon('trash')}Delete</button>`);
+    viewer.querySelector('[data-viewer-actions]').innerHTML = acts.join('');
+  }
+
+  // ---------- Dialogs ----------
+  function openDialog(kind, arg) {
+    const d = dialog.querySelector('[data-dialog]');
+    d.className = 'dialog';
+    const head = t => `<div class="dialog-head"><h2 id="dialog-title">${t}</h2><button type="button" class="icon-button" data-close aria-label="Close">${icon('x')}</button></div>`;
+    if (kind === 'pick' || kind === 'album-pick') {
+      d.classList.add('dialog-wide');
+      const forAlbum = kind === 'album-pick', a = currentAlbum();
+      const chosen = forAlbum ? a.photos : modes[state.mode], max = forAlbum ? PER_ALBUM : PER_MODE;
+      // Only approved library photos can be picked. Adult photos stay in the one album they were uploaded to.
+      const pool = photos.filter(p => p.state === 'approved');
+      const title = forAlbum ? `Add to ${esc(a.name)}` : `Add photos to ${modeLabel(state.mode)}`;
+      d.innerHTML = head(title) + `<p class="small muted">Tap photos to add or remove them. <b data-pick-count>${chosen.length}</b> of ${max} selected.${forAlbum ? ' Adult photos are uploaded straight into an album and stay there.' : ' Photos only for private albums can\'t be used in a mode.'}</p>
+        <ul class="grid" data-pick-grid>${pool.length ? pool.map(p => `<li class="tile"><button type="button" class="shot ${p.state === 'album-only' && !p.revealed ? 'blurred' : ''}" data-pick="${p.id}" aria-pressed="${chosen.includes(p.id)}" aria-label="Photo, ${esc(whereLine(p))}">${art(p)}${p.state === 'album-only' ? `<span class="veil" style="background:rgba(0,0,0,.2)">${icon('lock')}</span>` : ''}<span class="badge light" data-check hidden>${icon('star')}Selected</span></button></li>`).join('') : '<li style="grid-column:1/-1"><p class="empty">No approved photos yet. Add photos first.</p></li>'}</ul>
+        <div class="dialog-foot"><button type="button" class="btn btn-secondary" data-close>Cancel</button><button type="button" class="btn" data-pick-done="${kind}">Done</button></div>`;
+      d.dataset.chosen = JSON.stringify(chosen);
+      d.dataset.max = max;
+      syncPick(d);
+    }
+    if (kind === 'upload' || kind === 'album-upload') {
+      const intoAlbum = kind === 'album-upload';
+      const opts = albums.map(a => `<option value="${a.id}" ${a.id === state.album ? 'selected' : ''}>${esc(a.name)} (${a.photos.length} of ${PER_ALBUM})</option>`).join('');
+      d.innerHTML = head('Add photos') + `
+        <fieldset><legend>Where should they go?</legend>
+          <label class="choice"><input type="radio" name="dest" value="library" ${intoAlbum ? '' : 'checked'}><span><strong>My photos</strong><span>Use them in your modes and albums. No nudity or sexual content.</span></span></label>
+          <label class="choice"><input type="radio" name="dest" value="album" ${intoAlbum ? 'checked' : ''} ${albums.length ? '' : 'disabled'}><span><strong>A private album</strong><span>${state.verified ? 'Adult photos are allowed here only. They stay in your albums and can\'t be used on your profile.' : 'Non-explicit photos only until you verify your ID.'}</span></span></label>
+        </fieldset>
+        <div class="field" data-album-select ${intoAlbum ? '' : 'hidden'}><label for="dest-album">Album</label><select id="dest-album">${opts}</select></div>
+        <div class="drop">${icon('upload')}<p class="small"><b>Choose photos</b> or drag them here</p><p class="foot-note">JPEG, PNG or WebP, up to 10 MB each. ${LIMIT - usage().total} library spots left.</p>
+          <button type="button" class="btn btn-secondary btn-pill" data-fake-upload ${usage().total >= LIMIT ? 'disabled' : ''}>Choose photos</button></div>
+        <p class="foot-note" data-dest-rules>${intoAlbum ? albumRules() : libraryRules}</p>
+        <p class="status" role="status" data-upload-status></p>
+        <div class="dialog-foot"><button type="button" class="btn" data-close>Done</button></div>`;
+    }
+    if (kind === 'delete') {
+      const p = photo(arg), w = where(p);
+      const used = [...w.inModes, ...w.inAlbums];
+      d.innerHTML = head('Delete this photo?') + `<div style="display:flex;gap:16px;align-items:center"><div style="width:72px;flex:none">${shot(p, { open: false })}</div>
+        <p class="small">${used.length ? `It's removed from ${used.map(esc).join(', ')} and your library.` : 'It\'s removed from your library.'} This can't be undone.</p></div>
+        <div class="dialog-foot"><button type="button" class="btn btn-secondary" data-close>Keep</button><button type="button" class="btn" data-confirm-delete="${p.id}">Delete</button></div>`;
+    }
+    if (kind === 'share') {
+      const avail = albums.filter(a => a.modes.includes('dating'));
+      const hasAdult = a => a.photos.some(id => photo(id)?.state === 'album-only');
+      const blocked = a => hasAdult(a) && !state.recipient;
+      d.innerHTML = head('Share with Jordan') + `
+        <div class="chips"><button type="button" class="chip" data-direct="Camera">Camera</button><button type="button" class="chip" data-direct="Photo library">Photo library</button><button type="button" class="chip" data-direct="My photos">From my photos</button></div>
+        <p class="foot-note">${state.verified && state.recipient ? 'You and Jordan are both ID Verified and Jordan accepts explicit media in Dating, so camera and photo library photos arrive straight away.' : 'Camera and photo library photos are checked before Jordan sees them. Your approved, non-explicit photos send straight away.'}</p>
+        <h3 style="font:700 1rem/1.3 var(--font)">Private albums</h3>
+        <p class="small muted">Albums you've allowed in Dating. Jordan can see an album until you stop sharing, or either of you disconnects.</p>
+        <ul class="sheet-list">${avail.length ? avail.map(a => {
+          const on = shares.some(s => s.album === a.id && s.who === 'Jordan');
+          const no = blocked(a) && !on;
+          return `<li><button type="button" data-share="${a.id}" ${no ? 'aria-disabled="true"' : ''}>${cover(a)}<span style="flex:1;min-width:0"><b>${esc(a.name)}</b><br><span class="small muted">${a.photos.length} photos${hasAdult(a) ? ' · includes explicit photos' : ''}</span>${no ? '<br><span class="small"><b>Jordan doesn\'t accept explicit media.</b></span>' : ''}</span>${on ? '<span class="tag">Shared</span>' : no ? '<span class="tag tag-quiet">Can\'t share</span>' : '<span class="btn btn-pill">Share</span>'}</button></li>`;
+        }).join('') : '<li><p class="empty">No albums are allowed in Dating. Turn on Dating in an album\'s settings.</p></li>'}</ul>
+        <div class="dialog-foot"><a class="btn btn-secondary" href="#" data-goto="photos">Manage albums</a><button type="button" class="btn" data-close>Done</button></div>`;
+    }
+    dialog.hidden = false;
+    d.querySelector('[data-close]')?.focus();
+  }
+  const libraryRules = 'Photos are checked before anyone can see them. No nudity or sexual content, no one under 18, and only photos you have the right to share.';
+  const albumRules = () => state.verified
+    ? 'Photos are checked before anyone can see them. Adult content is allowed in private albums only. Never anyone under 18, nothing without consent, and only photos you have the right to share. Each one uses a library spot.'
+    : 'Photos are checked before anyone can see them. No nudity or sexual content until you verify your ID. Each one uses a library spot.';
+
+  function syncPick(d) {
+    const chosen = JSON.parse(d.dataset.chosen), max = Number(d.dataset.max);
+    d.querySelectorAll('[data-pick]').forEach(b => {
+      const on = chosen.includes(Number(b.dataset.pick));
+      b.setAttribute('aria-pressed', on); b.style.outline = on ? '3px solid var(--text)' : ''; b.style.outlineOffset = on ? '2px' : '';
+      b.querySelector('[data-check]').hidden = !on;
+      b.disabled = !on && chosen.length >= max; b.style.opacity = b.disabled ? .4 : '';
+    });
+    d.querySelector('[data-pick-count]').textContent = chosen.length;
+  }
+
+  function closeOverlays(focusBack = true) {
+    [drawer, viewer, dialog].forEach(o => o.hidden = true);
+    menuButton.setAttribute('aria-expanded', 'false');
+    if (focusBack) state.viewer = null;
+  }
+  function toast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => t.hidden = true, 2200);
+  }
+
+  // ---------- Screens ----------
+  function renderNav() {
+    $$('[data-nav-list]').forEach(ul => ul.innerHTML = navItems.map(([key, label, ic]) =>
+      `<li><a href="#" data-nav="${key}"${key === (state.screen === 'explicit' ? 'me-safety' : 'photos') ? ' aria-current="page"' : ''}>${icon(ic)}<span>${esc(label)}</span></a></li>`).join(''));
+  }
+  function renderAll() {
+    renderUsage(); renderModes(); renderAlbums(); renderLibrary(); renderDecisions(); renderAlbum(); renderNewAlbum();
+    $('[data-appeal-photo]').innerHTML = photos.find(p => p.state === 'not-approved') ? shot(photos.find(p => p.state === 'not-approved'), { label: 'Open the photo', ctx: 'library' }) : '<p class="empty">No decision to appeal.</p>';
+    $('[data-chat-avatar]').innerHTML = art({ id: 'av', hue: 200, scene: 'portrait' });
+    renderChat(); renderExplicit();
+    $$('[data-when-unverified]').forEach(el => el.hidden = state.verified);
+    if (state.viewer && !viewer.hidden) { if (photo(state.viewer.id)) renderViewer(); else closeOverlays(); }
+  }
+  function renderExplicit() {
+    $('[data-explicit-modes]').innerHTML = MODES.map(([id, l]) => `<label class="switch-row"><span>${l}</span><input type="checkbox" class="switch" data-explicit="${id}" ${state.verified && state.explicit[id] ? 'checked' : ''} ${state.verified ? '' : 'disabled'}></label>`).join('');
+  }
+  function renderChat() {
+    const body = $('[data-chat-body]');
+    body.querySelectorAll('.share-card').forEach(n => n.remove());
+    shares.filter(s => s.who === 'Jordan').forEach(s => {
+      const a = albums.find(x => x.id === s.album); if (!a) return;
+      body.insertAdjacentHTML('beforeend', `<div class="share-card">${cover(a)}<div class="share-body"><p style="font-weight:700">${icon('lock').replace('class="icon"', 'class="icon" style="width:14px;height:14px;vertical-align:-2px"')} ${esc(a.name)}</p><p class="small muted">${a.photos.length} photos · Only Jordan can see this</p><div><button type="button" class="btn btn-secondary btn-xs" data-unshare="${a.id}:Jordan">Stop sharing</button></div></div></div>`);
+    });
+  }
+  // Wide two-column layouts on album and appeal pages.
+  const style = document.createElement('style');
+  style.textContent = '@container page (min-width:760px){[data-album-cols]{grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr)}[data-appeal-cols]{grid-template-columns:minmax(220px,.8fr) minmax(0,1.4fr)}}';
+  document.head.appendChild(style);
+
+  function go(target) {
+    const [screen, sub] = target.split(':');
+    closeOverlays();
+    state.screen = screen;
+    $$('[data-screen]').forEach(el => el.hidden = el.dataset.screen !== screen);
+    const inShell = screen !== 'chat';
+    shell.hidden = !inShell;
+    app.dataset.shell = inShell ? 'settings' : 'none';
+    $$('[data-tab]').forEach(t => t.toggleAttribute('aria-current', t.dataset.tab === (inShell ? 'me' : 'chats')));
+    $$('[data-tab]').forEach(t => { if (t.hasAttribute('aria-current')) t.setAttribute('aria-current', 'page'); });
+    const sel = $('#screen-select');
+    sel.value = [...sel.options].some(o => o.value === target) ? target : screen;
+    $$('[data-chat-only]').forEach(el => el.hidden = screen !== 'chat');
+    renderNav(); renderAll();
+    (state.viewport === 'desktop' ? window : app).scrollTo({ top: 0 });
+    if (sub === 'viewer' && screen === 'album') { const a = currentAlbum(); const id = a?.photos.find(x => photo(x).state === 'album-only') ?? a?.photos[0]; if (id) openViewer(id, 'album'); }
+    else if (sub === 'viewer') openViewer(modes[state.mode][1] || photos[0]?.id, 'mode');
+    if (sub === 'viewer-rejected') { const r = photos.find(p => p.state === 'not-approved'); if (r) openViewer(r.id, 'library'); }
+    if (sub === 'pick') openDialog(screen === 'album' ? 'album-pick' : 'pick');
+    if (sub === 'upload') openDialog(screen === 'album' ? 'album-upload' : 'upload');
+    if (sub === 'delete' && photos.length) openDialog('delete', photos[1]?.id || photos[0].id);
+    if (sub === 'share') openDialog('share');
+  }
+
+  // ---------- Events ----------
+  function setPressed(control, value) { $$(`[data-control="${control}"] button`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === value))); }
+  function setViewport(v) { state.viewport = v; frame.dataset.viewport = v; setPressed('viewport', v); }
+  function setTheme(t) { root.dataset.theme = t; setPressed('theme', t); }
+  function setMember(m) { state.member = m; setPressed('member', m); seed(m); state.album = albums[0]?.id || 0; if (!albums.length && state.screen === 'album') go('photos'); else renderAll(); }
+
+  $('#screen-select').addEventListener('change', e => go(e.target.value));
+  $$('[data-control] button').forEach(b => b.addEventListener('click', () => {
+    const c = b.closest('[data-control]').dataset.control, v = b.dataset.value;
+    if (c === 'viewport') setViewport(v);
+    if (c === 'theme') setTheme(v);
+    if (c === 'member') setMember(v);
+    if (c === 'verified') { state.verified = v === 'yes'; setPressed('verified', v); setMember(state.member); }
+    if (c === 'recipient') { state.recipient = v === 'yes'; setPressed('recipient', v); renderAll(); if (!dialog.hidden) openDialog('share'); }
+  }));
+  menuButton.addEventListener('click', () => { drawer.hidden = false; menuButton.setAttribute('aria-expanded', 'true'); drawer.querySelector('[data-close]').focus(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeOverlays();
+    if (!viewer.hidden && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) step(e.key === 'ArrowLeft' ? -1 : 1);
+  });
+  function step(d) {
+    const list = viewerList(state.viewer.ctx), i = list.indexOf(state.viewer.id), n = list[i + d];
+    if (n) { state.viewer.id = n; renderViewer(); }
+  }
+
+  document.addEventListener('click', e => {
+    const t = e.target, q = s => t.closest(s);
+    if (t === drawer || t === viewer || t === dialog || q('[data-close]')) { closeOverlays(); return; }
+    let el;
+    if ((el = q('[data-goto]'))) { e.preventDefault(); go(el.dataset.goto); return; }
+    if ((el = q('[data-nav]'))) { e.preventDefault(); if (el.dataset.nav === 'photos') go('photos'); if (el.dataset.nav === 'me-safety') go('explicit'); return; }
+    if ((el = q('[data-tab]'))) { e.preventDefault(); go(el.dataset.tab === 'chats' ? 'chat' : 'photos'); return; }
+    if ((el = q('[data-mode]'))) { state.mode = el.dataset.mode; renderModes(); return; }
+    if ((el = q('[data-filter]'))) { state.filter = el.dataset.filter; renderLibrary(); return; }
+    if ((el = q('[data-album]'))) { state.album = Number(el.dataset.album); go('album'); return; }
+    if ((el = q('[data-view]'))) { openViewer(Number(el.dataset.view), el.dataset.ctx); return; }
+    if ((el = q('[data-viewer-step]'))) { step(Number(el.dataset.viewerStep)); return; }
+    if ((el = q('[data-reveal]'))) { const p = photo(Number(el.dataset.reveal)); p.revealed = !p.revealed; renderAll(); return; }
+    if ((el = q('[data-open]'))) { openDialog(el.dataset.open); return; }
+    if ((el = q('[data-remove-mode]'))) {
+      const id = Number(el.dataset.removeMode); modes[state.mode] = modes[state.mode].filter(x => x !== id);
+      if (mains[state.mode] === id) delete mains[state.mode];
+      if (!viewer.hidden) closeOverlays();
+      toast(`Removed from ${modeLabel(state.mode)}. It's still in your library.`); renderAll(); return;
+    }
+    if ((el = q('[data-make-main]'))) {
+      const id = Number(el.dataset.makeMain); mains[state.mode] = id;
+      modes[state.mode] = [id, ...modes[state.mode].filter(x => x !== id)];
+      toast(`Main photo in ${modeLabel(state.mode)} updated.`); renderAll(); return;
+    }
+    if ((el = q('[data-move]'))) {
+      const [id, d] = el.dataset.move.split(':').map(Number), l = modes[state.mode], i = l.indexOf(id);
+      [l[i], l[i + d]] = [l[i + d], l[i]]; renderAll(); return;
+    }
+    if ((el = q('[data-remove-album]'))) {
+      const a = currentAlbum(), id = Number(el.dataset.removeAlbum);
+      if (photo(id)?.state === 'album-only') return; // adult photos can only be deleted
+      a.photos = a.photos.filter(x => x !== id);
+      if (!viewer.hidden) closeOverlays();
+      toast(`Removed from ${a.name}. It's still in your library.`); renderAll(); return;
+    }
+    if ((el = q('[data-delete]'))) { openDialog('delete', Number(el.dataset.delete)); return; }
+    if ((el = q('[data-confirm-delete]'))) {
+      const id = Number(el.dataset.confirmDelete);
+      photos = photos.filter(p => p.id !== id);
+      MODES.forEach(([m]) => { modes[m] = modes[m].filter(x => x !== id); if (mains[m] === id) delete mains[m]; });
+      albums.forEach(a => a.photos = a.photos.filter(x => x !== id));
+      closeOverlays(); toast('Photo deleted.'); renderAll(); return;
+    }
+    if ((el = q('[data-pick]'))) {
+      const d = dialog.querySelector('[data-dialog]'), id = Number(el.dataset.pick);
+      let chosen = JSON.parse(d.dataset.chosen);
+      chosen = chosen.includes(id) ? chosen.filter(x => x !== id) : [...chosen, id];
+      d.dataset.chosen = JSON.stringify(chosen); syncPick(d); return;
+    }
+    if ((el = q('[data-pick-done]'))) {
+      const chosen = JSON.parse(dialog.querySelector('[data-dialog]').dataset.chosen);
+      if (el.dataset.pickDone === 'album-pick') currentAlbum().photos = chosen;
+      else { modes[state.mode] = chosen; if (mains[state.mode] && !chosen.includes(mains[state.mode])) delete mains[state.mode]; }
+      closeOverlays(); toast('Saved.'); renderAll(); return;
+    }
+    if ((el = q('[data-fake-upload]'))) {
+      const d = dialog.querySelector('[data-dialog]'), toAlbum = d.querySelector('input[name=dest]:checked').value === 'album';
+      if (usage().total >= LIMIT) return;
+      const p = mk('checking', toAlbum && state.verified ? 'portrait' : SCENES[(seq + 1) % SCENES.length], undefined, '2026-11-06'); photos.push(p);
+      if (toAlbum) { const a = albums.find(x => x.id === Number(d.querySelector('#dest-album').value)); if (a && a.photos.length < PER_ALBUM) a.photos.push(p.id); }
+      d.querySelector('[data-upload-status]').textContent = toAlbum ? 'Uploaded to the album. It shows there once it\'s checked.' : 'Uploaded. Photos are checked before anyone can see them.';
+      renderAll(); return;
+    }
+    if ((el = q('[data-direct]'))) { closeOverlays(); toast(state.verified && state.recipient ? `${el.dataset.direct}: sent.` : el.dataset.direct === 'My photos' ? 'Approved photo sent.' : `${el.dataset.direct}: sent for a quick check. Jordan sees it once it's approved.`); return; }
+    if ((el = q('[data-share]'))) {
+      if (el.getAttribute('aria-disabled') === 'true') { toast("Jordan doesn't accept explicit media, so this album can't be shared."); return; }
+      const id = Number(el.dataset.share);
+      if (!shares.some(s => s.album === id && s.who === 'Jordan')) shares.push({ album: id, who: 'Jordan', mode: 'dating' });
+      closeOverlays(); toast('Album shared with Jordan.'); renderAll(); return;
+    }
+    if ((el = q('[data-unshare]'))) {
+      const [id, who] = el.dataset.unshare.split(':');
+      shares = shares.filter(s => !(s.album === Number(id) && s.who === who)); toast(`Stopped sharing with ${who}.`); renderAll(); return;
+    }
+    if ((el = q('[data-delete-album]'))) {
+      const a = currentAlbum(); albums = albums.filter(x => x !== a); shares = shares.filter(s => s.album !== a.id);
+      const adult = new Set(a.photos.filter(id => photo(id)?.state === 'album-only'));
+      photos = photos.filter(p => !adult.has(p.id));
+      state.album = albums[0]?.id || 0; toast(adult.size ? `${a.name} deleted, with its ${adult.size} adult photo${adult.size === 1 ? '' : 's'}. Library photos are still in your library.` : `${a.name} deleted. Its photos are still in your library.`); go('photos'); return;
+    }
+    if ((el = q('[data-create-album]'))) {
+      if (albums.length >= ALBUMS) return;
+      const name = $('#new-album-name').value.trim() || `Album ${albums.length + 1}`;
+      const ms = $$('[data-new-mode]').filter(c => c.checked).map(c => c.dataset.newMode);
+      const id = Math.max(0, ...albums.map(a => a.id)) + 1;
+      albums.push({ id, name, photos: [], modes: ms }); state.album = id; $('#new-album-name').value = ''; go('album'); return;
+    }
+    if (q('a[href="#"]')) e.preventDefault();
+  });
+
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.name === 'dest') {
+      const album = t.value === 'album';
+      dialog.querySelector('[data-album-select]').hidden = !album;
+      dialog.querySelector('[data-dest-rules]').textContent = album ? albumRules() : libraryRules;
+    }
+    if (t.matches('[data-explicit]')) { state.explicit[t.dataset.explicit] = t.checked; toast(`Explicit media ${t.checked ? 'on' : 'off'} in ${modeLabel(t.dataset.explicit)}.`); }
+    if (t.matches('[data-album-mode]')) {
+      const a = currentAlbum(), m = t.dataset.albumMode;
+      a.modes = t.checked ? [...a.modes, m] : a.modes.filter(x => x !== m); renderAlbums();
+    }
+  });
+  document.addEventListener('input', e => {
+    if (e.target.matches('[data-album-name]')) { const a = currentAlbum(); a.name = e.target.value || 'Untitled album'; $('[data-album-title]').textContent = a.name; renderAlbums(); }
+  });
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.matches('[data-appeal-form]')) { toast('Appeal sent. A different person on the Swoovr team will review it.'); go('photos'); }
+    if (e.target.matches('[data-composer]')) { const i = $('#msg'); if (i.value.trim()) { $('[data-chat-body]').insertAdjacentHTML('beforeend', `<p class="bubble me">${esc(i.value)}</p>`); i.value = ''; } }
+  });
+
+  // Drag to reorder photos in a mode (desktop). The viewer's Move earlier/later covers keyboard and touch.
+  let dragId = null;
+  document.addEventListener('dragstart', e => { const t = e.target.closest('[data-drag]'); if (!t) return; dragId = Number(t.dataset.drag); t.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+  document.addEventListener('dragend', () => { dragId = null; $$('.dragging, .drop-target').forEach(n => n.classList.remove('dragging', 'drop-target')); });
+  document.addEventListener('dragover', e => { const t = e.target.closest('[data-drag]'); if (!t || dragId == null) return; e.preventDefault(); $$('.drop-target').forEach(n => n.classList.remove('drop-target')); t.classList.add('drop-target'); });
+  document.addEventListener('drop', e => {
+    const t = e.target.closest('[data-drag]'); if (!t || dragId == null) return; e.preventDefault();
+    const l = modes[state.mode], to = l.indexOf(Number(t.dataset.drag));
+    l.splice(l.indexOf(dragId), 1); l.splice(to, 0, dragId); renderModes();
+  });
+
+  const notes = document.getElementById('notes');
+  document.getElementById('notes-toggle').addEventListener('click', e => { notes.hidden = !notes.hidden; e.currentTarget.setAttribute('aria-pressed', String(!notes.hidden)); });
+
+  // Deep links for review, e.g. #photos,phone,dark  #album,tablet  #photos:viewer-rejected  #chat:share,phone  #photos,full,notes
+  seed('typical'); renderNav();
+  let target = 'photos';
+  for (const part of location.hash.slice(1).split(',')) {
+    if (/^(photos|album|album-new|appeal|chat|explicit)(:[a-z-]+)?$/.test(part)) target = part;
+    if (['desktop', 'tablet', 'phone'].includes(part)) setViewport(part);
+    if (['light', 'dark'].includes(part)) setTheme(part);
+    if (['typical', 'new', 'full'].includes(part)) { state.member = part; setPressed('member', part); seed(part); }
+    if (part === 'unverified') { state.verified = false; setPressed('verified', 'no'); seed(state.member); }
+    if (/^a\d$/.test(part)) state.album = Number(part.slice(1));
+    if (part === 'accepts') { state.recipient = true; setPressed('recipient', 'yes'); }
+    if (part === 'notes') { notes.hidden = false; document.getElementById('notes-toggle').setAttribute('aria-pressed', 'true'); }
+  }
+  go(target);
+})();
+</script>
+</body>
+</html>

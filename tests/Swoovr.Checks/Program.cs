@@ -89,6 +89,7 @@ SafetyResourceChecks.Run();
 NotificationChecks.Run();
 StandingChecks.Run();
 ChatAttachmentChecks.Run();
+PhotoAlbumChecks.Run();
 await EmailOutcomeChecks.Run();
 await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
 await PushProviderChecks.Run();

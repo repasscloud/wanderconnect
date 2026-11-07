@@ -1,0 +1,41 @@
+@* Issue 231: choose approved library photos for a mode or an album. Album-only photos are never offered. *@
+<div class="ph-overlay" @onclick="Cancel">
+    <div class="ph-dialog ph-dialog-wide" role="dialog" aria-modal="true" aria-labelledby="ph-pick-title" @onclick:stopPropagation="true" data-photo-picker>
+        <div class="ph-dialog-head"><h2 id="ph-pick-title">@Title</h2><button type="button" class="ph-close" @onclick="Cancel" aria-label="Close">×</button></div>
+        <p class="field-help"><strong>@chosen.Count</strong> of @Max selected. @Hint</p>
+        @if (Pool.Count == 0)
+        {
+            <p class="ph-empty">No approved photos yet. Add photos first.</p>
+        }
+        else
+        {
+            <ul class="ph-grid">
+                @foreach (var photo in Pool)
+                {
+                    var on = chosen.Contains(photo.Id);
+                    <li class="ph-tile">
+                        <button type="button" class="ph-pick @(on ? "is-on" : null)" aria-pressed="@(on ? "true" : "false")" disabled="@(!on && chosen.Count >= Max)"
+                                @onclick="() => Toggle(photo.Id)" data-pick-photo="@photo.Id"><PhotoShot Photo="photo" Alt="Library photo" />@if (on) {<span class="ph-badge">Selected</span>}</button>
+                    </li>
+                }
+            </ul>
+        }
+        <div class="ph-dialog-foot"><button type="button" class="button button-secondary" @onclick="Cancel">Cancel</button><button type="button" class="button" @onclick="Done" data-pick-done>Done</button></div>
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<MyPhotoView> Pool { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<Guid> Chosen { get; set; } = [];
+    [Parameter] public int Max { get; set; }
+    [Parameter] public EventCallback<List<Guid>> OnDone { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private List<Guid> chosen = [];
+    protected override void OnInitialized() => chosen = Chosen.ToList();
+    private void Toggle(Guid id) { if (!chosen.Remove(id)) chosen.Add(id); }
+    private Task Cancel() => OnCancel.InvokeAsync();
+    // Keep the existing order for photos that stay, then add new ones at the end.
+    private Task Done() => OnDone.InvokeAsync(chosen);
+}

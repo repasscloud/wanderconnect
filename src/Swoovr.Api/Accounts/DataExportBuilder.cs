@@ -105,6 +105,14 @@ public static class DataExportBuilder
             idVerification = verification, entitlements,
             // D203: the member's photos with their images (approved, checking or in review), as stored (metadata stripped).
             photos = photos ?? [],
+            // #231: private albums (photo ids in order, modes they may be shared in) and the per-mode explicit media choice.
+            photoAlbums = (await db.PhotoAlbums.Where(a => a.AccountId == id).OrderBy(a => a.CreatedAt).ToListAsync(cancellationToken)).Select(a => new
+            {
+                a.Id, a.Name, a.CreatedAt, a.UpdatedAt,
+                photos = db.PhotoAlbumItems.Where(e => e.AlbumId == a.Id).OrderBy(e => e.Position).Select(e => e.MediaId).ToList(),
+                modes = db.PhotoAlbumModes.Where(m => m.AlbumId == a.Id).Select(m => m.ModeId).ToList(),
+            }).ToList(),
+            explicitMedia = await db.ExplicitMediaPreferences.Where(e => e.AccountId == id).Select(e => new { mode = e.ModeId, e.Receive, e.UpdatedAt }).ToListAsync(cancellationToken),
             photoDecisions = await db.Set<MediaDecisionRecord>().Where(d => d.AccountId == id).Select(d => new { d.Id, d.MediaId, Decision = d.Decision == "reject" || d.Decision == "escalate" ? "not-approved" : d.Decision, d.At }).ToListAsync(cancellationToken),
             photoAppeals = await db.Set<MediaAppeal>().Where(a => a.AccountId == id).Select(a => new { a.Id, a.DecisionId, a.MediaId, a.Text, a.SubmittedAt, a.Outcome, a.DecidedAt }).ToListAsync(cancellationToken),
             // #41: the photos the member sent in chat, with the image for approved ones (photos others sent are listed in the chats only).

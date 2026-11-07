@@ -2211,6 +2211,31 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("evidence_redactions");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ExplicitMediaPreference", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.Property<bool>("Receive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("receive");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("AccountId", "ModeId")
+                        .HasName("pk_explicit_media_preferences");
+
+                    b.ToTable("explicit_media_preferences");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.ExportApproval", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3663,6 +3688,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
+
+                    b.Property<Guid?>("AlbumId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("album_id");
+
+                    b.Property<bool>("AlbumOnly")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("album_only");
 
                     b.Property<int>("Bytes")
                         .HasColumnType("integer")
@@ -5928,6 +5963,80 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_phone_codes_account_id_number_created_at");
 
                     b.ToTable("phone_codes");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhotoAlbum", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_photo_albums");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_photo_albums_account_id_created_at");
+
+                    b.ToTable("photo_albums");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhotoAlbumItem", b =>
+                {
+                    b.Property<Guid>("AlbumId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("album_id");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("media_id");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.HasKey("AlbumId", "MediaId")
+                        .HasName("pk_photo_album_items");
+
+                    b.HasIndex("MediaId")
+                        .HasDatabaseName("ix_photo_album_items_media_id");
+
+                    b.ToTable("photo_album_items");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhotoAlbumMode", b =>
+                {
+                    b.Property<Guid>("AlbumId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("album_id");
+
+                    b.Property<string>("ModeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("mode_id");
+
+                    b.HasKey("AlbumId", "ModeId")
+                        .HasName("pk_photo_album_modes");
+
+                    b.ToTable("photo_album_modes");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.PolicyAcceptance", b =>
@@ -9455,6 +9564,33 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_phone_codes_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhotoAlbumItem", b =>
+                {
+                    b.HasOne("Swoovr.Domain.PhotoAlbum", null)
+                        .WithMany()
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_photo_album_items_photo_albums_album_id");
+
+                    b.HasOne("Swoovr.Domain.MediaItem", null)
+                        .WithMany()
+                        .HasForeignKey("MediaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_photo_album_items_media_items_media_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.PhotoAlbumMode", b =>
+                {
+                    b.HasOne("Swoovr.Domain.PhotoAlbum", null)
+                        .WithMany()
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_photo_album_modes_photo_albums_album_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.PolicyAcceptance", b =>

@@ -1,0 +1,41 @@
+@* Issue 231: a photo shown large, with previous/next, its facts and the actions that apply where it was opened. *@
+<div class="ph-overlay ph-viewer" @onclick="Close" @onkeydown="KeyAsync" tabindex="-1" data-photo-viewer="@Photo.Id">
+    <div class="ph-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="ph-viewer-title" @onclick:stopPropagation="true">
+        <div class="ph-viewer-stage">
+            <PhotoShot Photo="Photo" Revealed="Revealed" Alt="@Title" />
+            @if (Photo.State == "not-approved" && Photo.Preview is not null || Photo.AlbumOnly && Photo.Link is not null)
+            {
+                <button type="button" class="button button-secondary button-small ph-reveal" @onclick="ToggleReveal" data-photo-reveal>@(Revealed ? "Hide photo" : "Show photo")</button>
+            }
+            <button type="button" class="ph-step ph-prev" disabled="@(Index <= 0)" @onclick="() => Step(-1)" aria-label="Previous photo">‹</button>
+            <button type="button" class="ph-step ph-next" disabled="@(Index >= Count - 1)" @onclick="() => Step(1)" aria-label="Next photo">›</button>
+        </div>
+        <div class="ph-viewer-side">
+            <div class="ph-dialog-head"><h2 id="ph-viewer-title">@Title</h2><button type="button" class="ph-close" @onclick="Close" aria-label="Close">×</button></div>
+            @Facts
+            <div class="ph-viewer-actions">@Actions</div>
+        </div>
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public MyPhotoView Photo { get; set; } = default!;
+    [Parameter] public int Index { get; set; }
+    [Parameter] public int Count { get; set; }
+    [Parameter] public bool Revealed { get; set; }
+    [Parameter] public EventCallback<bool> RevealedChanged { get; set; }
+    [Parameter] public EventCallback<int> OnStep { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? Facts { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    private string Title => Count > 1 && Index >= 0 ? $"Photo {Index + 1} of {Count}" : "Photo";
+    private Task Close() => OnClose.InvokeAsync();
+    private Task Step(int by) => OnStep.InvokeAsync(by);
+    private Task ToggleReveal() => RevealedChanged.InvokeAsync(!Revealed);
+    private async Task KeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Close();
+        else if (e.Key == "ArrowLeft" && Index > 0) await Step(-1);
+        else if (e.Key == "ArrowRight" && Index < Count - 1) await Step(1);
+    }
+}

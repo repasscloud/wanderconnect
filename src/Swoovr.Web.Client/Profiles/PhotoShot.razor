@@ -1,0 +1,29 @@
+@* Issue 231: one of the member's own photos. Not-approved and album-only photos are blurred until revealed; a photo without a
+   link (checking, or no preview any more) shows a placeholder. Every refusal reads the same (procedure §4). *@
+<span class="ph-shot @(Blurred ? "is-blurred" : null) @(Photo.State == "checking" ? "is-checking" : null)" data-photo-shot="@Photo.Id">
+    @if (Source is { } src)
+    {
+        <img src="@PhotoText.Web(src)" alt="@Alt" loading="lazy" data-photo-image="@Photo.Id" />
+    }
+    @if (Veil is { } veil)
+    {
+        <span class="ph-veil">@veil</span>
+    }
+</span>
+@code {
+    [Parameter, EditorRequired] public MyPhotoView Photo { get; set; } = default!;
+    [Parameter] public bool Revealed { get; set; }
+    [Parameter] public string Alt { get; set; } = "";
+
+    private string? Source => Photo.Link ?? Photo.Preview;
+    private bool Sensitive => Photo.State == "not-approved" || Photo.AlbumOnly;
+    private bool Blurred => Sensitive && !Revealed && Source is not null;
+    private string? Veil => Photo.State switch
+    {
+        "not-approved" when Source is null => "Not approved · preview not available",
+        "not-approved" => Revealed ? null : "Not approved",
+        "checking" or "in-review" => "Checking",
+        _ when Photo.AlbumOnly && !Revealed => "Albums only",
+        _ => null,
+    };
+}

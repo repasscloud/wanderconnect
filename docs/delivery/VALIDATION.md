@@ -1741,3 +1741,9 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
 - Browser (Playwright, Edge, 1440 px), all nine tabs as the root admin: HTTP 200, the address kept, the right panel, no page errors.
 - `tests/admin/account-detail.platform.cjs`: 24/24 PASS. Date of birth opens after a purpose. Locking the managed fictional member gives a `SW-` reference; their existing session's `GET /bff/api/me/profile` returns 403 `account-locked` with the same reference; `/me` redirects to the locked screen showing it; removing the lock keeps history. Plus granted with a set reason; Photo Verified applied and recorded as a staff override; warning issued and shown in history and audit. Trust & Safety may suspend, restricts up to 90 days and can't terminate; Support restricts up to 30 days, can't suspend and can't lock.
 - Not run: owned-runner suites (moderation, accounts, phone, verification), whose existing account-page steps were updated but not executed; the native app locked screen; phone-width screenshots of the admin tabs.
+
+## Issue 231 — Photos redesign, private albums and explicit media (7 November 2026, D338)
+
+- `./scripts/check.sh`: exit 0, build zero warnings/errors; `PhotoAlbumChecks` 48 checks (album limits and names, addable/removable rules, ID Verified gating, `APPROVED_ALBUM_EXPLICIT`, owner preview never for blocked material, signed `own` links). Design check: token-only colours.
+- Not run: persistence checks (no `SWOOVR_TEST_DATABASE` in this worktree; the local stack belongs to the main checkout), so migration `PrivatePhotoAlbums` hasn't been applied by the gate here; the updated browser steps in `tests/member/settings.browser.cjs` and `tests/media/photos.browser.cjs` (syntax checked only); the platform stack; MAUI (unchanged).
+- Mockup reviewed by the owner on the issue: `docs/ui-gallery/issue-231-photos-mockup.html`.

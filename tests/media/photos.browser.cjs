@@ -325,8 +325,12 @@ const waitFor = async (predicate, ms = 60000) => { for (let i = 0; i < ms / 250;
     await evePage.waitForFunction(() => document.querySelector('[data-photo-image]')?.naturalWidth > 0);
     assert.equal((await mine('eve')).body.main, null, 'approval never selects a main'); pass();
     await evePage.locator('[data-photo-mode=friends]').click();
-    await evePage.locator('[data-mode-photo^="friends:"]').first().evaluate(e => e.click());
+    // #231: photos are added to a mode from a picker, and a photo's main/order actions live in the photo viewer.
+    await evePage.locator('[data-add-mode-photos]').click();
+    await evePage.locator('[data-pick-photo]').first().click();
+    await evePage.locator('[data-pick-done]').click();
     await evePage.waitForSelector('[data-mode-photos="friends"][data-mode-photo-count="1"]');
+    await evePage.locator('[data-mode-photos="friends"] [data-assigned-photo] .ph-open').first().click();
     await evePage.locator('[data-mode-make-main]').first().click(); pass();
     if (output) await evePage.screenshot({ path: output + '/web-photos.png', fullPage: true });
     const benPage = await phone.newPage();

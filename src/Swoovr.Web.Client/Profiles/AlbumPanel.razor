@@ -1,0 +1,214 @@
+@* Issue 231: one private album. Library photos can be removed (they stay in the library) or deleted; adult photos approved for
+   albums only live here and can only be deleted (owner, 7 November 2026). *@
+@inject MemberClient Members
+@inject NavigationManager Navigation
+<div class="ph-page" data-album-panel="@(loaded ? "ready" : "loading")">
+    <a class="ph-back" href="/me/photos">← Photos</a>
+    @if (!loaded) { <p role="status">Loading…</p> }
+    else if (photos is null || album is null) { <h1>Album</h1><p role="status" data-album-missing>This album isn't available.</p> }
+    else
+    {
+        var room = photos.MaxAlbumPhotos - album.Photos.Count;
+        <div class="ph-head">
+            <h1 data-album-title>@album.Name</h1>
+            <div class="ph-row">
+                <button type="button" class="button button-secondary" disabled="@(busy || room <= 0 || Approved.Count == 0)" @onclick="() => picking = true" data-album-from-library>+ From library</button>
+                <label class="button ph-upload @(busy || room <= 0 || LibraryFull ? "is-disabled" : null)"><span>Upload</span>
+                    <InputFile class="visually-hidden" OnChange="UploadAsync" multiple accept="image/jpeg,image/png,image/webp" disabled="@(busy || room <= 0 || LibraryFull)" data-album-upload /></label>
+            </div>
+        </div>
+        <p class="ph-rules"><Icon Name="shield" Size="18" /><span>@PhotoText.AlbumRules(photos.IdVerified)</span></p>
+        <p role="status" aria-live="polite" class="ph-status" data-album-status="@status">@message</p>
+        <div class="ph-cols">
+            <section class="card ph-card" aria-labelledby="album-photos-title" data-album-photos="@album.Photos.Count">
+                <div class="ph-subhead"><h2 id="album-photos-title">Photos</h2><span class="ph-count">@album.Photos.Count of @photos.MaxAlbumPhotos</span></div>
+                <ul class="ph-grid">
+                    @for (var i = 0; i < Entries.Count; i++)
+                    {
+                        var index = i; var photo = Entries[i];
+                        <li class="ph-tile" data-album-photo="@photo.Id" data-album-only="@(photo.AlbumOnly ? "true" : "false")">
+                            <button type="button" class="ph-open" @onclick="() => viewing = photo.Id" aria-label="Photo @(index + 1) in @album.Name"><PhotoShot Photo="photo" Revealed="revealed.Contains(photo.Id)" Alt="" /></button>
+                            @if (photo.AlbumOnly)
+                            {
+                                <button type="button" class="ph-x" disabled="@busy" @onclick="() => deleting = photo.Id" aria-label="Delete photo @(index + 1)" data-album-delete-photo="@photo.Id"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+                            }
+                            else
+                            {
+                                <button type="button" class="ph-x" disabled="@busy" @onclick="() => RemoveAsync(photo.Id)" aria-label="Remove photo @(index + 1) from this album" data-album-remove-photo="@photo.Id">×</button>
+                            }
+                        </li>
+                    }
+                    @if (room > 0)
+                    {
+                        <li class="ph-tile"><button type="button" class="ph-add" disabled="@(busy || Approved.Count == 0)" @onclick="() => picking = true">+ Add photos</button></li>
+                    }
+                </ul>
+                <p class="field-help">× removes a photo from this album; it stays in your library. Adult photos only live in this album, so they can only be deleted.</p>
+            </section>
+            <section class="card ph-card" aria-labelledby="album-settings-title">
+                <h2 id="album-settings-title">Album settings</h2>
+                <form class="field" @onsubmit="RenameAsync"><label for="album-rename">Name</label>
+                    <div class="ph-row"><input id="album-rename" maxlength="40" required @bind="name" data-album-rename /><button type="submit" class="button button-secondary button-small" disabled="@(busy || name.Trim() == album.Name)">Save</button></div></form>
+                <fieldset><legend>Share in modes</legend>
+                    <p class="field-help">Only chats in these modes will be able to see this album, and only once you share it with someone.</p>
+                    @foreach (var mode in modes)
+                    {
+                        <label class="ph-switch-row"><span>@mode.Label</span><input type="checkbox" class="ph-switch" checked="@album.Modes.Contains(mode.Id)" disabled="@busy"
+                            @onchange="e => ModeAsync(mode.Id, e.Value is true)" data-album-mode="@mode.Id" /></label>
+                    }
+                </fieldset>
+                <button type="button" class="button button-secondary button-small" disabled="@busy" @onclick="() => confirmAlbumDelete = true" data-delete-album>Delete album</button>
+                <p class="field-help">Deleting the album keeps its library photos. Adult photos in it are deleted.</p>
+            </section>
+        </div>
+    }
+</div>
+
+@if (photos is not null && album is not null && viewing is { } open && Entries.FirstOrDefault(p => p.Id == open) is { } shown)
+{
+    var at = Entries.IndexOf(shown);
+    <PhotoViewer Photo="shown" Index="at" Count="Entries.Count" Revealed="revealed.Contains(shown.Id)" RevealedChanged="on => { if (on) revealed.Add(shown.Id); else revealed.Remove(shown.Id); }"
+                 OnStep="by => { if (at + by >= 0 && at + by < Entries.Count) viewing = Entries[at + by].Id; }" OnClose="() => viewing = null">
+        <Facts>
+            <dl class="ph-facts">
+                <div><dt>Status</dt><dd>@PhotoText.Short(shown.State, shown.AlbumOnly)</dd></div>
+                <div><dt>Uploaded</dt><dd>@shown.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</dd></div>
+            </dl>
+        </Facts>
+        <Actions>
+            @if (!shown.AlbumOnly)
+            {
+                <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => RemoveAsync(shown.Id)" data-viewer-remove>Remove</button>
+            }
+            <button type="button" class="button button-secondary" disabled="@busy" @onclick="() => { viewing = null; deleting = shown.Id; }" data-viewer-delete>Delete</button>
+        </Actions>
+    </PhotoViewer>
+}
+
+@if (photos is not null && album is not null && picking)
+{
+    <PhotoPicker Title="@($"Add to {album.Name}")" Hint="Adult photos are uploaded straight into an album and stay there."
+                 Pool="Approved" Chosen="Entries.Where(p => !p.AlbumOnly).Select(p => p.Id).ToList()" Max="photos.MaxAlbumPhotos - Entries.Count(p => p.AlbumOnly)"
+                 OnCancel="() => picking = false" OnDone="PickedAsync" />
+}
+
+@if (photos is not null && deleting is { } doomedId && photos.Photos.FirstOrDefault(p => p.Id == doomedId) is { } doomed)
+{
+    <div class="ph-overlay" @onclick="() => deleting = null">
+        <div class="ph-dialog" role="dialog" aria-modal="true" aria-labelledby="ph-del" @onclick:stopPropagation="true">
+            <div class="ph-dialog-head"><h2 id="ph-del">Delete this photo?</h2><button type="button" class="ph-close" @onclick="() => deleting = null" aria-label="Close">×</button></div>
+            <p>@(doomed.AlbumOnly ? "It's removed from this album and your library." : "It's removed from every mode, every album and your library.") This can't be undone.</p>
+            <div class="ph-dialog-foot"><button type="button" class="button button-secondary" @onclick="() => deleting = null">Keep</button><button type="button" class="button" disabled="@busy" @onclick="() => DeleteAsync(doomed.Id)" data-confirm-delete-photo="@doomed.Id">Delete</button></div>
+        </div>
+    </div>
+}
+
+@if (album is not null && confirmAlbumDelete)
+{
+    var adult = Entries.Count(p => p.AlbumOnly);
+    <div class="ph-overlay" @onclick="() => confirmAlbumDelete = false">
+        <div class="ph-dialog" role="dialog" aria-modal="true" aria-labelledby="ph-del-album" @onclick:stopPropagation="true">
+            <div class="ph-dialog-head"><h2 id="ph-del-album">Delete @album.Name?</h2><button type="button" class="ph-close" @onclick="() => confirmAlbumDelete = false" aria-label="Close">×</button></div>
+            <p>@(adult > 0 ? $"Its library photos stay in your library. Its {adult} adult photo{(adult == 1 ? "" : "s")} will be deleted." : "Its photos stay in your library.") This can't be undone.</p>
+            <div class="ph-dialog-foot"><button type="button" class="button button-secondary" @onclick="() => confirmAlbumDelete = false">Keep</button><button type="button" class="button" disabled="@busy" @onclick="DeleteAlbumAsync" data-confirm-delete-album>Delete album</button></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid AlbumId { get; set; }
+
+    private MyPhotosView? photos;
+    private PhotoAlbumView? album;
+    private List<ConnectionModeView> modes = [];
+    private readonly HashSet<Guid> revealed = [];
+    private Guid? viewing, deleting;
+    private bool loaded, busy, picking, confirmAlbumDelete;
+    private string name = string.Empty;
+    private string? message, status;
+
+    private List<MyPhotoView> Entries => album?.Photos.Select(id => photos!.Photos.FirstOrDefault(p => p.Id == id)).OfType<MyPhotoView>().ToList() ?? [];
+    private List<MyPhotoView> Approved => photos?.Photos.Where(p => p.State == "approved" && !p.AlbumOnly && p.Link is not null).ToList() ?? [];
+    private bool LibraryFull => photos is not null && photos.Photos.Count >= photos.MaxKept;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Members.ModesAsync() is { Ok: true } catalogue) modes = catalogue.Value!.ToList();
+        Apply((await Members.PhotosAsync()).Value);
+        loaded = true;
+    }
+
+    private void Apply(MyPhotosView? view)
+    {
+        if (view is null) return;
+        photos = view;
+        album = view.Albums?.FirstOrDefault(a => a.Id == AlbumId);
+        if (album is not null && (name.Length == 0 || !busy)) name = album.Name;
+    }
+
+    private async Task SaveAsync(IReadOnlyList<Guid> photoIds, IReadOnlyList<string> albumModes, string albumName, string done)
+    {
+        busy = true;
+        var result = await Members.UpdateAlbumAsync(AlbumId, albumName, albumModes, photoIds);
+        busy = false;
+        if (result.Ok) { Apply(result.Value); (status, message) = ("saved", done); }
+        else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
+    }
+
+    private Task RemoveAsync(Guid id)
+    {
+        viewing = null;
+        return SaveAsync(album!.Photos.Where(p => p != id).ToList(), album.Modes, album.Name, "Removed from this album. It's still in your library.");
+    }
+
+    private Task ModeAsync(string mode, bool on) =>
+        SaveAsync(album!.Photos, on ? [.. album.Modes.Where(m => m != mode), mode] : album.Modes.Where(m => m != mode).ToList(), album.Name, "Saved.");
+
+    private Task RenameAsync() => SaveAsync(album!.Photos, album.Modes, name, "Saved.");
+
+    private Task PickedAsync(List<Guid> chosen)
+    {
+        picking = false;
+        // Album-only photos and kept library photos stay in place; new picks go at the end.
+        var kept = album!.Photos.Where(id => Entries.FirstOrDefault(p => p.Id == id) is { AlbumOnly: true } || chosen.Contains(id)).ToList();
+        return SaveAsync([.. kept, .. chosen.Where(c => !kept.Contains(c))], album.Modes, album.Name, "Saved.");
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        busy = true; var result = await Members.DeletePhotoAsync(id); busy = false; deleting = null;
+        if (result.Ok) { Apply(result.Value); (status, message) = ("deleted", "Photo deleted."); }
+        else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
+    }
+
+    private async Task DeleteAlbumAsync()
+    {
+        busy = true; var result = await Members.DeleteAlbumAsync(AlbumId); busy = false; confirmAlbumDelete = false;
+        if (result.Ok) Navigation.NavigateTo("/me/photos");
+        else (status, message) = (result.Code ?? "error", PhotoText.Refusal(result.Code));
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        busy = true;
+        try
+        {
+            var room = photos!.MaxAlbumPhotos - album!.Photos.Count;
+            if (e.FileCount > room) { (status, message) = ("album-full", $"This album has room for {room} more photo{(room == 1 ? "" : "s")}."); return; }
+            var failures = 0; var files = e.GetMultipleFiles(PhotoAlbumLimit);
+            for (var index = 0; index < files.Count; index++)
+            {
+                var file = files[index]; message = $"Uploading {index + 1} of {files.Count}…"; StateHasChanged();
+                if (file.Size > 10 * 1024 * 1024) { failures++; continue; }
+                using var stream = file.OpenReadStream(10 * 1024 * 1024); using var buffer = new MemoryStream(); await stream.CopyToAsync(buffer);
+                if (!(await Members.UploadPhotoAsync(buffer.ToArray(), file.Name, file.ContentType, null, AlbumId)).Ok) failures++;
+            }
+            (status, message) = failures == 0 ? ("checking", "Uploaded to the album. Photos show here once they're checked.") : ("error", $"{failures} upload(s) weren't accepted. Use JPEG, PNG or WebP up to 10 MB.");
+            Apply((await Members.PhotosAsync()).Value);
+        }
+        finally { busy = false; }
+        for (var i = 0; i < 20 && Entries.Any(p => p.State == "checking"); i++) { await Task.Delay(1500); Apply((await Members.PhotosAsync()).Value); StateHasChanged(); }
+    }
+
+    private const int PhotoAlbumLimit = 10;
+}
