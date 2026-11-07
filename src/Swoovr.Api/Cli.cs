@@ -154,8 +154,8 @@ public static class Cli
             // operator use; the admin app's invitations remain the normal path). Legal keeps its own command above (D189).
             case ["staff-role", "grant" or "revoke", var subject, var roleName, ..]:
             {
-                AccountRole? role = roleName switch { "support" => AccountRole.Support, "trust-safety" => AccountRole.TrustSafety, "admin" => AccountRole.Admin, _ => null };
-                if (role is null) { Console.Error.WriteLine("Role must be support, trust-safety or admin."); return 2; }
+                AccountRole? role = roleName switch { "business" => AccountRole.Business, "support" => AccountRole.Support, "trust-safety" => AccountRole.TrustSafety, "admin" => AccountRole.Admin, _ => null };
+                if (role is null) { Console.Error.WriteLine("Role must be business, support, trust-safety or admin."); return 2; }
                 var staff = await db.Accounts.Where(a => a.Realm == AccountRealm.Staff && a.Subject == subject).ToListAsync();
                 if (staff.Count != 1) { Console.Error.WriteLine("No single staff-realm account has that subject; sign in once first."); return 1; }
                 var existing = await db.RoleGrants.SingleOrDefaultAsync(g => g.AccountId == staff[0].Id && g.Role == role);

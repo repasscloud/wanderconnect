@@ -44,3 +44,23 @@ test('conflicting data-mode flags are rejected before Docker', () => {
   assert.equal(run('up', '--reuse', '--fresh', '--yes').status, 2);
   assert.equal(run('reset', '--reuse', '--yes').status, 2);
 });
+
+test('confirmed reset removes realm-bound staff fixtures but retains credentials and unrelated files', async () => {
+  const { mkdtemp, mkdir, copyFile, writeFile, readFile, access, rm } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const dir = await mkdtemp(join(tmpdir(), 'swoovr-reset-'));
+  try {
+    await mkdir(join(dir, 'scripts'));await mkdir(join(dir, 'fake'));await mkdir(join(dir, '.local/platform'), { recursive:true });
+    await copyFile('scripts/local-platform.sh', join(dir, 'scripts/local-platform.sh'));
+    await writeFile(join(dir, 'fake/docker'), '#!/bin/sh\nexit 0\n', { mode:0o755 });
+    const state=join(dir,'.local/platform');
+    const bound=['admin.json','staff-support.json','staff-trust-safety.json','identities.json','admin-subject','initialized','staff-roles.tsv','staff-roles.status'];
+    for(const file of [...bound,'docker.env','unrelated.json'])await writeFile(join(state,file),'fictional owned fixture');
+    const r=spawnSync('bash',[join(dir,'scripts/local-platform.sh'),'reset','--yes'],{encoding:'utf8',env:{...process.env,PATH:join(dir,'fake')+':/usr/bin:/bin'}});
+    assert.equal(r.status,0,r.stderr);
+    for(const file of bound)await assert.rejects(access(join(state,file)),{code:'ENOENT'},file+' must not refer to deleted subjects');
+    assert.equal(await readFile(join(state,'docker.env'),'utf8'),'fictional owned fixture');
+    assert.equal(await readFile(join(state,'unrelated.json'),'utf8'),'fictional owned fixture');
+  } finally {await rm(dir,{recursive:true,force:true});}
+});

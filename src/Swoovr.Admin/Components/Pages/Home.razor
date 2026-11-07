@@ -2,6 +2,12 @@
 @inject AdminClient Admin
 <PageTitle>Swoovr admin</PageTitle>
 <h1>Overview</h1>
+@if (businessOnly)
+{
+    <p data-business-home>You’re signed in to your staff workspace.</p>
+}
+else
+{
 <p class="page-description">Your queues and reviews at a glance.</p>
 @if (holds is not null)
 {
@@ -46,7 +52,9 @@ else
 {
     <ul class="tiles" data-photo-workload><li><a href="/media"><strong>@photos.ManualReview</strong> awaiting media review</a></li><li><a href="/media"><strong>@photos.PendingScreening</strong> waiting for screening</a></li><li><a href="/media/appeals"><strong>@photos.Appeals</strong> media appeals @if(photos.AwaitingOtherAdmin>0){<span class="tile-note" data-awaiting-other-admin="@photos.AwaitingOtherAdmin">@MediaText.AwaitingOtherAdmin(photos.AwaitingOtherAdmin)</span>}</a></li></ul>
 }
+}
 @code {
+    private bool businessOnly;
     private int open, urgent, appeals, status;
     private string? refused;
     private HoldOverview? holds;
@@ -57,6 +65,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var workspace = (await Admin.WorkspaceAsync()).Value;
+        businessOnly = workspace is { Business: true, MemberOperations: false, Legal: false, Administration: false };
+        if (businessOnly) return;
         // Issue 223: refused (no ticket role, or the helpdesk unavailable) simply doesn't show.
         // A slow helpdesk never blocks the rest of the overview.
         try { tickets = (await Admin.TicketOverviewAsync()).Value; }

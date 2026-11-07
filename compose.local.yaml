@@ -55,7 +55,12 @@ services:
       retries: 40
   keycloak:
     <<: *app
-    image: quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
+    # Pinned stock runtime plus the source-built native MFA provider; no hosted configuration.
+    image: swoovr-keycloak-local:development
+    build:
+      context: .
+      dockerfile: containers/uat/Keycloak.Dockerfile
+      target: local
     command: ["start-dev", "--http-port=8180", "--import-realm", "--features=update-email"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: local-bootstrap

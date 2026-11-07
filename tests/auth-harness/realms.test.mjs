@@ -9,7 +9,8 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
     registration: [{ id: 'terms', providerId: 'registration-terms-and-conditions', requirement: 'DISABLED' }],
     action: { alias: 'TERMS_AND_CONDITIONS', enabled: false, defaultAction: false, priority: 20 },
     updateEmail: { alias: 'UPDATE_EMAIL', enabled: false, defaultAction: false, priority: 70 },
-    browser: Object.keys(amrReferences).map((providerId, i) => ({ id: 'e' + i, providerId, authenticationConfig: foreignConfig && i === 0 ? 'foreign' : undefined })),
+    otpAction: { alias: 'CONFIGURE_TOTP', enabled: true, defaultAction: false },
+    browser: [...Object.keys(amrReferences).map((providerId, i) => ({ id: 'e' + i, providerId, authenticationConfig: foreignConfig && i === 0 ? 'foreign' : undefined })), { id: '2fa', displayName: 'Browser - Conditional 2FA', authenticationFlow: true, requirement: 'CONDITIONAL' }],
     configs: foreignConfig ? { foreign: { id: 'foreign', alias: 'someone-else', config: {} } } : {},
     // As first imported: email before first name, no placeholders.
     profile: { attributes: [{ name: 'username' }, { name: 'email' }, { name: 'firstName' }] },
@@ -18,7 +19,7 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
   };
   const api = async (path, method = 'GET', body) => {
     if (method !== 'GET') state.writes.push(method + ' ' + path);
-    if (path === '') return state.realm;
+    if (path === '') { if (method === 'PUT') state.realm=body; return state.realm; }
     if (path === '/authentication/flows/registration/executions') {
       if (method === 'PUT') { state.registration[0].requirement = body.requirement; return; }
       return state.registration;
@@ -31,7 +32,8 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
       if (method === 'PUT') { state.updateEmail = body; return; }
       return state.updateEmail;
     }
-    if (path === '/authentication/flows/browser/executions') return state.browser;
+    if (path === '/authentication/required-actions/CONFIGURE_TOTP') { if (method === 'PUT') { state.otpAction = body; return; } return state.otpAction; }
+    if (path === '/authentication/flows/browser/executions') { if (method === 'PUT') { state.browser.find(e => e.id === body.id).requirement = body.requirement; return; } return state.browser; }
     const clientQuery = path.match(/^\/clients\?clientId=(.+)$/);
     if (clientQuery) return state.clients.filter(c => c.clientId === decodeURIComponent(clientQuery[1]));
     if (path === '/clients' && method === 'POST') { state.clients.push(structuredClone(body)); return; }
@@ -195,4 +197,24 @@ test('contact verification clock attributes are bounded and cannot be edited by 
     const field=profile.attributes.find(a=>a.name===name);
     assert.deepEqual(field.permissions.edit,['admin']);assert.deepEqual(field.permissions.view,['admin']);assert.equal(field.validations.length.max,64);
   }
+});
+
+test('staff MFA flow is mandatory without changing member or venue flows', async () => {
+  const { applyStaffMfa } = await import('../../scripts/auth/realms.mjs');
+  const writes = [];
+  const api = async (path, method, body) => {
+    if (method) { writes.push({ path, body }); return; }
+    if (path.endsWith('executions')) return [{ id: '2fa', level: 1, displayName: 'Browser - Conditional 2FA', authenticationFlow: true, requirement: 'REQUIRED' }, { id:'configured',level:2,providerId:'conditional-user-configured',requirement:'DISABLED' },{ id:'credential',level:2,providerId:'conditional-credential',requirement:'DISABLED' }];
+    if(path==='')return {realm:'swoovr-staff-dev',attributes:{'swoovr.environment':'local-development-only'}};
+    return { alias: 'CONFIGURE_TOTP', enabled: true, defaultAction: false };
+  };
+  await applyStaffMfa(api, 'swoovr-members-dev');
+  await applyStaffMfa(api, 'swoovr-venues-dev');
+  assert.equal(writes.length, 0);
+  await applyStaffMfa(api, 'swoovr-staff-dev');
+  assert.equal(writes.length, 4);
+  assert.equal(writes[1].body.requirement, 'REQUIRED');
+  assert.equal(writes[2].body.requirement, 'REQUIRED');
+  assert.equal(writes[0].body.requirement, 'CONDITIONAL');
+  assert.equal(writes[3].body.attributes['swoovr.mfa.required'], 'true');
 });

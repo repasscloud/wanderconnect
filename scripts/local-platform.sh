@@ -96,7 +96,8 @@ failed() {
 reset_data() {
   dc --profile "*" down --volumes --remove-orphans
   # Only these managed fixtures point into the now-deleted DB/realm; do not touch legacy .local.
-  rm -f "$state/admin.json" "$state/identities.json" "$state/admin-subject" "$state/initialized" "$state/containers.tsv"
+  rm -f "$state/admin.json" "$state/staff-support.json" "$state/staff-trust-safety.json" \
+    "$state/staff-roles.tsv" "$state/staff-roles.status" "$state/identities.json" "$state/admin-subject" "$state/initialized" "$state/containers.tsv"
 }
 # D322: grant each fictional staff fixture its role through the API CLI. Exec gets /dev/null as input so it can't consume
 # the role list. A grant the running API can't make yet is reported, never fatal (the role may not exist on this branch).
@@ -244,7 +245,7 @@ case "$command" in
         fi
       fi
     fi
-    dc build api web admin
+    dc build keycloak api web admin
     dc up -d --wait --wait-timeout 360 mailpit postgres keycloak
     record
     # New named volumes are root-owned: initialise only the managed app/portal

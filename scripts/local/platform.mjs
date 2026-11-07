@@ -90,7 +90,7 @@ export function enrollmentSecret(raw) {
 // Exercise real code+PKCE, password and TOTP flows, without a browser installation.
 // Follow only the fixed local Keycloak origin; do not log cookies, HTML or tokens.
 const decode = value => value.replaceAll('&amp;', '&').replaceAll('&#39;', "'").replaceAll('&quot;', '"');
-export async function login({ realm, client, secret, redirect, email, password, fixture }) {
+export async function login({ realm, client, secret, redirect, email, password, fixture, fixtureName = "admin.json" }) {
   const base = 'http://localhost:8180';
   const verifier = randomBytes(32).toString('base64url');
   const state = randomBytes(16).toString('hex');
@@ -143,7 +143,7 @@ export async function login({ realm, client, secret, redirect, email, password, 
       if (!fields.get('totpSecret')) throw Error('TOTP enrollment secret unavailable.');
       fixture.totpSecret = enrollmentSecret(fields.get('totpSecret'));
       fixture.lastOtpStep = Math.floor(Date.now()/30000);
-      await save('admin.json', fixture);
+      await save(fixtureName, fixture);
       fields.set('totp', totp(fixture.totpSecret)); fields.set('userLabel', 'Managed localhost');
     } else if (/name="otp"/.test(html)) {
       if (otpSubmitted) throw Error('Local TOTP code rejected; inspect the saved factor and clock.');
@@ -152,7 +152,7 @@ export async function login({ realm, client, secret, redirect, email, password, 
       if (!fixture.totpSecret) throw Error('Missing saved local TOTP secret; restore it rather than resetting existing credentials.');
       while (Math.floor(Date.now()/30000) <= (fixture.lastOtpStep ?? -1)) await new Promise(r => setTimeout(r, 500));
       fixture.lastOtpStep = Math.floor(Date.now()/30000);
-      await save('admin.json', fixture);
+      await save(fixtureName, fixture);
       fields.set('otp', totp(fixture.totpSecret));
     } else if (/name="accept"/.test(html)) fields.set('accept', 'Accept');
     else throw Error('Unexpected local sign-in step; inspect account required actions.');
@@ -164,6 +164,10 @@ async function session(token) {
   const r = await fetch('http://127.0.0.1:5080/api/session', { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(15000) });
   if (!r.ok) throw Error('API rejected real local session: ' + r.status);
   return r.json();
+}
+export function staffFixtureName(role) {
+  if (!['support', 'trust-safety', 'business'].includes(role)) throw Error('Unknown managed staff role');
+  return 'staff-' + role + '.json';
 }
 async function bootstrap() {
   const values = await env();
@@ -185,9 +189,13 @@ async function bootstrap() {
   // the API CLI after this first sign-in has created the application account. Keycloak names may not contain '&'.
   const roles = [];
   for (const [email, role, name] of [['fictional.trust@example.test', 'trust-safety', 'Trust and Safety'], ['fictional.support@example.test', 'support', 'Support']]) {
-    const staff = await ensureUser('swoovr-staff-dev', email, values.SWOOVR_LOCAL_ADMIN_PASSWORD, false, name);
+    const staff = await ensureUser('swoovr-staff-dev', email, values.SWOOVR_LOCAL_ADMIN_PASSWORD, true, name);
+    const fixtureName = staffFixtureName(role);
+    const fixture = JSON.parse(await readFile('.local/' + fixtureName, 'utf8').catch(e => { if (e.code !== 'ENOENT') throw e; return '{}'; }));
+    if (fixture.userId && fixture.userId !== staff.id) throw Error('Stale managed staff authenticator fixture.');
+    fixture.userId = staff.id;
     await session(await login({ realm: 'swoovr-staff-dev', client: 'swoovr-admin-web', secret: values.SWOOVR_STAFF_WEB_SECRET,
-      redirect: 'http://localhost:5082/signin-oidc', email, password: values.SWOOVR_LOCAL_ADMIN_PASSWORD, fixture: {} }));
+      redirect: 'http://localhost:5082/signin-oidc', email, password: values.SWOOVR_LOCAL_ADMIN_PASSWORD, fixture, fixtureName }));
     roles.push(staff.id + '\t' + role);
   }
   await writeFile('.local/staff-roles.tsv', roles.join('\n') + '\n', { mode: 0o600 });

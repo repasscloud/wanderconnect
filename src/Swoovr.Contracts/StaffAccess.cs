@@ -24,3 +24,6 @@ public sealed record StaffRevokeRequest(string? Reason);
 
 /// <summary>KeycloakSignedOut is false when the staff realm has no service client to end Keycloak sessions; the API refuses them anyway.</summary>
 public sealed record StaffRevokeResult(int RolesRemoved, int GrantsRevoked, bool KeycloakSignedOut);
+
+/// <summary>Live application permissions for the current staff workspace. No provider roles or credentials.</summary>
+public sealed record StaffWorkspace(bool Business, bool MemberOperations, bool Administration, bool Legal, bool Root);

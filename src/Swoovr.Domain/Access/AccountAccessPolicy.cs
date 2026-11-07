@@ -4,7 +4,7 @@ namespace Swoovr.Domain;
 // Legal: the security / legal officer of policy §11 (D189); holds, evidence exports and identity retrieval only.
 /// <summary>Staff roles (D322, owner 4 November 2026): Support; TrustSafety = all Support capabilities plus specialist
 /// investigations and enforcement up to 90 days; Admin; Legal. Application records only, never Keycloak roles.</summary>
-public enum AccountRole { Unknown, Member, VenuePartner, Admin, Support, Legal, TrustSafety }
+public enum AccountRole { Unknown, Member, VenuePartner, Admin, Support, Legal, TrustSafety, Business }
 public enum AccountRealm { Unknown, Members, Venues, Staff }
 public enum SignInMethod { Unknown, Apple, Google, EmailPassword, EmailLink, Passkey, CorporateSso }
 
@@ -56,9 +56,11 @@ public sealed class AccountAccessPolicy(bool localPasswordStaff = false)
                 && session.Method is SignInMethod.EmailPassword or SignInMethod.EmailLink
                 && venueId is { } id && id != Guid.Empty && session.VenueIds.Contains(id);
 
-        if (area is not (AccountRole.Admin or AccountRole.Support or AccountRole.Legal or AccountRole.TrustSafety) || venueId is not null
+        if (area is not (AccountRole.Admin or AccountRole.Support or AccountRole.Legal or AccountRole.TrustSafety or AccountRole.Business) || venueId is not null
             || session.Realm != AccountRealm.Staff)
             return false;
+
+        if (area == AccountRole.Business && !session.MultiFactor) return false;
 
         // Employees use RePass Cloud Entra SSO (D32); the root admin uses password + OTP (D36).
         return session.Method == SignInMethod.CorporateSso && !session.IsRootAdmin

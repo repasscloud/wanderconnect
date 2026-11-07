@@ -135,16 +135,47 @@ export async function applyAccountsClient(api, secret) {
   return changes;
 }
 
-async function localSecret(key) {
-  const env = await readFile('.local/docker.env', 'utf8').catch(() => '');
-  return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
+// #196/#193: staff browser OTP is required even when no credential exists, so Keycloak runs enrolment.
+// Brokered staff also need the equivalent required post-broker flow in the configured Entra provider.
+export async function applyStaffMfa(api, name) {
+  if (name !== 'swoovr-staff-dev') return [];
+  const executions = await api('/authentication/flows/browser/executions');
+  const secondFactor = executions.find(e => e.authenticationFlow && e.displayName === 'Browser - Conditional 2FA');
+  if (!secondFactor) throw new Error('Staff second-factor flow is missing; refusing to weaken authentication');
+  const changes = [];
+  // Keep native conditional dispatch: making this alternative-credential subflow REQUIRED executes it
+  // before a user is identified on 26.8.1. The pinned provider condition queues native enrolment when needed.
+  if (secondFactor.requirement !== 'CONDITIONAL') {
+    await api('/authentication/flows/browser/executions', 'PUT', { id: secondFactor.id, requirement: 'CONDITIONAL' });
+    changes.push('staff conditional second factor');
+  }
+  const start = executions.indexOf(secondFactor);
+  for (const execution of executions.slice(start + 1)) {
+    if (Number.isInteger(secondFactor.level) && execution.level <= secondFactor.level) break;
+    if (execution.providerId?.startsWith('conditional-') && execution.requirement !== 'REQUIRED') {
+      await api('/authentication/flows/browser/executions', 'PUT', { id: execution.id, requirement: 'REQUIRED' });
+      changes.push('staff condition enabled ' + execution.providerId);
+    }
+  }
+  const realm = await api('');
+  if (realm.realm !== name || realm.attributes?.['swoovr.environment'] !== 'local-development-only') throw new Error('Expected local staff realm');
+  if (realm.attributes['swoovr.mfa.required'] !== 'true') {
+    await api('', 'PUT', { ...realm, attributes: { ...realm.attributes, 'swoovr.mfa.required': 'true' } });
+    changes.push('mandatory staff enrolment policy');
+  }
+  const action = await api('/authentication/required-actions/CONFIGURE_TOTP');
+  if (!action.enabled || action.defaultAction) {
+    await api('/authentication/required-actions/CONFIGURE_TOTP', 'PUT', { ...action, enabled: true, defaultAction: false });
+    changes.push('native staff OTP action');
+  }
+  return changes;
 }
 
 export async function applyAll({ open = realm => localRealmApi({ realm }), secret = () => localSecret('SWOOVR_MEMBERS_API_ADMIN_SECRET') } = {}) {
   const result = {};
   for (const name of realms) {
     const api = await open(name);
-    result[name] = await applyRealm(api, name);
+    result[name] = [...await applyRealm(api, name), ...await applyStaffMfa(api, name)];
     if (name === 'swoovr-members-dev') result[name].push(...await applyAccountsClient(api, await secret()));
   }
   return result;

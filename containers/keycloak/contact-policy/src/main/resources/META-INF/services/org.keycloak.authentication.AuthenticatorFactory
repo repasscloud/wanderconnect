@@ -1,2 +1,4 @@
 app.swoovr.identity.GuardedBrokerCreationFactory
 app.swoovr.identity.GuardedLoginFormFactory
+app.swoovr.identity.MfaConfiguredConditionFactory
+app.swoovr.identity.MfaCredentialConditionFactory
