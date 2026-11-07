@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 
@@ -25,7 +26,11 @@ public sealed class MessagesRelayHub(MessagesRelays relays) : Hub
             Context.Abort();
             return;
         }
-        if (!await relays.OpenAsync(Context.ConnectionId, token, Context.Abort, Context.ConnectionAborted)) { Context.Abort(); return; }
+        // DEFAULT (#240): preserve the API's reconnectable expiry close, but keep revocation terminal.
+        // A reconnect still authenticates here and at the API; a retired session cannot regain its group.
+        var lifetime = Context.Features.Get<IConnectionLifetimeNotificationFeature>();
+        Action reconnectBrowser = lifetime is null ? Context.Abort : lifetime.RequestClose;
+        if (!await relays.OpenAsync(Context.ConnectionId, token, Context.Abort, reconnectBrowser, Context.ConnectionAborted)) { Context.Abort(); return; }
         await base.OnConnectedAsync();
     }
 
@@ -42,26 +47,35 @@ public sealed class MessagesRelays(IHubContext<MessagesRelayHub> browsers, IConf
     private readonly ConcurrentDictionary<string, HubConnection> open = new();
     private readonly Uri hub = new(new Uri(configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/"), "hubs/messages");
 
-    public async Task<bool> OpenAsync(string browser, string token, Action closeBrowser, CancellationToken cancellationToken)
+    public async Task<bool> OpenAsync(string browser, string token, Action closeBrowser, Action reconnectBrowser, CancellationToken cancellationToken)
     {
-        var api = new HubConnectionBuilder().WithUrl(hub, options => options.AccessTokenProvider = () => Task.FromResult<string?>(token)).Build();
+        // The client interprets the API's allowReconnect flag for us. Let the browser reauthenticate first;
+        // its disconnect disposes this relay and cancels the delayed retry with the old token.
+        var api = new HubConnectionBuilder().WithUrl(hub, options => options.AccessTokenProvider = () => Task.FromResult<string?>(token))
+            .WithAutomaticReconnect([TimeSpan.FromSeconds(30)]).Build();
         foreach (var name in new[] { "message", "deleted", "closed" })
             api.On<JsonElement>(name, payload => browsers.Clients.Client(browser).SendAsync(name, payload));
-        // #198: when the API closes the connection (for example after sign out everywhere), the browser's connection closes
-        // too, and a reconnect is checked again from the start.
+        api.Reconnecting += _ =>
+        {
+            if (open.ContainsKey(browser)) reconnectBrowser();
+            return Task.CompletedTask;
+        };
+        // #198: a terminal API close (including revocation) remains terminal for the browser.
         api.Closed += _ =>
         {
             if (open.ContainsKey(browser)) closeBrowser();
             return Task.CompletedTask;
         };
+        // Register before starting: an API refusal can arrive immediately after the protocol handshake.
+        open[browser] = api;
         try { await api.StartAsync(cancellationToken); }
         catch (Exception error) when (error is HttpRequestException or OperationCanceledException or InvalidOperationException)
         {
             log.LogWarning("The messaging relay couldn't reach the API hub ({Kind}).", error.GetType().Name);
+            open.TryRemove(browser, out _);
             await api.DisposeAsync();
             return false;
         }
-        open[browser] = api;
         return true;
     }
 

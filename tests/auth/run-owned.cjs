@@ -3,7 +3,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:
 const {spawn,execFile}=require('node:child_process');
 const support=require('./owned-support.cjs');
 const root=path.resolve(__dirname,'../..');
-const suites=Object.freeze({members:'tests/auth/members.browser.cjs',onboarding:'tests/accounts/onboarding.browser.cjs','mode-names':'tests/profiles/mode-names.browser.cjs','mode-photos':'tests/media/mode-photos.browser.cjs','review-workflows':'tests/media/review-workflows.browser.cjs',accounts:'tests/auth/accounts.browser.cjs',didit:'tests/verification/didit.browser.cjs',phone:'tests/accounts/phone.browser.cjs',deletion:'tests/accounts/deletion.browser.cjs'});
+const suites=Object.freeze({'messaging-lifetime':'tests/messaging/lifetime.browser.cjs',members:'tests/auth/members.browser.cjs',onboarding:'tests/accounts/onboarding.browser.cjs','mode-names':'tests/profiles/mode-names.browser.cjs','mode-photos':'tests/media/mode-photos.browser.cjs','review-workflows':'tests/media/review-workflows.browser.cjs',accounts:'tests/auth/accounts.browser.cjs',didit:'tests/verification/didit.browser.cjs',phone:'tests/accounts/phone.browser.cjs',deletion:'tests/accounts/deletion.browser.cjs'});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const command=(name,args,options={})=>new Promise((resolve,reject)=>execFile(name,args,{cwd:root,maxBuffer:8e6,...options},(error,stdout,stderr)=>error?reject(Object.assign(Error(name+' failed (private runner logs contain details).'),{privateOutput:stderr})):resolve(stdout.trim())));
 function selectedSuites(value){const selected=value?.split(',');if(!selected?.length||new Set(selected).size!==selected.length||selected.some(key=>!Object.hasOwn(suites,key)))throw Error('Set SWOOVR_OWNED_SUITES to explicit unique names: '+Object.keys(suites).join(','));if(selected.includes('deletion')&&selected.length!==1)throw Error('Run deletion alone: its owned hosts use a shorter reauthentication window.');return selected;}
@@ -83,7 +83,7 @@ async function main(){
   });await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));
   env={...cleanEnv,TMPDIR:folder,DOTNET_ENVIRONMENT:'Development',ASPNETCORE_ENVIRONMENT:'Development',ConnectionStrings__Swoovr:`Host=127.0.0.1;Port=5433;Database=${manifest.database};Username=swoovr;Password=${config.SWOOVR_DB_PASSWORD}`,
    ...(selected.includes('deletion')?{Accounts__ReauthSeconds:'45',SWOOVR_REAUTH_SECONDS:'45'}:{}),
-   Keycloak__BaseUrl:'http://localhost:8180',Keycloak__RequireHttpsMetadata:'false',Staff__LocalPasswords:'true',Phone__Required:'false',Founders__Secrets__1:synthetic.SWOOVR_FOUNDER_SECRET_V1,
+   Keycloak__BaseUrl:'http://localhost:8180',Keycloak__RequireHttpsMetadata:'false',Mfa__StaffClientId:manifest.staffClient,Staff__LocalPasswords:'true',Phone__Required:'false',Founders__Secrets__1:synthetic.SWOOVR_FOUNDER_SECRET_V1,
    MemberAdmin__ClientSecret:synthetic.SWOOVR_MEMBERS_API_ADMIN_SECRET,MemberAdmin__ContactRetirementEnabled:'false',MemberAdmin__ContactRetirementWorker:'false',
    Didit__ApiKey:'synthetic-owned-only',Didit__WorkflowId:synthetic.SWOOVR_DIDIT_WORKFLOW_ID,Didit__WebhookSecret:synthetic.SWOOVR_DIDIT_WEBHOOK_SECRET,Didit__BaseUrl:'http://127.0.0.1:'+provider.address().port+'/',Didit__Callbacks__Web:manifest.web+'/me/verification/return',
    Media__Store:'local',Media__Local__Path:media,Media__Screening__Simulate:'blocked',Media__Screening__RequireKnownContentCheck:'true',Media__Screening__Worker:'false',Media__Screening__BaseUrl:'http://127.0.0.1:1/',
