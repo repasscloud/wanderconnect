@@ -158,7 +158,9 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             Db.ContactHistories.Add(previous);
         var previousEmail = emailChanged ? account.Email : null;
         if(emailChanged)Audit.Record(Db,now,account.Id,"account","email.change-activated","account",account.Id.ToString(),"validated-claim-observed");
-        if (email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
+        var staffSignInChanged = facts.Realm == AccountRealm.Staff && (account.StaffLastSignInAt is null || facts.AuthenticatedAt > account.StaffLastSignInAt);
+        if (staffSignInChanged) account.StaffLastSignInAt = facts.AuthenticatedAt;
+        if (staffSignInChanged || email is not null && account.Email != email || now - account.LastSeenAt > SeenInterval)
         {
             if (email is not null && account.Email != email) account.EmailAcceptedAt = emailAcceptedClock;
             account.Email = email ?? account.Email;
@@ -324,6 +326,9 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
         DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (email is null) return;
+        await using var lifecycle = await AccountLifecycleLease.AcquireAsync(Db!, account.Id, cancellationToken);
+        await Db!.Entry(account).ReloadAsync(cancellationToken);
+        if (account.Status != AccountStatus.Active) return;
         var pending = await Db!.Invitations
             .Where(i => i.Realm == facts.Realm && i.Email == email && i.AcceptedAt == null && i.RevokedAt == null && i.ExpiresAt > now)
             .ToListAsync(cancellationToken);
@@ -335,6 +340,7 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             if (!await Db.RoleGrants.AnyAsync(r => r.AccountId == account.Id && r.Role == invitation.Role && r.VenueId == invitation.VenueId, cancellationToken))
                 Db.RoleGrants.Add(new RoleGrant { Id = Guid.NewGuid(), AccountId = account.Id, Role = invitation.Role, VenueId = invitation.VenueId, GrantedAt = now });
             Audit.Record(Db, now, account.Id, "account", "invitation.accepted", "invitation", invitation.Id.ToString(), invitation.Role.ToString());
+            if (facts.Realm == AccountRealm.Staff) account.StaffRevision++;
             accepted = true;
         }
         if (!accepted) return;

@@ -39,3 +39,9 @@ DEFAULT: Use an explicit API-owned workspace projection for navigation; Business
 - [ ] Add member settings and staff controls; distinguish requirement removal from credential clearing; preserve mandatory staff policy after resets, prevent self-reset and audit interventions.
 - [ ] Enforce fresh MFA on sensitive operations in addition to existing authorization/purpose grants; retain provider-native recovery and document acceptance limits.
 - [ ] Run full checks, review security diff, commit/push and draft PR based on #206; update issues and report merge order/evidence/gaps.
+
+## Execution ledger
+
+- #196: 68e3cdd, draft PR #241; full check exit 0, 731 PostgreSQL cases. Provider enrolment/hosted acceptance remains an explicit gate.
+- #206 rulings: Entra credential ownership is preserved; no local employee passwords. External partner provisioning waits for authoritative organisations (explicitly separate scope). Machine reasons/case references keep identity data out of audit.
+- #206 review fixes: post-reload revocation check (race test RED → GREEN); canonical actor/target ordering in existing staff revoke; narrow provider PUT avoids credential echoes (test RED → GREEN).

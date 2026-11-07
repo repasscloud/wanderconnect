@@ -140,6 +140,9 @@ public static class Cli
             {
                 var staff = await db.Accounts.Where(a => a.Realm == AccountRealm.Staff && a.Subject == subject).ToListAsync();
                 if (staff.Count != 1) { Console.Error.WriteLine("No single staff-realm account has that subject; sign in once first."); return 1; }
+                await using var staffAuthority = await Accounts.AccountLifecycleLease.AcquireAsync(db, staff[0].Id, CancellationToken.None);
+                await db.Entry(staff[0]).ReloadAsync();
+                staff[0].StaffRevision++;
                 var existing = await db.RoleGrants.SingleOrDefaultAsync(g => g.AccountId == staff[0].Id && g.Role == AccountRole.Legal);
                 if (args[1] == "grant" && existing is null)
                     db.RoleGrants.Add(new RoleGrant { Id = Guid.NewGuid(), AccountId = staff[0].Id, Role = AccountRole.Legal, GrantedAt = now });
@@ -158,6 +161,9 @@ public static class Cli
                 if (role is null) { Console.Error.WriteLine("Role must be business, support, trust-safety or admin."); return 2; }
                 var staff = await db.Accounts.Where(a => a.Realm == AccountRealm.Staff && a.Subject == subject).ToListAsync();
                 if (staff.Count != 1) { Console.Error.WriteLine("No single staff-realm account has that subject; sign in once first."); return 1; }
+                await using var staffAuthority = await Accounts.AccountLifecycleLease.AcquireAsync(db, staff[0].Id, CancellationToken.None);
+                await db.Entry(staff[0]).ReloadAsync();
+                staff[0].StaffRevision++;
                 var existing = await db.RoleGrants.SingleOrDefaultAsync(g => g.AccountId == staff[0].Id && g.Role == role);
                 if (args[1] == "grant" && existing is null)
                     db.RoleGrants.Add(new RoleGrant { Id = Guid.NewGuid(), AccountId = staff[0].Id, Role = role.Value, GrantedAt = now });
