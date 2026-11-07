@@ -89,6 +89,26 @@ app.Use(async(context,next)=>
 });
 app.UseAuthentication();
 app.UseAuthorization();
+// #196: URL entry is checked against live API permissions, not navigation or provider role claims.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (context.User.Identity?.IsAuthenticated == true && context.GetEndpoint() is not null
+        && path != "/" && !path.StartsWithSegments("/sign-in") && !path.StartsWithSegments("/sign-out")
+        && !path.StartsWithSegments("/signed-out") && !path.StartsWithSegments("/error")
+        && !System.IO.Path.HasExtension(path.Value))
+    {
+        var workspace = await context.RequestServices.GetRequiredService<Swoovr.Client.AdminClient>().WorkspaceAsync(context.RequestAborted);
+        if (!workspace.Ok || workspace.Value is { Business: true, MemberOperations: false, Administration: false, Legal: false })
+        {
+            context.Response.StatusCode = workspace.Ok ? 403 : workspace.Status;
+            context.Response.Headers.CacheControl = "no-store";
+            await context.Response.WriteAsync("This page is not available to your role.");
+            return;
+        }
+    }
+    await next(context);
+});
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapGet("/sign-in", (bool? reauth, string? returnUrl) =>

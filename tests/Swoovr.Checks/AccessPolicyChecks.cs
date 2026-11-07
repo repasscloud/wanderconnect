@@ -65,6 +65,25 @@ static class AccessPolicyChecks
             Check($"{role} cannot inherit {other}", false, staff, other);
         }
 
+        var businessRole = Enum.TryParse<AccountRole>("Business", out var business) ? business : AccountRole.Unknown;
+        if (businessRole == AccountRole.Unknown) throw new Exception("Business must be a recognised internal staff role");
+        var businessSession = new AccessSession(businessRole, AccountRealm.Staff, SignInMethod.CorporateSso, true, true, true, true, false, none);
+        Check("Business with MFA", true, businessSession, businessRole);
+        Check("Business without MFA", false, businessSession with { MultiFactor = false }, businessRole);
+        foreach (var area in new[] { AccountRole.Admin, AccountRole.Support, AccountRole.Legal, AccountRole.TrustSafety, AccountRole.Member })
+            Check($"Business cannot inherit {area}", false, businessSession, area);
+        if (InvitationPolicy.RealmFor(businessRole) != AccountRealm.Staff || TicketingPolicy.EffectiveRoles([businessRole], false).Count != 0)
+            throw new Exception("Business must be staff without helpdesk access");
+
+        var businessCurrent = new Swoovr.Api.Accounts.CurrentAccount(
+            new ValidatedSessionFacts(AccountRealm.Staff, "fictional-business", true, ["otp"], "repasscloud-entra", DateTimeOffset.UtcNow, null),
+            new SessionEvidence(SignInMethod.CorporateSso, true, true), "fictional.business@example.test",
+            new Account { Id = Guid.NewGuid(), Realm = AccountRealm.Staff, Status = AccountStatus.Active },
+            [new RoleGrant { Role = businessRole }], null, BetaAccess.NotRequired);
+        if (!businessCurrent.Allows(businessRole) || Enum.GetValues<AccountRole>().Where(r => r != businessRole).Any(businessCurrent.Allows))
+            throw new Exception("Live API application grants must isolate Business from every other area");
+        if (businessCurrent.StaffRole != AccountRole.Unknown) throw new Exception("Business cannot act as a moderator");
+
         var root = new AccessSession(AccountRole.Admin, AccountRealm.Staff, SignInMethod.EmailPassword, true, true, true, true, true, none);
         Check("root admin password + OTP", true, root, AccountRole.Admin);
         Check("root admin without OTP denied (MFA enforced, D36)", false, root with { MultiFactor = false }, AccountRole.Admin);

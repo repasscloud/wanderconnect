@@ -9,6 +9,9 @@ namespace Swoovr.Client;
 /// </summary>
 public sealed partial class AdminClient(HttpClient transport)
 {
+    public Task<ApiResult<StaffWorkspace>> WorkspaceAsync(CancellationToken token = default) =>
+        SendAsync<StaffWorkspace>(HttpMethod.Get, "api/admin/workspace", null, token);
+
     public Task<ApiResult<RegisteredNamesView>> RegisteredNamesAsync(Guid id,CancellationToken token=default)=>SendAsync<RegisteredNamesView>(HttpMethod.Get,$"api/admin/accounts/{id}/registered-names",null,token);
     public Task<ApiResult<StaffAgeAssurance>> AssuranceAsync(Guid id,CancellationToken token=default)=>SendAsync<StaffAgeAssurance>(HttpMethod.Get,$"api/admin/accounts/{id}/assurance",null,token);
     public Task<ApiResult<StaffDateOfBirth>> ProfileDobAsync(Guid id,string purpose,CancellationToken token=default)=>SendAsync<StaffDateOfBirth>(HttpMethod.Post,$"api/admin/accounts/{id}/date-of-birth",new IdentityAccessRequest(purpose),token);

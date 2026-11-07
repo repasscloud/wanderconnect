@@ -1,0 +1,15 @@
+# Business staff role — #196
+
+CONFIRMED source: [#196](https://github.com/repasscloud/wanderconnect/issues/196). Business is an independent internal role; external organisation owners are not internal staff. The current request supersedes older optional-staff-MFA wording for Business.
+
+The existing application RoleGrant table remains the role authority. Business is appended to AccountRole (existing enum values unchanged), accepted by staff invitations and the controlled `staff role` operator command. No Keycloak role claims, new realm, permission database, organisation tables or project are added. An active, verified, fresh staff-realm Entra session (or the existing Development-only password path) must additionally carry trusted OTP AMR. No OTP means no Business access, even if a provider issued a token.
+
+`GET /api/admin/workspace` projects current application authority; Business alone gets its staff home and sign-out. Navigation and server-side direct page entry use this projection. No empty partner pages or placeholder menu items. Existing member, moderation, evidence, holds, billing, security, registration and ticket routes keep explicit existing role gates. `AnyStaffAsync` intentionally excludes Business from sensitive access/exclusion tools. TicketingPolicy excludes Business from agent roles and queue grants, including Zammad mirroring. The workspace endpoint conveys no partner operation or financial permission. Future partner endpoints must explicitly define operations and field visibility; none can infer authority merely from staff realm membership.
+
+MFA enrolment remains owned by Keycloak. The local realm configurator now makes the staff browser second-factor flow REQUIRED and CONFIGURE_TOTP a default action. It does not run or alter any existing provider configuration in this task. Hosted Entra/Keycloak enrolment and post-broker assurance must be configured and accepted before provisioning Business accounts; no production configuration is changed. #193 adds shared mandatory staff configuration and recovery controls. This branch fails closed before that acceptance. A user with Business plus another explicitly assigned role retains that other role's existing authority; Business itself confers none of it.
+
+## Evidence
+
+The added access-policy test failed before Business existed. Tests cover Business with/without OTP, all other account areas, live CurrentAccount resolution, invitation realm, no moderation role and no Zammad agent authority. The full local check is recorded in the PR. No hosted Entra login or real Business browser journey is claimed.
+
+7 November 2026: `./scripts/check.sh` exit 0 using the running local PostgreSQL container's private connection in process memory (the checkout's older docker.env credential failed with 28P01). Release build: 0 warnings/errors; 115 account access cases; 14 realm configuration cases; 731 PostgreSQL checks; all three HTTP smoke suites passed. Independent static review found no important/critical authorization issue; its enrolment finding led to the staff-only configurator addition. No deployment or provider mutation was run.

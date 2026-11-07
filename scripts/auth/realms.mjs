@@ -135,6 +135,26 @@ export async function applyAccountsClient(api, secret) {
   return changes;
 }
 
+// #196/#193: staff browser OTP is required even when no credential exists, so Keycloak runs enrolment.
+// Brokered staff also need the equivalent required post-broker flow in the configured Entra provider.
+export async function applyStaffMfa(api, name) {
+  if (name !== 'swoovr-staff-dev') return [];
+  const executions = await api('/authentication/flows/browser/executions');
+  const secondFactor = executions.find(e => e.authenticationFlow && e.displayName === 'Browser - Conditional 2FA');
+  if (!secondFactor) throw new Error('Staff second-factor flow is missing; refusing to weaken authentication');
+  const changes = [];
+  if (secondFactor.requirement !== 'REQUIRED') {
+    await api('/authentication/flows/browser/executions', 'PUT', { id: secondFactor.id, requirement: 'REQUIRED' });
+    changes.push('mandatory staff second factor');
+  }
+  const action = await api('/authentication/required-actions/CONFIGURE_TOTP');
+  if (!action.enabled || !action.defaultAction) {
+    await api('/authentication/required-actions/CONFIGURE_TOTP', 'PUT', { ...action, enabled: true, defaultAction: true });
+    changes.push('staff OTP enrolment');
+  }
+  return changes;
+}
+
 async function localSecret(key) {
   const env = await readFile('.local/docker.env', 'utf8').catch(() => '');
   return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
@@ -144,7 +164,7 @@ export async function applyAll({ open = realm => localRealmApi({ realm }), secre
   const result = {};
   for (const name of realms) {
     const api = await open(name);
-    result[name] = await applyRealm(api, name);
+    result[name] = [...await applyRealm(api, name), ...await applyStaffMfa(api, name)];
     if (name === 'swoovr-members-dev') result[name].push(...await applyAccountsClient(api, await secret()));
   }
   return result;

@@ -16,6 +16,20 @@ public static class AdminEndpoints
     {
         var admin = app.MapGroup("/api/admin").RequireAuthorization();
 
+        // A landing projection is not a general staff permission. Every resource keeps its own existing gate.
+        admin.MapGet("/workspace", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken token) =>
+        {
+            var current = await accounts.ResolveAsync(user, token);
+            if (current is null) return Results.Unauthorized();
+            if (current.Account is null) return Problem(503, ProblemCodes.PersistenceUnavailable, "Accounts are unavailable.");
+            var business = current.Allows(AccountRole.Business);
+            var administration = current.Allows(AccountRole.Admin);
+            var support = current.Allows(AccountRole.Support);
+            var legal = current.Allows(AccountRole.Legal);
+            return business || administration || support || legal
+                ? Results.Ok(new StaffWorkspace(business, administration || support, administration, legal, current.IsRootAdmin)) : Results.Forbid();
+        });
+
         admin.MapPost("/invitations", async (InvitationRequest request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
