@@ -17,7 +17,7 @@
                     <InputFile class="visually-hidden" OnChange="UploadAsync" multiple accept="image/jpeg,image/png,image/webp" disabled="@(busy || room <= 0 || LibraryFull)" data-album-upload /></label>
             </div>
         </div>
-        <p class="ph-rules">@PhotoText.AlbumRules(photos.IdVerified)</p>
+        <p class="ph-rules"><Icon Name="shield" Size="18" /><span>@PhotoText.AlbumRules(photos.IdVerified)</span></p>
         <p role="status" aria-live="polite" class="ph-status" data-album-status="@status">@message</p>
         <div class="ph-cols">
             <section class="card ph-card" aria-labelledby="album-photos-title" data-album-photos="@album.Photos.Count">

@@ -77,7 +77,8 @@ public static partial class Bff
     [GeneratedRegex("^api/conversations/" + Uuid + "/photos$")]
     private static partial Regex ChatPhoto();
 
-    [GeneratedRegex(@"^[0-9a-f]{32}\.member\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")]
+    // Issue 231: "own" is the owner's preview of their own refused photo; the API still checks signature, expiry and status.
+    [GeneratedRegex(@"^[0-9a-f]{32}\.(?:member|own)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")]
     private static partial Regex MediaToken();
 
     public static void MapBff(WebApplication app) =>

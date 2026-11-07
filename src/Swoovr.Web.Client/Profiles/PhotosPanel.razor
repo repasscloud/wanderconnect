@@ -14,7 +14,7 @@
         }
     </div>
     @* Issue 231: the rules span the whole content width; no narrow container. *@
-    <p class="ph-rules">@PhotoText.Rules</p>
+    <p class="ph-rules"><Icon Name="shield" Size="18" /><span>@PhotoText.Rules</span></p>
     <p role="status" aria-live="polite" class="ph-status" data-photo-status="@status">@message</p>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (refused is not null) { <p role="status" data-photos-refused="@refused">We couldn't load your photos.</p> }

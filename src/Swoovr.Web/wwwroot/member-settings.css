@@ -382,3 +382,14 @@
   .ph-viewer-panel { grid-template-columns: 1fr; grid-template-rows: auto 1fr; width: 100%; height: 100%; border: 0; border-radius: 0; }
   .ph-viewer-stage .ph-shot { width: 100%; height: auto; max-height: 60vh; }
 }
+
+/* Issue 231 fixes after the owner's first run: app.css caps every <p> at 65ch and makes every .button full width with a
+   54px height. The photos pages need neither: text wraps with its card, and buttons are their natural size. */
+.ph-page p, .ph-dialog p, .ph-viewer-side p { max-width: none; }
+.ph-page .button, .ph-dialog .button { width: auto; min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: .875rem; }
+.ph-page .ph-xs { min-height: 30px; padding: 0 10px; font-size: .75rem; }
+.ph-viewer-actions .button { width: 100%; min-height: 44px; border-radius: 14px; }
+.ph-rules { display: flex; align-items: flex-start; gap: 10px; }
+.ph-rules svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--muted); }
+.ph-tile-meta { min-height: 30px; }
+.ph-item-thumb .ph-veil { font-size: 0; }
