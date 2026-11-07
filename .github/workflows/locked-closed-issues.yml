@@ -50,3 +50,10 @@ jobs:
           done
 
           echo "Finished processing closed issues."
+
+#
+# How it works: in scripts/check_design.py, the "disabled workflows" rule skips only the files you list:
+# ENABLED_WORKFLOWS = {
+#     '.github/workflows/locked-closed-issues.yml',  # owner, 7 November 2026: ...
+# }
+#
