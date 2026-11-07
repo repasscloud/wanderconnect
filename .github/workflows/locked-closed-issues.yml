@@ -1,0 +1,52 @@
+
+name: Lock Closed Issues
+
+on:
+  schedule:
+    # Every 3 days at 02:00 UTC (calendar-based)
+    - cron: "0 2 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  lock-issues:
+    name: Resolve and Lock Closed Issues
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Find and lock unresolved closed issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Finding closed, unlocked issues..."
+
+          # Retrieve all closed issues, including pagination.
+          gh api --paginate \
+            "repos/$GH_REPO/issues?state=closed&per_page=100" \
+            --jq '.[] | select(
+              .pull_request == null and
+              .locked == false
+            ) | .number' |
+          while read -r ISSUE_NUMBER; do
+
+            echo "Processing issue #$ISSUE_NUMBER"
+
+            # Add the resolved label.
+            gh issue edit "$ISSUE_NUMBER" \
+              --add-label "resolved"
+
+            # Lock the issue with reason resolved.
+            gh issue lock "$ISSUE_NUMBER" \
+              --reason resolved
+
+            echo "Issue #$ISSUE_NUMBER resolved and locked."
+
+          done
+
+          echo "Finished processing closed issues."
