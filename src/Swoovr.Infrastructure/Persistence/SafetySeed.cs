@@ -32,6 +32,7 @@ public static class SafetySeed
 
     public static readonly SafetyResource[] Resources =
     [
+        // Australia Safety Resources
         R("6f1a0c1e-0001-4000-8000-000000000001", "AU", SafetyResourceCategory.Emergency, 10, "Triple Zero (000)", "Police, fire and ambulance. Call if you or someone else is in danger now.",
             "000", "000", "https://www.triplezero.gov.au/", "https://www.triplezero.gov.au/", true),
         R("6f1a0c1e-0001-4000-8000-000000000002", "AU", SafetyResourceCategory.PoliceNonEmergency, 20, "Police Assistance Line", "Report a crime to police when it isn't an emergency.",
@@ -44,17 +45,74 @@ public static class SafetySeed
             null, null, "https://www.esafety.gov.au/report", "https://www.esafety.gov.au/report", true),
         R("6f1a0c1e-0001-4000-8000-000000000006", "AU", SafetyResourceCategory.ChildExploitation, 60, "ACCCE", "Report online child sexual exploitation to the Australian Centre to Counter Child Exploitation.",
             null, null, "https://www.accce.gov.au/report", "https://www.accce.gov.au/report", true),
+        
+        // New Zealand Safety Resources
         R("6f1a0c1e-0002-4000-8000-000000000001", "NZ", SafetyResourceCategory.Emergency, 10, "Emergency services (111)", "Police, fire or ambulance in an emergency.",
-            "111", "111", "https://www.police.govt.nz/", "https://www.police.govt.nz/advice-services/how-report-crime-or-incident", false),
+            "111", "111", "https://www.police.govt.nz/", "https://www.police.govt.nz/advice-services/how-report-crime-or-incident", true),
         R("6f1a0c1e-0002-4000-8000-000000000002", "NZ", SafetyResourceCategory.PoliceNonEmergency, 20, "New Zealand Police 105", "Non-urgent police matters.",
             "105", "105", "https://www.police.govt.nz/105support", "https://www.police.govt.nz/faq/why-has-police-introduced-non-emergency-number", false),
-        R("6f1a0c1e-0002-4000-8000-000000000003", "NZ", SafetyResourceCategory.OnlineSafety, 50, "Netsafe", "Help with online safety.",
-            null, null, "https://netsafe.org.nz/", "https://netsafe.org.nz/", false),
-        R("6f1a0c1e-0003-4000-8000-000000000001", "GB", SafetyResourceCategory.Emergency, 10, "Emergency services (999)", "Police, fire or ambulance in an emergency.",
-            "999", "999", "https://www.gov.uk/contact-police", "https://www.gov.uk/contact-police", false),
-        R("6f1a0c1e-0003-4000-8000-000000000002", "GB", SafetyResourceCategory.PoliceNonEmergency, 20, "Police 101", "Non-emergency police contact.",
-            "101", "101", "https://www.police.uk/", "https://www.police.uk/", false),
-        R("6f1a0c1e-0003-4000-8000-000000000003", "GB", SafetyResourceCategory.ChildExploitation, 60, "CEOP Safety Centre", "Report online child sexual abuse concerns.",
-            null, null, "https://www.ceop.police.uk/Safety-Centre/", "https://www.ceop.police.uk/Safety-Centre/", false),
+        R("6f1a0c1e-0002-4000-8000-000000000002", "NZ", SafetyResourceCategory.PoliceNonEmergency, 20,
+            "New Zealand Police 105",
+            "Report crimes or incidents that do not require an immediate police response. Available 24/7.",
+            "105", "105",
+            "https://105.police.govt.nz/",
+            "https://www.police.govt.nz/105support", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000004", "NZ", SafetyResourceCategory.Crisis, 30,
+            "Need to Talk? 1737",
+            "Free, confidential emotional and mental health support, available 24/7 by phone or text.",
+            "1737", "1737",
+            "https://1737.org.nz/",
+            "https://1737.org.nz/how-1737-works", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000005", "NZ", SafetyResourceCategory.SexualViolence, 40,
+            "Safe to Talk",
+            "Free, confidential 24/7 support for people affected by sexual harm, assault or abuse. Call or text 4334.",
+            "0800044334", "0800 044 334",
+            "https://www.safetotalk.nz/",
+            "https://www.safetotalk.nz/contact-us/", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000006", "NZ", SafetyResourceCategory.DomesticViolence, 45,
+            "Are You OK",
+            "Free, confidential 24/7 support for anyone affected by domestic or family violence, including safety planning and referrals.",
+            "0800456450", "0800 456 450",
+            "https://www.areyouok.org.nz/",
+            "https://www.areyouok.org.nz/get-support/", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000009", "NZ", SafetyResourceCategory.DomesticViolence, 46,
+            "Women's Refuge",
+            "Free 24/7 crisis support and assistance for women and children experiencing domestic or family violence.",
+            "0800733843", "0800 733 843",
+            "https://womensrefuge.org.nz/",
+            "https://womensrefuge.org.nz/", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000003", "NZ", SafetyResourceCategory.OnlineSafety, 50,
+            "Netsafe",
+            "Report online abuse, harassment, bullying or image-based abuse. Phone support Monday to Friday, 9am to 5pm.",
+            "0508638723", "0508 638 723",
+            "https://netsafe.org.nz/report",
+            "https://netsafe.org.nz/netsafe/contact-us", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000007", "NZ", SafetyResourceCategory.ChildExploitation, 60,
+            "Department of Internal Affairs - Digital Child Exploitation Team",
+            "Report suspected online child sexual abuse or exploitation material. For grooming or immediate danger, contact Police.",
+            null, null,
+            "https://www.dia.govt.nz/Digital-Safety-Report-Online-Child-Exploitation-Material",
+            "https://www.dia.govt.nz/Digital-Safety-Report-Online-Child-Exploitation-Material", true),
+
+        R("6f1a0c1e-0002-4000-8000-000000000008", "NZ", SafetyResourceCategory.Other, 70,
+            "Victim Support",
+            "Free, confidential 24/7 support for victims of crime, their families and witnesses of traumatic events.",
+            "0800842846", "0800 842 846",
+            "https://www.victimsupport.org.nz/",
+            "https://www.victimsupport.org.nz/", true),
+
+        // United Kingdom Safety Resources
+        // R("6f1a0c1e-0003-4000-8000-000000000001", "GB", SafetyResourceCategory.Emergency, 10, "Emergency services (999)", "Police, fire or ambulance in an emergency.",
+        //     "999", "999", "https://www.gov.uk/contact-police", "https://www.gov.uk/contact-police", false),
+        // R("6f1a0c1e-0003-4000-8000-000000000002", "GB", SafetyResourceCategory.PoliceNonEmergency, 20, "Police 101", "Non-emergency police contact.",
+        //     "101", "101", "https://www.police.uk/", "https://www.police.uk/", false),
+        // R("6f1a0c1e-0003-4000-8000-000000000003", "GB", SafetyResourceCategory.ChildExploitation, 60, "CEOP Safety Centre", "Report online child sexual abuse concerns.",
+        //     null, null, "https://www.ceop.police.uk/Safety-Centre/", "https://www.ceop.police.uk/Safety-Centre/", false),
     ];
 }
