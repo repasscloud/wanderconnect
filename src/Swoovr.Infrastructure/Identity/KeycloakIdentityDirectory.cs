@@ -114,3 +114,46 @@ public partial class KeycloakIdentityAdmin
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException) { log.LogWarning("Keycloak directory write failed: {Kind}.", e.GetType().Name); return null; }
     }
 }
+
+public partial class KeycloakIdentityAdmin
+{
+    public async Task<bool> SetMfaRequiredAsync(string subject, bool required, CancellationToken ct)
+    {
+        if (!Guid.TryParse(subject, out var id)) return false;
+        using var current = await GetAsync($"users/{id}", "MFA requirement", ct, array: false);
+        if (current is null || Text(current.RootElement, "id") != id.ToString()) return false;
+        var attributes = current.RootElement.TryGetProperty("attributes", out var original)
+            ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(original.GetRawText())! : [];
+        var actions = ReadActions(current.RootElement).ToHashSet(StringComparer.Ordinal);
+        attributes["swoovrMfaRequired"] = JsonSerializer.SerializeToElement(new[] { required ? "true" : "false" });
+        if (required)
+        {
+            using var credentials = await GetAsync($"users/{id}/credentials", "MFA credential types", ct);
+            if (credentials is null) return false;
+            if (!credentials.RootElement.EnumerateArray().Any(c => Text(c, "type") == "otp") && actions.Add("CONFIGURE_TOTP"))
+                attributes["swoovrMfaSetupOwned"] = JsonSerializer.SerializeToElement(new[] { "true" });
+        }
+        else if (attributes.TryGetValue("swoovrMfaSetupOwned", out var owned) && owned.ValueKind == JsonValueKind.Array && owned.EnumerateArray().Any(v => v.GetString() == "true"))
+        {
+            actions.Remove("CONFIGURE_TOTP"); attributes.Remove("swoovrMfaSetupOwned");
+        }
+        var values = ProfileValues(current.RootElement);
+        values["attributes"] = JsonSerializer.SerializeToElement(attributes);
+        values["requiredActions"] = JsonSerializer.SerializeToElement(actions.ToArray());
+        using var result = await DirectoryWriteAsync(HttpMethod.Put, $"users/{id}", values, ct);
+        return result?.IsSuccessStatusCode == true;
+    }
+
+    public async Task<bool> ClearMfaAsync(string subject, bool requireEnrolment, CancellationToken ct)
+    {
+        if (!Guid.TryParse(subject, out var id) || !await SetMfaRequiredAsync(subject, requireEnrolment, ct)) return false;
+        if (requireEnrolment && !await RequireActionsAsync(subject, ["CONFIGURE_TOTP"], ct)) return false;
+        using var credentials = await GetAsync($"users/{id}/credentials", "MFA reset", ct);
+        if (credentials is null) return false;
+        var ids = credentials.RootElement.EnumerateArray().Where(c => Text(c, "type") is "otp" or "recovery-authn-codes").Select(c => Text(c, "id")).ToList();
+        if (ids.Any(id => id is null || !SignInPolicy.ValidSessionId(id))) return false;
+        foreach (var credential in ids)
+            if (!await SendAsync(HttpMethod.Delete, $"users/{id}/credentials/{Uri.EscapeDataString(credential!)}", "MFA credential removal", notFoundIsDone: true, ct)) return false;
+        return await SignOutEverywhereAsync(subject, ct);
+    }
+}

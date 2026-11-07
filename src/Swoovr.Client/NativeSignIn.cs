@@ -34,8 +34,9 @@ public sealed class NativeSignIn(HttpClient http, NativeSignInOptions options, T
     private Discovery? discovery;
 
     /// <param name="reauthenticate">D169: ask Keycloak to sign the member in again (prompt=login, max_age=0), for deletion and export.</param>
-    public async Task<SignInRequest> BeginAsync(CancellationToken cancellationToken = default, bool reauthenticate = false)
+    public async Task<SignInRequest> BeginAsync(CancellationToken cancellationToken = default, bool reauthenticate = false, string? securityAction = null)
     {
+        if (securityAction is not null && securityAction is not ("CONFIGURE_TOTP" or "CONFIGURE_RECOVERY_AUTHN_CODES")) throw new ArgumentException("Unsupported security action.", nameof(securityAction));
         var endpoints = await DiscoverAsync(cancellationToken);
         var (state, nonce, verifier) = (Random(32), Random(32), Random(32));
         var parameters = new Dictionary<string, string>
@@ -44,7 +45,8 @@ public sealed class NativeSignIn(HttpClient http, NativeSignInOptions options, T
             ["redirect_uri"] = options.RedirectUri.ToString(), ["state"] = state, ["nonce"] = nonce,
             ["code_challenge"] = Challenge(verifier), ["code_challenge_method"] = "S256",
         };
-        if (reauthenticate) (parameters["prompt"], parameters["max_age"]) = ("login", "0");
+        if (securityAction is not null) parameters["kc_action"] = securityAction;
+        if (reauthenticate || securityAction is not null) (parameters["prompt"], parameters["max_age"]) = ("login", "0");
         var query = Query(parameters);
         return new(new Uri(endpoints.AuthorizationEndpoint + "?" + query), state, nonce, verifier);
     }

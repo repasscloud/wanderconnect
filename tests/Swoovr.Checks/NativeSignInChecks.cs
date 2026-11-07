@@ -23,6 +23,11 @@ static class NativeSignInChecks
 
         var realm = new FakeRealm();
         var signIn = new NativeSignIn(new HttpClient(realm), Options);
+        var mfaAction = await signIn.BeginAsync(securityAction: "CONFIGURE_TOTP");
+        Expect(mfaAction.AuthorizeUri.Query.Contains("kc_action=CONFIGURE_TOTP") && mfaAction.AuthorizeUri.Query.Contains("max_age=0") && mfaAction.AuthorizeUri.Query.Contains("prompt=login"), "native MFA action uses native provider and forced interactive verification"); Pass();
+        try { await signIn.BeginAsync(securityAction: "DELETE_CREDENTIAL"); throw new Exception("unsupported native action accepted"); } catch(ArgumentException) { Pass(); }
+        var recoveryAction = await signIn.BeginAsync(securityAction: "CONFIGURE_RECOVERY_AUTHN_CODES");
+        Expect(recoveryAction.AuthorizeUri.Query.Contains("kc_action=CONFIGURE_RECOVERY_AUTHN_CODES"), "pinned native recovery action id"); Pass();
         var request = await signIn.BeginAsync();
         var query = Parse(request.AuthorizeUri.Query);
         Expect(request.AuthorizeUri.GetLeftPart(UriPartial.Path) == Authority + "/protocol/openid-connect/auth", "authorize endpoint from discovery"); Pass();

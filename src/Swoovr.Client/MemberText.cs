@@ -13,6 +13,7 @@ public static class MemberText
     /// </summary>
     public static string? Barred(string? code) => code switch
     {
+        "mfa-required" => "Configure and verify MFA under your account security before continuing.",
         ProblemCodes.AccountRestricted => "Your account is restricted. You can't use Swoovr until this is lifted. Read the notice under Me to see why; you can appeal within 30 days.",
         ProblemCodes.AccountSuspended => "Your account is suspended. Read the notice under Me to see why; you can appeal within 30 days.",
         ProblemCodes.AgeVerificationRequired => "We need to confirm you're 18 or over before you can keep using Swoovr. Verify your ID under Me.",

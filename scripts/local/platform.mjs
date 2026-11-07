@@ -171,7 +171,7 @@ export function staffFixtureName(role) {
 }
 async function bootstrap() {
   const values = await env();
-  const changes = await applyAll({ open: realmApi, secret: async () => values.SWOOVR_MEMBERS_API_ADMIN_SECRET });
+  const changes = await applyAll({ managedMfa: true, open: realmApi, secret: async () => values.SWOOVR_MEMBERS_API_ADMIN_SECRET });
   console.log('Local realm flows and service account configured: ' + Object.keys(changes).length + ' realms.');
   const root = await ensureUser('swoovr-staff-dev', values.SWOOVR_LOCAL_ADMIN_EMAIL, values.SWOOVR_LOCAL_ADMIN_PASSWORD, true);
   const fixture = JSON.parse(await readFile('.local/admin.json', 'utf8').catch(e => { if (e.code !== 'ENOENT') throw e; return '{}'; }));

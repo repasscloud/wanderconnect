@@ -23,6 +23,12 @@ builder.Services.AddHttpClient<Swoovr.Client.AdminClient>(http =>
     http.Timeout = TimeSpan.FromSeconds(10);
 }).AddHttpMessageHandler<StaffTokenHandler>();
 // Issue 222: support files to and from the helpdesk may take minutes; only ticket uploads and attachment downloads use this.
+// Elevation completion uses the newly validated callback token, never the previous cookie's token handler.
+builder.Services.AddHttpClient("StaffElevation", http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
+    http.Timeout = TimeSpan.FromSeconds(10);
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false }).RemoveAllLoggers();
 builder.Services.AddHttpClient(Swoovr.Admin.AdminTransfers.Client, http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Api:BaseUrl"] ?? "http://127.0.0.1:5080/");
@@ -67,8 +73,28 @@ auth.AddOpenIdConnect(options =>
     foreach (var scope in new[] { "openid", "profile", "email" }) options.Scope.Add(scope);
     foreach (var cookie in new[] { options.CorrelationCookie, options.NonceCookie }) { cookie.SameSite = SameSiteMode.Lax; cookie.SecurePolicy = cookieSecurity; }
     // "Sign in again" (a stale-session answer from the API) forces a fresh password + code at Keycloak.
+    options.Events.OnTicketReceived = async context =>
+    {
+        if (context.Properties is { } properties && properties.Items.Remove("mfa-challenge", out var challenge) && challenge is not null)
+        {
+            var accepted = false;
+            if (properties.GetTokenValue("access_token") is { } token)
+            {
+                try
+                {
+                    var http = context.HttpContext.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("StaffElevation");
+                    http.DefaultRequestHeaders.Authorization = new("Bearer", token);
+                    var result = await new Swoovr.Client.AdminClient(http).CompleteMfaElevationAsync(challenge, context.HttpContext.RequestAborted);
+                    accepted = result.Ok && result.Value?.Elevated == true;
+                }
+                catch (Exception error) when (error is HttpRequestException or TaskCanceledException) { }
+            }
+            context.ReturnUri = accepted ? "/access?mfa=verified" : "/access?mfa=denied";
+        }
+    };
     options.Events.OnRedirectToIdentityProvider = context =>
     {
+        if (context.Properties.Items.TryGetValue("security-action", out var action) && action is "CONFIGURE_TOTP" or "CONFIGURE_RECOVERY_AUTHN_CODES") context.ProtocolMessage.SetParameter("kc_action", action);
         if (context.Properties.Items.ContainsKey("reauth")) { context.ProtocolMessage.MaxAge = "0"; context.ProtocolMessage.Prompt = "login"; }
         return Task.CompletedTask;
     };
@@ -111,9 +137,25 @@ app.Use(async (context, next) =>
 });
 app.UseAntiforgery();
 app.MapStaticAssets();
-app.MapGet("/sign-in", (bool? reauth, string? returnUrl) =>
+app.MapGet("/sign-in", async (bool? reauth, bool? elevate, string? securityAction, string? returnUrl, HttpContext context, Swoovr.Client.AdminClient admin, IConfiguration config) =>
 {
     var properties = new AuthenticationProperties { RedirectUri = returnUrl is { } r && r.StartsWith('/') && !r.StartsWith("//") ? r : "/" };
+    if (securityAction is not null)
+    {
+        if (context.User.Identity?.IsAuthenticated != true) return Results.Redirect("/sign-in");
+        if (securityAction is not ("CONFIGURE_TOTP" or "CONFIGURE_RECOVERY_AUTHN_CODES")) return Results.BadRequest();
+        if (securityAction == "CONFIGURE_RECOVERY_AUTHN_CODES" && !config.GetValue("Mfa:RecoveryCodesEnabled", false)) return Results.NotFound();
+        properties.Items["security-action"] = securityAction;
+        properties.Items["reauth"] = "1";
+    }
+    if (elevate == true)
+    {
+        if (context.User.Identity?.IsAuthenticated != true) return Results.Redirect("/sign-in");
+        var challenge = await admin.BeginMfaElevationAsync(context.RequestAborted);
+        if (!challenge.Ok || challenge.Value is null) return Results.Redirect("/access?mfa=denied");
+        properties.Items["mfa-challenge"] = challenge.Value.Challenge;
+        properties.Items["reauth"] = "1";
+    }
     if (reauth == true) properties.Items["reauth"] = "1";
     return Results.Challenge(properties, [OpenIdConnectDefaults.AuthenticationScheme]);
 }).AllowAnonymous();
@@ -160,8 +202,9 @@ app.MapGet("/law-enforcement/audit-export", async (string? quarter, Swoovr.Clien
         : Results.File(body, "application/json", $"swoovr-le-audit-{quarter}.json");
 }).RequireAuthorization();
 // D203: a review image (and #41: a reported chat photo), only for signed-in staff and only through a link the API issued for a recorded purpose.
-app.MapGet("/media/{token}", async (string token, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
+app.MapGet("/media/{token}", async (string token, HttpContext context, Swoovr.Client.AdminClient admin, CancellationToken cancellationToken) =>
 {
+    context.Response.Headers.CacheControl = "no-store";
     if (!System.Text.RegularExpressions.Regex.IsMatch(token, @"^[0-9a-f]{32}\.(review|case|member|inspection|appeal)\.[0-9]{1,12}\.[A-Za-z0-9_-]{43}$")) return Results.NotFound();
     return await admin.MediaAsync("api/media/" + token, cancellationToken) is { } bytes ? Results.File(bytes, "image/jpeg") : Results.NotFound();
 }).RequireAuthorization();

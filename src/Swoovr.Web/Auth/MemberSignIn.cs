@@ -20,6 +20,8 @@ public static class MemberSignIn
     /// <summary>Allow-listed Keycloak application-initiated actions (issue 180, Q126 A).</summary>
     public static readonly IReadOnlyDictionary<string, string> KeycloakActions = new Dictionary<string, string>
     {
+        ["authenticator"] = "CONFIGURE_TOTP",
+        ["recovery-codes"] = "CONFIGURE_RECOVERY_AUTHN_CODES",
         ["password"] = "UPDATE_PASSWORD",
         ["passkey"] = "webauthn-register-passwordless",
         ["email"] = "UPDATE_EMAIL", // Q126 A: Keycloak runs with --features=update-email; the API re-checks the new address.
@@ -81,7 +83,11 @@ public static class MemberSignIn
             options.Events.OnRedirectToIdentityProvider = context =>
             {
                 if (context.Properties.Items.TryGetValue(KeycloakActionItem, out var action) && action is not null && KeycloakActions.Values.Contains(action))
+                {
                     context.ProtocolMessage.SetParameter("kc_action", action);
+                    // #193: credential changes always require interactive provider verification.
+                    if (action is "CONFIGURE_TOTP" or "CONFIGURE_RECOVERY_AUTHN_CODES") { context.ProtocolMessage.MaxAge = "0"; context.ProtocolMessage.Prompt = "login"; }
+                }
                 return Task.CompletedTask;
             };
             options.Scope.Clear();

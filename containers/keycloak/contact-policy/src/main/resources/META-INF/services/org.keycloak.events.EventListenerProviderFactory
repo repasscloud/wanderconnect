@@ -1,1 +1,2 @@
 app.swoovr.identity.EmailClockListenerFactory
+app.swoovr.identity.MfaAuditListenerFactory

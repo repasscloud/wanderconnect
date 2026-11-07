@@ -28,6 +28,7 @@ public static class RestrictionGate
         var (state, phoneRequired, reference, refused) = await StateAsync(context, token);
         // #201: a session cutoff retired this session's token; end it here and sign in again (then the real state shows).
         if (refused) { context.Response.Redirect(await RetiredSessions.EndAsync(context)); return; }
+        if(state=="mfa-required"){context.Response.Redirect("/account#mfa");return;}
         // D325 (Q132 B): only suspension and termination take over the app; a restriction limits named features in place.
         if (state is "suspended" or "terminated") { context.Response.Redirect("/account/restricted?state=" + state); return; }
         // issue 190 §10 (D323): a sign-in lock shows its own screen with the member's public reference.
@@ -48,6 +49,7 @@ public static class RestrictionGate
             using var response = await context.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient(Bff.ApiClient).SendAsync(request, context.RequestAborted);
             if (!response.IsSuccessStatusCode) return (null, false, null, response.StatusCode == System.Net.HttpStatusCode.Unauthorized);
             using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(context.RequestAborted), cancellationToken: context.RequestAborted);
+            if(body.RootElement.TryGetProperty("mfaAccessRequired",out var mfa)&&mfa.ValueKind==JsonValueKind.True)return("mfa-required",false,null,false);
             return (body.RootElement.TryGetProperty("accountState", out var s) ? s.GetString() : null,
                 body.RootElement.TryGetProperty("phoneRequired", out var p) && p.ValueKind == JsonValueKind.True,
                 body.RootElement.TryGetProperty("statusReference", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null, false);

@@ -19,29 +19,32 @@ DEFAULT: Use an explicit API-owned workspace projection for navigation; Business
 
 ## 1 — #196 Business
 
-- [ ] Add failing role/invitation/isolation checks; run and observe failure.
-- [ ] Append Business to existing enum, invitation/CLI mapping and narrow staff workspace projection; require MFA for Business; retain existing role gates and ticket queue policy.
-- [ ] Use API workspace permissions for Business landing/navigation and refuse unrelated direct portal URLs. No placeholders.
-- [ ] Run checks; document endpoint audit, actual evidence and provider configuration gaps; commit/push and draft PR to main; comment on issue.
+- [x] Add failing role/invitation/isolation checks; run and observe failure.
+- [x] Append Business to existing enum, invitation/CLI mapping and narrow staff workspace projection; require MFA for Business; retain existing role gates and ticket queue policy.
+- [x] Use API workspace permissions for Business landing/navigation and refuse unrelated direct portal URLs. No placeholders.
+- [x] Run checks; document endpoint audit, actual evidence and provider configuration gaps; commit/push and draft PR to main; comment on issue.
 
 ## 2 — #206 Staff accounts
 
-- [ ] Test internal management authorization, multiple roles, Root/Legal protection, status/revocation and provider failure boundaries.
-- [ ] Add existing-realm Keycloak directory/security adapter and API staff listing/detail/create/update/credential/session operations with recent authentication, reasons, confirmation, audit and lifecycle authority.
-- [ ] Add Admin SSR listing and management forms with typed client contracts; reuse Zammad sync signal and effective role restrictions.
-- [ ] External partner identity foundations stay distinct from internal roles; reject organisation assignments until authoritative organisations exist rather than inventing identifiers.
-- [ ] Run checks; document unsupported provider/owner-controlled paths; commit/push and draft PR based on #196; comment on issue.
+- [x] Test internal management authorization, multiple roles, Root/Legal protection, status/revocation and provider failure boundaries.
+- [x] Add existing-realm Keycloak directory/security adapter and API staff listing/detail/create/update/credential/session operations with recent authentication, reasons, confirmation, audit and lifecycle authority.
+- [x] Add Admin SSR listing and management forms with typed client contracts; reuse Zammad sync signal and effective role restrictions.
+- [x] External partner identity foundations stay distinct from internal roles; reject organisation assignments until authoritative organisations exist rather than inventing identifiers.
+- [x] Run checks; document unsupported provider/owner-controlled paths; commit/push and draft PR based on #196; comment on issue.
 
 ## 3 — #193 MFA
 
-- [ ] Test mandatory staff assurance, optional/enforced member policy, strictest roles, reset separation and fresh elevation expiry/session binding.
-- [ ] Integrate Keycloak-native enrolment/credential removal/session logout and policy enforcement, keeping secrets and OTP verification inside Keycloak.
-- [ ] Add member settings and staff controls; distinguish requirement removal from credential clearing; preserve mandatory staff policy after resets, prevent self-reset and audit interventions.
-- [ ] Enforce fresh MFA on sensitive operations in addition to existing authorization/purpose grants; retain provider-native recovery and document acceptance limits.
-- [ ] Run full checks, review security diff, commit/push and draft PR based on #206; update issues and report merge order/evidence/gaps.
+- [x] Test mandatory staff assurance, optional/enforced member policy, strictest roles, reset separation and fresh elevation expiry/session binding.
+- [x] Integrate Keycloak-native enrolment/credential removal/session logout and policy enforcement, keeping secrets and OTP verification inside Keycloak.
+- [x] Add member settings and staff controls; distinguish requirement removal from credential clearing; preserve mandatory staff policy after resets, prevent self-reset and audit interventions.
+- [x] Enforce fresh MFA on sensitive operations in addition to existing authorization/purpose grants; retain provider-native recovery and document acceptance limits.
+- [x] Run full checks, review security diff, commit/push and draft PR based on #206; update issues and report merge order/evidence/gaps.
 
 ## Execution ledger
 
 - #196: 68e3cdd, draft PR #241; full check exit 0, 731 PostgreSQL cases. Provider enrolment/hosted acceptance remains an explicit gate.
 - #206 rulings: Entra credential ownership is preserved; no local employee passwords. External partner provisioning waits for authoritative organisations (explicitly separate scope). Machine reasons/case references keep identity data out of audit.
 - #206 review fixes: post-reload revocation check (race test RED → GREEN); canonical actor/target ordering in existing staff revoke; narrow provider PUT avoids credential echoes (test RED → GREEN).
+
+- #206: 28646a3, draft PR #242, base #241; full check exit0,743 PostgreSQL cases.
+- #193: implementation and security checks complete locally; isolated Keycloak30 checks and final security review passed; full check exit0 with765 PostgreSQL cases,24 MFA policy cases and18 directory cases; Android/iOS-simulator builds passed. Q140/#243 records the operational identity-review procedure approval gate.

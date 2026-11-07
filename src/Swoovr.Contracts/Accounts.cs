@@ -21,7 +21,7 @@ public sealed record MemberAccount(
     bool PhoneVerified = false,
     bool PhoneRequired = false,
     string? EmailChangeProblem = null,bool PolicyRequired=false,DateTimeOffset? DateOfBirthCorrectionUntil=null,bool RegisteredNamesRequired=false,bool PhoneGateEnabled=false,
-    string? StatusReference = null, IReadOnlyList<string>? RestrictionLimits = null, DateTimeOffset? RestrictedUntil = null);
+    string? StatusReference = null, IReadOnlyList<string>? RestrictionLimits = null, DateTimeOffset? RestrictedUntil = null, bool MfaAccessRequired = false);
 
 /// <summary>
 /// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion

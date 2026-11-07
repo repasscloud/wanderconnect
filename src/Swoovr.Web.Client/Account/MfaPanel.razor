@@ -1,0 +1,36 @@
+@inject MemberClient Members
+<div id="mfa" class="settings-row">
+<div class="settings-row-text"><p class="settings-row-label">Multi-factor authentication</p>
+@if (view is null) { <p class="settings-row-value">@(loaded ? "MFA status is unavailable." : "Loading MFA status…")</p> }
+else
+{
+    <p class="settings-row-value">@Label(view.Status)@(view.Required ? " · Required for this account" : " · Optional")</p>
+    @if(view.ResetPending) { <p>Contact Support to finish your account recovery review.</p> }
+    else
+    {
+        <p><a href="/account/action/authenticator" data-enhance-nav="false">@(view.Methods.Contains("otp") ? "Replace authenticator" : "Set up authenticator")</a></p>
+        @if(view.Methods.Contains("otp"))
+        {
+            @if(view.RecoveryCodesAvailable) { <p><a href="/account/action/recovery-codes" data-enhance-nav="false">Generate recovery codes</a></p> }
+            @if(!view.Required)
+            {
+                <details><summary>Disable MFA</summary><p>Confirm with a recent MFA sign-in. Your existing sessions will end.</p>
+                <label><input type="checkbox" @bind="confirm" />I confirm disabling optional MFA</label>
+                <button type="button" @onclick="DisableAsync" disabled="@(!confirm || busy)">Disable MFA</button></details>
+            }
+        }
+    }
+}
+@if(message is not null) { <p role="status">@message @if(reauth) { <a href="/account/reauthenticate?returnUrl=%2Faccount%23mfa" data-enhance-nav="false">Sign in again with MFA</a> }</p> }
+</div></div>
+@code {
+    private MfaView? view;private bool loaded,confirm,busy,reauth;private string? message;
+    private static string Label(string value)=>value switch{"enabled"=>"Enabled","disabled"=>"Disabled","required"=>"Required","setup-pending"=>"Setup pending",_=>"Unavailable"};
+    protected override async Task OnInitializedAsync(){var r=await Members.MfaAsync();view=r.Value;loaded=true;}
+    private async Task DisableAsync()
+    {
+        if(!confirm||busy)return;busy=true;
+        try{var r=await Members.DisableMfaAsync();reauth=r.Code=="stale-session";message=r.Ok?"MFA disabled. Sign in again to continue.":reauth?"A recent MFA sign-in is required.":"MFA could not be disabled. Review your current account security or contact Support.";if(r.Ok)view=null;}
+        finally{busy=false;confirm=false;}
+    }
+}

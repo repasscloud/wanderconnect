@@ -45,10 +45,11 @@ static class AccessPolicyChecks
         Check("revoked venue membership denied", false, partner with { VenueIds = none }, AccountRole.VenuePartner, venueA);
         Check("member account cannot enter venue area", false, member with { Realm = AccountRealm.Venues, Method = SignInMethod.EmailPassword }, AccountRole.VenuePartner, venueA);
 
-        foreach (var role in new[] { AccountRole.Admin, AccountRole.Support, AccountRole.Legal })
+        foreach (var role in new[] { AccountRole.Admin, AccountRole.Support, AccountRole.Legal, AccountRole.TrustSafety })
         {
-            var staff = new AccessSession(role, AccountRealm.Staff, SignInMethod.CorporateSso, false, true, true, true, false, none);
+            var staff = new AccessSession(role, AccountRealm.Staff, SignInMethod.CorporateSso, true, true, true, true, false, none);
             Check($"{role} Entra SSO", true, staff, role);
+            Check($"{role} without MFA denied", false, staff with { MultiFactor = false }, role);
             foreach (var method in new[] { SignInMethod.Apple, SignInMethod.Google, SignInMethod.EmailPassword, SignInMethod.EmailLink, SignInMethod.Passkey, SignInMethod.Unknown, (SignInMethod)999 })
                 Check($"{role} rejects {method}", false, staff with { Method = method }, role);
             Check($"{role} rejects password even with OTP unless root admin", false, staff with { Method = SignInMethod.EmailPassword, MultiFactor = true }, role);

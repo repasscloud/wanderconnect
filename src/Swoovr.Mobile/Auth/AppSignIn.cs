@@ -33,10 +33,10 @@ public sealed class AppSignIn
 		session is null || MobileEndpoints.Api is not { } api ? null : new MessagesHubClient(new Uri(api, "hubs/messages"), () => session.AccessTokenAsync());
 
 	/// <summary>True when signed in; false when the member closed the browser or the sign-in was refused.</summary>
-	public async Task<bool> SignInAsync(bool reauthenticate = false)
+	public async Task<bool> SignInAsync(bool reauthenticate = false, string? securityAction = null)
 	{
 		if (signIn is null || session is null) return false;
-		var request = await signIn.BeginAsync(reauthenticate: reauthenticate);
+		var request = await signIn.BeginAsync(reauthenticate: reauthenticate, securityAction: securityAction);
 		WebAuthenticatorResult result;
 		try
 		{

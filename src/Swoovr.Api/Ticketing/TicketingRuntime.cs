@@ -27,6 +27,11 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
     private async Task<bool> SensitiveAsync(string group,CancellationToken ct)
     {
         if(!TicketingPolicy.Sensitive.Contains(group))return true;
+        if(current.Allows(AccountRole.Admin)||current.Allows(AccountRole.TrustSafety))
+        {
+            var user=accounts.Services.GetService<IHttpContextAccessor>()?.HttpContext?.User;
+            if(user is null||!await MfaElevationService.HasAsync(current,user,Db,accounts.Services.GetRequiredService<IConfiguration>(),clock.GetUtcNow(),ct))return false;
+        }
         var capability=group switch {TicketingPolicy.Legal=>StaffAccessPolicy.TicketLegal,"Privacy & Data Protection"=>StaffAccessPolicy.TicketPrivacy,"Security"=>StaffAccessPolicy.TicketSecurity,_=>StaffAccessPolicy.TicketRestricted};
         return current.RecentlyAuthenticated(clock.GetUtcNow())&&await StaffAccessEndpoints.GrantAsync(Db,Me,capability,clock.GetUtcNow(),ct) is not null;
     }

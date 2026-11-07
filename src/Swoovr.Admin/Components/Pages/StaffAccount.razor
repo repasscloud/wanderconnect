@@ -26,6 +26,7 @@
                 <label><input name="confirm" type="checkbox" value="yes" required />Confirm details and access changes; existing sessions will end</label>
                 <button type="submit" class="ui-button-primary">Save staff account</button>
             </form></section>
+            <MfaTools AccountId="Id" Staff="true" AllowReset="@d.CanManage" />
             <section class="ui-card ui-section"><h2>Security</h2>
             <form method="post" @formname="staff-security" @onsubmit="SecurityAsync" class="ui-form">
                 <AntiforgeryToken /><input type="hidden" name="revision" value="@d.Account.Revision" />

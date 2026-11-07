@@ -25,6 +25,9 @@ static class IdentityDirectoryChecks
         Check(!provider.Written.TryGetProperty("credentials",out _),"a profile write never echoes credentials");
         Check(await identity.RequireActionsAsync(subject,["CONFIGURE_TOTP"],CancellationToken.None),"MFA action added");
         Check(provider.Written.GetProperty("requiredActions").GetArrayLength()==2,"MFA action preserves unrelated action");
+        Check(await identity.ClearMfaAsync(subject,true,CancellationToken.None),"staff reset confirmed through provider");
+        Check(provider.Deleted.Count==1 && provider.Deleted[0].EndsWith(provider.OtpId.ToString()) && provider.Logouts==1,"reset deletes only MFA credential and ends sessions, preserving password");
+        Check(provider.Written.GetProperty("requiredActions").EnumerateArray().Any(e=>e.GetString()=="CONFIGURE_TOTP"),"reset requires re-enrolment before access");
         var created = await identity.CreateAccountAsync(update,CancellationToken.None);
         Check(created==subject && !provider.Written.GetProperty("enabled").GetBoolean(),"creation returns confirmed provider id and stays disabled");
         Check(!provider.Written.GetProperty("emailVerified").GetBoolean() && !provider.Written.TryGetProperty("credentials",out _),"no invented verification or password");
@@ -38,7 +41,7 @@ static class IdentityDirectoryChecks
     }
     private sealed class DirectoryProvider : HttpMessageHandler
     {
-        public Guid Subject {get;}=Guid.NewGuid(); public bool Fail; public int Calls; public JsonElement Written;
+        public Guid Subject {get;}=Guid.NewGuid(); public Guid OtpId {get;}=Guid.NewGuid();public List<string> Deleted=[];public int Logouts; public bool Fail; public int Calls; public JsonElement Written;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
             Calls++;var path=request.RequestUri!.AbsolutePath;
@@ -46,10 +49,12 @@ static class IdentityDirectoryChecks
             if(Fail)return new(HttpStatusCode.ServiceUnavailable);
             if(request.Method==HttpMethod.Get)
             {
-                if(path.EndsWith("/credentials"))return Json(new[]{new{id=Guid.NewGuid(),type="otp",secretData="must-never-echo"},new{id=Guid.NewGuid(),type="password",secretData="must-never-echo"}});
+                if(path.EndsWith("/credentials"))return Json(new[]{new{id=OtpId,type="otp",secretData="must-never-echo"},new{id=Guid.NewGuid(),type="password",secretData="must-never-echo"}});
                 return Json(new{id=Subject.ToString(),firstName="Fictional",lastName="Staff",email="fictional@example.test",emailVerified=true,enabled=true,
                     attributes=new Dictionary<string,string[]>{{"unrelated",["preserve"]}},requiredActions=new[]{"TERMS_AND_CONDITIONS"},credentials=new[]{new{type="password",secretData="must-never-echo"}}});
             }
+            if(request.Method==HttpMethod.Delete){Deleted.Add(path);return new(HttpStatusCode.NoContent);}
+            if(path.EndsWith("/logout")){Logouts++;return new(HttpStatusCode.NoContent);}
             Written=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct)).RootElement.Clone();
             if(request.Method==HttpMethod.Put&&(!Written.TryGetProperty("email",out _)||!Written.TryGetProperty("firstName",out _)))return new(HttpStatusCode.BadRequest); // Native configured user-profile required fields.
             var response=new HttpResponseMessage(request.Method==HttpMethod.Post?HttpStatusCode.Created:HttpStatusCode.NoContent);

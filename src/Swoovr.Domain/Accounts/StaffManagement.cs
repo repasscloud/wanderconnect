@@ -22,6 +22,8 @@ public interface IIdentityDirectory : IIdentityAdmin
     Task<bool> UpdateAccountAsync(string subject, IdentityAccountUpdate update, CancellationToken token);
     Task<bool> RequireActionsAsync(string subject, IReadOnlyList<string> actions, CancellationToken token);
     Task<bool> PasswordEmailAsync(string subject, CancellationToken token);
+    Task<bool> SetMfaRequiredAsync(string subject, bool required, CancellationToken token);
+    Task<bool> ClearMfaAsync(string subject, bool requireEnrolment, CancellationToken token);
 }
 /// <summary>Different realm and service credential; never resolve a staff subject through the members adapter.</summary>
 public interface IStaffIdentityAdmin : IIdentityDirectory;

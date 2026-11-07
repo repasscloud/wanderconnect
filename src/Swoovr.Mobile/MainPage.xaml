@@ -124,6 +124,7 @@
                             <Button Text="Notices and reports" AutomationId="MeNotices" Style="{StaticResource SecondaryButton}" Clicked="OnNotices" />
                             <Button Text="Support" AutomationId="MeSupport" Style="{StaticResource SecondaryButton}" Clicked="OnSupport" />
                             <Button Text="Safety" AutomationId="MeSafety" Style="{StaticResource SecondaryButton}" Clicked="OnSafety" />
+                            <Button Text="Multi-factor authentication" AutomationId="MeMfa" Style="{StaticResource SecondaryButton}" Clicked="OnMfa" />
                             <Button Text="Mobile number" AutomationId="MePhone" Style="{StaticResource SecondaryButton}" Clicked="OnPhone" />
                             <Button Text="Your data and account" AutomationId="MeData" Style="{StaticResource SecondaryButton}" Clicked="OnData" />
                             <Button Text="Terms of Use" AutomationId="MeTerms" Style="{StaticResource SecondaryButton}" Clicked="OnTerms" />

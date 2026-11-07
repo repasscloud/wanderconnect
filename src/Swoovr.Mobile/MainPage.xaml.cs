@@ -104,6 +104,12 @@ public partial class MainPage : ContentPage
 		RestrictedNotices.IsVisible = account?.AccountState != "pendingDeletion";
 		MemberSections.IsVisible = account is not null && !restricted;
 		if (account is null || restricted) return;
+        if(account.MfaAccessRequired)
+        {
+            MemberSections.IsVisible=false;
+            if(Navigation.NavigationStack.LastOrDefault() is not MfaPage) MainThread.BeginInvokeOnMainThread(async()=>await Ui.PushAsync(new MfaPage()));
+            return;
+        }
         if(account.RegisteredNamesRequired)
         {
             MemberSections.IsVisible=false;
@@ -184,6 +190,7 @@ public partial class MainPage : ContentPage
 	private async void OnCommunity(object? sender,EventArgs e)=>await Ui.PushAsync(new PublicPolicyPage("community"));
     private async void OnAppearance(object? sender,EventArgs e)=>await Ui.PushAsync(new AppearancePage());
 	private async void OnPrivacy(object? sender, EventArgs e) => await Ui.PushAsync(new PrivacyPage());
+	private async void OnMfa(object? sender, EventArgs e) => await Ui.PushAsync(new MfaPage());
 	private async void OnPhone(object? sender, EventArgs e) => await Ui.PushAsync(new PhonePage());
 
 	private async void OnSignIn(object? sender, EventArgs e)

@@ -40,7 +40,7 @@ services:
       context: .
       dockerfile: containers/uat/Keycloak.Dockerfile
       target: local
-    command: ["start-dev", "--import-realm", "--features=update-email"]
+    command: ["start-dev", "--import-realm", "--features=update-email,recovery-codes"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: local-bootstrap
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Run ./scripts/docker-local.sh init first}

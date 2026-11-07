@@ -1,7 +1,13 @@
 @page "/"
 @inject AdminClient Admin
+@inject IConfiguration Configuration
 <PageTitle>Swoovr admin</PageTitle>
 <h1>Overview</h1>
+<details class="ui-card"><summary>Your MFA security</summary>
+<p><a href="/sign-in?securityAction=CONFIGURE_TOTP" data-enhance-nav="false">Replace your authenticator</a></p>
+@if(!root && Configuration.GetValue("Mfa:RecoveryCodesEnabled",false)) { <p><a href="/sign-in?securityAction=CONFIGURE_RECOVERY_AUTHN_CODES" data-enhance-nav="false">Generate your recovery codes</a></p> }
+<p>Confirm through your identity provider. Staff MFA remains required.</p>
+</details>
 @if (businessOnly)
 {
     <p data-business-home>You’re signed in to your staff workspace.</p>
@@ -60,12 +66,14 @@ else
     private HoldOverview? holds;
     private PhotoWorkload? photoWorkload;
     private bool legalOnly;
+    private bool root;
     private LeOverview? le;
     private TicketOverview? tickets;
 
     protected override async Task OnInitializedAsync()
     {
         var workspace = (await Admin.WorkspaceAsync()).Value;
+        root = workspace?.Root == true;
         businessOnly = workspace is { Business: true, MemberOperations: false, Legal: false, Administration: false };
         if (businessOnly) return;
         // Issue 223: refused (no ticket role, or the helpdesk unavailable) simply doesn't show.

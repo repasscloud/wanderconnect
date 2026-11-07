@@ -33,6 +33,10 @@ else
             <p>Swoovr is for adults only. If the age you entered was a mistake, contact Swoovr support to have it reviewed.</p>
         </section>
     }
+    else if (me?.MfaAccessRequired == true)
+    {
+        <section class="settings-card"><h2>MFA verification required</h2><p>Complete account security before continuing.</p><MfaPanel /></section>
+    }
     else if (me is not null && me.AccountState == "pendingDeletion")
     {
         @* D170: a pending deletion closes the rest of the app; the deletion screen offers cancel and delete now. *@
@@ -142,6 +146,7 @@ else
                             <p class="settings-row-value" data-session-method="@session.Method">@AccountText.MethodLabel(session.Method)@(session.MultiFactor ? " and a one-time code" : "")</p></div>
                     </div>
                 }
+                <MfaPanel />
                 <SignInsPanel />
             </section>
         </div>

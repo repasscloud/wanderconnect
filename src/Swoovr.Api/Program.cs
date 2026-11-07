@@ -46,7 +46,7 @@ if (persistence && builder.Configuration.GetValue("MemberAdmin:ContactRetirement
 // Synthetic backdated Development fixtures are opt-in; hosted runs sweep hourly with durable due queries.
 if (persistence && builder.Configuration.GetValue("Retention:Worker", !builder.Environment.IsDevelopment()))
     builder.Services.AddHostedService<Swoovr.Api.Retention.RetentionWorker>();
-builder.Services.AddRateLimiter(options=>{options.RejectionStatusCode=429;options.AddPolicy("meeting-safety-public",http=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=600,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
+builder.Services.AddRateLimiter(options=>{options.AddPolicy("mfa-security",http=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(http.User.FindFirst("iss")?.Value+":"+http.User.FindFirst("sub")?.Value+":"+http.Connection.RemoteIpAddress,_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=10,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));options.RejectionStatusCode=429;options.AddPolicy("meeting-safety-public",http=>System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(http.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new System.Threading.RateLimiting.FixedWindowRateLimiterOptions{PermitLimit=600,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
 if(persistence && builder.Configuration.GetValue("MeetingSafety:Enabled",false) && builder.Configuration.GetValue("MeetingSafety:Worker",true)) builder.Services.AddHostedService<Swoovr.Api.Safety.MeetingSafetyWorker>();
 if(persistence&&builder.Configuration.GetValue("TextHarm:Enabled",false)&&builder.Configuration.GetValue("TextHarm:Worker",true))builder.Services.AddHostedService<Swoovr.Api.Moderation.TextHarmWorker>();
 builder.Services.AddProblemDetails();
@@ -96,6 +96,12 @@ app.UseMiddleware<Swoovr.Api.Accounts.SensitiveAccessMiddleware>();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<MemberMutationAuthority>();
+app.Use(async(context,next)=>
+{
+    if(context.Request.Path.StartsWithSegments("/api/admin/mfa")||context.Request.Path.StartsWithSegments("/api/me/mfa")||context.Request.Path.StartsWithSegments("/api/admin/staff"))context.Response.Headers.CacheControl="no-store";
+    await next(context);
+});
+app.UseMiddleware<MfaPrivilegedMiddleware>();
 ApiReadiness.Map(app);
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 Swoovr.Api.Ticketing.AttachmentScanningSetup.Map(app);
@@ -117,6 +123,7 @@ ContactHistoryEndpoints.Map(app);
 RegistryAdminEndpoints.Map(app);
 StaffAccessEndpoints.Map(app);
 StaffAccountEndpoints.Map(app);
+MfaEndpoints.Map(app);
 Swoovr.Api.Security.SecurityEndpoints.Map(app);
 Swoovr.Api.Evidence.LegalHoldEndpoints.Map(app);
 Swoovr.Api.Evidence.LawEnforcementEndpoints.Map(app);

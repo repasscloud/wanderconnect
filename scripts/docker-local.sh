@@ -25,7 +25,7 @@ PY
     ;;
   realms)
     # Applies flow settings a realm import cannot express; safe to repeat.
-    node scripts/auth/realms.mjs
+    node scripts/auth/realms.mjs --managed-mfa
     ;;
   root-admin)
     # Fictional local root admin in the staff realm; credentials stay in .local (600).
@@ -43,7 +43,7 @@ PY
     fi
     case "$1" in
       up) docker compose --env-file "$local_env" up --build -d --wait --wait-timeout 180
-          node scripts/auth/realms.mjs
+          node scripts/auth/realms.mjs --managed-mfa
           python3 scripts/docker_smoke.py ;;
       down) docker compose --env-file "$local_env" down ;;
       status) docker compose --env-file "$local_env" ps ;;
