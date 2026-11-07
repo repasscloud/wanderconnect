@@ -19,7 +19,7 @@ function fakeRealm(name, { terms = 'REQUIRED', environment = 'local-development-
   };
   const api = async (path, method = 'GET', body) => {
     if (method !== 'GET') state.writes.push(method + ' ' + path);
-    if (path === '') return state.realm;
+    if (path === '') { if (method === 'PUT') state.realm=body; return state.realm; }
     if (path === '/authentication/flows/registration/executions') {
       if (method === 'PUT') { state.registration[0].requirement = body.requirement; return; }
       return state.registration;
@@ -204,14 +204,17 @@ test('staff MFA flow is mandatory without changing member or venue flows', async
   const writes = [];
   const api = async (path, method, body) => {
     if (method) { writes.push({ path, body }); return; }
-    if (path.endsWith('executions')) return [{ id: '2fa', displayName: 'Browser - Conditional 2FA', authenticationFlow: true, requirement: 'CONDITIONAL' }];
+    if (path.endsWith('executions')) return [{ id: '2fa', level: 1, displayName: 'Browser - Conditional 2FA', authenticationFlow: true, requirement: 'REQUIRED' }, { id:'configured',level:2,providerId:'conditional-user-configured',requirement:'DISABLED' },{ id:'credential',level:2,providerId:'conditional-credential',requirement:'DISABLED' }];
+    if(path==='')return {realm:'swoovr-staff-dev',attributes:{'swoovr.environment':'local-development-only'}};
     return { alias: 'CONFIGURE_TOTP', enabled: true, defaultAction: false };
   };
   await applyStaffMfa(api, 'swoovr-members-dev');
   await applyStaffMfa(api, 'swoovr-venues-dev');
   assert.equal(writes.length, 0);
   await applyStaffMfa(api, 'swoovr-staff-dev');
-  assert.equal(writes.length, 2);
-  assert.equal(writes[0].body.requirement, 'REQUIRED');
-  assert.equal(writes[1].body.defaultAction, true);
+  assert.equal(writes.length, 4);
+  assert.equal(writes[1].body.requirement, 'REQUIRED');
+  assert.equal(writes[2].body.requirement, 'REQUIRED');
+  assert.equal(writes[0].body.requirement, 'CONDITIONAL');
+  assert.equal(writes[3].body.attributes['swoovr.mfa.required'], 'true');
 });

@@ -143,21 +143,32 @@ export async function applyStaffMfa(api, name) {
   const secondFactor = executions.find(e => e.authenticationFlow && e.displayName === 'Browser - Conditional 2FA');
   if (!secondFactor) throw new Error('Staff second-factor flow is missing; refusing to weaken authentication');
   const changes = [];
-  if (secondFactor.requirement !== 'REQUIRED') {
-    await api('/authentication/flows/browser/executions', 'PUT', { id: secondFactor.id, requirement: 'REQUIRED' });
-    changes.push('mandatory staff second factor');
+  // Keep native conditional dispatch: making this alternative-credential subflow REQUIRED executes it
+  // before a user is identified on 26.8.1. The pinned provider condition queues native enrolment when needed.
+  if (secondFactor.requirement !== 'CONDITIONAL') {
+    await api('/authentication/flows/browser/executions', 'PUT', { id: secondFactor.id, requirement: 'CONDITIONAL' });
+    changes.push('staff conditional second factor');
+  }
+  const start = executions.indexOf(secondFactor);
+  for (const execution of executions.slice(start + 1)) {
+    if (Number.isInteger(secondFactor.level) && execution.level <= secondFactor.level) break;
+    if (execution.providerId?.startsWith('conditional-') && execution.requirement !== 'REQUIRED') {
+      await api('/authentication/flows/browser/executions', 'PUT', { id: execution.id, requirement: 'REQUIRED' });
+      changes.push('staff condition enabled ' + execution.providerId);
+    }
+  }
+  const realm = await api('');
+  if (realm.realm !== name || realm.attributes?.['swoovr.environment'] !== 'local-development-only') throw new Error('Expected local staff realm');
+  if (realm.attributes['swoovr.mfa.required'] !== 'true') {
+    await api('', 'PUT', { ...realm, attributes: { ...realm.attributes, 'swoovr.mfa.required': 'true' } });
+    changes.push('mandatory staff enrolment policy');
   }
   const action = await api('/authentication/required-actions/CONFIGURE_TOTP');
-  if (!action.enabled || !action.defaultAction) {
-    await api('/authentication/required-actions/CONFIGURE_TOTP', 'PUT', { ...action, enabled: true, defaultAction: true });
-    changes.push('staff OTP enrolment');
+  if (!action.enabled || action.defaultAction) {
+    await api('/authentication/required-actions/CONFIGURE_TOTP', 'PUT', { ...action, enabled: true, defaultAction: false });
+    changes.push('native staff OTP action');
   }
   return changes;
-}
-
-async function localSecret(key) {
-  const env = await readFile('.local/docker.env', 'utf8').catch(() => '');
-  return env.split('\n').find(line => line.startsWith(key + '='))?.split('=')[1];
 }
 
 export async function applyAll({ open = realm => localRealmApi({ realm }), secret = () => localSecret('SWOOVR_MEMBERS_API_ADMIN_SECRET') } = {}) {

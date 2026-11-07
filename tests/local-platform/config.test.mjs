@@ -62,3 +62,11 @@ test('rejected sign-in fails once instead of repeatedly attempting a password', 
     assert.equal(calls, 2);
   } finally { globalThis.fetch = previous; }
 });
+
+test('each nonroot staff authenticator has a distinct private fixture', async () => {
+  const { staffFixtureName } = await import('../../scripts/local/platform.mjs');
+  assert.equal(staffFixtureName('support'), 'staff-support.json');
+  assert.equal(staffFixtureName('trust-safety'), 'staff-trust-safety.json');
+  assert.notEqual(staffFixtureName('support'), 'admin.json');
+  assert.throws(() => staffFixtureName('../admin'), /staff role/);
+});
