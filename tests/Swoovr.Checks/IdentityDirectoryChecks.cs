@@ -51,6 +51,7 @@ static class IdentityDirectoryChecks
                     attributes=new Dictionary<string,string[]>{{"unrelated",["preserve"]}},requiredActions=new[]{"TERMS_AND_CONDITIONS"},credentials=new[]{new{type="password",secretData="must-never-echo"}}});
             }
             Written=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct)).RootElement.Clone();
+            if(request.Method==HttpMethod.Put&&(!Written.TryGetProperty("email",out _)||!Written.TryGetProperty("firstName",out _)))return new(HttpStatusCode.BadRequest); // Native configured user-profile required fields.
             var response=new HttpResponseMessage(request.Method==HttpMethod.Post?HttpStatusCode.Created:HttpStatusCode.NoContent);
             if(request.Method==HttpMethod.Post)response.Headers.Location=new Uri("https://auth.example.test/admin/realms/swoovr-staff-test/users/"+Subject);
             return response;

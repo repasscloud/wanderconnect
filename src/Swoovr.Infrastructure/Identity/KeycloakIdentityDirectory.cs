@@ -47,7 +47,7 @@ public partial class KeycloakIdentityAdmin
         if (!Guid.TryParse(subject, out var id)) return false;
         using var current = await GetAsync($"users/{id}", "account update", ct, array: false);
         if (current is null || Text(current.RootElement, "id") != id.ToString()) return false;
-        var values = new Dictionary<string, JsonElement>();
+        var values = ProfileValues(current.RootElement);
         if (current.RootElement.TryGetProperty("attributes", out var originalAttributes)) values["attributes"] = originalAttributes.Clone();
         if (current.RootElement.TryGetProperty("requiredActions", out var originalActions)) values["requiredActions"] = originalActions.Clone();
         values["firstName"] = JsonSerializer.SerializeToElement(update.FirstName);
@@ -72,7 +72,9 @@ public partial class KeycloakIdentityAdmin
         if (!Guid.TryParse(subject, out var id) || actions.Any(a => a is not ("CONFIGURE_TOTP" or "UPDATE_PASSWORD" or "VERIFY_EMAIL"))) return false;
         using var current = await GetAsync($"users/{id}", "required actions", ct, array: false);
         if (current is null || Text(current.RootElement, "id") != id.ToString()) return false;
-        using var result = await DirectoryWriteAsync(HttpMethod.Put, $"users/{id}", new { requiredActions = ReadActions(current.RootElement).Concat(actions).Distinct().ToArray() }, ct);
+        var values = ProfileValues(current.RootElement);
+        values["requiredActions"] = JsonSerializer.SerializeToElement(ReadActions(current.RootElement).Concat(actions).Distinct().ToArray());
+        using var result = await DirectoryWriteAsync(HttpMethod.Put, $"users/{id}", values, ct);
         return result?.IsSuccessStatusCode == true;
     }
 
@@ -83,6 +85,15 @@ public partial class KeycloakIdentityAdmin
         return response?.IsSuccessStatusCode == true;
     }
 
+    // Native declarative user profiles require these fields on PUT. Preserve only public profile
+    // fields and administrative flags; never echo credentials, secrets, federation links or arbitrary response fields.
+    private static Dictionary<string, JsonElement> ProfileValues(JsonElement current)
+    {
+        var values = new Dictionary<string, JsonElement>();
+        foreach (var key in new[] { "username", "email", "firstName", "lastName", "emailVerified", "enabled", "attributes", "requiredActions" })
+            if (current.TryGetProperty(key, out var value)) values[key] = value.Clone();
+        return values;
+    }
     private static string? Text(JsonElement e, string key) => e.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
     private static IEnumerable<string> ReadActions(JsonElement e) => e.TryGetProperty("requiredActions", out var values) ? values.EnumerateArray().Select(v => v.GetString()!).ToArray() : [];
     private async Task<HttpResponseMessage?> DirectoryWriteAsync(HttpMethod method, string path, object value, CancellationToken ct)
