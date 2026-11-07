@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Swoovr.Client;
 using Swoovr.Contracts;
 using Swoovr.Domain;
@@ -15,6 +16,8 @@ static class SafetyResourceChecks
         var checks = 0;
         void Expect(bool condition, string what) { if (!condition) throw new Exception("Safety resource check failed: " + what); checks++; }
         var today = new DateOnly(2026, 10, 28);
+        using (var db = new DesignTimeFactory().CreateDbContext([]))
+            Expect(!db.Database.HasPendingModelChanges(), "the current model matches the latest migration");
 
         // Country resolution (API and host helpers agree).
         Expect(SafetyPolicy.Resolve("nz", "AU", true, "AU") == new SafetyCountryChoice("NZ", "manual"), "a manual choice wins");
@@ -43,7 +46,9 @@ static class SafetyResourceChecks
         Expect(SafetySeed.Countries.Single(c => c.Code == "NZ").Readiness == SafetyReadiness.NotReady, "NZ is populated but not launch-ready");
         Expect(SafetySeed.Countries.Single(c => c.Code == "GB").Readiness == SafetyReadiness.Demo, "GB is demo only");
         var nz = SafetySeed.Countries.Single(c => c.Code == "NZ");
-        Expect(SafetyPolicy.LaunchProblems(nz, SafetySeed.Resources.Where(r => r.CountryCode == "NZ").ToList(), today).Contains("unverified-resources"), "NZ can't be launched unverified");
+        Expect(SafetySeed.Resources.Where(r => r.CountryCode == "NZ").All(r => r.LastVerifiedOn is not null)
+            && nz.Readiness == SafetyReadiness.NotReady && nz.LastReviewedOn is null,
+            "NZ resources have review dates but the country pack remains unapproved for launch");
         Expect(SafetyPolicy.LaunchProblems(au, auResources.Where(r => r.Category != SafetyResourceCategory.Emergency).ToList(), today).Contains("no-verified-emergency-number"), "no emergency number, no launch");
         Expect(SafetyPolicy.LaunchProblems(au, auResources, new DateOnly(2027, 6, 1)).Contains("pack-review-overdue"), "an overdue review stops a launch");
         Expect(SafetyPolicy.Stale(au, auResources, new DateOnly(2027, 6, 1)) && !SafetyPolicy.Stale(au, auResources, today), "overdue packs show the warning");
