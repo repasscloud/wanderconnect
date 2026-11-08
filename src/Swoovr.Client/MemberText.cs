@@ -133,6 +133,31 @@ public static class MemberText
     public const string Arrived = "You've arrived. You can now send requests to people here.";
     public const string BrowsingBeforeArrival = "You're looking before you arrive. You can send requests once you've confirmed you've arrived.";
 
+    /// <summary>
+    /// D348: the text for a distance band, or null when there is nothing to show (hidden, unknown or absent). A home-city
+    /// band says so, because it is never a current position.
+    /// </summary>
+    public static string? Distance(DistanceView? distance)
+    {
+        var range = distance?.Band switch
+        {
+            "nearby" => "under 2 km",
+            "within10Km" => "2–10 km",
+            "km10To20" => "10–20 km",
+            "km20To30" => "20–30 km",
+            "km30To40" => "30–40 km",
+            "km40To50" => "40–50 km",
+            "over50Km" => "over 50 km",
+            _ => null,
+        };
+        return range is null ? null : distance!.Basis switch
+        {
+            "homeCity" => $"Home cities {range} apart",
+            "gps" => range == "under 2 km" ? "Nearby, under 2 km" : $"About {range} away",
+            _ => null,
+        };
+    }
+
     /// <summary>A home-location check's outcome (D150). An inconsistent one is never a penalty by itself.</summary>
     public static string HomeCheck(string outcome) => outcome switch
     {

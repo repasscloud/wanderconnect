@@ -4709,6 +4709,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("age_status_at");
 
+                    b.Property<bool>("AppearInNearby")
+                        .HasColumnType("boolean")
+                        .HasColumnName("appear_in_nearby");
+
                     b.Property<bool>("Bot")
                         .HasColumnType("boolean")
                         .HasColumnName("bot");
@@ -4831,6 +4835,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("public_id")
                         .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<bool>("ShowDistance")
+                        .HasColumnType("boolean")
+                        .HasColumnName("show_distance");
 
                     b.Property<Guid?>("TextRevision")
                         .HasColumnType("uuid")

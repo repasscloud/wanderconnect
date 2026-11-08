@@ -3,6 +3,12 @@ using System.Text;
 
 namespace Swoovr.Domain;
 
+/// <summary>A distance band another member may see (D348): never a distance. Wire values are camel case.</summary>
+public enum DistanceBand { Hidden, Nearby, Within10Km, Km10To20, Km20To30, Km30To40, Km40To50, Over50Km, Unknown }
+
+/// <summary>What a band was worked out from (D348): fresh GPS readings (Near me) or registered home cities.</summary>
+public enum DistanceBasis { Gps, HomeCity }
+
 /// <summary>
 /// Location privacy (internal policy §10; #90). Distances are between home-city centres and never leave the server; what
 /// members can learn is limited to rounded bands. The Plus distance filter snaps to a band, so changing it a kilometre at a
@@ -31,17 +37,26 @@ public static class LocationPrivacy
     /// <summary>The smallest band at or above the request (null stays null; above the largest band, the largest).</summary>
     public static int? Snap(int? km) => km is not { } k ? null : Bands.FirstOrDefault(b => b >= k, Bands[^1]);
 
-    /// <summary>The label others may see, from a distance between home cities.</summary>
-    public static string? Band(double? km) => km switch
+    /// <summary>D348's display bands: 0–2 km, over 2–10 km, then 10 km steps to 50 km, then over 50 km.</summary>
+    public static DistanceBand BandFor(double km) => km switch
     {
-        null => null,
-        < 5 => "Under 5 km",
-        < 10 => "5–10 km",
-        < 25 => "10–25 km",
-        < 50 => "25–50 km",
-        < 100 => "50–100 km",
-        _ => "Over 100 km",
+        <= 2 => DistanceBand.Nearby,
+        <= 10 => DistanceBand.Within10Km,
+        <= 20 => DistanceBand.Km10To20,
+        <= 30 => DistanceBand.Km20To30,
+        <= 40 => DistanceBand.Km30To40,
+        <= 50 => DistanceBand.Km40To50,
+        _ => DistanceBand.Over50Km,
     };
+
+    /// <summary>
+    /// A band between registered home cities (D348, Q152, Q162): Hidden unless the person shows their approximate distance
+    /// and the viewer shows theirs too; Unknown without both home cities; otherwise the band with the HomeCity basis, which
+    /// clients label as a distance between home cities, never a current position.
+    /// </summary>
+    public static (DistanceBand Band, DistanceBasis? Basis) HomeCityBand(double? km, bool personShowsDistance, bool viewerShowsDistance) =>
+        !(personShowsDistance && viewerShowsDistance) ? (DistanceBand.Hidden, null)
+        : km is { } d ? (BandFor(d), DistanceBasis.HomeCity) : (DistanceBand.Unknown, null);
 
     public static bool Allowed(int recentInWindow, int limit) => recentInWindow < limit;
 }

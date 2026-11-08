@@ -60,6 +60,7 @@ public sealed class PersonPage : ContentPage
 		body.Children.Add(Ui.Text(person.DisplayName, "PageTitle", "PersonName"));
 		body.Children.Add(Ui.BadgeRow(person.Badges, "PersonBadges", 20, dated: true));
 		if (details.Length > 0) body.Children.Add(Ui.Text(details, "FooterClaims", "PersonDetails"));
+		if (MemberText.Distance(person.Distance) is { } distance) body.Children.Add(Ui.Text(distance, "TileDetail", "PersonDistance"));
 		// D175: each mode's own about; one block when they're all the same.
 		if (person.Modes.Select(m => m.About).Distinct().Count() > 1)
 			body.Children.Add(Ui.Card([Ui.Text("About me", "SectionHeading"), .. person.Modes.Where(m => m.About is not null)

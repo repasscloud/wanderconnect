@@ -88,6 +88,10 @@ public sealed class MemberProfile
     /// (HomeLocationPolicy); cleared by an admin. Never suspends or hides anyone by itself, and never shown to others.
     /// </summary>
     public DateTimeOffset? HomeReviewFlaggedAt { get; set; }
+    /// <summary>D348: "Appear in nearby searches". Off by default for new and existing members; never inferred from OS permission.</summary>
+    public bool AppearInNearby { get; set; }
+    /// <summary>D348: "Show my approximate distance". Off by default; a member sees others' bands only while this is on (Q152).</summary>
+    public bool ShowDistance { get; set; }
 }
 
 public enum Badge { Founder, PhotoVerified, IdVerified, Staff, Bot }
