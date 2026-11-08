@@ -164,11 +164,58 @@ public static partial class MarketEndpoints
         };
     }
 
+    /// <summary>
+    /// D352: each member's active trip (the most recently checked-in live trip in an open market) with its city, for the
+    /// given accounts. Members without one aren't in the result: their home city is their active location.
+    /// </summary>
+    public static async Task<Dictionary<Guid, (Trip Trip, GeoCity City)>> ActiveTripsAsync(SwoovrDbContext db, IReadOnlyCollection<Guid> accounts,
+        DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (accounts.Count == 0) return [];
+        var yesterday = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-1);
+        var rows = await (from t in db.Trips
+                          join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
+                          join m in db.Markets on t.ArrivalMarketId equals m.Id
+                          where accounts.Contains(t.AccountId) && t.ArrivedAt != null && t.CancelledAt == null && t.Departure >= yesterday
+                          select new { t, c, m }).ToListAsync(cancellationToken);
+        var active = new Dictionary<Guid, (Trip, GeoCity)>();
+        foreach (var g in rows.GroupBy(x => x.t.AccountId))
+            if (TravelPolicy.ActiveTrip(g.Select(x => (new TripFacts(x.t, x.c.TimeZone), (Market?)x.m)), now) is { } facts)
+                active[g.Key] = (facts.Trip, g.First(x => x.t.Id == facts.Trip.Id).c);
+        return active;
+    }
+
+    /// <summary>
+    /// D352: the market Explore uses by default, and the problem that refuses it. While a checked-in trip is active, that
+    /// trip's market (if it offers the mode), with the trip and its city; otherwise the open home market as before.
+    /// </summary>
+    public static async Task<(Market? Market, IResult? Refused, Trip? Trip, GeoCity? City)> ActiveLocalAsync(SwoovrDbContext db, MemberProfile member,
+        string modeId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if ((await ActiveTripsAsync(db, [member.AccountId], now, cancellationToken)).GetValueOrDefault(member.AccountId) is { Trip: { } trip } active)
+        {
+            var market = await db.Markets.FindAsync([trip.ArrivalMarketId!], cancellationToken);
+            var modes = await db.MarketModes.Where(m => m.MarketId == trip.ArrivalMarketId).Select(m => m.ModeId).ToListAsync(cancellationToken);
+            return MarketAccess.Local(true, market, modes, modeId) == LocalAccess.Open
+                ? (market, null, trip, active.City)
+                : (null, Problem(StatusCodes.Status403Forbidden, ProblemCodes.MarketNotOpen, "Swoovr doesn't offer this mode where you're visiting."), trip, active.City);
+        }
+        var (home, refused) = await LocalAsync(db, member, modeId, cancellationToken);
+        return (home, refused, null, null);
+    }
+
     /// <summary>People local to one market in the database (MarketAccess.SameMarket): by home market, or bots by assignment.</summary>
     public static IQueryable<ProfileEndpoints.Row> InMarket(this IQueryable<ProfileEndpoints.Row> rows, SwoovrDbContext db, string marketId) =>
         rows.Where(c => c.Profile.Bot
             ? db.BotMarkets.Any(b => b.AccountId == c.Profile.AccountId && (b.MarketId == marketId || b.MarketId == BotMarket.Everywhere))
             : c.Profile.HomeMarketId == marketId);
+
+    /// <summary>D352: people local to one market (InMarket) plus the given checked-in travellers visiting it.</summary>
+    public static IQueryable<ProfileEndpoints.Row> InMarketOrVisiting(this IQueryable<ProfileEndpoints.Row> rows, SwoovrDbContext db, string marketId,
+        IReadOnlyCollection<Guid> visitors) =>
+        rows.Where(c => visitors.Contains(c.Profile.AccountId) || (c.Profile.Bot
+            ? db.BotMarkets.Any(b => b.AccountId == c.Profile.AccountId && (b.MarketId == marketId || b.MarketId == BotMarket.Everywhere))
+            : c.Profile.HomeMarketId == marketId));
 
     public static async Task<HashSet<string>> BotMarketsAsync(SwoovrDbContext db, Guid bot, CancellationToken cancellationToken) =>
         (await db.BotMarkets.Where(b => b.AccountId == bot).Select(b => b.MarketId).ToListAsync(cancellationToken)).ToHashSet();

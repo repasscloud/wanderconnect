@@ -212,7 +212,7 @@ public static class TravelEndpoints
         var proposed = new Trip
         {
             Id = trip?.Id ?? Guid.NewGuid(), AccountId = me, GeoNameId = city.GeoNameId, Arrival = update.Arrival, Departure = update.Departure,
-            Visible = update.Visible, ItineraryId = update.ItineraryId, CreatedAt = trip?.CreatedAt ?? now, UpdatedAt = now,
+            Visible = update.Visible, DiscoverBeforeArrival = update.DiscoverBeforeArrival ?? trip?.DiscoverBeforeArrival ?? true, ItineraryId = update.ItineraryId, CreatedAt = trip?.CreatedAt ?? now, UpdatedAt = now,
         };
         var mine = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                           where t.AccountId == me && t.Id != proposed.Id && t.CancelledAt == null select new { t, c }).ToListAsync(cancellationToken);
@@ -227,8 +227,8 @@ public static class TravelEndpoints
             // D149 rule 9: a new destination or new dates need a new arrival check; visibility alone doesn't.
             if (ArrivalPolicy.ResetsArrival(trip, proposed.GeoNameId, proposed.Arrival, proposed.Departure))
                 (trip.ArrivedAt, trip.ArrivalMarketId, trip.ArrivalMethod, trip.ArrivalOutcome, trip.ArrivalCheckedAt) = (null, null, null, null, null);
-            (trip.GeoNameId, trip.Arrival, trip.Departure, trip.Visible, trip.ItineraryId, trip.UpdatedAt) =
-                (proposed.GeoNameId, proposed.Arrival, proposed.Departure, proposed.Visible, proposed.ItineraryId, now);
+            (trip.GeoNameId, trip.Arrival, trip.Departure, trip.Visible, trip.DiscoverBeforeArrival, trip.ItineraryId, trip.UpdatedAt) =
+                (proposed.GeoNameId, proposed.Arrival, proposed.Departure, proposed.Visible, proposed.DiscoverBeforeArrival, proposed.ItineraryId, now);
         }
         Audit.Record(db, now, me, "account", id is null ? "trip.created" : "trip.updated", "trip", trip.Id.ToString(), trip.Visible ? "visible" : "hidden");
         await db.SaveChangesAsync(cancellationToken);
@@ -251,7 +251,7 @@ public static class TravelEndpoints
         var search = TravellerSearch.Check(trip, state, market, TravelPolicy.LocalToday(city.TimeZone, now), ownerHomeMarket);
         return new(trip.Id, Place(city), trip.Arrival, trip.Departure, trip.Visible, Wire(state), trip.ItineraryId,
             TravelPolicy.OpensOn(facts, group), market is { Open: true }, Wire(ArrivalPolicy.State(trip)), trip.ArrivedAt, search == SearchRefusal.None,
-            search is SearchRefusal.TripNotLive or SearchRefusal.OwnMarket ? null : trip.Arrival.AddDays(-TravelPolicy.WindowDays));
+            search is SearchRefusal.TripNotLive or SearchRefusal.OwnMarket ? null : trip.Arrival.AddDays(-TravelPolicy.WindowDays), trip.DiscoverBeforeArrival);
     }
 
     /// <summary>Every live stop of the itineraries these trips belong to, keyed by itinerary.</summary>

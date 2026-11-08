@@ -74,7 +74,7 @@ public static class ArrivalEndpoints
             {
                 case SearchRefusal.TripNotLive: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.TripNotLive, "This trip is cancelled, over, or somewhere Swoovr isn't open.");
                 case SearchRefusal.OwnMarket: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "This is your home market: use Explore.");
-                case SearchRefusal.Hidden: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "Make the trip visible to locals to search there.");
+                case SearchRefusal.Off: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "Turn on \u201cDiscover people there before arrival\u201d to search there.");
                 case SearchRefusal.TooEarly: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "Traveller Search opens 14 days before you arrive.");
             }
             if (!await db.MarketModes.AnyAsync(m => m.MarketId == market!.Id && m.ModeId == selected.Id, cancellationToken))
@@ -83,8 +83,9 @@ public static class ArrivalEndpoints
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Profiles.Searches.LimitedAsync(db, me.AccountId, "search", now, cancellationToken) is { } limited) return limited;
+            // D352: the traveller's home city isn't where they'll be, so no home-city bands or distance filter here.
             var people = await ProfileEndpoints.PeopleAsync(db, configuration, me, selected, own!, mine!, market!.Id, now, cancellationToken,
-                accounts.Services.GetRequiredService<Media.MediaLinks>());
+                accounts.Services.GetRequiredService<Media.MediaLinks>(), viewerAway: true);
             return Results.Ok(new TravellerSearchResult(selected.Id, market.Name, row.t.Id, Wire(ArrivalPolicy.State(row.t)),
                 ArrivalPolicy.MayInitiate(row.t, state, market), people));
         });
@@ -183,7 +184,8 @@ public static class ArrivalEndpoints
     /// <summary>
     /// The viewer's live, searchable trips to the person's market (TravellerSearch.Check), in the shared modes that market
     /// offers: browsing for each, and contact where the trip's arrival is confirmed (ArrivalPolicy.MayInitiate). A bot
-    /// counts as local where it is assigned. Nothing here opens another market without a trip (Q41 rule 8).
+    /// counts as local where it is assigned, and (D352) so does a traveller checked in there with a visible trip. Nothing here
+    /// opens another market without a trip (Q41 rule 8).
     /// </summary>
     public static async Task<TravellerReach> ReachAsync(SwoovrDbContext db, MemberProfile viewer, ProfileEndpoints.Row person, IReadOnlyList<ConnectionMode> shared,
         DateTimeOffset now, CancellationToken cancellationToken)
@@ -195,12 +197,15 @@ public static class ArrivalEndpoints
         if (trips.Count == 0) return new(search, arrived);
         var zones = await MarketEndpoints.ZonesAsync(db, cancellationToken);
         var bots = person.Profile.Bot ? await MarketEndpoints.BotMarketsAsync(db, person.Profile.AccountId, cancellationToken) : null;
+        // D352: a traveller checked in to the destination with a visible trip is there too, as Explore shows them.
+        var personHere = (await MarketEndpoints.ActiveTripsAsync(db, [person.Profile.AccountId], now, cancellationToken))
+            .GetValueOrDefault(person.Profile.AccountId) is { Trip: { Visible: true } theirs } ? theirs.ArrivalMarketId : null;
         foreach (var x in trips.OrderByDescending(x => x.t.ArrivedAt is not null).ThenBy(x => x.t.Arrival))
         {
             var market = PlaceNames.MarketOf(x.c, zones);
             var state = TravelPolicy.State(new TripFacts(x.t, x.c.TimeZone), [], now);
             if (TravellerSearch.Check(x.t, state, market, TravelPolicy.LocalToday(x.c.TimeZone, now), viewer.HomeMarketId) != SearchRefusal.None) continue;
-            if (!MarketAccess.SameMarket(market!.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots)) continue;
+            if (!MarketAccess.SameMarket(market!.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots) && personHere != market.Id) continue;
             var offered = await db.MarketModes.Where(m => m.MarketId == market.Id).Select(m => m.ModeId).ToListAsync(cancellationToken);
             foreach (var mode in shared.Where(m => offered.Contains(m.Id)))
             {

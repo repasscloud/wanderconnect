@@ -14,6 +14,8 @@ public sealed class Trip
     public DateOnly Departure { get; set; }
     /// <summary>The member's switch. A trip is discoverable only while this is on and TravelPolicy says it is open.</summary>
     public bool Visible { get; set; }
+    /// <summary>D352: "Discover people there before arrival" (Traveller Search), independent of Visible. On by default.</summary>
+    public bool DiscoverBeforeArrival { get; set; } = true;
     public Guid? ItineraryId { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -112,6 +114,17 @@ public static class TravelPolicy
             .Append(trip).MinBy(s => s.Trip.Arrival)!;
         return LocalToday(first.TimeZone, now) >= first.Trip.Arrival.AddDays(-WindowDays) ? TripState.Visible : TripState.Planned;
     }
+
+    /// <summary>
+    /// D352: the trip that is the member's active location, if any: the live (not cancelled or ended), checked-in trip in
+    /// an open market whose check-in is the most recent. Null means the home city is the active location again. It is
+    /// worked out on each request and never written to the home city or home market, so it uses no home-city change.
+    /// </summary>
+    public static TripFacts? ActiveTrip(IEnumerable<(TripFacts Trip, Market? Market)> trips, DateTimeOffset now) =>
+        trips.Where(x => x.Trip.Trip.ArrivedAt is not null && x.Market is { Open: true } market && x.Trip.Trip.ArrivalMarketId == market.Id
+                && State(x.Trip, [], now) is not (TripState.Cancelled or TripState.Expired))
+            .OrderByDescending(x => x.Trip.Trip.ArrivedAt).ThenBy(x => x.Trip.Trip.Id)
+            .Select(x => x.Trip).FirstOrDefault();
 
     /// <summary>
     /// Whether a local may see this traveller through this trip (Q17 rules 22–28, 38–39): the trip is visible, its city

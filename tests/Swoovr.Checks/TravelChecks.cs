@@ -25,6 +25,30 @@ static class TravelChecks
         Expect(TravelPolicy.CheckDates(D("2028-10-26"), D("2028-10-30"), adelaide, now) == TripError.TooFarAhead, "more than two years ahead");
         Expect(TravelPolicy.CheckDates(D("2026-11-01"), D("2027-11-02"), adelaide, now) == TripError.TooLong, "longer than a year");
 
+        // D352: the active location is the live checked-in trip with the latest check-in; none means the home city.
+        var aOpen = new Market { Id = "adelaide", Status = MarketStatus.Active };
+        var aMelbourne = new Market { Id = "melbourne", Status = MarketStatus.Beta };
+        Trip AArrived(string arrival, string departure, string market, int hoursAgo, bool visible = true)
+        {
+            var trip = T(arrival, departure, visible);
+            (trip.ArrivedAt, trip.ArrivalMarketId) = (now.AddHours(-hoursAgo), market);
+            return trip;
+        }
+        (TripFacts, Market?) AF(Trip trip, Market? market) => (new TripFacts(trip, adelaide), market);
+        Expect(TravelPolicy.ActiveTrip([], now) is null, "no checked-in trip: the home city is active");
+        Expect(TravelPolicy.ActiveTrip([AF(T("2026-10-24", "2026-10-30"), aOpen)], now) is null, "a trip that isn't checked in doesn't count");
+        var aFirst = AArrived("2026-10-22", "2026-10-30", "adelaide", 30);
+        var aLater = AArrived("2026-10-24", "2026-10-28", "melbourne", 2, visible: false);
+        Expect(TravelPolicy.ActiveTrip([AF(aFirst, aOpen), AF(aLater, aMelbourne)], now)?.Trip == aLater, "overlapping check-ins: the latest wins, whatever its visibility");
+        Expect(TravelPolicy.ActiveTrip([AF(aFirst, aOpen), AF(aLater, null)], now)?.Trip == aFirst, "a check-in outside an open market doesn't count");
+        Expect(TravelPolicy.ActiveTrip([AF(aFirst, aOpen), AF(aLater, new Market { Id = "melbourne", Status = MarketStatus.Suspended })], now)?.Trip == aFirst, "nor in a suspended one");
+        var aEnded = AArrived("2026-10-18", "2026-10-23", "adelaide", 60);
+        Expect(TravelPolicy.ActiveTrip([AF(aEnded, aOpen)], now) is null, "an ended trip gives the home city back");
+        var aCancelled = AArrived("2026-10-22", "2026-10-30", "adelaide", 1); aCancelled.CancelledAt = now;
+        Expect(TravelPolicy.ActiveTrip([AF(aCancelled, aOpen), AF(aFirst, aOpen)], now)?.Trip == aFirst, "a cancelled trip doesn't count");
+        var aMoved = AArrived("2026-10-22", "2026-10-30", "melbourne", 1);
+        Expect(TravelPolicy.ActiveTrip([AF(aMoved, aOpen)], now) is null, "the check-in must be for the trip's own market");
+
         // The window: a lone trip opens 14 days before its own arrival, in the destination's time zone.
         TripState State(Trip trip, string zone = adelaide, DateTimeOffset? at = null, params Trip[] group) =>
             TravelPolicy.State(new TripFacts(trip, zone), group.Select(g => new TripFacts(g, zone)).ToList(), at ?? now);

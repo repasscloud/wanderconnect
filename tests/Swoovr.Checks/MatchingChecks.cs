@@ -53,6 +53,7 @@ static class MatchingChecks
         Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 20 }, adelaide, gawler, PlanTier.Plus), "Plus distance excludes");
         Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 20 }, adelaide, gawler, free), "D347: a Free 20 km filter (25 km band) excludes 39 km");
         Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 50 }, adelaide, gawler, PlanTier.Plus), "within the distance");
+        Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 20 }, adelaide, gawler, PlanTier.Plus, distanceKnown: false), "D352: away (checked in or Traveller Search), the home-city distance filter doesn't apply");
         Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 50 }, adelaide, F(), PlanTier.Plus), "distance filter needs a home city");
         Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 50 }, adelaide, gawler, PlanTier.Free), "D347: Free uses the distance filter too");
         Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 5 }, adelaide, gawler, PlanTier.Free), "D347: and it narrows Free results");

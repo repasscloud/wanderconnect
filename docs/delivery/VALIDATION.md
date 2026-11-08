@@ -1779,3 +1779,16 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
   - Persistence checks: no `SWOOVR_TEST_DATABASE`.
   - The updated browser suites `tests/discovery/location-privacy.browser.cjs` (settings default off; hidden; hidden until both show; within10Km/homeCity on cards and the profile page; hidden again when the viewer turns theirs off), `tests/profiles/modes.browser.cjs` and `tests/profiles/badges.browser.cjs` (card and profile keys). All need the local platform.
 - Stacked on #277 (PR #286): it touches the same contract and tile lines.
+
+## Issue 280 — Travel: two pre-arrival choices and checked-in active location (8 November 2026, D352)
+
+- `./scripts/check.sh`: the result is in the PR.
+  - `ArrivalChecks`: a hidden trip may search; "Discover people there before arrival" off refuses search (`SearchRefusal.Off`) only before check-in; on by default.
+  - `TravelChecks`: `ActiveTrip` gives none without a check-in; the latest check-in wins over an overlapping earlier one; and check-ins outside an open or matching market, ended trips and cancelled trips don't count.
+  - `MatchingChecks`: the distance filter doesn't apply while away.
+- Migration `TripDiscoverBeforeArrival`: `trips.discover_before_arrival`, non-null, database default **true**, so existing trips and older hosts keep the default on.
+- Builds: Api, Web, Admin, Checks and Mobile `net10.0-android` succeeded. Not built: `net10.0-ios` (Xcode 27.2 vs the pack's 27.1).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE`.
+  - The updated `tests/travel/traveller-search.browser.cjs` (needs the local platform). It covers: hidden-trip search allowed, `arrival-required` before check-in, the switch off refusing search; after check-in, Explore is Adelaide with `visiting`, the home city unchanged, and a local sees the traveller once, marked visiting; hiding the trip removes them; cancelling restores the home market (`market-not-open` for a Melbourne home).
+- Stacked on #276 (PR #288, still open), whose distance contract this builds on.

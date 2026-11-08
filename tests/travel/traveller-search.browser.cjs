@@ -78,7 +78,18 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     assert.ok(r.body.people.every(p => !('dateOfBirth' in p) && !('homeCityId' in p))); pass();
     assert.equal((await search('trb', trips.trb.id)).status, 200); pass(); // 10 days ahead, a city in the market's area
     assert.deepEqual(code(await search('trc', trips.trc.id)), [403, 'search-not-open']); pass(); // 20 days ahead
-    assert.deepEqual(code(await search('trd', trips.trd.id)), [403, 'search-not-open']); pass(); // hidden from locals
+    // D352 (amends the D164 default): browsing and being seen are independent, so a hidden trip may search...
+    assert.equal((await search('trd', trips.trd.id)).status, 200); pass(); // hidden from locals, still browsing
+    assert.equal((await call(tokens.trd, '/api/me/trips')).body.items.find(t => t.id === trips.trd.id).discoverBeforeArrival, true); pass(); // on by default
+    assert.deepEqual(code(await call(tokens.trd, '/api/requests', { method: 'POST', body: { to: pid.lou, mode: 'friends' } })), [403, 'arrival-required']); pass(); // but not contact before check-in
+    // ...unless "Discover people there before arrival" is off.
+    const trdTrip = (await call(tokens.trd, '/api/me/trips')).body.items.find(t => t.id === trips.trd.id);
+    r = await call(tokens.trd, `/api/me/trips/${trips.trd.id}`, { method: 'PUT', body: { cityId: trdTrip.city.id, arrival: trdTrip.arrival, departure: trdTrip.departure, visible: false, itineraryId: null, discoverBeforeArrival: false } });
+    assert.deepEqual([r.status, r.body.discoverBeforeArrival, r.body.searchOpen], [200, false, false]); pass();
+    assert.deepEqual(code(await search('trd', trips.trd.id)), [403, 'search-not-open']); pass();
+    // Toggling visibility the way older clients do (without the field) keeps the saved "Discover…" choice (Codex review on #289).
+    r = await call(tokens.trd, `/api/me/trips/${trips.trd.id}`, { method: 'PUT', body: { cityId: trdTrip.city.id, arrival: trdTrip.arrival, departure: trdTrip.departure, visible: true, itineraryId: null } });
+    assert.deepEqual([r.status, r.body.visible, r.body.discoverBeforeArrival], [200, true, false]); pass();
     assert.deepEqual(code(await search('tre', trips.tre.id)), [403, 'trip-not-live']); pass(); // cancelled
     assert.deepEqual(code(await search('adl', trips.adl.id)), [403, 'search-not-open']); pass(); // locals use Explore
     assert.deepEqual(code(await search('trg', trips.trg.id)), [403, 'date-of-birth-required']); pass();
@@ -131,6 +142,17 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     assert.deepEqual(code(await arrive('tra', trips.tra.id, melbourne())), [403, 'location-outside-market']); pass();
     assert.equal((await call(tokens.tra, '/api/me/trips')).body.items.find(t => t.id === trips.tra.id).arrivalState, 'arrived'); pass();
 
+    // D352: the checked-in trip is now tra's active location: Explore is Adelaide, without touching the home city.
+    r = await call(tokens.tra, '/api/explore?mode=friends');
+    assert.deepEqual([r.status, r.body.market, r.body.visiting], [200, 'Adelaide', 'Adelaide']); pass();
+    assert.ok(ids_(r).includes(pid.lou) && ids_(r).includes(pid.lia) && !ids_(r).includes(pid.dar)); pass();
+    assert.equal((await call(tokens.tra, '/api/me/profile')).body.homeCity.id, MELBOURNE); pass(); // never written to the home city
+    // Destination locals see the visible, checked-in traveller in Explore too, marked as visiting, once.
+    r = await call(tokens.lou, '/api/explore?mode=friends');
+    assert.equal(ids_(r).filter(id => id === pid.tra).length, 1); pass();
+    assert.equal(r.body.people.find(p => p.id === pid.tra).visiting, 'Adelaide'); pass();
+    assert.ok(!ids_(r).includes(pid.trb)); pass(); // not checked in: the visitors feed only
+
     // After arrival: contact under the normal rules (Q41 rule 6), once, not per request.
     r = await search('tra', trips.tra.id);
     assert.deepEqual([r.body.arrivalState, r.body.canRequest], ['arrived', true]); pass();
@@ -166,8 +188,14 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     assert.equal((await arrive('tra', trips.tra.id, here())).body.arrivalState, 'arrived'); pass();
     r = await call(tokens.tra, `/api/me/trips/${trips.tra.id}`, { method: 'PUT', body: { cityId: ADELAIDE, arrival: plus(0), departure: plus(6), visible: true, itineraryId: null } });
     assert.equal(r.body.arrivalState, 'arrived'); pass(); // visibility alone keeps it
+    // D352: hiding the trip takes the traveller out of locals' Explore; their own active location stays.
+    await call(tokens.tra, `/api/me/trips/${trips.tra.id}`, { method: 'PUT', body: { cityId: ADELAIDE, arrival: plus(0), departure: plus(6), visible: false, itineraryId: null } });
+    assert.ok(!ids_(await call(tokens.lou, '/api/explore?mode=friends')).includes(pid.tra)); pass();
+    assert.equal((await call(tokens.tra, '/api/explore?mode=friends')).body.visiting, 'Adelaide'); pass();
     // Rule 12 and Q41 rule 9: cancelling ends search and contact; connections stay.
     assert.equal((await call(tokens.tra, `/api/me/trips/${trips.tra.id}/cancel`, { method: 'POST' })).status, 204);
+    // D352: with no checked-in trip left, the home city is the active location again (Melbourne isn't open).
+    assert.deepEqual(code(await call(tokens.tra, '/api/explore?mode=friends')), [403, 'market-not-open']); pass();
     assert.deepEqual(code(await search('tra', trips.tra.id)), [403, 'trip-not-live']); pass();
     assert.deepEqual(code(await call(tokens.tra, `/api/profiles/${pid.lia}`)), [404, 'unknown-mode']); pass();
     assert.equal((await call(tokens.tra, `/api/profiles/${pid.lou}`)).status, 200); pass(); // connected

@@ -86,13 +86,15 @@ public static class ArrivalPolicy
         before.GeoNameId != newCity || before.Arrival != newArrival || before.Departure != newDeparture;
 }
 
-public enum SearchRefusal { None, TripNotLive, TooEarly, Hidden, OwnMarket }
+public enum SearchRefusal { None, TripNotLive, TooEarly, Off, OwnMarket }
 
 /// <summary>
 /// Traveller Search (Q41, D142): within one enabled destination market, only through one of the member's own trips there.
-/// The trip must be live (not cancelled or ended), in an open market, visible to locals (DEFAULT, D164: browsing locals
-/// while hidden from them would be one-way), and within 14 days of its own arrival (rule 3). A member whose home is in
-/// that market uses Explore instead. Never a free choice of market (rule 8).
+/// The trip must be live (not cancelled or ended), in an open market and within 14 days of its own arrival (rule 3).
+/// D352 (amends the D164 default): browsing and being seen are two independent choices, so the trip no longer has to be
+/// visible to locals; before check-in the member's "Discover people there before arrival" switch must be on. After
+/// check-in that switch no longer applies, so arrived contact (D149) is unaffected. A member whose home is in that
+/// market uses Explore instead. Never a free choice of market (rule 8).
 /// </summary>
 public static class TravellerSearch
 {
@@ -100,7 +102,7 @@ public static class TravellerSearch
     {
         if (trip.CancelledAt is not null || state == TripState.Expired || tripMarket is not { Open: true }) return SearchRefusal.TripNotLive;
         if (searcherHomeMarket == tripMarket.Id) return SearchRefusal.OwnMarket;
-        if (!trip.Visible) return SearchRefusal.Hidden;
+        if (!trip.DiscoverBeforeArrival && trip.ArrivedAt is null) return SearchRefusal.Off;
         return destinationToday < trip.Arrival.AddDays(-TravelPolicy.WindowDays) ? SearchRefusal.TooEarly : SearchRefusal.None;
     }
 }
