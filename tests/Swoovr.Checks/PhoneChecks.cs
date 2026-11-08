@@ -80,7 +80,23 @@ static class PhoneChecks
         Expect(sink.Sent!.To == "sms-61412345678@simulated.swoovr.invalid" && sink.Sent.Subject.StartsWith("SIMULATED") && sink.Sent.Text.StartsWith("SIMULATED"), "labelled simulated");
         sink.Sent = null;
         Expect(!await new SimulatedMessageSender(sink, localSink: false).SendCodeAsync(number, "042137", default) && sink.Sent is null, "anywhere else: nothing, and never claimed");
-        Expect(MemberText.PhoneProblem(ProblemCodes.PhoneInUse) == "That number can't be used. Try another.", "an in-use number says nothing about whose");
+        // Issue 254 (owner): in use and refused numbers get the same answer, which says nothing about why or whose.
+        Expect(MemberText.PhoneProblem(ProblemCodes.PhoneInUse) == "This number cannot be used. Contact support.", "an in-use number says nothing about whose");
+        Expect(MemberText.PhoneProblem(ProblemCodes.IdentifierRestricted) == MemberText.PhoneProblem(ProblemCodes.PhoneInUse), "a refused number reads the same as one in use");
+
+        // Issue 254 (D342): onboarding country code + number, and the setup order every client follows.
+        Expect(PhoneEntry.Compose("+61", "0412 345 678") == "+61412345678" && PhoneVerificationPolicy.Normalise(PhoneEntry.Compose("+61", "0412 345 678")) == "+61412345678", "local Australian format with the country code");
+        Expect(PhoneEntry.Compose("+64", "021 123 4567") == "+64211234567", "another country drops its trunk 0");
+        Expect(PhoneEntry.Compose("+61", "+1 555 010 9999") == "+1 555 010 9999", "a typed international number is used as typed");
+        Expect(PhoneEntry.Countries[0] is { Name: "Australia", Code: "+61" }, "Australia first");
+        Expect(AccountSetup.Next(true, true, true, null) == "names" && AccountSetup.Next(false, true, true, null) == "phone"
+            && AccountSetup.Next(false, false, true, null) == "policies" && AccountSetup.Next(false, false, false, null) == "dateOfBirth"
+            && AccountSetup.Next(false, false, false, new DateOnly(1990, 5, 1)) is null, "names, mobile, policies, then date of birth");
+        Expect(AccountSetup.Names == SetupSteps.Names && AccountSetup.Phone == SetupSteps.Phone && AccountSetup.Policies == SetupSteps.Policies
+            && AccountSetup.DateOfBirth == SetupSteps.DateOfBirth, "domain and wire step names agree");
+        Expect(ContactMask.Email("alex.original@example.test") == "a...l@e...e.test", "owner's email example");
+        Expect(ContactMask.Email("al@mail.example.com.au") == "a...l@m...m.au" && ContactMask.Email("a@x.io") == "a...@x....io", "always three dots, top-level domain kept");
+        Expect(ContactMask.Email(null) is null && !ContactMask.Email("someone.long@example.test")!.Contains("someone"), "never the address itself");
 
         // Contact history (policy §4, D187): encrypted value, keyed lookup, versioned key, tamper-evident.
         var encKey = new byte[32]; encKey[1] = 9;

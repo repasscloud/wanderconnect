@@ -1,0 +1,11 @@
+@* Issue 258 (D343): the compact "sign in again" notice shown inside the card whose action needs a fresh sign-in. The
+   icon stays beside the text; on narrow cards the button moves under the text. *@
+<div class="data-inline" role="status" data-reauth-required="true">
+    <Swoovr.Web.Client.UI.Icon Name="shield" Size="20" />
+    <p class="data-inline-text">@Text</p>
+    <a class="button" href="/account/reauthenticate?returnUrl=@Uri.EscapeDataString(ReturnUrl)" data-enhance-nav="false">Sign in again</a>
+</div>
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter, EditorRequired] public string ReturnUrl { get; set; } = "";
+}

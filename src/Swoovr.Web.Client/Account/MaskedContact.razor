@@ -1,0 +1,65 @@
+@* Issue 254 (D342): the member's own email address or mobile number, masked ("a...l@e...e.test", "+61••••••678").
+   Hovering shows it; clicking keeps it shown until clicked again. The crossed-out eye means hidden, the open eye means
+   shown (owner-approved draft). The full value is asked for only when the member reveals it
+   (GET /api/me/contact?reveal=true), so it never sits in the page otherwise. An email is laid out as two units, "name@"
+   and "domain", so a long address wraps after the "@"; the eye is joined to the last word so it never sits alone. *@
+@inject MemberClient Members
+<button type="button" class="masked-contact" data-masked-contact="@Field" data-revealed="@(Shown ? "true" : "false")"
+        aria-pressed="@(pinned ? "true" : "false")" aria-label="@(Shown ? $"Hide {Noun}" : $"Show {Noun}")"
+        @onclick="ToggleAsync" @onmouseenter="PeekAsync" @onmouseleave="() => hovering = false">
+    <span class="masked-contact-value">
+        @foreach (var (part, last) in Parts)
+        {
+            @if (!last) { <span class="mc-part">@part</span> }
+            else
+            {
+                var cut = Math.Max(part.LastIndexOf(' '), part.LastIndexOf('-')) + 1;
+                <span class="mc-part">@part[..cut]<span class="mc-tail">@part[cut..]<Swoovr.Web.Client.UI.Icon Name="@(Shown ? "eye" : "eye-off")" Size="16" /></span></span>
+            }
+        }
+    </span>
+</button>
+@code {
+    /// <summary>"email" or "mobile".</summary>
+    [Parameter, EditorRequired] public string Field { get; set; } = "";
+    [Parameter, EditorRequired] public string? Masked { get; set; }
+    private string? full;
+    private bool pinned, hovering;
+    private bool Shown => (pinned || hovering) && full is not null;
+    private string Noun => Field == "email" ? "email address" : "mobile number";
+
+    /// <summary>"name@" and "domain" for an email, the whole value otherwise; the flag marks the last unit.</summary>
+    private IEnumerable<(string Part, bool Last)> Parts
+    {
+        get
+        {
+            var text = (Shown ? full : Masked) ?? "";
+            var at = text.IndexOf('@');
+            return at > 0 ? [(text[..(at + 1)], false), (text[(at + 1)..], true)] : [(text, true)];
+        }
+    }
+
+    private async Task PeekAsync()
+    {
+        hovering = true;
+        await LoadAsync();
+    }
+
+    private async Task ToggleAsync()
+    {
+        pinned = !pinned;
+        if (!pinned) hovering = false;
+        else await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (full is not null) return;
+        try
+        {
+            var contact = (await Members.ContactAsync(reveal: true)).Value;
+            full = Field == "email" ? contact?.Email : contact?.Mobile;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { }
+    }
+}

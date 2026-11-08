@@ -9,6 +9,8 @@ public sealed record BadgeView(string Badge, DateTimeOffset? CheckedAt);
 /// pendingDeletion (D170) shows the deletion screen instead.</param>
 /// <param name="DobCheck">"none", "correctionNeeded" (show the one-time prompt) or "manualReview" (D166).</param>
 /// <param name="PhoneRequired">D148: a verified mobile number is required and missing; clients show the phone step first.</param>
+/// <param name="SetupStep">Issue 254 (D342): the next onboarding step ("names", "phone", "policies", "dateOfBirth"), or null when
+/// setup is complete. Clients keep the member in onboarding until it is null.</param>
 public sealed record MemberAccount(
     string AgeStatus,
     int? Age,
@@ -21,7 +23,20 @@ public sealed record MemberAccount(
     bool PhoneVerified = false,
     bool PhoneRequired = false,
     string? EmailChangeProblem = null,bool PolicyRequired=false,DateTimeOffset? DateOfBirthCorrectionUntil=null,bool RegisteredNamesRequired=false,bool PhoneGateEnabled=false,
-    string? StatusReference = null, IReadOnlyList<string>? RestrictionLimits = null, DateTimeOffset? RestrictedUntil = null, bool MfaAccessRequired = false);
+    string? StatusReference = null, IReadOnlyList<string>? RestrictionLimits = null, DateTimeOffset? RestrictedUntil = null, bool MfaAccessRequired = false,
+    string? SetupStep = null);
+
+/// <summary>
+/// Issue 254 (D342): the member's own email address and mobile number for Account settings. Masked unless the member
+/// asked to reveal them (`?reveal=true`); never another member's. Email is null when the account has none on file.
+/// </summary>
+public sealed record ContactView(string? Email, string? Mobile, bool Revealed);
+
+/// <summary>Issue 254 (D342): <see cref="MemberAccount.SetupStep"/> wire values, in the order the API asks for them.</summary>
+public static class SetupSteps
+{
+    public const string Names = "names", Phone = "phone", Policies = "policies", DateOfBirth = "dateOfBirth";
+}
 
 /// <summary>
 /// The member's account deletion (D144, D170): "none" or "pending" with when it was asked for and when final deletion

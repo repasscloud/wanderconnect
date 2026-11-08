@@ -1,0 +1,280 @@
+@* Issue 254 (D342 DEFAULT): the guided first-sign-in setup, one screen per step, in the API's order (setupStep):
+   1 your name (D300: first name, a last name or "I don't have a last name", explicit confirmation), 2 your mobile number
+   (country code + number), 3 the six-digit code (D148), then the date of birth if it's still missing (D139). Required
+   policies keep their own page. The API refuses everything else until each step is done (AccountEndpoints.MemberAsync),
+   and the web gate sends every other page here, so there is no way around it. *@
+@inject MemberClient Members
+@inject NavigationManager Navigation
+<section class="onboarding" aria-labelledby="onboarding-title" data-onboarding="@Current">
+    @if (Current == "loading")
+    {
+        <p role="status" class="settings-status">Getting your account ready…</p>
+    }
+    else if (Current == "error")
+    {
+        <h1 id="onboarding-title" class="onboarding-title">We couldn't load your account</h1>
+        <p class="onboarding-lede">@error</p>
+        <div class="onboarding-actions"><a class="button" href="/welcome" data-enhance-nav="false">Try again</a></div>
+    }
+    else if (Current == "locked")
+    {
+        <h1 id="onboarding-title" class="onboarding-title">This account is locked</h1>
+        <p class="onboarding-lede">Swoovr is for adults only. If the date you entered was a mistake, contact Swoovr support to have it reviewed.</p>
+    }
+    else
+    {
+        <header class="onboarding-head">
+            <p class="onboarding-eyebrow">@(Current == "done" ? "Welcome to Swoovr" : $"Step {StepNumber} of {steps.Count}")</p>
+            @if (steps.Count > 1)
+            {
+                <ol class="onboarding-progress" aria-label="Setup progress">
+                    @foreach (var (step, index) in steps.Select((s, i) => (s, i)))
+                    {
+                        var state = Current == "done" || index < StepNumber - 1 ? "done" : index == StepNumber - 1 ? "current" : "next";
+                        <li data-step-state="@state" aria-current="@(state == "current" ? "step" : null)"><span class="visually-hidden">@Label(step)@(state == "done" ? " (done)" : "")</span></li>
+                    }
+                </ol>
+            }
+            <h1 id="onboarding-title" class="onboarding-title" tabindex="-1">@Title</h1>
+            <p class="onboarding-lede">@Lede</p>
+        </header>
+
+        @if (Current == "names" && names is not null)
+        {
+            <form class="onboarding-form" @onsubmit="SaveNamesAsync" data-onboarding-step="names">
+                <div class="field"><label for="onboarding-first">First name</label>
+                    <input id="onboarding-first" autocomplete="given-name" maxlength="100" required @bind="first" @bind:event="oninput" /></div>
+                @if (!mononym)
+                {
+                    <div class="field"><label for="onboarding-last">Last name</label>
+                        <input id="onboarding-last" autocomplete="family-name" maxlength="100" required @bind="last" @bind:event="oninput" /></div>
+                }
+                <label class="settings-check"><input type="checkbox" @bind="mononym" data-onboarding-mononym /> I don't have a last name</label>
+                <label class="settings-check onboarding-confirm"><input type="checkbox" @bind="namesConfirmed" data-onboarding-names-confirm /> I confirm these are my registered names.</label>
+                @if (names.MatchesId is not null)
+                {
+                    <p class="onboarding-note">You're ID verified, so Swoovr's team checks a new name against your verified ID. Your badge stays while they review it.</p>
+                }
+                <div class="onboarding-actions"><button type="submit" class="button" disabled="@(busy || !NamesReady)">Continue</button></div>
+                <p role="status" aria-live="polite" class="settings-status" data-onboarding-result="@result">@message</p>
+            </form>
+        }
+        else if (Current == "mobile")
+        {
+            <form class="onboarding-form" @onsubmit="SendCodeAsync" data-onboarding-step="mobile">
+                <div class="onboarding-phone">
+                    <div class="field"><label for="onboarding-country">Country code</label>
+                        <select id="onboarding-country" autocomplete="tel-country-code" @bind="country">
+                            @foreach (var c in PhoneEntry.Countries) { <option value="@c.Name">@c.Name (@c.Code)</option> }
+                        </select></div>
+                    <div class="field"><label for="onboarding-mobile">Mobile number</label>
+                        <input id="onboarding-mobile" type="tel" autocomplete="tel-national" inputmode="tel" maxlength="32" placeholder="0412 345 678" @bind="number" @bind:event="oninput" /></div>
+                </div>
+                <div class="onboarding-actions"><button type="submit" class="button" disabled="@(busy || string.IsNullOrWhiteSpace(number))">Send code</button></div>
+                <p role="status" aria-live="polite" class="settings-status" data-onboarding-result="@result">@if (result == "refused") { <text>This number cannot be used. </text><a href="@SupportTicketText.NewLink()">Contact support</a><text>.</text> } else { @message }</p>
+            </form>
+        }
+        else if (Current == "code")
+        {
+            <form class="onboarding-form" @onsubmit="ConfirmCodeAsync" data-onboarding-step="code">
+                <div class="field"><label for="onboarding-code">Six-digit code</label>
+                    <input id="onboarding-code" class="onboarding-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" @bind="code" @bind:event="oninput" /></div>
+                <div class="onboarding-actions">
+                    <button type="submit" class="button" disabled="@(busy || code?.Length != 6)">Verify</button>
+                    <button type="button" class="button button-secondary" disabled="@busy" @onclick="ResendAsync" data-onboarding-resend>Send a new code</button>
+                </div>
+                <button type="button" class="link-button onboarding-back" disabled="@busy" @onclick="ChangeNumber" data-onboarding-change-number>Use a different number</button>
+                <p role="status" aria-live="polite" class="settings-status" data-onboarding-result="@result">@if (result == "refused") { <text>This number cannot be used. </text><a href="@SupportTicketText.NewLink()">Contact support</a><text>.</text> } else { @message }</p>
+            </form>
+        }
+        else if (Current == "policies")
+        {
+            <div class="onboarding-form" data-onboarding-step="policies">
+                <div class="onboarding-actions"><a class="button" href="/account/policies">Review the policies</a></div>
+            </div>
+        }
+        else if (Current == "dob")
+        {
+            <form class="onboarding-form" @onsubmit="SaveAgeAsync" data-onboarding-step="dob">
+                <div class="field"><label for="onboarding-dob">Date of birth</label>
+                    <input id="onboarding-dob" type="date" required max="@Today" @bind="dateOfBirth" /></div>
+                <label class="settings-check onboarding-confirm"><input type="checkbox" @bind="dobConfirmed" data-onboarding-dob-confirm /> I confirm this date is correct. It will be locked after saving.</label>
+                <div class="onboarding-actions"><button type="submit" class="button" disabled="@(busy || dateOfBirth is null || !dobConfirmed)">Continue</button></div>
+                <p role="status" aria-live="polite" class="settings-status" data-onboarding-result="@result">@message</p>
+            </form>
+        }
+        else if (Current == "done")
+        {
+            <div class="onboarding-form" data-onboarding-step="done">
+                <div class="onboarding-actions"><a class="button" href="/explore" data-enhance-nav="false" data-onboarding-finish>Start exploring</a></div>
+            </div>
+        }
+    }
+</section>
+@code {
+    private readonly List<string> steps = [];
+    private MemberAccount? me;
+    private RegisteredNamesView? names;
+    private string Current = "loading";
+    private string? first, last, number, code, sentTo, message, result, error;
+    private string country = PhoneEntry.Countries[0].Name;
+    private bool mononym, namesConfirmed, dobConfirmed, busy;
+    private DateOnly? dateOfBirth;
+    private static string Today => DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+    private int StepNumber => Math.Max(1, steps.IndexOf(Current) + 1);
+    private bool NamesReady => namesConfirmed && !string.IsNullOrWhiteSpace(first) && (mononym || !string.IsNullOrWhiteSpace(last));
+    private string CountryCode => PhoneEntry.Countries.FirstOrDefault(c => c.Name == country)?.Code ?? "+61";
+
+    private static string Label(string step) => step switch
+    {
+        "names" => "Your name", "mobile" => "Mobile number", "code" => "Verification code", "policies" => "Policies", "dob" => "Date of birth", _ => step,
+    };
+
+    private string Title => Current switch
+    {
+        "names" => "What's your name?",
+        "mobile" => "Add your mobile number",
+        "code" => "Enter your code",
+        "policies" => "Review our policies",
+        "dob" => "Your date of birth",
+        "done" => "You're all set",
+        _ => "",
+    };
+
+    private string Lede => Current switch
+    {
+        "names" => "Use your registered names, as they appear on your ID. They're used for account security and identity verification, and aren't shown on your profile.",
+        "mobile" => MemberText.PhoneIntro,
+        "code" => $"We sent a six-digit code to {sentTo}. It expires in 5 minutes.",
+        "policies" => "Please read and choose whether to accept the current Terms of Use and Community Guidelines.",
+        "dob" => "Swoovr is for adults 18 and over. Your date of birth is never shown; your age is, unless you hide it.",
+        "done" => "Your account is ready. Thanks for joining Swoovr.",
+        _ => "",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var loaded = await LoadAsync();
+        if (loaded is null) return;
+        // The steps this member needs, fixed for the visit so "Step 2 of 3" doesn't move under them.
+        if (loaded.SetupStep == SetupSteps.Names) steps.Add("names");
+        if (loaded.PhoneRequired) { steps.Add("mobile"); steps.Add("code"); }
+        if (loaded.PolicyRequired) steps.Add("policies");
+        if (loaded.DateOfBirth is null) steps.Add("dob");
+        if (steps.Count == 0) { Navigation.NavigateTo("/explore", forceLoad: true); return; }
+        await ShowAsync(loaded);
+    }
+
+    private async Task<MemberAccount?> LoadAsync()
+    {
+        try
+        {
+            var response = await Members.MeAsync();
+            if (response.Code == ProblemCodes.AccountLocked) { Current = "locked"; return null; }
+            if (response.Value is not { } account) { (Current, error) = ("error", "Check your connection and try again."); return null; }
+            // MFA, restrictions and deletion have their own screens under Me.
+            if (account.MfaAccessRequired || account.AccountState is not ("active" or "restricted")) { Navigation.NavigateTo("/account", forceLoad: true); return null; }
+            return me = account;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            (Current, error) = ("error", "Check your connection and try again.");
+            return null;
+        }
+    }
+
+    private async Task ShowAsync(MemberAccount account)
+    {
+        (message, result) = (null, null);
+        switch (account.SetupStep)
+        {
+            case SetupSteps.Names:
+                var view = (await Members.RegisteredNamesAsync()).Value;
+                if (view is null) { (Current, error) = ("error", "We couldn't load your registered name."); return; }
+                names = view;
+                (first, last, mononym, namesConfirmed) = (view.FirstName, view.LastName, view.Mononym, false);
+                Current = "names";
+                break;
+            case SetupSteps.Phone:
+                Current = sentTo is null ? "mobile" : "code";
+                break;
+            case SetupSteps.Policies:
+                Current = "policies";
+                break;
+            case SetupSteps.DateOfBirth:
+                Current = "dob";
+                break;
+            default:
+                Current = "done";
+                break;
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        if (await LoadAsync() is { } account) await ShowAsync(account);
+    }
+
+    private async Task SaveNamesAsync()
+    {
+        if (names is null || !NamesReady) return;
+        busy = true;
+        var saved = await Members.SaveRegisteredNamesAsync(new(first?.Trim(), mononym ? null : last?.Trim(), mononym, names.Revision, namesConfirmed));
+        busy = false;
+        if (saved.Ok) { await NextAsync(); return; }
+        result = saved.Code ?? "failed";
+        message = saved.Status == 409 ? "Your name changed in another session. Reload this page before saving again."
+            : "Enter your first and last names, or choose \"I don't have a last name\".";
+    }
+
+    private async Task SendCodeAsync()
+    {
+        var target = PhoneEntry.Compose(CountryCode, number);
+        busy = true;
+        var sent = await Members.SendPhoneCodeAsync(target);
+        busy = false;
+        if (sent.Value is not null) { (sentTo, code, Current, result, message) = (target, null, "code", "sent", null); return; }
+        (result, message) = (Refused(sent.Code) ? "refused" : sent.Code ?? "failed", MemberText.PhoneProblem(sent.Code));
+    }
+
+    private async Task ResendAsync()
+    {
+        if (sentTo is null) { ChangeNumber(); return; }
+        busy = true;
+        var sent = await Members.SendPhoneCodeAsync(sentTo);
+        busy = false;
+        (result, message) = sent.Value is not null ? ("sent", "We sent a new code.") : (Refused(sent.Code) ? "refused" : sent.Code ?? "failed", MemberText.PhoneProblem(sent.Code));
+    }
+
+    private void ChangeNumber() => (sentTo, code, Current, result, message) = (null, null, "mobile", null, null);
+
+    private async Task ConfirmCodeAsync()
+    {
+        if (sentTo is null) { ChangeNumber(); return; }
+        busy = true;
+        var confirmed = await Members.ConfirmPhoneAsync(sentTo, code ?? "");
+        busy = false;
+        if (confirmed.Value is { Verified: true }) { (sentTo, code) = (null, null); await NextAsync(); return; }
+        (result, message) = (Refused(confirmed.Code) ? "refused" : confirmed.Code ?? "failed", MemberText.PhoneProblem(confirmed.Code));
+    }
+
+    private static bool Refused(string? problem) => problem is ProblemCodes.PhoneInUse or ProblemCodes.IdentifierRestricted;
+
+    private async Task SaveAgeAsync()
+    {
+        busy = true;
+        var saved = await Members.SaveAgeAsync(new AgeUpdate(dateOfBirth, null, dobConfirmed));
+        busy = false;
+        if (saved.Code == ProblemCodes.AccountLocked) { Current = "locked"; return; }
+        if (saved.Value is not null) { await NextAsync(); return; }
+        result = saved.Code ?? "failed";
+        message = saved.Code switch
+        {
+            ProblemCodes.InvalidAge or ProblemCodes.DateOfBirthRequired => AccountText.InvalidAge,
+            ProblemCodes.DobConfirmationRequired => "Confirm the date is correct before continuing.",
+            ProblemCodes.DateOfBirthLocked => "Your date of birth is already saved and locked.",
+            _ => "That didn't work. Try again.",
+        };
+    }
+}

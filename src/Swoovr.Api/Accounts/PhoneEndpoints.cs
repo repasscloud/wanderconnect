@@ -16,7 +16,8 @@ namespace Swoovr.Api.Accounts;
 /// codes; the sender only delivers them. `Phone:Required` (default on, D184; local test hosts set it false) is the
 /// registration gate: members without a verified number get 403 phone-verification-required everywhere except their
 /// account summary, notices, appeals, deletion and these routes. Audit entries carry ids and outcomes, never a number or
-/// a code.
+/// a code. Issue 254 (D342): these routes are also open while a policy acceptance is pending, because onboarding asks for
+/// the mobile number before the policies (the policy routes are likewise open before the phone is verified).
 /// </summary>
 public static class PhoneEndpoints
 {
@@ -26,14 +27,14 @@ public static class PhoneEndpoints
 
         me.MapGet("", async (ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true, policyExempt: true);
             return denied ?? Results.Ok(await ViewAsync(accounts.Db!, current!.Account!.Id, sender, accounts.PhoneRequired, clock.GetUtcNow(), cancellationToken));
         });
 
         me.MapPost("", async (PhoneStart request, ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, PhoneKeys keys,
             HttpContext context, IConfiguration configuration, ContactHistoryKeys history,TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true, policyExempt: true);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
             await using var identifierAuthority = await PreservationLease.SharedAsync(db,cancellationToken);
@@ -85,7 +86,7 @@ public static class PhoneEndpoints
         me.MapPost("/confirm", async (PhoneConfirm request, ClaimsPrincipal user, AccountResolver accounts, IVerificationMessageSender sender, PhoneKeys keys,
             ContactHistoryKeys history, IIdentityAdmin identity, AccountDeletion deletion, TimeProvider clock, ILoggerFactory logs, CancellationToken cancellationToken) =>
         {
-            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true);
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, phoneExempt: true, policyExempt: true);
             if (denied is not null) return denied;
             var (account, db, now) = (current!.Account!, accounts.Db!, clock.GetUtcNow());
             await using var identifierAuthority = await PreservationLease.SharedAsync(db,cancellationToken);
@@ -111,7 +112,7 @@ public static class PhoneEndpoints
             {
                 Audit.Record(db, now, account.Id, "account", "phone.in-use", "account", account.Id.ToString());
                 await db.SaveChangesAsync(cancellationToken);
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another.");
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "This number cannot be used. Contact support.");
             }
             var phone = await db.MemberPhones.FindAsync([account.Id], cancellationToken);
             // D184: verifying a new number replaces (and releases) the old one; the log says it changed, never which number.
@@ -128,7 +129,7 @@ public static class PhoneEndpoints
             (phone.Number, phone.VerifiedAt) = (number, now);
             Audit.Record(db, now, account.Id, "account", "phone.verified", "account", account.Id.ToString(), $"{change}:{sender.Kind}");
             try { await db.SaveChangesAsync(cancellationToken); }
-            catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another."); }
+            catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "This number cannot be used. Contact support."); }
             // #87 (policy §8): a number a terminated member used is flagged to the admin queue, never refused.
             await deletion.FlagIfReturningPhoneAsync(account.Id, number, now, cancellationToken);
             await identifierAuthority.DisposeAsync();

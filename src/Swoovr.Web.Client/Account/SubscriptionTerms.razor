@@ -1,0 +1,26 @@
+@* Issue 258 (D343): the owner's subscription cancellation and refund wording, word for word, in a section the member
+   opens. Stripe billing isn't built yet (Plus is granted by admins, D151); when it is, deleting an account must cancel the
+   Stripe subscription and apply these refund rules (requirement recorded in D343). *@
+<details class="data-disclosure" data-subscription-terms>
+    <summary>@DeletionText.SubscriptionsHeading <Swoovr.Web.Client.UI.Icon Name="back" Size="18" /></summary>
+    <div class="data-terms">
+        <p>If you choose to delete your Swoovr account, any active subscription purchased through our website using Stripe will be automatically cancelled.</p>
+        <p>The following refund conditions apply:</p>
+        <ul>
+            <li><strong>Monthly subscriptions:</strong> Your subscription will be cancelled, and any remaining time in your current billing period will be forfeited. No refund will be issued.</li>
+            <li><strong>Quarterly subscriptions:</strong> Your subscription will be cancelled, and a prorated refund will be calculated for the unused portion of your subscription, effective from the end of your current monthly billing cycle.</li>
+            <li><strong>Annual subscriptions:</strong> Your subscription will be cancelled, and a prorated refund will be calculated for the unused portion of your subscription, effective from the end of your current monthly billing cycle.</li>
+        </ul>
+        <p>Refunds will be returned to your original payment method, subject to applicable processing times.</p>
+        <h3>Apple App Store and Google Play subscriptions</h3>
+        <p>If you purchased your Swoovr subscription through the Apple App Store or Google Play, you must cancel your subscription directly through your Apple or Google account.</p>
+        <p><strong>Deleting your Swoovr account does not automatically cancel subscriptions purchased through Apple or Google Play.</strong> You may continue to be charged until you cancel the subscription through the relevant store.</p>
+        <ul>
+            <li><strong>Apple App Store:</strong> Open your device's <strong>Settings → Your Name → Subscriptions → Swoovr → Cancel Subscription</strong>.</li>
+            <li><strong>Google Play:</strong> Open the <strong>Google Play Store → Profile → Payments &amp; subscriptions → Subscriptions → Swoovr → Cancel subscription</strong>.</li>
+        </ul>
+        <p>Any refund requests for subscriptions purchased through Apple or Google Play must be submitted directly to the respective store and are subject to its refund policies.</p>
+        <p><strong>Important:</strong> Swoovr can only automatically cancel and process eligible refunds for subscriptions purchased directly through our website using Stripe. We cannot directly cancel or refund subscriptions managed by Apple or Google Play.</p>
+        <p class="data-terms-note">Your statutory rights under Australian Consumer Law are not affected.</p>
+    </div>
+</details>

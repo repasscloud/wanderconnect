@@ -108,15 +108,20 @@ async function mailCount(to) {
     await Promise.all([page.waitForNavigation(), page.click('#kc-register-form [type=submit]')]);
     await page.goto(await mailLink(email, started));
     await page.fill('#password-new', password); await page.fill('#password-confirm', password);
-    await Promise.all([page.waitForURL(web+'/explore'),page.click('[type=submit]')]);await page.goto(web+'/account');
-    await accountReady(page);
+    await Promise.all([page.waitForURL(u=>['/explore','/welcome'].includes(new URL(u).pathname)),page.click('[type=submit]')]);
     await claimOwnedRegistration(email);
-    await page.waitForSelector('[data-registered-name-gate]');
-    assert.equal(await page.locator('[data-registered-names-form] input[autocomplete="given-name"]').inputValue(),'Ana','validated provider name starts as an unconfirmed suggestion');pass();
-    await page.locator('[data-registered-names-form] input[autocomplete="family-name"]').fill('Example');
-    await page.locator('[data-registered-names-form] input[type=checkbox]').last().check();
-    await page.locator('[data-registered-names-form] button').click();await page.waitForSelector('[data-registered-names-result=saved]');
-    await page.waitForSelector('[data-registered-name-gate]',{state:'detached'});pass();
+    // Issue 254 (D342): unfinished setup opens the onboarding screens from every page, the account page included.
+    await page.goto(web+'/account');await page.waitForURL(web+'/welcome');assert.equal(await page.locator('[data-tab]').count(),0,'no tabs during onboarding');pass();
+    await page.waitForSelector('[data-onboarding-step=names]',{timeout:20000});
+    assert.equal(await page.inputValue('#onboarding-first'),'Ana','validated provider name starts as an unconfirmed suggestion');pass();
+    await page.fill('#onboarding-last','Example');
+    assert.equal(await page.locator('[data-onboarding-step=names] button[type=submit]').isDisabled(),true,'confirmation required');pass();
+    await page.check('[data-onboarding-names-confirm]');
+    await page.click('[data-onboarding-step=names] button[type=submit]');
+    await page.waitForSelector('[data-onboarding-step=names]',{state:'detached'});pass();
+    await page.waitForSelector('[data-onboarding-step=dob]');await page.fill('#onboarding-dob','1990-05-01');await page.check('[data-onboarding-dob-confirm]');
+    await page.click('[data-onboarding-step=dob] button[type=submit]');await page.waitForSelector('[data-onboarding-step=done]');pass();
+    await page.goto(web+'/account');await accountReady(page);
     assert.match(await page.locator('h1').innerText(), /Account settings/); pass();
     assert.equal(await page.locator('[data-adult-attested]').getAttribute('data-adult-attested'), 'true'); pass();
     assert.equal(await page.locator('[data-member-area]').getAttribute('data-member-area'), 'true'); pass();

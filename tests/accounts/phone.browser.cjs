@@ -133,19 +133,33 @@ async function latestCode(number) {
     const page = await context.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', members.cat.email); await page.fill('#password', members.cat.password);
-    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
+    await Promise.all([page.waitForURL(u=>['/explore','/welcome'].includes(new URL(u).pathname)),page.click('#kc-login')]);
     if (gate) {
-      await page.goto(web + '/connections');
-      await page.waitForURL(/\/account\?phone=required/); pass();
+      // Issue 254 (D342): with the gate on, the mobile step is an onboarding screen (country code + number, then the code).
+      for (const route of ['/connections', '/account']) { await page.goto(web + route); await page.waitForURL(web + '/welcome'); } pass();
+      await page.waitForSelector('[data-onboarding-step=mobile]', { timeout: 20000 });
+      assert.equal(await page.locator('#onboarding-country').inputValue(), 'Australia'); pass();
+      await page.fill('#onboarding-mobile', local(120));
+      await page.click('[data-onboarding-step=mobile] button[type=submit]');
+      await page.waitForSelector('[data-onboarding-step=code]'); pass();
+      await page.fill('#onboarding-code', (await latestCode(e164(120))).code);
+      await page.click('[data-onboarding-step=code] button[type=submit]');
+      await page.waitForSelector('[data-onboarding-step=code]', { state: 'detached' }); pass();
+      await page.goto(web + '/account');
+      await page.waitForSelector('[data-phone=verified]', { timeout: 20000 }); pass();
+    } else {
+      await page.goto(web + '/account');
+      await page.waitForSelector('[data-phone=none]', { timeout: 20000 });
+      assert.equal(await page.locator('#phone-number').count(), 0, 'no open form until the member chooses Add'); pass();
+      await page.click('[data-phone-change]');
+      assert.equal(await page.locator('[data-phone-simulated]').count(), 0, 'no test-mode instructions on member screens (issue 180)'); pass();
+      await page.fill('#phone-number', local(120));
+      await page.click('[data-phone-send] button');
+      await page.waitForSelector('[data-phone=pending]'); pass();
+      await page.fill('#phone-code', (await latestCode(e164(120))).code);
+      await page.click('[data-phone-confirm] button');
+      await page.waitForSelector('[data-phone=verified]'); pass();
     }
-    await page.waitForSelector('[data-phone=none]', { timeout: 20000 });
-    assert.equal(await page.locator('[data-phone-simulated]').count(), 0, 'no test-mode instructions on member screens (issue 180)'); pass();
-    await page.fill('#phone-number', local(120));
-    await page.click('[data-phone-send] button');
-    await page.waitForSelector('[data-phone=pending]'); pass();
-    await page.fill('#phone-code', (await latestCode(e164(120))).code);
-    await page.click('[data-phone-confirm] button');
-    await page.waitForSelector('[data-phone=verified]'); pass();
     assert.equal(await page.locator('[data-phone-number]').getAttribute('data-phone-number'), '+61••••••120'); pass();
     if (gate) {
       await page.goto(web + '/connections');
