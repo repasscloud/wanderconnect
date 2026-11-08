@@ -29,7 +29,7 @@ public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>?
 /// <remarks>Age, Gender and Pronouns only as the person allows (D138, D139); never the date of birth.</remarks>
 /// <param name="Distance">D348: a band, never a distance or coordinates.</param>
 public sealed record ProfileCard(Guid Id, string DisplayName, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges,
-    int? Age = null, string? Gender = null, string? Pronouns = null, DistanceView? Distance = null, PhotoView? Photo = null);
+    int? Age = null, string? Gender = null, string? Pronouns = null, DistanceView? Distance = null, PhotoView? Photo = null, string? Visiting = null);
 
 /// <summary>
 /// D348: what another member may learn about distance. Band is hidden, nearby (0–2 km), within10Km, km10To20, km20To30,
@@ -41,8 +41,9 @@ public sealed record DistanceView(string Band, string? Basis = null);
 /// <summary>D348: the member's two independent location privacy settings, both off by default.</summary>
 public sealed record LocationSettingsView(bool AppearInNearby, bool ShowDistance);
 public sealed record LocationSettingsUpdate(bool AppearInNearby, bool ShowDistance);
-/// <summary>Explore for one mode in the viewer's home market (D125), named by Market.</summary>
-public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null);
+/// <summary>Explore for one mode in the viewer's active location (D125, D352), named by Market. Visiting is the checked-in
+/// trip's destination city while one is active; null when the home market is the active location.</summary>
+public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null, string? Visiting = null);
 
 /// <summary>
 /// A mode another member shares with the viewer, with that member's intentions in it and where the two stand in it:

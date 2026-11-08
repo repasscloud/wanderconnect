@@ -7,7 +7,7 @@
 @inject MemberClient Members
 <div class="page-heading" data-explore="@(loaded ? "ready" : "loading")">
     <h1>Explore</h1>
-    @if (market is not null) { <p class="field-help" data-explore-market>People in @market</p> }
+    @if (market is not null) { <p class="field-help" data-explore-market data-explore-visiting="@(visitingCity is null ? "false" : "true")">@(visitingCity is { } city ? $"Visiting {city}: people in {market}" : $"People in {market}")</p> }
     <p class="field-help"><a class="link" href="/travel" data-travel-link>Travel</a>: plan trips and see who's visiting.</p>
     @if (!loaded) { <p role="status">Loading…</p> }
     else if (refused is not null) { <p role="status" data-explore-refused="@refused">@RefusedText</p> }
@@ -85,7 +85,7 @@
                 @foreach (var person in people)
                 {
                     @* D348: a band only when both members show their distance; never a distance. *@
-                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Detail="@(MemberText.Distance(person.Distance) ?? "")"
+                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Detail="@(person.Visiting is { } where ? $"Visiting {where}" : MemberText.Distance(person.Distance) ?? "")"
                                  Intentions="person.Intentions" Quote="@Quote(person.About)" Photo="@(person.Photo is { } photo ? TilePhoto(photo, person.DisplayName) : null)">
                         <Badges><BadgeRow Badges="person.Badges" /></Badges>
                     </ProfileTile>
@@ -98,7 +98,7 @@
 @code {
     private bool loaded;
     private string? refused;
-    private string? market;
+    private string? market, visitingCity;
     private bool interested, busy;
     private string selected = "";
     private string state = "loading";
@@ -155,6 +155,8 @@
             _ when result.Ok && result.Value is {People:not null} found => ("ready", (IReadOnlyList<ProfileCard>)found.People, found.Market),
             _ => ("unavailable", [], null),
         };
+        // D352: while a checked-in trip is active, Explore is that destination's market.
+        visitingCity = result.Ok ? result.Value?.Visiting : null;
     }
 
     private async Task InterestAsync(bool on)

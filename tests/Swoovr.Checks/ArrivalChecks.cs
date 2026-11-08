@@ -83,7 +83,13 @@ static class ArrivalChecks
         Expect(Search(T("2026-11-09", "2026-11-12")) == SearchRefusal.None, "exactly 14 days before arrival");
         Expect(Search(T("2026-11-10", "2026-11-12")) == SearchRefusal.TooEarly, "15 days before");
         Expect(Search(T()) == SearchRefusal.None && Search(T(), home: null) == SearchRefusal.None, "on arrival day, with or without a home market");
-        Expect(Search(T(visible: false), TripState.Planned) == SearchRefusal.Hidden, "a hidden trip doesn't search (no one-way looking)");
+        // D352 (amends the D164 default): browsing and being seen are independent choices.
+        Expect(Search(T(visible: false), TripState.Planned) == SearchRefusal.None, "a hidden trip may still search");
+        var noBrowse = T(); noBrowse.DiscoverBeforeArrival = false;
+        Expect(Search(noBrowse) == SearchRefusal.Off, "\"Discover people there before arrival\" off stops Traveller Search");
+        Expect(new Trip().DiscoverBeforeArrival, "it is on by default");
+        noBrowse.ArrivedAt = now; noBrowse.ArrivalMarketId = "adelaide";
+        Expect(Search(noBrowse) == SearchRefusal.None, "after check-in the before-arrival switch no longer applies, so arrived contact stays (D149)");
         Expect(Search(new Trip { Arrival = today, Departure = today, Visible = true, CancelledAt = now }, TripState.Cancelled) == SearchRefusal.TripNotLive, "a cancelled trip");
         Expect(Search(T("2026-10-20", "2026-10-24"), TripState.Expired) == SearchRefusal.TripNotLive, "an ended trip");
         Expect(Search(T(), market: new Market { Id = "perth", Status = MarketStatus.Planned }) == SearchRefusal.TripNotLive, "a market that isn't open");

@@ -152,18 +152,21 @@ public static class ProfileEndpoints
             var db = accounts.Db!;
             var selected = await db.ConnectionModes.SingleOrDefaultAsync(m => m.Id == mode && m.Available, cancellationToken);
             if (selected is null) return Problem(StatusCodes.Status404NotFound, ProblemCodes.UnknownMode, "That connection mode isn't available.");
-            // D125: Explore is local. It needs a home city in an open market that offers this mode, and lists only people
-            // whose home is in that market (or bots assigned to it). Travel is the way to see anywhere else.
-            var (market, refused) = await MarketEndpoints.LocalAsync(db, current!.Profile!, selected.Id, cancellationToken);
+            // D125, D352: Explore is local to the active location: the market of the most recently checked-in live trip,
+            // otherwise the home market (a home city in an open market that offers this mode). It lists people whose home
+            // is in that market (or bots assigned to it) and travellers checked in there who chose to be visible there.
+            var now = clock.GetUtcNow();
+            var (market, refused, activeTrip, activeCity) = await MarketEndpoints.ActiveLocalAsync(db, current!.Profile!, selected.Id, now, cancellationToken);
             if (refused is not null) return refused;
             var (own, mine, notReady) = await ReadyAsync(db, current.Profile!, selected, clock.GetUtcNow(), cancellationToken);
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Searches.LimitedAsync(db, current.Profile!.AccountId, "search", clock.GetUtcNow(), cancellationToken) is { } limited) return limited;
-            var people=await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, clock.GetUtcNow(), cancellationToken,
-                accounts.Services.GetRequiredService<Media.MediaLinks>());
+            var visiting = await CheckedInVisitorsAsync(db, configuration, current.Profile!.AccountId, market!, selected.Id, now, cancellationToken);
+            var people=await PeopleAsync(db, configuration, current.Profile!, selected, own!, mine!, market!.Id, now, cancellationToken,
+                accounts.Services.GetRequiredService<Media.MediaLinks>(), visiting, viewerAway: activeTrip is not null);
             await accounts.Services.GetRequiredService<Swoovr.Api.Analytics.BetaJourneyRecorder>().RecordAsync(current.Account!.Id,true,people.Count>0,cancellationToken);
-            return Results.Ok(new ExploreResult(selected.Id,people,market.Name));
+            return Results.Ok(new ExploreResult(selected.Id,people,market.Name,activeCity?.Name));
         });
         // D175: ?mode= is the mode the profile was opened from; the view shows that mode and the modes the pair is connected in.
         api.MapGet("/profiles/{id:guid}", async (Guid id, string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
@@ -257,11 +260,29 @@ public static class ProfileEndpoints
         return Distance(LocationPrivacy.HomeCityBand(km, true, true));
     }
 
+    /// <summary>
+    /// D352: travellers checked in to this market whose active trip is visible there, as the visitors feed shows them (same
+    /// account, mode, bot and block rules), keyed by account with the destination city they are visiting.
+    /// </summary>
+    public static async Task<Dictionary<Guid, string>> CheckedInVisitorsAsync(SwoovrDbContext db, IConfiguration configuration, Guid viewer, Market market,
+        string modeId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var visits = await Travel.TravelEndpoints.VisitsToAsync(db, configuration, viewer, market, await MarketEndpoints.ZonesAsync(db, cancellationToken), modeId, now, cancellationToken);
+        var active = await MarketEndpoints.ActiveTripsAsync(db, visits.Select(v => v.Person.Profile.AccountId).ToList(), now, cancellationToken);
+        return visits.Where(v => active.GetValueOrDefault(v.Person.Profile.AccountId) is { Trip: { } trip } && trip.ArrivalMarketId == market.Id && trip.Visible)
+            .ToDictionary(v => v.Person.Profile.AccountId, v => active[v.Person.Profile.AccountId].City.Name);
+    }
+
+    /// <param name="visiting">D352: checked-in travellers to include, marked as visiting, keyed by account with their destination city.</param>
+    /// <param name="viewerAway">D352: the viewer's location here isn't their home city (a checked-in trip, or Traveller Search), so
+    /// home-city distances say nothing: no home-city band (unknown) and no home-city distance filter.</param>
     public static async Task<List<ProfileCard>> PeopleAsync(SwoovrDbContext db, IConfiguration configuration, MemberProfile viewer, ConnectionMode selected,
-        MemberMode own, MatchFacts mine, string marketId, DateTimeOffset now, CancellationToken cancellationToken, Media.MediaLinks? links = null)
+        MemberMode own, MatchFacts mine, string marketId, DateTimeOffset now, CancellationToken cancellationToken, Media.MediaLinks? links = null,
+        IReadOnlyDictionary<Guid, string>? visiting = null, bool viewerAway = false)
     {
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var people = await Candidates(db, configuration, viewer.AccountId).InMarket(db, marketId)
+        var visitorIds = (visiting ?? new Dictionary<Guid, string>()).Keys.ToList();
+        var people = await Candidates(db, configuration, viewer.AccountId).InMarketOrVisiting(db, marketId, visitorIds)
             .Where(c => db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
                 && m.ModeId == selected.Id && m.Enabled && m.Visible)
                 && (!c.Profile.Bot || db.BotModeAuthorisations.Any(b => b.AccountId == c.Profile.AccountId && b.ModeId == selected.Id)))
@@ -272,11 +293,15 @@ public static class ProfileEndpoints
         var facts = await FactsAsync(db, people.Select(c => c.Profile.AccountId).ToList(), selected.Id, today, cancellationToken);
         var filter = await db.ModeFilters.FindAsync([viewer.AccountId, selected.Id], cancellationToken);
         var tier = await Moderation.Entitlements.TierAsync(db, viewer, now, cancellationToken);
+        // D352: members of this market who are checked in somewhere else are still listed, but their home city isn't where they are.
+        var away = (await MarketEndpoints.ActiveTripsAsync(db, people.Where(c => !visitorIds.Contains(c.Profile.AccountId)).Select(c => c.Profile.AccountId).ToList(),
+            now, cancellationToken)).Where(a => a.Value.Trip.ArrivalMarketId != people.First(c => c.Profile.AccountId == a.Key).Profile.HomeMarketId).Select(a => a.Key).ToHashSet();
+        bool Located(Guid account) => !viewerAway && !visitorIds.Contains(account) && !away.Contains(account);
         // Checked again in code with the same policy the database filter mirrors, so the rule has one source.
         var shown = people.Where(c => DiscoveryEligibility.ShownIn(selected.Id, selected, own,
                 new MemberMode { ModeId = selected.Id, Enabled = true, Visible = true }, c.Candidate(bots))
             && MatchPolicy.Reciprocal(selected.Id, mine, facts[c.Profile.AccountId])
-            && MatchPolicy.FilterAllows(filter, mine, facts[c.Profile.AccountId], tier)).ToList();
+            && MatchPolicy.FilterAllows(filter, mine, facts[c.Profile.AccountId], tier, Located(c.Profile.AccountId))).ToList();
         if (filter is { Sort: ExploreSort.Compatibility } && tier >= PlanTier.Plus)
             shown = shown.OrderByDescending(c => MatchPolicy.Shared(mine, facts[c.Profile.AccountId])).ToList();
         shown = shown.Take(ExploreLimit).ToList();
@@ -297,8 +322,9 @@ public static class ProfileEndpoints
             // D348: a band between home cities only when both show their distance; never a distance.
             return new ProfileCard(c.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(c.Profile.AccountId)?.DisplayName, c.Profile.DisplayName)!, about,
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
-                Distance(LocationPrivacy.HomeCityBand(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId]), c.Profile.ShowDistance, viewer.ShowDistance)),
-                photos.Main?.GetValueOrDefault((c.Profile.AccountId, selected.Id)));
+                Distance(LocationPrivacy.HomeCityBand(Located(c.Profile.AccountId) ? MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId]) : null,
+                    c.Profile.ShowDistance, viewer.ShowDistance)),
+                photos.Main?.GetValueOrDefault((c.Profile.AccountId, selected.Id)), visiting?.GetValueOrDefault(c.Profile.AccountId));
         }).ToList();
     }
 

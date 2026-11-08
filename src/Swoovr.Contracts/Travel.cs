@@ -8,7 +8,8 @@ public sealed record PlaceView(int Id, string Name, string? Region, string Count
 /// <param name="ArrivalState">"upcoming", "unconfirmed" (a check didn't confirm) or "arrived" (D149); ArrivedAt is when it was confirmed.</param>
 /// <param name="SearchOpen">Whether Traveller Search is open through this trip now (D142); SearchOpensOn is the first day it opens.</param>
 public sealed record TripView(Guid Id, PlaceView City, DateOnly Arrival, DateOnly Departure, bool Visible, string State, Guid? ItineraryId,
-    DateOnly OpensOn, bool ActiveMarket, string ArrivalState = "upcoming", DateTimeOffset? ArrivedAt = null, bool SearchOpen = false, DateOnly? SearchOpensOn = null);
+    DateOnly OpensOn, bool ActiveMarket, string ArrivalState = "upcoming", DateTimeOffset? ArrivedAt = null, bool SearchOpen = false, DateOnly? SearchOpensOn = null,
+    bool DiscoverBeforeArrival = true);
 
 /// <summary>
 /// A device location for one check (D149, D150): degrees, the device's accuracy estimate in metres and when it was read.
@@ -31,7 +32,9 @@ public sealed record TripAdminView(Guid Id, string? Market, DateOnly Arrival, Da
 /// <summary>Staff: confirm a traveller's arrival after a review (D149 rule 7), with a reason; audited, never shown to others.</summary>
 public sealed record ArrivalReview(string? Reason);
 public sealed record TripPage(IReadOnlyList<TripView> Items, int Page, bool More);
-public sealed record TripUpdate(int CityId, DateOnly Arrival, DateOnly Departure, bool Visible, Guid? ItineraryId);
+/// <param name="Visible">D352: "Let people there discover me before arrival".</param>
+/// <param name="DiscoverBeforeArrival">D352: "Discover people there before arrival" (Traveller Search), independent of Visible; on by default.</param>
+public sealed record TripUpdate(int CityId, DateOnly Arrival, DateOnly Departure, bool Visible, Guid? ItineraryId, bool DiscoverBeforeArrival = true);
 public sealed record ItineraryView(Guid Id);
 
 /// <summary>What a local sees of a visiting traveller's trip (Q17 rules 24–27): city, country and the exact dates only.</summary>

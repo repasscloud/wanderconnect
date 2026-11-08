@@ -90,7 +90,8 @@ public sealed class ExplorePage : ContentPage
 			return;
 		}
 		if (result.Value is not{People:not null}) { results.Children.Add(Ui.Text("We couldn't load Explore. Try again later.", id: "ExploreRefused")); return; }
-		if (result.Value.Market is { } market) results.Children.Add(Ui.Text($"People in {market}", "FieldLabel", "ExploreMarket"));
+		// D352: while a checked-in trip is active, Explore is that destination's market.
+		if (result.Value.Market is { } market) results.Children.Add(Ui.Text(result.Value.Visiting is { } city ? $"Visiting {city}: people in {market}" : $"People in {market}", "FieldLabel", "ExploreMarket"));
 		if (result.Value.People.Count == 0) results.Children.Add(Ui.Text(DiscoveryText.Empty, id: "ExploreEmpty"));
 		results.Children.Add(Ui.Card(Ui.Text(DiscoveryText.Context, "FooterClaims", "DiscoveryGuidance"),
 			Ui.Text(DiscoveryText.Choices, "FooterClaims"),
@@ -109,7 +110,7 @@ public sealed class ExplorePage : ContentPage
 			Ui.Text(details.Length == 0 ? null : details, "FooterClaims", $"Details_{person.Id}"),
 			Ui.Text(string.Join(" · ", person.Intentions), "FooterClaims"),
 			// D348: a band only when both members show their distance; never a distance.
-			Ui.Text(MemberText.Distance(person.Distance) ?? "", "TileDetail"),
+			Ui.Text(person.Visiting is { } where ? $"Visiting {where}" : MemberText.Distance(person.Distance) ?? "", "TileDetail"),
 			Ui.Button("View profile", $"Open_{person.Id}", () => Ui.PushAsync(new PersonPage(person.Id, selected)), primary: false));
 		card.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(async () => await Ui.PushAsync(new PersonPage(person.Id, selected))) });
 		return card;

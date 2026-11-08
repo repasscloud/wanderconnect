@@ -74,7 +74,7 @@ public static class ArrivalEndpoints
             {
                 case SearchRefusal.TripNotLive: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.TripNotLive, "This trip is cancelled, over, or somewhere Swoovr isn't open.");
                 case SearchRefusal.OwnMarket: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "This is your home market: use Explore.");
-                case SearchRefusal.Hidden: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "Make the trip visible to locals to search there.");
+                case SearchRefusal.Off: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "Turn on \u201cDiscover people there before arrival\u201d to search there.");
                 case SearchRefusal.TooEarly: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.SearchNotOpen, "Traveller Search opens 14 days before you arrive.");
             }
             if (!await db.MarketModes.AnyAsync(m => m.MarketId == market!.Id && m.ModeId == selected.Id, cancellationToken))
@@ -83,8 +83,9 @@ public static class ArrivalEndpoints
             if (notReady is not null) return notReady;
             // #90: searches are limited per hour so repeated queries can't triangulate anyone.
             if (await Profiles.Searches.LimitedAsync(db, me.AccountId, "search", now, cancellationToken) is { } limited) return limited;
+            // D352: the traveller's home city isn't where they'll be, so no home-city bands or distance filter here.
             var people = await ProfileEndpoints.PeopleAsync(db, configuration, me, selected, own!, mine!, market!.Id, now, cancellationToken,
-                accounts.Services.GetRequiredService<Media.MediaLinks>());
+                accounts.Services.GetRequiredService<Media.MediaLinks>(), viewerAway: true);
             return Results.Ok(new TravellerSearchResult(selected.Id, market.Name, row.t.Id, Wire(ArrivalPolicy.State(row.t)),
                 ArrivalPolicy.MayInitiate(row.t, state, market), people));
         });

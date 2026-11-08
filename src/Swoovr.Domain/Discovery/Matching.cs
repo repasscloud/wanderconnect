@@ -111,7 +111,9 @@ public static class MatchPolicy
     /// The viewer's own filters (narrow only their results). D347: the distance filter counts for every tier, capped at
     /// the tier's maximum, so a lapsed paid member's saved 100–500 km filter applies as 50 km until they upgrade.
     /// </summary>
-    public static bool FilterAllows(ModeFilter? filter, MatchFacts viewer, MatchFacts person, PlanTier tier)
+    /// <param name="distanceKnown">D352: false while either member's active location is a checked-in trip; their home cities
+    /// say nothing about where they are, so the home-city distance filter doesn't apply (GPS filtering comes with Near me).</param>
+    public static bool FilterAllows(ModeFilter? filter, MatchFacts viewer, MatchFacts person, PlanTier tier, bool distanceKnown = true)
     {
         if (filter is null) return true;
         if (filter.MinAge is { } min && (person.Age is null || person.Age < min)) return false;
@@ -122,7 +124,7 @@ public static class MatchPolicy
             if (filter.RequiredMatch == ChipMatch.All ? hits < filter.RequiredChips.Count : hits == 0) return false;
         }
         if (filter.IdVerifiedOnly && !person.IdVerified) return false;
-        if (filter.MaxDistanceKm is { } km)
+        if (filter.MaxDistanceKm is { } km && distanceKnown)
         {
             // #90: compared against the band the filter falls in, never a finer distance; D347: capped at the tier's maximum.
             var limit = Math.Min(LocationPrivacy.Snap(km)!.Value, LocationPrivacy.MaxFor(tier));

@@ -8599,6 +8599,10 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("departure");
 
+                    b.Property<bool>("DiscoverBeforeArrival")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discover_before_arrival");
+
                     b.Property<int>("GeoNameId")
                         .HasColumnType("integer")
                         .HasColumnName("geo_name_id");
