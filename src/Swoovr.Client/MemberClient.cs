@@ -156,6 +156,10 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<ExploreResult>> ExploreAsync(string modeId, CancellationToken cancellationToken = default) =>
         SendAsync<ExploreResult>(new HttpRequestMessage(HttpMethod.Get, "api/explore?mode=" + Uri.EscapeDataString(modeId)), cancellationToken);
 
+    /// <summary>D345, #279: Explore's Near me scope (needs a fresh reading from SaveLocationAsync; 409 location-required otherwise).</summary>
+    public Task<ApiResult<ExploreResult>> ExploreNearMeAsync(string modeId, CancellationToken cancellationToken = default) =>
+        SendAsync<ExploreResult>(new HttpRequestMessage(HttpMethod.Get, "api/explore?mode=" + Uri.EscapeDataString(modeId) + "&scope=nearMe"), cancellationToken);
+
     /// <summary>Asks to hear (or stops asking) when Swoovr opens where the member lives (D125 rule 37); returns the status.</summary>
     public Task<int> MarketInterestAsync(bool interested, CancellationToken cancellationToken = default) =>
         StatusAsync(new HttpRequestMessage(HttpMethod.Put, "api/me/market-interest") { Content = JsonContent.Create(new MarketInterestUpdate(interested)) }, cancellationToken);

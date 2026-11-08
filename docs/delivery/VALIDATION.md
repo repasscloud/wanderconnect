@@ -1811,3 +1811,16 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
   - Persistence checks: no `SWOOVR_TEST_DATABASE`.
   - The new `tests/discovery/near-me.browser.cjs` (needs the local platform). It covers: acceptance and `presentIn`; nothing readable stored or audited; 429; stale, coarse, 0,0 and speed refusals; the expired row purged by `location purge`; and deletion on Appear off, stop sharing, sign out everywhere (via the purge cutoff), a restriction and a deletion request.
 - Stacked on #280 (PR #289), which is stacked on #276 (PR #288).
+
+## Issue 279 — Near me discovery and physical presence (8 November 2026, D346, D348)
+
+- `./scripts/check.sh`: the result is in the PR. `NearMeChecks` adds the GPS band rules: hidden unless the person appears and shows distance and the viewer shows theirs; `nearby` only with fine readings at most 15 minutes old, otherwise `unknown`; ~5 km gives `within10Km`/gps; hidden and unknown rank last.
+- Builds: Api, Web, Admin, Checks and Mobile `net10.0-android` succeeded. Not built: `net10.0-ios` (Xcode 27.2 vs the pack's 27.1).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE`.
+  - The new `tests/discovery/near-me-discovery.browser.cjs` (needs the local platform). It covers:
+    - Responses: 409 without a reading, the active scope unchanged, and 400 for an unknown scope.
+    - Present in Adelaide from Melbourne: locals plus appearing members listed; not-appearing members excluded.
+    - Contact and profile with no trip; home city and trips untouched; a non-appearing member isn't reachable.
+    - GPS bands (hidden, within10Km, nearby, coarse gives unknown) and the band ordering.
+    - Appear off live, blocks both ways, and presence ending after two hours.

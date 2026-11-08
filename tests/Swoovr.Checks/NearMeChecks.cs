@@ -76,6 +76,21 @@ static class NearMeChecks
         var tampered = sealedCell.ToArray(); tampered[^1] ^= 1;
         Expect(keys.Open(tampered) is null, "a tampered value doesn't open");
 
-        Console.WriteLine($"PASS: Near me store ({checks}): D149 thresholds, five-minute gate, 900 km/h, ~500 m cells, two-hour use and sign-out cutoff, sealed with Location:Keys.");
+        // #279 GPS bands (D348, Q152, Q161 b): hidden unless the person appears and shows distance and the viewer shows theirs;
+        // "nearby" only with both readings fine (250 m) and at most 15 minutes old, otherwise unknown; never a neighbouring band.
+        MemberLocation L(LocationAccuracy accuracy = LocationAccuracy.Fine, int minutesAgo = 1) => new() { Accuracy = accuracy, ObservedAt = now.AddMinutes(-minutesAgo) };
+        var here = NearMePolicy.Snap(-34.9285, 138.6007);
+        var fiveKm = NearMePolicy.Snap(-34.9285 + 5 / 111.32, 138.6007);
+        Expect(NearMePolicy.GpsBand(L(), here, L(), here, true, true, true, now) == (DistanceBand.Nearby, (DistanceBasis?)DistanceBasis.Gps), "same cell, fine and fresh: nearby");
+        Expect(NearMePolicy.GpsBand(L(), here, L(LocationAccuracy.Coarse), here, true, true, true, now) == (DistanceBand.Unknown, null), "nearby with a coarse reading is unknown");
+        Expect(NearMePolicy.GpsBand(L(), here, L(minutesAgo: 16), here, true, true, true, now) == (DistanceBand.Unknown, null), "nearby with a reading over 15 minutes old is unknown");
+        Expect(NearMePolicy.GpsBand(L(LocationAccuracy.Coarse, 60), here, L(), fiveKm, true, true, true, now) == (DistanceBand.Within10Km, (DistanceBasis?)DistanceBasis.Gps), "other bands need only fresh (2 h) readings");
+        Expect(NearMePolicy.GpsBand(L(), here, L(), fiveKm, false, true, true, now).Band == DistanceBand.Hidden, "the person must appear in nearby searches");
+        Expect(NearMePolicy.GpsBand(L(), here, L(), fiveKm, true, false, true, now).Band == DistanceBand.Hidden, "and show their distance");
+        Expect(NearMePolicy.GpsBand(L(), here, L(), fiveKm, true, true, false, now).Band == DistanceBand.Hidden, "and the viewer must show theirs (Q152)");
+        Expect(NearMePolicy.Rank(DistanceBand.Nearby) < NearMePolicy.Rank(DistanceBand.Within10Km) && NearMePolicy.Rank(DistanceBand.Over50Km) < NearMePolicy.Rank(DistanceBand.Unknown)
+            && NearMePolicy.Rank(DistanceBand.Hidden) == NearMePolicy.Rank(DistanceBand.Unknown), "nearest visible band first; hidden and unknown last, unordered by distance");
+
+        Console.WriteLine($"PASS: Near me store ({checks}): D149 thresholds, five-minute gate, 900 km/h, ~500 m cells, two-hour use and sign-out cutoff, sealed with Location:Keys; #279 GPS bands and ordering.");
     }
 }
