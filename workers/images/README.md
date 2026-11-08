@@ -19,7 +19,10 @@ npm audit
 An optional cross-repository contract test consumes the actual FastAPI multipart response fixture generated from safe synthetic imagery and fake scanners in the processor repository:
 
 ```sh
-PROCESSOR_RESPONSE_FIXTURE=/tmp/swoovr-294-process-response npm test
+# First, from the processor repository with its development dependencies installed:
+# .venv/bin/python scripts/export_processing_fixture.py --output /tmp/swoovr-processor-response
+# Then from this directory:
+PROCESSOR_RESPONSE_FIXTURE=/tmp/swoovr-processor-response npm test
 ```
 
 The fixture basename must have `.bin` response bytes and `.json` metadata with `contentType`. Without it only that cross-repository test is explicitly skipped; no provider acceptance is claimed. This fixture is not real member imagery or a real Shield match.
