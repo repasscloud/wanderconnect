@@ -5,3 +5,5 @@ A small, unmodified extract of the GeoNames `cities1000.txt`, `admin1CodesASCII.
 Place data © [GeoNames](https://www.geonames.org/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The full files are never committed: `./scripts/geonames.sh download` fetches them into `.local/geonames`.
 
 Darwin, Palmerston and Zürich are also extracted unchanged from the cached public download for the owned market and traveller-search browser suites; no member or operational database data is included.
+
+Magill (an Adelaide suburb about 7 km from the centre) is extracted unchanged the same way for the location-privacy browser suite, which needs a suburb 6–9 km away (8 November 2026).

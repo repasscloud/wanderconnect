@@ -1824,3 +1824,28 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
     - Contact and profile with no trip; home city and trips untouched; a non-appearing member isn't reachable.
     - GPS bands (hidden, within10Km, nearby, coarse gives unknown) and the band ordering.
     - Appear off live, blocks both ways, and presence ending after two hours.
+
+## #257 location suites against the managed local stack (8 November 2026)
+
+- `./scripts/check.sh` on `main` @ 8e5eef2, with `SWOOVR_TEST_DATABASE` set to the running platform's PostgreSQL (run by the owner): exit 0, 94 PASS lines, **765 persistence cases** (throwaway databases). The four new migrations (`RemoveProfileArea`, `LocationPrivacySettings`, `TripDiscoverBeforeArrival`, `MemberLocations`) apply cleanly to a fresh database.
+- The local platform was rebuilt from `main` (`./scripts/local-platform.sh up --reuse`), and the four migrations were applied to the local `swoovr` database.
+- Browser suites through `tests/auth/run-owned.cjs` (owned throwaway database, hosts and OIDC clients; Release build of `main` plus these test changes). All PASS:
+
+  | Suite | Checks |
+  | --- | --- |
+  | near-me | 26 |
+  | near-me-discovery | 23 |
+  | traveller-search | 122 |
+  | location-privacy | 35 |
+  | matching | 86 |
+  | modes | 96 |
+  | badges | 58 |
+
+- **Harness changes needed by current `main`; none was a product defect:**
+  - `elevatedRootToken`: Admin and Trust & Safety mutations need a same-session MFA elevation (D322, #193). The helper begins it, re-authenticates in the same Keycloak session (`prompt=login`, `max_age=0`) and completes it.
+  - `createStaff` gives fictional staff a ready-made authenticator, and `staffToken`/`fillStaffOtp` enter its code, because staff MFA enrolment is mandatory (#193).
+  - The GeoNames sample gains Magill (unchanged row) for location-privacy.
+  - The near-me suite sets the sign-out cutoff directly; the near-me-discovery `regate` also dates the previous reading (the 900 km/h check was correctly refusing a 5 km jump in seconds).
+- **Stale assertions updated:**
+  - traveller-search: a restricted member using another member's trip gets 404 (D325).
+  - modes: `registration-closed` for an uninvited member (D335); initial public name from registered names (D317); per-mode `displayName` (D301); card key `visiting` (D352); the signed-out public page loads no Explore data (#253/#254).

@@ -8,7 +8,7 @@
 // fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, web, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { api, web, createMember, createStaff, memberToken, staffToken, rootAdminToken, elevatedRootToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, GLENELG = 2070830, MELBOURNE = 2158177, DARWIN = 2073124;
 const TEST_MARKET = 'test-darwin-t';
@@ -23,7 +23,7 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
   const code = r => [r.status, r.body?.code];
   await sql(`DELETE FROM markets WHERE id = '${TEST_MARKET}'`); // a previous run that stopped early
   try {
-    const root = await rootAdminToken(browser);
+    const root = await elevatedRootToken(browser);
     // Locals in Adelaide (lou, lia, res restricted, blk who'll block, exc who excludes a chip), a Darwin local (dar),
     // travellers from Melbourne (tra arrives today, trb in 10 days, trc in 20, trd hidden, tre cancelled, trg no date
     // of birth, trh for the rate limit), an Adelaide local with an Adelaide "trip" (adl) and a bot.
@@ -178,7 +178,8 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     assert.ok(!ids_(r).includes(pid.blk) && !ids_(r).includes(pid.res) && !ids_(r).includes(pid.exc) && ids_(r).includes(pid.lia)); pass();
     for (const who of ['blk', 'res', 'exc'])
     { assert.deepEqual(code(await call(tokens.tra, '/api/requests', { method: 'POST', body: { to: pid[who], mode: 'friends' } })), [404, 'not-available'], who); pass(); }
-    assert.deepEqual(code(await search('res', trips.tra.id)), [403, 'account-restricted']); pass();
+    // D325 (#194): a restriction limits only what it names, so using another member's trip reads as for anyone else.
+    assert.deepEqual(code(await search('res', trips.tra.id)), [404, 'not-available']); pass();
 
     // Rule 9: new dates need a new arrival; the connection stays.
     r = await call(tokens.tra, `/api/me/trips/${trips.tra.id}`, { method: 'PUT', body: { cityId: ADELAIDE, arrival: plus(0), departure: plus(6), visible: true, itineraryId: null } });

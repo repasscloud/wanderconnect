@@ -5,6 +5,7 @@ function manifest(folder){const runId='a'.repeat(32);return{runId,database:'swoo
 test('finite selectors require explicit nonduplicate reviewed suites',()=>{
  assert.deepEqual(selectedSuites('members,onboarding'),['members','onboarding']);
  assert.deepEqual(selectedSuites('phone,didit'),['phone','didit']);assert.deepEqual(selectedSuites('deletion'),['deletion']);
+ assert.deepEqual(selectedSuites('near-me,near-me-discovery,traveller-search'),['near-me','near-me-discovery','traveller-search']);
  for(const value of [undefined,'','members,members','../auth/root-admin.browser.cjs','meeting','members,','didit,deletion'])assert.throws(()=>selectedSuites(value));
 });
 test('paired overrides reject owner DB, nonloopback destinations, foreign paths and unowned clients',()=>{

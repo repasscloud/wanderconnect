@@ -7,7 +7,7 @@
 // fictional root admin and hosts built from this checkout. Every person is fictional.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, web, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { api, web, admin, createMember, createStaff, memberToken, staffToken, rootAdminToken, elevatedRootToken, fillStaffOtp, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 
@@ -17,7 +17,7 @@ const ADELAIDE = 2078025;
   const code = r => [r.status, r.body?.code];
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
-    const root = await rootAdminToken(browser);
+    const root = await elevatedRootToken(browser);
     // A suburb 6–9 km from Adelaide's centre, inside the Adelaide market.
     const near = await sql(`SELECT geo_name_id FROM geo_cities WHERE country_code = 'AU' AND geo_name_id <> ${ADELAIDE}
       AND sqrt(power((latitude + 34.92866) * 111.2, 2) + power((longitude - 138.59863) * 111.2 * cos(radians(34.93)), 2)) BETWEEN 6.2 AND 8.8
@@ -145,6 +145,7 @@ const ADELAIDE = 2078025;
     assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: adm.email, role: 'admin' } })).status, 201);
     await adminPage.goto(admin + '/');
     await adminPage.fill('#username', adm.email); await adminPage.fill('#password', adm.password); await adminPage.click('#kc-login');
+    await fillStaffOtp(adminPage, adm); // staff MFA is mandatory (#193)
     await adminPage.waitForSelector('[data-dashboard], [data-holds-overview]', { timeout: 20000 });
     await adminPage.goto(admin + `/cases/${caseId}`);
     await adminPage.waitForSelector('[data-profile-at-report]');
