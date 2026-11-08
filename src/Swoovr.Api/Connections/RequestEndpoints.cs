@@ -52,8 +52,9 @@ public static class RequestEndpoints
                 var bots = target.Profile.Bot ? await MarketEndpoints.BotMarketsAsync(db, target.Profile.AccountId, cancellationToken) : null;
                 var same = request.Trip is null && MarketAccess.SameMarket(market?.Id, target.Profile.HomeMarketId, target.Profile.Bot, bots);
                 // D346, #279: physical presence by a fresh reading also opens an open market offering this mode (no trip).
-                if (!same && request.Trip is null && await MarketEndpoints.SharedByPresenceAsync(db, me, target.Profile, bots, now, cancellationToken) is { } present
-                    && await db.MarketModes.AnyAsync(m => m.MarketId == present.Id && m.ModeId == mode.Id, cancellationToken))
+                if (!same && request.Trip is null
+                    && (await MarketEndpoints.SharedByPresenceAsync(db, me, target.Profile, bots, now, cancellationToken)).Select(m => m.Id).ToList() is { Count: > 0 } present
+                    && await db.MarketModes.AnyAsync(m => present.Contains(m.MarketId) && m.ModeId == mode.Id, cancellationToken))
                     same = true;
                 var connected = request.Trip is null && pair.Any(r => r.Status == ConnectionRequestStatus.Accepted);
                 var visits = same || connected || market is null ? []

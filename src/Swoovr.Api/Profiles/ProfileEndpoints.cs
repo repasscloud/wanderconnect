@@ -338,6 +338,22 @@ public static class ProfileEndpoints
             .OrderByDescending(c => db.MemberModes.Where(m => m.AccountId == c.Profile.AccountId && m.ModeId == selected.Id).Select(m => m.UpdatedAt).First())
             .Take(ExploreLimit * 4)
             .ToListAsync(cancellationToken);
+        if (nearMe is not null)
+        {
+            // #279 (Codex review on #292): the recency limit above must not cut out people appearing near the viewer, or
+            // nearest-band-first would miss them. The nearest appearing members (by GPS, on the server only) are always
+            // candidates, capped like the recency window; filtering, ordering and paging follow as for everyone.
+            var listed = people.Select(c => c.Profile.AccountId).ToHashSet();
+            var nearest = nearMe.Appearing.Where(a => !listed.Contains(a.Key))
+                .OrderBy(a => PlaceNames.DistanceKm(nearMe.Viewer.Cell.Latitude, nearMe.Viewer.Cell.Longitude, a.Value.Cell.Latitude, a.Value.Cell.Longitude))
+                .Take(ExploreLimit * 4).Select(a => a.Key).ToList();
+            if (nearest.Count > 0)
+                people.AddRange(await Candidates(db, configuration, viewer.AccountId)
+                    .Where(c => nearest.Contains(c.Profile.AccountId) && db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
+                        && m.ModeId == selected.Id && m.Enabled && m.Visible)
+                        && (!c.Profile.Bot || db.BotModeAuthorisations.Any(b => b.AccountId == c.Profile.AccountId && b.ModeId == selected.Id)))
+                    .ToListAsync(cancellationToken));
+        }
         var bots = await BotModesAsync(db, people.Where(c => c.Profile.Bot).Select(c => c.Profile.AccountId).ToList(), cancellationToken);
         var facts = await FactsAsync(db, people.Select(c => c.Profile.AccountId).ToList(), selected.Id, today, cancellationToken);
         var filter = await db.ModeFilters.FindAsync([viewer.AccountId, selected.Id], cancellationToken);
@@ -446,8 +462,9 @@ public static class ProfileEndpoints
         if (market is not { Open: true } || viewer.HomeGeoNameId is null
             || !MarketAccess.SameMarket(market.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots))
         {
-            if (await MarketEndpoints.SharedByPresenceAsync(db, viewer, person.Profile, bots, now, cancellationToken) is { } present)
-                return new(true, await db.MarketModes.Where(m => m.MarketId == present.Id).Select(m => m.ModeId).ToListAsync(cancellationToken), new HashSet<string>(), ByPresence: true);
+            if ((await MarketEndpoints.SharedByPresenceAsync(db, viewer, person.Profile, bots, now, cancellationToken)).Select(m => m.Id).ToList() is { Count: > 0 } present)
+                return new(true, await db.MarketModes.Where(m => present.Contains(m.MarketId)).Select(m => m.ModeId).Distinct().ToListAsync(cancellationToken),
+                    new HashSet<string>(), ByPresence: true);
             if (market is not { Open: true } || viewer.HomeGeoNameId is null) return new(false, [], new HashSet<string>());
         }
         var same = MarketAccess.SameMarket(market.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots);
