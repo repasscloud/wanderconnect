@@ -24,8 +24,11 @@ public sealed class HomeCityDay
 /// <summary>What one scheduled check concluded (D349). Suggested results create (or wait to create) the Zammad item.</summary>
 public enum HomeCityCheckResult { Skipped, NoSuggestion, Suggested, Suppressed }
 
-/// <summary>Why a suggestion was not raised: "Don't suggest before", an item already open, or the 90-day cooldown after closure.</summary>
-public enum HomeCityCheckSuppression { None, DontSuggestBefore, OpenItem, Cooldown }
+/// <summary>
+/// Why a suggestion was not raised: "Don't suggest before", an item already open, the 90-day cooldown after closure, or
+/// the Home City changed before the item was created (its counts were measured against the old city).
+/// </summary>
+public enum HomeCityCheckSuppression { None, DontSuggestBefore, OpenItem, Cooldown, HomeCityChanged }
 
 /// <summary>Delivery of a suggestion's Zammad item. Pending items are retried by the worker with the same operation id.</summary>
 public enum HomeCityTicketState { None, Pending, Created, Failed }
@@ -100,6 +103,17 @@ public static class HomeCityCheckPolicy
         existing is { } current && current > next ? current : next;
 
     public static DateOnly PeriodEnd(DateOnly start, HomeCityCheckOptions options) => start.AddDays(options.PeriodDays - 1);
+
+    /// <summary>The oldest day still kept: daily outcomes before it have been (or may have been) purged.</summary>
+    public static DateOnly RetainedFrom(DateTimeOffset now, HomeCityCheckOptions options) =>
+        DateOnly.FromDateTime(now.UtcDateTime).AddDays(-options.DayRetentionDays);
+
+    /// <summary>
+    /// Whether every day of the period is still within the retained evidence. A period checked late (the worker was down)
+    /// may have lost its first days to the purge; those would read as days without readings and could change the result,
+    /// so such a period is never evaluated.
+    /// </summary>
+    public static bool EvidenceComplete(DateOnly start, DateTimeOffset now, HomeCityCheckOptions options) => start >= RetainedFrom(now, options);
 
     /// <summary>Which of the four parts a day falls in: days 1–7, 8–14, 15–21 and 22 to the end.</summary>
     public static int Part(DateOnly start, DateOnly day) => Math.Min(Parts - 1, (day.DayNumber - start.DayNumber) / 7);

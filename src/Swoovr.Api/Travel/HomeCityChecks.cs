@@ -75,11 +75,17 @@ public sealed class HomeCityDayRecorder(IConfiguration configuration) : IAccepte
         return outcome;
     }
 
-    /// <summary>A Home City change restarts the period: the old city's days no longer say anything (D349).</summary>
+    /// <summary>
+    /// A Home City change restarts the period: the old city's days no longer say anything (D349), and a suggestion still
+    /// waiting for its Zammad item is withdrawn, because its counts were measured against the old city.
+    /// </summary>
     public static async Task RestartAsync(SwoovrDbContext db, MemberProfile member, CancellationToken cancellationToken)
     {
         member.HomeCityCheckFrom = null;
         await db.HomeCityDays.Where(d => d.AccountId == member.AccountId).ExecuteDeleteAsync(cancellationToken);
+        await db.HomeCityChecks.Where(c => c.AccountId == member.AccountId && c.TicketState == HomeCityTicketState.Pending)
+            .ExecuteUpdateAsync(u => u.SetProperty(c => c.Result, HomeCityCheckResult.Suppressed).SetProperty(c => c.Suppression, HomeCityCheckSuppression.HomeCityChanged)
+                .SetProperty(c => c.TicketState, HomeCityTicketState.None).SetProperty(c => c.NextAttemptAt, (DateTimeOffset?)null), cancellationToken);
     }
 }
 
@@ -96,8 +102,6 @@ public sealed class HomeCityCheckJob(SwoovrDbContext db, TicketingActorFactory a
     {
         var options = HomeCityCheckSettings.Read(configuration);
         var utcToday = DateOnly.FromDateTime(now.UtcDateTime);
-        var daysPurged = await db.HomeCityDays.Where(d => d.Day < utcToday.AddDays(-options.DayRetentionDays)).ExecuteDeleteAsync(ct);
-        var resultsPurged = await db.HomeCityChecks.Where(c => c.CheckedAt < now.AddMonths(-options.ResultRetentionMonths)).ExecuteDeleteAsync(ct);
         int checkedCount = 0, suggested = 0, created = 0, suppressed = 0, waiting = 0, failed = 0;
 
         // Members whose period may have ended (local dates can lead UTC by up to a day).
@@ -112,6 +116,11 @@ public sealed class HomeCityCheckJob(SwoovrDbContext db, TicketingActorFactory a
             if (result.Result == HomeCityCheckResult.Suggested) suggested++;
             if (result.Result == HomeCityCheckResult.Suppressed) suppressed++;
         }
+
+        // Purged after the evaluation, with the same cutoff CheckAsync uses to refuse incomplete periods.
+        var retainedFrom = HomeCityCheckPolicy.RetainedFrom(now, options);
+        var daysPurged = await db.HomeCityDays.Where(d => d.Day < retainedFrom).ExecuteDeleteAsync(ct);
+        var resultsPurged = await db.HomeCityChecks.Where(c => c.CheckedAt < now.AddMonths(-options.ResultRetentionMonths)).ExecuteDeleteAsync(ct);
 
         var pending = await db.HomeCityChecks.Where(c => c.TicketState == HomeCityTicketState.Pending && (c.NextAttemptAt == null || c.NextAttemptAt <= now))
             .OrderBy(c => c.CheckedAt).Select(c => c.Id).Take(200).ToListAsync(ct);
@@ -142,6 +151,15 @@ public sealed class HomeCityCheckJob(SwoovrDbContext db, TicketingActorFactory a
         var end = HomeCityCheckPolicy.PeriodEnd(start, options);
         var today = TravelPolicy.LocalToday(timeZone, now);
         if (today <= end) return null;
+        if (!HomeCityCheckPolicy.EvidenceComplete(start, now, options))
+        {
+            // Checked too late (the worker was down): earlier days may be purged and would read as days without readings,
+            // which could turn a no-suggestion into a suggestion. No result; the next accepted reading starts a new period.
+            profile.HomeCityCheckFrom = null;
+            Audit.Record(db, now, null, "system", "home-city-check.expired", "account", accountId.ToString(), start.ToString("yyyy-MM-dd"));
+            await db.SaveChangesAsync(ct);
+            return null;
+        }
         var active = await db.Accounts.AnyAsync(a => a.Id == accountId && a.Realm == AccountRealm.Members && a.Status == AccountStatus.Active, ct);
         var days = await db.HomeCityDays.Where(d => d.AccountId == accountId && d.Day >= start && d.Day <= end).ToListAsync(ct);
         if (!active || days.Count == 0)

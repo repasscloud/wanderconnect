@@ -145,7 +145,7 @@
         var result = last.Result switch
         {
             "suggested" => "Suggested", "noSuggestion" => "No suggestion", "skipped" => "Skipped (too few days with readings)",
-            "suppressed" => last.Suppression switch { "dontSuggestBefore" => "Not raised (don't suggest before)", "openItem" => "Not raised (item already open)", "cooldown" => "Not raised (within 90 days of closure)", _ => "Not raised" },
+            "suppressed" => last.Suppression switch { "dontSuggestBefore" => "Not raised (don't suggest before)", "openItem" => "Not raised (item already open)", "cooldown" => "Not raised (within 90 days of closure)", "homeCityChanged" => "Withdrawn (Home City changed)", _ => "Not raised" },
             _ => last.Result,
         };
         var item = last.Item switch { "pending" => " · item waiting for Zammad", "failed" => " · item could not be created", _ => "" };

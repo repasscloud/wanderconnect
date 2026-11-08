@@ -69,6 +69,16 @@ static class HomeCityCheckChecks
         Expect(HomeCityCheckPolicy.Suppress(today, null, false, now.AddDays(-89), now, o) == HomeCityCheckSuppression.Cooldown, "closed 89 days ago");
         Expect(HomeCityCheckPolicy.Suppress(today, null, false, now.AddDays(-91), now, o) == HomeCityCheckSuppression.None, "closed 91 days ago");
 
+        // Late checks: a period is evaluated only while all its days are still retained (35 days).
+        var evaluatedAt = new DateTimeOffset(start.AddDays(35).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        Expect(HomeCityCheckPolicy.RetainedFrom(evaluatedAt, o) == start, "the retained window starts 35 days back");
+        Expect(HomeCityCheckPolicy.EvidenceComplete(start, evaluatedAt, o), "checked within the window");
+        Expect(!HomeCityCheckPolicy.EvidenceComplete(start, evaluatedAt.AddDays(1), o), "a day later its first day may be purged");
+        Expect(HomeCityCheckPolicy.EvidenceComplete(start, new DateTimeOffset(end.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero), o), "the normal check (the day after the period) is well inside");
+        // Codex's example: home days 1–7 and away days 8–22 (15 of 22) must not become 15 of 17 because days 1–5 were purged.
+        var full = Enumerable.Range(1, 22).Select(d => D(d, d <= 7 ? home : away)).Concat(Enumerable.Range(23, 8).Select(d => D(d, away))).ToList();
+        Expect(HomeCityCheckPolicy.Evaluate(start, full.Where(d => d.Day.Day <= 22), o).Result == HomeCityCheckResult.NoSuggestion, "15 of 22 is no suggestion");
+
         // The member doesn't see a system item until Support has written to them.
         SupportArticle A(bool @internal, string sender, string type = "note") => new(1, 7, "x", "text/plain", @internal, sender, now, []) { Type = type };
         Expect(!HomeCityCheckPolicy.MemberVisible(TicketingPolicy.SystemSource, [A(true, "Agent")]), "only the internal note: hidden");

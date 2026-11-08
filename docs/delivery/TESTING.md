@@ -104,7 +104,7 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | location privacy | `tests/discovery/location-privacy.browser.cjs` | 35 |
 | Near me store (#278) | `tests/discovery/near-me.browser.cjs` | 26 |
 | Near me discovery (#279) | `tests/discovery/near-me-discovery.browser.cjs` | 23 |
-| Home City check (#281) | `tests/location/home-city-check.browser.cjs` (owned runner `home-city-check`; `SWOOVR_OWNED_ZAMMAD=1` adds the local helpdesk) | 57 with the helpdesk, 35 without |
+| Home City check (#281) | `tests/location/home-city-check.browser.cjs` (owned runner `home-city-check`; `SWOOVR_OWNED_ZAMMAD=1` adds the local helpdesk) | 62 with the helpdesk, 40 without |
 | privacy notice | `tests/privacy/notice.browser.cjs` | 10 |
 | photos | `tests/media/photos.browser.cjs` | 119 |
 | Safety & Support | `tests/safety/resources.browser.cjs` | 58 |

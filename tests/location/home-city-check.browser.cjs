@@ -25,7 +25,7 @@ const output = process.env.SWOOVR_BROWSER_OUTPUT;
     const supStaff = await createStaff('hcc-sup');
     assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: supStaff.email, role: 'support' } })).status, 201);
     const support = await staffToken(browser, supStaff);
-    const names = ['now', 'spr', 'rec', 'trp', 'hom', 'dnb'];
+    const names = ['now', 'spr', 'rec', 'trp', 'hom', 'dnb', 'old'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('hcc-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
     const tokens = {}, ids = {};
@@ -71,6 +71,7 @@ const output = process.env.SWOOVR_BROWSER_OUTPUT;
     await seed('trp', days(d => d >= 15 ? 'Excluded' : 'Away'));                              // a checked-in trip from day 15
     await seed('hom', days(d => d === 1 || d === 8 ? 'Home' : 'Away'));                        // 15 of 17 away
     await seed('dnb', days(d => d === 1 || d === 8 ? 'Home' : 'Away'));
+    await seed('old', Object.fromEntries(Array.from({ length: 22 }, (_, i) => [i + 1, i < 7 ? 'Home' : 'Away'])), 40); // 15 of 22 away, checked 40 days on
 
     // "Don't suggest before" on the Admin overview card (Support; audited with the reason).
     const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -101,6 +102,10 @@ const output = process.env.SWOOVR_BROWSER_OUTPUT;
     assert.match(await latest('rec'), /^NoSuggestion\|None\|17\|16\|0\|4\|None$/); pass();          // a home day in the last 7 days prevents it
     assert.match(await latest('trp'), /^Skipped\|None\|6\|6\|11\|2\|None$/); pass();                // trip days count for neither side
     assert.match(await latest('dnb'), /^Suppressed\|DontSuggestBefore\|17\|15\|0\|4\|None$/); pass(); // held back by the date
+    // Checked after its first days could have been purged: no result at all (never 15 of 17 from 15 of 22), and a fresh start.
+    assert.equal(await sql(`SELECT count(*) FROM home_city_checks WHERE account_id = '${ids.old}'`), '0'); pass();
+    assert.equal(await sql(`SELECT home_city_check_from IS NULL FROM member_profiles WHERE account_id = '${ids.old}'`), 't'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE action = 'home-city-check.expired' AND target_id = '${ids.old}'`), '1'); pass();
     const hom = await latest('hom');
     assert.match(hom, zammad ? /^Suggested\|None\|17\|15\|0\|4\|Created$/ : /^Suggested\|None\|17\|15\|0\|4\|Pending$/); pass();
     if (!zammad) { assert.equal(await sql(`SELECT failure_code FROM home_city_checks WHERE account_id = '${ids.hom}'`), 'ticketing-unavailable'); pass(); }
@@ -176,10 +181,15 @@ const output = process.env.SWOOVR_BROWSER_OUTPUT;
       console.log('NOTE: helpdesk not configured for this run (SWOOVR_OWNED_ZAMMAD unset); Zammad item steps not exercised.');
     }
 
-    // 4. A Home City change restarts the period and drops the old city's days.
+    // 4. A Home City change restarts the period, drops the old city's days and withdraws a suggestion still waiting for its item.
+    await sql(`INSERT INTO home_city_checks (id, account_id, period_start, period_end, located_days, away_days, excluded_days, parts_covered, away_parts, result, suppression, ticket_state, attempts, next_attempt_at, failure_code, checked_at)
+      VALUES (gen_random_uuid(), '${ids.rec}', ${localToday} - 70, ${localToday} - 41, 17, 15, 0, 4, 4, 'Suggested', 'None', 'Pending', 1, now(), 'provider-unavailable', now() - interval '1 hour')`);
     assert.equal((await call(tokens.rec, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Home rec', homeCityId: MELBOURNE } })).status, 200);
     assert.equal(await sql(`SELECT count(*) FROM home_city_days WHERE account_id = '${ids.rec}'`), '0'); pass();
     assert.equal(await sql(`SELECT home_city_check_from IS NULL FROM member_profiles WHERE account_id = '${ids.rec}'`), 't'); pass();
+    assert.equal(await sql(`SELECT result || '|' || suppression || '|' || ticket_state FROM home_city_checks WHERE account_id = '${ids.rec}' AND period_start = ${localToday} - 70`), 'Suppressed|HomeCityChanged|None'); pass();
+    await cli('location', 'home-city-check').catch(() => {});
+    assert.equal(await sql(`SELECT count(*) FROM home_city_checks WHERE account_id = '${ids.rec}' AND ticket_id IS NOT NULL`), '0'); pass(); // never delivered against the new city
 
     // 5. Retention: days older than 35 days and results older than 12 months go.
     await sql(`INSERT INTO home_city_days (account_id, day, outcome, updated_at) VALUES ('${ids.now}', ${localToday} - 40, 'Away', now())`);

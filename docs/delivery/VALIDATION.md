@@ -1882,4 +1882,11 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
   - The Zammad macro was confirmed to exist; applying it was exercised only through its text module in Swoovr Admin.
   - MAUI parity is #284.
   - Release waits for Privacy Notice 0.20 (D351, #283).
+- **Codex review on PR #302 (9 November 2026), both findings valid and fixed:**
+  - (1) A Home City change now withdraws a suggestion still waiting for its Zammad item (`Suppressed`/`HomeCityChanged`), so old-city counts are never delivered against the new city.
+  - (2) The job evaluates before it purges, and never evaluates a period whose first day is past the 35-day evidence window (no result, a fresh start, audited `home-city-check.expired`). Purged days can no longer read as days without readings.
+  - After the fixes:
+    - `./scripts/check.sh`: exit 0, 94 PASS.
+    - `Swoovr.Checks` with the platform PostgreSQL server: 766 persistence cases; `scheduled Home City check rules (57)`, which includes Codex's 15-of-22 example.
+    - home-city-check: **62** checks with the helpdesk and 40 without. Added: a pending suggestion withdrawn on a Home City change and never delivered; a late, incomplete period giving no result.
 

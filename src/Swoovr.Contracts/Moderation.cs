@@ -121,7 +121,7 @@ public sealed record NameReviewDecision(string? Outcome, string? Reason);
 /// period (Home City time zone) and the latest count-only result. Never positions, places, trip destinations or days.
 /// </summary>
 public sealed record HomeCityCheckAdminView(DateOnly? DontSuggestBefore, DateOnly? PeriodFrom, DateOnly? PeriodTo, HomeCityCheckResultView? Latest);
-/// <summary>Result: skipped, noSuggestion, suggested or suppressed (dontSuggestBefore, openItem, cooldown). Item: none, pending, created or failed.</summary>
+/// <summary>Result: skipped, noSuggestion, suggested or suppressed (dontSuggestBefore, openItem, cooldown, homeCityChanged). Item: none, pending, created or failed.</summary>
 public sealed record HomeCityCheckResultView(DateOnly PeriodStart, DateOnly PeriodEnd, string Result, string? Suppression, int LocatedDays, int AwayDays,
     int ExcludedDays, int PartsCovered, string Observed, string Item, string? ItemReference, long? TicketId);
 /// <summary>D349: `PUT /api/admin/accounts/{id}/home-city-check`; null clears the date. The reason (up to 300 characters) is audited.</summary>
