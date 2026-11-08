@@ -103,6 +103,7 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | security operations | `tests/security/operations.browser.cjs` | 36 |
 | location privacy | `tests/discovery/location-privacy.browser.cjs` | 28 |
 | Near me store (#278) | `tests/discovery/near-me.browser.cjs` | 28 (not yet run) |
+| Near me discovery (#279) | `tests/discovery/near-me-discovery.browser.cjs` | 26 (not yet run) |
 | privacy notice | `tests/privacy/notice.browser.cjs` | 10 |
 | photos | `tests/media/photos.browser.cjs` | 119 |
 | Safety & Support | `tests/safety/resources.browser.cjs` | 58 |

@@ -204,6 +204,29 @@ public static partial class MarketEndpoints
         return (home, refused, null, null);
     }
 
+    /// <summary>
+    /// D346, #279: the open market two members share through physical presence: each is in it by home market (bots by
+    /// assignment) or by a fresh device reading, and at least one of them is there by presence. The person's presence
+    /// counts only while they appear in nearby searches, so browsing Near me never makes anyone reachable; the viewer's
+    /// own presence always counts for them. Null when presence gives them no market in common.
+    /// </summary>
+    public static async Task<Market?> SharedByPresenceAsync(SwoovrDbContext db, MemberProfile viewer, MemberProfile person, IReadOnlySet<string>? personBotMarkets,
+        DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var present = await Travel.NearMeEndpoints.PresentMarketsAsync(db, [viewer.AccountId, person.AccountId], now, cancellationToken);
+        var viewerHere = present.GetValueOrDefault(viewer.AccountId);
+        var personHere = person.AppearInNearby ? present.GetValueOrDefault(person.AccountId) : null;
+        if (viewerHere is null && personHere is null) return null;
+        bool ViewerIn(string market) => market == viewerHere || market == viewer.HomeMarketId;
+        bool PersonIn(string market) => market == personHere || (person.Bot
+            ? personBotMarkets is { } assigned && (assigned.Contains(market) || assigned.Contains(BotMarket.Everywhere))
+            : market == person.HomeMarketId);
+        var shared = new[] { viewerHere, personHere }.OfType<string>().Distinct().Where(m => ViewerIn(m) && PersonIn(m)).ToList();
+        foreach (var id in shared)
+            if (await db.Markets.FindAsync([id], cancellationToken) is { Open: true } market) return market;
+        return null;
+    }
+
     /// <summary>People local to one market in the database (MarketAccess.SameMarket): by home market, or bots by assignment.</summary>
     public static IQueryable<ProfileEndpoints.Row> InMarket(this IQueryable<ProfileEndpoints.Row> rows, SwoovrDbContext db, string marketId) =>
         rows.Where(c => c.Profile.Bot

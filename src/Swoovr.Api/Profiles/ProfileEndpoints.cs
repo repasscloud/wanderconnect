@@ -147,7 +147,7 @@ public static class ProfileEndpoints
             await ProfilePrivacy.CaptureAsync(db, profile.AccountId, now, cancellationToken);
             return Results.Ok(await OwnAsync(db, profile, cancellationToken));
         });
-        api.MapGet("/explore", async (string? mode, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
+        api.MapGet("/explore", async (string? mode, string? scope, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration, TimeProvider clock,
             CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -159,6 +159,8 @@ public static class ProfileEndpoints
             // otherwise the home market (a home city in an open market that offers this mode). It lists people whose home
             // is in that market (or bots assigned to it) and travellers checked in there who chose to be visible there.
             var now = clock.GetUtcNow();
+            if (scope is not (null or "active" or "nearMe")) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Choose Active location or Near me.");
+            if (scope == "nearMe") return await NearMeAsync(db, configuration, accounts, current!, selected, now, cancellationToken);
             var (market, refused, activeTrip, activeCity) = await MarketEndpoints.ActiveLocalAsync(db, current!.Profile!, selected.Id, now, cancellationToken);
             if (refused is not null) return refused;
             var (own, mine, notReady) = await ReadyAsync(db, current.Profile!, selected, clock.GetUtcNow(), cancellationToken);
@@ -219,7 +221,7 @@ public static class ProfileEndpoints
                 }).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
                 photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0])),
-                await HomeDistanceAsync(db, current.Profile!, person.Profile, reach.SameMarket, clock.GetUtcNow(), cancellationToken)));
+                await HomeDistanceAsync(db, current.Profile!, person.Profile, reach.SameMarket && !reach.ByPresence, clock.GetUtcNow(), cancellationToken)));
         });
     }
 
@@ -249,6 +251,37 @@ public static class ProfileEndpoints
     /// while the entitlement service says Plus (D137–D140, D151). Explore uses the viewer's home market (D125); Traveller
     /// Search the trip's destination market (D142). Cards carry age, gender and pronouns only as each person allows.
     /// </summary>
+    /// <summary>
+    /// D346, D348, #279: Explore's Near me scope. The viewer needs a fresh device reading (409 location-required) inside an
+    /// open market that offers the mode (403 market-not-open); being there by GPS is enough, with no trip and no change to
+    /// the home city. It lists that market's people by home city plus members present there by GPS who appear in nearby
+    /// searches, under the same account, mode, block, sanction, reciprocity and filter rules as Explore, with GPS bands only
+    /// as D348 allows and the nearest visible band first. Counts towards the hourly search limit.
+    /// </summary>
+    private static async Task<IResult> NearMeAsync(SwoovrDbContext db, IConfiguration configuration, AccountResolver accounts, CurrentAccount current,
+        ConnectionMode selected, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var viewer = current.Profile!;
+        var keys = accounts.Services.GetRequiredService<Travel.LocationKeys>();
+        if ((await Travel.NearMeEndpoints.PresenceAsync(db, keys, [viewer.AccountId], now, cancellationToken)).GetValueOrDefault(viewer.AccountId) is not { } mine)
+            return Problem(StatusCodes.Status409Conflict, ProblemCodes.LocationRequired, "Share your location to use Near me.");
+        var market = mine.Location.MarketId is { } id ? await db.Markets.FindAsync([id], cancellationToken) : null;
+        var modes = market is null ? [] : await db.MarketModes.Where(m => m.MarketId == market.Id).Select(m => m.ModeId).ToListAsync(cancellationToken);
+        if (MarketAccess.Local(true, market, modes, selected.Id) != LocalAccess.Open)
+            return Problem(StatusCodes.Status403Forbidden, ProblemCodes.MarketNotOpen, "Swoovr isn't available where you are yet. We're expanding to new cities.");
+        var (own, facts, notReady) = await ReadyAsync(db, viewer, selected, now, cancellationToken);
+        if (notReady is not null) return notReady;
+        if (await Searches.LimitedAsync(db, viewer.AccountId, "search", now, cancellationToken) is { } limited) return limited;
+        var appearing = await Travel.NearMeEndpoints.AppearingInAsync(db, keys, market!.Id, viewer.AccountId, now, cancellationToken);
+        var people = await PeopleAsync(db, configuration, viewer, selected, own!, facts!, market.Id, now, cancellationToken,
+            accounts.Services.GetRequiredService<Media.MediaLinks>(), nearMe: new NearMe(mine, appearing));
+        await accounts.Services.GetRequiredService<Swoovr.Api.Analytics.BetaJourneyRecorder>().RecordAsync(current.Account!.Id, true, people.Count > 0, cancellationToken);
+        return Results.Ok(new ExploreResult(selected.Id, people, market.Name, null, "nearMe"));
+    }
+
+    /// <summary>D346, #279: the viewer's usable reading and the members appearing near them, for PeopleAsync.</summary>
+    public sealed record NearMe(Travel.NearMeEndpoints.Present Viewer, IReadOnlyDictionary<Guid, Travel.NearMeEndpoints.Present> Appearing);
+
     /// <summary>D348: the wire form of a band and its basis.</summary>
     public static DistanceView Distance((DistanceBand Band, DistanceBasis? Basis) band) => new(Wire(band.Band), band.Basis is { } basis ? Wire(basis) : null);
 
@@ -288,12 +321,16 @@ public static class ProfileEndpoints
     /// <param name="visiting">D352: checked-in travellers to include, marked as visiting, keyed by account with their destination city.</param>
     /// <param name="viewerAway">D352: the viewer's location here isn't their home city (a checked-in trip, or Traveller Search), so
     /// home-city distances say nothing: no home-city band (unknown) and no home-city distance filter.</param>
+    /// <param name="nearMe">D346, #279: Near me. Members appearing there by GPS join the market's people; home cities give no
+    /// distance (the viewer is where their reading says), the distance filter and bands use GPS for those appearing, and the
+    /// nearest visible band comes first.</param>
     public static async Task<List<ProfileCard>> PeopleAsync(SwoovrDbContext db, IConfiguration configuration, MemberProfile viewer, ConnectionMode selected,
         MemberMode own, MatchFacts mine, string marketId, DateTimeOffset now, CancellationToken cancellationToken, Media.MediaLinks? links = null,
-        IReadOnlyDictionary<Guid, string>? visiting = null, bool viewerAway = false)
+        IReadOnlyDictionary<Guid, string>? visiting = null, bool viewerAway = false, NearMe? nearMe = null)
     {
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var visitorIds = (visiting ?? new Dictionary<Guid, string>()).Keys.ToList();
+        var visitorIds = (visiting ?? new Dictionary<Guid, string>()).Keys.Concat(nearMe?.Appearing.Keys ?? []).Distinct().ToList();
+        if (nearMe is not null) viewerAway = true;
         var people = await Candidates(db, configuration, viewer.AccountId).InMarketOrVisiting(db, marketId, visitorIds)
             .Where(c => db.MemberModes.Any(m => m.AccountId == c.Profile.AccountId
                 && m.ModeId == selected.Id && m.Enabled && m.Visible)
@@ -310,12 +347,26 @@ public static class ProfileEndpoints
             now, cancellationToken)).Where(a => a.Value.Trip.ArrivalMarketId != people.First(c => c.Profile.AccountId == a.Key).Profile.HomeMarketId).Select(a => a.Key).ToHashSet();
         bool Located(Guid account) => !viewerAway && !visitorIds.Contains(account) && !away.Contains(account);
         // Checked again in code with the same policy the database filter mirrors, so the rule has one source.
+        // D347, #279: in Near me the distance filter applies to members appearing by GPS (their reading against the viewer's);
+        // the market's people by home city stay, subject to the other filters, so a position can't range-find a home.
+        double? GpsKm(Guid account) => nearMe?.Appearing.GetValueOrDefault(account) is { } them
+            ? PlaceNames.DistanceKm(nearMe.Viewer.Cell.Latitude, nearMe.Viewer.Cell.Longitude, them.Cell.Latitude, them.Cell.Longitude) : null;
+        bool GpsFilterAllows(Guid account) => filter?.MaxDistanceKm is not { } km || GpsKm(account) is not { } d
+            || d <= Math.Min(LocationPrivacy.Snap(km)!.Value, LocationPrivacy.MaxFor(tier));
+        // D348, #279: a GPS band only for members appearing here who show their distance, while the viewer shows theirs.
+        (DistanceBand Band, DistanceBasis? Basis) BandOf(ProfileEndpoints.Row c) =>
+            nearMe?.Appearing.GetValueOrDefault(c.Profile.AccountId) is { } them
+                ? NearMePolicy.GpsBand(nearMe.Viewer.Location, nearMe.Viewer.Cell, them.Location, them.Cell, c.Profile.AppearInNearby, c.Profile.ShowDistance, viewer.ShowDistance, now)
+                : LocationPrivacy.HomeCityBand(Located(c.Profile.AccountId) ? MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId]) : null, c.Profile.ShowDistance, viewer.ShowDistance);
         var shown = people.Where(c => DiscoveryEligibility.ShownIn(selected.Id, selected, own,
                 new MemberMode { ModeId = selected.Id, Enabled = true, Visible = true }, c.Candidate(bots))
             && MatchPolicy.Reciprocal(selected.Id, mine, facts[c.Profile.AccountId])
-            && MatchPolicy.FilterAllows(filter, mine, facts[c.Profile.AccountId], tier, Located(c.Profile.AccountId))).ToList();
+            && MatchPolicy.FilterAllows(filter, mine, facts[c.Profile.AccountId], tier, Located(c.Profile.AccountId))
+            && GpsFilterAllows(c.Profile.AccountId)).ToList();
         if (filter is { Sort: ExploreSort.Compatibility } && tier >= PlanTier.Plus)
             shown = shown.OrderByDescending(c => MatchPolicy.Shared(mine, facts[c.Profile.AccountId])).ToList();
+        // Q154: Near me puts the nearest visible band first (stable, so Recent or Compatibility orders within a band).
+        if (nearMe is not null) shown = shown.OrderBy(c => NearMePolicy.Rank(BandOf(c).Band)).ToList();
         shown = shown.Take(ExploreLimit).ToList();
         var identities = await IdentitiesAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), cancellationToken);
         var chips = await IntentionLabelsAsync(db, shown.Select(c => c.Profile.AccountId).ToList(), selected.Id, cancellationToken);
@@ -334,8 +385,7 @@ public static class ProfileEndpoints
             // D348: a band between home cities only when both show their distance; never a distance.
             return new ProfileCard(c.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(c.Profile.AccountId)?.DisplayName, c.Profile.DisplayName)!, about,
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
-                Distance(LocationPrivacy.HomeCityBand(Located(c.Profile.AccountId) ? MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId]) : null,
-                    c.Profile.ShowDistance, viewer.ShowDistance)),
+                Distance(BandOf(c)),
                 photos.Main?.GetValueOrDefault((c.Profile.AccountId, selected.Id)), visiting?.GetValueOrDefault(c.Profile.AccountId));
         }).ToList();
     }
@@ -384,14 +434,22 @@ public static class ProfileEndpoints
 
     /// <summary>How the viewer stands to a person under the market rules (D125): same open market, which modes the
     /// viewer's market offers, and in which shared modes the person is visiting the viewer's market.</summary>
-    public sealed record Reach(bool SameMarket, IReadOnlyCollection<string> MarketModes, IReadOnlySet<string> VisitingModes);
+    /// <param name="ByPresence">D346: the shared market comes from physical presence, not both homes, so home cities give no distance.</param>
+    public sealed record Reach(bool SameMarket, IReadOnlyCollection<string> MarketModes, IReadOnlySet<string> VisitingModes, bool ByPresence = false);
 
     public static async Task<Reach> ReachAsync(SwoovrDbContext db, IConfiguration configuration, MemberProfile viewer, Row person,
         IReadOnlyList<ConnectionMode> shared, List<ConnectionRequest> between, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var (market, modes) = await MarketEndpoints.HomeAsync(db, viewer, cancellationToken);
-        if (market is not { Open: true } || viewer.HomeGeoNameId is null) return new(false, [], new HashSet<string>());
         var bots = person.Profile.Bot ? await MarketEndpoints.BotMarketsAsync(db, person.Profile.AccountId, cancellationToken) : null;
+        // D346, #279: physical presence by a fresh reading also opens an open market, with that market's modes; no trip.
+        if (market is not { Open: true } || viewer.HomeGeoNameId is null
+            || !MarketAccess.SameMarket(market.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots))
+        {
+            if (await MarketEndpoints.SharedByPresenceAsync(db, viewer, person.Profile, bots, now, cancellationToken) is { } present)
+                return new(true, await db.MarketModes.Where(m => m.MarketId == present.Id).Select(m => m.ModeId).ToListAsync(cancellationToken), new HashSet<string>(), ByPresence: true);
+            if (market is not { Open: true } || viewer.HomeGeoNameId is null) return new(false, [], new HashSet<string>());
+        }
         var same = MarketAccess.SameMarket(market.Id, person.Profile.HomeMarketId, person.Profile.Bot, bots);
         var visiting = new HashSet<string>();
         if (!same)

@@ -182,6 +182,8 @@ public static class ProblemCodes
     public const string ArrivalTooEarly = "arrival-too-early";
     /// <summary>D149: no usable device location (missing, stale, from the future or too inaccurate).</summary>
     public const string LocationUnusable = "location-unusable";
+    /// <summary>D348, #279: Near me needs a fresh device reading first.</summary>
+    public const string LocationRequired = "location-required";
     /// <summary>D149: the device location is outside the destination market.</summary>
     public const string LocationOutsideMarket = "location-outside-market";
     /// <summary>D142, D149: the trip is cancelled, over, or in a market that isn't open.</summary>

@@ -109,6 +109,49 @@ public static class NearMeEndpoints
         });
     }
 
+    /// <summary>A stored reading that may be used now, with its cell opened.</summary>
+    public sealed record Present(MemberLocation Location, (double Latitude, double Longitude) Cell);
+
+    /// <summary>
+    /// D346, #279: the given members' usable readings (NearMePolicy.Fresh: under two hours old, taken after the latest sign
+    /// out everywhere), cells opened. A reading whose cell can't be opened is left out.
+    /// </summary>
+    public static async Task<Dictionary<Guid, Present>> PresenceAsync(SwoovrDbContext db, LocationKeys keys, IReadOnlyCollection<Guid> accounts,
+        DateTimeOffset now, CancellationToken cancellationToken, string? onlyMarket = null)
+    {
+        var cutoff = now - NearMePolicy.FreshFor;
+        var rows = await (from l in db.MemberLocations join a in db.Accounts on l.AccountId equals a.Id
+                          where accounts.Contains(l.AccountId) && l.ObservedAt > cutoff && (onlyMarket == null || l.MarketId == onlyMarket)
+                          select new { l, a.SessionsRevokedAt }).ToListAsync(cancellationToken);
+        return rows.Where(x => NearMePolicy.Fresh(x.l, x.SessionsRevokedAt, now) && keys.Open(x.l.SealedCell) is not null)
+            .ToDictionary(x => x.l.AccountId, x => new Present(x.l, keys.Open(x.l.SealedCell)!.Value));
+    }
+
+    /// <summary>
+    /// D346, #279: members present in one market by a fresh reading who chose to appear in nearby searches (checked now, not
+    /// when the reading was stored), other than the viewer. Account, mode, block and sanction rules are the caller's.
+    /// </summary>
+    public static async Task<Dictionary<Guid, Present>> AppearingInAsync(SwoovrDbContext db, LocationKeys keys, string marketId, Guid viewer,
+        DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var cutoff = now - NearMePolicy.FreshFor;
+        var ids = await (from l in db.MemberLocations join p in db.MemberProfiles on l.AccountId equals p.AccountId
+                         where l.MarketId == marketId && l.ObservedAt > cutoff && p.AppearInNearby && l.AccountId != viewer
+                         select l.AccountId).ToListAsync(cancellationToken);
+        return await PresenceAsync(db, keys, ids, now, cancellationToken, marketId);
+    }
+
+    /// <summary>D346: the open market each given member is present in by a fresh reading (no keys needed: the market is plaintext).</summary>
+    public static async Task<Dictionary<Guid, string>> PresentMarketsAsync(SwoovrDbContext db, IReadOnlyCollection<Guid> accounts, DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var cutoff = now - NearMePolicy.FreshFor;
+        var rows = await (from l in db.MemberLocations join a in db.Accounts on l.AccountId equals a.Id join m in db.Markets on l.MarketId equals m.Id
+                          where accounts.Contains(l.AccountId) && l.ObservedAt > cutoff
+                          select new { l, a.SessionsRevokedAt, m }).ToListAsync(cancellationToken);
+        return rows.Where(x => x.m.Open && NearMePolicy.Fresh(x.l, x.SessionsRevokedAt, now)).ToDictionary(x => x.l.AccountId, x => x.m.Id);
+    }
+
     /// <summary>Deletes a member's stored Near me reading now (Appear off, stop sharing, a sanction, a deletion request).</summary>
     public static Task<int> ForgetAsync(SwoovrDbContext db, Guid accountId, CancellationToken cancellationToken) =>
         db.MemberLocations.Where(l => l.AccountId == accountId).ExecuteDeleteAsync(cancellationToken);

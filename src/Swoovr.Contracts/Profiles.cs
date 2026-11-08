@@ -47,7 +47,8 @@ public sealed record LocationSettingsUpdate(bool AppearInNearby, bool ShowDistan
 public sealed record NearMeLocationView(string? PresentIn, DateTimeOffset FreshUntil);
 /// <summary>Explore for one mode in the viewer's active location (D125, D352), named by Market. Visiting is the checked-in
 /// trip's destination city while one is active; null when the home market is the active location.</summary>
-public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null, string? Visiting = null);
+/// <param name="Scope">D345: "active" (the default: the active location's market) or "nearMe" (where the member is by fresh device location).</param>
+public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null, string? Visiting = null, string Scope = "active");
 
 /// <summary>
 /// A mode another member shares with the viewer, with that member's intentions in it and where the two stand in it:

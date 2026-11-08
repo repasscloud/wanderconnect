@@ -70,4 +70,25 @@ public static class NearMePolicy
         location.ObservedAt > now - FreshFor && (sessionsRevokedAt is null || location.ObservedAt > sessionsRevokedAt);
 
     public static DateTimeOffset UsedUntil(MemberLocation location) => location.ObservedAt + FreshFor;
+
+    /// <summary>D348 (Q161 b): "nearby" (0–2 km) needs both readings accurate to 250 m and no more than 15 minutes old.</summary>
+    public static readonly TimeSpan NearbyFreshFor = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// D348, #279: the GPS band between two fresh readings' cells. Hidden unless the person appears in nearby searches and
+    /// shows their distance and the viewer shows theirs (Q152). "Nearby" falls back to unknown, never a neighbouring band,
+    /// when either reading is coarse or older than 15 minutes. Never a distance.
+    /// </summary>
+    public static (DistanceBand Band, DistanceBasis? Basis) GpsBand(MemberLocation viewer, (double Latitude, double Longitude) viewerCell,
+        MemberLocation person, (double Latitude, double Longitude) personCell, bool personAppears, bool personShowsDistance, bool viewerShowsDistance,
+        DateTimeOffset now)
+    {
+        if (!(personAppears && personShowsDistance && viewerShowsDistance)) return (DistanceBand.Hidden, null);
+        var band = LocationPrivacy.BandFor(PlaceNames.DistanceKm(viewerCell.Latitude, viewerCell.Longitude, personCell.Latitude, personCell.Longitude));
+        var precise = new[] { viewer, person }.All(l => l.Accuracy == LocationAccuracy.Fine && now - l.ObservedAt <= NearbyFreshFor);
+        return band == DistanceBand.Nearby && !precise ? (DistanceBand.Unknown, null) : (band, DistanceBasis.Gps);
+    }
+
+    /// <summary>D348 ordering (Q154): nearest visible band first; hidden and unknown last. Never orders by a hidden distance.</summary>
+    public static int Rank(DistanceBand band) => band is DistanceBand.Hidden or DistanceBand.Unknown ? int.MaxValue : (int)band;
 }
