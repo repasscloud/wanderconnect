@@ -5,7 +5,7 @@
 // tests/discovery/market.browser.cjs. Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, elevatedRootToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025, GLENELG = 2070830, MELBOURNE = 2158177;
 const everyone = ['man', 'woman', 'non-binary', 'another']; // "prefer not to say" is never a show-me value (D161)
@@ -17,7 +17,7 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
   let passed = 0; const pass = () => passed++;
   const output = process.env.SWOOVR_SCREENSHOTS;
   try {
-    const root = await rootAdminToken(browser);
+    const root = await elevatedRootToken(browser);
     const names = ['ana', 'bob', 'cal', 'dex', 'eve', 'fay', 'gus', 'hal', 'ivy', 'tom', 'gle', 'pns', 'oth'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('match-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));

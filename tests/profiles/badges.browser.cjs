@@ -5,7 +5,7 @@
 // Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, elevatedRootToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -17,7 +17,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await cli('beta', 'add', ...people.map(p => p.email));
     const tokens = {};
     for (const [key, member] of Object.entries({ vic, sam, fay, bo })) tokens[key] = await memberToken(browser, member);
-    const root = await rootAdminToken(browser);
+    const root = await elevatedRootToken(browser);
     const account = async key => sql(`SELECT id FROM accounts WHERE subject = '${claims(tokens[key]).sub}'`);
     const pid = {};
     const setUp = async (key, name, modes) => {

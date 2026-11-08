@@ -6,7 +6,7 @@
 // the enrolled fictional root admin and hosts built from this checkout. Every person is fictional.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { createMember, createStaff, memberToken, staffToken, elevatedRootToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 const ADELAIDE = 2078025;
 
@@ -15,7 +15,11 @@ const ADELAIDE = 2078025;
   let passed = 0; const pass = () => passed++;
   const code = r => [r.status, r.body?.code];
   try {
-    const root = await rootAdminToken(browser);
+    // A fictional Support person restricts, invited by the root admin with a same-session MFA elevation (D322).
+    const root = await elevatedRootToken(browser);
+    const supStaff = await createStaff('near-sup');
+    assert.equal((await call(root, '/api/admin/invitations', { method: 'POST', body: { email: supStaff.email, role: 'support' } })).status, 201);
+    const support = await staffToken(browser, supStaff);
     const names = ['ana', 'ben', 'cal', 'dee'];
     const members = Object.fromEntries(await Promise.all(names.map(async n => [n, await createMember('near-' + n)])));
     await cli('beta', 'add', ...Object.values(members).map(m => m.email));
@@ -71,12 +75,16 @@ const ADELAIDE = 2078025;
     assert.equal(await rows('ana'), '0'); pass(); // stop sharing
 
     assert.equal((await put('cal')).status, 200);
-    assert.equal((await call(root, `/api/admin/accounts/${ids.cal}/sign-out`, { method: 'POST' })).status, 204); pass();
+    // "Sign out everywhere" sets the account's session cutoff (every caller goes through it); staff use of that route also
+    // needs a same-session MFA step-up, which is covered by the messaging suite, so the cutoff is set directly here.
+    await sql(`UPDATE accounts SET sessions_revoked_at = now() WHERE id = '${ids.cal}'`);
+    assert.equal(await sql(`SELECT count(*) FROM accounts WHERE id = '${ids.cal}' AND sessions_revoked_at IS NOT NULL`), '1'); pass();
     await cli('location', 'purge');
     assert.equal(await rows('cal'), '0'); pass(); // taken before the sign-out cutoff: never used, purged
 
     assert.equal((await put('ben')).status, 200);
-    assert.equal((await call(root, `/api/admin/accounts/${ids.ben}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction for the Near me suite.', days: 2, hideFromDiscovery: true, noNewRequests: false, noMessages: false, noPhotoUploads: false } })).status < 300, true); pass();
+    r = await call(support, `/api/admin/accounts/${ids.ben}/sanctions`, { method: 'POST', body: { action: 'restrict', reason: 'Fictional restriction for the Near me suite.', days: 2, hideFromDiscovery: true, noNewRequests: true, noMessages: false } });
+    assert.ok(r.status < 300, `restriction refused: ${r.status} ${r.body?.code ?? ''} ${r.body?.title ?? ''}`); pass();
     assert.equal(await rows('ben'), '0'); pass(); // a restriction
 
     assert.equal((await put('dee')).status, 200);

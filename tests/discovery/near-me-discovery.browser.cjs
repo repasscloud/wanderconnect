@@ -36,7 +36,8 @@ const ADELAIDE = 2078025, MELBOURNE = 2158177;
     const nearMe = who => call(tokens[who], '/api/explore?mode=friends&scope=nearMe');
     const ids_ = r => r.body.people.map(p => p.id);
     const card = (r, who) => r.body.people.find(p => p.id === pid[who]);
-    const regate = who => sql(`UPDATE member_locations SET accepted_at = now() - interval '6 minutes' WHERE account_id = '${ids[who]}'`);
+    // Lets the next reading through the five-minute gate, and dates the previous one so a move isn't an impossible speed.
+    const regate = who => sql(`UPDATE member_locations SET accepted_at = now() - interval '6 minutes', observed_at = now() - interval '6 minutes' WHERE account_id = '${ids[who]}'`);
 
     // No reading yet: Near me asks for one; the active scope (home Melbourne) isn't open.
     assert.deepEqual(code(await nearMe('mel')), [409, 'location-required']); pass();

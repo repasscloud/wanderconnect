@@ -51,9 +51,11 @@ async function createStaff(label) {
   const realmApi = await realmApiFor('swoovr-staff-dev');
   const email = owned?ownedSupport.fixtureEmail(owned,label,true):`fictional.staff.${label}.${Date.now()}.${crypto.randomBytes(3).toString('hex')}@example.test`;
   const password = 'Correct-horse-' + crypto.randomBytes(6).toString('hex');
+  // Staff MFA enrolment is mandatory (#193): each fictional staff person gets a ready-made authenticator, as the root fixture does.
+  const totpSecret = Array.from(crypto.randomBytes(32), byte => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[byte % 32]).join('');
   await realmApi('/users', 'POST', { username: email, email, firstName: 'Fictional', lastName: 'Staff', enabled: true, emailVerified: true,
-    credentials: [{ type: 'password', value: password, temporary: false }] });
-  return { email, password };
+    credentials: [{ type: 'password', value: password, temporary: false }, ownedSupport.otpCredential(totpSecret)] });
+  return { email, password, totpSecret };
 }
 
 /** Signs in through the real Keycloak page and exchanges the code for an access token. */
@@ -128,11 +130,25 @@ async function appToken(browser, member) {
   return token;
 }
 
-/** A staff-realm token through the admin app's client (password only; OTP is optional for staff other than the root admin). */
+/** A staff-realm token through the admin app's client: password, then the staff member's one-time code when Keycloak asks (#193). */
 const staffToken = (browser, staff) => codeToken(browser, {
   realm: 'swoovr-staff-dev', clientId: staffClientId, secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
-  fill: async page => { await page.fill('#username', staff.email); await page.fill('#password', staff.password); await page.click('#kc-login'); },
+  fill: async page => {
+    await page.fill('#username', staff.email); await page.fill('#password', staff.password); await page.click('#kc-login');
+    await fillStaffOtp(page, staff);
+  },
 });
+
+/** After the password page: a fictional staff member's one-time code, when Keycloak asks for it (#193). */
+async function fillStaffOtp(page, staff) {
+  await page.waitForLoadState();
+  if (!staff.totpSecret || !await page.locator('#otp').count()) return;
+  const { totp } = await import('../../scripts/auth/totp.mjs');
+  // Keycloak refuses a code reused within its window, so wait for a fresh 30-second step.
+  while (Math.floor(Date.now() / 30000) <= (staff.lastOtpStep ?? -1)) await sleep(500);
+  staff.lastOtpStep = Math.floor(Date.now() / 30000);
+  await page.fill('#otp', totp(staff.totpSecret)); await page.click('#kc-login');
+}
 
 /** The local root admin (password + OTP). Needs `./scripts/docker-local.sh root-admin` and an enrolled TOTP. */
 async function rootAdminToken(browser) {
@@ -145,6 +161,59 @@ async function rootAdminToken(browser) {
     realm: 'swoovr-staff-dev', clientId: staffClientId, secretKey: 'SWOOVR_STAFF_WEB_SECRET', redirect: admin + '/signin-oidc',
     fill: async page => fillRootAdmin(page, fixture, fixturePath, totp),
   });
+}
+
+/**
+ * D322 (#193): a root admin token whose Keycloak session carries a completed same-session MFA elevation, the way the admin
+ * app does it: sign in, begin the challenge, re-authenticate in the same session (prompt=login, max_age=0: password and a
+ * fresh one-time code), then complete with the fresh token. Admin and Trust & Safety mutations need it; it lasts minutes.
+ */
+async function elevatedRootToken(browser) {
+  const { totp } = await import('../../scripts/auth/totp.mjs');
+  const fixturePath = owned?.rootFixture||'.local/swoovr-root-admin.json';
+  const fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'));
+  if (owned && fixture.runId !== owned.runId) throw Error('Owned root fixture does not match this run.');
+  const realm = 'swoovr-staff-dev', redirect = admin + '/signin-oidc';
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    let code;
+    page.on('request', r => { if (r.url().startsWith(redirect)) code = new URL(r.url()).searchParams.get('code'); });
+    await page.route(redirect + '**', route => route.fulfill({ body: 'captured' }));
+    const exchange = async (extra, fill) => {
+      code = undefined;
+      const verifier = crypto.randomBytes(32).toString('base64url');
+      const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+      await page.goto(`${keycloak}/realms/${realm}/protocol/openid-connect/auth?` + new URLSearchParams({ client_id: staffClientId, response_type: 'code', scope: 'openid',
+        redirect_uri: redirect, code_challenge: challenge, code_challenge_method: 'S256', state: 's', nonce: crypto.randomBytes(8).toString('hex'), ...extra }));
+      await fill(page);
+      for (let i = 0; i < 100 && !code; i++) await sleep(100);
+      if (!code) throw new Error('No authorization code for the root admin');
+      const response = await fetch(`${keycloak}/realms/${realm}/protocol/openid-connect/token`, { method: 'POST', body: new URLSearchParams({
+        grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: staffClientId, client_secret: await localEnv('SWOOVR_STAFF_WEB_SECRET'), code_verifier: verifier }) });
+      const token = (await response.json()).access_token;
+      if (!token) throw new Error('Token exchange failed for the root admin');
+      return token;
+    };
+    const first = await exchange({}, p => fillRootAdmin(p, fixture, fixturePath, totp));
+    const begin = await call(first, '/api/admin/mfa/elevation/begin', { method: 'POST' });
+    if (begin.status !== 200) throw new Error(`MFA elevation begin: ${begin.status} ${begin.body?.code ?? ''}`);
+    // Keycloak's same-session reauthentication form may omit the username field.
+    const second = await exchange({ prompt: 'login', max_age: '0' }, async p => {
+      if (await p.locator('#username').isEditable().catch(() => false)) await p.fill('#username', fixture.username);
+      await p.fill('#password', fixture.password); await p.click('#kc-login');
+      await p.waitForSelector('#otp');
+      while (Math.floor(Date.now() / 30000) <= (fixture.lastOtpStep ?? -1)) await sleep(500);
+      fixture.lastOtpStep = Math.floor(Date.now() / 30000);
+      await fs.writeFile(fixturePath, JSON.stringify(fixture), { mode: 0o600 });
+      await p.fill('#otp', totp(fixture.totpSecret)); await p.click('#kc-login');
+    });
+    const done = await call(second, '/api/admin/mfa/elevation/complete', { method: 'POST', body: { challenge: begin.body.challenge } });
+    if (done.status !== 200) throw new Error(`MFA elevation complete: ${done.status} ${done.body?.code ?? ''}`);
+    return second;
+  } finally {
+    await context.close();
+  }
 }
 
 /** Fills the staff realm's password and OTP pages for the fictional root admin (also used to sign in to the admin app). */
@@ -239,5 +308,5 @@ async function mailTo(address) {
   return Promise.all((list.messages ?? []).map(async m => (await (await fetch(`http://127.0.0.1:8025/api/v1/message/${m.ID}`)).json()).Text));
 }
 
-module.exports = { keycloak, api, web, admin, memberClientId,staffClientId,ownedRunId:owned?.runId,expectOwnedRegistration,claimOwnedRegistration,sleep, claims, localEnv, createMember, createStaff, memberToken, appToken, staffToken, rootAdminToken, fillRootAdmin,
+module.exports = { keycloak, api, web, admin, memberClientId,staffClientId,ownedRunId:owned?.runId,expectOwnedRegistration,claimOwnedRegistration,sleep, claims, localEnv, createMember, createStaff, memberToken, appToken, staffToken, fillStaffOtp, rootAdminToken, elevatedRootToken, fillRootAdmin,
   cli, sql, call, membersRealm, mailTo, matchReady, elevate };

@@ -4,7 +4,7 @@
 // build for operator commands. Every member is a fictional adult created for this run.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { web, createMember, memberToken, rootAdminToken, elevatedRootToken, cli, sql, call, claims, matchReady } = require('../auth/local-tokens.cjs');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -25,11 +25,13 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
       { id: '00000016-0001-4000-8000-000000000001', label: 'Long-term relationship' }, { id: '00000016-0004-4000-8000-000000000010', label: 'Knowledge sharing' }]); pass();
     const chip = (mode, n) => modes.body.find(m => m.id === mode).intentions[n - 1].id;
     assert.equal((await call(null, '/api/modes')).status, 401); pass();
-    assert.equal((await call(tokens.dee, '/api/modes')).body.code, 'beta-not-enrolled'); pass();
+    // D335: in invite-only mode an uninvited member is refused when their account would be created.
+    assert.equal((await call(tokens.dee, '/api/modes')).body.code, 'registration-closed'); pass();
 
     // Own profile starts empty with every mode off.
     let mine = await call(tokens.ana, '/api/me/profile');
-    assert.equal(mine.status, 200); assert.equal(mine.body.displayName, null);
+    // D317: confirming registered names (the helper confirms "Fictional") sets the initial public name when there is none.
+    assert.equal(mine.status, 200); assert.equal(mine.body.displayName, 'Fictional');
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', false, false], ['friends', false, false], ['activities', false, false], ['business', false, false]]); pass();
 
     // Core profile: trimmed, limits and control characters refused, nothing stored in the audit log.
@@ -50,7 +52,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     mine = await call(tokens.ana, '/api/me/modes/friends', { method: 'PUT', body: { enabled: true, visible: false } });
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', true, true], ['friends', true, false], ['activities', false, false], ['business', false, false]]); pass();
     mine = await call(tokens.ana, '/api/me/modes/friends', { method: 'PUT', body: { enabled: false, visible: false } });
-    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [], about: null, shareCoreAbout: false }); pass(); // turning one off leaves the other
+    assert.deepEqual(mine.body.modes.find(m => m.id === 'dating'), { id: 'dating', enabled: true, visible: true, intentions: [], about: null, shareCoreAbout: false, displayName: null }); pass(); // turning one off leaves the other (D301: per-mode name, unset)
     for (const id of ['travel', 'connect', 'DATING']) {
       const bad = await call(tokens.ana, `/api/me/modes/${id}`, { method: 'PUT', body: { enabled: true, visible: true } });
       assert.deepEqual([bad.status, bad.body?.code], [404, 'unknown-mode'], id); pass();
@@ -99,7 +101,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'badges', 'displayName', 'distance', 'gender', 'id', 'intentions', 'photo', 'pronouns']); pass(); // D203: the main photo (null without one) // D348: a band object, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'badges', 'displayName', 'distance', 'gender', 'id', 'intentions', 'photo', 'pronouns', 'visiting']); pass(); // D352: visiting is null unless checked in here // D203: the main photo (null without one) // D348: a band object, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
     assert.ok(!JSON.stringify(benCard).includes('1990-') && !('dateOfBirth' in benCard)); pass();
     assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.
@@ -151,7 +153,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     await sql(`UPDATE member_profiles SET bot = true WHERE public_id = '${benCard.id}'`);
     assert.ok(!ids(await call(tokens.ana, '/api/explore?mode=dating')).includes(pid.ben)); pass(); // Q11: a bot with no authorised modes stays out (badges.browser.cjs covers authorised bots)
     await sql(`UPDATE member_profiles SET bot = false WHERE public_id = '${benCard.id}'`);
-    const correction=await call(await rootAdminToken(browser),`/api/admin/accounts/${benAccount}/dob-correction`,{method:'POST',body:{reason:'Fictional underage correction acceptance'}});
+    const correction=await call(await elevatedRootToken(browser),`/api/admin/accounts/${benAccount}/dob-correction`,{method:'POST',body:{reason:'Fictional underage correction acceptance'}});
     assert.equal(correction.status,200);pass();
     const underage=await call(tokens.ben, '/api/me/age', { method: 'PUT', body: { dateOfBirth: new Date(Date.now() - 16.5 * 365.25 * 86400000).toISOString().slice(0, 10), confirmed:true } }); // authorised correction still enforces D40
     assert.equal(underage.body.code,'account-locked');pass();
@@ -232,7 +234,8 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     // Signed out, the pages say so and load nothing.
     const guest = await (await browser.newContext()).newPage();
     await guest.goto(web + '/explore');
-    assert.match(await guest.locator('main').innerText(), /Sign in to see who's on Swoovr/); pass();
+    // Since #253/#254 a signed-out visitor sees the public page; what matters is that no Explore data loads.
+    assert.equal(await guest.locator('[data-explore], [data-tile], .profile-tile').count(), 0); pass();
     await context.close();
     console.log(`PASS: connection modes acceptance, ${passed} checks (catalogue from data, forty intention chips with the five limit, retired chips kept and hidden, chips on tiles and profiles, own profile and text limits, several independent modes, unknown/Travel modes and made-up intentions refused, Explore both-ways visibility, public ids, account state and beta always win, unauthorised bots excluded, WebAssembly profile/Explore/person pages through /bff/ only).`);
   } finally {

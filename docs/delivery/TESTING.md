@@ -81,13 +81,13 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | accounts | `tests/auth/accounts.browser.cjs` | 121 |
 | members | `tests/auth/members.browser.cjs` | 50 |
 | components | `tests/ui/components.browser.cjs` | 60 |
-| modes | `tests/profiles/modes.browser.cjs` | 93 |
+| modes | `tests/profiles/modes.browser.cjs` | 96 |
 | badges | `tests/profiles/badges.browser.cjs` | 58 |
 | requests | `tests/connections/requests.browser.cjs` | 104 |
 | travel | `tests/travel/travel.browser.cjs` | 106 |
-| Traveller Search | `tests/travel/traveller-search.browser.cjs` | 108 |
+| Traveller Search | `tests/travel/traveller-search.browser.cjs` | 122 |
 | market | `tests/discovery/market.browser.cjs` | 148 |
-| matching | `tests/discovery/matching.browser.cjs` | 80 |
+| matching | `tests/discovery/matching.browser.cjs` | 86 |
 | moderation | `tests/moderation/moderation.browser.cjs` | 144 |
 | serious incidents | `tests/moderation/serious.browser.cjs` | 61 |
 | legal holds | `tests/evidence/holds.browser.cjs` | 83 |
@@ -101,9 +101,9 @@ SWOOVR_REAUTH_SECONDS=45 SWOOVR_SCREENSHOTS=$PWD/.local/suite-shots SWOOVR_PLAYW
 | law enforcement | `tests/evidence/law-enforcement.browser.cjs` | 130 |
 | staff access | `tests/staff/access.browser.cjs` | 66 |
 | security operations | `tests/security/operations.browser.cjs` | 36 |
-| location privacy | `tests/discovery/location-privacy.browser.cjs` | 28 |
-| Near me store (#278) | `tests/discovery/near-me.browser.cjs` | 28 (not yet run) |
-| Near me discovery (#279) | `tests/discovery/near-me-discovery.browser.cjs` | 26 (not yet run) |
+| location privacy | `tests/discovery/location-privacy.browser.cjs` | 35 |
+| Near me store (#278) | `tests/discovery/near-me.browser.cjs` | 26 |
+| Near me discovery (#279) | `tests/discovery/near-me-discovery.browser.cjs` | 23 |
 | privacy notice | `tests/privacy/notice.browser.cjs` | 10 |
 | photos | `tests/media/photos.browser.cjs` | 119 |
 | Safety & Support | `tests/safety/resources.browser.cjs` | 58 |

@@ -12,7 +12,7 @@ SWOOVR_PLAYWRIGHT_PATH=/Applications/ChatGPT.app/Contents/Resources/cua_node/lib
 node tests/auth/run-owned.cjs
 ```
 
-The finite explicit selector accepts `members`, `onboarding`, `mode-names`, `mode-photos`, `review-workflows`, `accounts`, `didit`, `phone`, `deletion` and `messaging-lifetime`; there is no default suite set and no legacy meeting flow selected implicitly. Unknown, duplicate and path-shaped selectors refuse before provisioning. The `members` suite exercises registration, reset/passkey and sign-in; it uses the cloned member client in its handwritten code exchanges.
+The finite explicit selector accepts `members`, `onboarding`, `mode-names`, `mode-photos`, `review-workflows`, `accounts`, `didit`, `phone`, `deletion`, `messaging-lifetime` and (since 8 November 2026, #257) `modes`, `badges`, `matching`, `location-privacy`, `traveller-search`, `near-me` and `near-me-discovery`; there is no default suite set and no legacy meeting flow selected implicitly. Unknown, duplicate and path-shaped selectors refuse before provisioning. The `members` suite exercises registration, reset/passkey and sign-in; it uses the cloned member client in its handwritten code exchanges.
 
 `messaging-lifetime` is the focused [#240 browser regression](ACCOUNT-DETAIL.md#browser-messaging-across-token-expiry-240-8-november-2026).
 Use the command above with `SWOOVR_OWNED_SUITES=messaging-lifetime`; allow about seven minutes for provisioning,
