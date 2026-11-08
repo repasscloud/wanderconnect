@@ -329,7 +329,7 @@ static class PersistenceChecks
         {
             var first = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
             var again = await Swoovr.Infrastructure.Places.GeoNamesImport.ImportAsync(db, folder);
-            check("sample imported, and importing again changes nothing", first == again && await db.GeoCities.CountAsync() == first.Cities && first.Cities == 24
+            check("sample imported, and importing again changes nothing", first == again && await db.GeoCities.CountAsync() == first.Cities && first.Cities == 25 /* 6c700f5 added Magill */
                 && await db.GeoCityNames.CountAsync() == first.Names);
             var adelaide = await db.GeoCities.SingleAsync(c => c.GeoNameId == 2078025);
             check("city with region, country and time zone", adelaide is { Name: "Adelaide", Admin1Name: "South Australia", CountryName: "Australia", TimeZone: "Australia/Adelaide" });

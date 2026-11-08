@@ -77,16 +77,17 @@ public static class ProviderSetup
             // D337 (#224): helpdesk retention runs inside the same hourly retention run and `retention purge`.
             services.TryAddScoped<Ticketing.TicketingActorFactory>();
             services.AddScoped<Ticketing.HelpdeskRetention>();
+            // D349, #281: the Home City check job needs the database (the worker and `location home-city-check`).
+            services.AddScoped<Swoovr.Api.Travel.HomeCityCheckJob>();
             services.AddScoped<Retention.RetentionJobs>();
         }
         services.AddScoped<Microsoft.EntityFrameworkCore.Diagnostics.ISaveChangesInterceptor, Retention.PreservationSaveInterceptor>();
         services.AddScoped<PhoneKeys>();
         services.AddScoped<ContactHistoryKeys>();
         services.AddScoped<Swoovr.Api.Travel.LocationKeys>();
-        // D349, #281: accepted readings feed the Home City check's daily outcomes; the job runs from the worker and the CLI.
+        // D349, #281: accepted readings feed the Home City check's daily outcomes.
         services.AddScoped<Swoovr.Api.Travel.IAcceptedReadingObserver, Swoovr.Api.Travel.HomeCityDayRecorder>();
-        services.TryAddScoped<Ticketing.TicketingActorFactory>();
-        services.AddScoped<Swoovr.Api.Travel.HomeCityCheckJob>();
+
         services.AddScoped<EmailRetirementCommands>();
         // D189: legal holds and the evidence store (keys from configuration, else derived from the founder secret).
         services.AddScoped<Swoovr.Api.Evidence.EvidenceKeys>();

@@ -1,7 +1,7 @@
-// Local acceptance for slice T (D142, D149, D150, D153, D164): Traveller Search only through one's own live, visible
+// Local acceptance for slice T (D142, D149, D164; D349 for home checks): Traveller Search only through one's own live, visible
 // trip within 14 days of arrival; browsing before arrival but no requests; confirm-arrival from a fresh device location
 // checked by the API; contact after arrival; a changed or cancelled trip ending it; support confirming an arrival after
-// review; home-location checks that flag for an admin's review and never punish; no coordinates, IP addresses or places
+// review; "Check my location matches" feeding the Home City check's daily outcome (D349) and never punishing; no coordinates, IP addresses or places
 // stored or audited. Negative cases: other members' trips and ids, other markets, blocked pairs, restricted members,
 // bots, staff, unknown and malformed ids, tampered bodies. Ends with the web Travel page in Edge with a granted
 // geolocation. Same local stack as tests/discovery/market.browser.cjs (GeoNames full import); every member is a
@@ -220,36 +220,37 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     assert.deepEqual([r.status, r.body[0].arrivalState, r.body[0].arrivalMethod, r.body[0].market, 'city' in r.body[0]], [200, 'arrived', 'supportReview', 'adelaide', false]); pass();
     assert.equal((await call(tokens.trd, '/api/admin/accounts/' + ids.trd + '/trips')).status, 403); pass();
 
-    // Home-location checks (D150): consistent inside, inconsistent outside, flagged for review after three days, never punished.
+    // D349, #281 (replaces the D150/D164 flag and D153's IP evidence): "Check my location matches" records that day's
+    // Home City outcome (25 km vicinity, for every Home City whether or not it's in a market) and nothing else.
     const home = (who, body, headers = {}) => fetch(api + '/api/me/home-check', { method: 'POST',
       headers: { Authorization: 'Bearer ' + tokens[who], 'Content-Type': 'application/json', 'Swoovr-Version': '2026-10-28', ...headers }, body: JSON.stringify(body) })
       .then(async res => ({ status: res.status, body: await res.json().catch(() => null) }));
+    const dayOf = who => sql(`SELECT string_agg(outcome, ',') FROM home_city_days WHERE account_id = '${ids[who]}'`);
     assert.deepEqual([(await home('lou', here())).body.outcome], ['consistent']); pass();
+    assert.equal(await dayOf('lou'), 'Home'); pass();
     assert.deepEqual(code(await home('lou', here({ accuracyMetres: 9000 }))), [400, 'location-unusable']); pass();
-    assert.deepEqual((await home('trb', here())).body.outcome, 'not-checked'); pass(); // Melbourne is in no market
-    assert.deepEqual((await home('lia', melbourne(), { 'cf-iplatitude': '-37.8', 'cf-iplongitude': '144.9' })).body.outcome, 'inconsistent'); pass();
-    assert.equal(await sql(`SELECT count(*) FROM home_location_checks WHERE account_id = '${ids.lia}' AND method = 'ApproximateIp'`), '0'); pass(); // headers ignored locally
-    await sql(`INSERT INTO home_location_checks (id, account_id, checked_at, method, home_market_id, outcome) VALUES
-      (gen_random_uuid(), '${ids.lia}', now() - interval '2 days', 'Device', 'adelaide', 'Inconsistent'), (gen_random_uuid(), '${ids.lia}', now() - interval '1 day', 'Device', 'adelaide', 'Inconsistent')`);
-    assert.equal((await call(sup, `/api/admin/accounts/${ids.lia}/summary`)).body.homeReviewFlaggedAt, null); pass();
-    assert.equal((await home('lia', melbourne())).body.outcome, 'inconsistent'); pass();
+    assert.deepEqual((await home('trb', here())).body.outcome, 'inconsistent'); pass(); // a Melbourne Home City, a reading in Adelaide
+    assert.deepEqual((await home('lia', melbourne(), { 'cf-iplatitude': '-34.9', 'cf-iplongitude': '138.6' })).body.outcome, 'inconsistent'); pass(); // IP headers never count
+    assert.equal(await dayOf('lia'), 'Away'); pass();
+    assert.equal((await home('lia', here())).body.outcome, 'consistent'); pass(); // any home reading makes it a home day
+    assert.equal(await dayOf('lia'), 'Home'); pass();
+    assert.equal((await home('lia', melbourne())).body.outcome, 'inconsistent'); pass(); // this reading is away,
+    assert.equal(await dayOf('lia'), 'Home'); pass(); // but the day stays a home day
     r = await call(sup, `/api/admin/accounts/${ids.lia}/summary`);
-    assert.ok(r.body.homeReviewFlaggedAt && r.body.inconsistentHomeChecks === 4 && r.body.status === 'active'); pass();
+    assert.ok(r.body.status === 'active' && r.body.homeCityCheck && !('homeReviewFlaggedAt' in r.body) && !('inconsistentHomeChecks' in r.body)); pass();
     assert.equal((await call(tokens.lia, '/api/explore?mode=friends')).status, 200); pass(); // never suspended or hidden
     assert.equal((await call(tokens.lou, `/api/profiles/${pid.lia}`)).status, 200); pass();
-    assert.equal((await call(sup, `/api/admin/accounts/${ids.lia}/home-review/clear`, { method: 'POST', body: { reason: 'x' } })).status, 403); pass(); // admins only
-    assert.equal((await call(root, `/api/admin/accounts/${ids.lia}/home-review/clear`, { method: 'POST', body: { reason: '' } })).status, 400); pass();
-    r = await call(root, `/api/admin/accounts/${ids.lia}/home-review/clear`, { method: 'POST', body: { reason: 'Fictional: moved recently.' } });
-    assert.deepEqual([r.status, r.body.homeReviewFlaggedAt, r.body.inconsistentHomeChecks], [200, null, 0]); pass();
-    // A member with a confirmed arrival elsewhere is travelling: their home check isn't counted.
+    assert.equal((await call(root, `/api/admin/accounts/${ids.lia}/home-review/clear`, { method: 'POST', body: { reason: 'Fictional.' } })).status, 404); pass(); // retired
+    // A member checked in elsewhere is travelling: the day is excluded.
     const darTrip = await trip('dar', ADELAIDE, plus(0), plus(2));
     assert.equal((await arrive('dar', darTrip.id, here())).body.arrivalState, 'arrived'); pass();
     assert.equal((await home('dar', here())).body.outcome, 'not-checked'); pass();
+    assert.equal(await dayOf('dar'), 'Excluded'); pass();
 
     // Nothing about where anyone is reaches the audit log or the schema.
     assert.equal(await sql(`SELECT count(*) FROM audit_entries WHERE detail ~ '(-3[47]\\.[0-9]|13[08]\\.[0-9]|144\\.9|Melbourne|Adelaide, South)'`), '0'); pass();
-    assert.equal(await sql(`SELECT count(*) FROM information_schema.columns WHERE table_name IN ('trips', 'home_location_checks') AND (column_name ~ '(lat|lon|accuracy|ip_|address|city)')`), '0'); pass();
-    assert.ok(Number(await sql(`SELECT count(*) FROM audit_entries WHERE action IN ('trip.arrived', 'trip.arrival-refused', 'trip.arrival-reviewed', 'home-check.recorded', 'home-review.flagged', 'home-review.cleared')`)) >= 6); pass();
+    assert.equal(await sql(`SELECT count(*) FROM information_schema.columns WHERE table_name IN ('trips', 'home_city_days', 'home_city_checks') AND (column_name ~ '(lat|lon|accuracy|ip_|address|city|km|distance|place)')`), '0'); pass();
+    assert.ok(Number(await sql(`SELECT count(*) FROM audit_entries WHERE action IN ('trip.arrived', 'trip.arrival-refused', 'trip.arrival-reviewed', 'home-check.recorded')`)) >= 6); pass();
 
     // Web: the Travel page in Edge with the browser's location permission (D152).
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, geolocation: { latitude: -34.9285, longitude: 138.6007, accuracy: 20 }, permissions: ['geolocation'] });

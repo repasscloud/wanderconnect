@@ -36,7 +36,7 @@
             <dl class="ad-dl">
                 <div><dt>Home market</dt><dd data-home-market="@(Account.HomeMarket ?? "none")">@(Account.HomeMarket ?? "None")@(Account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd>
                     <dd class="ad-act">@if (Account.HomeMarketMovedAt is not null) { if (Permissions?.EditLocation == true) {<button type="button" class="ui-button-ghost" data-dialog-open="home-wait" data-op="home-override">Lift wait</button>} else {<RoleNote />} }</dd></div>
-                @* D349, #281: the scheduled Home City check, in observed days only. It never changes the Home City or restricts anyone. *@
+                @* D349, issue 281: the scheduled Home City check, in observed days only. It never changes the Home City or restricts anyone. *@
                 <div><dt>Home City check</dt>
                     <dd data-home-city-latest="@(Account.HomeCityCheck?.Latest?.Result ?? "none")">@CheckText(Account.HomeCityCheck)
                         @if (Account.HomeCityCheck?.Latest is { TicketId: { } ticket, ItemReference: { } reference }) {<span class="ui-sub"> · <a href="/tickets/@ticket" data-home-city-item="@reference">@reference</a></span>}

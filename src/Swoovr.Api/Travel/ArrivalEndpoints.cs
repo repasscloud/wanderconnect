@@ -92,8 +92,8 @@ public static class ArrivalEndpoints
 
         // D349, #281 (supersedes the D150/D164 flag and D153's IP evidence): "Check my location matches" sends one device
         // reading, which feeds that day's Home City outcome like an accepted Near me reading. The reading is dropped; the
-        // answer is the day's outcome so far ("consistent" home, "inconsistent" away, "not-checked" on a checked-in trip or
-        // without a Home City). Nothing is flagged, restricted or changed.
+        // answer is this reading's outcome ("consistent" home, "inconsistent" away, "not-checked" on a checked-in trip or
+        // without a Home City), while the day keeps the higher-precedence one. Nothing is flagged, restricted or changed.
         api.MapPost("/me/home-check", async (LocationCheck? reading, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration,
             TimeProvider clock, CancellationToken cancellationToken) =>
         {

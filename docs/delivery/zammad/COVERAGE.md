@@ -23,7 +23,7 @@ Every row of the original catalogue (`swoovr-zammad-integration-review-prompt.md
 | R010 | Done | `ITicketingProvider`/`ITicketingWorkspaceProvider` (Domain), Zammad adapters (Infrastructure), Contracts + typed clients |
 | R011 | Done | `TK-{id}` request references, `SW-XXXXXX` report references unchanged; no collision or renumbering (portable check) |
 | R012 | Done | Private notes/attachments excluded from member/guest projections, notices and errors (runtime, guest, journey, events checks) |
-| R013 | Done | Queue + `swoovr_category/subcategory/sensitivity/resolution` attributes, priority, source (`swoovr_source`), case links; 13 groups only |
+| R013 | Done | Queue + `swoovr_category/subcategory/sensitivity/resolution` attributes, priority, source (`swoovr_source`), case links; 14 groups only ("Home City checks" added by D349/D354) |
 | R014 | Done | Server-derived customer; raw `From` ignored; staff create-on-behalf by exact lookup (runtime checks) |
 | R015 | Done | Per-staff Zammad grants mirrored from Swoovr roles AND Swoovr role/conflict checks on every read/write/download; transfer removes access immediately; drift in Zammad reverted (runtime, D327) |
 | R016 | Done | Follow-up follows the queue's Zammad policy; closed requests show "start a new request" (`canReply`); journey shows Closed |

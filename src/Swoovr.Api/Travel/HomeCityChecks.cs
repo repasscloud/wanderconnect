@@ -50,7 +50,7 @@ public sealed class HomeCityDayRecorder(IConfiguration configuration) : IAccepte
     public async Task ObserveAsync(SwoovrDbContext db, MemberProfile member, LocationReading reading, DateTimeOffset now, CancellationToken cancellationToken) =>
         await RecordAsync(db, member, reading, now, HomeCityCheckSettings.Read(configuration), cancellationToken);
 
-    /// <summary>The day's outcome after this reading, or null when the member has no Home City.</summary>
+    /// <summary>This reading's outcome (the day keeps the higher-precedence one), or null when the member has no Home City.</summary>
     public static async Task<HomeCityDayOutcome?> RecordAsync(SwoovrDbContext db, MemberProfile member, LocationReading reading, DateTimeOffset now,
         HomeCityCheckOptions options, CancellationToken cancellationToken)
     {
