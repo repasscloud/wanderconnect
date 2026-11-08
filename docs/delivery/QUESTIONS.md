@@ -2836,3 +2836,31 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 - Home-market members still see the member; destination members see them in Explore and the visitors feed, marked as visiting.
 - GPS bands only with fresh readings and permission on both sides, otherwise `unknown`.
 - Near me follows GPS and Active location follows the check-in; neither changes silently.
+
+
+### Q171 — Vultr environment, capacity and latency targets
+
+- Issue: [#295](https://github.com/repasscloud/wanderconnect/issues/295); parent [#294](https://github.com/repasscloud/wanderconnect/issues/294). Status: OPEN. Earliest blocking phase: Before hosted sizing/acceptance.
+- Region, CPU architecture, VM resources, peak/sustained uploads and queue-to-ready latency/budget. DEFAULT: measure current upload limits and one-VM maintenance capacity before choosing a paid tier.
+- Design: [Vultr image pipeline](../superpowers/specs/2026-11-08-vultr-image-pipeline-design.md). Independent contracts/build/local verification can continue. Never post private credentials to the issue.
+
+
+### Q172 — Raw-original retention and privacy approval
+
+- Issue: [#296](https://github.com/repasscloud/wanderconnect/issues/296); parent [#294](https://github.com/repasscloud/wanderconnect/issues/294). Status: OPEN. Earliest blocking phase: Before raw-image ingress is enabled.
+- Approve raw-original lifetimes for pass, unresolved review/failure, rejection and appeals, plus privacy/provider disclosure. Existing photos discard originals. DEFAULT: minimise retention; existing stronger review/evidence/hold rules and active appeals override disposal.
+- Design: [Vultr image pipeline](../superpowers/specs/2026-11-08-vultr-image-pipeline-design.md). Independent contracts/build/local verification can continue. Never post private credentials to the issue.
+
+
+### Q173 — Scanner freshness and re-screen policy
+
+- Issue: [#297](https://github.com/repasscloud/wanderconnect/issues/297); parent [#294](https://github.com/repasscloud/wanderconnect/issues/294). Status: OPEN. Earliest blocking phase: Before hosted release.
+- Maximum signature age, result freshness and policy/model-change re-screen triggers. DEFAULT: unknown/stale mandatory evidence fails closed; preserve mandatory fresh scan on successful appeal/reconsideration; callback retries reuse valid durable results.
+- Design: [Vultr image pipeline](../superpowers/specs/2026-11-08-vultr-image-pipeline-design.md). Independent contracts/build/local verification can continue. Never post private credentials to the issue.
+
+
+### Q174 — Provider/model hosted-use readiness
+
+- Issue: [#298](https://github.com/repasscloud/wanderconnect/issues/298); parent [#294](https://github.com/repasscloud/wanderconnect/issues/294). Status: OPEN. Earliest blocking phase: Before hosted release.
+- Confirm Shield account credentials/agreement, two-VM rate-limit/IP acceptance and permitted harmless provider acceptance; model licences including NudeNet discrepancy; region/disclosure and TLS readiness. DEFAULT: configured adapters and mocks are not live provider proof.
+- Design: [Vultr image pipeline](../superpowers/specs/2026-11-08-vultr-image-pipeline-design.md). Independent contracts/build/local verification can continue. Never post private credentials to the issue.
