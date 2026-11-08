@@ -85,7 +85,7 @@ public static class DataExportBuilder
             account = new { email = account.Email, createdAt = account.CreatedAt, status = account.Status, deletionDueAt = account.DeletionDueAt },
             profile = profile is null ? null : new
             {
-                profile.DisplayName, profile.Area, profile.About, homeCity = home is null ? null : $"{home.Name}, {home.CountryName}",
+                profile.DisplayName, profile.About, homeCity = home is null ? null : $"{home.Name}, {home.CountryName}",
                 profile.DateOfBirth, profile.DateOfBirthVerified, profile.AgeStatus, profile.IdStatus, profile.IdCheckedAt, profile.PhotoStatus,
                 profile.FoundingMember, profile.FounderPlace, profile.FoundingSince,
             },

@@ -36,7 +36,6 @@ else
                 <dl class="ad-dl">
                     <div><dt>Display name</dt><dd>@card.DisplayName</dd><dd></dd></div>
                     @if (card.Age is { } age) {<div><dt>Age</dt><dd>@age</dd><dd></dd></div>}
-                    <div><dt>Area</dt><dd>@card.Area</dd><dd></dd></div>
                     <div><dt>Gender</dt><dd>@card.Gender @card.Pronouns</dd><dd></dd></div>
                     <div><dt>Intentions</dt><dd>@string.Join(" · ", card.Intentions)</dd><dd></dd></div>
                     <div><dt>Badges</dt><dd>@string.Join(" · ", card.Badges.Select(b => AccountText.BadgeLabel(b.Badge)))</dd><dd></dd></div>

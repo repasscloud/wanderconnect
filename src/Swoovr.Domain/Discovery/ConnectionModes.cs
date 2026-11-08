@@ -89,25 +89,24 @@ public static class ModeSettingsPolicy
     }
 }
 
-public enum ProfileTextError { None, DisplayNameTooLong, AreaTooLong, AboutTooLong, ControlCharacters }
+public enum ProfileTextError { None, DisplayNameTooLong, AboutTooLong, ControlCharacters }
 
 /// <summary>
-/// The shared core profile (one identity across modes, Q12 rule 16). DEFAULT limits; area is free text, not a
-/// location (the home city is a separate GeoNames reference, D110). Blank values clear the field.
+/// The shared core profile (one identity across modes, Q12 rule 16). DEFAULT limits. There is no Area field (D350);
+/// the home city is a separate GeoNames reference (D110). Blank values clear the field.
 /// </summary>
 public static class ProfileTextPolicy
 {
-    public const int DisplayNameMax = 40, AreaMax = 60, AboutMax = 500;
+    public const int DisplayNameMax = 40, AboutMax = 500;
 
     public static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    public static ProfileTextError Check(string? displayName, string? area, string? about)
+    public static ProfileTextError Check(string? displayName, string? about)
     {
-        if (new[] { displayName, area }.Any(v => v is not null && v.Any(char.IsControl))
+        if (displayName is not null && displayName.Any(char.IsControl)
             || about is not null && about.Any(c => char.IsControl(c) && c is not '\n' and not '\r'))
             return ProfileTextError.ControlCharacters;
         if (displayName?.Length > DisplayNameMax) return ProfileTextError.DisplayNameTooLong;
-        if (area?.Length > AreaMax) return ProfileTextError.AreaTooLong;
         return about?.Length > AboutMax ? ProfileTextError.AboutTooLong : ProfileTextError.None;
     }
 }
@@ -116,7 +115,7 @@ public static class ProfileTextPolicy
 /// Cross-mode privacy (#37, owner answer Q67, D175). A profile is seen in one mode at a time: the mode it was opened
 /// from, plus the modes in which the pair is already connected or has a pending request (both already know of those,
 /// D182); the person's other modes are never listed. Shared across
-/// every mode: age (unless hidden), area, badges, gender and pronouns (under the member's own switch).
+/// every mode: age (unless hidden), badges, gender and pronouns (under the member's own switch).
 /// Per mode (D301/Q118): optional public name, the "about" (falling back to the core about) and the intention chips. Orientation and Dating's "show me" are
 /// never shown to others; Business-only fields wait for #42. No online or last-active signal exists in any mode. The API
 /// applies this; clients only draw what it returns.

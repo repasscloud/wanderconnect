@@ -60,7 +60,7 @@ else
                 @foreach (var person in Result.People)
                 {
                     var href = $"/prototype/people/{person.Id}?{PrototypeClient.Query(Filter)}";
-                    <ProfileTile Name="@person.Name" Age="@person.Age" Href="@href" Intentions="@person.Intentions" Area="@person.Area"
+                    <ProfileTile Name="@person.Name" Age="@person.Age" Href="@href" Intentions="@person.Intentions"
                                  Quote="@(person.HasDemoImage ? null : person.Introduction)"
                                  Photo="@(person.HasDemoImage ? DemoImage(person.Name) : null)">
                         <Badges><Badge Kind="id" Size="14" Simulated /></Badges>

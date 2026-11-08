@@ -14,7 +14,7 @@ module.exports=async({page,context,sql,ownedMedia,root})=>{
  await page.fill('#dob','1990-01-01');await page.locator('[data-age-form] [type=checkbox]').check();await page.locator('[data-age-form] button[type=submit]').click();await page.locator('[data-dob-locked=saved]').waitFor();
  await page.goto(base+'/me/profile');await page.locator('[data-profile-editor=ready]').waitFor();await page.locator('#display-name').waitFor();
  assert((await page.locator('.member-settings').boundingBox()).width>700);
- await page.fill('#display-name','Fictional Member');await page.fill('#area','Adelaide CBD');await page.fill('#about','A fictional adult local testing account.');
+ await page.fill('#display-name','Fictional Member');await page.fill('#about','A fictional adult local testing account.');
  await page.fill('#home-city','Adelaide');await page.locator('[data-city="2078025"]').click();
  const label=await page.locator('[data-city-search] > label').boundingBox(),value=await page.locator('[data-city-picked]').boundingBox();assert(label.y+label.height<=value.y,'City label stays above selected value');
  await page.locator('[data-core-form] button[type=submit]').click();await page.locator('[data-core-status=saved]').waitFor();

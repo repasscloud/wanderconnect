@@ -184,7 +184,7 @@ public static class ModerationEndpoints
             subject = await db.MemberProfiles.SingleOrDefaultAsync(p => p.PublicId == publicId, cancellationToken);
             if (subject is not null && (subject.Bot != (subjectType == ReportSubject.Bot) || !await MayReportAsync(db, configuration, me, subject, cancellationToken)))
                 subject = null;
-            if (subject is not null) snapshot = new { subject.DisplayName, subject.Area, subject.About, subject.Bot };
+            if (subject is not null) snapshot = new { subject.DisplayName, subject.About, subject.Bot };
         }
         else if (subjectType == ReportSubject.Request && Guid.TryParse(request.SubjectId, out var requestId))
         {
