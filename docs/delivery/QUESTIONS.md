@@ -2721,3 +2721,129 @@ Owner answer recorded 3 November 2026 — **CONFIRMED D308** ([source](https://g
 
 - Issue: [#243](https://github.com/repasscloud/wanderconnect/issues/243). Status: OPEN, raised 7 November 2026 while implementing [#193](https://github.com/repasscloud/wanderconnect/issues/193).
 - Which approved identity-review procedure, evidence and training/record requirements should independent Admins use before resetting lost MFA? The implementation requires elevated independent Admin, case reference, identity-review attestation and confirmation, prevents self/Root reset and preserves mandatory staff enrolment. An attestation does not prove identity or case outcome. Operational assisted recovery awaits the approved runbook; independent enrolment, enforcement and native recovery work continues. No new document collection or bypass is proposed.
+
+## Location redesign — [#257](https://github.com/repasscloud/wanderconnect/issues/257), 8 November 2026
+
+Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6717972325), [Q149–Q158](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6718580356) and [Q152–Q169](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719049155). The owner answered in the [7:06](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6718555917), [7:59](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719013875), [8:00](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719019159) and [8:13](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510) comments. Answered questions are recorded on #257. Each question still open has its own issue, which links back here. Decisions: D345–D351.
+
+### Q141–Q148 — First-round Area and GPS questions
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6717972325). Status: ANSWERED or SUPERSEDED, owner 8 November 2026 (D345).
+- Q141 (suburbs as Home City): Home City is the registered market; existing GeoNames ids stay (D345).
+- Q142, Q144 and Q146 (typed Area fallback, existing values, Area on Home City change): superseded by retiring Area; see Q158.
+- Q143 (GeoNames `cities500`): not needed, because there is no locality picker.
+- Q145 (GPS outside Home City): superseded by physical presence (D346).
+- Q147 (distance bands): D347 and D348.
+- Q148 (Privacy Notice): see Q165.
+
+### Q149 — What is the "Grid"?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257). Status: ANSWERED, owner 8 November 2026 (D345): the Grid is Explore.
+
+### Q150 — Cross-market scope for GPS nearby
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719013875). Status: ANSWERED, owner 8 November 2026 (D346). Not limited to the home market: physical presence in any enabled market, with no trip needed.
+
+### Q151 — What does a manual Current Location show?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719013875). Status: SUPERSEDED, owner 8 November 2026 (D345): no manual location and no IP fallback.
+
+### Q152 — Do you see others' distance bands only while showing your own?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D348): yes.
+
+### Q153 — Existing Home City bands and the Plus distance filter
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719019159). Status: ANSWERED, owner 8 November 2026 (D347, D348). Filters by tier (Free 5–50 km; paid tiers also 100/250/500 km). Bands are optional, off by default, and labelled with their basis.
+
+### Q154 — Order of Near me results
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D348): band first, then Recent/Compatibility, never exact distance.
+
+### Q155 — Refuse registration outside enabled markets?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D345): no change.
+
+### Q156 — Do Nearby updates count as D150 home checks?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719019159). Status: ANSWERED, owner 8 November 2026 (D349). D150 does not run on Near me updates; a separate extended-stay evaluation does.
+
+### Q157 — One "Appear in nearby searches" setting, or one per mode?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D348): one master switch plus the existing per-mode visibility.
+
+### Q158 — Retiring Area: existing data and old clients
+
+- Own issue: [#269](https://github.com/repasscloud/wanderconnect/issues/269) (decided). Status: ANSWERED, owner 8 November 2026 (D350).
+- Area is removed outright from the schema, screens and contracts. Current data is fictional, so there is no preservation period and no staged migration.
+- Compatibility check: no distributed mobile builds, so the field is not kept for old clients. Historical test snapshots are not treated as evidence.
+
+### Q159 — How Explore presents Home market and Near me
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED (D345): a separate Home market / Near me control, with Home market as the default.
+
+### Q160 — Who a present member sees in Near me
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D346): opted-in members present by GPS, plus the market's locals by Home City.
+
+### Q161 — Near me: freshness, the 0–2 km band and approximate location
+
+- Own issue: [#270](https://github.com/repasscloud/wanderconnect/issues/270) (decided). Status: ANSWERED, owner 8 November 2026 (D348).
+- A reading is used for exactly 2 hours, and a 5-minute purge deletes it within the following 5 minutes. The immediate deletions stay.
+- "Appear" is checked live on every query, so browsing never makes a member discoverable.
+- `nearby` needs both readings ≤ 250 m and ≤ 15 minutes old, otherwise `unknown`.
+- Near me presence needs a reading accurate to 2 km or better.
+
+### Q162 — Display when GPS isn't available but Home City distance is
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D348): a Home City band labelled as such (`basis: homeCity`), never presented as GPS.
+
+### Q163 — What 100/250/500 km mean
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D345): within the market the member is in; no remote reach.
+
+### Q164 — Not used
+
+- Number skipped on #257.
+
+### Q165 — Privacy Notice 0.20 and permission wording
+
+- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decision-needed, owner-action). Status: OPEN (D351). Draft v2 is in the issue, covering:
+  - Near me retention.
+  - Daily outcomes, the monthly check, the Zammad note and their retention.
+  - Travel check-in as the active location.
+- It waits for owner and legal approval. Existing members are notified.
+
+### Q166 — Scheduled Home City check: evidence, vicinity, Zammad item and retention
+
+- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decision-needed). Status: PARTLY ANSWERED, owner 8 November 2026 ([approved in principle](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719818807); D349).
+- Approved:
+  - 12+ located days across the four parts of the period; unknown days don't count; skip when there is too little evidence.
+  - 75% away, with away days spread across the parts and the 7-day home check.
+  - Active checked-in trip days excluded from the calculation and the evidence count.
+  - 35-day outcomes and 12-month counts.
+  - One open Zammad item per member, a 90-day cooldown, and 6 months after closure.
+  - Hidden from the member until Support contacts them.
+  - No automatic action.
+- Open: the vicinity rule. A (market + 25 km / 50 km), B (25 km around the Home City) or C, with [examples](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719843258).
+
+### Q167 — What happens to D150's current mechanism
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D349): retire the three-checks flag and the IP evidence; keep the button and the admin override.
+
+### Q168 — Location review routing and roles
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: SUPERSEDED, owner 8 November 2026 (D349): a Zammad support queue item from the scheduled Home City check replaces the Admin list (see Q166).
+
+### Q169 — Ask the member first?
+
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: SUPERSEDED, owner 8 November 2026 (D349). There is no in-app prompt; Support may send a friendly suggestion from the Zammad item.
+
+### Q170 — Travel: checked-in destination as the active discovery location
+
+- Own issue: [#274](https://github.com/repasscloud/wanderconnect/issues/274) (decided). Status: ANSWERED, owner 8 November 2026 (D352).
+- Two independent pre-arrival choices (amends the D164 default).
+- The most recently checked-in trip is the active location, and the Home City comes back when none is active.
+- Home-market members still see the member; destination members see them in Explore and the visitors feed, marked as visiting.
+- GPS bands only with fresh readings and permission on both sides, otherwise `unknown`.
+- Near me follows GPS and Active location follows the check-in; neither changes silently.
