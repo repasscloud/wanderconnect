@@ -216,7 +216,7 @@ public static class ProfileEndpoints
                 }).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
                 photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0])),
-                await HomeDistanceAsync(db, current.Profile!, person.Profile, cancellationToken)));
+                await HomeDistanceAsync(db, current.Profile!, person.Profile, reach.SameMarket, clock.GetUtcNow(), cancellationToken)));
         });
     }
 
@@ -249,10 +249,19 @@ public static class ProfileEndpoints
     /// <summary>D348: the wire form of a band and its basis.</summary>
     public static DistanceView Distance((DistanceBand Band, DistanceBasis? Basis) band) => new(Wire(band.Band), band.Basis is { } basis ? Wire(basis) : null);
 
-    /// <summary>D348: the band between two members' registered home cities for a profile page, under the same rules as Explore.</summary>
-    private static async Task<DistanceView> HomeDistanceAsync(SwoovrDbContext db, MemberProfile viewer, MemberProfile person, CancellationToken cancellationToken)
+    /// <summary>
+    /// D348, D352: the band between two members' registered home cities for a profile page, under the same rules as Explore:
+    /// only between members of the same home market who are both at home. If either is checked in elsewhere, or the viewer
+    /// reached the profile from another market (Travel, Traveller Search), home cities say nothing about where they are, so
+    /// the band is unknown (or hidden when either hides it).
+    /// </summary>
+    private static async Task<DistanceView> HomeDistanceAsync(SwoovrDbContext db, MemberProfile viewer, MemberProfile person, bool sameHomeMarket,
+        DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (!(viewer.ShowDistance && person.ShowDistance)) return Distance(LocationPrivacy.HomeCityBand(null, person.ShowDistance, viewer.ShowDistance));
+        var away = await MarketEndpoints.ActiveTripsAsync(db, [viewer.AccountId, person.AccountId], now, cancellationToken);
+        bool Away(MemberProfile member) => away.GetValueOrDefault(member.AccountId) is { Trip: { } trip } && trip.ArrivalMarketId != member.HomeMarketId;
+        if (!sameHomeMarket || Away(viewer) || Away(person)) return Distance(LocationPrivacy.HomeCityBand(null, true, true));
         var ids = new[] { viewer.HomeGeoNameId, person.HomeGeoNameId }.OfType<int>().ToList();
         var cities = await db.GeoCities.Where(c => ids.Contains(c.GeoNameId)).ToDictionaryAsync(c => c.GeoNameId, cancellationToken);
         double? km = viewer.HomeGeoNameId is { } a && person.HomeGeoNameId is { } b && cities.TryGetValue(a, out var mine) && cities.TryGetValue(b, out var theirs)
