@@ -1758,6 +1758,16 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
   - The updated browser suites `tests/profiles/modes.browser.cjs`, `tests/profiles/badges.browser.cjs` and `tests/member/settings.browser.cjs`, which need the local platform. `settings.browser.cjs` has been stale since issue 180.
 - Compatibility check (D350): no distributed mobile builds, so `area` is removed outright (recorded in API-VERSIONING.md). The Privacy Notice "area" wording is published separately in #283.
 
+## Issue 275 — Distance filter for every tier (8 November 2026, D347)
+
+- `./scripts/check.sh`: exit 0 (92 PASS lines).
+  - `MatchingChecks`: 74 cases. Free accepts 5, 10, 25 and 50 km and refuses 100, 250, 500 and 51 km with `PlusRequired`; Plus and Premium accept all seven; a lapsed member's unchanged saved 250 km still saves, while a new 100 km is refused; a lapsed 250 km filter applies as 50 km (Tanunda, about 56 km, is hidden).
+  - `LocationPrivacyChecks`: `FilterOptions` per tier.
+- Builds: `Swoovr.Api`, `Swoovr.Web`, `tests/Swoovr.Checks` and `Swoovr.Mobile -f net10.0-android` succeeded. Not built: `net10.0-ios` (Xcode 27.2 installed; the .NET iOS pack 27.1.10018 requires 27.1).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE`.
+  - The updated browser suites `tests/discovery/location-privacy.browser.cjs` (Free 10 km accepted, 100 km refused, `distanceOptions`) and `tests/discovery/matching.browser.cjs` (Free 5 km accepted and 100 km refused; paid `distanceOptions`; the lapsed 250 km filter kept, applied as 50 km and saved unchanged; a new 100 km refused). Both need the local platform.
+
 ## Issue 276 — Location privacy settings and DistanceBand contract (8 November 2026, D348)
 
 - `./scripts/check.sh`: the result is in the PR.

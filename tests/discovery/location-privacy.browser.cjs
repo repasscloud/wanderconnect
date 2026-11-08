@@ -58,7 +58,11 @@ const ADELAIDE = 2078025;
     await settings('plus', { appearInNearby: false, showDistance: true });
     r = await explore('plus');
     assert.ok(!JSON.stringify(r.body).match(/"(latitude|longitude|distanceKm|distanceBand)"/i), 'no coordinates or distances'); pass();
-    assert.deepEqual(code(await filter('free', 10)), [403, 'plus-required']); pass();
+    // D347: every tier filters by distance; Free up to 50 km, paid tiers up to 500 km.
+    assert.equal((await filter('free', 10)).status, 200); pass();
+    assert.deepEqual(code(await filter('free', 100)), [403, 'plus-required']); pass(); // refused, not snapped down
+    assert.deepEqual((await call(tokens.free, '/api/me/modes/friends/filters')).body.distanceOptions, [5, 10, 25, 50]); pass();
+    await filter('free', null);
 
     // The pinpointing attempt: 1 km at a time. Every filter snaps to its band and the answers only change at band edges.
     const presence = [];

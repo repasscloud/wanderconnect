@@ -15,6 +15,9 @@ static class LocationPrivacyChecks
         Expect(LocationPrivacy.Snap(null) is null, "no filter stays none");
         Expect(LocationPrivacy.Snap(1) == 5 && LocationPrivacy.Snap(5) == 5 && LocationPrivacy.Snap(6) == 10 && LocationPrivacy.Snap(9) == 10, "small distances snap up");
         Expect(LocationPrivacy.Snap(26) == 50 && LocationPrivacy.Snap(499) == 500 && LocationPrivacy.Snap(900) == 500, "larger ones too, capped");
+        Expect(LocationPrivacy.FilterOptions(PlanTier.Free).SequenceEqual([5, 10, 25, 50]), "D347: Free filter choices");
+        Expect(LocationPrivacy.FilterOptions(PlanTier.Plus).SequenceEqual([5, 10, 25, 50, 100, 250, 500])
+            && LocationPrivacy.FilterOptions(PlanTier.Premium).SequenceEqual(LocationPrivacy.FilterOptions(PlanTier.Plus)), "D347: paid filter choices");
         // The sweep: a person 7.3 km away is in or out for whole bands only.
         var viewer = new MatchFacts(30, new HashSet<Guid>(), new HashSet<Guid>(), false, null, [], -34.9285, 138.6007, false);
         var person = new MatchFacts(30, new HashSet<Guid>(), new HashSet<Guid>(), false, null, [], -34.9285 + 7.3 / 111.0, 138.6007, false);

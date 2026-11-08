@@ -39,8 +39,9 @@ public enum VisitorVisibility { Both, Current, Upcoming, Neither }
 public enum ExploreSort { Recent, Compatibility }
 
 /// <summary>
-/// One member's filters for one mode (D137). Free: age range, required chips (any or all), excluded chips (reciprocal,
-/// D140), ID Verified only, visitor visibility. Plus: distance within the market and compatibility sorting. Height, body
+/// One member's filters for one mode (D137, D347). Every tier: age range, required chips (any or all), excluded chips
+/// (reciprocal, D140), ID Verified only, visitor visibility and distance (Free up to 50 km; Plus and Premium up to
+/// 500 km). Plus: compatibility sorting. Height, body
 /// type, lifestyle, education and profession wait for their profile fields; saved searches come later.
 /// </summary>
 public sealed class ModeFilter
@@ -54,7 +55,7 @@ public sealed class ModeFilter
     public List<Guid> ExcludedChips { get; set; } = [];
     public bool IdVerifiedOnly { get; set; }
     public VisitorVisibility Visitors { get; set; }
-    /// <summary>Plus: distance between home cities, within the market.</summary>
+    /// <summary>Distance between home cities, within the market (D347: Free up to 50 km, paid up to 500 km).</summary>
     public int? MaxDistanceKm { get; set; }
     /// <summary>Plus: compatibility (shared chips first) instead of most recent.</summary>
     public ExploreSort Sort { get; set; }
@@ -107,8 +108,8 @@ public static class MatchPolicy
     public static bool DatingReady(MatchFacts facts) => facts.GenderId is not null && facts.ShowMe.Count > 0;
 
     /// <summary>
-    /// The viewer's own filters (narrow only their results). Plus-only filters count only when the viewer holds Plus,
-    /// so a lapsed Plus never hides people with a stale filter.
+    /// The viewer's own filters (narrow only their results). D347: the distance filter counts for every tier, capped at
+    /// the tier's maximum, so a lapsed paid member's saved 100–500 km filter applies as 50 km until they upgrade.
     /// </summary>
     public static bool FilterAllows(ModeFilter? filter, MatchFacts viewer, MatchFacts person, PlanTier tier)
     {
@@ -121,10 +122,11 @@ public static class MatchPolicy
             if (filter.RequiredMatch == ChipMatch.All ? hits < filter.RequiredChips.Count : hits == 0) return false;
         }
         if (filter.IdVerifiedOnly && !person.IdVerified) return false;
-        if (tier >= PlanTier.Plus && filter.MaxDistanceKm is { } km)
+        if (filter.MaxDistanceKm is { } km)
         {
-            // #90: compared against the band the filter falls in, never a finer distance.
-            if (DistanceKm(viewer, person) is not { } d || d > LocationPrivacy.Snap(km)) return false;
+            // #90: compared against the band the filter falls in, never a finer distance; D347: capped at the tier's maximum.
+            var limit = Math.Min(LocationPrivacy.Snap(km)!.Value, LocationPrivacy.MaxFor(tier));
+            if (DistanceKm(viewer, person) is not { } d || d > limit) return false;
         }
         return true;
     }
@@ -135,15 +137,21 @@ public static class MatchPolicy
     public static double? DistanceKm(MatchFacts a, MatchFacts b) =>
         a.Latitude is { } la && a.Longitude is { } lo && b.Latitude is { } lb && b.Longitude is { } lob ? PlaceNames.DistanceKm(la, lo, lb, lob) : null;
 
-    /// <summary>Checks a filter update against the mode's chips and the member's tier (D137: definitions and entitlements are server-side).</summary>
-    public static FilterError Check(ModeFilter filter, IReadOnlySet<Guid> modeChips, PlanTier tier)
+    /// <summary>
+    /// Checks a filter update against the mode's chips and the member's tier (D137, D347: definitions and entitlements are
+    /// server-side). A distance above the tier's maximum is refused, never lowered, unless it is the member's unchanged
+    /// saved value (<paramref name="savedDistanceKm"/>), so a lapsed paid member can still save their other filters and
+    /// gets the wider distance back on upgrade.
+    /// </summary>
+    public static FilterError Check(ModeFilter filter, IReadOnlySet<Guid> modeChips, PlanTier tier, int? savedDistanceKm = null)
     {
         if (filter.MinAge is < MinAge or > MaxAge || filter.MaxAge is < MinAge or > MaxAge || filter.MinAge > filter.MaxAge) return FilterError.AgeRange;
         if (filter.RequiredChips.Count > MaxRequiredChips || filter.ExcludedChips.Count > MaxExcludedChips) return FilterError.TooManyChips;
         if (filter.RequiredChips.Concat(filter.ExcludedChips).Any(c => !modeChips.Contains(c))) return FilterError.UnknownChip;
         if (filter.RequiredChips.Intersect(filter.ExcludedChips).Any()) return FilterError.ChipBothWays;
         if (filter.MaxDistanceKm is < 1 or > MaxDistanceKm) return FilterError.Distance;
-        if (tier < PlanTier.Plus && (filter.MaxDistanceKm is not null || filter.Sort != ExploreSort.Recent)) return FilterError.PlusRequired;
+        if (filter.MaxDistanceKm is { } km && LocationPrivacy.Snap(km) > LocationPrivacy.MaxFor(tier) && km != savedDistanceKm) return FilterError.PlusRequired;
+        if (tier < PlanTier.Plus && filter.Sort != ExploreSort.Recent) return FilterError.PlusRequired;
         return FilterError.None;
     }
 

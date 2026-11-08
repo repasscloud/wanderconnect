@@ -25,6 +25,15 @@ public static class LocationPrivacy
     /// <summary>Search events are kept a day for the limits, then go.</summary>
     public static readonly TimeSpan EventRetention = TimeSpan.FromDays(1);
 
+    /// <summary>D347: every tier may filter by distance; Free up to 50 km, Plus and Premium up to 500 km.</summary>
+    public const int FreeMaxKm = 50;
+
+    /// <summary>The largest distance filter the tier allows (D347).</summary>
+    public static int MaxFor(PlanTier tier) => tier >= PlanTier.Plus ? Bands[^1] : FreeMaxKm;
+
+    /// <summary>The distance filter choices for the tier (D347): 5, 10, 25 and 50 km, plus 100, 250 and 500 km when paid.</summary>
+    public static IReadOnlyList<int> FilterOptions(PlanTier tier) => [.. Bands.Where(b => b <= MaxFor(tier))];
+
     /// <summary>The smallest band at or above the request (null stays null; above the largest band, the largest).</summary>
     public static int? Snap(int? km) => km is not { } k ? null : Bands.FirstOrDefault(b => b >= k, Bands[^1]);
 
