@@ -72,7 +72,7 @@ Not built: arrival changing discovery to a device location (Q23), traveller sear
 
 ### Location redesign (decided 8 November 2026, not built)
 
-[#257](https://github.com/repasscloud/wanderconnect/issues/257); D345–D351. Open items: Q165 ([#271](https://github.com/repasscloud/wanderconnect/issues/271), Privacy Notice 0.20) and the Home City check's vicinity rule (Q166, [#272](https://github.com/repasscloud/wanderconnect/issues/272)).
+[#257](https://github.com/repasscloud/wanderconnect/issues/257); D345–D351. All questions are answered. Implementation: [#275](https://github.com/repasscloud/wanderconnect/issues/275), [#276](https://github.com/repasscloud/wanderconnect/issues/276), [#277](https://github.com/repasscloud/wanderconnect/issues/277), [#278](https://github.com/repasscloud/wanderconnect/issues/278), [#279](https://github.com/repasscloud/wanderconnect/issues/279), [#280](https://github.com/repasscloud/wanderconnect/issues/280), [#281](https://github.com/repasscloud/wanderconnect/issues/281), [#282](https://github.com/repasscloud/wanderconnect/issues/282), [#283](https://github.com/repasscloud/wanderconnect/issues/283), [#284](https://github.com/repasscloud/wanderconnect/issues/284) (web and API first; MAUI is #284). Release waits for Privacy Notice 0.20 ([#283](https://github.com/repasscloud/wanderconnect/issues/283)).
 
 - **Home City.** CONFIRMED: Home City stays the registered market and is never changed by GPS.
 - **Explore.** CONFIRMED: Explore gets a **Home market / Near me** control.
@@ -83,9 +83,9 @@ Not built: arrival changing discovery to a device location (Q23), traveller sear
 - **Privacy settings.** CONFIRMED: "Appear in nearby searches" and "Show my approximate distance" are independent and off by default.
 - **Distance.** Distance bands become an enum with a GPS or Home City basis (D348). Free members get 5–50 km distance filters, and paid tiers also get 100/250/500 km (D347).
 - **Area.** CONFIRMED: Area is removed from the schema, screens and contracts (D350).
-- **Home City check.** CONFIRMED: about every 30 days, for members who shared GPS, sufficient evidence of mostly being outside the Home City vicinity creates an internal Zammad support item. Support may suggest updating the Home City. It is never a sanction (D349; vicinity rule OPEN).
+- **Home City check.** CONFIRMED: about every 30 days, for members who shared GPS, sufficient evidence of mostly being outside the Home City vicinity creates an internal Zammad support item. Support may suggest updating the Home City. It is never a sanction (D349; vicinity: 25 km around the Home City, configurable).
 - **Travel.** CONFIRMED: two independent pre-arrival choices. While a trip is active, the most recently checked-in trip's destination is the active discovery location (Explore and the visitors feed there, marked as visiting), and the Home City comes back when none is active (D352).
-- **Release.** Near me, stored location and GPS bands wait for Privacy Notice 0.20 approval (D351).
+- **Release.** Privacy Notice 0.20 is approved (D351). Near me, stored location, GPS bands and the Home City check ship only with its publication and only when their behaviour matches the wording.
 
 ### Earlier names
 
