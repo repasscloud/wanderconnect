@@ -59,7 +59,8 @@ public static class RestrictionGate
         // D170: while deletion is pending only the deletion screen (under /account) is open.
         if (state == "pendingDeletion") { context.Response.Redirect("/account/deletion"); return; }
         // D148, D300, D139 (issue 254, D342): unfinished setup goes to the onboarding screens, after every state above.
-        if (Onboarding(setupStep)) { context.Response.Redirect("/welcome"); return; }
+        // Pages on the setup allow-list (public policies, notices, support) stay readable; account-state screens above still apply.
+        if (Onboarding(setupStep) && !SetupAllows(path)) { context.Response.Redirect("/welcome"); return; }
         await next();
     });
 

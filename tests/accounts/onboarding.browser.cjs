@@ -34,7 +34,7 @@ if(!process.env.SWOOVR_TEST_API_BASE||!process.env.SWOOVR_TEST_APP_DATABASE)thro
   try{
    const page=await recovery.newPage();await page.goto(web+'/account/sign-in?intro=done');await page.fill('#username',member.email);await page.fill('#password',member.password);await Promise.all([page.waitForURL(web+'/welcome'),page.click('#kc-login')]);
    for(const route of ['/explore','/connections','/chats','/account']){await page.goto(web+route);await page.waitForURL(web+'/welcome');await page.waitForSelector('[data-onboarding-step=names]');}
-   for(const open of ['/account/data','/me/support','/terms']){await page.goto(web+open);assert.equal(new URL(page.url()).pathname,open,open+' stays reachable during setup');}
+   for(const open of ['/account/data','/me/support','/terms','/privacy','/community-guidelines']){await page.goto(web+open);assert.equal(new URL(page.url()).pathname,open,open+' stays reachable during setup');}
   }finally{await recovery.close();}
   console.log('PASS: real owned setup recovery, DOB-only progress, server advice dismissal across reload/session, unknown revision and retry. Phone-enabled path remains separate phone suite.');
  }finally{await edge.close();}

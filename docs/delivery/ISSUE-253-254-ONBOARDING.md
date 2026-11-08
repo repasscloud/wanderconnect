@@ -26,6 +26,11 @@ Recorded 8 November 2026 on branch `fix/253-254-onboarding-flow`:
 - Layout: the `/welcome` cards (name, mobile with a refusal shown, code) and the masked Contact information rows were rendered with the real `themes.css`, `app.css` and `member-settings.css` (dark Standard theme) at 1280 px and 390 px in Edge: no horizontal overflow at either width. That harness was hand-written HTML matching the components, so the compiled `Swoovr.Web.Client.dll` was also searched for leaked Razor code text (none found).
 - New checks in `PhoneChecks`: setup order, contract and domain step names, email masking (owner example `alex.original@example.test` → `a...l@e...e.test`), country code composition, and the shared refusal text.
 
+## Review fixes (PR #255, Codex)
+
+- P1: with a required policy version selected, a member needing both a phone and a policy acceptance was refused `policy-acceptance-required` when sending or confirming a code, and onboarding shows the policy step only after the phone. The three `/api/me/phone` routes are now exempt from the policy gate (the policy routes were already exempt from the phone gate).
+- P2: `/terms`, `/privacy` and `/community-guidelines` were on the setup allow-list but the final onboarding redirect ignored it, so they redirected to `/welcome`. The redirect now skips allow-listed pages; account-state screens (suspension, lock, deletion, MFA) still apply. The onboarding browser test now covers all three.
+
 ## Gaps
 
 - Browser suites `tests/auth/members.browser.cjs`, `tests/accounts/onboarding.browser.cjs` and `tests/accounts/phone.browser.cjs` were updated for `/welcome` but not run in this change; they need the owned local platform.
