@@ -10,9 +10,9 @@ using static Swoovr.Api.Accounts.AccountEndpoints;
 namespace Swoovr.Api.Travel;
 
 /// <summary>
-/// Slice T (D142, D149, D150, D153, D164): confirm-arrival with a fresh device location, Traveller Search through one of
-/// the member's own trips, home-location consistency checks, and the staff routes that confirm an arrival after a review
-/// or clear a home-location review. Readings are checked and dropped: no coordinates, IP addresses or derived places
+/// Slice T (D142, D149, D164): confirm-arrival with a fresh device location, Traveller Search through one of the member's
+/// own trips, the member's "Check my location matches" reading (D349: a Home City day outcome), and the staff routes that
+/// confirm an arrival after a review. Readings are checked and dropped: no coordinates, IP addresses or derived places
 /// are stored, returned or audited; the audit holds trip ids, market ids and outcomes only.
 /// </summary>
 public static class ArrivalEndpoints
@@ -90,8 +90,11 @@ public static class ArrivalEndpoints
                 ArrivalPolicy.MayInitiate(row.t, state, market), people));
         });
 
-        // D150, D153: a home-location consistency check. The reading is compared with the home market and dropped.
-        api.MapPost("/me/home-check", async (LocationCheck? reading, HttpRequest http, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration,
+        // D349, #281 (supersedes the D150/D164 flag and D153's IP evidence): "Check my location matches" sends one device
+        // reading, which feeds that day's Home City outcome like an accepted Near me reading. The reading is dropped; the
+        // answer is this reading's outcome ("consistent" home, "inconsistent" away, "not-checked" on a checked-in trip or
+        // without a Home City), while the day keeps the higher-precedence one. Nothing is flagged, restricted or changed.
+        api.MapPost("/me/home-check", async (LocationCheck? reading, ClaimsPrincipal user, AccountResolver accounts, IConfiguration configuration,
             TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -100,25 +103,11 @@ public static class ArrivalEndpoints
             if (await LimitedAsync(db, me.AccountId, now, cancellationToken)) return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.TooManyAttempts, "That's a lot of location checks. Try again later.");
             var device = Reading(reading);
             if (!ArrivalPolicy.Usable(device, now)) return Problem(StatusCodes.Status400BadRequest, ProblemCodes.LocationUnusable, "We couldn't use your location. Try again with location turned on.");
-            if (me.HomeMarketId is not { } home) return Results.Ok(new HomeCheckView("not-checked"));
-            // Someone with a confirmed arrival on a live trip elsewhere is travelling, not inconsistent (Q47 rule 6).
-            if (await TravellingAsync(db, me.AccountId, now, cancellationToken)) return Results.Ok(new HomeCheckView("not-checked"));
-            var zones = (await MarketEndpoints.ZonesAsync(db, cancellationToken)).Where(z => z.Market.Id == home).ToList();
-            var outcome = HomeLocationPolicy.Judge(ArrivalPolicy.InMarket(device!, zones));
-            db.HomeLocationChecks.Add(new HomeLocationCheck { Id = Guid.NewGuid(), AccountId = me.AccountId, CheckedAt = now, Method = LocationMethod.Device, HomeMarketId = home, Outcome = outcome });
-            // D153: Cloudflare's approximate IP location only where the host is behind Cloudflare (off by default, never locally).
-            if (configuration.GetValue("Location:CloudflareHeaders", false) && IpReading(http, now) is { } ip)
-                db.HomeLocationChecks.Add(new HomeLocationCheck { Id = Guid.NewGuid(), AccountId = me.AccountId, CheckedAt = now, Method = LocationMethod.ApproximateIp, HomeMarketId = home,
-                    Outcome = HomeLocationPolicy.Judge(ArrivalPolicy.InMarket(ip, zones)) });
-            Audit.Record(db, now, me.AccountId, "account", "home-check.recorded", "account", me.AccountId.ToString(), Wire(outcome));
+            var outcome = await HomeCityDayRecorder.RecordAsync(db, me, device!, now, HomeCityCheckSettings.Read(configuration), cancellationToken);
+            var wire = outcome switch { HomeCityDayOutcome.Home => "consistent", HomeCityDayOutcome.Away => "inconsistent", _ => "not-checked" };
+            Audit.Record(db, now, me.AccountId, "account", "home-check.recorded", "account", me.AccountId.ToString(), wire);
             await db.SaveChangesAsync(cancellationToken);
-            if (me.HomeReviewFlaggedAt is null && HomeLocationPolicy.ShouldFlag(await db.HomeLocationChecks.Where(c => c.AccountId == me.AccountId).ToListAsync(cancellationToken), now))
-            {
-                me.HomeReviewFlaggedAt = now;
-                Audit.Record(db, now, me.AccountId, "account", "home-review.flagged", "account", me.AccountId.ToString());
-                await db.SaveChangesAsync(cancellationToken);
-            }
-            return Results.Ok(new HomeCheckView(Wire(outcome)));
+            return Results.Ok(new HomeCheckView(wire));
         });
 
         var admin = app.MapGroup("/api/admin").RequireAuthorization();
@@ -156,25 +145,6 @@ public static class ArrivalEndpoints
             Audit.Record(db, now, current!.Account!.Id, "account", "trip.arrival-reviewed", "trip", row.t.Id.ToString(), market.Id);
             await db.SaveChangesAsync(cancellationToken);
             return Results.NoContent();
-        });
-
-        // D150: an admin clears the home-location review after looking; nothing else changes.
-        admin.MapPost("/accounts/{id:guid}/home-review/clear", async (Guid id, HomeReviewClear request, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
-            CancellationToken cancellationToken) =>
-        {
-            var (current, denied) = await AdminEndpoints.StaffAsync(user, accounts, AccountRole.Admin, cancellationToken);
-            if (denied is not null) return denied;
-            if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > ModerationPolicy.ReasonMax)
-                return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidRequest, "Give a reason.");
-            var (db, now) = (accounts.Db!, clock.GetUtcNow());
-            var profile = await db.MemberProfiles.FindAsync([id], cancellationToken);
-            if (profile is null) return Results.NotFound();
-            profile.HomeReviewFlaggedAt = null;
-            // Checks before the clearing no longer count towards another flag.
-            db.HomeLocationChecks.RemoveRange(db.HomeLocationChecks.Where(c => c.AccountId == id && c.CheckedAt <= now));
-            Audit.Record(db, now, current!.Account!.Id, "account", "home-review.cleared", "account", id.ToString());
-            await db.SaveChangesAsync(cancellationToken);
-            return Results.Ok(await Moderation.ModerationEndpoints.SummaryAsync(db, id, now, cancellationToken));
         });
     }
 
@@ -218,22 +188,8 @@ public static class ArrivalEndpoints
 
     private static LocationReading? Reading(LocationCheck? check) => check is null ? null : new(check.Latitude, check.Longitude, check.AccuracyMetres, check.TakenAt);
 
-    /// <summary>Cloudflare's visitor location headers (latitude and longitude), treated as a coarse reading (D153).</summary>
-    private static LocationReading? IpReading(HttpRequest http, DateTimeOffset now) =>
-        double.TryParse(http.Headers["cf-iplatitude"], System.Globalization.CultureInfo.InvariantCulture, out var lat)
-        && double.TryParse(http.Headers["cf-iplongitude"], System.Globalization.CultureInfo.InvariantCulture, out var lon)
-            ? new(lat, lon, ArrivalPolicy.MaxAccuracyMetres, now) : null;
-
     /// <summary>Location checks are rate limited per member (D164): arrival and home checks together, ten an hour.</summary>
     private static async Task<bool> LimitedAsync(SwoovrDbContext db, Guid me, DateTimeOffset now, CancellationToken cancellationToken) =>
         await db.AuditEntries.CountAsync(a => a.ActorAccountId == me && (a.Action == "trip.arrived" || a.Action == "trip.arrival-refused" || a.Action == "home-check.recorded")
             && a.At > now.AddHours(-1), cancellationToken) >= ArrivalPolicy.ChecksPerHour;
-
-    private static async Task<bool> TravellingAsync(SwoovrDbContext db, Guid me, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        var yesterday = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-1);
-        var trips = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
-                           where t.AccountId == me && t.ArrivedAt != null && t.CancelledAt == null && t.Departure >= yesterday select new { t, c }).ToListAsync(cancellationToken);
-        return trips.Any(x => TravelPolicy.State(new TripFacts(x.t, x.c.TimeZone), [], now) is not (TripState.Cancelled or TripState.Expired));
-    }
 }

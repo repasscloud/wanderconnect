@@ -1,7 +1,8 @@
 namespace Swoovr.Domain;
 
-/// <summary>D333 retention categories (#207). Each maps to one approved period, counted from the ticket's final closure.</summary>
-public enum HelpdeskRetentionCategory { General, Billing, FinancialRecord, TrustAndSafety, Legal, Privacy, Security }
+/// <summary>D333 retention categories (#207). Each maps to one approved period, counted from the ticket's final closure.
+/// D349 adds HomeCityCheck: the scheduled Home City check's items, kept 6 months after closure (subject to the final Privacy Notice).</summary>
+public enum HelpdeskRetentionCategory { General, Billing, FinancialRecord, TrustAndSafety, Legal, Privacy, Security, HomeCityCheck }
 
 /// <summary>Where a ticket is in the helpdesk retention ledger (Q136 / D337).</summary>
 public enum HelpdeskRetentionState { Open, Retained, Disposing, Disposed, Failed }
@@ -48,6 +49,7 @@ public static class HelpdeskRetentionPolicy
         "Legal & Law Enforcement" => HelpdeskRetentionCategory.Legal,
         "Privacy & Data Protection" => HelpdeskRetentionCategory.Privacy,
         "Security" => HelpdeskRetentionCategory.Security,
+        HomeCityCheckPolicy.Group => HelpdeskRetentionCategory.HomeCityCheck,
         _ => HelpdeskRetentionCategory.General,
     };
 
@@ -58,6 +60,7 @@ public static class HelpdeskRetentionPolicy
         HelpdeskRetentionCategory.FinancialRecord or HelpdeskRetentionCategory.Legal => (7, 0),
         HelpdeskRetentionCategory.TrustAndSafety or HelpdeskRetentionCategory.Security => (5, 0),
         HelpdeskRetentionCategory.Privacy => (3, 0),
+        HelpdeskRetentionCategory.HomeCityCheck => (0, 6),
         _ => throw new ArgumentOutOfRangeException(nameof(category)),
     };
 

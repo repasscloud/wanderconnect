@@ -41,6 +41,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.PushDevices.Where(d => d.AccountId == account.Id).ExecuteDeleteAsync(cancellationToken);
         // D348, #278: the stored Near me reading goes with the request, not at final deletion.
         await db.MemberLocations.Where(l => l.AccountId == account.Id).ExecuteDeleteAsync(cancellationToken);
+        // D349: daily Home City outcomes go with the request too; no check runs for a member who is leaving.
+        await db.HomeCityDays.Where(d => d.AccountId == account.Id).ExecuteDeleteAsync(cancellationToken);
         if(services.GetService<Swoovr.Api.Safety.MeetingSafetyStore>() is{}meetingSafety)await meetingSafety.RevokeAccountAsync(account.Id,now,cancellationToken);
         Audit.Record(db, now, account.Id, "account", "account.deletion-requested", "account", account.Id.ToString(), immediately ? "now" : "30-days");
         await db.SaveChangesAsync(cancellationToken);
@@ -266,7 +268,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.MarketInterests.Where(i => i.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Trips.Where(t => t.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Itineraries.Where(i => i.AccountId == id).ExecuteDeleteAsync(cancellationToken);
-        await db.HomeLocationChecks.Where(c => c.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.HomeCityDays.Where(d => d.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        await db.HomeCityChecks.Where(c => c.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.DobReviews.Where(r => r.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.Entitlements.Where(e => e.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberNotices.Where(n => n.AccountId == id).ExecuteDeleteAsync(cancellationToken);

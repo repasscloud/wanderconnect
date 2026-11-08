@@ -7,7 +7,13 @@ const suites=Object.freeze({'messaging-lifetime':'tests/messaging/lifetime.brows
  // #257 location work (D345–D352): Explore modes and badges, distance filters and bands, Travel, the Near me store and discovery.
  modes:'tests/profiles/modes.browser.cjs',badges:'tests/profiles/badges.browser.cjs',matching:'tests/discovery/matching.browser.cjs',
  'location-privacy':'tests/discovery/location-privacy.browser.cjs','traveller-search':'tests/travel/traveller-search.browser.cjs',
- 'near-me':'tests/discovery/near-me.browser.cjs','near-me-discovery':'tests/discovery/near-me-discovery.browser.cjs'});
+ 'near-me':'tests/discovery/near-me.browser.cjs','near-me-discovery':'tests/discovery/near-me-discovery.browser.cjs',
+ // #281 (D349): the scheduled Home City check; with SWOOVR_OWNED_ZAMMAD=1 also its Zammad item.
+ 'home-city-check':'tests/location/home-city-check.browser.cjs'});
+/** #281: opt-in local helpdesk for the owned hosts (the loopback Zammad and its provisioned identity, directory and Home City check tokens). */
+async function helpdeskSettings(){if(process.env.SWOOVR_OWNED_ZAMMAD!=='1')return {};const data=JSON.parse(await fs.readFile(path.join(root,'.local/zammad/provisioned.json'),'utf8'));
+ if(!data.identity_token||!data.staff_directory_token||!data.home_city_check_token)throw Error('Provision the local helpdesk first: python3 scripts/zammad_local.py provision.');
+ return {Ticketing__Zammad__BaseUrl:process.env.SWOOVR_OWNED_ZAMMAD_URL||'http://127.0.0.1:8095/',Ticketing__Zammad__IdentityToken:data.identity_token,Ticketing__Zammad__StaffDirectoryToken:data.staff_directory_token,Ticketing__Zammad__HomeCityCheckToken:data.home_city_check_token};}
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const command=(name,args,options={})=>new Promise((resolve,reject)=>execFile(name,args,{cwd:root,maxBuffer:8e6,...options},(error,stdout,stderr)=>error?reject(Object.assign(Error(name+' failed (private runner logs contain details).'),{privateOutput:stderr})):resolve(stdout.trim())));
 function selectedSuites(value){const selected=value?.split(',');if(!selected?.length||new Set(selected).size!==selected.length||selected.some(key=>!Object.hasOwn(suites,key)))throw Error('Set SWOOVR_OWNED_SUITES to explicit unique names: '+Object.keys(suites).join(','));if(selected.includes('deletion')&&selected.length!==1)throw Error('Run deletion alone: its owned hosts use a shorter reauthentication window.');return selected;}
@@ -86,7 +92,7 @@ async function main(){
    }catch{res.statusCode=400;res.end('{}');}
   });await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));
   env={...cleanEnv,TMPDIR:folder,DOTNET_ENVIRONMENT:'Development',ASPNETCORE_ENVIRONMENT:'Development',ConnectionStrings__Swoovr:`Host=127.0.0.1;Port=5433;Database=${manifest.database};Username=swoovr;Password=${config.SWOOVR_DB_PASSWORD}`,
-   ...(selected.includes('deletion')?{Accounts__ReauthSeconds:'45',SWOOVR_REAUTH_SECONDS:'45'}:{}),
+   ...(selected.includes('deletion')?{Accounts__ReauthSeconds:'45',SWOOVR_REAUTH_SECONDS:'45'}:{}),...await helpdeskSettings(),
    Keycloak__BaseUrl:'http://localhost:8180',Keycloak__RequireHttpsMetadata:'false',Mfa__StaffClientId:manifest.staffClient,Staff__LocalPasswords:'true',Phone__Required:'false',Founders__Secrets__1:synthetic.SWOOVR_FOUNDER_SECRET_V1,
    MemberAdmin__ClientSecret:synthetic.SWOOVR_MEMBERS_API_ADMIN_SECRET,MemberAdmin__ContactRetirementEnabled:'false',MemberAdmin__ContactRetirementWorker:'false',
    Didit__ApiKey:'synthetic-owned-only',Didit__WorkflowId:synthetic.SWOOVR_DIDIT_WORKFLOW_ID,Didit__WebhookSecret:synthetic.SWOOVR_DIDIT_WEBHOOK_SECRET,Didit__BaseUrl:'http://127.0.0.1:'+provider.address().port+'/',Didit__Callbacks__Web:manifest.web+'/me/verification/return',

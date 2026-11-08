@@ -9,12 +9,14 @@ public static class TicketingPolicy
 {
     public const string Restricted = "Trust & Safety — Restricted";
     public const string Legal = "Legal & Law Enforcement";
+    /// <summary>D349, #281: the swoovr_source of items Swoovr itself raises (the scheduled Home City check), hidden from the member until Support replies.</summary>
+    public const string SystemSource = "system";
 
     public static readonly IReadOnlyList<string> Groups = Array.AsReadOnly(new[] {
         "General Support", "Billing & Subscriptions", "Account Recovery", "Appeals", "Trust & Safety",
         Restricted, Legal, "Privacy & Data Protection",
         "Public Relations & Media", "Partnerships & Business Development", "Marketing & Community",
-        "Internal Operations", "Security" });
+        "Internal Operations", "Security", HomeCityCheckPolicy.Group });
 
     /// <summary>Queues that also need the matching elevated capability and a sign-in within 15 minutes.</summary>
     public static readonly IReadOnlySet<string> Sensitive = new HashSet<string>(StringComparer.Ordinal) { Restricted, Legal, "Privacy & Data Protection", "Security" };
@@ -32,7 +34,8 @@ public static class TicketingPolicy
         "Trust & Safety" or "Appeals" => role is AccountRole.TrustSafety or AccountRole.Admin,
         "Privacy & Data Protection" => role is AccountRole.Legal or AccountRole.Admin,
         "Internal Operations" or "Security" => role == AccountRole.Admin,
-        "General Support" or "Billing & Subscriptions" or "Account Recovery" or
+        // D349: Support, Trust & Safety and Admin.
+        HomeCityCheckPolicy.Group or "General Support" or "Billing & Subscriptions" or "Account Recovery" or
         "Public Relations & Media" or "Partnerships & Business Development" or "Marketing & Community"
             => role is AccountRole.Support or AccountRole.Admin or AccountRole.TrustSafety,
         _ => false,

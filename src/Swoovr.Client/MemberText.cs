@@ -158,7 +158,7 @@ public static class MemberText
         };
     }
 
-    /// <summary>A home-location check's outcome (D150). An inconsistent one is never a penalty by itself.</summary>
+    /// <summary>"Check my location matches" (D349): the day's Home City outcome so far. Away is never a penalty.</summary>
     public static string HomeCheck(string outcome) => outcome switch
     {
         "consistent" => "Thanks. Your location matches your home city.",

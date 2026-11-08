@@ -1849,3 +1849,44 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
 - **Stale assertions updated:**
   - traveller-search: a restricted member using another member's trip gets 404 (D325).
   - modes: `registration-closed` for an uninvited member (D335); initial public name from registered names (D317); per-mode `displayName` (D301); card key `visiting` (D352); the signed-out public page loads no Explore data (#253/#254).
+
+## #281 scheduled Home City check (D349, D354) — 9 November 2026
+
+- `./scripts/check.sh` in the worktree (branch `feature/281-home-city-check`): exit 0, 94 PASS lines; persistence SKIP (no `.local` database in a worktree). Its first run caught `HomeCityCheckJob` registered outside the persistence block (the database-less smoke start failed DI validation); fixed before the run above.
+- `Swoovr.Checks` with `SWOOVR_TEST_DATABASE` set to the managed platform's PostgreSQL server (the checks create and drop their own throwaway database): exit 0, **766 persistence cases**. Included: the Home City day and result round-trip, one outcome per member per day, no positional columns, and the cascade with the account. `PASS: scheduled Home City check rules (52)` covers the vicinity, precedence, parts, skip/suggest, the last-7-days home rule, trip exclusion, suppression, member visibility, note content, queue access, retention, settings and `provision.rb` parity.
+  - **Pre-existing failure fixed:** the GeoNames sample check still expected 24 cities after 6c700f5 (#293) added Magill (25). It failed on `main` too, unseen because persistence is skipped there unless a database is set.
+- Browser suites through `tests/auth/run-owned.cjs` (owned throwaway database, hosts and OIDC clients; Release build of this branch):
+
+  | Suite | Checks |
+  | --- | --- |
+  | home-city-check, `SWOOVR_OWNED_ZAMMAD=1` (local Zammad 7.2.2) | 57 |
+  | home-city-check, without the helpdesk | 35 |
+  | traveller-search (home-check block rewritten for D349) | 124 |
+  | near-me | 26 |
+  | near-me-discovery | 23 |
+
+  - With the helpdesk, the suite confirmed the issue's acceptance list end to end:
+    - Sparse readings skip.
+    - A home day in the last 7 days prevents a suggestion.
+    - Trip days are excluded from both counts.
+    - No second item while one is open, none within 90 days of closure, and none before "Don't suggest before" (set through the Admin overview dialog and audited with its reason).
+    - The member's list and detail don't show the item until Support replies with the "Suggest updating your Home City" text, and then show only that reply.
+    - The note holds the account link, public id, Home City, period and counts, and no coordinates.
+    - No sanction, notice, status or Home City change follows.
+    - Retention category is `HomeCityCheck`.
+  - The local Zammad was re-provisioned (`python3 scripts/zammad_local.py provision`, worktree `.local/zammad` linked to the main checkout's). It added the group, the `swoovr-home-city-check` identity, the text module and the macro. Existing tokens were unchanged; only `home_city_check_token` is new.
+  - Screenshot of the Admin Location card checked by eye: the result line, the "Not before" tag and the "Don't suggest before" button sit in the existing card layout.
+- **Not done / gaps:**
+  - The managed platform's own API has no `HomeCityCheckToken` until `python3 scripts/zammad_local.py runtime` is run and the platform rebuilt.
+  - The hourly worker loop wasn't observed running over hours; the runs used `location home-city-check`.
+  - The Zammad macro was confirmed to exist; applying it was exercised only through its text module in Swoovr Admin.
+  - MAUI parity is #284.
+  - Release waits for Privacy Notice 0.20 (D351, #283).
+- **Codex review on PR #302 (9 November 2026), both findings valid and fixed:**
+  - (1) A Home City change now withdraws a suggestion still waiting for its Zammad item (`Suppressed`/`HomeCityChanged`), so old-city counts are never delivered against the new city.
+  - (2) The job evaluates before it purges, and never evaluates a period whose first day is past the 35-day evidence window (no result, a fresh start, audited `home-city-check.expired`). Purged days can no longer read as days without readings.
+  - After the fixes:
+    - `./scripts/check.sh`: exit 0, 94 PASS.
+    - `Swoovr.Checks` with the platform PostgreSQL server: 766 persistence cases; `scheduled Home City check rules (57)`, which includes Codex's 15-of-22 example.
+    - home-city-check: **62** checks with the helpdesk and 40 without. Added: a pending suggestion withdrawn on a Home City change and never delivered; a late, incomplete period giving no result.
+

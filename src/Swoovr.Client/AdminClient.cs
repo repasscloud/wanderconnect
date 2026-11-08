@@ -177,9 +177,9 @@ public sealed partial class AdminClient(HttpClient transport)
     public Task<ApiResult<bool>> ConfirmArrivalAsync(Guid tripId, string reason, CancellationToken cancellationToken = default) =>
         ActionAsync(HttpMethod.Post, $"api/admin/trips/{tripId}/arrival", new ArrivalReview(reason), cancellationToken);
 
-    /// <summary>An admin clears the home-location review after looking (D150).</summary>
-    public Task<ApiResult<AccountAdminSummary>> ClearHomeReviewAsync(Guid id, string reason, CancellationToken cancellationToken = default) =>
-        SendAsync<AccountAdminSummary>(HttpMethod.Post, $"api/admin/accounts/{id}/home-review/clear", new HomeReviewClear(reason), cancellationToken);
+    /// <summary>D349: Support, Trust &amp; Safety or Admin set (or clear, with null) the Home City check's "Don't suggest before" (audited).</summary>
+    public Task<ApiResult<HomeCityCheckAdminView>> SetHomeCityCheckAsync(Guid id, DateOnly? dontSuggestBefore, string? reason, CancellationToken cancellationToken = default) =>
+        SendAsync<HomeCityCheckAdminView>(HttpMethod.Put, $"api/admin/accounts/{id}/home-city-check", new HomeCityCheckChange(dontSuggestBefore, reason), cancellationToken);
 
     /// <summary>D166: open date-of-birth reviews (admins only).</summary>
     /// <summary>#50: the member's own account-standing view, for staff helping them.</summary>

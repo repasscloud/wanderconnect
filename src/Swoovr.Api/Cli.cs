@@ -281,6 +281,13 @@ public static class Cli
             case ["location", "purge"]:
                 Console.WriteLine($"Near me purge: {await Swoovr.Api.Travel.NearMeEndpoints.PurgeAsync(db, now, CancellationToken.None)} expired readings deleted.");
                 return 0;
+            // D349, #281: the hourly Home City check, on demand (counts only).
+            case ["location", "home-city-check"]:
+            {
+                var run = await scope.ServiceProvider.GetRequiredService<Swoovr.Api.Travel.HomeCityCheckJob>().RunAsync(now, CancellationToken.None);
+                Console.WriteLine($"Home City check: {run.Checked} checked, {run.Suggested} suggested, {run.Created} items created, {run.Suppressed} suppressed, {run.Waiting} waiting, {run.Failed} failed; {run.DaysPurged} days and {run.ResultsPurged} results purged.");
+                return run.Failed > 0 ? 1 : 0;
+            }
             case ["retention", "purge", "--case", var retentionCase] when Guid.TryParse(retentionCase, out var parsedCase):
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.SafetyRetention>().PurgeAsync(now, CancellationToken.None, parsedCase);

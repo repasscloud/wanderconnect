@@ -25,6 +25,8 @@ Template with placeholders: `containers/zammad/api.env.example`. Names match the
 | `Ticketing:Zammad:BaseUrl` | Zammad base URL (HTTPS, or HTTP only to loopback/the private `swoovr-zammad` host) |
 | `Ticketing:Zammad:IdentityToken` | Customer lifecycle token (cannot read tickets on its own) |
 | `Ticketing:Zammad:RetentionToken` | Retention identity (D337): reads ticket metadata in every group, deletes only through data privacy tasks; required on hosted hosts |
+| `Ticketing:Zammad:HomeCityCheckToken` | Home City check identity (D349, D354): creates internal-note items and reads their state in "Home City checks" only. Without it, suggestions wait (and fail after ten attempts) |
+| `Location:HomeCityCheck:AdminBaseUrl` | Swoovr Admin's public origin for the account link in Home City check notes (path only without it) |
 | `Attachments:Scanning:ClamAv:Host`, `Port`, `TimeoutSeconds`, `MaxStreamBytes` | ClamAV for support attachments (D336); required on hosted hosts. `Attachments:Scanning:Enabled=false` is Development only |
 | `Ticketing:Zammad:StaffDirectoryToken` | Staff directory credential; enables staff synchronisation (none: staff can't use the helpdesk) |
 | `Ticketing:Staff:Worker`, `SyncSeconds`, `VerifyMinutes` | Staff synchronisation on/off (default on), interval (60 s), full verification against Zammad (10 min) |
@@ -110,3 +112,10 @@ Swoovr roles decide every staff member's queues; Zammad is never managed as a se
 - **Backups:** `HOLD_DAYS 33` (so no backup outlives 35 days), `TZ Australia/Adelaide` on `zammad-backup`; see [BACKUP-RESTORE.md](../BACKUP-RESTORE.md#helpdesk-zammad-backups-and-restore). Keep backups encrypted and access-controlled. Legal holds never extend backups; Swoovr holds the records instead.
 - **After any Zammad restore,** before staff use it: `dotnet Swoovr.Api.dll retention helpdesk --reconcile`. It deletes again the tickets Swoovr already disposed of (ledger rows are kept 60 days) and retires the retired customers again.
 - **Overrides:** Admin or Legal can change a request's retention category on its Admin page, with a reason (audited). Kept-for-hold/case/appeal and failing deletions show in Integration health.
+
+## Home City checks (D349, D354)
+
+- **Group:** "Home City checks" (Support, Trust & Safety, Admin). Items are raised by the `swoovr-home-city-check` identity, provisioned by `containers/zammad/provision.rb` (custom role with `ticket.agent`; create and read in this group only; never an Agent, owner or synchronised staff member). Re-run provisioning on an existing helpdesk to add it; other identities and tokens are unchanged.
+- **Runs** hourly in hosted environments (`Location:HomeCityCheck:Worker`, off in Development), or `dotnet Swoovr.Api.dll location home-city-check`.
+- **Working an item:** the first article is an internal note with the account link, public id, Home City, period and counts. The member can't see the item until you reply. To contact them, use the "Suggest updating your Home City" macro in Zammad or the text module of the same name in Swoovr Admin. Close it when done. No new item is raised while one is open, or for 90 days after it closes.
+- **Retention:** category `HomeCityCheck`, 6 months after closure (D337 ledger).

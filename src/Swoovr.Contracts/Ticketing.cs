@@ -68,7 +68,7 @@ public sealed record GuestGrant(string Grant,DateTimeOffset ExpiresAt);
 public sealed record GuestTicketCreate(Guid OperationId,string Category,string Title,string Body);
 public sealed record GuestCategory(string Id,string Label);
 
-/// <summary>D337 (#224): a ticket's helpdesk retention. Categories: General, Billing, FinancialRecord, TrustAndSafety, Legal, Privacy, Security.</summary>
+/// <summary>D337 (#224): a ticket's helpdesk retention. Categories: General, Billing, FinancialRecord, TrustAndSafety, Legal, Privacy, Security, HomeCityCheck (D349).</summary>
 public sealed record TicketRetentionView(string Category,string GroupCategory,string? OverrideCategory,string? OverrideReason,DateTimeOffset? ClosedAt,DateTimeOffset? RetainUntil,string State,string? KeptFor,bool CanChange);
 /// <summary>Null Category clears the override. A reason is always required (audited).</summary>
 public sealed record TicketRetentionChange(string? Category,string Reason);

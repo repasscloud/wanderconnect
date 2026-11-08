@@ -31,13 +31,17 @@
     </div>
     @if (Account.Realm == "members")
     {
-        <div class="ui-card" data-location-review="@(Account.HomeReviewFlaggedAt is null ? "clear" : "flagged")">
+        <div class="ui-card" data-home-city-check="@(Account.HomeCityCheck?.Latest?.Result ?? "none")">
             <h2 class="ui-card-title">Location</h2>
             <dl class="ad-dl">
                 <div><dt>Home market</dt><dd data-home-market="@(Account.HomeMarket ?? "none")">@(Account.HomeMarket ?? "None")@(Account.HomeMarketMovedAt is { } moved ? $" · moved {moved:d MMM yyyy}" : "")</dd>
                     <dd class="ad-act">@if (Account.HomeMarketMovedAt is not null) { if (Permissions?.EditLocation == true) {<button type="button" class="ui-button-ghost" data-dialog-open="home-wait" data-op="home-override">Lift wait</button>} else {<RoleNote />} }</dd></div>
-                <div><dt>Home checks</dt><dd data-home-checks="@Account.InconsistentHomeChecks">@Account.InconsistentHomeChecks disagreed in the last 30 days@(Account.HomeReviewFlaggedAt is { } flagged ? $" · flagged {flagged:d MMM yyyy}" : "")</dd>
-                    <dd class="ad-act">@if (Account.HomeReviewFlaggedAt is not null) {<button type="button" class="ui-button-ghost" data-dialog-open="home-review" data-op="home-review-clear">Clear review</button>}</dd></div>
+                @* D349, issue 281: the scheduled Home City check, in observed days only. It never changes the Home City or restricts anyone. *@
+                <div><dt>Home City check</dt>
+                    <dd data-home-city-latest="@(Account.HomeCityCheck?.Latest?.Result ?? "none")">@CheckText(Account.HomeCityCheck)
+                        @if (Account.HomeCityCheck?.Latest is { TicketId: { } ticket, ItemReference: { } reference }) {<span class="ui-sub"> · <a href="/tickets/@ticket" data-home-city-item="@reference">@reference</a></span>}
+                        @if (Account.HomeCityCheck?.DontSuggestBefore is { } until) {<span class="ad-tag" data-dont-suggest-before="@until.ToString("yyyy-MM-dd")">Not before @until.ToString("d MMM yyyy")</span>}</dd>
+                    <dd class="ad-act"><button type="button" class="ui-button-ghost" data-dialog-open="home-city-check" data-op="home-city-check">Don't suggest before</button></dd></div>
                 <div><dt>Trips</dt><dd data-trips="@trips.Count">@(trips.Count == 0 ? "None" : $"{trips.Count} trip{(trips.Count == 1 ? "" : "s")}")</dd><dd></dd></div>
             </dl>
             @if (trips.Count > 0)
@@ -71,8 +75,10 @@
 <ConfirmDialog Id="home-wait" FormName="home-wait" Title="Lift the 30-day home-city wait" Confirm="Lift wait" OnSubmit='() => RunAsync("home")'>
     <label class="ui-field"><span>Reason</span><select name="reason" required><option>Moved for work, confirmed</option><option>Relocation evidence reviewed</option><option>Staff error</option></select></label>
 </ConfirmDialog>
-<ConfirmDialog Id="home-review" FormName="home-review" Title="Clear the location review" Confirm="Clear review" OnSubmit='() => RunAsync("home-review")'>
-    <label class="ui-field"><span>Reason</span><select name="reason" required><option>Checks explained by travel</option><option>Home city confirmed</option><option>Flagged in error</option></select></label>
+<ConfirmDialog Id="home-city-check" FormName="home-city-check" Title="Don't suggest a Home City update before" Confirm="Save" OnSubmit='() => RunAsync("home-city-check")'>
+    <label class="ui-field"><span>Date</span><input type="date" name="until" value="@(Account.HomeCityCheck?.DontSuggestBefore?.ToString("yyyy-MM-dd") ?? "")" /></label>
+    <label class="ui-field"><span>Reason</span><select name="reason" required><option>Member confirmed their Home City</option><option>Member is away for a while</option><option>Already discussed with the member</option><option>Clear the date</option></select></label>
+    <p class="ui-help">Leave the date empty to clear it. Recorded against your name.</p>
 </ConfirmDialog>
 @foreach (var t in trips.Where(t => t.ArrivalState != "arrived" && t.State is not ("expired" or "cancelled")))
 {
@@ -121,7 +127,7 @@
         var (status, code) = op switch
         {
             "home" => Of(await Admin.HomeMoveOverrideAsync(Account.Id, reason)),
-            "home-review" => Of(await Admin.ClearHomeReviewAsync(Account.Id, reason)),
+            "home-city-check" => Of(await Admin.SetHomeCityCheckAsync(Account.Id, DateOnly.TryParse(Field("until"), System.Globalization.CultureInfo.InvariantCulture, out var until) ? until : null, reason)),
             "arrival" => Of(await Admin.ConfirmArrivalAsync(item!.Value, reason)),
             _ => (400, null),
         };
@@ -130,4 +136,19 @@
         if (Account.Realm == "members") trips = (await Admin.TripsAsync(Account.Id)).Value ?? [];
     }
     private static (int, string?) Of<T>(ApiResult<T> result) => (result.Status, result.Code);
+
+    /// <summary>D349: the latest result in observed days, and the current period. Never places or positions.</summary>
+    private static string CheckText(HomeCityCheckAdminView? check)
+    {
+        var period = check?.PeriodFrom is { } from ? $"Current period {from:d MMM}{(check.PeriodTo is { } to ? $" – {to:d MMM yyyy}" : "")}" : "No current period";
+        if (check?.Latest is not { } last) return $"No check yet · {period}";
+        var result = last.Result switch
+        {
+            "suggested" => "Suggested", "noSuggestion" => "No suggestion", "skipped" => "Skipped (too few days with readings)",
+            "suppressed" => last.Suppression switch { "dontSuggestBefore" => "Not raised (don't suggest before)", "openItem" => "Not raised (item already open)", "cooldown" => "Not raised (within 90 days of closure)", "homeCityChanged" => "Withdrawn (Home City changed)", _ => "Not raised" },
+            _ => last.Result,
+        };
+        var item = last.Item switch { "pending" => " · item waiting for Zammad", "failed" => " · item could not be created", _ => "" };
+        return $"{result} · {last.Observed} · {last.PeriodStart:d MMM} – {last.PeriodEnd:d MMM yyyy}{item} · {period}";
+    }
 }

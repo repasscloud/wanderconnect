@@ -84,10 +84,12 @@ public sealed class MemberProfile
     public string? HomeMarketMovedTo { get; set; }
     public DateTimeOffset? HomeMarketMovedAt { get; set; }
     /// <summary>
-    /// D150: set when home-location checks disagree with the home city often enough for an admin to look
-    /// (HomeLocationPolicy); cleared by an admin. Never suspends or hides anyone by itself, and never shown to others.
+    /// D349, #281: the first day (Home City time zone) of the member's current Home City check period, set by their first
+    /// accepted reading and moved on 30 days at each check. Cleared when the Home City changes or a period had no readings.
     /// </summary>
-    public DateTimeOffset? HomeReviewFlaggedAt { get; set; }
+    public DateOnly? HomeCityCheckFrom { get; set; }
+    /// <summary>D349: Support/Admin's "Don't suggest before" (audited). No suggestion is raised before this day.</summary>
+    public DateOnly? HomeCityDontSuggestBefore { get; set; }
     /// <summary>D348: "Appear in nearby searches". Off by default for new and existing members; never inferred from OS permission.</summary>
     public bool AppearInNearby { get; set; }
     /// <summary>D348: "Show my approximate distance". Off by default; a member sees others' bands only while this is on (Q152).</summary>

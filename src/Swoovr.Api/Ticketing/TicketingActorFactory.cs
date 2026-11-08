@@ -19,6 +19,11 @@ public sealed class TicketingActorFactory(IConfiguration configuration,TimeProvi
     public ZammadTicketingProvider Identity()=>Provider(configuration["Ticketing:Zammad:IdentityToken"]);
     /// <summary>D337: the retention identity (ticket metadata in every group, data privacy deletion only). Null when not configured.</summary>
     public ITicketingRetentionProvider? Retention()=>string.IsNullOrWhiteSpace(configuration["Ticketing:Zammad:RetentionToken"])?null:Provider(configuration["Ticketing:Zammad:RetentionToken"]);
+    /// <summary>
+    /// D349, #281: the Home City check identity (`swoovr-home-city-check`: ticket.agent with create/read in "Home City checks"
+    /// only). It raises the scheduled check's internal-note items and reads their state for the cooldown. Null when not configured.
+    /// </summary>
+    public ZammadTicketingProvider? HomeCityCheck()=>string.IsNullOrWhiteSpace(configuration["Ticketing:Zammad:HomeCityCheckToken"])?null:Provider(configuration["Ticketing:Zammad:HomeCityCheckToken"]);
     public bool Configured=>Uri.TryCreate(configuration["Ticketing:Zammad:BaseUrl"],UriKind.Absolute,out _)&&!string.IsNullOrWhiteSpace(configuration["Ticketing:Zammad:IdentityToken"]);
     private ZammadTicketingProvider Provider(string? token,long? from=null)
     {
