@@ -70,6 +70,22 @@ Q17 and the follow-up answers (D107, D109–D111) are built as described in D120
 
 Not built: arrival changing discovery to a device location (Q23), traveller search (above), Travel in the MAUI app (see validation).
 
+### Location redesign (decided 8 November 2026, not built)
+
+[#257](https://github.com/repasscloud/wanderconnect/issues/257); D345–D351. Open items: Q158 ([#269](https://github.com/repasscloud/wanderconnect/issues/269)), Q161 ([#270](https://github.com/repasscloud/wanderconnect/issues/270)), Q165 ([#271](https://github.com/repasscloud/wanderconnect/issues/271)) and Q166 ([#272](https://github.com/repasscloud/wanderconnect/issues/272)).
+
+- **Home City.** CONFIRMED: Home City stays the registered market and is never changed by GPS.
+- **Explore.** CONFIRMED: Explore gets a **Home market / Near me** control.
+  - Home market is today's Explore and the default.
+  - Near me needs a fresh device reading. While the reading is fresh, the member is *present* in the enabled market they are in, and can discover and contact people there without a trip (D346).
+- **Location sources.** CONFIRMED: there is no manual location and no IP fallback.
+- **Travel.** CONFIRMED: Travel and D149 arrival are unchanged.
+- **Privacy settings.** CONFIRMED: "Appear in nearby searches" and "Show my approximate distance" are independent and off by default.
+- **Distance.** Distance bands become an enum with a GPS or Home City basis (D348). Free members get 5–50 km distance filters, and paid tiers also get 100/250/500 km (D347).
+- **Area.** Area is retired (D350; plan OPEN).
+- **Home City confirmation.** Long, repeated absence from the home market may prompt the member to confirm their Home City, then a staff review. This is never a sanction (D349; evidence rule OPEN).
+- **Release.** Near me, stored location and GPS bands wait for Privacy Notice 0.20 approval (D351).
+
 ### Earlier names
 
 **Connect**, **Friends & company** and **Travel & exploring** were the [product brief](01-PRODUCT-BRIEF.md)'s original context labels. They are legacy names, not extra connection modes. "Dating, Friends, Activities" on the reference screens was a placeholder set, now replaced by the four modes above.
