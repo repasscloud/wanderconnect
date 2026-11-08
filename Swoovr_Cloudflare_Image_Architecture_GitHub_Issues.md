@@ -83,12 +83,9 @@ Client or Admin -> Swoovr API -> authorised storage action / queued cleanup
 | #263 | 4 | Secure image delivery and lifecycle operations | GET/HEAD, access, caching, PATCH/DELETE semantics | 1, 2, 3 |
 | #264 | 5 | API integration, callbacks and idempotency | API-only database access, reliable event handling | 1; coordinate with 2–4 |
 | #265 | 6 | Security, operations and release verification | Secrets, observability, cost, resilience, testing | 1–5 |
-| #266 | 7 | Separate feature: optional unanswered-message limit | Messaging privacy setting discussed earlier | Independent |
 | #267 | - | Main thread ticket | - | - |
 
-Tickets 1–6 form the image infrastructure epic. **Ticket 7 is intentionally independent** because it was part of the wider conversation but is unrelated to Cloudflare image processing. It can be omitted from the image epic.
-
-Tickets 1–6 form the image infrastructure epic. **Ticket 7 is intentionally independent** because it was part of the wider conversation but is unrelated to Cloudflare image processing. It can be omitted from the image epic.
+Tickets 1–6 form the image infrastructure epic.
 
 # TICKET 1 — Plan and validate Cloudflare-based Swoovr image architecture
 
@@ -421,53 +418,9 @@ Ensure the Cloudflare image pipeline is maintainable and safe to deploy to Swoov
 - [ ] Cost limits, retention, residency assumptions and operational owners documented.
 - [ ] Production rollout has explicit rollback and fail-closed behaviour.
 
-# TICKET 7 (INDEPENDENT) — Optional profile-wide unanswered-message limit
-
-> This ticket covers the earlier messaging discussion. **It is unrelated to the Cloudflare image epic** and should be raised separately if not already tracked.
-
-## Objective
-
-Give members a voluntary messaging boundary to reduce repeated unanswered messages without forcing a member to block or disconnect someone, while preserving normal adult communication.
-
-## Key decision: OFF by default
-
-**Default for all new and existing accounts: Off (unlimited).** A member may enable the profile-wide setting and select **3, 5 or 10** consecutive unanswered messages. Do **not** set the default to 5; earlier draft language suggesting that was superseded by the explicit decision to default **Off**.
-
-## Requirements
-
-- One **global profile/privacy setting per recipient**; it applies to that member's incoming messages across all one-to-one conversations. **No per-conversation overrides**, no relationship-based algorithm and no time-based reset.
-- If Member B enables a limit of 5, Member A may send five consecutive messages to B without a response. The sixth is rejected until B replies at least once, even if the five messages were sent over weeks or years.
-- The converse direction is assessed independently using Member A's own chosen receiving limit.
-- Any successful recipient reply—even a one-word reply—resets the other member's consecutive unanswered-message count for that conversation.
-- Opening, reading, marking as unread, editing or deleting messages does not reset the counter. Message attachment types count in a consistent way; system messages, typing/read receipts do not.
-- Changing a recipient's profile setting takes effect immediately, including on existing conversations. Disabling the limit permits messaging subject to all other access and safety rules; re-enabling evaluates the existing unanswered sequence.
-- The Swoovr API enforces it atomically across web, iOS and Android; clients show a neutral message such as: "You've reached the unanswered message limit for this conversation. You can send more when they reply."
-- Don't disclose the exact recipient preference unless there is an established UX reason; don't pressure the recipient to reply.
-- Preserve reporting, blocking, disconnecting and existing membership-tier restrictions; this is a safety/comfort feature available to **Free and paid members**.
-
-## Tests / acceptance
-
-- [ ] Default is Off for new and existing members, with no messaging restriction imposed by this feature.
-- [ ] Off / 3 / 5 / 10 settings persist across devices and sessions.
-- [ ] Message at threshold succeeds; next unanswered message is rejected.
-- [ ] Reply resets allowance; read receipt and elapsed time do not.
-- [ ] Text, media and supported attachments count; system messages do not.
-- [ ] Independent counts in each direction and each conversation.
-- [ ] Edit/delete/clock-wait workarounds fail.
-- [ ] Changing 10 to 3 immediately restricts someone with 5 unanswered messages; turning Off permits messages again.
-- [ ] Re-enabling does not inadvertently wipe unanswered history.
-- [ ] Concurrent sends cannot bypass limit; rejected sends do not become persisted messages.
-- [ ] Web/iOS/Android provide consistent sender feedback.
-
-## Clarifications before implementation
-
-- Determine how the current data model represents conversations, participants and message deletion/editing, then select a method that reliably counts the consecutive sequence without expensive per-send queries.
-- Define whether group conversations, reaction-only events and support/staff/system messages are out of scope. The intended initial target is member-to-member one-to-one chat.
-- Avoid modifying existing messaging tier limits without review.
-
 # Implementation coordination notes
 
-- Do not combine all issues into one large PR. Ticket 1 should yield a reviewed plan, then tickets 2–6 should be delivered in small, testable stages; ticket 7 can be scheduled independently.
+- Do not combine all issues into one large PR. Ticket 1 should yield a reviewed plan, then tickets 2–6 should be delivered in small, testable stages.
 - Treat exact service names, endpoint paths, database schema, Docker layout, Queue strategy and implementation framework as **design choices** for Codex/Claude to evaluate against the actual repository.
 - Do not provision resources, commit secrets, change Cloudflare/Azure billing, or enable production public access without explicit approval.
 - Surface contradictions with prior Swoovr decisions rather than silently choosing an interpretation.

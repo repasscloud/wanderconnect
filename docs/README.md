@@ -22,6 +22,10 @@ Updated 22 October 2026. Start with [current delivery status](delivery/STATUS.md
 
 - [Vultr image processing, Cloudflare orchestration and migration requirements](superpowers/specs/2026-11-08-vultr-image-pipeline-design.md), tracked in [#294](https://github.com/repasscloud/wanderconnect/issues/294): independent processor/ClamAV builds, Worker rules, R2/Queue contracts, review/appeals, Arachnid credentials and cutover. Design only; not implemented/deployed.
 
+## Standalone messaging specification
+
+- [Optional unanswered-message limit](product/UNANSWERED-MESSAGE-LIMIT.md), tracked in [#300](https://github.com/repasscloud/wanderconnect/issues/300).
+
 ## How to keep this organised
 
 Product specifications own requirements; architecture owns code/provider boundaries; delivery owns implementation status and evidence. Update affected documents in the same PR as code. Each new slice records what changed, where it lives, when and why it changed, how to run/validate it, the actual outcome, and remaining gaps. Mark owner answers CONFIRMED, reversible implementation choices DEFAULT and unresolved material choices OPEN.
