@@ -2808,24 +2808,13 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q165 — Privacy Notice 0.20 and permission wording
 
-- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decision-needed, owner-action). Status: OPEN (D351). Draft v2 is in the issue, covering:
-  - Near me retention.
-  - Daily outcomes, the monthly check, the Zammad note and their retention.
-  - Travel check-in as the active location.
-- It waits for owner and legal approval. Existing members are notified.
+- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decided). Status: ANSWERED, owner 8 November 2026 (D351). The [final wording](https://github.com/repasscloud/wanderconnect/issues/271#issuecomment-6720038803) was [recorded as approved by the owner](https://github.com/repasscloud/wanderconnect/issues/271#issuecomment-6720045158).
+- Published by [#283](https://github.com/repasscloud/wanderconnect/issues/283) with a member notification.
 
 ### Q166 — Scheduled Home City check: evidence, vicinity, Zammad item and retention
 
-- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decision-needed). Status: PARTLY ANSWERED, owner 8 November 2026 ([approved in principle](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719818807); D349).
-- Approved:
-  - 12+ located days across the four parts of the period; unknown days don't count; skip when there is too little evidence.
-  - 75% away, with away days spread across the parts and the 7-day home check.
-  - Active checked-in trip days excluded from the calculation and the evidence count.
-  - 35-day outcomes and 12-month counts.
-  - One open Zammad item per member, a 90-day cooldown, and 6 months after closure.
-  - Hidden from the member until Support contacts them.
-  - No automatic action.
-- Open: the vicinity rule. A (market + 25 km / 50 km), B (25 km around the Home City) or C, with [examples](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719843258).
+- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decided). Status: ANSWERED, owner 8 November 2026 (D349): [approved in principle](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719818807) and [vicinity option B](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719983753), a configurable 25 km radius around the registered Home City.
+- Implementation: [#281](https://github.com/repasscloud/wanderconnect/issues/281).
 
 ### Q167 — What happens to D150's current mechanism
 
