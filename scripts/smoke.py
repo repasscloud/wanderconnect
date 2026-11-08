@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.request
 from web_smoke import check_web_assets
+from bff_routes import check_bff_routes
 
 root = Path(__file__).resolve().parents[1]
 processes = []
@@ -75,6 +76,7 @@ try:
         assert '/account/sign-in' in html and '/account/create' in html and 'data-tab=' not in html
         assert 'Member experiences and sign-in are not connected' not in html
     check_web_assets(web)
+    bff_checked = check_bff_routes(web)
     # Without a token, or with a malformed one, the session endpoint is 401 and never 500.
     # The Basic value is random per run: a wrong scheme, never a stored credential.
     for header in [None, 'Bearer not.a.token', 'Bearer abc', 'Basic ' + base64.b64encode(os.urandom(12)).decode()]:
@@ -88,6 +90,7 @@ try:
     try: urllib.request.build_opener(NoRedirect).open(web+'account/sign-in'); raise AssertionError('expected redirect')
     except urllib.error.HTTPError as error: assert error.code == 302 and error.headers['Location'] == '/', error.headers['Location']
     print('PASS: appearance route and linked runtime scripts/styles.')
+    print(f'PASS: {bff_checked} fixed member client routes are on the BFF allow-list (401 without sign-in, never 404).')
     print('PASS: session endpoint 401 for missing/malformed tokens; unconfigured web sign-in stays off.')
     print('PASS: API liveness/status JSON and Blazor foundation HTTP response.')
 finally:

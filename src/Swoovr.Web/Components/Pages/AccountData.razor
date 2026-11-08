@@ -12,11 +12,8 @@
 }
 else
 {
+    @* Issue 258 (D343): no full-width Sign out bar here; Sign out stays under Account management on Account settings. *@
     <DataAndDeletionPanel @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
-    <form method="post" action="/account/sign-out" class="account-sign-out">
-        <AntiforgeryToken />
-        <button type="submit" class="quiet-button">Sign out</button>
-    </form>
 }
 </div>
 </SettingsShell>

@@ -277,18 +277,21 @@ const { web, createMember, createStaff, staffToken, memberToken, rootAdminToken,
     const ui = await browser.newContext(); const page = await ui.newPage();
     await page.goto(web + '/account/sign-in?intro=done');
     await page.fill('#username', returning.email); await page.fill('#password', returning.password);
-    await Promise.all([page.waitForURL(web+'/explore'),page.click('#kc-login')]);await page.goto(web+'/account');
-    await page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
+    // Issue 254 (D342): a member without a date of birth finishes it on the onboarding screens first.
+    await Promise.all([page.waitForURL(web+'/welcome'),page.click('#kc-login')]);
+    await page.waitForSelector('[data-onboarding-step=dob]', { timeout: 20000 });
     assert.ok(await page.evaluate(() => [...performance.getEntriesByType('resource')].some(r => r.name.includes('/_framework/') && r.name.endsWith('.wasm'))), 'runs as WebAssembly'); pass();
+    await page.fill('#onboarding-dob', '1990-05-01');
+    assert.equal(await page.locator('[data-onboarding-step=dob] [type=submit]').isDisabled(),true);pass();
+    await page.check('[data-onboarding-dob-confirm]');await page.click('[data-onboarding-step=dob] [type=submit]');
+    await page.waitForSelector('[data-onboarding-step=done]');
     // issue 180: badges live under Verification.
     await page.goto(web + '/me/verification'); await page.waitForSelector('[data-badges]', { timeout: 20000 });
     assert.equal(await page.locator('[data-badges=founder] [data-badge=founding]').count(), 1, 'founder badge drawn from the API'); pass();
     await page.goto(web + '/account'); await page.waitForSelector('[data-account-panel=ready]', { timeout: 20000 });
-    await page.fill('#dob', '1990-05-01');
-    assert.equal(await page.locator('[data-age-form] [type=submit]').isDisabled(),true);pass();
-    await page.locator('[data-age-form] [type=checkbox]').check();await page.click('[data-age-form] [type=submit]');
     await page.waitForSelector('[data-dob-locked=saved]');
-    assert.match(await page.locator('[data-dob-locked=saved]').innerText(),/locked/);pass();
+    // Issue 254 follow-up: no "Locked" pill; the row offers a correction request instead of an edit.
+    assert.match(await page.locator('[data-dob-locked=saved]').innerText(),/Request a correction/);assert.doesNotMatch(await page.locator('[data-dob-locked=saved]').innerText(),/Locked/);pass();
     // D139: the date of birth is required; there's no age-only field, and an empty date can't be saved.
     assert.equal(await page.locator('#age').count(), 0); pass();
     assert.equal(await page.locator('#dob').count(),0);pass();

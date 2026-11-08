@@ -106,7 +106,7 @@ else
                         {
                             <div class="settings-row" data-dob-locked="saved">
                                 <div class="settings-row-text"><p class="settings-row-label">Date of birth</p>
-                                    <p class="settings-row-value">@me.DateOfBirth.Value.ToString("d MMMM yyyy")<span class="settings-tag settings-tag-quiet">Locked</span>@if (me.DateOfBirthVerified) { <span class="settings-tag" data-dob-verified="true">Verified with ID</span> }</p></div>
+                                    <p class="settings-row-value">@me.DateOfBirth.Value.ToString("d MMMM yyyy")@if (me.DateOfBirthVerified) { <span class="settings-tag" data-dob-verified="true">Verified with ID</span> }</p></div>
                                 <a class="settings-row-action" href="@SupportTicketText.NewLink()" aria-label="Request a date of birth correction">Request a correction</a>
                             </div>
                         }

@@ -31,8 +31,20 @@ Recorded 8 November 2026 on branch `fix/253-254-onboarding-flow`:
 - P1: with a required policy version selected, a member needing both a phone and a policy acceptance was refused `policy-acceptance-required` when sending or confirming a code, and onboarding shows the policy step only after the phone. The three `/api/me/phone` routes are now exempt from the policy gate (the policy routes were already exempt from the phone gate).
 - P2: `/terms`, `/privacy` and `/community-guidelines` were on the setup allow-list but the final onboarding redirect ignored it, so they redirected to `/welcome`. The redirect now skips allow-listed pages; account-state screens (suspension, lock, deletion, MFA) still apply. The onboarding browser test now covers all three.
 
+## Follow-ups: #254 comments and #258 (D343)
+
+Owner-approved local draft (8 November 2026), then built into this PR:
+
+- **Email "Not available" and reveal doing nothing:** `GET /api/me/contact` was not on the web host's BFF allow-list (`Bff.cs`), so every call answered 404. Added. New guard `scripts/bff_routes.py`, run by `scripts/smoke.py`: every fixed route in `MemberClient.cs` must answer 401 (not signed in) through the BFF, never 404; native-only routes are listed with a reason (`api/me/devices`, push registration). Proof: pointed read-only at the owner's running local web host built from the previous PR head, the check reported exactly `api/me/contact` as missing.
+- "Locked" pill (date of birth) and "Verified" tag (mobile) removed; crossed-out eye = hidden, open eye = shown.
+- Settings rows: two-column grid at every width; actions never drop under long values; equal-height cards side by side; revealed email wraps after "@" with the eye joined to the last word. Checked in the draft at 1440, 1280, 1180, 1100, 900 and 700 px and a 390 px phone frame (no action below its text at any width).
+- `/account/data` rebuilt to the approved draft (full-width text, normal buttons, in-card sign-in notice, "Downloaded" panel, three deletion facts, the owner's refund terms word for word). Every existing test hook (`data-data-panel`, `data-export`, `data-export-result`, `data-reauth-required`, `data-delete-*`, `data-cancel-deletion`, `data-delete-now`, `data-deletion-finalizing`, `data-privacy-link`) is kept.
+- Billing requirement for when Stripe exists: [#259](https://github.com/repasscloud/wanderconnect/issues/259).
+
 ## Gaps
 
 - Browser suites `tests/auth/members.browser.cjs`, `tests/accounts/onboarding.browser.cjs` and `tests/accounts/phone.browser.cjs` were updated for `/welcome` but not run in this change; they need the owned local platform.
 - The Keycloak `terms.ftl` page has not been rendered against a running realm in this change; the next local platform restart picks it up (themes are not cached in start-dev).
 - MAUI keeps its existing setup screen (web first).
+- The rebuilt `/account/data` page and the new row layout were checked in the owner-approved draft and by searching the compiled client for leaked Razor code (none), not yet against a signed-in running stack; `tests/accounts/deletion.browser.cjs` and `tests/auth/accounts.browser.cjs` keep their hooks but were not run.
+- `tests/member/settings.browser.cjs` was already out of date before this PR (it expects a "Your account" heading and settings list removed by issue 180) and still uses the old date-of-birth form; it needs a separate rewrite.

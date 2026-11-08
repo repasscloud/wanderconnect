@@ -9,7 +9,7 @@
         <div class="settings-row-text">
             <p class="settings-row-label" id="phone-heading">Mobile number</p>
             @if (loading) { <p class="settings-row-value" role="status">Loading…</p> }
-            else if (view is { Verified: true }) { <p class="settings-row-value" data-phone-number="@view.Number"><MaskedContact Field="mobile" Masked="@view.Number" /> <span class="settings-tag">Verified</span></p> }
+            else if (view is { Verified: true }) { <p class="settings-row-value" data-phone-number="@view.Number"><MaskedContact Field="mobile" Masked="@view.Number" /></p> }
             else { <p class="settings-row-value settings-muted">Not added yet</p> }
         </div>
         @if (view is not null && !changing) { <button type="button" class="settings-row-action" @onclick="() => changing = true" data-phone-change>@(view.Verified ? "Change" : "Add")</button> }
