@@ -13,6 +13,18 @@ public sealed record ImagePipelineOperation(int Status,object Body);
 /// <summary>#294 durable staging inbox. Never publishes MediaItem or enables delivery; cutover adapters remain a release gate.</summary>
 public sealed class ImagePipelineStore(SwoovrDbContext db,ImagePipelineOptions options)
 {
+    /// <summary>Caller holds account lifecycle authority while checking usage and creating an intent.</summary>
+    public async Task<(int Recent,int Kept)> UploadUsageAsync(Guid account,DateTimeOffset now,CancellationToken token)
+    {
+        var jobs=db.ImageProcessingJobs.Where(j=>j.AccountId==account);
+        // Cancellation frees retained capacity, never the processing cost/rate-limit allowance.
+        var recent=await jobs.CountAsync(j=>j.CreatedAt>now.AddHours(-1),token)
+            +await db.MediaItems.CountAsync(i=>i.AccountId==account&&i.Purpose==null&&i.CreatedAt>now.AddHours(-1),token);
+        var kept=await jobs.CountAsync(j=>j.CancelledAt==null,token)
+            +await db.MediaItems.CountAsync(i=>i.AccountId==account&&i.Purpose==null&&i.RemovedAt==null&&i.Status!=MediaStatus.Removed,token);
+        return (recent,kept);
+    }
+
     public async Task<ImageProcessingJob> CreateAsync(Guid account,DateTimeOffset now,CancellationToken token)
     {
         if(!options.Enabled)throw new InvalidOperationException("Image pipeline disabled.");

@@ -1,6 +1,20 @@
 import { decide,POLICY_VERSION } from './policy.mjs';
 import { MAX_INPUT_BYTES,MAX_OUTPUT_BYTES,UUID,HEX,PipelineError,readBounded,sha256,secureBase,apiRequest,jsonResponse } from './shared.mjs';
 const resultKey = job => `results/${job.imageId}/${job.jobId}.json`;
+// Specialist findings get a separate durable report; an ordinary duplicate cannot win them away.
+const specialistKey = sourceKey => `specialist/${sourceKey}.json`;
+async function cachedSpecialist(env,event) {
+ const object=await env.PROCESSED.get(specialistKey(event.object.key));if(!object)return null;
+ const data=JSON.parse(new TextDecoder().decode(await readBounded(object.body,256*1024)));
+ if(!data||data.outcome!=='blocked'||decide(data.results).outcome!=='blocked'||data.protocolVersion!==1||data.sourceKey!==event.object.key||data.sourceEtag!==event.object.eTag||![data.imageId,data.jobId,data.eventId].every(v=>typeof v==='string'&&UUID.test(v))||!HEX.test(data.sourceSha256??'')||!Number.isSafeInteger(data.lifecycleRevision)||data.lifecycleRevision<1||typeof data.policyVersion!=='string'||data.policyVersion.length<1||data.policyVersion.length>80||!Array.isArray(data.variants)||data.variants.length!==0)throw new PipelineError('invalid-specialist-manifest',409,true);
+ return data;
+}
+async function saveSpecialist(env,job,value,fetcher) {
+ const committed=await env.PROCESSED.put(specialistKey(job.sourceKey),JSON.stringify(value),{onlyIf:{etagDoesNotMatch:'*'},httpMetadata:{contentType:'application/json',cacheControl:'no-store'}});
+ const saved=committed?value:await cachedSpecialist(env,{object:{key:job.sourceKey,eTag:job.sourceEtag}});
+ if(!saved)throw new PipelineError('specialist-manifest-unavailable');
+ return report(env,job,saved,fetcher);
+}
 function validateEvent(event,env) {
  if(!event || !['PutObject','CompleteMultipartUpload','CopyObject'].includes(event.action) || !env.QUARANTINE_BUCKET_NAME || event.bucket!==env.QUARANTINE_BUCKET_NAME || typeof event.object?.key!=='string' || !/^incoming\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(event.object.key) || typeof event.object.eTag!=='string' || event.object.eTag.length<1 || event.object.eTag.length>128)throw new PipelineError('invalid-object-event',400,true);
 }
@@ -30,6 +44,7 @@ async function cachedReport(env,job) {
  return data;
 }
 async function saveReport(env,job,value,fetcher) {
+ if(value.outcome==='blocked')return saveSpecialist(env,job,value,fetcher);
  const committed=await env.PROCESSED.put(resultKey(job),JSON.stringify(value),{onlyIf:{etagDoesNotMatch:'*'},httpMetadata:{contentType:'application/json',cacheControl:'no-store'}});
  const saved=committed?value:await cachedReport(env,job);if(!saved)throw new PipelineError('result-manifest-unavailable');
  return report(env,job,saved,fetcher);
@@ -58,6 +73,8 @@ function reportResults(results) {
 }
 export async function processEvent(event,env,{fetcher=fetch}={}) {
  validateEvent(event,env);
+ // Replay already observed specialist evidence before a completed/cancelled claim can suppress work.
+ const specialist=await cachedSpecialist(env,event);if(specialist)return report(env,null,specialist,fetcher);
  const head=await env.QUARANTINE.head(event.object.key);
  const job=await apiRequest(env,'/api/media/pipeline/claim',{protocolVersion:1,sourceKey:event.object.key,sourceEtag:event.object.eTag,sourceUploadedAt:head?.uploaded?.toISOString(),sourceBytes:head?.size},{fetcher});
  if(job.action==='ignore'||job.action==='complete')return {ignored:true};

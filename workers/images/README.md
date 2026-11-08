@@ -107,3 +107,10 @@ Add explicit approved routes/domains to private configs; do not enable public up
 This is a tested transport/rules/staging foundation. It is not an end-to-end replacement for the live member-photo lifecycle. Remaining gates include raw-original retention/disclosures; API evidence sealing/holds; Admin staged-image viewing/appeal/re-screen adapters; account/member cleanup and lifecycle outbox; final delivery eligibility/revocation; all client upload cutover; real Shield harmless acceptance; selected architecture/container/resource benchmarks and production security review. Queue expiry and DLQ need API-led reconciliation, not indefinite trust that a message will remain. Existing support-attachment ClamAV is unchanged.
 
 See the main [design](../../docs/superpowers/specs/2026-11-08-vultr-image-pipeline-design.md) and [operator runbook](../../docs/delivery/VULTR-IMAGE-PIPELINE.md) for migration and release gates. Passing local tests/dry-runs does not establish provider availability, safety accuracy, cloud deployment, residency or current hosted health.
+
+
+## Review corrections — 9 November 2026
+
+Specialist matches are persisted independently at `specialist/{sourceKey}.json`, before their API callback. They cannot lose to an ordinary conditional result-manifest winner. A retry checks this protected private report BEFORE claiming the job, so a completed/cancelled claim cannot suppress the previously observed match. Callback replay keeps the original event ID. This is durable findings metadata; it does not replace the still-required API evidence sealing/custody adapters. Do not expire these records through ordinary-result cleanup.
+
+Regression coverage forces overlapping provider `test` and `csam` responses, with the ordinary review committed first; it verifies that the specialist match is both stored and reported. It also exercises a failed specialist callback followed by a complete/ignore claim, without another model invocation. The API's actual PostgreSQL tests confirm specialist results supersede an ordinary completed result and cannot be downgraded by a late ordinary callback.

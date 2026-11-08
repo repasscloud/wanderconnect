@@ -12,7 +12,7 @@ async function fixture(){const quarantine=new Bucket(),processed=new Bucket();aw
  const u=new URL(url);
  if(u.pathname.endsWith('/claim'))return Response.json(state.job);
  if(u.pathname.endsWith('/results')){reports++;state.reported.push(JSON.parse(options.body));if(state.failReport)return Response.json({error:'unavailable'},{status:503});return Response.json({accepted:true,deliverable:false});}
- if(u.pathname==='/v1/process'){scans++;if(state.processorStatus)return Response.json({error:{code:'invalid_image'}},{status:state.processorStatus});const f=new FormData();const manifest={protocolVersion:1,...ids,sourceSha256:digest,results:clean(),variants:[]};for(const name of ['display','thumbnail']){manifest.variants.push({name,contentType:'image/webp',width:32,height:32,bytes:webp.length,sha256:await sha256(webp)});f.append(name,new Blob([webp],{type:'image/webp'}),name+'.webp');}if(state.mutate)state.mutate(manifest);if(manifest.variants.length===0){f.delete('display');f.delete('thumbnail');}f.append('manifest',JSON.stringify(manifest));return new Response(f);}
+ if(u.pathname==='/v1/process'){const scanNumber=++scans;if(state.processorStatus)return Response.json({error:{code:'invalid_image'}},{status:state.processorStatus});const f=new FormData();const manifest={protocolVersion:1,...ids,sourceSha256:digest,results:clean(),variants:[]};for(const name of ['display','thumbnail']){manifest.variants.push({name,contentType:'image/webp',width:32,height:32,bytes:webp.length,sha256:await sha256(webp)});f.append(name,new Blob([webp],{type:'image/webp'}),name+'.webp');}if(state.mutate)state.mutate(manifest,scanNumber);if(manifest.variants.length===0){f.delete('display');f.delete('thumbnail');}f.append('manifest',JSON.stringify(manifest));return new Response(f);}
  throw new Error('unexpected '+url);
 };return {env:{QUARANTINE:quarantine,PROCESSED:processed,API_BASE_URL:'https://api.example.test',API_SERVICE_TOKEN:'fictional-service-token-at-least-32-chars',PROCESSOR_BASE_URL:'https://processor.example.test',PROCESSOR_API_KEY:'fictional-processor-key-at-least-32-chars',QUARANTINE_BUCKET_NAME:'quarantine-example'},fetcher,state,event:{action:'PutObject',bucket:'quarantine-example',object:{key:sourceKey,eTag:'etag1'}},counts:()=>({scans,reports})};}
 test('one processing visit stores private variants and reports; report retry reuses durable result',async()=>{const f=await fixture();f.state.failReport=true;await assert.rejects(()=>processEvent(f.event,f.env,{fetcher:f.fetcher}));assert.equal(f.counts().scans,1);f.state.failReport=false;await processEvent(f.event,f.env,{fetcher:f.fetcher});assert.equal(f.counts().scans,1);assert.equal(f.counts().reports,2);assert.equal(f.env.PROCESSED.rows.size,3);});
@@ -30,4 +30,37 @@ test('model and fingerprint-adapter versions survive sanitised durable reporting
  const f=await fixture();f.state.mutate=m=>{m.results.nudenet.modelVersion='nudenet-3.4.2-320n';m.results.nsfw.modelVersion='nsfw-image-detector-0.1.2';m.results.nsfw.modelRevision='a'.repeat(40);m.results.arachnid.adapterVersion='pdqhash-0.2.8';};
  await processEvent(f.event,f.env,{fetcher:f.fetcher});const results=f.state.reported[0].results;
  assert.equal(results.nudenet.modelVersion,'nudenet-3.4.2-320n');assert.equal(results.nsfw.modelRevision,'a'.repeat(40));assert.equal(results.arachnid.adapterVersion,'pdqhash-0.2.8');
+});
+
+async function specialistRace({failBlock=false}={}) {
+ const f=await fixture();let releaseReview;const reviewCommitted=new Promise(resolve=>{releaseReview=resolve;});let processorCalls=0;const callbacks=[];
+ f.state.mutate=(m,scan)=>{m.results.arachnid.classification=scan===1?'test':'csam';m.variants=[];};
+ const fetcher=async(url,options)=>{
+  const path=new URL(url).pathname;
+  if(path==='/v1/process'&&++processorCalls===2)await reviewCommitted;
+  if(path.endsWith('/results')) {
+   const value=JSON.parse(options.body);callbacks.push(value);
+   if(value.outcome==='blocked'&&failBlock)return Response.json({error:'temporary'},{status:503});
+   const response=await f.fetcher(url,options);if(value.outcome==='review')releaseReview();return response;
+  }
+  return f.fetcher(url,options);
+ };
+ const settled=await Promise.allSettled([processEvent(f.event,f.env,{fetcher}),processEvent(f.event,f.env,{fetcher})]);
+ return {f,fetcher,callbacks,settled};
+}
+
+test('specialist evidence survives losing an overlapping non-specialist manifest race',{timeout:5000},async()=>{
+ const {f,callbacks,settled}=await specialistRace();assert.ok(settled.every(r=>r.status==='fulfilled'));
+ assert.ok(callbacks.some(r=>r.outcome==='review'));assert.ok(callbacks.some(r=>r.outcome==='blocked'));
+ const records=[...f.env.PROCESSED.rows.values()].map(row=>{try{return JSON.parse(row.v);}catch{return null;}});
+ assert.ok(records.some(r=>r?.outcome==='blocked'));
+});
+
+test('durable specialist callback retries even when the next claim would complete or ignore',{timeout:5000},async()=>{
+ for(const action of ['complete','ignore']) {
+  const {f,callbacks,settled}=await specialistRace({failBlock:true});assert.ok(settled.some(r=>r.status==='rejected'));
+  f.state.job={action};const scans=f.counts().scans;
+  const retryFetcher=async(url,options)=>{if(new URL(url).pathname.endsWith('/results')){callbacks.push(JSON.parse(options.body));return Response.json({accepted:true,deliverable:false});}return f.fetcher(url,options);};
+  await processEvent(f.event,f.env,{fetcher:retryFetcher});assert.equal(callbacks.at(-1).outcome,'blocked');assert.equal(f.counts().scans,scans);
+ }
 });

@@ -55,6 +55,18 @@ static class ImagePipelinePersistenceChecks
             var cancelled=await store.CreateAsync(owner.Id,now,default);await store.CancelAsync(cancelled.ImageId,owner.Id,now,default);
             var cancelClaim=await store.ClaimAsync(new(1,cancelled.SourceKey,"etag-one",now,100),now,default);Check(cancelClaim.Status==200&&JsonSerializer.Serialize(cancelClaim.Body).Contains("ignore"),"cancelled upload cannot be processed");
             Check(cancelled.LifecycleRevision==2,"cancellation fences old reports");
+            var lateMatch=System.Text.Json.Nodes.JsonNode.Parse(Report(Guid.NewGuid(),outcome:"blocked",reason:"known-content-match").GetRawText())!;
+            lateMatch["variants"]=new System.Text.Json.Nodes.JsonArray();lateMatch["results"]!["arachnid"]!["classification"]="csam";
+            Check((await store.CompleteAsync(JsonSerializer.SerializeToElement(lateMatch),now,default)).Status==200&&job.Outcome=="blocked","late specialist result overrides an ordinary completed duplicate");
+            Check((await store.CompleteAsync(Report(Guid.NewGuid()),now,default)).Status==409&&job.Outcome=="blocked","ordinary late result cannot downgrade specialist evidence");
+            var usageBefore=await store.UploadUsageAsync(owner.Id,now,default);
+            var quotaJob=await store.CreateAsync(owner.Id,now,default);
+            var usageCreated=await store.UploadUsageAsync(owner.Id,now,default);
+            Check(usageCreated.Recent==usageBefore.Recent+1&&usageCreated.Kept==usageBefore.Kept+1,"new intent consumes hourly and kept allowances");
+            await store.CancelAsync(quotaJob.ImageId,owner.Id,now,default);
+            var usageCancelled=await store.UploadUsageAsync(owner.Id,now,default);
+            Check(usageCancelled.Recent==usageCreated.Recent,"cancellation does not refund hourly upload attempts");
+            Check(usageCancelled.Kept==usageBefore.Kept,"cancellation releases only kept-photo allowance");
             job=await store.CreateAsync(owner.Id,now,default);await store.ClaimAsync(new(1,job.SourceKey,"etag-one",now,100),now,default);
             var specialist=System.Text.Json.Nodes.JsonNode.Parse(Report(Guid.NewGuid(),outcome:"blocked",reason:"known-content-match").GetRawText())!;
             specialist["variants"]=new System.Text.Json.Nodes.JsonArray();specialist["results"]!["arachnid"]!["classification"]="csam";

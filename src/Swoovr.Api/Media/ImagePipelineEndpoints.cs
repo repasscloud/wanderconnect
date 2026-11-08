@@ -59,10 +59,8 @@ public static class ImagePipelineEndpoints
             var db=accounts.Db!;var me=current.Profile!.AccountId;var now=clock.GetUtcNow();
             await using var lifecycle=await AccountLifecycleLease.AcquireAsync(db,me,token);
             if(!await db.Accounts.AnyAsync(a=>a.Id==me&&a.Status==AccountStatus.Active,token))return Results.NotFound();
-            var jobs=db.ImageProcessingJobs.Where(j=>j.AccountId==me&&j.CancelledAt==null);
-            var recent=await jobs.CountAsync(j=>j.CreatedAt>now.AddHours(-1),token)+await db.MediaItems.CountAsync(i=>i.AccountId==me&&i.Purpose==null&&i.CreatedAt>now.AddHours(-1),token);
+            var (recent,kept)=await accounts.Services.GetRequiredService<ImagePipelineStore>().UploadUsageAsync(me,now,token);
             if(recent>=MediaPolicy.UploadsPerHour)return Problem(429,"upload-limit","You've uploaded a lot of photos in the last hour. Try again later.");
-            var kept=await jobs.CountAsync(token)+await db.MediaItems.CountAsync(i=>i.AccountId==me&&i.Purpose==null&&i.RemovedAt==null&&i.Status!=MediaStatus.Removed,token);
             if(kept>=MediaPolicy.MaxKept)return Problem(409,"photo-limit","Delete a photo before adding another.");
             var job=await accounts.Services.GetRequiredService<ImagePipelineStore>().CreateAsync(me,now,token);
             var capability=new ImageUploadCapability(1,job.ImageId,job.UploadId,job.Id,job.SourceKey,job.Purpose,ImagePipelineProtocol.MaxBytes,job.UploadExpiresAt.ToUnixTimeSeconds(),job.LifecycleRevision);

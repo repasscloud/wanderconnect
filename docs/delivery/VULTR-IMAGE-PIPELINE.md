@@ -129,3 +129,13 @@ Local evidence, 9 November 2026:
 - Postman CLI was unavailable; Orbit discovery returned an HTTP error. Local source contracts, actual HTTP/multipart/R2/PostgreSQL tests and official provider docs were used; no Postman cloud acceptance is claimed.
 
 Still required before real member cutover: complete human review/appeal and owner-preview adapters; mandatory fresh appeal scan; restricted specialist sealing/incident handoff; hold-aware original/staged cleanup/export/account-purge mappings; transactional lifecycle outbox/reconciliation; all client/BFF/photo-purpose integration; authorised viewer delivery/revocation; raw retention/privacy/model licence decisions; real provider and actual VM/network/capacity acceptance. #294 and subsystem release issues remain open. Superseded planning trackers #260 and #267 were closed as duplicates, with remaining gates preserved under #294. No image publication, provisioning, remote deployment or merge is claimed by this change.
+
+
+## Codex PR review follow-up — 9 November 2026
+
+- PR303 specialist-race finding: separate immutable specialist reports survive a competing ordinary result and are replayed before a complete/cancelled job claim can discard them. This does not claim the deferred specialist custody implementation is complete.
+- PR303 rate-limit finding: cancelled intents still count toward hourly upload limits; only kept-photo capacity is released. Shared usage queries are exercised against real disposable PostgreSQL.
+- Merged processor PR2 transparency finding: a separate follow-up PR normalises palette/color-key/alpha PNG input to RGBA before compositing on white, with transform recipe v2 and regressions for P/RGB/L/RGBA formats. Existing published images predate that fix until rebuilt.
+- The owner's existing successful GitHub build workflow is preserved; it publishes multi-platform images to Docker Hub (`repasscloud/image-moderation-api`). Source321dd43 build: https://github.com/repasscloud/image-moderation-api/actions/runs/42535592295. Use the next corrected release's immutable index digest for Vultr. No release/tag/publication was triggered during these review fixes.
+
+Review validation: Worker20 tests and three dry-run bundles passed with the actual processor multipart fixture; scoped PostgreSQL checks25 passed plus protocol11; processor169 passed and2 provider tests skipped, Ruff and local Docker source build passed. The first broad check hit an existing timing-sensitive auth-harness assertion; its focused rerun passed, and the final broad rerun result is recorded on the PR. No existing managed database/container configuration was changed.
