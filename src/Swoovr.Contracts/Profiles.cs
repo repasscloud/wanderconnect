@@ -41,6 +41,10 @@ public sealed record DistanceView(string Band, string? Basis = null);
 /// <summary>D348: the member's two independent location privacy settings, both off by default.</summary>
 public sealed record LocationSettingsView(bool AppearInNearby, bool ShowDistance);
 public sealed record LocationSettingsUpdate(bool AppearInNearby, bool ShowDistance);
+
+/// <summary>D348, #278: after an accepted Near me reading, the open market it is in (null outside every open market) and
+/// when it stops being used. Never the position.</summary>
+public sealed record NearMeLocationView(string? PresentIn, DateTimeOffset FreshUntil);
 /// <summary>Explore for one mode in the viewer's active location (D125, D352), named by Market. Visiting is the checked-in
 /// trip's destination city while one is active; null when the home market is the active location.</summary>
 public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null, string? Visiting = null);

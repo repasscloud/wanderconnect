@@ -4539,6 +4539,49 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("member_identities");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.MemberLocation", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<string>("Accuracy")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("accuracy");
+
+                    b.Property<string>("MarketId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("market_id");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
+
+                    b.Property<byte[]>("SealedCell")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("bytea")
+                        .HasColumnName("sealed_cell");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_member_locations");
+
+                    b.HasIndex("ObservedAt")
+                        .HasDatabaseName("ix_member_locations_observed_at");
+
+                    b.HasIndex("MarketId", "ObservedAt")
+                        .HasDatabaseName("ix_member_locations_market_id_observed_at");
+
+                    b.ToTable("member_locations", (string)null);
+                });
+
             modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -9510,6 +9553,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_member_identities_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.MemberLocation", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_locations_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.MemberMode", b =>

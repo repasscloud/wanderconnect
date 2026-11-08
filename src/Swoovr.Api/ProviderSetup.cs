@@ -82,6 +82,7 @@ public static class ProviderSetup
         services.AddScoped<Microsoft.EntityFrameworkCore.Diagnostics.ISaveChangesInterceptor, Retention.PreservationSaveInterceptor>();
         services.AddScoped<PhoneKeys>();
         services.AddScoped<ContactHistoryKeys>();
+        services.AddScoped<Swoovr.Api.Travel.LocationKeys>();
         services.AddScoped<EmailRetirementCommands>();
         // D189: legal holds and the evidence store (keys from configuration, else derived from the founder secret).
         services.AddScoped<Swoovr.Api.Evidence.EvidenceKeys>();

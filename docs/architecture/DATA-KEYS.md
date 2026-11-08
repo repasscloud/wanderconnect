@@ -12,6 +12,7 @@ DEFAULT D234 implements the existing versioned-key boundaries (D187/D189/D191/D2
 | Phone-code/IP hash | `Phone:CodeKey`; UTF-8 secret | founder1 + `swoovr:phone-code:v1` |
 | Existing terminated email/mobile holds | `Accounts:HoldKey`; UTF-8 secret | founder1 + `swoovr:terminated-email-hold:v1` (mobile has an additional typed `tel:` prefix) |
 | Media links | `Media:LinkKey`; base64,32 bytes | founder1 + `swoovr:media-links:v1` |
+| Near me cells (D348, #278) | `Location:Keys:<byte version>`; base64,32 bytes | founder1 + `swoovr:location:encryption:v1` |
 | Push device encryption | `Push:TokenKeys:<positive int version>`; base64,32 bytes | Development only: founder1 + `swoovr:push-token:encryption` |
 | Push lookup | `Push:TokenLookupKey`; base64,32 bytes | Development only: founder1 + `swoovr:push-token:lookup` |
 

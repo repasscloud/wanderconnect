@@ -161,19 +161,21 @@ public static class SecurityEndpoints
 /// `keys rotate` (#89): re-seals every value of a key set under a newer configured version. Older versions stay readable
 /// until re-sealed, so the command can run while the hosts serve; it pages through rows and saves as it goes.
 /// Sets: contact-history (contact_histories), evidence (evidence_items), police (reports.police_reference, evidence keys),
-/// identity (restricted.verified_identities). Nothing is logged but counts.
+/// identity (restricted.verified_identities), location (member_locations, D348). Nothing is logged but counts.
 /// </summary>
-public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys contact, Evidence.EvidenceKeys evidence, Verification.IdentityKeys identity)
+public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys contact, Evidence.EvidenceKeys evidence, Verification.IdentityKeys identity,
+    Travel.LocationKeys location)
 {
     // Resolved on use: without a database the host still starts (fail closed elsewhere).
     private SwoovrDbContext db => services.GetRequiredService<SwoovrDbContext>();
 
-    public static readonly IReadOnlyList<string> Sets = ["contact-history", "evidence", "police", "identity"];
+    public static readonly IReadOnlyList<string> Sets = ["contact-history", "evidence", "police", "identity", "location"];
 
     public IReadOnlyDictionary<byte, byte[]> Keys(string set) => set switch
     {
         "contact-history" => contact.Encryption,
         "evidence" or "police" => evidence.Encryption,
+        "location" => location.Encryption,
         _ => identity.Encryption,
     };
 
@@ -216,6 +218,9 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
             case "police":
                 foreach (var report in await db.Reports.Where(r => r.PoliceReference != null).ToListAsync(cancellationToken)) Apply(report.PoliceReference!, v => report.PoliceReference = v);
                 break;
+            case "location":
+                foreach (var row in await db.MemberLocations.ToListAsync(cancellationToken)) Apply(row.SealedCell, v => row.SealedCell = v);
+                break;
             default:
                 foreach (var record in await db.VerifiedIdentities.ToListAsync(cancellationToken)) Apply(record.Sealed, v => record.Sealed = v);
                 foreach(var record in await db.DobChangeHistories.ToListAsync(cancellationToken))Apply(record.Sealed,v=>record.Sealed=v);
@@ -234,6 +239,7 @@ public sealed class KeyRotation(IServiceProvider services, ContactHistoryKeys co
             "contact-history" => await db.ContactHistories.Select(h => h.EncryptedValue).Concat(db.PhoneCodes.Where(c=>c.RequestEvidence!=null).Select(c=>c.RequestEvidence!)).Concat(db.EmailRetirementOperations.Select(o=>o.EncryptedCommand)).Concat(db.TrustedContacts.Select(c=>c.DestinationEncrypted)).ToListAsync(cancellationToken),
             "evidence" => await db.EvidenceItems.Select(i => i.Sealed).Concat(db.Set<TextHarmIntent>().Where(r=>r.SealedText!=null).Select(r=>r.SealedText!)).Concat(db.Set<TextHarmReview>().Where(r=>r.SealedEvidence!=null).Select(r=>r.SealedEvidence!)).Concat(db.Set<ContentRemoval>().Where(r=>r.SealedSnapshot!=null).Select(r=>r.SealedSnapshot!)).ToListAsync(cancellationToken),
             "police" => (await db.Reports.Where(r => r.PoliceReference != null).Select(r => r.PoliceReference).ToListAsync(cancellationToken)).Select(v => v!).ToList(),
+            "location" => await db.MemberLocations.Select(l => l.SealedCell).ToListAsync(cancellationToken),
             _ => await db.VerifiedIdentities.Select(i => i.Sealed).Concat(db.DobChangeHistories.Select(i=>i.Sealed)).ToListAsync(cancellationToken),
         };
         return firsts.Where(v => v.Length > 0).GroupBy(v => v[0]).ToDictionary(g => g.Key, g => g.Count());

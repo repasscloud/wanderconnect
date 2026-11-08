@@ -46,9 +46,12 @@ public static class ProfileEndpoints
             var (profile, db, now) = (current!.Profile!, accounts.Db!, clock.GetUtcNow());
             if (profile.AppearInNearby != update.AppearInNearby || profile.ShowDistance != update.ShowDistance)
             {
+                var hiding = profile.AppearInNearby && !update.AppearInNearby;
                 (profile.AppearInNearby, profile.ShowDistance) = (update.AppearInNearby, update.ShowDistance);
                 Audit.Record(db, now, profile.AccountId, "account", "location-settings.changed", "account", profile.AccountId.ToString());
                 await db.SaveChangesAsync(cancellationToken);
+                // D348, #278: turning "Appear" off deletes the stored reading; a reading sent afterwards is stored with it off.
+                if (hiding) await Travel.NearMeEndpoints.ForgetAsync(db, profile.AccountId, cancellationToken);
             }
             return Results.Ok(new LocationSettingsView(profile.AppearInNearby, profile.ShowDistance));
         });

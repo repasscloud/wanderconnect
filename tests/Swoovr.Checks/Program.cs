@@ -84,6 +84,7 @@ LawEnforcementChecks.Run();
 StaffAccessChecks.Run();
 SecurityOperationsChecks.Run();
 LocationPrivacyChecks.Run();
+NearMeChecks.Run();
 PrivacyNoticeChecks.Run();
 HelpdeskRetentionAndScanningChecks.Run();
 SeriousIncidentChecks.Run();
