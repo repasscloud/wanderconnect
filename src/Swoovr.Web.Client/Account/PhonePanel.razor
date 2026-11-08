@@ -1,28 +1,28 @@
 @* Mobile number (D148, D181; issue 180 layout), Interactive WebAssembly through /bff/. A verified number is a read-only row
-   with "Change"; the send/confirm steps appear only when the member chooses to change it (or before it's verified).
+   with "Change"; the send/confirm steps appear only when the member chooses to add or change it. First-time verification
+   happens in onboarding (/welcome, issue 254). The number shows masked until the member reveals it (MaskedContact).
    Changing a verified number needs a fresh sign-in (API, #87 policy §4/§15); this offers "Sign in again" when asked. *@
 @inject MemberClient Members
-<div class="settings-phone" aria-labelledby="phone-heading" data-phone="@(view is null ? "loading" : view.Verified ? "verified" : view.PendingNumber is not null ? "pending" : "none")"
+<div class="settings-phone" aria-labelledby="phone-heading" data-phone="@(loading ? "loading" : view is null ? "unavailable" : view.Verified ? "verified" : view.PendingNumber is not null ? "pending" : "none")"
      data-phone-required="@(view?.Required == true ? "true" : "false")">
     <div class="settings-row">
         <div class="settings-row-text">
             <p class="settings-row-label" id="phone-heading">Mobile number</p>
-            @if (view is null) { <p class="settings-row-value" role="status">Loading…</p> }
-            else if (view.Verified) { <p class="settings-row-value" data-phone-number="@view.Number">@view.Number <span class="settings-tag">Verified</span></p> }
-            else { <p class="settings-row-value settings-muted">Not verified</p> }
+            @if (loading) { <p class="settings-row-value" role="status">Loading…</p> }
+            else if (view is { Verified: true }) { <p class="settings-row-value" data-phone-number="@view.Number"><MaskedContact Field="mobile" Masked="@view.Number" /> <span class="settings-tag">Verified</span></p> }
+            else { <p class="settings-row-value settings-muted">Not added yet</p> }
         </div>
-        @if (view is { Verified: true } && !changing) { <button type="button" class="settings-row-action" @onclick="() => changing = true" data-phone-change>Change</button> }
+        @if (view is not null && !changing) { <button type="button" class="settings-row-action" @onclick="() => changing = true" data-phone-change>@(view.Verified ? "Change" : "Add")</button> }
     </div>
-    @if (view is not null && (changing || !view.Verified))
+    @if (view is not null && changing)
     {
-        @if (view.Required) { <p class="notice" role="status">Verify your mobile number to keep using Swoovr.</p> }
         <p class="settings-row-help">@MemberText.PhoneIntro</p>
         <form class="settings-form" @onsubmit="SendAsync" data-phone-send>
             <div class="field"><label for="phone-number">@(view.Verified ? "New mobile number" : "Mobile number")</label>
                 <input id="phone-number" type="tel" autocomplete="tel" inputmode="tel" maxlength="32" @bind="number" @bind:event="oninput" placeholder="0412 345 678" /></div>
             <div class="settings-actions">
                 <button type="submit" class="button button-small" disabled="@(busy || string.IsNullOrWhiteSpace(number))">Send code</button>
-                @if (view.Verified) { <button type="button" class="button button-secondary button-small" @onclick="Cancel">Cancel</button> }
+                <button type="button" class="button button-secondary button-small" @onclick="Cancel">Cancel</button>
             </div>
         </form>
         @if (view.PendingNumber is not null)
@@ -43,11 +43,16 @@
 @code {
     [Parameter] public EventCallback<PhoneView> Changed { get; set; }
     private PhoneView? view;
-    private bool busy, changing;
+    private bool busy, changing, loading = true;
     private string? number, code, message, result;
     private string? sentTo;
 
-    protected override async Task OnInitializedAsync() => view = (await Members.PhoneAsync()).Value;
+    protected override async Task OnInitializedAsync()
+    {
+        try { view = (await Members.PhoneAsync()).Value; }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { }
+        loading = false;
+    }
 
     private void Cancel() => (changing, number, code, message, result) = (false, null, null, null, null);
 

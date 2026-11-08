@@ -65,7 +65,7 @@ static class StandingChecks
         Expect(StandingText.Id("notStarted") == "Not verified", "no \"(optional)\" on an unverified ID");
         Expect(StandingText.Date(now) == "29 Oct 2026", "one date style");
         var verification = new StandingVerification(true, true, false, "attested", true, false, "none", "notStarted");
-        var restricted = new AccountStandingView("restricted", verification, [new("phone", "/account?phone=required")],
+        var restricted = new AccountStandingView("restricted", verification, [new("phone", "/welcome")],
             [new(Guid.NewGuid(), "restriction", "x", now, now.AddDays(7), now.AddDays(30), null)], [], []);
         Expect(StandingText.BannerTitle(restricted) == "Your account is restricted until 5 Nov 2026", "the banner names the action in force and its end");
         Expect(StandingText.BannerTitle(restricted with { InForce = [] }) == "Verify your mobile number", "a single to-do becomes the banner");

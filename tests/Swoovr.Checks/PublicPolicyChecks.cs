@@ -22,6 +22,9 @@ static class PublicPolicyChecks
         Need(PublicPolicies.Community.Rules.Any(p=>p.Contains("non-consensual intimate images")),"image abuse prohibition retained");
         Need(PublicPolicies.Find("unknown")==null,"no arbitrary policy lookup");
         Need(File.ReadAllText("containers/keycloak/themes/swoovr/login/register-commons.ftl").Contains("sw-terms-link")&&File.ReadAllText("containers/keycloak/themes/swoovr/login/register-commons.ftl").Contains("sw-community-link"),"registration source links both policies");
+        // issue 253: Keycloak's TERMS_AND_CONDITIONS step (beta, admin-created and social members) links all three policies too.
+        var termsStep=File.ReadAllText("containers/keycloak/themes/swoovr/login/terms.ftl");
+        Need(termsStep.Contains("sw-terms-link")&&termsStep.Contains("sw-privacy-link")&&termsStep.Contains("sw-community-link")&&termsStep.Contains("name=\"accept\""),"terms step links the three policies");
         // issue 179/D312 (owner wording): creating an account agrees to the Terms of Use and acknowledges the Privacy Notice and
         // Community Guidelines; the 18+ checkbox stays a separate blocking attestation.
         var messages=File.ReadAllText("containers/keycloak/themes/swoovr/login/messages/messages_en.properties");

@@ -277,6 +277,10 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<PhoneView>> ConfirmPhoneAsync(string number, string code, CancellationToken cancellationToken = default) =>
         SendAsync<PhoneView>(new HttpRequestMessage(HttpMethod.Post, "api/me/phone/confirm") { Content = JsonContent.Create(new PhoneConfirm(number, code)) }, cancellationToken);
 
+    /// <summary>Issue 254 (D342): the member's own email address and mobile number, masked unless <paramref name="reveal"/> is true.</summary>
+    public Task<ApiResult<ContactView>> ContactAsync(bool reveal = false, CancellationToken cancellationToken = default) =>
+        SendAsync<ContactView>(new HttpRequestMessage(HttpMethod.Get, reveal ? "api/me/contact?reveal=true" : "api/me/contact"), cancellationToken);
+
     /// <summary>#185: the member's active sessions and linked Apple/Google sign-ins.</summary>
     public Task<ApiResult<SignInsView>> SignInsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<SignInsView>(new HttpRequestMessage(HttpMethod.Get, "api/me/sign-ins"), cancellationToken);

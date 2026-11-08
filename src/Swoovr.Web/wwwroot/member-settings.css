@@ -398,3 +398,43 @@
 .ph-rules svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--muted); }
 .ph-tile-meta { min-height: 30px; }
 .ph-item-thumb .ph-veil { font-size: 0; }
+
+/* ---- Issue 254 (D342): onboarding screens (/welcome). One focused card per step, a segmented progress bar, theme
+   tokens only. Overrides app.css's global p max-width so text wraps with the card. */
+.onboarding-page { width: 100%; max-width: 560px; margin: clamp(8px, 4vw, 48px) auto 0; display: grid; gap: 20px; }
+.onboarding { padding: clamp(24px, 5vw, 40px); border: 1px solid var(--border); border-radius: 24px; background: var(--surface); min-width: 0; }
+.onboarding p { max-width: none; }
+.onboarding-head { display: grid; gap: 10px; margin-bottom: 24px; }
+.onboarding-eyebrow { margin: 0; font: 600 .8125rem/1.3 var(--font); letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.onboarding-progress { list-style: none; display: flex; gap: 6px; margin: 2px 0 6px; padding: 0; }
+.onboarding-progress li { flex: 1; height: 4px; border-radius: 999px; background: var(--border); }
+.onboarding-progress li[data-step-state="done"], .onboarding-progress li[data-step-state="current"] { background: var(--text); }
+.onboarding-title { margin: 0; font: 700 clamp(1.625rem, 1.3rem + 1.2vw, 2rem)/1.15 var(--font); letter-spacing: -.6px; }
+.onboarding-title:focus { outline: none; }
+.onboarding-lede { margin: 0; color: var(--muted); font: 400 1rem/1.55 var(--font); }
+.onboarding-form { display: grid; gap: 16px; }
+.onboarding-form .field input, .onboarding-form .field select { width: 100%; }
+.onboarding-phone { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 12px; }
+.onboarding-code { font-variant-numeric: tabular-nums; letter-spacing: .4em; font-size: 1.25rem; }
+.onboarding-confirm { padding: 14px 16px; border-radius: 14px; background: var(--soft); color: var(--softText); }
+.onboarding-note { margin: 0; color: var(--muted); font: 400 .875rem/1.5 var(--font); }
+.onboarding-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.onboarding-actions .button { flex: 1 1 12rem; }
+.onboarding-back { justify-self: start; color: var(--muted); font: 500 .9375rem/1.4 var(--font); }
+.onboarding-back:hover { color: var(--text); }
+.onboarding-form .settings-status a { color: var(--text); font-weight: 600; }
+.onboarding-exit { display: flex; justify-content: center; align-items: center; gap: 24px; }
+.onboarding-exit form { margin: 0; }
+.onboarding-exit a, .onboarding-exit .link-button { color: var(--muted); font: var(--type-small); text-decoration: underline; text-underline-offset: 3px; border: 0; padding: 0; }
+.onboarding-exit a:hover, .onboarding-exit .link-button:hover { color: var(--text); }
+@media (max-width: 479px) {
+  .onboarding-phone { grid-template-columns: minmax(0, 1fr); }
+  .onboarding { border-radius: 20px; }
+}
+/* Issue 254: the member's own email address and mobile number, masked until revealed (MaskedContact). */
+.masked-contact { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.masked-contact-value { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.masked-contact .icon { flex: none; color: var(--muted); }
+.masked-contact:hover .icon, .masked-contact[aria-pressed="true"] .icon { color: var(--text); }
+.masked-contact:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; border-radius: 4px; }
+.settings-setup-link { justify-self: start; width: auto; padding: 0 20px; }

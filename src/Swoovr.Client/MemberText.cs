@@ -41,6 +41,8 @@ public static class MemberText
     /// <summary>D148: the phone step's words, shared by the web and the app.</summary>
     public const string PhoneIntro = "We text a six-digit code to check your mobile number. Your number is never shown to other members.";
 
+    public const string NumberCannotBeUsed = "This number cannot be used. Contact support.";
+
     public static string PhoneProblem(string? code) => code switch
     {
         ProblemCodes.InvalidPhone => "Enter a mobile number, for example 0412 345 678 or +61 412 345 678.",
@@ -49,7 +51,8 @@ public static class MemberText
         ProblemCodes.PhoneCodeWrong => "That code isn't right. Check it and try again.",
         ProblemCodes.PhoneCodeExpired => "That code has expired. Ask for a new one.",
         ProblemCodes.TooManyAttempts => "Too many wrong codes. Ask for a new one.",
-        ProblemCodes.PhoneInUse => "That number can't be used. Try another.",
+        // Issue 254 (owner): one answer for a number in use or refused, never saying which (both are private).
+        ProblemCodes.PhoneInUse or ProblemCodes.IdentifierRestricted => NumberCannotBeUsed,
         ProblemCodes.PhoneAlreadyVerified => "That number is already verified.",
         ProblemCodes.PhoneSendFailed => "We couldn't send a code just now. Try again.",
         _ => "That didn't work. Try again.",

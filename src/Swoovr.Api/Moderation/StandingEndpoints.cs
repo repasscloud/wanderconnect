@@ -72,7 +72,7 @@ public static class StandingEndpoints
         var actions = StandingPolicy.ActionsRequired(new StandingFacts(phoneRequired, phone, profile.AgeStatus, profile.DateOfBirth is not null, profile.DobCheck))
             .Select(code => new StandingAction(code, code switch
             {
-                StandingPolicy.Phone => "/account?phone=required",
+                StandingPolicy.Phone => "/welcome",
                 StandingPolicy.AgeCheck => "/me/verification",
                 StandingPolicy.DobCorrection => "/me/verification",
                 _ => "/account",

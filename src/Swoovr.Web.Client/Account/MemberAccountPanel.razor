@@ -64,11 +64,20 @@ else
             }
         </section>
     }
+    else if (me is not null && me.SetupStep is SetupSteps.Names or SetupSteps.Phone or SetupSteps.DateOfBirth)
+    {
+        @* Issue 254 (D342): first-time setup happens on its own screens (/welcome); the web gate normally sends members
+           there before this page loads. Account management below (sign out, data, deletion) stays available. *@
+        <section class="settings-card" aria-labelledby="setup-title" data-setup-required="@me.SetupStep">
+            <div class="settings-card-head"><h2 id="setup-title">Finish setting up your account</h2>
+                <p>Add your name, mobile number and date of birth to start using Swoovr.</p></div>
+            <a class="button button-small settings-setup-link" href="/welcome" data-enhance-nav="false">Continue setup</a>
+        </section>
+    }
     else if (me is not null)
     {
         @if (me.AccountState == "restricted") { <p class="notice" role="status" data-restriction-limits="@string.Join(",", me.RestrictionLimits ?? [])">@MemberText.RestrictionNotice(me.RestrictionLimits, me.RestrictedUntil) <a href="/me/notices">Read the notice</a></p> }
-        @if (me.RegisteredNamesRequired) { <p class="notice" role="status" data-registered-name-gate>Confirm your registered name below to continue. Your data, account notices and support remain available.</p> }
-        else if (me.PolicyRequired) { <p class="notice" role="status" data-policy-gate>Please review the required policies. <a href="/account/policies">Review and choose whether to accept</a></p> }
+        @if (me.PolicyRequired) { <p class="notice" role="status" data-policy-gate>Please review the required policies. <a href="/account/policies">Review and choose whether to accept</a></p> }
         <DobCorrectionPrompt Account="me" Changed="Corrected" />
         @if (!me.PhoneRequired && !me.RegisteredNamesRequired && me.DateOfBirth is not null) { <FirstUseSafetyAdvice /> }
         @if (me.AgeStatus == "needsVerification")
@@ -80,8 +89,6 @@ else
                 <p><a class="button button-small" href="/me/verification">Verify my ID</a></p>
             </section>
         }
-        @if (me.PhoneRequired) { <p class="settings-step" data-setup-step="phone">Step 1 of 2 · Verify your mobile number</p> }
-        else if (!me.RegisteredNamesRequired && me.DateOfBirth is null) { <p class="settings-step" data-setup-step="age">@(me.PhoneGateEnabled ? "Step 2 of 2" : "Step 1 of 1") · Confirm your date of birth</p> }
         <div class="settings-grid">
             <section class="settings-card" aria-labelledby="personal-title" id="personal">
                 <div class="settings-card-head"><h2 id="personal-title">Personal information</h2></div>
@@ -122,7 +129,8 @@ else
                 <div class="settings-card-head"><h2 id="contact-title">Contact information</h2></div>
                 <div class="settings-row">
                     <div class="settings-row-text"><p class="settings-row-label">Email address</p>
-                        <p class="settings-row-value" data-email-verified="@(session?.EmailVerified == true ? "true" : "false")">@if (session?.EmailVerified == true) { <text>Verified email address</text> } else { <text>Email address</text><span class="settings-tag settings-tag-quiet">Not verified</span> }</p></div>
+                        @* Issue 254: the address itself, masked until the member hovers or clicks to reveal it. *@
+                        <p class="settings-row-value" data-email-verified="@(session?.EmailVerified == true ? "true" : "false")">@if (contact?.Email is { } email) { <MaskedContact Field="email" Masked="@email" /> } else { <span class="settings-muted">Not available</span> }@if (session?.EmailVerified != true) { <span class="settings-tag settings-tag-quiet">Not verified</span> }</p></div>
                     @* Q126 A: Keycloak's update-email step verifies the new address; the API then re-checks it (banned
                        identifiers, contact history) and keeps the old address if that fails (EmailChangeNotice). *@
                     <a class="settings-row-action" href="/account/action/email" data-enhance-nav="false" data-email-change>Change</a>
@@ -156,6 +164,7 @@ else
     private bool loaded, busy, locked, dobConfirmed;
     private SessionSummary? session;
     private MemberAccount? me;
+    private ContactView? contact;
     private DateOnly? dateOfBirth;
     private string? ageMessage;
     private bool BetaBlocked => AccountText.BetaBlocked(session);
@@ -169,7 +178,11 @@ else
         try
         {
             session = (await Members.SessionAsync()).Value;
-            if (session is { MemberArea: true }) Show(await Members.MeAsync());
+            if (session is { MemberArea: true })
+            {
+                Show(await Members.MeAsync());
+                if (me is not null) contact = (await Members.ContactAsync()).Value;
+            }
             else if (session is not null && (await Members.MeAsync()).Code == ProblemCodes.AccountLocked) locked = true;
         }
         catch (HttpRequestException) { session = null; }

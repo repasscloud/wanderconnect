@@ -111,7 +111,7 @@ public static class PhoneEndpoints
             {
                 Audit.Record(db, now, account.Id, "account", "phone.in-use", "account", account.Id.ToString());
                 await db.SaveChangesAsync(cancellationToken);
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another.");
+                return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "This number cannot be used. Contact support.");
             }
             var phone = await db.MemberPhones.FindAsync([account.Id], cancellationToken);
             // D184: verifying a new number replaces (and releases) the old one; the log says it changed, never which number.
@@ -128,7 +128,7 @@ public static class PhoneEndpoints
             (phone.Number, phone.VerifiedAt) = (number, now);
             Audit.Record(db, now, account.Id, "account", "phone.verified", "account", account.Id.ToString(), $"{change}:{sender.Kind}");
             try { await db.SaveChangesAsync(cancellationToken); }
-            catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "That number can't be used. Try another."); }
+            catch (DbUpdateException) { return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhoneInUse, "This number cannot be used. Contact support."); }
             // #87 (policy §8): a number a terminated member used is flagged to the admin queue, never refused.
             await deletion.FlagIfReturningPhoneAsync(account.Id, number, now, cancellationToken);
             await identifierAuthority.DisposeAsync();

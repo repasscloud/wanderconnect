@@ -41,13 +41,28 @@ public static class AccountEndpoints
                 .Select(l => l.CaseReference).FirstOrDefaultAsync(cancellationToken);
             if (lockReference is not null && state != "pendingDeletion") state = "locked";
             var phone = await accounts.Db!.MemberPhones.AnyAsync(p => p.AccountId == current.Account.Id, cancellationToken);
+            var policyRequired = accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken);
+            var namesRequired = !RegisteredNamePolicy.Complete(current.Account);
             return Results.Ok(View(current.Profile!, Today(clock), await BadgeOrderAsync(accounts.Db!, cancellationToken), state) with
-                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, PhoneGateEnabled=accounts.PhoneRequired, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=accounts.PolicyVersionSelected&&await accounts.Services.GetRequiredService<Swoovr.Api.Policies.PolicyAcceptanceService>().RequiredAsync(current.Account.Id,cancellationToken),
-                    RegisteredNamesRequired=!RegisteredNamePolicy.Complete(current.Account), MfaAccessRequired=current.Account.MfaResetPending || current.Account.MfaRequired&&!current.Evidence.MultiFactor,
+                { PhoneVerified = phone, PhoneRequired = accounts.PhoneRequired && !phone, PhoneGateEnabled=accounts.PhoneRequired, EmailChangeProblem = current.EmailChangeProblem, PolicyRequired=policyRequired,
+                    // Issue 254 (D342): one onboarding order for every client, the same order MemberAsync refuses routes in.
+                    SetupStep = AccountSetup.Next(namesRequired, accounts.PhoneRequired && !phone, policyRequired, current.Profile!.DateOfBirth),
+                    RegisteredNamesRequired=namesRequired, MfaAccessRequired=current.Account.MfaResetPending || current.Account.MfaRequired&&!current.Evidence.MultiFactor,
                     DateOfBirthCorrectionUntil=await DobChangeEndpoints.UntilAsync(accounts.Db!,current.Account.Id,clock.GetUtcNow(),cancellationToken),
                     StatusReference = state == "locked" ? lockReference : null,
                     RestrictionLimits = state == "restricted" ? current.Enforcement.Limits : null,
                     RestrictedUntil = state == "restricted" ? current.Enforcement.RestrictedUntil : null });
+        });
+        // Issue 254 (D342): the member's own contact details for Account settings, masked unless they ask to reveal them.
+        me.MapGet("/contact", async (bool? reveal, ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken, ageGateExempt: true, phoneExempt: true, policyExempt: true, registeredNamesExempt: true);
+            if (denied is not null) return denied;
+            var number = await accounts.Db!.MemberPhones.AsNoTracking().Where(p => p.AccountId == current!.Account!.Id).Select(p => p.Number).FirstOrDefaultAsync(cancellationToken);
+            var email = current!.Account!.Email;
+            return reveal == true
+                ? Results.Ok(new ContactView(email, number, true))
+                : Results.Ok(new ContactView(ContactMask.Email(email), number is null ? null : PhoneVerificationPolicy.Masked(number), false));
         });
         me.MapPost("/coupons", RedeemAsync);
         me.MapPut("/age", async (AgeUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
