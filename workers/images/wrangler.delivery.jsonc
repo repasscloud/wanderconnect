@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "swoovr-images-delivery-local",
+  "main": "src/delivery.mjs",
+  "compatibility_date": "2026-11-08",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "traces": { "enabled": true }, "logs": { "enabled": true, "invocation_logs": false } },
+  "r2_buckets": [{"binding":"PROCESSED","bucket_name":"swoovr-images-processed-local"}],
+  "vars": {"API_BASE_URL":"https://api.example.invalid"}
+}

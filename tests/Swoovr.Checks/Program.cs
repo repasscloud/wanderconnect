@@ -16,7 +16,11 @@ if(args is ["--zammad-live", var privateDirectory]){await ZammadLiveChecks.Run(p
 
 if(args is ["--ticketing-checks"]){TicketingRuntimeChecks.Run();await TicketingGuestChecks.Run();TicketingChecks.Run();TicketingWebhookChecks.Run();await ZammadTransportChecks.Run();return;}
 
-if(args is ["--media-checks"]){MediaChecks.Run();return;}
+if(args is ["--image-pipeline-persistence-checks"]){ImagePipelineChecks.Run();await ImagePipelinePersistenceChecks.Run();return;}
+
+if(args is ["--image-pipeline-checks"]){ImagePipelineChecks.Run();return;}
+
+if(args is ["--media-checks"]){MediaChecks.Run();ImagePipelineChecks.Run();return;}
 if(args is ["--device-client-checks"]){await DeviceClientChecks.Run();return;}
 if(args is ["--sms-checks"]){await SmsTransportChecks.Run();return;}
 
@@ -90,7 +94,7 @@ HelpdeskRetentionAndScanningChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();
 ModePrivacyChecks.Run();
-MediaChecks.Run();
+MediaChecks.Run();ImagePipelineChecks.Run();
 MediaRecoveryChecks.Run();
 SafetyResourceChecks.Run();
 NotificationChecks.Run();

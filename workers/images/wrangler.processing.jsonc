@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "swoovr-images-processing-local",
+  "main": "src/processing.mjs",
+  "compatibility_date": "2026-11-08",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "traces": { "enabled": true }, "logs": { "enabled": true, "invocation_logs": false } },
+  "r2_buckets": [
+    {"binding":"QUARANTINE","bucket_name":"swoovr-images-quarantine-local"},
+    {"binding":"PROCESSED","bucket_name":"swoovr-images-processed-local"}
+  ],
+  "queues": { "consumers": [{ "queue":"swoovr-images-jobs-local", "max_batch_size":1, "max_batch_timeout":1, "max_concurrency":1, "max_retries":12, "retry_delay":60, "dead_letter_queue":"swoovr-images-dlq-local" }] },
+  "vars": { "API_BASE_URL":"https://api.example.invalid", "PROCESSOR_BASE_URL":"https://processor.example.invalid", "QUARANTINE_BUCKET_NAME":"swoovr-images-quarantine-local" }
+}

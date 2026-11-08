@@ -306,7 +306,7 @@ Rollback is generation-aware: stop issuing new-path intents, preserve new object
 
 ## 14. Ticket coordination and next inputs
 
-Existing epic: [#267](https://github.com/repasscloud/wanderconnect/issues/267); architecture [#260](https://github.com/repasscloud/wanderconnect/issues/260), ingress [#261](https://github.com/repasscloud/wanderconnect/issues/261), processor [#262](https://github.com/repasscloud/wanderconnect/issues/262), delivery [#263](https://github.com/repasscloud/wanderconnect/issues/263), contracts [#264](https://github.com/repasscloud/wanderconnect/issues/264), operations [#265](https://github.com/repasscloud/wanderconnect/issues/265). This design amends their Cloudflare Container assumption; it does not close them or claim implementation. Inspect live ticket requirements before implementation and reconcile changed scope through linked PRs.
+Current implementation epic: [#294](https://github.com/repasscloud/wanderconnect/issues/294). Superseded parent [#267](https://github.com/repasscloud/wanderconnect/issues/267) is closed as a duplicate; its six image children and release gates now belong to #294. Architecture [#260](https://github.com/repasscloud/wanderconnect/issues/260), ingress [#261](https://github.com/repasscloud/wanderconnect/issues/261), processor [#262](https://github.com/repasscloud/wanderconnect/issues/262), delivery [#263](https://github.com/repasscloud/wanderconnect/issues/263), contracts [#264](https://github.com/repasscloud/wanderconnect/issues/264), operations [#265](https://github.com/repasscloud/wanderconnect/issues/265). This design amends their Cloudflare Container assumption; it does not close them or claim implementation. Inspect live ticket requirements before implementation and reconcile changed scope through linked PRs.
 
 Owner setup inputs later: region, VM resources/architecture, IPs, LB hostname/TLS and network constraints, private credentials, registry destination, Cloudflare account/environment resource identifiers, and monitored operational contact. Values belong in private configuration, not issue comments. Work on contracts, fixtures, builds and local integration can proceed independently of hosted provisioning.
 
@@ -324,3 +324,8 @@ This change documents the intended implementation. Container code, Workers, infr
 ## Documentation validation — 8 November 2026
 
 A fresh builder review identified the existing mandatory fresh scan for successful appeal/reconsideration and library-only restoration; this design now explicitly preserves both. `git diff --check` passed. `./scripts/check.sh` was run before this documentation commit: naming/source checks and earlier suites ran, but the command exited 134 at database persistence checks with PostgreSQL SQLSTATE 28P01 (local password authentication rejected). No credential values were printed or changed. Full database coverage is therefore not claimed. No container/Worker implementation, hosted provider scan, load test or deployment was performed by this documentation change.
+
+
+## Implementation follow-through
+
+Work is tracked in the [implementation plan](../plans/2026-11-08-vultr-image-pipeline.md) and [operator runbook](../../delivery/VULTR-IMAGE-PIPELINE.md). Read their validation and cutover gaps before interpreting this design as operational functionality.
