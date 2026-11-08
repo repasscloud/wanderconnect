@@ -2565,7 +2565,7 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("helpdesk_ticket_retention", (string)null);
                 });
 
-            modelBuilder.Entity("Swoovr.Domain.HomeLocationCheck", b =>
+            modelBuilder.Entity("Swoovr.Domain.HomeCityCheck", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -2576,21 +2576,98 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<int>("AwayDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("away_days");
+
+                    b.Property<int>("AwayParts")
+                        .HasColumnType("integer")
+                        .HasColumnName("away_parts");
+
                     b.Property<DateTimeOffset>("CheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("checked_at");
 
-                    b.Property<string>("HomeMarketId")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("home_market_id");
+                    b.Property<int>("ExcludedDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("excluded_days");
 
-                    b.Property<string>("Method")
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("failure_code");
+
+                    b.Property<int>("LocatedDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("located_days");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<int>("PartsCovered")
+                        .HasColumnType("integer")
+                        .HasColumnName("parts_covered");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date")
+                        .HasColumnName("period_start");
+
+                    b.Property<string>("Result")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
-                        .HasColumnName("method");
+                        .HasColumnName("result");
+
+                    b.Property<string>("Suppression")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("suppression");
+
+                    b.Property<long?>("TicketId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<string>("TicketState")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("ticket_state");
+
+                    b.HasKey("Id")
+                        .HasName("pk_home_city_checks");
+
+                    b.HasIndex("CheckedAt")
+                        .HasDatabaseName("ix_home_city_checks_checked_at");
+
+                    b.HasIndex("AccountId", "PeriodStart")
+                        .IsUnique()
+                        .HasDatabaseName("ix_home_city_checks_account_id_period_start");
+
+                    b.HasIndex("TicketState", "NextAttemptAt")
+                        .HasDatabaseName("ix_home_city_checks_ticket_state_next_attempt_at");
+
+                    b.ToTable("home_city_checks", (string)null);
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.HomeCityDay", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
 
                     b.Property<string>("Outcome")
                         .IsRequired()
@@ -2598,13 +2675,17 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("outcome");
 
-                    b.HasKey("Id")
-                        .HasName("pk_home_location_checks");
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
 
-                    b.HasIndex("AccountId", "CheckedAt")
-                        .HasDatabaseName("ix_home_location_checks_account_id_checked_at");
+                    b.HasKey("AccountId", "Day")
+                        .HasName("pk_home_city_days");
 
-                    b.ToTable("home_location_checks");
+                    b.HasIndex("Day")
+                        .HasDatabaseName("ix_home_city_days_day");
+
+                    b.ToTable("home_city_days", (string)null);
                 });
 
             modelBuilder.Entity("Swoovr.Domain.IdVerificationAttempt", b =>
@@ -4823,6 +4904,14 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("founding_since");
 
+                    b.Property<DateOnly?>("HomeCityCheckFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("home_city_check_from");
+
+                    b.Property<DateOnly?>("HomeCityDontSuggestBefore")
+                        .HasColumnType("date")
+                        .HasColumnName("home_city_dont_suggest_before");
+
                     b.Property<int?>("HomeGeoNameId")
                         .HasColumnType("integer")
                         .HasColumnName("home_geo_name_id");
@@ -4840,10 +4929,6 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("home_market_moved_to");
-
-                    b.Property<DateTimeOffset?>("HomeReviewFlaggedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("home_review_flagged_at");
 
                     b.Property<DateTimeOffset?>("IdCheckedAt")
                         .HasColumnType("timestamp with time zone")
@@ -9287,14 +9372,24 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_geo_city_names_geo_cities_geo_name_id");
                 });
 
-            modelBuilder.Entity("Swoovr.Domain.HomeLocationCheck", b =>
+            modelBuilder.Entity("Swoovr.Domain.HomeCityCheck", b =>
                 {
                     b.HasOne("Swoovr.Domain.Account", null)
                         .WithMany()
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_home_location_checks_accounts_account_id");
+                        .HasConstraintName("fk_home_city_checks_accounts_account_id");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.HomeCityDay", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_home_city_days_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.IdVerificationAttempt", b =>

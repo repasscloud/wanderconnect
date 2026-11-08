@@ -351,17 +351,25 @@ static class PersistenceChecks
             db.Trips.Add(new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 3), CreatedAt = now, UpdatedAt = now });
             await db.SaveChangesAsync();
             check("a trip and a home city reference GeoNames ids", await db.Trips.CountAsync(t => t.AccountId == id) == 1);
-            // D149, D150: arrival keeps the time, market and method; home checks keep the outcome. No coordinate columns exist.
+            // D149: arrival keeps the time, market and method. D349: Home City days and checks keep outcomes and counts only. No coordinate columns exist.
             var arrived = await db.Trips.SingleAsync(t => t.AccountId == id);
             (arrived.ArrivedAt, arrived.ArrivalMarketId, arrived.ArrivalMethod, arrived.ArrivalOutcome) = (now, "adelaide", ArrivalMethod.DeviceLocation, ArrivalOutcome.Confirmed);
-            db.HomeLocationChecks.Add(new HomeLocationCheck { Id = Guid.NewGuid(), AccountId = id, CheckedAt = now, Method = LocationMethod.Device, HomeMarketId = "adelaide", Outcome = HomeConsistency.Inconsistent });
+            db.HomeCityDays.Add(new HomeCityDay { AccountId = id, Day = new DateOnly(2026, 10, 23), Outcome = HomeCityDayOutcome.Away, UpdatedAt = now });
+            db.HomeCityChecks.Add(new HomeCityCheck { Id = Guid.NewGuid(), AccountId = id, PeriodStart = new DateOnly(2026, 9, 23), PeriodEnd = new DateOnly(2026, 10, 22), LocatedDays = 17,
+                AwayDays = 15, PartsCovered = 4, AwayParts = 4, Result = HomeCityCheckResult.Suggested, TicketState = HomeCityTicketState.Pending, CheckedAt = now });
             await db.SaveChangesAsync();
             await using (var fresh = new SwoovrDbContext(options))
-                check("an arrival and a home check read back as stored", await fresh.Trips.SingleAsync(t => t.AccountId == id) is { ArrivalMarketId: "adelaide", ArrivalMethod: ArrivalMethod.DeviceLocation, ArrivalOutcome: ArrivalOutcome.Confirmed }
-                    && await fresh.HomeLocationChecks.SingleAsync(c => c.AccountId == id) is { Method: LocationMethod.Device, Outcome: HomeConsistency.Inconsistent });
-            var locationColumns = db.Model.GetEntityTypes().Where(e => e.ClrType == typeof(Trip) || e.ClrType == typeof(HomeLocationCheck))
+                check("an arrival and the Home City check's day and result read back as stored", await fresh.Trips.SingleAsync(t => t.AccountId == id) is { ArrivalMarketId: "adelaide", ArrivalMethod: ArrivalMethod.DeviceLocation, ArrivalOutcome: ArrivalOutcome.Confirmed }
+                    && await fresh.HomeCityDays.SingleAsync(d => d.AccountId == id) is { Outcome: HomeCityDayOutcome.Away }
+                    && await fresh.HomeCityChecks.SingleAsync(c => c.AccountId == id) is { Result: HomeCityCheckResult.Suggested, AwayDays: 15, LocatedDays: 17, TicketState: HomeCityTicketState.Pending });
+            await using (var bad = new SwoovrDbContext(options))
+            {
+                bad.HomeCityDays.Add(new HomeCityDay { AccountId = id, Day = new DateOnly(2026, 10, 23), Outcome = HomeCityDayOutcome.Home, UpdatedAt = now });
+                check("one Home City outcome per member per day", await Throws(bad.SaveChangesAsync()));
+            }
+            var locationColumns = db.Model.GetEntityTypes().Where(e => e.ClrType == typeof(Trip) || e.ClrType == typeof(HomeCityDay) || e.ClrType == typeof(HomeCityCheck))
                 .SelectMany(e => e.GetProperties()).Select(p => p.Name.ToLowerInvariant()).ToList();
-            check("no coordinates, IP addresses or places are stored for arrival or home checks", !locationColumns.Any(c => c.Contains("latitude") || c.Contains("longitude") || c.Contains("ip") || c.Contains("city") || c.Contains("accuracy")));
+            check("no coordinates, IP addresses, places or distances are stored for arrival or the Home City check", !locationColumns.Any(c => c.Contains("latitude") || c.Contains("longitude") || c.Contains("ip") || c.Contains("city") || c.Contains("accuracy") || c.Contains("km") || c.Contains("distance") || c.Contains("place") || c.Contains("destination")));
             await using (var bad = new SwoovrDbContext(options))
             {
                 bad.Trips.Add(new Trip { Id = Guid.NewGuid(), AccountId = id, GeoNameId = 2158177, Arrival = new DateOnly(2026, 11, 1), Departure = new DateOnly(2026, 11, 3), CreatedAt = now, UpdatedAt = now, ArrivalMarketId = "nowhere" });
@@ -377,7 +385,7 @@ static class PersistenceChecks
                 }
             db.Accounts.Remove(await db.Accounts.SingleAsync(a => a.Id == id));
             await db.SaveChangesAsync();
-            check("trips and home checks go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id) && !await db.HomeLocationChecks.AnyAsync(c => c.AccountId == id));
+            check("trips and Home City days and checks go with the account", !await db.Trips.AnyAsync(t => t.AccountId == id) && !await db.HomeCityDays.AnyAsync(d => d.AccountId == id) && !await db.HomeCityChecks.AnyAsync(c => c.AccountId == id));
             var bot = Guid.NewGuid();
             db.Accounts.Add(new Account { Id = bot, Issuer = "https://issuer.example.test/realms/members", Subject = "bot-" + bot, Realm = AccountRealm.Members, CreatedAt = now, LastSeenAt = now });
             db.MemberProfiles.Add(new MemberProfile { AccountId = bot, AgeStatus = AgeStatus.Attested, Bot = true, HomeGeoNameId = 2078025, HomeMarketId = "adelaide" });

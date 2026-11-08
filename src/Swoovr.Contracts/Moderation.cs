@@ -86,7 +86,7 @@ public sealed record EntitlementView(Guid Id, string Tier, string Source, DateTi
 public sealed record AccountAdminSummary(Guid Id, string Realm, string Status, string? DisplayName, string? AgeStatus, string? IdStatus,
     bool CanRequestIdVerification, bool Bot, bool Employee, bool Founder, string? HomeMarket, DateTimeOffset? HomeMarketMovedAt, string Plan,
     IReadOnlyList<SanctionView> Sanctions, IReadOnlyList<EntitlementView> Entitlements, int OpenCases, bool DateOfBirthVerified = false,
-    DateTimeOffset? HomeReviewFlaggedAt = null, int InconsistentHomeChecks = 0, string DobCheck = "none",
+    HomeCityCheckAdminView? HomeCityCheck = null, string DobCheck = "none",
     DateTimeOffset? IdentityOnFileSince = null, string? IdentityIssuingCountry = null,int? Age=null);
 
 public sealed record StaffAgeAssurance(Guid AccountId,int? Age,bool DateOfBirthPresent,bool DateOfBirthVerified,string AgeAssurance);
@@ -116,5 +116,13 @@ public sealed record NameReviewView(Guid Id, Guid AccountId, string? DisplayName
     DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, string? Outcome, string? ResolutionNote = null, string? ResolvedByName = null);
 /// <summary>"matches" (keep ID Verified) or "mismatch" (remove it; the member can verify again), with a reason.</summary>
 public sealed record NameReviewDecision(string? Outcome, string? Reason);
-/// <summary>D150: an admin clears the home-location review flag after looking, with a reason (audited, never shown publicly).</summary>
-public sealed record HomeReviewClear(string? Reason);
+/// <summary>
+/// D349, #281: the scheduled Home City check as staff see it on the Account overview: "Don't suggest before", the current
+/// period (Home City time zone) and the latest count-only result. Never positions, places, trip destinations or days.
+/// </summary>
+public sealed record HomeCityCheckAdminView(DateOnly? DontSuggestBefore, DateOnly? PeriodFrom, DateOnly? PeriodTo, HomeCityCheckResultView? Latest);
+/// <summary>Result: skipped, noSuggestion, suggested or suppressed (dontSuggestBefore, openItem, cooldown). Item: none, pending, created or failed.</summary>
+public sealed record HomeCityCheckResultView(DateOnly PeriodStart, DateOnly PeriodEnd, string Result, string? Suppression, int LocatedDays, int AwayDays,
+    int ExcludedDays, int PartsCovered, string Observed, string Item, string? ItemReference, long? TicketId);
+/// <summary>D349: `PUT /api/admin/accounts/{id}/home-city-check`; null clears the date. The reason (up to 300 characters) is audited.</summary>
+public sealed record HomeCityCheckChange(DateOnly? DontSuggestBefore, string? Reason = null);

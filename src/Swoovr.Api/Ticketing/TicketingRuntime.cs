@@ -90,6 +90,9 @@ public sealed class TicketingRuntime(AccountResolver accounts,CurrentAccount cur
             if(mapped!=Me||ticket.OperationReference is null)throw Refuse(404);
             var effective=await provider.ActorAsync(ct);TicketingActorFactory.ValidateCustomer(effective,Me);
             if(effective.Id!=ticket.CustomerId)throw Refuse(404);
+            // D349: an item Swoovr raised itself (the scheduled Home City check) stays out of the member's list and detail until Support has written to them.
+            if(ticket.Classification.GetValueOrDefault("swoovr_source")==TicketingPolicy.SystemSource
+                &&!HomeCityCheckPolicy.MemberVisible(TicketingPolicy.SystemSource,(await provider.GetArticlesAsync(id,ct)).Where(a=>a.TicketId==id)))throw Refuse(404);
         }
         return ticket;
     }

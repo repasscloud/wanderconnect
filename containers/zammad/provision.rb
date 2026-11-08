@@ -9,7 +9,9 @@ names = [
   'General Support', 'Billing & Subscriptions', 'Account Recovery', 'Appeals',
   'Trust & Safety', 'Trust & Safety — Restricted', 'Legal & Law Enforcement',
   'Privacy & Data Protection', 'Public Relations & Media', 'Partnerships & Business Development',
-  'Marketing & Community', 'Internal Operations', 'Security'
+  'Marketing & Community', 'Internal Operations', 'Security',
+  # D349, #281: the scheduled Home City check's internal-note items (Support, Trust & Safety and Admin).
+  'Home City checks'
 ]
 groups = names.to_h do |name|
   group = Group.find_or_initialize_by(name: name)
@@ -61,6 +63,18 @@ retention.assign_attributes(firstname: 'Swoovr', lastname: 'Retention', email: '
   password: input.fetch('password'), role_ids: [retention_role.id], created_by_id: actor, updated_by_id: actor)
 retention.save!
 retention.group_ids_access_map = Group.pluck(:id).to_h { |id| [id, ['read']] }
+# Home City check (D349, #281): raises the scheduled check's items as an internal note and reads their state for the
+# 90-day cooldown, in "Home City checks" only. Like retention, it has no Agent role, so it is never an assignable owner and
+# staff synchronisation never manages it.
+home_city_role = Role.find_or_initialize_by(name: 'Swoovr Home City check')
+home_city_role.assign_attributes(active: true, default_at_signup: false, created_by_id: actor, updated_by_id: actor)
+home_city_role.save!
+home_city_role.permission_grant('ticket.agent')
+home_city = User.find_or_initialize_by(login: 'swoovr-home-city-check')
+home_city.assign_attributes(firstname: 'Swoovr', lastname: 'Home City check', email: 'home-city-check@example.test', active: true,
+  password: input.fetch('password'), role_ids: [home_city_role.id], created_by_id: actor, updated_by_id: actor)
+home_city.save!
+home_city.group_ids_access_map = {groups.fetch('Home City checks') => ['create', 'read']}
 def api_token(user, label, permissions)
   token = Token.find_by(action: 'api', user_id: user.id, name: label)
   token ||= Token.create!(action: 'api', persistent: true, user_id: user.id, name: label,
@@ -184,6 +198,15 @@ text.save!
     module_row.save!
   end
 end
+# D349, #281: Support's friendly suggestion, as a text module for Swoovr Admin replies and a Zammad macro (a public note).
+home_city_reply = "Hi, we're checking in because it looks like you may have moved recently. If your Home City has changed, you can update it any time in Me → Profile, so people near you can find you. If nothing has changed, there's nothing you need to do. Thanks for being part of Swoovr."
+home_city_text = TextModule.find_or_initialize_by(name: 'Home City checks · Suggest updating your Home City')
+home_city_text.assign_attributes(content: home_city_reply, active: true, created_by_id: actor, updated_by_id: actor)
+home_city_text.save!
+home_city_macro = Macro.find_or_initialize_by(name: 'Suggest updating your Home City')
+home_city_macro.assign_attributes(perform: {'article.note' => {'subject' => 'Your Home City', 'body' => home_city_reply, 'internal' => 'false'}},
+  group_ids: [groups.fetch('Home City checks')], active: true, ux_flow_next_up: 'none', created_by_id: actor, updated_by_id: actor)
+home_city_macro.save!
 macro = Macro.find_or_initialize_by(name: 'Swoovr close ticket')
 macro.assign_attributes(perform: {'ticket.state_id' => {'value' => Ticket::State.find_by!(name: 'closed').id}},
   active: true, ux_flow_next_up: 'none', created_by_id: actor, updated_by_id: actor)
@@ -214,4 +237,5 @@ puts "SWOOVR_PROVISION_RESULT=" + JSON.generate({version: Version.get, groups: g
   provisioning_token: api_token(admin, 'swoovr-local-provisioning', ['admin', 'ticket.agent']),
   identity_token: api_token(identity, 'swoovr-local-identity', ['admin.user']),
   staff_directory_token: api_token(directory, 'swoovr-local-staff-directory', ['admin.user', 'admin.session', 'ticket.agent']),
-  retention_token: api_token(retention, 'swoovr-local-retention', ['admin.data_privacy', 'ticket.agent'])})
+  retention_token: api_token(retention, 'swoovr-local-retention', ['admin.data_privacy', 'ticket.agent']),
+  home_city_check_token: api_token(home_city, 'swoovr-local-home-city-check', ['ticket.agent'])})

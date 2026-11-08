@@ -127,6 +127,8 @@ def api_settings(config, output=None):
     zammad = {'BaseUrl': 'http://swoovr-zammad:8080/', 'IdentityToken': config['identity_token'], 'StaffDirectoryToken': config['staff_directory_token']}
     # D337 (#224): the retention identity (ticket metadata + data privacy deletion).
     if config.get('retention_token'): zammad['RetentionToken'] = config['retention_token']
+    # D349 (#281): the Home City check identity (its own group only; internal-note items and their state).
+    if config.get('home_city_check_token'): zammad['HomeCityCheckToken'] = config['home_city_check_token']
     settings = {'Ticketing': {'Zammad': zammad}}
     private_write(target / 'api.json', json.dumps(settings))
     lines = ['Ticketing__Zammad__' + key + '=' + value for key, value in zammad.items()]

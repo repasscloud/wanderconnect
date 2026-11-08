@@ -83,6 +83,10 @@ public static class ProviderSetup
         services.AddScoped<PhoneKeys>();
         services.AddScoped<ContactHistoryKeys>();
         services.AddScoped<Swoovr.Api.Travel.LocationKeys>();
+        // D349, #281: accepted readings feed the Home City check's daily outcomes; the job runs from the worker and the CLI.
+        services.AddScoped<Swoovr.Api.Travel.IAcceptedReadingObserver, Swoovr.Api.Travel.HomeCityDayRecorder>();
+        services.TryAddScoped<Ticketing.TicketingActorFactory>();
+        services.AddScoped<Swoovr.Api.Travel.HomeCityCheckJob>();
         services.AddScoped<EmailRetirementCommands>();
         // D189: legal holds and the evidence store (keys from configuration, else derived from the founder secret).
         services.AddScoped<Swoovr.Api.Evidence.EvidenceKeys>();

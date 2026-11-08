@@ -98,6 +98,11 @@ public static class DataExportBuilder
             policyNoticeReceipts=await (from recipient in db.Set<PolicyNoticeRecipient>() join publication in db.Set<PolicyNoticePublication>() on recipient.PublicationId equals publication.Id where recipient.AccountId==id select new{publication.Version,recipient.Status,recipient.CreatedAt,recipient.CompletedAt,publication.PurgeAfter}).ToListAsync(cancellationToken),
             // D348, #278: that a Near me position is stored and until when; never the position itself.
             nearMe=(await db.MemberLocations.Where(l=>l.AccountId==id).Select(l=>(DateTimeOffset?)l.ObservedAt).SingleOrDefaultAsync(cancellationToken)) is {} storedAt?new{positionStoredAt=storedAt,usedUntil=storedAt+NearMePolicy.FreshFor,note="A rounded, encrypted position; it is never included here."}:null,
+            // D349, #281: the Home City check's daily outcomes (no positions) and count-only results.
+            homeCityCheck=new{
+                days=await db.HomeCityDays.Where(d=>d.AccountId==id).OrderBy(d=>d.Day).Select(d=>new{d.Day,outcome=d.Outcome.ToString()}).ToListAsync(cancellationToken),
+                checks=await db.HomeCityChecks.Where(c=>c.AccountId==id).OrderBy(c=>c.PeriodStart).Select(c=>new{c.PeriodStart,c.PeriodEnd,c.LocatedDays,c.AwayDays,c.ExcludedDays,c.PartsCovered,result=c.Result.ToString()}).ToListAsync(cancellationToken),
+                note="Daily outcomes are kept 35 days and results 12 months. They never change your Home City or your account."},
             appearance=await db.Set<MemberAppearance>().Where(a=>a.AccountId==id).Select(a=>new{a.Scheme,a.Mode,a.Revision,a.LastChangeId,a.UpdatedAt}).SingleOrDefaultAsync(cancellationToken),
             betaEnrolments=await db.BetaEnrolments.Where(e=>e.AccountId==id).Select(e=>new{e.Id,e.Email,e.CreatedAt,e.RevokedAt,e.ActivatedAt,e.IosDistributionState,e.IosDistributionRevision,e.IosDistributionChangedAt,e.InvitationState,e.InvitationAttempts,e.InvitationQueuedAt,e.InvitationAttemptedAt,e.InvitationCompletedAt,e.InvitationNextAttemptAt,e.InvitationOutcomeCode}).ToListAsync(cancellationToken),
             betaJourneyObservations=await db.Set<BetaJourneyDay>().Where(r=>r.AccountId==id).Select(r=>new{r.Day,r.Dataset,r.ExploreSucceeded,r.ExploreHasPeer}).ToListAsync(cancellationToken),

@@ -101,21 +101,6 @@ static class ArrivalChecks
         Expect(!MarketAccess.MayRequest(false, false, false) && MarketAccess.MayRequest(false, false, false, arrivedInMode: true), "contact after arrival only");
         Expect(MarketAccess.MayRequest(true, false, false) && MarketAccess.MayRequest(false, true, false) && MarketAccess.MayRequest(false, false, true), "earlier rules unchanged");
 
-        // Home-location consistency (D150): three inconsistent device days in 30 with no consistent check after them.
-        HomeLocationCheck C(int daysAgo, HomeConsistency outcome, LocationMethod method = LocationMethod.Device, int hour = 0) =>
-            new() { CheckedAt = now.AddDays(-daysAgo).AddHours(-hour), Outcome = outcome, Method = method, HomeMarketId = "adelaide" };
-        var bad = HomeConsistency.Inconsistent; var good = HomeConsistency.Consistent;
-        Expect(HomeLocationPolicy.Judge(true) == good && HomeLocationPolicy.Judge(false) == bad, "inside is consistent");
-        Expect(!HomeLocationPolicy.ShouldFlag([], now), "no checks");
-        Expect(!HomeLocationPolicy.ShouldFlag([C(1, bad), C(2, bad)], now), "two days isn't enough");
-        Expect(HomeLocationPolicy.ShouldFlag([C(1, bad), C(2, bad), C(3, bad)], now), "three days is");
-        Expect(!HomeLocationPolicy.ShouldFlag([C(1, bad), C(1, bad, hour: 2), C(1, bad, hour: 4)], now), "three checks on one day count once");
-        Expect(!HomeLocationPolicy.ShouldFlag([C(5, bad), C(4, bad), C(3, bad), C(2, good)], now), "a consistent check after them clears it");
-        Expect(HomeLocationPolicy.ShouldFlag([C(9, good), C(5, bad), C(4, bad), C(3, bad)], now), "a consistent check before them doesn't");
-        Expect(!HomeLocationPolicy.ShouldFlag([C(40, bad), C(35, bad), C(2, bad)], now), "only the last 30 days");
-        Expect(!HomeLocationPolicy.ShouldFlag([C(1, bad, LocationMethod.ApproximateIp), C(2, bad, LocationMethod.ApproximateIp), C(3, bad, LocationMethod.ApproximateIp)], now), "IP alone never flags (D153)");
-        Expect(!HomeLocationPolicy.ShouldFlag([C(1, bad), C(2, bad, LocationMethod.ApproximateIp), C(3, bad)], now), "IP doesn't make up the count");
-
-        Console.WriteLine($"PASS: arrival, Traveller Search and home-location checks ({checks}).");
+        Console.WriteLine($"PASS: arrival and Traveller Search ({checks}).");
     }
 }

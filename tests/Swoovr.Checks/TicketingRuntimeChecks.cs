@@ -53,9 +53,11 @@ internal static class TicketingRuntimeChecks
             ["Public Relations & Media"]="FF-F",["Partnerships & Business Development"]="FF-F",["Marketing & Community"]="FF-F",
             ["Trust & Safety"]="-F-F",["Trust & Safety — Restricted"]="HF-H",["Legal & Law Enforcement"]="HHFH",
             ["Privacy & Data Protection"]="--FF",["Internal Operations"]="---F",["Security"]="---F",
+            // D349, #281: the scheduled Home City check's items.
+            ["Home City checks"]="FF-F",
         };
         AccountRole[] columns=[AccountRole.Support,AccountRole.TrustSafety,AccountRole.Legal,AccountRole.Admin];
-        Check(matrix.Count==TicketingPolicy.Groups.Count&&matrix.Keys.All(TicketingPolicy.Groups.Contains),"matrix covers exactly the 13 queues");
+        Check(matrix.Count==TicketingPolicy.Groups.Count&&matrix.Keys.All(TicketingPolicy.Groups.Contains),"matrix covers exactly the 14 queues");
         var mismatches=matrix.SelectMany(row=>columns.Select((role,i)=>(row.Key,role,Expected:row.Value[i],
             Actual:TicketingPolicy.CanAccessGroup(role,row.Key)?'F':TicketingPolicy.CanHandOff(role,row.Key)?'H':'-'))).Where(c=>c.Expected!=c.Actual).ToList();
         Check(mismatches.Count==0,"role-to-queue matrix matches the owner's decision: "+string.Join(", ",mismatches.Select(m=>m.Key+"/"+m.role)));

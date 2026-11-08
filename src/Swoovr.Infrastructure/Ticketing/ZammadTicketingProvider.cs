@@ -62,13 +62,15 @@ public sealed partial class ZammadTicketingProvider : ITicketingWorkspaceProvide
     public async Task<SupportTicket> CreateTicketAsync(SupportTicketDraft draft, CancellationToken ct)
     {
         ValidateText(draft.Title, 200); ValidateText(draft.Body, 16000);
-        if(draft.Source is not("member" or "staff" or "guest"))throw new ArgumentException("Invalid source.");
+        if(draft.Source is not("member" or "staff" or "guest" or TicketingPolicy.SystemSource))throw new ArgumentException("Invalid source.");
         if (!Guid.TryParse(draft.OperationReference, out _)) throw new ArgumentException("Invalid operation reference.");
         var files = draft.Attachments ?? [];
         CheckUploads(files);
         // Issue 220: files travel with the first article; byte arrays are written as base64 straight into the request stream.
         return ReadWrite(Ticket, await Send(HttpMethod.Post, "tickets", new { title = draft.Title, customer_id = Id(draft.CustomerId), group_id = Id(draft.GroupId),
-            swoovr_operation = draft.OperationReference, swoovr_source=draft.Source, article = new { body = draft.Body, type = "note", content_type = "text/plain", @internal = false, sender = "Customer",
+            // D349: a system item (the scheduled Home City check) opens with an internal note from its own agent identity.
+            swoovr_operation = draft.OperationReference, swoovr_source=draft.Source, article = new { body = draft.Body, type = "note", content_type = "text/plain",
+                @internal = draft.Source == TicketingPolicy.SystemSource, sender = draft.Source == TicketingPolicy.SystemSource ? "Agent" : "Customer",
                 attachments = Uploads(files) } }, ct, slow: files.Count > 0));
     }
 

@@ -81,6 +81,8 @@ public static class ProfileEndpoints
                 Audit.Record(db, now, profile.AccountId, "account", "home-market.changed", "account", profile.AccountId.ToString(), $"{profile.HomeMarketId ?? "none"}>{market ?? "none"}");
             if (market is not null && market != profile.HomeMarketMovedTo) (profile.HomeMarketMovedTo, profile.HomeMarketMovedAt) = (market, now);
             if(profile.About!=about)profile.TextRevision=accounts.Services.GetRequiredService<Swoovr.Api.Moderation.TextHarmQueue>().Enqueue(profile.AccountId,TextHarmSource.ProfileAbout,profile.AccountId,null,about,now);
+            // D349: a Home City change restarts the Home City check period and drops the old city's daily outcomes.
+            if (profile.HomeGeoNameId != update.HomeCityId) await Travel.HomeCityDayRecorder.RestartAsync(db, profile, cancellationToken);
             (profile.DisplayName, profile.About, profile.HomeGeoNameId, profile.HomeMarketId) = (name, about, update.HomeCityId, market);
             // Interest in a launch follows the home city; it lapses with no home city or once the home market is open.
             if (await db.MarketInterests.FindAsync([profile.AccountId], cancellationToken) is { } interest)

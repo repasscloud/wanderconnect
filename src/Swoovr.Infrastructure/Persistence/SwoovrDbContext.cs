@@ -55,7 +55,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<BotMarket> BotMarkets => Set<BotMarket>();
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
-    public DbSet<HomeLocationCheck> HomeLocationChecks => Set<HomeLocationCheck>();
+    public DbSet<HomeCityDay> HomeCityDays => Set<HomeCityDay>();
+    public DbSet<HomeCityCheck> HomeCityChecks => Set<HomeCityCheck>();
     public DbSet<MemberLocation> MemberLocations => Set<MemberLocation>();
     public DbSet<DobReview> DobReviews => Set<DobReview>();
     public DbSet<NameChangeReview> NameChangeReviews => Set<NameChangeReview>();
@@ -867,11 +868,27 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             location.HasIndex(l => new { l.MarketId, l.ObservedAt });
             location.HasIndex(l => l.ObservedAt);
         });
-        model.Entity<HomeLocationCheck>(check =>
+        // D349, #281: one derived outcome per member per local day (no coordinates or places), kept 35 days.
+        model.Entity<HomeCityDay>(day =>
         {
+            day.ToTable("home_city_days");
+            day.HasKey(d => new { d.AccountId, d.Day });
+            day.HasOne<Account>().WithMany().HasForeignKey(d => d.AccountId).OnDelete(DeleteBehavior.Cascade);
+            day.Property(d => d.Outcome).HasConversion<string>().HasMaxLength(16);
+            day.HasIndex(d => d.Day);
+        });
+        // D349: count-only check results, kept 12 months. One result per member and period.
+        model.Entity<HomeCityCheck>(check =>
+        {
+            check.ToTable("home_city_checks");
             check.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);
-            check.Property(c => c.HomeMarketId).HasMaxLength(32);
-            check.HasIndex(c => new { c.AccountId, c.CheckedAt });
+            check.Property(c => c.Result).HasConversion<string>().HasMaxLength(16);
+            check.Property(c => c.Suppression).HasConversion<string>().HasMaxLength(24);
+            check.Property(c => c.TicketState).HasConversion<string>().HasMaxLength(16);
+            check.Property(c => c.FailureCode).HasMaxLength(64);
+            check.HasIndex(c => new { c.AccountId, c.PeriodStart }).IsUnique();
+            check.HasIndex(c => new { c.TicketState, c.NextAttemptAt });
+            check.HasIndex(c => c.CheckedAt);
         });
         // D128: one row per Didit session, outcome and operational metadata only. At most one open attempt per member.
         model.Entity<IdVerificationAttempt>(attempt =>
