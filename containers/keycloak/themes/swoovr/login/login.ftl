@@ -17,7 +17,11 @@
         <#if resetConfirmation>
           <section data-reset-confirmation aria-label="${msg('swoovrResetConfirmationTitle')}">
             <p class="sw-reset-help">${msg("swoovrResetConfirmationHelp")}</p>
-            <p class="sw-reset-actions"><a href="${url.loginUrl}">${msg("backToLogin")}</a><a href="${url.loginResetCredentialsUrl}">${msg("swoovrResetTryAnother")}</a></p>
+            <#-- Issue 252: both actions are buttons (primary "Back to sign in", secondary "Try another email"), as on the terms step. -->
+            <div class="sw-reset-actions">
+              <a class="pf-v5-c-button pf-m-primary" href="${url.loginUrl}" data-reset-back>${msg("backToLogin")}</a>
+              <a class="pf-v5-c-button pf-m-secondary" href="${url.loginResetCredentialsUrl}" data-reset-try-another>${msg("swoovrResetTryAnother")}</a>
+            </div>
           </section>
         <#else>
         <div id="kc-form">
