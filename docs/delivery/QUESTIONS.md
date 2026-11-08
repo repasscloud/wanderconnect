@@ -2788,9 +2788,11 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q161 — Near me: freshness, the 0–2 km band and approximate location
 
-- Own issue: [#270](https://github.com/repasscloud/wanderconnect/issues/270) (decision-needed). Status: PARTLY ANSWERED, owner 8 November 2026 (D348).
-- Answered: a reading is used for exactly 2 hours, and a 5-minute purge deletes it within the following 5 minutes. The immediate deletion events stay. "Appear" and browsing are independent: discoverability is checked live on every query, and a stored reading never makes anyone discoverable.
-- Still DEFAULT pending the owner: (b) `nearby` needs both readings ≤ 250 m and ≤ 15 minutes old, otherwise `unknown`; (c) readings coarser than 2 km don't establish presence.
+- Own issue: [#270](https://github.com/repasscloud/wanderconnect/issues/270) (decided). Status: ANSWERED, owner 8 November 2026 (D348).
+- A reading is used for exactly 2 hours, and a 5-minute purge deletes it within the following 5 minutes. The immediate deletions stay.
+- "Appear" is checked live on every query, so browsing never makes a member discoverable.
+- `nearby` needs both readings ≤ 250 m and ≤ 15 minutes old, otherwise `unknown`.
+- Near me presence needs a reading accurate to 2 km or better.
 
 ### Q162 — Display when GPS isn't available but Home City distance is
 
@@ -2806,20 +2808,24 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q165 — Privacy Notice 0.20 and permission wording
 
-- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decision-needed, owner-action). Status: OPEN (D351). The wording is revised once #270 and #272 are settled, then goes to owner and legal approval.
-- Existing members are notified of the change. Privacy Notice 0.19 stays in force until approval.
+- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decision-needed, owner-action). Status: OPEN (D351). Draft v2 is in the issue, covering:
+  - Near me retention.
+  - Daily outcomes, the monthly check, the Zammad note and their retention.
+  - Travel check-in as the active location.
+- It waits for owner and legal approval. Existing members are notified.
 
 ### Q166 — Scheduled Home City check: evidence, vicinity, Zammad item and retention
 
-- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decision-needed). Status: OPEN (D349). The owner replaced the running review with a scheduled check about every 30 days that creates a Zammad item, and asked for a proposal.
-- Proposed in [#272](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719693088):
-  - Daily `home`/`away`/`excluded` outcomes without coordinates, kept 35 days or less.
-  - Enough evidence = 12+ located days covering all four parts of the period. Missing days are unknown.
-  - Suggest relocation at 75% away, with away days in 3 of 4 parts and no home day in the last 7 days.
-  - Vicinity = home market areas plus 25 km, or 50 km with no market.
-  - Checked-in trip days are excluded.
-  - A dedicated Zammad group, hidden from the member until Support replies.
-  - One open item per member, a 90-day cooldown, and closed + 6 months retention.
+- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decision-needed). Status: PARTLY ANSWERED, owner 8 November 2026 ([approved in principle](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719818807); D349).
+- Approved:
+  - 12+ located days across the four parts of the period; unknown days don't count; skip when there is too little evidence.
+  - 75% away, with away days spread across the parts and the 7-day home check.
+  - Active checked-in trip days excluded from the calculation and the evidence count.
+  - 35-day outcomes and 12-month counts.
+  - One open Zammad item per member, a 90-day cooldown, and 6 months after closure.
+  - Hidden from the member until Support contacts them.
+  - No automatic action.
+- Open: the vicinity rule. A (market + 25 km / 50 km), B (25 km around the Home City) or C, with [examples](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719843258).
 
 ### Q167 — What happens to D150's current mechanism
 
@@ -2835,12 +2841,9 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q170 — Travel: checked-in destination as the active discovery location
 
-- Own issue: [#274](https://github.com/repasscloud/wanderconnect/issues/274) (decision-needed). Status: OPEN (D352). The owner's direction is CONFIRMED; the details are open.
-- Open:
-  - Two pre-arrival switches (amends the D164 default).
-  - An "Active location" Explore scope (amends D125).
-  - Which checked-in trip is active when trips overlap.
-  - GPS vs check-in.
-  - Visibility to home locals while away.
-  - Visitors feed vs Explore for destination locals.
-  - The distance basis for travellers.
+- Own issue: [#274](https://github.com/repasscloud/wanderconnect/issues/274) (decided). Status: ANSWERED, owner 8 November 2026 (D352).
+- Two independent pre-arrival choices (amends the D164 default).
+- The most recently checked-in trip is the active location, and the Home City comes back when none is active.
+- Home-market members still see the member; destination members see them in Explore and the visitors feed, marked as visiting.
+- GPS bands only with fresh readings and permission on both sides, otherwise `unknown`.
+- Near me follows GPS and Active location follows the check-in; neither changes silently.
