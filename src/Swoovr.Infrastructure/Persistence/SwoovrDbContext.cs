@@ -56,6 +56,7 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<MarketInterest> MarketInterests => Set<MarketInterest>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<HomeLocationCheck> HomeLocationChecks => Set<HomeLocationCheck>();
+    public DbSet<MemberLocation> MemberLocations => Set<MemberLocation>();
     public DbSet<DobReview> DobReviews => Set<DobReview>();
     public DbSet<NameChangeReview> NameChangeReviews => Set<NameChangeReview>();
     public DbSet<DobChangeGrant> DobChangeGrants => Set<DobChangeGrant>();
@@ -855,6 +856,17 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             hide.HasOne<Account>().WithMany().HasForeignKey(h => h.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
         // D150, D153: home-location consistency checks keep the outcome only; never coordinates, IP addresses or places.
+        // D348, #278: one sealed Near me reading per member, deleted with the account; never a history.
+        model.Entity<MemberLocation>(location =>
+        {
+            location.ToTable("member_locations");
+            location.HasKey(l => l.AccountId);
+            location.HasOne<Account>().WithMany().HasForeignKey(l => l.AccountId).OnDelete(DeleteBehavior.Cascade);
+            location.Property(l => l.MarketId).HasMaxLength(32);
+            location.Property(l => l.SealedCell).HasMaxLength(256);
+            location.HasIndex(l => new { l.MarketId, l.ObservedAt });
+            location.HasIndex(l => l.ObservedAt);
+        });
         model.Entity<HomeLocationCheck>(check =>
         {
             check.HasOne<Account>().WithMany().HasForeignKey(c => c.AccountId).OnDelete(DeleteBehavior.Cascade);

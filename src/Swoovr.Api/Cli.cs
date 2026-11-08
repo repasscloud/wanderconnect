@@ -277,6 +277,10 @@ public static class Cli
                 Console.WriteLine($"Staff conflicts: {added} historical associations preserved, {expired.Expired} expired.");
                 return expired.HoldStatusUnavailable ? 1 : 0;
             }
+            // D348, #278: the Near me purge the worker runs every five minutes, on demand (counts only).
+            case ["location", "purge"]:
+                Console.WriteLine($"Near me purge: {await Swoovr.Api.Travel.NearMeEndpoints.PurgeAsync(db, now, CancellationToken.None)} expired readings deleted.");
+                return 0;
             case ["retention", "purge", "--case", var retentionCase] when Guid.TryParse(retentionCase, out var parsedCase):
             {
                 var run = await scope.ServiceProvider.GetRequiredService<Retention.SafetyRetention>().PurgeAsync(now, CancellationToken.None, parsedCase);
@@ -372,7 +376,7 @@ public static class Cli
                     Console.WriteLine($"{e.Email}\t{BetaEnrolments.View(e).State}");
                 return 0;
             default:
-                Console.Error.WriteLine("Usage: policies notices stage <version> <public-title> /safety|/safety/advice --operator <root-account-id> | policies notices publish <id> --operator <root-account-id> --source-published true | policies notices process <id> | migrate | backups bundle | backups reconcile <owned-target-db> <authenticated-bundle-path> <authority-sha256> | contacts reconcile | root-admin grant <staff subject> | bans backfill | bans legacy-status | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|all [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
+                Console.Error.WriteLine("Usage: policies notices stage <version> <public-title> /safety|/safety/advice --operator <root-account-id> | policies notices publish <id> --operator <root-account-id> --source-published true | policies notices process <id> | migrate | backups bundle | backups reconcile <owned-target-db> <authenticated-bundle-path> <authority-sha256> | contacts reconcile | root-admin grant <staff subject> | bans backfill | bans legacy-status | staff conflicts reconcile | legal grant|revoke <staff subject> | identity backfill | keys status | keys rotate contact-history|evidence|police|identity|location|all | location purge [--to n] | beta add <email>... | beta add --file <path> | beta revoke <email> | beta list | founders allocate | messages purge | accounts purge | notifications sweep | retention purge [--case <id>|--account <id>] | push tokens protect | media preserve [media-id] | media alerts resolve <id> primary|backup accepted|retry --note-file <path>");
                 return 2;
         }
     }

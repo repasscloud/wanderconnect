@@ -39,6 +39,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
             .ExecuteUpdateAsync(u => u.SetProperty(r => r.Status, ConnectionRequestStatus.Cancelled).SetProperty(r => r.AnsweredAt, now), cancellationToken);
         // Stop future device sends at deactivation; credentials are not tombstone/compliance records.
         await db.PushDevices.Where(d => d.AccountId == account.Id).ExecuteDeleteAsync(cancellationToken);
+        // D348, #278: the stored Near me reading goes with the request, not at final deletion.
+        await db.MemberLocations.Where(l => l.AccountId == account.Id).ExecuteDeleteAsync(cancellationToken);
         if(services.GetService<Swoovr.Api.Safety.MeetingSafetyStore>() is{}meetingSafety)await meetingSafety.RevokeAccountAsync(account.Id,now,cancellationToken);
         Audit.Record(db, now, account.Id, "account", "account.deletion-requested", "account", account.Id.ToString(), immediately ? "now" : "30-days");
         await db.SaveChangesAsync(cancellationToken);

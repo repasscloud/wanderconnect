@@ -1792,3 +1792,22 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
   - Persistence checks: no `SWOOVR_TEST_DATABASE`.
   - The updated `tests/travel/traveller-search.browser.cjs` (needs the local platform). It covers: hidden-trip search allowed, `arrival-required` before check-in, the switch off refusing search; after check-in, Explore is Adelaide with `visiting`, the home city unchanged, and a local sees the traveller once, marked visiting; hiding the trip removes them; cancelling restores the home market (`market-not-open` for a Melbourne home).
 - Stacked on #276 (PR #288, still open), whose distance contract this builds on.
+
+## Issue 278 — Near me location store (8 November 2026, D348)
+
+- `./scripts/check.sh`: the result is in the PR.
+  - New `NearMeChecks`:
+    - D149 thresholds (two minutes, 2 km, 0,0).
+    - The five-minute gate.
+    - 900 km/h (Gawler in six minutes allowed; Melbourne in six minutes refused, in an hour allowed).
+    - ~500 m cells and accuracy classes.
+    - Exactly two hours of use and the sign-out-everywhere cutoff.
+    - `Location:Keys` sealing: round trip; no coordinate text; another key, a tampered value or no key opens nothing; a newer version seals while the older stays readable.
+    - The `location` set in `keys status/rotate`.
+  - `KeyRotation` now takes `LocationKeys` (the `EmailRetirementPersistenceChecks` construction updated).
+- Migration `MemberLocations`: a new `member_locations` table (account primary key, cascade on account delete, `market_id`, `sealed_cell`, `accuracy`, `observed_at`, `accepted_at`).
+- Builds: Api, Web, Admin, Checks and Mobile `net10.0-android` succeeded. Not built: `net10.0-ios` (Xcode 27.2 vs the pack's 27.1).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE`.
+  - The new `tests/discovery/near-me.browser.cjs` (needs the local platform). It covers: acceptance and `presentIn`; nothing readable stored or audited; 429; stale, coarse, 0,0 and speed refusals; the expired row purged by `location purge`; and deletion on Appear off, stop sharing, sign out everywhere (via the purge cutoff), a restriction and a deletion request.
+- Stacked on #280 (PR #289), which is stacked on #276 (PR #288).

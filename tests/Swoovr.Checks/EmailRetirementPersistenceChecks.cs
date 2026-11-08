@@ -218,7 +218,7 @@ static class EmailRetirementPersistenceChecks
         await using(var rotating=new SwoovrDbContext(options))
         {
             using var dependencies=new ServiceCollection().AddSingleton(rotating).BuildServiceProvider();
-            var rotation=new Swoovr.Api.Security.KeyRotation(dependencies,rotatedKeys,new EvidenceKeys(config,founders),new Swoovr.Api.Verification.IdentityKeys(config,founders));
+            var rotation=new Swoovr.Api.Security.KeyRotation(dependencies,rotatedKeys,new EvidenceKeys(config,founders),new Swoovr.Api.Verification.IdentityKeys(config,founders),new Swoovr.Api.Travel.LocationKeys(config,founders));
             check("key status includes restricted command envelopes",(await rotation.StatusAsync("contact-history",CancellationToken.None)).GetValueOrDefault((byte)1)>0);
             var result=await rotation.RotateAsync("contact-history",2,CancellationToken.None);
             var resealed=await rotating.EmailRetirementOperations.AsNoTracking().SingleAsync(o=>o.Id==operation.Id);

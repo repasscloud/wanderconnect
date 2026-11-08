@@ -139,6 +139,14 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<LocationSettingsView>> LocationSettingsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<LocationSettingsView>(new HttpRequestMessage(HttpMethod.Get, "api/me/location-settings"), cancellationToken);
 
+    /// <summary>D348, #278: one Near me reading while Near me is open; refused if too soon, too old, too coarse or impossible.</summary>
+    public Task<ApiResult<NearMeLocationView>> SaveLocationAsync(LocationCheck reading, CancellationToken cancellationToken = default) =>
+        SendAsync<NearMeLocationView>(new HttpRequestMessage(HttpMethod.Put, "api/me/location") { Content = JsonContent.Create(reading) }, cancellationToken);
+
+    /// <summary>D348, #278: stop sharing; the stored Near me reading is deleted at once.</summary>
+    public Task<int> StopSharingLocationAsync(CancellationToken cancellationToken = default) =>
+        StatusAsync(new HttpRequestMessage(HttpMethod.Delete, "api/me/location"), cancellationToken);
+
     public Task<ApiResult<LocationSettingsView>> SaveLocationSettingsAsync(LocationSettingsUpdate update, CancellationToken cancellationToken = default) =>
         SendAsync<LocationSettingsView>(new HttpRequestMessage(HttpMethod.Put, "api/me/location-settings") { Content = JsonContent.Create(update) }, cancellationToken);
 

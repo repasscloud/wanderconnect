@@ -54,6 +54,8 @@ builder.Services.AddSignalR();
 // #198: open messaging connections close when their account's sessions are retired (at once for staff actions, else by the sweep).
 builder.Services.AddSingleton<Swoovr.Api.Connections.MessagesConnections>();
 if (persistence) builder.Services.AddHostedService<Swoovr.Api.Connections.MessagesSessionSweep>();
+// D348, #278: Near me readings are deleted within five minutes of their two-hour use.
+if (persistence && builder.Configuration.GetValue("Location:PurgeWorker", true)) builder.Services.AddHostedService<Swoovr.Api.Travel.NearMePurgeWorker>();
 var app = builder.Build();
 HostRuntime.Use(app,HostKind.Api);
 if(app.Services.GetRequiredService<Swoovr.Api.Policies.ApprovedPolicyCatalogue>().Resolve(app.Configuration["Policies:RequiredVersion"],DateTimeOffset.UtcNow).State==Swoovr.Domain.PolicyRequirementState.ConfigurationInvalid)throw new InvalidOperationException("No matching effective approved policy exists for Policies:RequiredVersion.");
@@ -135,6 +137,7 @@ Swoovr.Api.Profiles.MarketEndpoints.Map(app);
 Swoovr.Api.Connections.RequestEndpoints.Map(app);
 Swoovr.Api.Travel.TravelEndpoints.Map(app);
 Swoovr.Api.Travel.ArrivalEndpoints.Map(app);
+Swoovr.Api.Travel.NearMeEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);

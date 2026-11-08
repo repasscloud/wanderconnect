@@ -796,6 +796,8 @@ public static class ModerationEndpoints
                 ReasonCode = request.ReasonCode, InternalNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
             };
             db.Sanctions.Add(sanction);
+            // D348, #278: a restriction, suspension or termination deletes the stored Near me reading at once.
+            await Travel.NearMeEndpoints.ForgetAsync(db, subjectId, cancellationToken);
             if (kind == SanctionKind.Termination)
                 await (population ?? throw new InvalidOperationException("Registry population is not configured.")).StageAsync(sanction,now,cancellationToken);
         }
