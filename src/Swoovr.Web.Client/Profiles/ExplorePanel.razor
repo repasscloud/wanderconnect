@@ -84,8 +84,8 @@
             <div class="people-grid">
                 @foreach (var person in people)
                 {
-                    @* #90: a rounded distance band between home cities, never a distance. *@
-                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Detail="@(person.DistanceBand ?? "")"
+                    @* D348: a band only when both members show their distance; never a distance. *@
+                    <ProfileTile Name="@person.DisplayName" Href="@($"/people/{person.Id}?mode={selected}")" Detail="@(MemberText.Distance(person.Distance) ?? "")"
                                  Intentions="person.Intentions" Quote="@Quote(person.About)" Photo="@(person.Photo is { } photo ? TilePhoto(photo, person.DisplayName) : null)">
                         <Badges><BadgeRow Badges="person.Badges" /></Badges>
                     </ProfileTile>

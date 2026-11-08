@@ -1757,3 +1757,15 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
   - Persistence checks: no `SWOOVR_TEST_DATABASE` in this worktree, so the migration hasn't been applied by the gate.
   - The updated browser suites `tests/profiles/modes.browser.cjs`, `tests/profiles/badges.browser.cjs` and `tests/member/settings.browser.cjs`, which need the local platform. `settings.browser.cjs` has been stale since issue 180.
 - Compatibility check (D350): no distributed mobile builds, so `area` is removed outright (recorded in API-VERSIONING.md). The Privacy Notice "area" wording is published separately in #283.
+
+## Issue 276 — Location privacy settings and DistanceBand contract (8 November 2026, D348)
+
+- `./scripts/check.sh`: the result is in the PR.
+  - `LocationPrivacyChecks`: D348 band boundaries; `HomeCityBand` returns hidden by default, hidden if either side's setting is off (Q152), and unknown without both home cities; `MemberProfile` defaults are off.
+  - A contract scan over every public `Swoovr.Contracts` type finds no numeric coordinate or distance field outside the allow-list (`LocationCheck`, the member's own filter distance and choices, staff `MarketAreaView.RadiusKm`). `ProfileCard` and `PersonProfile` carry only a `DistanceView`.
+- Migration `LocationPrivacySettings` adds `appear_in_nearby` and `show_distance` (non-null, database default false), so existing accounts are off after migration.
+- Builds: Api, Web, Admin, Checks and Mobile `net10.0-android` succeeded. Not built: `net10.0-ios` (Xcode 27.2 vs the pack's 27.1).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE`.
+  - The updated browser suites `tests/discovery/location-privacy.browser.cjs` (settings default off; hidden; hidden until both show; within10Km/homeCity on cards and the profile page; hidden again when the viewer turns theirs off), `tests/profiles/modes.browser.cjs` and `tests/profiles/badges.browser.cjs` (card and profile keys). All need the local platform.
+- Stacked on #277 (PR #286): it touches the same contract and tile lines.

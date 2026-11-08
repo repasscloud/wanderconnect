@@ -135,6 +135,13 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<MyProfileView>> SaveProfileAsync(ProfileUpdate update, CancellationToken cancellationToken = default) =>
         SendAsync<MyProfileView>(new HttpRequestMessage(HttpMethod.Put, "api/me/profile") { Content = JsonContent.Create(update) }, cancellationToken);
 
+    /// <summary>D348: "Appear in nearby searches" and "Show my approximate distance", both off by default.</summary>
+    public Task<ApiResult<LocationSettingsView>> LocationSettingsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<LocationSettingsView>(new HttpRequestMessage(HttpMethod.Get, "api/me/location-settings"), cancellationToken);
+
+    public Task<ApiResult<LocationSettingsView>> SaveLocationSettingsAsync(LocationSettingsUpdate update, CancellationToken cancellationToken = default) =>
+        SendAsync<LocationSettingsView>(new HttpRequestMessage(HttpMethod.Put, "api/me/location-settings") { Content = JsonContent.Create(update) }, cancellationToken);
+
     public Task<ApiResult<MyProfileView>> SaveModeAsync(string modeId, ModeUpdate update, CancellationToken cancellationToken = default) =>
         SendAsync<MyProfileView>(new HttpRequestMessage(HttpMethod.Put, "api/me/modes/" + Uri.EscapeDataString(modeId)) { Content = JsonContent.Create(update) }, cancellationToken);
 

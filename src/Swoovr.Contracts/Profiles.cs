@@ -27,9 +27,20 @@ public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>?
 
 /// <summary>One person in Explore for one mode, with the public badges the API decided (Q11). No age, email or account id.</summary>
 /// <remarks>Age, Gender and Pronouns only as the person allows (D138, D139); never the date of birth.</remarks>
-/// <param name="DistanceBand">#90: a rounded band between home cities ("Under 5 km" … "Over 100 km"), never a distance.</param>
+/// <param name="Distance">D348: a band, never a distance or coordinates.</param>
 public sealed record ProfileCard(Guid Id, string DisplayName, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges,
-    int? Age = null, string? Gender = null, string? Pronouns = null, string? DistanceBand = null, PhotoView? Photo = null);
+    int? Age = null, string? Gender = null, string? Pronouns = null, DistanceView? Distance = null, PhotoView? Photo = null);
+
+/// <summary>
+/// D348: what another member may learn about distance. Band is hidden, nearby (0–2 km), within10Km, km10To20, km20To30,
+/// km30To40, km40To50, over50Km or unknown. Basis is gps (Near me) or homeCity (labelled as home cities apart, never a
+/// current position), and null when the band is hidden or unknown.
+/// </summary>
+public sealed record DistanceView(string Band, string? Basis = null);
+
+/// <summary>D348: the member's two independent location privacy settings, both off by default.</summary>
+public sealed record LocationSettingsView(bool AppearInNearby, bool ShowDistance);
+public sealed record LocationSettingsUpdate(bool AppearInNearby, bool ShowDistance);
 /// <summary>Explore for one mode in the viewer's home market (D125), named by Market.</summary>
 public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null);
 
@@ -54,4 +65,4 @@ public sealed record ProfileAtReport(DateTimeOffset ReportedAt, List<ProfileVers
 /// <summary>Whether the member wants to hear when Swoovr opens where they live (D125 rule 37).</summary>
 public sealed record MarketInterestUpdate(bool Interested);
 public sealed record PersonProfile(Guid Id, string DisplayName, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges,
-    int? Age = null, string? Gender = null, string? Pronouns = null, PhotoView? Photo = null);
+    int? Age = null, string? Gender = null, string? Pronouns = null, PhotoView? Photo = null, DistanceView? Distance = null);

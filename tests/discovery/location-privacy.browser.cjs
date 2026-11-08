@@ -41,11 +41,23 @@ const ADELAIDE = 2078025;
     const explore = who => call(tokens[who], '/api/explore?mode=friends');
     const target = r => r.body.people.find(p => p.id === pid.tgt);
 
-    // A rounded band on the card, never a distance.
+    // D348: a band on the card only when both show their distance; never a distance.
+    const settings = (who, body) => call(tokens[who], '/api/me/location-settings', { method: 'PUT', body });
+    assert.deepEqual((await call(tokens.plus, '/api/me/location-settings')).body, { appearInNearby: false, showDistance: false }); pass(); // off by default
     let r = await explore('plus');
     assert.equal(r.status, 200); pass();
-    assert.equal(target(r)?.distanceBand, '5–10 km'); pass();
-    assert.ok(!JSON.stringify(r.body).match(/"(latitude|longitude|distanceKm)"/i), 'no coordinates or distances'); pass();
+    assert.deepEqual(target(r)?.distance, { band: 'hidden', basis: null }); pass();
+    assert.equal((await settings('plus', { appearInNearby: false, showDistance: true })).status, 200);
+    assert.deepEqual(target(await explore('plus'))?.distance, { band: 'hidden', basis: null }); pass(); // the person hasn't allowed it
+    assert.equal((await settings('tgt', { appearInNearby: false, showDistance: true })).status, 200);
+    r = await explore('plus');
+    assert.deepEqual(target(r)?.distance, { band: 'within10Km', basis: 'homeCity' }); pass();
+    assert.deepEqual((await call(tokens.plus, `/api/profiles/${pid.tgt}?mode=friends`)).body.distance, { band: 'within10Km', basis: 'homeCity' }); pass();
+    await settings('plus', { appearInNearby: false, showDistance: false });
+    assert.deepEqual(target(await explore('plus'))?.distance, { band: 'hidden', basis: null }); pass(); // Q152: only while your own is on
+    await settings('plus', { appearInNearby: false, showDistance: true });
+    r = await explore('plus');
+    assert.ok(!JSON.stringify(r.body).match(/"(latitude|longitude|distanceKm|distanceBand)"/i), 'no coordinates or distances'); pass();
     assert.deepEqual(code(await filter('free', 10)), [403, 'plus-required']); pass();
 
     // The pinpointing attempt: 1 km at a time. Every filter snaps to its band and the answers only change at band edges.

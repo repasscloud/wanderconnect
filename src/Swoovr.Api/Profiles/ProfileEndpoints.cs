@@ -32,6 +32,26 @@ public static class ProfileEndpoints
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             return denied ?? Results.Ok(await OwnAsync(accounts.Db!, current!.Profile!, cancellationToken));
         });
+        // D348: the two independent location privacy settings, both off until the member turns them on.
+        api.MapGet("/me/location-settings", async (ClaimsPrincipal user, AccountResolver accounts, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            return denied ?? Results.Ok(new LocationSettingsView(current!.Profile!.AppearInNearby, current.Profile.ShowDistance));
+        });
+        api.MapPut("/me/location-settings", async (LocationSettingsUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock,
+            CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            if (denied is not null) return denied;
+            var (profile, db, now) = (current!.Profile!, accounts.Db!, clock.GetUtcNow());
+            if (profile.AppearInNearby != update.AppearInNearby || profile.ShowDistance != update.ShowDistance)
+            {
+                (profile.AppearInNearby, profile.ShowDistance) = (update.AppearInNearby, update.ShowDistance);
+                Audit.Record(db, now, profile.AccountId, "account", "location-settings.changed", "account", profile.AccountId.ToString());
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            return Results.Ok(new LocationSettingsView(profile.AppearInNearby, profile.ShowDistance));
+        });
         api.MapPut("/me/profile", async (ProfileUpdate update, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
@@ -192,7 +212,8 @@ public static class ProfileEndpoints
                           Photos = photos.Modes.GetValueOrDefault((person.Profile.AccountId, m.Id)) ?? [] };
                 }).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
-                photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0]))));
+                photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0])),
+                await HomeDistanceAsync(db, current.Profile!, person.Profile, cancellationToken)));
         });
     }
 
@@ -222,6 +243,20 @@ public static class ProfileEndpoints
     /// while the entitlement service says Plus (D137–D140, D151). Explore uses the viewer's home market (D125); Traveller
     /// Search the trip's destination market (D142). Cards carry age, gender and pronouns only as each person allows.
     /// </summary>
+    /// <summary>D348: the wire form of a band and its basis.</summary>
+    public static DistanceView Distance((DistanceBand Band, DistanceBasis? Basis) band) => new(Wire(band.Band), band.Basis is { } basis ? Wire(basis) : null);
+
+    /// <summary>D348: the band between two members' registered home cities for a profile page, under the same rules as Explore.</summary>
+    private static async Task<DistanceView> HomeDistanceAsync(SwoovrDbContext db, MemberProfile viewer, MemberProfile person, CancellationToken cancellationToken)
+    {
+        if (!(viewer.ShowDistance && person.ShowDistance)) return Distance(LocationPrivacy.HomeCityBand(null, person.ShowDistance, viewer.ShowDistance));
+        var ids = new[] { viewer.HomeGeoNameId, person.HomeGeoNameId }.OfType<int>().ToList();
+        var cities = await db.GeoCities.Where(c => ids.Contains(c.GeoNameId)).ToDictionaryAsync(c => c.GeoNameId, cancellationToken);
+        double? km = viewer.HomeGeoNameId is { } a && person.HomeGeoNameId is { } b && cities.TryGetValue(a, out var mine) && cities.TryGetValue(b, out var theirs)
+            ? PlaceNames.DistanceKm(mine.Latitude, mine.Longitude, theirs.Latitude, theirs.Longitude) : null;
+        return Distance(LocationPrivacy.HomeCityBand(km, true, true));
+    }
+
     public static async Task<List<ProfileCard>> PeopleAsync(SwoovrDbContext db, IConfiguration configuration, MemberProfile viewer, ConnectionMode selected,
         MemberMode own, MatchFacts mine, string marketId, DateTimeOffset now, CancellationToken cancellationToken, Media.MediaLinks? links = null)
     {
@@ -259,10 +294,10 @@ public static class ProfileEndpoints
         {
             var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
             var about = abouts.GetValueOrDefault(c.Profile.AccountId) is { } a ? ModePrivacy.About(a.About, c.Profile.About, a.ShareCoreAbout) : null;
-            // #90: a rounded band between home cities, never a distance.
+            // D348: a band between home cities only when both show their distance; never a distance.
             return new ProfileCard(c.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(c.Profile.AccountId)?.DisplayName, c.Profile.DisplayName)!, about,
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
-                LocationPrivacy.Band(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId])),
+                Distance(LocationPrivacy.HomeCityBand(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId]), c.Profile.ShowDistance, viewer.ShowDistance)),
                 photos.Main?.GetValueOrDefault((c.Profile.AccountId, selected.Id)));
         }).ToList();
     }
