@@ -1747,3 +1747,13 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
 - `./scripts/check.sh`: exit 0, build zero warnings/errors; `PhotoAlbumChecks` 48 checks (album limits and names, addable/removable rules, ID Verified gating, `APPROVED_ALBUM_EXPLICIT`, owner preview never for blocked material, signed `own` links). Design check: token-only colours.
 - Not run: persistence checks (no `SWOOVR_TEST_DATABASE` in this worktree; the local stack belongs to the main checkout), so migration `PrivatePhotoAlbums` hasn't been applied by the gate here; the updated browser steps in `tests/member/settings.browser.cjs` and `tests/media/photos.browser.cjs` (syntax checked only); the platform stack; MAUI (unchanged).
 - Mockup reviewed by the owner on the issue: `docs/ui-gallery/issue-231-photos-mockup.html`.
+
+## Issue 275 — Distance filter for every tier (8 November 2026, D347)
+
+- `./scripts/check.sh`: exit 0 (92 PASS lines).
+  - `MatchingChecks`: 74 cases. Free accepts 5, 10, 25 and 50 km and refuses 100, 250, 500 and 51 km with `PlusRequired`; Plus and Premium accept all seven; a lapsed member's unchanged saved 250 km still saves, while a new 100 km is refused; a lapsed 250 km filter applies as 50 km (Tanunda, about 56 km, is hidden).
+  - `LocationPrivacyChecks`: `FilterOptions` per tier.
+- Builds: `Swoovr.Api`, `Swoovr.Web`, `tests/Swoovr.Checks` and `Swoovr.Mobile -f net10.0-android` succeeded. Not built: `net10.0-ios` (Xcode 27.2 installed; the .NET iOS pack 27.1.10018 requires 27.1).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE`.
+  - The updated browser suites `tests/discovery/location-privacy.browser.cjs` (Free 10 km accepted, 100 km refused, `distanceOptions`) and `tests/discovery/matching.browser.cjs` (Free 5 km accepted and 100 km refused; paid `distanceOptions`; the lapsed 250 km filter kept, applied as 50 km and saved unchanged; a new 100 km refused). Both need the local platform.
