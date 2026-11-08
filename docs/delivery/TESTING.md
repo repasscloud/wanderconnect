@@ -153,7 +153,7 @@ Run them one at a time (they share rate limits and the database). Never rebuild 
 - Don't rebuild while the regression loop runs: the hosts load from the same `bin/Debug`. Mobile builds are safe (they write only the mobile and shared-library outputs).
 
 - Services resolved by DI get `SwoovrDbContext` lazily through `IServiceProvider` (the smoke test runs the API without a database). Middleware that writes to the database needs its own scope.
-- Migrations add new tables or nullable columns only (the owner's hosts share the database); `dotnet ef migrations add <Name> --project src/Swoovr.Infrastructure --startup-project src/Swoovr.Infrastructure`.
+- Migrations add new tables or nullable columns only (the owner's hosts share the database). Recorded exception: `RemoveProfileArea` drops `member_profiles.area` (D350, owner-approved; current data is fictional, and a clean recreation is acceptable). Hosts running older code against the same database need rebuilding after it is applied; `dotnet ef migrations add <Name> --project src/Swoovr.Infrastructure --startup-project src/Swoovr.Infrastructure`.
 - New member routes go on the BFF allow-list (`src/Swoovr.Web/Auth/Bff.cs`); never an admin route.
 - Audit entries hold ids only.
 - Keycloak serves the theme from the main checkout: theme changes are visible live only after merge.

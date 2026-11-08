@@ -1748,6 +1748,16 @@ Owner-supplied revisions to seven policy documents, shared privacy/terms text an
 - Not run: persistence checks (no `SWOOVR_TEST_DATABASE` in this worktree; the local stack belongs to the main checkout), so migration `PrivatePhotoAlbums` hasn't been applied by the gate here; the updated browser steps in `tests/member/settings.browser.cjs` and `tests/media/photos.browser.cjs` (syntax checked only); the platform stack; MAUI (unchanged).
 - Mockup reviewed by the owner on the issue: `docs/ui-gallery/issue-231-photos-mockup.html`.
 
+## Issue 277 — Remove Area (8 November 2026, D350)
+
+- `./scripts/check.sh`: exit 0 (92 PASS lines). `ConnectionModeChecks` now asserts that `ProfileTextError` has no Area value and that `MemberProfile` has no `Area` property; the `ProfileTextPolicy.Check(displayName, about)` cases were updated (`ModePrivacyChecks` too).
+- Builds: `Swoovr.Api`, `Swoovr.Web`, `Swoovr.Admin`, `tests/Swoovr.Checks` and `Swoovr.Mobile -f net10.0-android` succeeded. Not built: `net10.0-ios`. This Mac has Xcode 27.2 and the installed .NET iOS pack (27.1.10018) requires Xcode 27.1, which is an environment mismatch unrelated to this change.
+- Migration `20261108101728_RemoveProfileArea` was generated with `dotnet ef migrations add` (a single `DropColumn`; `Down` re-adds a nullable `character varying(60)`; the snapshot diff only removes `Area`).
+- Not run:
+  - Persistence checks: no `SWOOVR_TEST_DATABASE` in this worktree, so the migration hasn't been applied by the gate.
+  - The updated browser suites `tests/profiles/modes.browser.cjs`, `tests/profiles/badges.browser.cjs` and `tests/member/settings.browser.cjs`, which need the local platform. `settings.browser.cjs` has been stale since issue 180.
+- Compatibility check (D350): no distributed mobile builds, so `area` is removed outright (recorded in API-VERSIONING.md). The Privacy Notice "area" wording is published separately in #283.
+
 ## Issue 275 — Distance filter for every tier (8 November 2026, D347)
 
 - `./scripts/check.sh`: exit 0 (92 PASS lines).

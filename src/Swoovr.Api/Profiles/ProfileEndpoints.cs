@@ -36,8 +36,8 @@ public static class ProfileEndpoints
         {
             var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
             if (denied is not null) return denied;
-            var (name, area, about) = (ProfileTextPolicy.Clean(update.DisplayName), ProfileTextPolicy.Clean(update.Area), ProfileTextPolicy.Clean(update.About));
-            if (ProfileTextPolicy.Check(name, area, about) != ProfileTextError.None)
+            var (name, about) = (ProfileTextPolicy.Clean(update.DisplayName), ProfileTextPolicy.Clean(update.About));
+            if (ProfileTextPolicy.Check(name, about) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, "Check the profile fields.");
             var (profile, db) = (current!.Profile!, accounts.Db!);
             // D110: the home city must be a GeoNames city from Swoovr's own copy.
@@ -58,7 +58,7 @@ public static class ProfileEndpoints
                 Audit.Record(db, now, profile.AccountId, "account", "home-market.changed", "account", profile.AccountId.ToString(), $"{profile.HomeMarketId ?? "none"}>{market ?? "none"}");
             if (market is not null && market != profile.HomeMarketMovedTo) (profile.HomeMarketMovedTo, profile.HomeMarketMovedAt) = (market, now);
             if(profile.About!=about)profile.TextRevision=accounts.Services.GetRequiredService<Swoovr.Api.Moderation.TextHarmQueue>().Enqueue(profile.AccountId,TextHarmSource.ProfileAbout,profile.AccountId,null,about,now);
-            (profile.DisplayName, profile.Area, profile.About, profile.HomeGeoNameId, profile.HomeMarketId) = (name, area, about, update.HomeCityId, market);
+            (profile.DisplayName, profile.About, profile.HomeGeoNameId, profile.HomeMarketId) = (name, about, update.HomeCityId, market);
             // Interest in a launch follows the home city; it lapses with no home city or once the home market is open.
             if (await db.MarketInterests.FindAsync([profile.AccountId], cancellationToken) is { } interest)
             {
@@ -104,11 +104,11 @@ public static class ProfileEndpoints
             // Each mode is independent: only this row and its intentions change (Q12 rule 2).
             // D175: this mode's own about (full replacement; blank shows the core about here).
             var name = update.DisplayName is null ? setting.DisplayName : ProfileTextPolicy.Clean(update.DisplayName);
-            if (ProfileTextPolicy.Check(name, null, null) != ProfileTextError.None)
+            if (ProfileTextPolicy.Check(name, null) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode’s name to {ProfileTextPolicy.DisplayNameMax} characters of plain text.");
             setting.DisplayName = name;
             var about = ProfileTextPolicy.Clean(update.About);
-            if (ProfileTextPolicy.Check(null, null, about) != ProfileTextError.None)
+            if (ProfileTextPolicy.Check(null, about) != ProfileTextError.None)
                 return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidProfile, $"Keep this mode's about to {ProfileTextPolicy.AboutMax} characters of plain text.");
             if(setting.About!=about)setting.TextRevision=accounts.Services.GetRequiredService<Swoovr.Api.Moderation.TextHarmQueue>().Enqueue(profile.AccountId,TextHarmSource.ModeAbout,profile.AccountId,modeId,about,now);
             (setting.Enabled, setting.Visible, setting.About, setting.UpdatedAt) = (update.Enabled, update.Visible, about, now);
@@ -180,7 +180,7 @@ public static class ProfileEndpoints
             // D203, #91: the main photo, and each shown mode's own photos (never another mode's).
             var photos = await Media.MediaEndpoints.PhotosAsync(db, accounts.Services.GetRequiredService<Media.MediaLinks>(), [person.Profile.AccountId], shownIds,
                 clock.GetUtcNow(), cancellationToken);
-            return Results.Ok(new PersonProfile(person.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(mode ?? shownIds[0])?.DisplayName, person.Profile.DisplayName)!, person.Profile.Area, AboutIn(mode ?? shownIds[0]),
+            return Results.Ok(new PersonProfile(person.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(mode ?? shownIds[0])?.DisplayName, person.Profile.DisplayName)!, AboutIn(mode ?? shownIds[0]),
                 shared.Where(m => shownIds.Contains(m.Id)).Select(m =>
                 {
                     var may = MarketAccess.MayRequest(reach.SameMarket && reach.MarketModes.Contains(m.Id), between.Any(r => r.Status == ConnectionRequestStatus.Accepted),
@@ -260,7 +260,7 @@ public static class ProfileEndpoints
             var shownAs = Public(identities.GetValueOrDefault(c.Profile.AccountId), facts[c.Profile.AccountId].Age, genders);
             var about = abouts.GetValueOrDefault(c.Profile.AccountId) is { } a ? ModePrivacy.About(a.About, c.Profile.About, a.ShareCoreAbout) : null;
             // #90: a rounded band between home cities, never a distance.
-            return new ProfileCard(c.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(c.Profile.AccountId)?.DisplayName, c.Profile.DisplayName)!, c.Profile.Area, about,
+            return new ProfileCard(c.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(c.Profile.AccountId)?.DisplayName, c.Profile.DisplayName)!, about,
                 chips.GetValueOrDefault((c.Profile.AccountId, selected.Id), []), Badges(c.Profile, order), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
                 LocationPrivacy.Band(MatchPolicy.DistanceKm(mine, facts[c.Profile.AccountId])),
                 photos.Main?.GetValueOrDefault((c.Profile.AccountId, selected.Id)));
@@ -438,7 +438,7 @@ public static class ProfileEndpoints
                             orderby offered.SortOrder
                             select i).ToListAsync(cancellationToken);
         var home = profile.HomeGeoNameId is { } id ? await db.GeoCities.FindAsync([id], cancellationToken) : null;
-        return new(profile.PublicId, profile.DisplayName, profile.Area, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
+        return new(profile.PublicId, profile.DisplayName, profile.About, modes.Select(m => settings.GetValueOrDefault(m.Id) is { } s
             ? new MyModeView(m.Id, s.Enabled, s.Visible, chosen.Where(i => i.ModeId == m.Id).Select(i => i.IntentionId).ToList(), s.About, s.ShareCoreAbout == true, s.DisplayName)
             : new MyModeView(m.Id, false, false, [])).ToList(), home is null ? null : Swoovr.Api.Travel.TravelEndpoints.Place(home),
             await db.MarketInterests.AnyAsync(i => i.AccountId == profile.AccountId, cancellationToken));

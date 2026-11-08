@@ -4709,11 +4709,6 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("age_status_at");
 
-                    b.Property<string>("Area")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
-                        .HasColumnName("area");
-
                     b.Property<bool>("Bot")
                         .HasColumnType("boolean")
                         .HasColumnName("bot");

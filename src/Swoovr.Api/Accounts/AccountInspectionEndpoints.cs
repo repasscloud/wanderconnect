@@ -111,7 +111,7 @@ public static class AccountInspectionEndpoints
         var views=modes.Select(m=>
         {
             var mode=settings.SingleOrDefault(s=>s.ModeId==m.Id);var publiclyShown=mode is not null&&AccountInspectionPolicy.PublicMode(mode);
-            ProfileCard? card=publiclyShown?new ProfileCard(profile.PublicId,ModePrivacy.DisplayName(mode!.DisplayName,profile.DisplayName)??"Unnamed member",profile.Area,
+            ProfileCard? card=publiclyShown?new ProfileCard(profile.PublicId,ModePrivacy.DisplayName(mode!.DisplayName,profile.DisplayName)??"Unnamed member",
                 ModePrivacy.About(mode.About,profile.About,mode.ShareCoreAbout),chips.GetValueOrDefault((id,m.Id),[]),badges,shown.Age,shown.Gender,shown.Pronouns,null,photos.Main.GetValueOrDefault((id,m.Id))):null;
             return new StaffModePreview(m.Id,m.Label,mode?.Enabled??false,mode?.Visible??false,card,publiclyShown?photos.Modes.GetValueOrDefault((id,m.Id),[]):[]);
         }).ToList();

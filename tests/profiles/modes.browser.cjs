@@ -33,10 +33,11 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.deepEqual(mine.body.modes.map(m => [m.id, m.enabled, m.visible]), [['dating', false, false], ['friends', false, false], ['activities', false, false], ['business', false, false]]); pass();
 
     // Core profile: trimmed, limits and control characters refused, nothing stored in the audit log.
-    mine = await call(tokens.ana, '/api/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', area: 'Adelaide CBD', about: 'Fictional adult.\nLikes walks.', homeCityId: 2078025 } });
+    mine = await call(tokens.ana, '/api/me/profile', { method: 'PUT', body: { displayName: '  Fictional Ana ', about: 'Fictional adult.\nLikes walks.', homeCityId: 2078025 } });
     await matchReady(tokens.ana);
     assert.equal(mine.status, 200); assert.equal(mine.body.displayName, 'Fictional Ana'); pass();
-    for (const body of [{ displayName: 'x'.repeat(41) }, { area: 'y'.repeat(61) }, { about: 'z'.repeat(501) }, { displayName: 'Ana\u0007' }, { area: 'Adel\naide' }]) {
+    assert.ok(!('area' in mine.body)); pass(); // D350: Area is gone from the profile contract
+    for (const body of [{ displayName: 'x'.repeat(41) }, { about: 'z'.repeat(501) }, { displayName: 'Ana\u0007' }, { displayName: 'Ana\nLee' }]) {
       const bad = await call(tokens.ana, '/api/me/profile', { method: 'PUT', body });
       assert.deepEqual([bad.status, bad.body.code], [400, 'invalid-profile']); pass();
     }
@@ -78,7 +79,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.match(await sql(`SELECT detail FROM audit_entries WHERE action = 'mode.updated' AND target_id = 'friends' ORDER BY id DESC LIMIT 1`), /^off:hidden:intentions:2$/); pass();
 
     // Ben: dating on and visible. Cai: dating on but hidden. Eli: dating visible but no display name.
-    await call(tokens.ben, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', area: 'Glenelg', homeCityId: 2078025 } });
+    await call(tokens.ben, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Ben', homeCityId: 2078025 } });
     await matchReady(tokens.ben);
     await call(tokens.ben, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
     await call(tokens.ben, '/api/me/modes/business', { method: 'PUT', body: { enabled: true, visible: true } });
@@ -98,7 +99,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.ok(!ids(explore).includes(pid.ana)); pass(); // self
     assert.ok(!ids(explore).includes(pid.eli) && explore.body.people.every(p => p.displayName)); pass(); // eli has no name yet
     const benCard = explore.body.people.find(p => p.id === pid.ben);
-    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'area', 'badges', 'displayName', 'distanceBand', 'gender', 'id', 'intentions', 'photo', 'pronouns']); pass(); // D203: the main photo (null without one) // #90: a rounded band, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
+    assert.deepEqual(Object.keys(benCard).sort(), ['about', 'age', 'badges', 'displayName', 'distanceBand', 'gender', 'id', 'intentions', 'photo', 'pronouns']); pass(); // D203: the main photo (null without one) // #90: a rounded band, never a distance // age, gender and pronouns only as allowed (D138, D139); never the date of birth, email or account id
     assert.ok(!JSON.stringify(benCard).includes('1990-') && !('dateOfBirth' in benCard)); pass();
     assert.deepEqual(benCard.badges, []); pass(); // an ordinary member has no public badge (Q11)
     // Intentions show on tiles in the owner's order and never exclude anyone (Q16 rule 10): Ben picked none at first.
@@ -158,7 +159,7 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal((await call(tokens.ben, '/api/explore?mode=dating')).body.code, 'account-locked'); pass();
 
     // A second visible person for the pages (Ben is now locked).
-    await call(tokens.eli, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', area: 'Norwood', about: 'Fictional adult who reads a lot.', homeCityId: 2078025 } });
+    await call(tokens.eli, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Eli', about: 'Fictional adult who reads a lot.', homeCityId: 2078025 } });
     await matchReady(tokens.eli);
     await save('eli', 'dating', { enabled: true, visible: true, intentions: [chip('dating', 6), chip('dating', 1)] });
 
@@ -190,7 +191,8 @@ const { web, createMember, memberToken, rootAdminToken, cli, sql, call, claims, 
     assert.equal((await call(tokens.ana, '/api/me/profile')).body.modes.find(m => m.id === 'activities').enabled, true); pass();
     await page.getByLabel('Show my profile in Activities').uncheck();
     await page.waitForSelector('[data-mode-card=activities][data-mode-visible=false]'); pass();
-    await page.fill('#area', 'Adelaide'); await page.click('[data-core-form] button[type=submit]');
+    assert.equal(await page.locator('#area').count(), 0); pass(); // D350: no Area field
+    await page.fill('#about', 'Fictional adult. Likes walks.'); await page.click('[data-core-form] button[type=submit]');
     await page.waitForSelector('[data-core-status=saved]'); pass();
     // The server refuses what the browser's maxlength would stop; remove it to send an over-long name.
     await page.$eval('#display-name', el => el.removeAttribute('maxlength'));

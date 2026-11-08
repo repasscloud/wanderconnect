@@ -170,7 +170,7 @@
         <Setter Property="TextDecorations" Value="Strikethrough" />
     </Style>
 
-    <!-- Profile tiles: every tile exactly 170 × 270. Photo tile: photo 170 tall, then name, chips, area. Photo-free tile:
+    <!-- Profile tiles: every tile exactly 170 × 270. Photo tile: photo 170 tall, then name, chips, distance band. Photo-free tile:
          primary fill, quote in SwoovrQuoteFont, name and intentions at the bottom. -->
     <Style TargetType="Border" x:Key="ProfileTile" BasedOn="{StaticResource Card}">
         <Setter Property="StrokeShape"><Setter.Value><RoundRectangle CornerRadius="16" /></Setter.Value></Setter>
@@ -199,7 +199,7 @@
         <Setter Property="LineBreakMode" Value="TailTruncation" />
         <Setter Property="TextColor" Value="{DynamicResource ThemeOnPrimary}" />
     </Style>
-    <Style TargetType="Label" x:Key="TileArea" BasedOn="{StaticResource BaseLabel}">
+    <Style TargetType="Label" x:Key="TileDetail" BasedOn="{StaticResource BaseLabel}">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="TextColor" Value="{DynamicResource ThemeMuted}" />
     </Style>
