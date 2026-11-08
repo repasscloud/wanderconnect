@@ -152,17 +152,25 @@ const plus = days => { const d = new Date(todayIn('Australia/Adelaide') + 'T00:0
     // Plus filters only with Plus from the entitlement service (D137, D151); a lapsed Plus never hides people.
     r = await call(tokens.hal, '/api/me/modes/friends/filters');
     assert.equal(r.body.plusAvailable, false); pass();
-    assert.deepEqual(code(await filters('hal', { maxDistanceKm: 5 })), [403, 'plus-required']); pass();
+    assert.equal((await filters('hal', { maxDistanceKm: 5 })).status, 200); pass(); // D347: Free may filter up to 50 km
+    assert.deepEqual(code(await filters('hal', { maxDistanceKm: 100 })), [403, 'plus-required']); pass();
     assert.deepEqual(code(await filters('hal', { sort: 'compatibility' })), [403, 'plus-required']); pass();
     const grant = await call(root, `/api/admin/accounts/${ids.hal}/entitlements`, { method: 'POST', body: { tier: 'plus', endsAt: new Date(Date.now() + 7 * 86400000).toISOString(), reason: 'Fictional tester' } });
     assert.equal(grant.status, 201);
-    assert.equal((await call(tokens.hal, '/api/me/modes/friends/filters')).body.plusAvailable, true); pass();
+    r = await call(tokens.hal, '/api/me/modes/friends/filters');
+    assert.equal(r.body.plusAvailable, true); pass();
+    assert.deepEqual(r.body.distanceOptions, [5, 10, 25, 50, 100, 250, 500]); pass();
     assert.equal((await filters('hal', { maxDistanceKm: 5, sort: 'compatibility' })).status, 200); pass();
     people = ids_(await explore('hal'));
     assert.ok(!people.includes(pid.gle) && people.includes(pid.gus)); pass(); // Glenelg is over 5 km from Adelaide's centre
     assert.ok(people.indexOf(pid.ivy) < people.indexOf(pid.bob) || !people.includes(pid.bob)); pass(); // shares Y first
+    assert.equal((await filters('hal', { maxDistanceKm: 250, sort: 'compatibility' })).status, 200); pass();
     await call(root, `/api/admin/entitlements/${grant.body.id}/revoke`, { method: 'POST' });
-    assert.ok(ids_(await explore('hal')).includes(pid.gle)); pass(); // the stored Plus filter stops counting
+    // D347: a lapsed 250 km filter is kept, applies as 50 km (Glenelg is within it) and still saves unchanged; a new wider one is refused.
+    assert.ok(ids_(await explore('hal')).includes(pid.gle)); pass();
+    assert.equal((await call(tokens.hal, '/api/me/modes/friends/filters')).body.maxDistanceKm, 250); pass();
+    assert.equal((await filters('hal', { maxDistanceKm: 250 })).status, 200); pass();
+    assert.deepEqual(code(await filters('hal', { maxDistanceKm: 100 })), [403, 'plus-required']); pass();
 
     // Visitor visibility (D137) in the Travel feed.
     const trip = await call(tokens.tom, '/api/me/trips', { method: 'POST', body: { cityId: ADELAIDE, arrival: plus(3), departure: plus(6), visible: true } });

@@ -51,9 +51,14 @@ static class MatchingChecks
         var adelaide = F(lat: -34.93, lon: 138.6);
         var gawler = F(lat: -34.6, lon: 138.74); // about 39 km away
         Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 20 }, adelaide, gawler, PlanTier.Plus), "Plus distance excludes");
-        Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 20 }, adelaide, gawler, free), "a lapsed Plus never hides people");
+        Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 20 }, adelaide, gawler, free), "D347: a Free 20 km filter (25 km band) excludes 39 km");
         Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 50 }, adelaide, gawler, PlanTier.Plus), "within the distance");
         Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 50 }, adelaide, F(), PlanTier.Plus), "distance filter needs a home city");
+        Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 50 }, adelaide, gawler, PlanTier.Free), "D347: Free uses the distance filter too");
+        Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 5 }, adelaide, gawler, PlanTier.Free), "D347: and it narrows Free results");
+        var tanunda = F(lat: -34.5236, lon: 138.9592);
+        Expect(MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 250 }, adelaide, tanunda, PlanTier.Plus), "250 km on Plus reaches 56 km");
+        Expect(!MatchPolicy.FilterAllows(new ModeFilter { MaxDistanceKm = 250 }, adelaide, tanunda, PlanTier.Free), "a lapsed 250 km filter applies as 50 km on Free");
         Expect(MatchPolicy.Shared(F(chips: Set(1, 2, 3)), F(chips: Set(2, 3, 4))) == 2, "shared chips rank");
 
         // Validation and Plus gating.
@@ -65,7 +70,17 @@ static class MatchingChecks
         Expect(MatchPolicy.Check(new ModeFilter { ExcludedChips = [.. Set(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)] }, chips, free) == FilterError.TooManyChips, "eleven excluded");
         Expect(MatchPolicy.Check(new ModeFilter { RequiredChips = [C(99)] }, chips, free) == FilterError.UnknownChip, "another mode's chip");
         Expect(MatchPolicy.Check(new ModeFilter { RequiredChips = [C(1)], ExcludedChips = [C(1)] }, chips, free) == FilterError.ChipBothWays, "required and excluded");
-        Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = 10 }, chips, free) == FilterError.PlusRequired, "distance needs Plus");
+        foreach (var km in new[] { 5, 10, 25, 50 })
+            Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = km }, chips, free) == FilterError.None, $"D347: Free may filter at {km} km");
+        foreach (var km in new[] { 100, 250, 500 })
+        {
+            Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = km }, chips, free) == FilterError.PlusRequired, $"D347: {km} km is refused on Free");
+            Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = km }, chips, PlanTier.Plus) == FilterError.None, $"D347: {km} km on Plus");
+            Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = km }, chips, PlanTier.Premium) == FilterError.None, $"D347: {km} km on Premium");
+        }
+        Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = 51 }, chips, free) == FilterError.PlusRequired, "D347: a value snapping above 50 km is refused on Free, not lowered");
+        Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = 250 }, chips, free, savedDistanceKm: 250) == FilterError.None, "D347: a lapsed member's unchanged saved distance still saves");
+        Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = 100 }, chips, free, savedDistanceKm: 250) == FilterError.PlusRequired, "D347: but a new wider distance is refused");
         Expect(MatchPolicy.Check(new ModeFilter { Sort = ExploreSort.Compatibility }, chips, free) == FilterError.PlusRequired, "sorting needs Plus");
         Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = 10, Sort = ExploreSort.Compatibility }, chips, PlanTier.Plus) == FilterError.None, "Plus filters on Plus");
         Expect(MatchPolicy.Check(new ModeFilter { MaxDistanceKm = 501 }, chips, PlanTier.Plus) == FilterError.Distance, "distance limit");
@@ -86,6 +101,6 @@ static class MatchingChecks
         Expect(!MatchPolicy.ShowsVisitor(VisitorVisibility.Upcoming, true) && MatchPolicy.ShowsVisitor(VisitorVisibility.Upcoming, false), "upcoming");
         Expect(!MatchPolicy.ShowsVisitor(VisitorVisibility.Neither, true) && !MatchPolicy.ShowsVisitor(VisitorVisibility.Neither, false), "neither");
 
-        Console.WriteLine($"PASS: {checks} Matching cases (excluded chips both ways, a chip alone never excludes, Dating show me both ways and Dating-only, age range, any/all required chips, ID Verified only, Plus distance and sorting only on Plus, filter and identity validation, visitor visibility).");
+        Console.WriteLine($"PASS: {checks} Matching cases (excluded chips both ways, a chip alone never excludes, Dating show me both ways and Dating-only, age range, any/all required chips, ID Verified only, D347 tiered distance (Free 5–50 km, paid 100–500 km, refused not lowered, lapsed capped at 50) and Plus sorting only on Plus, filter and identity validation, visitor visibility).");
     }
 }

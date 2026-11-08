@@ -92,8 +92,17 @@ public sealed class MatchingPage : ContentPage
 		var excluded = chips.ToDictionary(c => c.Id, c => Toggle($"Excluded_{c.Id}", filter.ExcludedChips.Contains(c.Id)));
 		string[] visitorValues = ["both", "current", "upcoming", "neither"];
 		var visitors = new Picker { AutomationId = "Visitors", ItemsSource = new[] { "Here now and arriving soon", "Here now", "Arriving soon", "Don't show visitors" }, SelectedIndex = Math.Max(0, Array.IndexOf(visitorValues, filter.Visitors)) };
-		var distance = Ui.Entry("Distance", "km", 3);
-		(distance.Keyboard, distance.Text, distance.IsEnabled) = (Keyboard.Numeric, filter.MaxDistanceKm?.ToString(), filter.PlusAvailable);
+		// D347: a choice list from the server's allowed distances for this tier; a lapsed paid distance stays selectable.
+		var allowed = filter.DistanceOptions ?? [5, 10, 25, 50];
+		var distanceValues = new List<int?> { null };
+		distanceValues.AddRange(allowed.Select(km => (int?)km));
+		if (filter.MaxDistanceKm is { } savedKm && !allowed.Contains(savedKm)) distanceValues.Add(savedKm);
+		var distance = new Picker
+		{
+			AutomationId = "Distance",
+			ItemsSource = distanceValues.Select(km => km is not { } v ? "Any distance" : allowed.Contains(v) ? $"{v} km" : $"{v} km (Plus; applies as {allowed.Max()} km now)").ToList(),
+			SelectedIndex = Math.Max(0, distanceValues.IndexOf(filter.MaxDistanceKm)),
+		};
 		var common = Toggle("MostInCommon", filter.Sort == "compatibility");
 		common.IsEnabled = filter.PlusAvailable;
 		var message = Ui.Text(null, id: "FilterStatus");
@@ -106,8 +115,9 @@ public sealed class MatchingPage : ContentPage
 		target.Children.Add(Ui.Text("Not for me (up to 10, works both ways)", "FieldLabel"));
 		foreach (var chip in chips) target.Children.Add(Row(excluded[chip.Id], chip.Label));
 		target.Children.Add(Ui.Labelled("Visitors in Travel", visitors));
-		target.Children.Add(Ui.Text("Plus", "FieldLabel", "PlusFilters"));
 		target.Children.Add(Ui.Labelled("Within (km of my home city)", distance));
+		if (!filter.PlusAvailable) target.Children.Add(Ui.Text("Distances over 50 km are part of Plus.", "FooterClaims", "DistanceHelp"));
+		target.Children.Add(Ui.Text("Plus", "FieldLabel", "PlusFilters"));
 		target.Children.Add(Row(common, "Most in common first"));
 		if (!filter.PlusAvailable) target.Children.Add(Ui.Text("These filters are part of Plus.", "FooterClaims", "PlusUnavailable"));
 		target.Children.Add(Ui.Button("Save filters", "SaveFilters", async () =>
@@ -116,7 +126,7 @@ public sealed class MatchingPage : ContentPage
 			var saved = await Ui.Members!.SaveFiltersAsync(modeId, new FilterUpdate(Number(minAge.Text), Number(maxAge.Text),
 				required.Where(x => x.Value.IsToggled).Select(x => x.Key).ToList(), all.IsToggled ? "all" : "any",
 				excluded.Where(x => x.Value.IsToggled).Select(x => x.Key).ToList(), idOnly.IsToggled, visitorValues[Math.Max(0, visitors.SelectedIndex)],
-				filter.PlusAvailable ? Number(distance.Text) : null, filter.PlusAvailable && common.IsToggled ? "compatibility" : "recent"));
+				distanceValues[Math.Max(0, distance.SelectedIndex)], filter.PlusAvailable && common.IsToggled ? "compatibility" : "recent"));
 			message.Text = saved.Ok ? "Filters saved." : saved.Code == ProblemCodes.PlusRequired ? "That filter is part of Plus."
 				: "Check the filters: ages 18–120, up to 5 must-haves and 10 not-for-me, never the same intention in both.";
 		}));

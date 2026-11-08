@@ -1,7 +1,7 @@
 @* Who the member is and who they'd like to meet (D137–D140, Interactive WebAssembly). Gender, pronouns and orientation
    are each optional and separate; Dating needs a gender and a "show me", which is reciprocal. Orientation never
-   decides who anyone sees. Filters are per mode: the free ones for everyone, the Plus ones when the entitlement service
-   says Plus (D151). Excluded intentions work both ways: people holding one can't find or contact you in that mode. *@
+   decides who anyone sees. Filters are per mode: the free ones for everyone (including distance up to 50 km, D347), the
+   wider distances and Plus sorting when the entitlement service says Plus (D151). Excluded intentions work both ways: people holding one can't find or contact you in that mode. *@
 @inject MemberClient Members
 <div class="page-heading" data-matching="@(loaded ? (options is null ? "refused" : "ready") : "loading")">
     <p class="breadcrumb"><a href="/account">Me</a> / Who I'd like to meet</p>
@@ -58,8 +58,16 @@
                 </fieldset>
                 <div class="field"><label for="visitors">Visitors in Travel</label>
                     <select id="visitors" @bind="visitors"><option value="both">Here now and arriving soon</option><option value="current">Here now</option><option value="upcoming">Arriving soon</option><option value="neither">Don't show visitors</option></select></div>
+                <div class="field"><label for="distance">Within (km of my home city)</label>
+                    <select id="distance" @bind="distance" data-distance-filter>
+                        <option value="">Any distance</option>
+                        @foreach (var km in DistanceChoices)
+                        {
+                            <option value="@km" data-distance-option="@km">@DistanceLabel(km)</option>
+                        }
+                    </select></div>
+                @if (!filter.PlusAvailable) { <p class="field-help" data-distance-help>Distances over @(LocationLimits.FreeMaxKm) km are part of Plus.</p> }
                 <fieldset disabled="@(!filter.PlusAvailable)" data-plus-filters="@(filter.PlusAvailable ? "on" : "off")"><legend>Plus</legend>
-                    <div class="field"><label for="distance">Within (km of my home city)</label><input id="distance" type="number" min="1" max="500" @bind="distance" /></div>
                     <label class="check"><input type="checkbox" checked="@(sort == "compatibility")" @onchange='e => sort = e.Value is true ? "compatibility" : "recent"' /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> Most in common first</label>
                     @if (!filter.PlusAvailable) { <p class="field-help">These filters are part of Plus.</p> }
                 </fieldset>
@@ -85,6 +93,13 @@
     private int? minAge, maxAge, distance;
     private FilterView? filter;
     private IEnumerable<IntentionView> Chips => modes.FirstOrDefault(m => m.Id == modeId)?.Intentions ?? [];
+
+    // D347: the server lists the distances this member's tier allows. A saved wider distance from a lapsed paid plan
+    // stays selectable (unchanged it still saves) and is labelled as applying at the Free maximum until they upgrade.
+    private static class LocationLimits { public const int FreeMaxKm = 50; }
+    private IReadOnlyList<int> Allowed => filter?.DistanceOptions ?? [5, 10, 25, 50];
+    private IEnumerable<int> DistanceChoices => distance is { } saved && !Allowed.Contains(saved) ? Allowed.Append(saved) : Allowed;
+    private string DistanceLabel(int km) => Allowed.Contains(km) ? $"{km} km" : $"{km} km (Plus; applies as {Allowed.Max()} km now)";
 
     protected override async Task OnInitializedAsync()
     {

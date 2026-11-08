@@ -92,10 +92,12 @@ public static class MatchingEndpoints
             };
             var chips = (await db.ModeIntentions.Where(i => i.ModeId == modeId && i.Available).Select(i => i.Id).ToListAsync(cancellationToken)).ToHashSet();
             var tier = await Moderation.Entitlements.TierAsync(db, current.Profile, now, cancellationToken);
-            switch (MatchPolicy.Check(candidate, chips, tier))
+            var saved = await db.ModeFilters.AsNoTracking().Where(f => f.AccountId == id && f.ModeId == modeId).Select(f => f.MaxDistanceKm).FirstOrDefaultAsync(cancellationToken);
+            switch (MatchPolicy.Check(candidate, chips, tier, saved))
             {
                 case FilterError.None: break;
-                case FilterError.PlusRequired: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.PlusRequired, "That filter is part of Plus.");
+                case FilterError.PlusRequired: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.PlusRequired,
+                    candidate.MaxDistanceKm > LocationPrivacy.MaxFor(tier) ? $"Distances over {LocationPrivacy.FreeMaxKm} km are part of Plus." : "That filter is part of Plus.");
                 default: return Problem(StatusCodes.Status400BadRequest, ProblemCodes.InvalidFilter, "Check the filter values.");
             }
             var filter = await db.ModeFilters.FindAsync([id, modeId], cancellationToken);
@@ -117,6 +119,7 @@ public static class MatchingEndpoints
     private static IdentityView View(MemberIdentity i) => new(i.GenderId, i.GenderDescription, i.Pronouns, i.OrientationId, i.ShowGender, i.ShowOrientation, i.ShowAge, i.DatingShowMe);
 
     private static FilterView View(ModeFilter? f, string modeId, PlanTier tier) => f is null
-        ? new(modeId, null, null, [], "any", [], false, "both", null, "recent", tier >= PlanTier.Plus)
-        : new(modeId, f.MinAge, f.MaxAge, f.RequiredChips, Wire(f.RequiredMatch), f.ExcludedChips, f.IdVerifiedOnly, Wire(f.Visitors), f.MaxDistanceKm, Wire(f.Sort), tier >= PlanTier.Plus);
+        ? new(modeId, null, null, [], "any", [], false, "both", null, "recent", tier >= PlanTier.Plus, LocationPrivacy.FilterOptions(tier))
+        : new(modeId, f.MinAge, f.MaxAge, f.RequiredChips, Wire(f.RequiredMatch), f.ExcludedChips, f.IdVerifiedOnly, Wire(f.Visitors), f.MaxDistanceKm, Wire(f.Sort), tier >= PlanTier.Plus,
+            LocationPrivacy.FilterOptions(tier));
 }
