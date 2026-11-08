@@ -2774,8 +2774,9 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q158 — Retiring Area: existing data and old clients
 
-- Own issue: [#269](https://github.com/repasscloud/wanderconnect/issues/269) (decision-needed). Status: OPEN (D350). The owner asked for the migration and old-client plan before any deletion.
-- Proposed: Phase A hides Area and ignores writes, keeping the data; the pinned `2026-10-28` contract returns `null`. Phase B clears the values after 90 days, following a backup. Phase C drops the column once no supported contract carries it.
+- Own issue: [#269](https://github.com/repasscloud/wanderconnect/issues/269) (decided). Status: ANSWERED, owner 8 November 2026 (D350).
+- Area is removed outright from the schema, screens and contracts. Current data is fictional, so there is no preservation period and no staged migration.
+- Compatibility check: no distributed mobile builds, so the field is not kept for old clients. Historical test snapshots are not treated as evidence.
 
 ### Q159 — How Explore presents Home market and Near me
 
@@ -2787,11 +2788,9 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q161 — Near me: freshness, the 0–2 km band and approximate location
 
-- Own issue: [#270](https://github.com/repasscloud/wanderconnect/issues/270) (decision-needed). Status: OPEN (D348 DEFAULT). Revision requested 8 November 2026.
-- Proposed:
-  - A reading is never used after 2 hours.
-  - `nearby` needs both readings to be accurate to 250 m or better and 15 minutes old or less; otherwise `unknown`.
-  - Readings coarser than 2 km (approximate permission) don't establish presence.
+- Own issue: [#270](https://github.com/repasscloud/wanderconnect/issues/270) (decision-needed). Status: PARTLY ANSWERED, owner 8 November 2026 (D348).
+- Answered: a reading is used for exactly 2 hours, and a 5-minute purge deletes it within the following 5 minutes. The immediate deletion events stay. "Appear" and browsing are independent: discoverability is checked live on every query, and a stored reading never makes anyone discoverable.
+- Still DEFAULT pending the owner: (b) `nearby` needs both readings ≤ 250 m and ≤ 15 minutes old, otherwise `unknown`; (c) readings coarser than 2 km don't establish presence.
 
 ### Q162 — Display when GPS isn't available but Home City distance is
 
@@ -2807,15 +2806,20 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q165 — Privacy Notice 0.20 and permission wording
 
-- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decision-needed, owner-action). Status: OPEN (D351). The draft wording is in the issue for owner and legal approval. Privacy Notice 0.19 stays in force.
+- Own issue: [#271](https://github.com/repasscloud/wanderconnect/issues/271) (decision-needed, owner-action). Status: OPEN (D351). The wording is revised once #270 and #272 are settled, then goes to owner and legal approval.
+- Existing members are notified of the change. Privacy Notice 0.19 stays in force until approval.
 
-### Q166 — Extended-stay signal: evidence rule and home geography
+### Q166 — Scheduled Home City check: evidence, vicinity, Zammad item and retention
 
-- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decision-needed). Status: OPEN (D349). Revision requested 8 November 2026.
-- Proposed:
-  - Home geography is the home market's areas, or a 50 km circle when the Home City is in no market.
-  - The signal fires after 31 or more days, with 6 or more away days spread across the thirds of the run and no home day in that time.
-  - It means "observed away on several days", never a proven stay.
+- Own issue: [#272](https://github.com/repasscloud/wanderconnect/issues/272) (decision-needed). Status: OPEN (D349). The owner replaced the running review with a scheduled check about every 30 days that creates a Zammad item, and asked for a proposal.
+- Proposed in [#272](https://github.com/repasscloud/wanderconnect/issues/272#issuecomment-6719693088):
+  - Daily `home`/`away`/`excluded` outcomes without coordinates, kept 35 days or less.
+  - Enough evidence = 12+ located days covering all four parts of the period. Missing days are unknown.
+  - Suggest relocation at 75% away, with away days in 3 of 4 parts and no home day in the last 7 days.
+  - Vicinity = home market areas plus 25 km, or 50 km with no market.
+  - Checked-in trip days are excluded.
+  - A dedicated Zammad group, hidden from the member until Support replies.
+  - One open item per member, a 90-day cooldown, and closed + 6 months retention.
 
 ### Q167 — What happens to D150's current mechanism
 
@@ -2823,10 +2827,20 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q168 — Location review routing and roles
 
-- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D349): an Admin "Location reviews" list with no automatic Zammad ticket.
-  - Support, Trust & Safety and Admin can view reviews and set Ignore Until.
-  - Trust & Safety and Admin can close reviews.
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: SUPERSEDED, owner 8 November 2026 (D349): a Zammad support queue item from the scheduled Home City check replaces the Admin list (see Q166).
 
 ### Q169 — Ask the member first?
 
-- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: ANSWERED, recommendation accepted (D349): an in-app Home City confirmation first; staff review only if unanswered after 7 days.
+- Issue: [#257](https://github.com/repasscloud/wanderconnect/issues/257#issuecomment-6719138510). Status: SUPERSEDED, owner 8 November 2026 (D349). There is no in-app prompt; Support may send a friendly suggestion from the Zammad item.
+
+### Q170 — Travel: checked-in destination as the active discovery location
+
+- Own issue: [#274](https://github.com/repasscloud/wanderconnect/issues/274) (decision-needed). Status: OPEN (D352). The owner's direction is CONFIRMED; the details are open.
+- Open:
+  - Two pre-arrival switches (amends the D164 default).
+  - An "Active location" Explore scope (amends D125).
+  - Which checked-in trip is active when trips overlap.
+  - GPS vs check-in.
+  - Visibility to home locals while away.
+  - Visitors feed vs Explore for destination locals.
+  - The distance basis for travellers.
