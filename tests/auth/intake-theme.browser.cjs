@@ -49,6 +49,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
    await inspect('reset-request');
    await page.fill('#username',email);const started=Date.now();await page.click('#kc-reset-password-form button[type=submit]');await page.waitForLoadState();durations.push(Date.now()-started);
    await check('dedicated reset confirmation',async()=>{assert.equal(await page.locator('#kc-form-login').count(),0);assert.equal(await page.locator('[data-reset-confirmation]').count(),1);});
+   // Issue 252: "Back to sign in" and "Try another email" are buttons (54px, full width), not text links.
+   await check('reset actions are buttons',async()=>{for(const hook of ['[data-reset-back]','[data-reset-try-another]']){const box=await page.locator(hook).boundingBox(),form=await page.locator('[data-reset-confirmation]').boundingBox();assert(box&&box.height>=54&&Math.abs(box.width-form.width)<2,hook+' is a full-width 54px button');assert.equal(await page.locator(hook).evaluate(e=>getComputedStyle(e).textDecorationLine),'none',hook+' has no link underline');}});
    await inspect('reset-confirmation');
    confirmations.push((await page.locator('body').innerText()).replace(/\s+/g,' ').trim());
   }

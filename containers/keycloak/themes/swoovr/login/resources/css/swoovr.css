@@ -305,6 +305,10 @@ html:active-view-transition-type(sw-back)::view-transition-new(root) { animation
   .sw-foot { margin-top: 36px; }
 }
 .sw-reset-help { color: var(--sw-muted); margin-top: 26px; line-height: 1.5; }
-.sw-reset-actions { display: flex; flex-wrap: wrap; gap: 16px 24px; margin-top: 26px; }
+/* Issue 252: the reset confirmation's two actions are stacked full-width buttons, 10px apart (same as the terms step).
+   Links styled as buttons default to the secondary look (rule above), so the primary one restates its colours. */
+.sw-reset-actions { display: grid; gap: 10px; margin-top: 26px; }
+.pf-v5-c-login__main .sw-reset-actions a.pf-v5-c-button.pf-m-primary { background: var(--sw-primary); border-color: var(--sw-primary); color: var(--sw-on-primary); }
+.pf-v5-c-login__main .sw-reset-actions a.pf-v5-c-button.pf-m-primary:hover { border-color: var(--sw-primary); }
 [aria-invalid="true"] { scroll-margin-block: 24px; }
 [id^="input-error-"] .pf-v5-c-form__helper-text { font-weight: 600; }
