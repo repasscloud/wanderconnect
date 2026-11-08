@@ -17,7 +17,6 @@
         <p class="field-help">Your main public profile. Each mode can use its own name; leaving it blank uses your main display name.</p>
         <form class="stack" @onsubmit="SaveProfileAsync" data-core-form>
             <div class="field"><label for="display-name">Display name</label><input id="display-name" maxlength="40" @bind="displayName" autocomplete="nickname" /></div>
-            <div class="field"><label for="area">Area</label><input id="area" maxlength="60" @bind="area" placeholder="For example, Adelaide CBD" /></div>
             <CitySearch InputId="home-city" Label="Home city" @bind-Selected="homeCity" />
             <p class="field-help">Only you see your home city. It decides who counts as local when people visit (Travel).</p>
             @if (profile.HomeCity is not null)
@@ -84,7 +83,7 @@
 }
 @code {
     private bool loaded, busy;
-    private string? refused, displayName, area, about, coreMessage, coreStatus, modeMessage;
+    private string? refused, displayName, about, coreMessage, coreStatus, modeMessage;
     private PlaceView? homeCity;
     private string? homeCheck;
 
@@ -115,12 +114,12 @@
         loaded = true;
     }
 
-    private void Show(MyProfileView value) => (profile, displayName, area, about, homeCity) = (value, value.DisplayName, value.Area, value.About, value.HomeCity);
+    private void Show(MyProfileView value) => (profile, displayName, about, homeCity) = (value, value.DisplayName, value.About, value.HomeCity);
 
     private async Task SaveProfileAsync()
     {
         busy = true;
-        var result = await Members.SaveProfileAsync(new ProfileUpdate(displayName, area, about, homeCity?.Id));
+        var result = await Members.SaveProfileAsync(new ProfileUpdate(displayName, about, homeCity?.Id));
         busy = false;
         if (result.Value is { } saved) { Show(saved); (coreStatus, coreMessage) = ("saved", "Saved."); }
         else (coreStatus, coreMessage) = ("invalid", "Check the fields: no special characters, and keep within the lengths shown.");

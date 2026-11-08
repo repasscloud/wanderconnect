@@ -11,7 +11,7 @@ public sealed class ProfilePage : ContentPage
 {
 	private readonly VerticalStackLayout body = new() { Padding = new Thickness(24, 30), Spacing = 16 };
 	private readonly Label status = Ui.Text(null, id: "ProfileStatus");
-	private readonly Entry name = Ui.Entry("DisplayName", "Display name", 40), area = Ui.Entry("Area", "For example, Adelaide CBD", 60);
+	private readonly Entry name = Ui.Entry("DisplayName", "Display name", 40);
 	private readonly Editor about = new() { AutomationId = "About", MaxLength = 500, AutoSize = EditorAutoSizeOption.TextChanges };
 	private readonly CitySearchView home = new("HomeCity", "Home city");
 	private List<ConnectionModeView> modes = [];
@@ -43,10 +43,10 @@ public sealed class ProfilePage : ContentPage
 			return;
 		}
 		(modes, profile) = (catalogue.Value, own.Value);
-		(name.Text, area.Text, about.Text) = (profile.DisplayName, profile.Area, profile.About);
+		(name.Text, about.Text) = (profile.DisplayName, profile.About);
 		home.Show(profile.HomeCity);
 		body.Children.Add(Ui.Card(Ui.Text("About you", "SectionHeading"), Ui.Text("The same in every mode.", "FooterClaims"),
-			Ui.Labelled("Display name", name), Ui.Labelled("Area", area), Ui.Labelled("About me", about), home,
+			Ui.Labelled("Display name", name), Ui.Labelled("About me", about), home,
 			Ui.Text("Only you see your home city. It decides who counts as local when people visit.", "FooterClaims"),
 			// D150: optional; one reading, and Swoovr keeps only whether it matched.
 			Ui.Button("Check my location matches", "HomeCheck", async () =>
@@ -97,7 +97,7 @@ public sealed class ProfilePage : ContentPage
 
 	private async Task SaveProfileAsync()
 	{
-		var result = await Ui.Members!.SaveProfileAsync(new ProfileUpdate(name.Text, area.Text, about.Text, home.Selected?.Id));
+		var result = await Ui.Members!.SaveProfileAsync(new ProfileUpdate(name.Text, about.Text, home.Selected?.Id));
 		status.Text = result.Ok ? "Saved." : "Check the fields: no special characters, and keep within the lengths shown.";
 	}
 

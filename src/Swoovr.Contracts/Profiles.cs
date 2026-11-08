@@ -15,11 +15,11 @@ public sealed record MyModeView(string Id, bool Enabled, bool Visible, IReadOnly
 /// <summary>The member's own profile: shared core fields plus every available mode's setting. HomeCity is private to the
 /// member (D110, D120); it decides which market they are local to. MarketInterest says whether they asked to hear when
 /// Swoovr opens where they live (D125 rule 37).</summary>
-public sealed record MyProfileView(Guid PublicId, string? DisplayName, string? Area, string? About, IReadOnlyList<MyModeView> Modes, PlaceView? HomeCity = null,
+public sealed record MyProfileView(Guid PublicId, string? DisplayName, string? About, IReadOnlyList<MyModeView> Modes, PlaceView? HomeCity = null,
     bool MarketInterest = false);
 
 /// <summary>A full replacement of the core profile: leaving HomeCityId out clears the home city.</summary>
-public sealed record ProfileUpdate(string? DisplayName, string? Area, string? About, int? HomeCityId = null);
+public sealed record ProfileUpdate(string? DisplayName, string? About, int? HomeCityId = null);
 /// <summary>A full replacement of one mode's settings. ShareCoreAbout (#91): null keeps the current answer; true lets the
 /// core about show here when this mode has no about of its own. Q118 DisplayName: null/omitted keeps the override;
 /// an empty or whitespace string clears it to the main public name.</summary>
@@ -28,7 +28,7 @@ public sealed record ModeUpdate(bool Enabled, bool Visible, IReadOnlyList<Guid>?
 /// <summary>One person in Explore for one mode, with the public badges the API decided (Q11). No age, email or account id.</summary>
 /// <remarks>Age, Gender and Pronouns only as the person allows (D138, D139); never the date of birth.</remarks>
 /// <param name="DistanceBand">#90: a rounded band between home cities ("Under 5 km" … "Over 100 km"), never a distance.</param>
-public sealed record ProfileCard(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges,
+public sealed record ProfileCard(Guid Id, string DisplayName, string? About, IReadOnlyList<string> Intentions, IReadOnlyList<BadgeView> Badges,
     int? Age = null, string? Gender = null, string? Pronouns = null, string? DistanceBand = null, PhotoView? Photo = null);
 /// <summary>Explore for one mode in the viewer's home market (D125), named by Market.</summary>
 public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> People, string? Market = null);
@@ -53,5 +53,5 @@ public sealed record ProfileAtReport(DateTimeOffset ReportedAt, List<ProfileVers
 
 /// <summary>Whether the member wants to hear when Swoovr opens where they live (D125 rule 37).</summary>
 public sealed record MarketInterestUpdate(bool Interested);
-public sealed record PersonProfile(Guid Id, string DisplayName, string? Area, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges,
+public sealed record PersonProfile(Guid Id, string DisplayName, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges,
     int? Age = null, string? Gender = null, string? Pronouns = null, PhotoView? Photo = null);

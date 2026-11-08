@@ -1,5 +1,5 @@
 @* Profile tile (UI-STYLE.md Layout, source/ui.tsx ProfileTile): every tile is the same 170 × 270, photo or not.
-   Photo tile: photo 170 tall, then name + badges, intention chips, area. Photo-free tile: primary-colour block with the
+   Photo tile: photo 170 tall, then name + badges, intention chips and an optional detail line (the distance band). Photo-free tile: primary-colour block with the
    serif quote (data-font="quote"), name and intentions at the bottom. The whole tile is the name link's target. *@
 <article class="profile-tile person-card @(Photo is null ? "is-quote" : "is-photo")" data-tile="@(Photo is null ? "quote" : "photo")">
     @if (Photo is not null)
@@ -8,7 +8,7 @@
         <div class="tile-body">
             <div class="tile-name"><h2><a href="@Href">@Name@(Age is { } years ? $", {years}" : "")</a></h2>@Badges</div>
             <div class="tile-chips">@foreach (var intention in Intentions) { <span class="chip">@intention</span> }</div>
-            <p class="tile-area"><Icon Name="pin" Size="11" />@Area</p>
+            @if (!string.IsNullOrEmpty(Detail)) { <p class="tile-detail"><Icon Name="pin" Size="11" />@Detail</p> }
             @ChildContent
         </div>
     }
@@ -27,7 +27,8 @@
     [Parameter] public int? Age { get; set; }
     [Parameter, EditorRequired] public string Href { get; set; } = "";
     [Parameter] public IReadOnlyList<string> Intentions { get; set; } = [];
-    [Parameter] public string Area { get; set; } = "";
+    /// <summary>Optional line under the chips: the distance band (D350 removed Area).</summary>
+    [Parameter] public string Detail { get; set; } = "";
     [Parameter] public string? Quote { get; set; }
     [Parameter] public RenderFragment? Photo { get; set; }
     [Parameter] public RenderFragment? Badges { get; set; }

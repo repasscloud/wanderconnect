@@ -22,7 +22,7 @@ static class AccountInspectionPersistenceChecks
         var now=DateTimeOffset.Parse("2026-11-02T10:00:00Z");var id=Guid.NewGuid();
         var account=new Account{Id=id,Issuer="https://issuer.example.test",Subject=Guid.NewGuid().ToString(),Realm=AccountRealm.Members,Status=AccountStatus.Active,CreatedAt=now,LastSeenAt=now};
         var staff=new Account{Id=Guid.NewGuid(),Issuer="https://staff.example.test",Subject=Guid.NewGuid().ToString(),Realm=AccountRealm.Staff,Status=AccountStatus.Active,CreatedAt=now,LastSeenAt=now};
-        var profile=new MemberProfile{AccountId=id,PublicId=Guid.NewGuid(),DisplayName="Fictional public main",Area="Public area",About="PRIVATE CORE",DateOfBirth=new DateOnly(1990,1,1),DateOfBirthVerified=true,AgeStatus=AgeStatus.Verified};
+        var profile=new MemberProfile{AccountId=id,PublicId=Guid.NewGuid(),DisplayName="Fictional public main",About="PRIVATE CORE",DateOfBirth=new DateOnly(1990,1,1),DateOfBirthVerified=true,AgeStatus=AgeStatus.Verified};
         db.Accounts.AddRange(account,staff);db.MemberProfiles.Add(profile);db.MemberIdentities.Add(new MemberIdentity{AccountId=id,ShowAge=false,ShowGender=false,Pronouns="PRIVATE PRONOUNS",UpdatedAt=now});
         db.MemberModes.AddRange(new MemberMode{AccountId=id,ModeId="friends",Enabled=true,Visible=true,DisplayName="Public friends alias",About="Public friends about",UpdatedAt=now},new MemberMode{AccountId=id,ModeId="dating",Enabled=true,Visible=false,About="PRIVATE DATING",UpdatedAt=now});
         MediaItem Photo(MediaStatus status)=>new(){Id=Guid.NewGuid(),AccountId=id,Status=status,ObjectKey="photos/fictional",Sha256=RandomNumberGenerator.GetBytes(32),UploadSha256=RandomNumberGenerator.GetBytes(32),CreatedAt=now};

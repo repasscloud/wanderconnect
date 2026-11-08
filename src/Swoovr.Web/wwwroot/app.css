@@ -216,9 +216,9 @@ button.segment:focus-visible { outline: 3px solid var(--text); outline-offset: 1
 .tile-body { padding: 8px 12px; min-width: 0; }
 .tile-chips { display: flex; gap: 4px; margin: 6px 0 5px; overflow: hidden; }
 .tile-chips .chip { font-size: .6875rem; }
-.tile-area, .tile-contact { display: flex; align-items: center; gap: 3px; font: 400 .6875rem/1.25 var(--font); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile-area { display: block; }
-.tile-area .icon { vertical-align: -1px; margin-right: 3px; }
+.tile-detail, .tile-contact { display: flex; align-items: center; gap: 3px; font: 400 .6875rem/1.25 var(--font); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-detail { display: block; }
+.tile-detail .icon { vertical-align: -1px; margin-right: 3px; }
 .tile-contact { margin-top: 2px !important; display: block; }
 .profile-tile.is-quote { padding: 14px; background: var(--primary); color: var(--onPrimary); }
 .tile-quote-mark { font: 400 1.875rem/1 var(--font-quote); color: var(--on-primary-quiet); }
@@ -375,7 +375,6 @@ legend { padding: 0; margin-bottom: 4px; font: var(--type-section); font-size: 1
 .profile-name { display: flex; align-items: center; gap: 8px; }
 .profile-name h1 { margin: 0; font: 700 1.75rem/1.1 var(--font); letter-spacing: -.5px; }
 .profile-meta { margin: 6px 0 0; font: var(--type-small); color: var(--muted); }
-.profile-area { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; }
 .verify-card { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
 .verify-card strong { display: block; font: 700 1rem/1.3 var(--font); }
 .verify-card span { font: var(--type-small); color: var(--muted); }
@@ -504,7 +503,7 @@ html { scroll-padding-block: 24px calc(var(--tab-bar) + 24px + env(safe-area-ins
 }
 @media (max-width: 24rem) {
   .tile-chips { flex-wrap: wrap; }
-  .profile-tile h2, .tile-area, .tile-contact, .tile-intentions { white-space: normal; }
+  .profile-tile h2, .tile-detail, .tile-contact, .tile-intentions { white-space: normal; }
   .tile-quote { display: block; }
   .tile-quote-box { overflow: visible; }
 }

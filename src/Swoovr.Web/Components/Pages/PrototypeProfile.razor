@@ -17,7 +17,6 @@ else
     else { <figure class="profile-quote"><span class="tile-quote-mark" aria-hidden="true" data-font="quote">&ldquo;</span><p data-font="quote">@Person.Introduction</p></figure> }
     <div class="profile-name"><h1>@Person.Name, @Person.Age</h1><Badge Kind="id" Size="24" Simulated /></div>
     <p class="profile-meta">@(Person.HasDemoImage ? "Image is an abstract demo placeholder." : "A meaningful profile can be photo-free.")</p>
-    <p class="profile-area"><Icon Name="pin" Size="18" />@Person.Area</p>
     <h2 class="section-heading">Looking for</h2>
     <div class="intention-chips">@for (var i = 0; i < Person.Intentions.Count; i++) { <span class="chip @(i == 0 ? "is-on" : "")">@Person.Intentions[i]</span> }</div>
     <section class="card verify-card" aria-label="Verification"><Badge Kind="id" Size="28" Simulated /><div><strong>ID verified</strong><span>Simulated in this preview, not a real check</span></div></section>

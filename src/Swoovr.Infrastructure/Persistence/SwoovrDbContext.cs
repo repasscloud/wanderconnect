@@ -647,7 +647,6 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             profile.Property(p => p.PublicId).HasDefaultValueSql("gen_random_uuid()");
             profile.HasIndex(p => p.PublicId).IsUnique();
             profile.Property(p => p.DisplayName).HasMaxLength(ProfileTextPolicy.DisplayNameMax);
-            profile.Property(p => p.Area).HasMaxLength(ProfileTextPolicy.AreaMax);
             profile.Property(p => p.About).HasMaxLength(ProfileTextPolicy.AboutMax);
             profile.HasOne<GeoCity>().WithMany().HasForeignKey(p => p.HomeGeoNameId).OnDelete(DeleteBehavior.Restrict);
             // D146: the derived home market; a market that is removed leaves the member outside every market.

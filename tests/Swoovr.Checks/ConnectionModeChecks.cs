@@ -53,12 +53,12 @@ static class ConnectionModeChecks
         Expect(seed[^1] is { ModeId: "business", Label: "Knowledge sharing", SortOrder: 10 } && seed[^1].Id == Guid.Parse("00000016-0004-4000-8000-000000000010"), "last Business chip id");
 
         Expect(ProfileTextPolicy.Clean("  Fictional Sam  ") == "Fictional Sam" && ProfileTextPolicy.Clean("   ") is null, "trim and blank clears");
-        Expect(ProfileTextPolicy.Check("Sam", "Adelaide", "Line one\nline two") == ProfileTextError.None, "plain text with line breaks in about");
-        Expect(ProfileTextPolicy.Check(new string('a', 41), null, null) == ProfileTextError.DisplayNameTooLong, "name length");
-        Expect(ProfileTextPolicy.Check(null, new string('a', 61), null) == ProfileTextError.AreaTooLong, "area length");
-        Expect(ProfileTextPolicy.Check(null, null, new string('a', 501)) == ProfileTextError.AboutTooLong, "about length");
-        Expect(ProfileTextPolicy.Check("Sam\u0007", null, null) == ProfileTextError.ControlCharacters, "control characters in name");
-        Expect(ProfileTextPolicy.Check("Sam", "Adel\naide", null) == ProfileTextError.ControlCharacters, "line break in area");
+        Expect(ProfileTextPolicy.Check("Sam", "Line one\nline two") == ProfileTextError.None, "plain text with line breaks in about");
+        Expect(ProfileTextPolicy.Check(new string('a', 41), null) == ProfileTextError.DisplayNameTooLong, "name length");
+        Expect(ProfileTextPolicy.Check(null, new string('a', 501)) == ProfileTextError.AboutTooLong, "about length");
+        Expect(ProfileTextPolicy.Check("Sam\u0007", null) == ProfileTextError.ControlCharacters, "control characters in name");
+        Expect(ProfileTextPolicy.Check("Sam\nLee", null) == ProfileTextError.ControlCharacters, "line break in display name");
+        Expect(!Enum.GetNames<ProfileTextError>().Any(n => n.Contains("Area")) && typeof(MemberProfile).GetProperty("Area") is null, "D350: Area is gone from the profile");
 
         var person = new DiscoveryCandidate(AccountStatus.Active, AgeStatus.Attested, BetaActive: true, Bot: false, DisplayName: "Fictional Sam");
         Expect(DiscoveryEligibility.Discoverable(person), "active adult on the beta with a name");

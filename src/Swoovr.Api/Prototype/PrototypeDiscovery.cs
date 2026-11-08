@@ -69,7 +69,7 @@ internal static class PrototypeDiscovery
         return Policy.Allows(request, now);
     }
     private static PrototypePerson Project(Person person, Options options) => new(person.Id,
-        person.Name, person.Age, person.Bio, "Harbour neighbourhood · fictional area", person.Displayed,
+        person.Name, person.Age, person.Bio, person.Displayed,
         person.DemoImage, Allows(person, options, DiscoveryResource.Contact), true);
 
     public static void Map(WebApplication app)

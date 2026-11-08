@@ -40,8 +40,8 @@ static class ModePrivacyChecks
             Expect(ModePrivacy.DisplayName("  ", "Main public") == "Main public", "cleared override fallback: " + mode);
         }
         Expect(ModePrivacy.DisplayName(null, null) is null, "no public name means none; no registered identity fallback");
-        Expect(ProfileTextPolicy.Check(new string('x', 41), null, null) == ProfileTextError.DisplayNameTooLong, "override uses name length limit");
-        Expect(ProfileTextPolicy.Check("Alias\nName", null, null) == ProfileTextError.ControlCharacters, "override rejects control characters");
+        Expect(ProfileTextPolicy.Check(new string('x', 41), null) == ProfileTextError.DisplayNameTooLong, "override uses name length limit");
+        Expect(ProfileTextPolicy.Check("Alias\nName", null) == ProfileTextError.ControlCharacters, "override rejects control characters");
 
         // D176: disconnecting without blocking.
         Guid a = Guid.NewGuid(), b = Guid.NewGuid(), stranger = Guid.NewGuid();
