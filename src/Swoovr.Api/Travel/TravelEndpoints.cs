@@ -212,7 +212,7 @@ public static class TravelEndpoints
         var proposed = new Trip
         {
             Id = trip?.Id ?? Guid.NewGuid(), AccountId = me, GeoNameId = city.GeoNameId, Arrival = update.Arrival, Departure = update.Departure,
-            Visible = update.Visible, DiscoverBeforeArrival = update.DiscoverBeforeArrival, ItineraryId = update.ItineraryId, CreatedAt = trip?.CreatedAt ?? now, UpdatedAt = now,
+            Visible = update.Visible, DiscoverBeforeArrival = update.DiscoverBeforeArrival ?? trip?.DiscoverBeforeArrival ?? true, ItineraryId = update.ItineraryId, CreatedAt = trip?.CreatedAt ?? now, UpdatedAt = now,
         };
         var mine = await (from t in db.Trips join c in db.GeoCities on t.GeoNameId equals c.GeoNameId
                           where t.AccountId == me && t.Id != proposed.Id && t.CancelledAt == null select new { t, c }).ToListAsync(cancellationToken);

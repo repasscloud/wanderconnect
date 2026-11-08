@@ -87,6 +87,9 @@ const melbourne = (extra = {}) => here({ latitude: -37.8136, longitude: 144.9631
     r = await call(tokens.trd, `/api/me/trips/${trips.trd.id}`, { method: 'PUT', body: { cityId: trdTrip.city.id, arrival: trdTrip.arrival, departure: trdTrip.departure, visible: false, itineraryId: null, discoverBeforeArrival: false } });
     assert.deepEqual([r.status, r.body.discoverBeforeArrival, r.body.searchOpen], [200, false, false]); pass();
     assert.deepEqual(code(await search('trd', trips.trd.id)), [403, 'search-not-open']); pass();
+    // Toggling visibility the way older clients do (without the field) keeps the saved "Discover…" choice (Codex review on #289).
+    r = await call(tokens.trd, `/api/me/trips/${trips.trd.id}`, { method: 'PUT', body: { cityId: trdTrip.city.id, arrival: trdTrip.arrival, departure: trdTrip.departure, visible: true, itineraryId: null } });
+    assert.deepEqual([r.status, r.body.visible, r.body.discoverBeforeArrival], [200, true, false]); pass();
     assert.deepEqual(code(await search('tre', trips.tre.id)), [403, 'trip-not-live']); pass(); // cancelled
     assert.deepEqual(code(await search('adl', trips.adl.id)), [403, 'search-not-open']); pass(); // locals use Explore
     assert.deepEqual(code(await search('trg', trips.trg.id)), [403, 'date-of-birth-required']); pass();

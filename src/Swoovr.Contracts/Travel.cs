@@ -33,8 +33,9 @@ public sealed record TripAdminView(Guid Id, string? Market, DateOnly Arrival, Da
 public sealed record ArrivalReview(string? Reason);
 public sealed record TripPage(IReadOnlyList<TripView> Items, int Page, bool More);
 /// <param name="Visible">D352: "Let people there discover me before arrival".</param>
-/// <param name="DiscoverBeforeArrival">D352: "Discover people there before arrival" (Traveller Search), independent of Visible; on by default.</param>
-public sealed record TripUpdate(int CityId, DateOnly Arrival, DateOnly Departure, bool Visible, Guid? ItineraryId, bool DiscoverBeforeArrival = true);
+/// <param name="DiscoverBeforeArrival">D352: "Discover people there before arrival" (Traveller Search), independent of Visible. Null
+/// (or left out) keeps the trip's saved choice, so changing one switch never changes the other; a new trip starts on.</param>
+public sealed record TripUpdate(int CityId, DateOnly Arrival, DateOnly Departure, bool Visible, Guid? ItineraryId, bool? DiscoverBeforeArrival = null);
 public sealed record ItineraryView(Guid Id);
 
 /// <summary>What a local sees of a visiting traveller's trip (Q17 rules 24–27): city, country and the exact dates only.</summary>
