@@ -73,19 +73,20 @@ Client or Admin -> Swoovr API -> authorised storage action / queued cleanup
 
 ## Suggested ticket breakdown and sequence
 
-| Ticket | Title | Primary responsibility | Suggested dependency |
-| --- | --- | --- | --- |
-| 1 | Architecture and Cloudflare feasibility | Confirm design, constraints, contracts and open decisions | First |
-| 2 | R2 storage and upload lifecycle | Secure ingest, quarantine, pending records, events | 1 |
-| 3 | Independent image scanning and moderation pipeline | Containers, scanning, classification, processing and review | 1, 2 |
-| 4 | Secure image delivery and lifecycle operations | GET/HEAD, access, caching, PATCH/DELETE semantics | 1, 2, 3 |
-| 5 | API integration, callbacks and idempotency | API-only database access, reliable event handling | 1; coordinate with 2–4 |
-| 6 | Security, operations and release verification | Secrets, observability, cost, resilience, testing | 1–5 |
-| 7 | Separate feature: optional unanswered-message limit | Messaging privacy setting discussed earlier | Independent |
+| GH | Ticket | Title | Primary responsibility | Suggested dependency |
+| --- | --- | --- | --- | --- |
+| #260 | 1 | Architecture and Cloudflare feasibility | Confirm design, constraints, contracts and open decisions | First |
+| #261 | 2 | R2 storage and upload lifecycle | Secure ingest, quarantine, pending records, events | 1 |
+| #262 | 3 | Independent image scanning and moderation pipeline | Containers, scanning, classification, processing and review | 1, 2 |
+| #263 | 4 | Secure image delivery and lifecycle operations | GET/HEAD, access, caching, PATCH/DELETE semantics | 1, 2, 3 |
+| #264 | 5 | API integration, callbacks and idempotency | API-only database access, reliable event handling | 1; coordinate with 2–4 |
+| #265 | 6 | Security, operations and release verification | Secrets, observability, cost, resilience, testing | 1–5 |
+| #266 | 7 | Separate feature: optional unanswered-message limit | Messaging privacy setting discussed earlier | Independent |
+| #267 | - | Main thread ticket | - | - |
 
 Tickets 1–6 form the image infrastructure epic. **Ticket 7 is intentionally independent** because it was part of the wider conversation but is unrelated to Cloudflare image processing. It can be omitted from the image epic.
 
----
+Tickets 1–6 form the image infrastructure epic. **Ticket 7 is intentionally independent** because it was part of the wider conversation but is unrelated to Cloudflare image processing. It can be omitted from the image epic.
 
 # TICKET 1 — Plan and validate Cloudflare-based Swoovr image architecture
 
@@ -132,8 +133,6 @@ Design and validate a Cloudflare-centred image architecture that keeps image upl
 - [ ] Contract between Cloudflare and Swoovr API documented.
 - [ ] Subtickets and implementation order agreed before major code changes.
 
----
-
 # TICKET 2 — Introduce secure R2 image ingress and quarantine lifecycle
 
 ## Objective
@@ -154,7 +153,7 @@ Allow Swoovr clients to upload images into private Cloudflare R2 quarantine with
 ## Method/ownership expectations
 
 | Operation | Suggested owner | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | `POST` authorise upload | Swoovr API | Authenticate member, enforce quotas and policy, create upload intent |
 | `PUT` image bytes | Upload Worker / approved Cloudflare upload path | Write authorised bytes to quarantine |
 | R2 event / Queue | Cloudflare infrastructure | Signal a new/changed object exists, not that it is trustworthy |
@@ -172,8 +171,6 @@ Allow Swoovr clients to upload images into private Cloudflare R2 quarantine with
 - [ ] Duplicate events and upload retries do not create duplicate active images.
 - [ ] Quarantine objects cannot be obtained through delivery URLs.
 - [ ] Stale incomplete uploads are reconciled/cleaned up safely.
-
----
 
 # TICKET 3 — Independent Cloudflare image scanning, content moderation and WebP processing
 
@@ -234,8 +231,6 @@ Names must align with the existing domain model. Avoid implying that `Approved` 
 - [ ] Final variants are correctly sized, WebP encoded and stripped of unwanted metadata.
 - [ ] Processing performance, resource consumption and recovery are measured on representative workloads.
 
----
-
 # TICKET 4 — Secure R2 image delivery, revocation and deletion lifecycle
 
 ## Objective
@@ -257,7 +252,7 @@ Serve approved Swoovr image variants efficiently and securely through Cloudflare
 ## Responsibility table
 
 | Operation | Suggested owner | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `GET` / `HEAD` image variant | Delivery Worker | Approved objects only, secure cache behaviour |
 | `PATCH` profile photo order, main photo, visibility, album assignment | Swoovr API | Mutates metadata/business state, not image bytes |
 | `DELETE` user image | Swoovr API initiates | Authorise deletion, prevent new delivery, arrange R2/variant cleanup |
@@ -273,8 +268,6 @@ Serve approved Swoovr image variants efficiently and securely through Cloudflare
 - [ ] `HEAD` does not leak unauthorised object existence or sensitive metadata.
 - [ ] Replacing and deleting an image updates API state and removes/invalidates all affected variants according to the agreed lifecycle.
 - [ ] Cleanup is retryable and idempotent; missing objects are handled safely.
-
----
 
 # TICKET 5 — Swoovr API contracts, authenticated callbacks and idempotent event handling
 
@@ -359,7 +352,7 @@ A repeated event ID with **different content** is not a harmless duplicate. Dete
 ### Response/retry guidance to evaluate
 
 | Situation | Expected response category | Retry intent |
-|---|---|---|
+| --- | --- | --- |
 | New valid event committed | `200 OK` / `204 No Content` | Stop |
 | Exact event already committed | `200 OK` | Stop |
 | Malformed/inconsistent payload | `400` or suitable permanent error | Do not blindly retry; alert/triage |
@@ -381,8 +374,6 @@ HTTP code choices are examples; ensure the actual Cloudflare consumer retry poli
 - [ ] Delayed events for superseded jobs/deleted images cannot publish files.
 - [ ] Invalid status transitions and unrecognised images/jobs are handled safely.
 - [ ] Callback failures are observable and recoverable without exposing private content.
-
----
 
 # TICKET 6 — Security, reliability, rollout and operational verification
 
@@ -407,7 +398,7 @@ Ensure the Cloudflare image pipeline is maintainable and safe to deploy to Swoov
 ## Integration acceptance matrix
 
 | Scenario | Expected outcome |
-|---|---|
+| --- | --- |
 | Safe image | Scanned, classified, processed, approved, metadata committed, then retrievable when authorised |
 | Explicit public profile upload | Blocked/reviewed according to current public profile policy |
 | Eligible private album upload | Permitted only through applicable ID/SEM and moderation rules |
@@ -427,8 +418,6 @@ Ensure the Cloudflare image pipeline is maintainable and safe to deploy to Swoov
 - [ ] Monitoring, alerting and recovery runbooks exist.
 - [ ] Cost limits, retention, residency assumptions and operational owners documented.
 - [ ] Production rollout has explicit rollback and fail-closed behaviour.
-
----
 
 # TICKET 7 (INDEPENDENT) — Optional profile-wide unanswered-message limit
 
@@ -473,8 +462,6 @@ Give members a voluntary messaging boundary to reduce repeated unanswered messag
 - Determine how the current data model represents conversations, participants and message deletion/editing, then select a method that reliably counts the consecutive sequence without expensive per-send queries.
 - Define whether group conversations, reaction-only events and support/staff/system messages are out of scope. The intended initial target is member-to-member one-to-one chat.
 - Avoid modifying existing messaging tier limits without review.
-
----
 
 # Implementation coordination notes
 
