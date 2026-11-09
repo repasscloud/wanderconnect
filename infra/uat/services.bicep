@@ -63,9 +63,9 @@ var common = [
   { name: 'Hosting__TrustedProxyNetworks', value: trustedProxyNetworks }
 ]
 var apiEnv = concat(common,[
-  { name: 'Hosting__PublicOrigin', value: 'https://api.uat.swoovr.app' }
-  { name: 'AllowedHosts', value: 'api.uat.swoovr.app;${apiHost}' }
-  { name: 'Keycloak__BaseUrl', value: 'https://auth.uat.swoovr.app' }
+  { name: 'Hosting__PublicOrigin', value: 'https://api-uat.swoovr.app' }
+  { name: 'AllowedHosts', value: 'api-uat.swoovr.app;${apiHost}' }
+  { name: 'Keycloak__BaseUrl', value: 'https://auth-uat.swoovr.app' }
   { name: 'Keycloak__MembersRealm', value: 'swoovr-members' }
   { name: 'Keycloak__VenuesRealm', value: 'swoovr-venues' }
   { name: 'Keycloak__StaffRealm', value: 'swoovr-staff' }
@@ -99,9 +99,9 @@ python -c 'import os,sys; names=("API_KEY","ARACHNID_API_USERNAME","ARACHNID_API
 exec /usr/local/bin/entrypoint
 '''
 var specs = [
-  { actor: 'api', host: 'api.uat.swoovr.app', cpu: '0.5', memory: '1Gi', env: apiEnv, internal: false, live: '/health/live', ready: '/health/ready', probe: 8080 }
-  { actor: 'web', host: 'uat.swoovr.app', cpu: '0.5', memory: '1Gi', env: concat(common,[{ name: 'Hosting__PublicOrigin', value: 'https://uat.swoovr.app' },{ name: 'AllowedHosts', value: 'uat.swoovr.app;${prefix}-web.${environmentDefaultDomain}' },{ name: 'Api__BaseUrl', value: 'https://${apiHost}/' },{ name: 'Keycloak__Authority', value: 'https://auth.uat.swoovr.app/realms/swoovr-members' },{ name: 'Keycloak__ClientId', value: 'swoovr-web' }]), internal: false, live: '/health/live', ready: '/health/ready', probe: 8080 }
-  { actor: 'admin', host: 'admin.uat.swoovr.app', cpu: '0.25', memory: '0.5Gi', env: concat(common,[{ name: 'Hosting__PublicOrigin', value: 'https://admin.uat.swoovr.app' },{ name: 'AllowedHosts', value: 'admin.uat.swoovr.app;${prefix}-admin.${environmentDefaultDomain}' },{ name: 'Api__BaseUrl', value: 'https://${apiHost}/' },{ name: 'Keycloak__Authority', value: 'https://auth.uat.swoovr.app/realms/swoovr-staff' },{ name: 'Keycloak__ClientId', value: 'swoovr-admin-web' }]), internal: false, live: '/health/live', ready: '/health/ready', probe: 8080 }
+  { actor: 'api', host: 'api-uat.swoovr.app', cpu: '0.5', memory: '1Gi', env: apiEnv, internal: false, live: '/health/live', ready: '/health/ready', probe: 8080 }
+  { actor: 'web', host: 'uat.swoovr.app', cpu: '0.5', memory: '1Gi', env: concat(common,[{ name: 'Hosting__PublicOrigin', value: 'https://uat.swoovr.app' },{ name: 'AllowedHosts', value: 'uat.swoovr.app;${prefix}-web.${environmentDefaultDomain}' },{ name: 'Api__BaseUrl', value: 'https://${apiHost}/' },{ name: 'Keycloak__Authority', value: 'https://auth-uat.swoovr.app/realms/swoovr-members' },{ name: 'Keycloak__ClientId', value: 'swoovr-web' }]), internal: false, live: '/health/live', ready: '/health/ready', probe: 8080 }
+  { actor: 'admin', host: 'admin-uat.swoovr.app', cpu: '0.25', memory: '0.5Gi', env: concat(common,[{ name: 'Hosting__PublicOrigin', value: 'https://admin-uat.swoovr.app' },{ name: 'AllowedHosts', value: 'admin-uat.swoovr.app;${prefix}-admin.${environmentDefaultDomain}' },{ name: 'Api__BaseUrl', value: 'https://${apiHost}/' },{ name: 'Keycloak__Authority', value: 'https://auth-uat.swoovr.app/realms/swoovr-staff' },{ name: 'Keycloak__ClientId', value: 'swoovr-admin-web' }]), internal: false, live: '/health/live', ready: '/health/ready', probe: 8080 }
   { actor: 'screening', host: screenHost, cpu: '2', memory: '4Gi', env: [{ name: 'ENABLE_DOCS', value: 'false' },{ name: 'LOG_LEVEL', value: 'INFO' }], internal: true, live: '/health', ready: '/ready', probe: 8080 }
 ]
 module apps 'modules/container-app.bicep' = [for spec in specs: if(deployServing) {
@@ -118,7 +118,7 @@ module identityApp 'modules/container-app.bicep' = if(deployIdentity) {
     identityId: identities[3].id
     registryServer: registry.properties.loginServer
     image: images.keycloak
-    hostname: 'auth.uat.swoovr.app'
+    hostname: 'auth-uat.swoovr.app'
     certificateId: bindPublicHostnames ? (certificates.?keycloak ?? '') : ''
     cpu: '1'
     memory: '2Gi'
@@ -130,7 +130,7 @@ module identityApp 'modules/container-app.bicep' = if(deployIdentity) {
       { name: 'KC_DB', value: 'postgres' }
       { name: 'KC_DB_URL', value: 'jdbc:postgresql://${database.outputs.host}:5432/keycloak?sslmode=verify-full&sslrootcert=/etc/pki/tls/certs/ca-bundle.crt' }
       { name: 'KC_DB_USERNAME', value: 'swoovr_keycloak' }
-      { name: 'KC_HOSTNAME', value: 'https://auth.uat.swoovr.app' }
+      { name: 'KC_HOSTNAME', value: 'https://auth-uat.swoovr.app' }
       { name: 'KC_HTTP_ENABLED', value: 'true' }
       { name: 'KC_PROXY_HEADERS', value: 'xforwarded' }
       { name: 'KC_PROXY_TRUSTED_ADDRESSES', value: trustedProxyNetworks }
@@ -155,9 +155,9 @@ var jobSpecs = [
   { name: 'recovery', actor: 'recovery', image: images.operator, args: ['recovery-help'], command: [], cron: '' }
 ]
 var operatorEnv = concat(common,[
-  { name: 'Hosting__PublicOrigin', value: 'https://api.uat.swoovr.app' }
+  { name: 'Hosting__PublicOrigin', value: 'https://api-uat.swoovr.app' }
   { name: 'MemberAdmin__ClientId', value: 'swoovr-api-accounts' }
-  { name: 'Keycloak__BaseUrl', value: 'https://auth.uat.swoovr.app' }
+  { name: 'Keycloak__BaseUrl', value: 'https://auth-uat.swoovr.app' }
   { name: 'Keycloak__MembersRealm', value: 'swoovr-members' }
   { name: 'Media__R2__Endpoint', value: r2Endpoint }
   { name: 'Media__R2__Bucket', value: r2Bucket }

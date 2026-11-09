@@ -15,7 +15,7 @@ static class HostingProxyChecks
         var builder=WebApplication.CreateBuilder(new WebApplicationOptions{EnvironmentName="Uat"});builder.Logging.ClearProviders();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{
             ["Hosting:PublicOrigin"]="https://uat.swoovr.app",["AllowedHosts"]="uat.swoovr.app",["Hosting:TrustedProxyNetworks"]="10.42.0.0/23",
-            ["Keycloak:Authority"]="https://auth.uat.swoovr.app/realms/swoovr-members",["Keycloak:ClientId"]="swoovr-web",["Keycloak:ClientSecret"]="fictional",["Api:BaseUrl"]="https://api.internal.example.test/"});
+            ["Keycloak:Authority"]="https://auth-uat.swoovr.app/realms/swoovr-members",["Keycloak:ClientId"]="swoovr-web",["Keycloak:ClientSecret"]="fictional",["Api:BaseUrl"]="https://api.internal.example.test/"});
         HostRuntime.Configure(builder,HostKind.Web);await using var app=builder.Build();var options=app.Services.GetRequiredService<IOptions<ForwardedHeadersOptions>>();
         var middleware=new ForwardedHeadersMiddleware(_=>Task.CompletedTask,NullLoggerFactory.Instance,options);var count=0;
         foreach(var remote in new[]{"10.42.0.5","198.51.100.2","127.0.0.1"})
@@ -32,7 +32,7 @@ static class HostingProxyChecks
         forwarded.Connection.RemoteIpAddress=IPAddress.Parse("10.42.0.5");forwarded.Request.Scheme="http";
         forwarded.Request.Headers["X-Forwarded-For"]="192.0.2.99, 127.0.0.1";forwarded.Request.Headers["X-Forwarded-Proto"]="https, https";
         await pipeline(forwarded);if(address!="127.0.0.1")throw new Exception("Phone budget reparsed a leftover untrusted chain.");count++;
-        if(!forwarded.Response.Headers.ContentSecurityPolicy.ToString().Contains("form-action 'self' https://auth.uat.swoovr.app;",StringComparison.Ordinal))throw new Exception("Configured Keycloak logout origin is missing from CSP.");count++;
+        if(!forwarded.Response.Headers.ContentSecurityPolicy.ToString().Contains("form-action 'self' https://auth-uat.swoovr.app;",StringComparison.Ordinal))throw new Exception("Configured Keycloak logout origin is missing from CSP.");count++;
         Console.WriteLine($"PASS trusted-proxy middleware: {count} in-process request checks; no real ingress/network claim.");
     }
 }

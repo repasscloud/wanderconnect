@@ -1,5 +1,8 @@
 # Issue intake
 
+**Current UAT pointer (10 November 2026):** [D355](D355-UAT-HOSTNAMES-2026-11-10.md) supersedes historical nested hostnames and paid edge certificate assumptions. UAT hosting is OPEN, including Vultr; production remains Azure. Earlier records below preserve their original wording; Azure infrastructure is an optional implementation.
+
+
 Use this file to investigate reported items and create GitHub issues.
 Do not implement fixes unless separately requested.
 

@@ -1,25 +1,29 @@
 # UAT edge and certificate preparation
 
-CONFIRMED D291 (owner #124, 2 November 2026) approves the proposed nested UAT hostnames, paid edge certificate coverage plus Key Vault origin certificate, and direct Cloudflare HTTPS proxy without Tunnel. This is preparation only: the owner creates the Azure subscription and performs the first deployments. No certificate purchase, DNS change or deployment occurred.
+CONFIRMED **D355** ([owner #124, 10 November 2026](https://github.com/repasscloud/wanderconnect/issues/124#issuecomment-6742633182)) supersedes D291's hostnames and paid edge certificate requirement. Current hosts are `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `auth-uat.swoovr.app`, future `venues-uat.swoovr.app`, `images-upload-uat.swoovr.app` and `images-uat.swoovr.app`. They are single-level names covered by Universal SSL in the normal full `swoovr.app` zone. Verify the actual active certificate before opening traffic; no paid edge certificate purchase is required by this design.
 
-D285 DEFAULT preserves D221: Cloudflare DNS/proxy to HTTPS Azure origins, no Tunnel dependency. This is an operator plan, not configured DNS/TLS. Q90/#124 retains subscription creation and deployment-time owner actions; D291 resolves topology and certificate/billing choice approval. No paid feature is purchased or enabled by these files.
+**UAT application hosting is OPEN**, including Vultr; production remains Azure (owner clarification, 10 November 2026). The Azure steps below are one optional implementation. Application configuration, Keycloak callbacks and Worker hosts do not depend on selecting Azure. No provisioning, certificate purchase or DNS change has occurred.
 
-Two independent certificates are necessary: Cloudflare's browser-facing edge certificate and the Azure origin certificate. In a normal full `swoovr.app` zone, Universal SSL covers `uat.swoovr.app` but not deeper `api.uat.swoovr.app`, `admin.uat.swoovr.app` or `auth.uat.swoovr.app`. Before proxying, the owner must provide edge coverage for all four, using an already approved advanced/custom certificate or an approved Advanced Certificate Manager/Total TLS option. Do not assume a paid option exists or authorise its purchase. DNS-only is a reversible diagnostic/alternative, not the approved proxy topology. Tunnel remains optional owner hosting scope and requires its own connector, origin restriction and certificate acceptance.
+Cloudflare's browser-facing edge certificate and the origin's TLS certificate remain separate. Use Full (strict) to a valid HTTPS origin on the selected host. For Vultr, point the application DNS names at the selected load balancer/reverse proxy, install the origin certificate there using private runtime custody, restrict origin access and configure only the actual trusted proxy networks. Use A/AAAA or CNAME according to the selected origin; do not create Azure `asuid` TXT records for a Vultr origin. No Tunnel is required by the prepared design.
 
-A proxied CNAME does not satisfy Azure Container Apps managed-certificate issuance/renewal requirements. Therefore `infra/uat/edge.bicep` imports an operator-approved origin certificate by a versioned Key Vault secret reference, using a dedicated managed identity with access only to that certificate secret. No private certificate value/password enters Bicep or parameter files. The foundation attaches that identity to the environment; the edge stage returns the certificate resource ID. The owner provides `swoovr-uat-edge-tls` in Key Vault, with SANs for `uat.swoovr.app` and `*.uat.swoovr.app` (or all four exact hosts), a supported exportable PFX/PEM private key and expiry/renewal ownership. Prefer the owner's approved publicly trusted issuer. Validate actual Key Vault/network/certificate import in Azure before binding. Rotation creates a new physical secret version and explicitly reapplies the edge stage/bindings; monitor expiry rather than assuming rotation occurred.
+## Optional Azure origin certificate and DNS path
+
+A proxied CNAME does not satisfy Azure Container Apps managed-certificate issuance/renewal requirements. Therefore `infra/uat/edge.bicep` imports an operator-approved origin certificate by a versioned Key Vault secret reference, using a dedicated managed identity with access only to that certificate secret. No private certificate value/password enters Bicep or parameter files. The foundation attaches that identity to the environment; the edge stage returns the certificate resource ID. The owner provides `swoovr-uat-edge-tls` in Key Vault, with SANs for all four exact application hosts (`uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `auth-uat.swoovr.app`), or an appropriately controlled `*.swoovr.app` certificate, a supported exportable PFX/PEM private key and expiry/renewal ownership. Prefer the owner's approved publicly trusted issuer. Validate actual Key Vault/network/certificate import in Azure before binding. Rotation creates a new physical secret version and explicitly reapplies the edge stage/bindings; monitor expiry rather than assuming rotation occurred.
 
 Create apps initially with `bindPublicHostnames=false`, schedules/invitations off. Their Azure default domains already have platform HTTPS; canonical hostnames are not yet admitted as working tester entry points. Read each app's `properties.customDomainVerificationId` and `properties.configuration.ingress.fqdn`. In Cloudflare dashboard → selected `swoovr.app` zone → DNS → Records, create these records from those actual outputs:
 
 | Type | Name in swoovr.app | Content | Proxy |
 | --- | --- | --- | --- |
 | CNAME | uat | Web generated FQDN | Proxied only after edge certificate coverage is active |
-| CNAME | api.uat | API generated FQDN | Same |
-| CNAME | admin.uat | Admin generated FQDN | Same |
-| CNAME | auth.uat | Keycloak generated FQDN | Same |
+| CNAME | api-uat | API generated FQDN | Same |
+| CNAME | admin-uat | Admin generated FQDN | Same |
+| CNAME | auth-uat | Keycloak generated FQDN | Same |
 | TXT | asuid.uat | Web domain verification ID | DNS only |
-| TXT | asuid.api.uat | API domain verification ID | DNS only |
-| TXT | asuid.admin.uat | Admin domain verification ID | DNS only |
-| TXT | asuid.auth.uat | Keycloak domain verification ID | DNS only |
+| TXT | asuid.api-uat | API domain verification ID | DNS only |
+| TXT | asuid.admin-uat | Admin domain verification ID | DNS only |
+| TXT | asuid.auth-uat | Keycloak domain verification ID | DNS only |
+
+Worker custom domains are `images-upload-uat.swoovr.app` and `images-uat.swoovr.app`; use the separate Worker handoff, with no Azure ownership TXT records. The future venue host is reserved, not a deployed portal.
 
 At SSL/TLS → Overview, use **Full (strict)**. Keep HTTPS redirects and TLS1.2 minimum in the owner-approved zone configuration; inspect existing rules before changing shared-zone defaults. At Caching → Cache Rules create a UAT-hostname-only **Bypass cache** rule for all four hosts, including HTML, `/api`, authentication, SignalR, token safety pages and private media. Do not enable Cache Everything, response/header transformations or challenges that break OAuth callbacks, Didit webhooks or WebSockets. Preserve Set-Cookie/no-store. Existing corporate-site rules must remain unaffected. No personal analytics tag is required by this setup.
 

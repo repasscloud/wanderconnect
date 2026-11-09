@@ -46,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
             time.sleep(1)
         else:raise AssertionError('Owned PostgreSQL did not become ready.')
         imports=folder/'imports';imports.mkdir(mode=0o755)
-        rendered=uat.render('https://admin.uat.swoovr.app','https://venues.uat.swoovr.app','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222')
+        rendered=uat.render('https://admin-uat.swoovr.app','https://venues-uat.swoovr.app','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222')
         for name,value in rendered.items():
             if name!='manifest.json':p=imports/name;p.write_text(value);os.chmod(p,0o644) # Fictional public review config only, no expanded secrets.
         created.append(kc)
@@ -84,7 +84,7 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
             code,clients=request(base,'/admin/realms/swoovr-'+kind+'/clients',token=token);assert code==200;checks+=1
             expected={'members':'swoovr-web','venues':'swoovr-venue-web','staff':'swoovr-admin-web'}[kind]
             selected=[client for client in clients if client['clientId']==expected];assert len(selected)==1;checks+=1
-            origin='https://uat.swoovr.app' if kind=='members' else 'https://admin.uat.swoovr.app' if kind=='staff' else 'https://venues.uat.swoovr.app'
+            origin='https://uat.swoovr.app' if kind=='members' else 'https://admin-uat.swoovr.app' if kind=='staff' else 'https://venues-uat.swoovr.app'
             assert selected[0]['redirectUris']==[origin+'/signin-oidc'];checks+=1
             assert selected[0]['attributes']['post.logout.redirect.uris']==origin+'/signout-callback-oidc';checks+=1
             assert selected[0]['directAccessGrantsEnabled'] is False and selected[0]['serviceAccountsEnabled'] is False;checks+=1

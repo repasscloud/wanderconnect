@@ -1,5 +1,8 @@
 # Ordered question backlog
 
+**Current UAT pointer (10 November 2026):** [D355](D355-UAT-HOSTNAMES-2026-11-10.md) supersedes historical nested hostnames and paid edge certificate assumptions. UAT hosting is OPEN, including Vultr; production remains Azure. Earlier records below preserve their original wording; Azure infrastructure is an optional implementation.
+
+
 No answer is needed to review the phase 0 foundation. Ask these when approaching their blocking phase; do not ask all at once.
 
 From 27 October 2026 (owner) every new question, and every piece of review feedback or follow-up to be factored in later, is also a GitHub issue; its row here carries the Q number and the issue link, and the issue links back here. Answers are recorded in [DECISIONS.md](DECISIONS.md) and on the issue.

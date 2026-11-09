@@ -1,5 +1,8 @@
 # Q90 / issue124 — approved UAT topology, preparation only
 
+**Current UAT pointer (10 November 2026):** [D355](D355-UAT-HOSTNAMES-2026-11-10.md) supersedes historical nested hostnames and paid edge certificate assumptions. UAT hosting is OPEN, including Vultr; production remains Azure. Earlier records below preserve their original wording; Azure infrastructure is an optional implementation.
+
+
 CONFIRMED D291 records the owner's hosting answers. The proposed Australia East Container Apps topology, separate Keycloak PostgreSQL database/login, non-development realms, nested hostnames, paid edge/Key Vault origin configuration without Tunnel, isolated backups and naming are approved. This does not provision an Azure subscription, tenant, database, realm, DNS record, paid edge service, secret or deployment.
 
 Existing `infra/uat` templates remain the code-side preparation. The current change derives the registration admission URL from the API origin and gives its private secret only to API/Keycloak actors. No credentials are committed or installed. All74 compiled infrastructure/security assertions and35 synthetic parameter acceptance/refusal checks passed locally using Bicep0.48.1. Logs are private under `.local/overnight-delivery/infrastructure-final.log`; preflight used public synthetic metadata only.
