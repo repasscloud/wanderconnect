@@ -68,6 +68,9 @@ with tempfile.TemporaryDirectory(prefix='swoovr-infra-') as private:
     # Bicep folds concat into an ARM expression; inspect literal components in the compiled contract.
     wire=json.dumps(services)
     for key in ['Phone__Required','Media__Screening__RequireKnownContentCheck','Retention__Worker','Sms__Provider','Email__Provider']:require(key in wire)
+    require("'https://api-uat.swoovr.app'" in services['variables']['apiEnv'])
+    require("'api-uat.swoovr.app;{0}'" in services['variables']['apiEnv'])
+    require(next(s for s in services['variables']['specs'] if s['actor']=='api')['host']=='api-uat.swoovr.app')
     pipeline=[r for r in records if r['env'].startswith('Media__Pipeline__')]
     require(pipeline==[
         {'name':'media-pipeline-service-token','env':'Media__Pipeline__ServiceToken','actors':['api']},

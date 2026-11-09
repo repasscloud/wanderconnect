@@ -7,6 +7,18 @@ import unittest
 ROOT=Path(__file__).resolve().parents[2]
 
 class ImagePipelineSettings(unittest.TestCase):
+    def test_confirmed_api_host_matches_runtime_binding_and_worker_handoff(self):
+        source=(ROOT/'infra/uat/services.bicep').read_text()
+        api=source.split('var apiEnv =',1)[1].split('var screeningStartup',1)[0]
+        self.assertIn("name: 'Hosting__PublicOrigin', value: 'https://api-uat.swoovr.app'",api)
+        self.assertIn("name: 'AllowedHosts', value: 'api-uat.swoovr.app;${apiHost}'",api)
+        self.assertIn("actor: 'api', host: 'api-uat.swoovr.app'",source)
+        self.assertNotIn('api.uat.swoovr.app',source)
+        handoff=(ROOT/'workers/images/CLOUDFLARE-HANDOFF.md').read_text()
+        for old,new in [('api.uat','api-uat'),('images-upload.uat','images-upload-uat'),('images.uat','images-uat')]:
+            self.assertNotIn(old+'.swoovr.app',handoff)
+            self.assertIn('https://'+new+'.swoovr.app',handoff)
+
     def test_two_runtime_secrets_are_restricted_to_api(self):
         records=json.loads((ROOT/'infra/uat/secret-bindings.json').read_text())
         selected=[r for r in records if r['env'].startswith('Media__Pipeline__')]

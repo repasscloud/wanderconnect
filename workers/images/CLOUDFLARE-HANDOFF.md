@@ -25,7 +25,7 @@ The Worker **code already exists and is tested** in `workers/images/` of this re
 ## 3. How the whole thing works
 
 ```
-Member app ──(1) POST /api/me/photos/uploads──▶ Swoovr API (Azure, api.uat.swoovr.app)
+Member app ──(1) POST /api/me/photos/uploads──▶ Swoovr API (selected host, api-uat.swoovr.app)
     │                                             │ creates job row, signs an upload capability
     │◀──────── uploadUrl + uploadToken ───────────┘
     │
@@ -103,15 +103,15 @@ Use the environment suffix `uat` first. Names below are **DEFAULT** — the owne
 
 Data location — **OPEN (Q171/Q172)**: Australian residency has not been decided. The pinned `wrangler r2 bucket create` accepts `--location` (`weur`, `eeur`, `apac`, `wnam`, `enam`, `oc` — `oc` is Oceania) and `--jurisdiction`. A location hint is only honoured the first time a bucket name is created, and it is a hint, not a residency guarantee. Ask the owner which to use **before** creating buckets.
 
-Hostnames — **DEFAULT, confirm with the owner**: `images-upload.uat.swoovr.app` (Upload Worker) and `images.uat.swoovr.app` (Delivery Worker), attached as Workers **Custom Domains** in the `swoovr.app` zone. Custom Domains create the DNS record and an edge certificate for that exact host. Check `docs/delivery/EDGE-UAT.md`: existing UAT cache rules bypass cache for the four app hosts; make sure no zone rule (Cache Everything, transformations, bot challenges) affects the image hosts. For production, the owner picks the hosts (e.g. under `swoovr.app`) — OPEN.
+Hostnames — **CONFIRMED D355**: `images-upload-uat.swoovr.app` (Upload Worker) and `images-uat.swoovr.app` (Delivery Worker), attached as Workers **Custom Domains** in the `swoovr.app` zone. Custom Domains create the DNS record and an edge certificate for that exact host. Check `docs/delivery/EDGE-UAT.md`: existing UAT cache rules bypass cache for the four app hosts; make sure no zone rule (Cache Everything, transformations, bot challenges) affects the image hosts. For production, the owner picks the hosts (e.g. under `swoovr.app`) — OPEN.
 
 ## 6. Bindings, variables and secrets
 
 | Worker | R2 bindings | Plain vars | Secrets (`wrangler secret put`) |
 | --- | --- | --- | --- |
 | Upload | `QUARANTINE` → quarantine bucket | `ALLOWED_ORIGINS` = exact comma-separated browser origins. UAT DEFAULT: `https://uat.swoovr.app` | `UPLOAD_SIGNING_KEY` |
-| Processing | `QUARANTINE`, `PROCESSED`; queue consumer of jobs queue with DLQ | `API_BASE_URL` = `https://api.uat.swoovr.app`; `PROCESSOR_BASE_URL` = `https://<vultr-lb-hostname>` (from owner); `QUARANTINE_BUCKET_NAME` = exact quarantine bucket name | `API_SERVICE_TOKEN`, `PROCESSOR_API_KEY` |
-| Delivery | `PROCESSED` → processed bucket | `API_BASE_URL` = `https://api.uat.swoovr.app` | `API_SERVICE_TOKEN` |
+| Processing | `QUARANTINE`, `PROCESSED`; queue consumer of jobs queue with DLQ | `API_BASE_URL` = `https://api-uat.swoovr.app`; `PROCESSOR_BASE_URL` = `https://<vultr-lb-hostname>` (from owner); `QUARANTINE_BUCKET_NAME` = exact quarantine bucket name | `API_SERVICE_TOKEN`, `PROCESSOR_API_KEY` |
+| Delivery | `PROCESSED` → processed bucket | `API_BASE_URL` = `https://api-uat.swoovr.app` | `API_SERVICE_TOKEN` |
 
 `ALLOW_LOCAL_HTTP=true` is only for local `wrangler dev` against `http://127.0.0.1`/`localhost`. **Never set it on a deployed Worker.**
 
@@ -119,21 +119,21 @@ Secrets must match values configured elsewhere. Each must be **at least 32 chara
 
 | Secret | Same value must be in | Who sets the other side |
 | --- | --- | --- |
-| `UPLOAD_SIGNING_KEY` (Upload) | API `Media__Pipeline__UploadSigningKey` | Owner, via Azure Key Vault (see `docs/delivery/DEPLOYMENT-UAT.md`) |
-| `API_SERVICE_TOKEN` (Processing **and** Delivery) | API `Media__Pipeline__ServiceToken` | Owner, Azure Key Vault |
+| `UPLOAD_SIGNING_KEY` (Upload) | API `Media__Pipeline__UploadSigningKey` | Owner, private API runtime secret (Key Vault only for the optional Azure path) |
+| `API_SERVICE_TOKEN` (Processing **and** Delivery) | API `Media__Pipeline__ServiceToken` | Owner, private API runtime secret |
 | `PROCESSOR_API_KEY` (Processing) | Processor `API_KEY` on **both** VMs | Owner, VM env files |
 
 `PROCESSOR_API_KEY` is the processor's inbound key, **not** a Shield/Arachnid credential.
 
 Recommended handling: the owner generates each value once (e.g. `openssl rand -base64 48` in their own terminal, or their password manager), stores it in the password manager, and pastes it into the hidden `wrangler secret put` prompt and the matching Key Vault/VM setting. If you generate a value, do it so it's never shown in the transcript, and hand it to the owner through their password manager, not chat. The local worksheet from `python3 scripts/image_pipeline_operator.py init --directory .local/image-pipeline/operator` (`workers.env`) lists these names; `check` confirms they line up. It never uploads anything.
 
-The API must also be running with (owner sets these in Azure, not you):
+The API must also be running with (owner sets these on the selected API host, not you):
 
 ```text
 Media__Pipeline__Enabled=true
 Media__Pipeline__ServiceToken=<API_SERVICE_TOKEN>
 Media__Pipeline__UploadSigningKey=<UPLOAD_SIGNING_KEY>
-Media__Pipeline__UploadOrigin=https://images-upload.uat.swoovr.app
+Media__Pipeline__UploadOrigin=https://images-upload-uat.swoovr.app
 Media__Pipeline__AcceptedPolicyVersion=swoovr-images-2026-11-08-v1
 ```
 
@@ -153,7 +153,7 @@ Never edit the committed templates with real values. Make private copies in the 
   "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true, "traces": { "enabled": true }, "logs": { "enabled": true, "invocation_logs": false } },
-  "routes": [{ "pattern": "images-upload.uat.swoovr.app", "custom_domain": true }],
+  "routes": [{ "pattern": "images-upload-uat.swoovr.app", "custom_domain": true }],
   "r2_buckets": [{ "binding": "QUARANTINE", "bucket_name": "swoovr-images-quarantine-uat" }],
   "vars": { "ALLOWED_ORIGINS": "https://uat.swoovr.app" }
 }
@@ -180,7 +180,7 @@ Never edit the committed templates with real values. Make private copies in the 
     "dead_letter_queue": "swoovr-images-dlq-uat"
   }] },
   "vars": {
-    "API_BASE_URL": "https://api.uat.swoovr.app",
+    "API_BASE_URL": "https://api-uat.swoovr.app",
     "PROCESSOR_BASE_URL": "https://<vultr-lb-hostname-from-owner>",
     "QUARANTINE_BUCKET_NAME": "swoovr-images-quarantine-uat"
   }
@@ -197,9 +197,9 @@ Never edit the committed templates with real values. Make private copies in the 
   "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true, "traces": { "enabled": true }, "logs": { "enabled": true, "invocation_logs": false } },
-  "routes": [{ "pattern": "images.uat.swoovr.app", "custom_domain": true }],
+  "routes": [{ "pattern": "images-uat.swoovr.app", "custom_domain": true }],
   "r2_buckets": [{ "binding": "PROCESSED", "bucket_name": "swoovr-images-processed-uat" }],
-  "vars": { "API_BASE_URL": "https://api.uat.swoovr.app" }
+  "vars": { "API_BASE_URL": "https://api-uat.swoovr.app" }
 }
 ```
 
@@ -276,10 +276,10 @@ npx wrangler r2 bucket notification list swoovr-images-quarantine-uat
 
 Use only **safe synthetic images** (e.g. a generated solid-colour PNG). Never real member photos, never anything illegal, never "test" CSAM. Shield acceptance testing is a separate owner-run process with an authorised harmless fixture.
 
-1. **Hostnames up:** `curl -i -X OPTIONS https://images-upload.uat.swoovr.app/uploads -H 'Origin: https://uat.swoovr.app'` → `204` with `Access-Control-Allow-Origin: https://uat.swoovr.app`. A different origin → `403 origin-not-allowed`. `curl -i https://images.uat.swoovr.app/images/<any-uuid>/display` (no auth) → `403 access-denied`.
-2. **API readiness** (owner or you with the service token, never echoed): `GET https://api.uat.swoovr.app/api/media/pipeline/readiness` with the Bearer service token → `200 {"ready":true,"mode":"staging-only","deliverable":false,…}`.
+1. **Hostnames up:** `curl -i -X OPTIONS https://images-upload-uat.swoovr.app/uploads -H 'Origin: https://uat.swoovr.app'` → `204` with `Access-Control-Allow-Origin: https://uat.swoovr.app`. A different origin → `403 origin-not-allowed`. `curl -i https://images-uat.swoovr.app/images/<any-uuid>/display` (no auth) → `403 access-denied`.
+2. **API readiness** (owner or you with the service token, never echoed): `GET https://api-uat.swoovr.app/api/media/pipeline/readiness` with the Bearer service token → `200 {"ready":true,"mode":"staging-only","deliverable":false,…}`.
 3. **Full path** with a UAT test member account the owner provides:
-   - `POST https://api.uat.swoovr.app/api/me/photos/uploads` body `{"purpose":"profile"}` (member auth + `Swoovr-Version` header as the app sends it) → `uploadUrl`, `uploadToken`.
+   - `POST https://api-uat.swoovr.app/api/me/photos/uploads` body `{"purpose":"profile"}` (member auth + `Swoovr-Version` header as the app sends it) → `uploadUrl`, `uploadToken`.
    - `PUT <uploadUrl>` with `Authorization: Bearer <uploadToken>`, `Content-Type: image/png`, the PNG body → `201 {"status":"pending"}`.
    - Watch `npx wrangler tail swoovr-images-processing-uat` (content-free logs) and the queue dashboard.
    - Poll `GET /api/me/photos/uploads/{imageId}` → should move from `pending` to `pending-review` (staged). Members never see `passed`/`blocked` detail; that's intentional.
@@ -309,7 +309,7 @@ Record what passed, what you couldn't test, and the deployed Worker version IDs 
 ## 11. Out of scope for you
 
 - Building or running the Vultr VMs, load balancer or processor (owner, separate repo).
-- Azure API settings, Key Vault and database migrations (owner).
+- API settings, private runtime secrets and database migrations on the selected host (owner).
 - Any client/app change to use the new upload path, member-visible delivery, review/appeal adapters, evidence custody, raw retention rules, or production cutover. These are the release gates listed in `docs/delivery/VULTR-IMAGE-PIPELINE.md` and stay open on #294.
 - Production resources, until the owner explicitly asks. When they do, repeat §5–§9 with `-prod` names, production hostnames and **new** secret values.
 
