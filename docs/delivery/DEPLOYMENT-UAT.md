@@ -30,6 +30,8 @@ Foundation prepares private database/vault/backup networking, Container Apps env
 
 ## Images, private inputs and database
 
+**Current owner direction (10 November 2026): UAT hosting is OPEN; Vultr is an option. Production remains Azure. The Azure commands below are an optional deployment implementation, not a prerequisite for hosting UAT.** Container images, runtime environment variables, PostgreSQL migrations and Keycloak configuration apply independently of the selected host. See [portable image staging settings](UAT-IMAGE-STAGING-2026-11-10.md) for the API settings and migration required by #261. Historical D291 topology approval below does not fix the current UAT provider.
+
 After approval, derive `UAT_REGISTRY` from foundation's registryServer. Build and push the reviewed six linux/amd64 artifacts; registry publication is separate from deployment approval if the owner scopes it separately.
 
 ```sh
@@ -74,6 +76,8 @@ az containerapp job start --name swoovr-uat-migrate --resource-group "$UAT_RG"
 # Wait for Succeeded, then seed public places (required for real profile cities/discovery).
 az containerapp job start --name swoovr-uat-places-import --resource-group "$UAT_RG"
 ```
+
+The reviewed API image must include migration **`20261108133228_ImageProcessingStaging`**. The existing migration job applies it together with all pending migrations; do not create a second schema or run concurrent migrators. See the [portable migration sequence and postconditions](UAT-IMAGE-STAGING-2026-11-10.md#migration-and-acceptance). On Vultr, run the same reviewed API image with the `migrate` argument as a one-shot operation using the migration database identity, before starting the API.
 
 Wait for each job's terminal success before the dependent next command. `places-import` downloads only the three fixed HTTPS GeoNames public datasets, prints public input SHA256 values, extracts one bounded file privately and invokes the existing importer under the migration identity. Record provenance/counts/CC BY4.0 attribution. No fictional sample seed is a live global place catalogue. If a public download or import fails, it fails explicitly; no placeholder city fallback.
 

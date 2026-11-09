@@ -74,6 +74,11 @@ var apiEnv = concat(common,[
   { name: 'MemberAdmin__ContactRetirementEnabled', value: 'true' }
   { name: 'Phone__Required', value: 'true' }
   { name: 'Retention__Worker', value: 'true' }
+  // Owner #261: opt-in staging records only; these settings do not enable member delivery.
+  // Both credentials arrive through API-only Key Vault secretBindings, never literal values.
+  { name: 'Media__Pipeline__Enabled', value: 'true' }
+  { name: 'Media__Pipeline__UploadOrigin', value: 'https://images-upload-uat.swoovr.app' }
+  { name: 'Media__Pipeline__AcceptedPolicyVersion', value: 'swoovr-images-2026-11-08-v1' }
   { name: 'Media__Screening__Worker', value: 'true' }
   { name: 'Media__Screening__RequireKnownContentCheck', value: 'true' }
   { name: 'Media__Store', value: 'r2' }
