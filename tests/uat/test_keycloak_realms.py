@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('uat_realms', ROOT / 'scripts/uat/keycloak_realms.py')
 uat = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(uat)
-ARGS = ('https://admin.uat.swoovr.app', 'https://venues.uat.swoovr.app',
+ARGS = ('https://admin-uat.swoovr.app', 'https://venues-uat.swoovr.app',
         '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222')
 
 
@@ -103,11 +103,11 @@ class RealmPreparationChecks(unittest.TestCase):
         self.assertNotIn('auth-username-password-form', json.dumps(staff['authenticationFlows']))
 
     def test_reject_invalid_hosted_inputs(self):
-        for origin in ['http://admin.uat.swoovr.app', 'https://localhost', 'https://admin.swoovr.app',
-                       'https://admin.uat.swoovr.app/', 'https://admin.uat.swoovr.app:443',
-                       'https://x@admin.uat.swoovr.app', 'https://*.uat.swoovr.app',
-                       'https://admin.uat.swoovr.app?x=1', 'https://admin.uat.swoovr.app#x',
-                       'https://evil.test', 'https://-bad.uat.swoovr.app']:
+        for origin in ['http://admin-uat.swoovr.app', 'https://localhost', 'https://admin.swoovr.app',
+                       'https://admin-uat.swoovr.app/', 'https://admin-uat.swoovr.app:443',
+                       'https://x@admin-uat.swoovr.app', 'https://*.uat.swoovr.app',
+                       'https://admin-uat.swoovr.app?x=1', 'https://admin-uat.swoovr.app#x',
+                       'https://evil.test', 'https://-bad-uat.swoovr.app', 'https://nested.admin-uat.swoovr.app']:
             with self.subTest(origin=origin), self.assertRaises(ValueError):
                 uat.render(origin, *ARGS[1:])
         for tenant in ('common', 'organizations', '', '00000000-0000-0000-0000-000000000000'):

@@ -1,5 +1,8 @@
 # Owner questions — 2 November 2026
 
+**Current UAT pointer (10 November 2026):** [D355](D355-UAT-HOSTNAMES-2026-11-10.md) supersedes historical nested hostnames and paid edge certificate assumptions. UAT hosting is OPEN, including Vultr; production remains Azure. Earlier records below preserve their original wording; Azure infrastructure is an optional implementation.
+
+
 Questions for every open issue that needs something from the owner, written after the full issue relabel on 2 November 2026. Each question has an id (`124.1` = issue #124, question 1), options where they make sense, and a **Suggested** answer: the builder's recommendation, not a decision. Nothing in this file is CONFIRMED until the owner answers on the issue.
 
 ## How to answer

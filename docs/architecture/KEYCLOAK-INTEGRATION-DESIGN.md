@@ -1,5 +1,8 @@
 # Keycloak application integration design
 
+**Current owner direction, 10 November 2026 (D355):** UAT uses the confirmed single-level hosts in [the D355 record](../delivery/D355-UAT-HOSTNAMES-2026-11-10.md). UAT application hosting is OPEN, including Vultr; production remains Azure. Azure-specific instructions are an optional deployment path. No live hosting or DNS is implied.
+
+
 7 November 2026 clarification: the confirmed mandatory staff MFA requirements in #196/#206/#193 supersede older optional-staff wording below. Member MFA remains optional unless explicitly imposed through authorised staff controls. See [MFA management](../delivery/MFA-MANAGEMENT.md) for implementation and acceptance limits.
 
 22 October 2026. Status: APPROVED by the owner on 22 October 2026. Owner answers in this document are CONFIRMED and recorded as D31–D41 in [decisions](../delivery/DECISIONS.md). Everything marked DEFAULT is a reversible implementation call made by the builder (Claude) and may be changed without an owner decision. Anything marked VERIFY is an unproven assumption about Keycloak 26.8.1 or a third-party service; it must be checked against the pinned version before code depends on it. This document supersedes conflicting parts of [authentication](AUTHENTICATION.md) and [Keycloak development](KEYCLOAK-DEVELOPMENT.md) where noted; those remain the record of earlier investigation evidence.
@@ -155,7 +158,7 @@ Suggested status values (DEFAULT): `declared`, `dob_under_18_locked`, `flagged_n
 - **Web (members, venues, staff):** `Swoovr.Web` signs in as a confidential client per realm with authorization code + PKCE and keeps tokens server-side; the browser holds only an HttpOnly, Secure, SameSite cookie. Mutations keep antiforgery protection. Each audience is served on its own host so cookies never overlap (DEFAULT: `swoovr.app` members, `venues.swoovr.app`, `admin.swoovr.app`, all from the same `Swoovr.Web` deployment; no new project). Q03 (render mode) stays open and does not block this.
 - **Mobile (members only):** public client, PKCE, system browser, tokens in Keychain/Keystore, refresh-token rotation. No client secret in the app.
 - **API:** validates JWTs per realm (issuer, audience, signature from that realm's JWKS with key-rotation handling, expiry), maps `(issuer, subject)` to the application account and applies `AccountAccessPolicy`. Three realms mean three trusted issuers, each accepted only on its own API routes.
-- **Hosts:** Keycloak at `auth.swoovr.app` in production and `auth.uat.swoovr.app` in UAT (DEFAULT). UAT moves to separate Azure billing later; nothing here depends on sharing infrastructure with production.
+- **Hosts:** Keycloak at `auth.swoovr.app` in production and `auth-uat.swoovr.app` in UAT (CONFIRMED D355). UAT provider is OPEN, including Vultr; production remains Azure. Nothing here requires UAT to share infrastructure or provider with production.
 
 ## Email
 

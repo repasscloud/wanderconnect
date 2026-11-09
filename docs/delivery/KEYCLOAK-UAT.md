@@ -1,6 +1,6 @@
 # Disabled Keycloak UAT realm preparation
 
-31 October 2026. **DEFAULT preparation under D31–D39/D221**. Q90 / [issue 124](https://github.com/repasscloud/wanderconnect/issues/124) remains OPEN (latest read: no comments); there is no hosting approval, provider registration or deployed integration. `scripts/uat/keycloak_realms.py` produces deterministic review files, with all three realms **disabled**. It does not contact Keycloak or enable a sign-in path.
+Updated 10 November 2026 under CONFIRMED D355. [Owner #124](https://github.com/repasscloud/wanderconnect/issues/124#issuecomment-6742633182) confirms the single-level hostnames. UAT provider is OPEN, including Vultr; production remains Azure. Realm generation works independently of hosting. No provider registration or deployed integration is claimed. `scripts/uat/keycloak_realms.py` produces deterministic review files, with all three realms **disabled**; it does not contact Keycloak or enable sign-in.
 
 ## Generate for review
 
@@ -9,14 +9,14 @@ The operator must supply actual nonsecret Entra tenant and application UUIDs, ex
 ```sh
 cd /Users/danijeljw/Developer/wanderconnect-brief/.claude/worktrees/phase-zero-uat
 python3 scripts/uat/keycloak_realms.py \
-  --admin-origin https://admin.uat.swoovr.app \
-  --venue-origin https://venues.uat.swoovr.app \
+  --admin-origin https://admin-uat.swoovr.app \
+  --venue-origin https://venues-uat.swoovr.app \
   --entra-tenant-id "$SWOOVR_UAT_ENTRA_TENANT_ID" \
   --entra-client-id "$SWOOVR_UAT_ENTRA_CLIENT_ID" \
   --output /absolute/private/operator-directory/new-swoovr-uat-review
 ```
 
-The two portal hostnames in this example are **DEFAULT proposals**, not provisioned DNS or owner-confirmed origins. Only exact distinct HTTPS subdomains of `uat.swoovr.app` are accepted; ports, wildcard redirects, query strings and paths are refused. The member origin `https://uat.swoovr.app` and passkey RP ID `uat.swoovr.app` follow D39; authentication host `https://auth.uat.swoovr.app` follows the integration design's DEFAULT. Venue callbacks use a proposed separate origin and root callback paths because no hosted venue portal exists; review that choice with the actual future host before enabling it.
+The example portal hostnames are **CONFIRMED D355**. Only exact, distinct, single-level HTTPS `*-uat.swoovr.app` origins are accepted; ports, wildcards, query strings and paths are refused. The member origin and passkey RP remain `https://uat.swoovr.app` / `uat.swoovr.app`. Authentication is `https://auth-uat.swoovr.app`. The future venue host is reserved; no deployed venue portal is implied. The local-only Zammad client is excluded from hosted realm output, so its localhost callback cannot leak into UAT.
 
 Generated files are `swoovr-members.json`, `swoovr-venues.json`, `swoovr-staff.json` and `manifest.json`. The manifest includes artifact hashes, selected origins, broker callback, required runtime environment names and activation gates. No user, credential, signing key, tenant token, export of live state or expanded client secret is included. The current canonical development JSON is read as baseline public configuration; it is not executed or rewritten. A baseline containing users, IdPs or additional component types is refused rather than silently promoted.
 
@@ -24,7 +24,7 @@ Generated files are `swoovr-members.json`, `swoovr-venues.json`, `swoovr-staff.j
 
 Names drop `-dev` per D31. Baseline user-profile fields, Standard Swoovr theme (image-only HTTPS UAT privacy/terms/community links and v0.1.0-uat channel), verified-email requirement, temporary three-failure/15-minute lockout, session limits and code+PKCE client settings are retained. The member, venue and staff web clients have exactly one `/signin-oidc` redirect and one `/signout-callback-oidc` logout redirect on their own selected origins. No password grant, token exchange, implicit flow or sign-in-client service account is enabled. The member-only mobile client retains D93's existing private-use redirect `com.swoovr.app:/oauth2redirect` and `com.swoovr.app:/signedout`; verified universal/app links remain separate.
 
-Members have passkeys enabled at RP `uat.swoovr.app`, with required resident credentials/user verification as in the canonical baseline. A child authentication host may use its parent RP domain, but actual browser origin/passkey behavior still needs isolated acceptance. Explicit custom registration flows include the required 18+ terms action; explicit password/optional-OTP flows carry the same 12-hour AMR configuration as the existing local provisioner. Venue registration stays disabled, with no consumer-social provider or passkey. Apple/Google and email-link extensions are not invented; no configured broker, external account or email-link capability is claimed for members.
+Members have passkeys enabled at RP `uat.swoovr.app`, with required resident credentials/user verification as in the canonical baseline. The sibling authentication host requires WebAuthn related-origin support. The member Web app serves `https://uat.swoovr.app/.well-known/webauthn` with only `https://auth-uat.swoovr.app` in `origins`, enabled only by the exact UAT member origin and member-realm authority configuration. This does not broaden the RP to `swoovr.app` or add OAuth CORS origins. Verify this URL is public JSON without redirects/challenges and test registration, sign-in and existing credentials in every supported browser/native flow before admission. Browsers without related-origin support cannot be assumed to support this topology; retain the existing direct sign-in method. See [related-origin requirements](https://web.dev/articles/webauthn-related-origin-requests). Explicit custom registration flows include the required 18+ terms action; explicit password/optional-OTP flows carry the same 12-hour AMR configuration as the existing local provisioner. Venue registration stays disabled, with no consumer-social provider or passkey. Apple/Google and email-link extensions are not invented; no configured broker, external account or email-link capability is claimed for members.
 
 Staff's only prepared browser execution is the configured Entra redirector. There is no cookie shortcut, password form, passkey or consumer-social branch. Registration, reset credentials and direct-grant flow bindings point to an explicit deny flow; sign-in clients also refuse direct grants. Its first-broker flow creates only a unique identity; it has no email-based automatic account linking or fallback local-account authentication. The broker alias is `entra`; the API must explicitly receive `Keycloak:StaffSsoAlias=entra` (runtime environment `Keycloak__StaffSsoAlias`) after host configuration is reviewed. Application invitations, verified email, current application roles, session evidence and freshness remain API decisions.
 
@@ -44,7 +44,7 @@ These are placeholder names, not created secrets/bindings. An approved deploymen
 Tenant/client UUIDs appear as nonsecret literal metadata in the generated broker configuration. The broker uses tenant-specific v2.0 issuer/authorization/token/JWKS URLs, signature validation, no stored broker tokens and no UserInfo call. The tenant must have a reviewed single-tenant Entra app registration; register this broker callback exactly:
 
 ```text
-https://auth.uat.swoovr.app/realms/swoovr-staff/broker/entra/endpoint
+https://auth-uat.swoovr.app/realms/swoovr-staff/broker/entra/endpoint
 ```
 
 No `common`/`organizations` issuer is accepted. A tenant-specific issuer alone does not prove employee status: directory guests may also exist. Entra assignment, approved employee membership, Conditional Access/MFA/device policy and API invitation/subject binding require real operator configuration and negative tests. No employee account type is inferred from its email.

@@ -16,7 +16,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 MEMBERS = 'https://uat.swoovr.app'
-AUTH = 'https://auth.uat.swoovr.app'
+AUTH = 'https://auth-uat.swoovr.app'
 RP = 'uat.swoovr.app'
 ENTRA_ALIAS = 'entra'
 
@@ -27,10 +27,10 @@ def hosted_origin(value):
     labels = host.split('.')
     if (parsed.scheme != 'https' or parsed.username or parsed.password or parsed.port is not None
             or parsed.path or parsed.query or parsed.fragment or '*' in value
-            or not host.endswith('.uat.swoovr.app') or host != host.lower()
+            or len(labels) != 3 or labels[1:] != ['swoovr', 'app'] or not labels[0].endswith('-uat') or host != host.lower()
             or not all(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) for label in labels)
             or value != 'https://' + host):
-        raise ValueError('Portal origins must be exact HTTPS subdomains of uat.swoovr.app without ports, paths or wildcards.')
+        raise ValueError('Portal origins must be exact single-level HTTPS *-uat hosts under swoovr.app without ports, paths or wildcards.')
     return value
 
 
@@ -148,6 +148,9 @@ def render(admin_origin, venue_origin, tenant_id, client_id):
         value.update(realm=name, enabled=False, sslRequired='all', smtpServer={}, users=[], identityProviders=[])
         value['attributes'] = {'swoovr.environment': 'uat-preparation-disabled',
                                'swoovr.registrationTerms': 'REQUIRED' if kind == 'members' else 'DISABLED'}
+        # The local Zammad client is not a UAT portal; never export its localhost callback.
+        hosted_clients = {'members': {'swoovr-web', 'swoovr-mobile'}, 'venues': {'swoovr-venue-web'}, 'staff': {'swoovr-admin-web'}}
+        value['clients'] = [item for item in value['clients'] if item['clientId'] in hosted_clients[kind]]
         for item in value['clients']:
             item['name'] = 'Swoovr UAT ' + item['clientId']
             if item['publicClient']:

@@ -37,6 +37,7 @@ builder.Services.AddHttpClient<Swoovr.Client.PrototypeConversationClient>(http =
 var app = builder.Build();
 HostRuntime.Use(app,HostKind.Web);
 HostRuntime.MapPortalHealth(app);
+WebAuthnRelatedOrigins.Map(app);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

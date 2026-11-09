@@ -1,6 +1,9 @@
 # Native UAT build configuration
 
-D280 DEFAULT selects nonsecret endpoints at build time. Debug defaults to Development; Release defaults to Uat. UAT uses `https://api.uat.swoovr.app/` and `https://auth.uat.swoovr.app/realms/swoovr-members`, public client `swoovr-mobile`, and existing `com.swoovr.app:/oauth2redirect` / `com.swoovr.app:/signedout` callbacks. The label is **Swoovr UAT**. These domains follow D221’s reversible hosting default; deployment, DNS and store/signing registration are separate operator work.
+**Current owner direction, 10 November 2026 (D355):** UAT uses the confirmed single-level hosts in [the D355 record](D355-UAT-HOSTNAMES-2026-11-10.md). UAT application hosting is OPEN, including Vultr; production remains Azure. Azure-specific instructions are an optional deployment path. No live hosting or DNS is implied.
+
+
+D280 DEFAULT selects nonsecret endpoints at build time. Debug defaults to Development; Release defaults to Uat. UAT uses `https://api-uat.swoovr.app/` and `https://auth-uat.swoovr.app/realms/swoovr-members`, public client `swoovr-mobile`, and existing `com.swoovr.app:/oauth2redirect` / `com.swoovr.app:/signedout` callbacks. The label is **Swoovr UAT**. These domains are CONFIRMED D355 independently of UAT provider; deployment, DNS and store/signing registration are separate operator work.
 
 Development endpoints require Debug. An explicit `SwoovrOwnedApiTest=true` additionally selects loopback5400 for the disposable emulator fixture, and is refused for UAT/Release. UAT disables Android cleartext, local iOS ATS exceptions, Debug logging and simulated push token generation. A provider-disabled UAT build says push is not enabled; old simulated tokens cannot be registered. Enabling FCM requires an external GoogleServicesJson file for any UAT build. UAT Release APNs requires production entitlements; provider credentials and physical device delivery remain unverified.
 

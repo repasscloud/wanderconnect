@@ -1,5 +1,8 @@
 # Finite UAT preparation plan
 
+**Current UAT pointer (10 November 2026):** [D355](D355-UAT-HOSTNAMES-2026-11-10.md) supersedes historical nested hostnames and paid edge certificate assumptions. UAT hosting is OPEN, including Vultr; production remains Azure. Earlier records below preserve their original wording; Azure infrastructure is an optional implementation.
+
+
 Update, 2 November 2026: CONFIRMED D291 resolves the hosting proposal for preparation, and D288/D290 approve the operative legal readers. Owner subscription creation/deployment, security/store review before unrestricted beta (D303), operational actions (D304), and actual provider/device/hosted acceptance remain. The separate overnight issue queue is authorised in OVERNIGHT-IMPLEMENTATION-PLAN-2026-11-02.md.
 
 Original takeover Phase8 only. D221 topology is now CONFIRMED by D291; remaining engineering defaults and external owner prerequisites remain explicit. No provisioning, deployment, merge or Actions activation. Stop after the software and reviewable operator handoff are complete; external credentials, subscription/billing, legal approval and physical provider evidence remain owner gates.

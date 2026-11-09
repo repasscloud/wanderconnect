@@ -1,5 +1,8 @@
 # UAT infrastructure preparation
 
+**Current UAT pointer (10 November 2026):** [D355](D355-UAT-HOSTNAMES-2026-11-10.md) supersedes historical nested hostnames and paid edge certificate assumptions. UAT hosting is OPEN, including Vultr; production remains Azure. Earlier records below preserve their original wording; Azure infrastructure is an optional implementation.
+
+
 CONFIRMED D291 (owner #124, 2 November 2026) approves Australia East, Container Apps, separate application/Keycloak databases and logins, the proposed resource names/tags and backup schedule. Earlier references to an unanswered hosting proposal below are historical. Subscription creation and initial deployment remain with the owner; these files do not provision resources by themselves.
 
 D283 implements the Australia East topology now CONFIRMED by D291/Q90 (#124). These Bicep files have been compiled locally, not provisioned, Azure-validated or cost-approved. The owner creates/selects the subscription. No Actions are enabled.
