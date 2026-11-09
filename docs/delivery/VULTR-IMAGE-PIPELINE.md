@@ -50,6 +50,8 @@ Do not assume a shared load balancer terminates backend encryption or authentica
 
 ## Cloudflare resource and Worker preparation
 
+For a separate Cloudflare setup session, use the step-by-step [Cloudflare image Workers handoff](../../workers/images/CLOUDFLARE-HANDOFF.md).
+
 Source and test commands are in `workers/images/`. Pin the package lock and use `npm ci`; use local Wrangler dry runs before remote deployment. Follow the exact generated/configuration templates there rather than deploying placeholder resource names.
 
 Resources to prepare, separately per environment:

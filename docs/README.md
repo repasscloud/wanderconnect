@@ -24,6 +24,8 @@ Updated 22 October 2026. Start with [current delivery status](delivery/STATUS.md
 
 - [Vultr VM and Cloudflare operator runbook](delivery/VULTR-IMAGE-PIPELINE.md): independent processor setup, private input checks, secrets, rolling maintenance and cutover gates.
 
+- [Cloudflare image Workers handoff](../workers/images/CLOUDFLARE-HANDOFF.md): self-contained instructions for a separate session to create the UAT R2 buckets, Queues, event notification, private Wrangler configs, secrets and Worker custom domains, then verify the staging-only path.
+
 ## Standalone messaging specification
 
 - [Optional unanswered-message limit](product/UNANSWERED-MESSAGE-LIMIT.md), tracked in [#300](https://github.com/repasscloud/wanderconnect/issues/300).
