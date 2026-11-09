@@ -110,6 +110,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<ProfileVersion> ProfileVersions => Set<ProfileVersion>();
     public DbSet<MediaEscalationDelivery> MediaEscalationDeliveries => Set<MediaEscalationDelivery>();
     public DbSet<MediaItem> MediaItems => Set<MediaItem>();
+    public DbSet<ImageProcessingJob> ImageProcessingJobs => Set<ImageProcessingJob>();
+    public DbSet<ImageProcessingReceipt> ImageProcessingReceipts => Set<ImageProcessingReceipt>();
     public DbSet<MediaPlacement> MediaPlacements => Set<MediaPlacement>();
     public DbSet<MediaReviewView> MediaReviewViews => Set<MediaReviewView>();
     public DbSet<PhotoAlbum> PhotoAlbums => Set<PhotoAlbum>();
@@ -1186,6 +1188,30 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
             audit.HasIndex(a => new { a.ActorAccountId, a.Action, a.At });
         });
 
+        model.Entity<ImageProcessingJob>(job =>
+        {
+            job.Property(j=>j.SourceKey).HasMaxLength(128);
+            job.Property(j=>j.SourceEtag).HasMaxLength(128);
+            job.Property(j=>j.SourceSha256).HasMaxLength(64);
+            job.Property(j=>j.Purpose).HasMaxLength(16);
+            job.Property(j=>j.State).HasMaxLength(32);
+            job.Property(j=>j.PolicyVersion).HasMaxLength(80);
+            job.Property(j=>j.Outcome).HasMaxLength(24);
+            job.Property(j=>j.Reason).HasMaxLength(80);
+            job.Property(j=>j.VariantsJson).HasMaxLength(8192);
+            job.Property(j=>j.ResultsJson).HasMaxLength(32768);
+            job.HasIndex(j=>j.ImageId).IsUnique();
+            job.HasIndex(j=>j.UploadId).IsUnique();
+            job.HasIndex(j=>j.SourceKey).IsUnique();
+            job.HasIndex(j=>new{j.AccountId,j.CreatedAt});
+            job.HasIndex(j=>new{j.State,j.CreatedAt});
+        });
+        model.Entity<ImageProcessingReceipt>(receipt =>
+        {
+            receipt.HasKey(r=>r.EventId);
+            receipt.Property(r=>r.PayloadDigest).HasMaxLength(64);
+            receipt.HasIndex(r=>r.JobId);
+        });
         model.AddPhotoReviewWorkflows();
         model.AddTicketing();
         foreach (var entity in model.Model.GetEntityTypes())

@@ -1,0 +1,7 @@
+# EXAMPLES ONLY: copy to .dev.vars (ignored), choose local private values >=32 chars.
+# upload Worker only; same UTF8 value as API Media:Pipeline:UploadSigningKey
+UPLOAD_SIGNING_KEY=replace-with-private-upload-signing-key
+# processing/delivery only; same as API Media:Pipeline:ServiceToken
+API_SERVICE_TOKEN=replace-with-private-api-service-token
+# processing only; same as processor runtime API_KEY, never Shield credentials
+PROCESSOR_API_KEY=replace-with-private-processor-inbound-key

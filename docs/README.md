@@ -22,6 +22,8 @@ Updated 22 October 2026. Start with [current delivery status](delivery/STATUS.md
 
 - [Vultr image processing, Cloudflare orchestration and migration requirements](superpowers/specs/2026-11-08-vultr-image-pipeline-design.md), tracked in [#294](https://github.com/repasscloud/wanderconnect/issues/294): independent processor/ClamAV builds, Worker rules, R2/Queue contracts, review/appeals, Arachnid credentials and cutover. Design only; not implemented/deployed.
 
+- [Vultr VM and Cloudflare operator runbook](delivery/VULTR-IMAGE-PIPELINE.md): independent processor setup, private input checks, secrets, rolling maintenance and cutover gates.
+
 ## Standalone messaging specification
 
 - [Optional unanswered-message limit](product/UNANSWERED-MESSAGE-LIMIT.md), tracked in [#300](https://github.com/repasscloud/wanderconnect/issues/300).

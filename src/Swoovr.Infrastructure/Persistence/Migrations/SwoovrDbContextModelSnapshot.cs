@@ -2807,6 +2807,165 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                     b.ToTable("identity_accesses", "restricted");
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ImageProcessingJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<DateTimeOffset?>("ClaimedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claimed_at");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid?>("CompletedEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_event_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("ImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("image_id");
+
+                    b.Property<long>("LifecycleRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lifecycle_revision");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ResultsJson")
+                        .HasMaxLength(32768)
+                        .HasColumnType("character varying(32768)")
+                        .HasColumnName("results_json");
+
+                    b.Property<string>("SourceEtag")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("source_etag");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("source_key");
+
+                    b.Property<string>("SourceSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source_sha256");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UploadExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("upload_expires_at");
+
+                    b.Property<Guid>("UploadId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("upload_id");
+
+                    b.Property<DateTimeOffset?>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<string>("VariantsJson")
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("variants_json");
+
+                    b.HasKey("Id")
+                        .HasName("pk_image_processing_jobs");
+
+                    b.HasIndex("ImageId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_image_processing_jobs_image_id");
+
+                    b.HasIndex("SourceKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_image_processing_jobs_source_key");
+
+                    b.HasIndex("UploadId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_image_processing_jobs_upload_id");
+
+                    b.HasIndex("AccountId", "CreatedAt")
+                        .HasDatabaseName("ix_image_processing_jobs_account_id_created_at");
+
+                    b.HasIndex("State", "CreatedAt")
+                        .HasDatabaseName("ix_image_processing_jobs_state_created_at");
+
+                    b.ToTable("image_processing_jobs");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ImageProcessingReceipt", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset>("CommittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("committed_at");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("PayloadDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("payload_digest");
+
+                    b.HasKey("EventId")
+                        .HasName("pk_image_processing_receipts");
+
+                    b.HasIndex("JobId")
+                        .HasDatabaseName("ix_image_processing_receipts_job_id");
+
+                    b.ToTable("image_processing_receipts");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.Invitation", b =>
                 {
                     b.Property<Guid>("Id")

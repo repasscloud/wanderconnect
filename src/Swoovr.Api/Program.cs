@@ -33,6 +33,7 @@ builder.Services.AddScoped<Founders>();
 builder.Services.AddSwoovrProviders(builder.Configuration);
 // D201, D203: photo storage (R2), screening (image-moderation-api) and the quarantine pipeline.
 Swoovr.Api.Media.MediaSetup.AddSwoovrMedia(builder.Services, builder.Configuration, builder.Environment, persistence);
+Swoovr.Api.Media.ImagePipelineEndpoints.Add(builder.Services,builder.Configuration,builder.Environment,persistence);
 // D336 (#221): malware scanning (ClamAV) and quarantine for support attachments.
 Swoovr.Api.Ticketing.AttachmentScanningSetup.AddSwoovrAttachmentScanning(builder.Services, builder.Configuration, builder.Environment, persistence);
 builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment());
@@ -153,6 +154,7 @@ if(persistence)Swoovr.Api.Ticketing.GuestSupportEndpoints.Map(app);
 Swoovr.Api.Profiles.MatchingEndpoints.Map(app);
 Swoovr.Api.Profiles.ProfilePrivacy.Map(app);
 Swoovr.Api.Media.MediaEndpoints.Map(app);
+Swoovr.Api.Media.ImagePipelineEndpoints.Map(app);
 Swoovr.Api.Safety.SafetyEndpoints.Map(app);
 if(persistence) Swoovr.Api.Safety.MeetingSafetyEndpoints.Map(app);
 Swoovr.Api.Notifications.NotificationEndpoints.Map(app);

@@ -83,7 +83,7 @@ Client or Admin -> Swoovr API -> authorised storage action / queued cleanup
 | #263 | 4 | Secure image delivery and lifecycle operations | GET/HEAD, access, caching, PATCH/DELETE semantics | 1, 2, 3 |
 | #264 | 5 | API integration, callbacks and idempotency | API-only database access, reliable event handling | 1; coordinate with 2–4 |
 | #265 | 6 | Security, operations and release verification | Secrets, observability, cost, resilience, testing | 1–5 |
-| #267 | - | Main thread ticket | - | - |
+| #294 | - | Current implementation epic (replaces closed parent #267) | Vultr processors and Cloudflare orchestration | 1–6 |
 
 Tickets 1–6 form the image infrastructure epic.
 
