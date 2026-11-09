@@ -68,6 +68,17 @@ with tempfile.TemporaryDirectory(prefix='swoovr-infra-') as private:
     # Bicep folds concat into an ARM expression; inspect literal components in the compiled contract.
     wire=json.dumps(services)
     for key in ['Phone__Required','Media__Screening__RequireKnownContentCheck','Retention__Worker','Sms__Provider','Email__Provider']:require(key in wire)
+    pipeline=[r for r in records if r['env'].startswith('Media__Pipeline__')]
+    require(pipeline==[
+        {'name':'media-pipeline-service-token','env':'Media__Pipeline__ServiceToken','actors':['api']},
+        {'name':'media-pipeline-upload-signing-key','env':'Media__Pipeline__UploadSigningKey','actors':['api']},
+    ])
+    for name,value in [('Enabled','true'),('UploadOrigin','https://images-upload-uat.swoovr.app'),('AcceptedPolicyVersion','swoovr-images-2026-11-08-v1')]:
+        require("'Media__Pipeline__"+name+"'" in services['variables']['apiEnv'])
+        require("'"+value+"'" in services['variables']['apiEnv'])
+        require('Media__Pipeline__'+name not in json.dumps(services['variables']['jobSpecs']))
+        job_module=next(r for r in services['resources'] if r.get('name')=="[format('{0}-{1}-job', parameters('prefix'), variables('jobSpecs')[copyIndex()].name)]")
+        require('Media__Pipeline__'+name not in json.dumps(job_module))
     require('UAT screening credentials are required.' in services['variables']['screeningStartup'])
     require('root-admin' in json.dumps(services['variables']['jobSpecs']) and 'grant' in json.dumps(services['variables']['jobSpecs']))
     require('primaryEndpoints.blob' not in json.dumps(templates['backup-storage']['outputs']['accountUrl']))

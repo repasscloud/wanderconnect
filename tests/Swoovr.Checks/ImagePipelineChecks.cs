@@ -12,9 +12,13 @@ static class ImagePipelineChecks
         void Check(bool value,string message){if(!value)throw new Exception("Image pipeline: "+message);checks++;}
         var disabled=ImagePipelineOptions.Read(new ConfigurationBuilder().Build(),true);
         Check(!disabled.Enabled,"disabled by default");
-        var values=new Dictionary<string,string?> { ["Media:Pipeline:Enabled"]="true", ["Media:Pipeline:ServiceToken"]=new string('s',32), ["Media:Pipeline:UploadSigningKey"]=new string('u',32), ["Media:Pipeline:UploadOrigin"]="https://upload.example.test", ["Media:Pipeline:AcceptedPolicyVersion"]="swoovr-images-2026-11-08" };
+        var values=new Dictionary<string,string?> { ["Media:Pipeline:Enabled"]="true", ["Media:Pipeline:ServiceToken"]=new string('s',32), ["Media:Pipeline:UploadSigningKey"]=new string('u',32), ["Media:Pipeline:UploadOrigin"]="https://images-upload-uat.swoovr.app", ["Media:Pipeline:AcceptedPolicyVersion"]="swoovr-images-2026-11-08-v1" };
         var options=ImagePipelineOptions.Read(new ConfigurationBuilder().AddInMemoryCollection(values).Build(),false);
         Check(options.Enabled&&!options.Deliverable,"enabled foundation cannot publish");
+        Check(options.UploadOrigin?.AbsoluteUri=="https://images-upload-uat.swoovr.app/"&&options.PolicyVersion=="swoovr-images-2026-11-08-v1","owner UAT upload origin and exact policy accepted without enabling delivery");
+        values["Media:Pipeline:UploadSigningKey"]=values["Media:Pipeline:ServiceToken"];
+        try{ImagePipelineOptions.Read(new ConfigurationBuilder().AddInMemoryCollection(values).Build(),false);Check(false,"shared credentials refused");}catch(InvalidOperationException){checks++;}
+        values["Media:Pipeline:UploadSigningKey"]=new string('u',32);
         Check(options.Authenticates("Bearer "+new string('s',32)),"service bearer accepted");
         Check(!options.Authenticates("Bearer "+new string('x',32))&&!options.Authenticates(""),"wrong/missing bearer denied");
         var now=DateTimeOffset.Parse("2026-11-08T12:00:00Z");

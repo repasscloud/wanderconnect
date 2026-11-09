@@ -4,6 +4,10 @@ Tracking: [#294](https://github.com/repasscloud/wanderconnect/issues/294). Desig
 
 **Read the implementation evidence below before enabling anything.** This runbook prepares independent processor VMs and local integration. A successful image build, local test or health check is not a completed Swoovr production cutover. The existing media path remains default until lifecycle, evidence, review, delivery and clients are verified together. No VM, Worker, Queue or R2 resource is provisioned by running the local operator-input commands.
 
+## UAT API staging configuration
+
+UAT application hosting remains **OPEN** (owner, 10 November 2026); it may run on Vultr. Production remains Azure. The processor VMs remain independently operated. [Exact API staging settings, private secret inputs and migration procedure](UAT-IMAGE-STAGING-2026-11-10.md) apply to either UAT application host. UAT upload: `https://images-upload-uat.swoovr.app`; delivery: `https://images-uat.swoovr.app`; Worker `API_BASE_URL`: `https://api-uat.swoovr.app`; upload `ALLOWED_ORIGINS`: `https://uat.swoovr.app`. An API private environment file on Vultr supplies the same names as the optional Azure Key Vault bindings. Staging does not enable member delivery or switch the legacy media path.
+
 ## What the operator supplies
 
 - Two Vultr VMs in the selected region, with a CPU architecture supported by the built images. VM size is selected after measurement of the processor AND local ClamAV, including signature reload peaks. During maintenance one VM must sustain the agreed capacity or queue delay.
