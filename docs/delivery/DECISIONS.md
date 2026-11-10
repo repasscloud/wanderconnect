@@ -853,6 +853,76 @@ Passkey RP remains `uat.swoovr.app`; the new sibling auth origin requires an exa
 3. The UAT host runs one Compose project (`deploy/vultr-uat/`). Its environment names equal `infra/uat/secret-bindings.json`, and its database roles use the same `database-bootstrap` code.
 4. Swoovr/Keycloak PostgreSQL is `postgres:17.11-trixie` pinned by digest, TLS-only with a private CA, so clients use `VerifyFull`. This closes the stack review's OPEN Debian image choice as DEFAULT.
 5. Internal callers reach the public names through Caddy's Docker network aliases at a fixed address. Only that address is a trusted proxy. This closes the OPEN internal resolution method as DEFAULT.
-6. **CONFIRMED** by the owner, 10 November 2026: origin TLS per [owner #307](https://github.com/repasscloud/wanderconnect/issues/307): Cloudflare Origin CA certificate, PEM, RSA 2048, 15 years, explicit SANs only (`uat`, `api-uat`, `admin-uat`, `helpdesk-uat`, `auth-uat`, `venues-uat` `.swoovr.app`), no wildcard; stock Caddy loads `/etc/caddy/certs/uat-origin.pem` and `uat-origin.key` from read-only mounts, provisioned on the host outside Git; Full (strict); no ACME and no Cloudflare API token on the host; system CA trust preserved, with the Origin CA roots added only for containers that call Origin CA endpoints directly; UAT certificate and key independent of production and never committed (Q175); and the helpdesk name is `helpdesk-uat.swoovr.app`, added to D355 (Q176). Zammad's outgoing SMTP remains OPEN (Q176).
+6. **CONFIRMED** by the owner, 10 November 2026: origin TLS per [owner #307](https://github.com/repasscloud/wanderconnect/issues/307): Cloudflare Origin CA certificate, PEM, RSA 2048, 15 years, explicit SANs only (`uat`, `api-uat`, `admin-uat`, `helpdesk-uat`, `auth-uat`, `venues-uat` `.swoovr.app`), no wildcard; stock Caddy loads `/etc/caddy/certs/uat-origin.pem` and `uat-origin.key` from read-only mounts, provisioned on the host outside Git; Full (strict); no ACME and no Cloudflare API token on the host; system CA trust preserved, with the Origin CA roots added only for containers that call Origin CA endpoints directly; UAT certificate and key independent of production and never committed (Q175); and the helpdesk name is `helpdesk-uat.swoovr.app`, added to D355 (Q176). Zammad's outgoing SMTP is D357.
 
 Reversible: the registry, runners and pins are configuration. [Plan and evidence](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). No image publication, provisioning or deployment is claimed.
+
+### D357 — Zammad staff notification mail on UAT uses MailerSend SMTP (10 November 2026)
+
+**PARTLY SUPERSEDED by D360** (owner, 11 November 2026): Zammad now sends through SendGrid SMTP. The rest stands: the relay, STARTTLS, and the sender set as `notification_sender`.
+
+**CONFIRMED** by the [owner on #308](https://github.com/repasscloud/wanderconnect/issues/308#issuecomment-6759649647) (Q176): the UAT helpdesk sends staff notifications through MailerSend SMTP, `smtp.mailersend.net`, port 587 (2525 also accepted), STARTTLS, with a MailerSend SMTP username and password. The owner keeps the values privately in `.local/platform/docker.env` (`ZAMMAD_SMTP_HOST`, `_PORT`, `_USERNAME`, `_PASSWORD`). On the host they go in `deploy/vultr-uat/env/mail.env` as `SWOOVR_MAIL_SMTP_*` (0600, never in Git; D358). `bin/swoovr zammad-provision` passes them to `containers/zammad/provision.rb`, which writes Zammad's `Email::Notification` channel.
+
+**DEFAULT** (builder): Zammad's `notification_sender` is set to the shared sender (D358) as `Swoovr Helpdesk <SWOOVR_MAIL_FROM>`. Without it Zammad sends from `noreply@helpdesk-uat.swoovr.app`, which MailerSend refuses unless that host is verified. `envtool.py` refuses a non-numeric port, missing credentials or an invalid sender. Local Zammad is unchanged and keeps the Mailpit sink, so fictional staff addresses never reach MailerSend. This covers outgoing notifications only. Support mail into Zammad (inbound) isn't configured on UAT.
+
+Reversible: host, port and sender are configuration. No mail was sent and nothing was provisioned.
+
+### D358 — One UAT email configuration and sender (10 November 2026)
+
+**Extended by D360:** `env/mail.env` now also selects each sender's service. The MailerSend-only names below were replaced.
+
+**CONFIRMED** by the owner in chat, 10 November 2026: `repasscloud.com` is the only domain verified in MailerSend, so **all** UAT email is sent as `hello@repasscloud.com` for now, from the API, Keycloak and Zammad. The owner will change it once MailerSend has more domains ([#313](https://github.com/repasscloud/wanderconnect/issues/313)). The owner also asked that the sender be changeable by editing one `.env` file and restarting, with host, port, username, password and From wherever email credentials are used ([Q177 #311](https://github.com/repasscloud/wanderconnect/issues/311)).
+
+**DEFAULT** (builder): the UAT host keeps every mail setting in `deploy/vultr-uat/env/mail.env`: `SWOOVR_MAIL_FROM` (bare address), `SWOOVR_MAIL_FROM_NAME` (`Swoovr`), `SWOOVR_MAIL_HELPDESK_FROM_NAME` (`Swoovr Helpdesk`), `SWOOVR_MAIL_SMTP_HOST`/`_PORT`/`_USERNAME`/`_PASSWORD` and `SWOOVR_MAIL_API_TOKEN`. `bin/swoovr` passes it to Compose as a second `--env-file`, and `compose.yaml` maps it onto the unchanged runtime names (`Email__From` = `Swoovr <hello@repasscloud.com>` and `Email__MailerSend__ApiToken` for the API and `api-command`; `KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__FROM`, `_FROM_NAME` and `_API_TOKEN` for Keycloak). `envtool.py` feeds Zammad from it. `envtool.py check` validates it. `./bin/swoovr mail-apply` recreates Keycloak and the API and re-runs Zammad provisioning, which reuses its tokens. The API and Keycloak keep the MailerSend HTTP API (D39) until Q177 is answered. Azure keeps the same runtime names in Key Vault.
+
+Reversible: one file. No mail was sent and nothing was deployed.
+
+### D359 — Images workflow enabled for manual runs (10 November 2026)
+
+**CONFIRMED** owner request in chat, 10 November 2026: build the UAT images on GitHub. `.github/workflows/images.yml` (D356) is uncommented and listed in `ENABLED_WORKFLOWS`. It runs only on **Run workflow** (`workflow_dispatch`). The repository is public, so GitHub's standard Linux runners, including `ubuntu-24.04-arm`, use no paid minutes. The owner adds `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` and creates the five Docker Hub repositories as private first. `promote-to-azure` stays off unless its input is set and the `production` environment approves.
+
+Reversible: comment the file out again and remove it from `ENABLED_WORKFLOWS`.
+
+### D360 — UAT email and SMS providers by service (11 November 2026)
+
+**CONFIRMED** by the owner in chat and [#316](https://github.com/repasscloud/wanderconnect/issues/316), 11 November 2026 (answers [Q177 #311](https://github.com/repasscloud/wanderconnect/issues/311) and [Q178 #312](https://github.com/repasscloud/wanderconnect/issues/312)):
+- Email goes through Twilio ("much easier and cheaper overall"). The **API** sends through the **Twilio Email API** (`comms.twilio.com/v1/Emails`, key SID and secret).
+- **Zammad** sends through **SendGrid SMTP**, and reads incoming support mail from an **IMAP** mailbox on the owner's own mail server, queued to General Support.
+- **SMS** waits for Twilio's verification, so on UAT it goes to **Mailpit**. Mailpit is also available for API email.
+- Sending is **adaptive by env vars**, with SMTP for any application where the services don't work.
+- Settings are documented per service.
+
+This supersedes D39's MailerSend HTTP choice for the API and Keycloak on UAT, and D357's MailerSend SMTP for Zammad.
+
+**DEFAULT** (builder):
+1. **Keycloak** also sends through the Twilio Email API, from the same key. The owner didn't name Keycloak; this keeps all sign-in email on one provider. The UAT image's single provider `swoovr-email` picks `twilio` or `mailersend` at startup.
+2. **API** `Email:Provider` = `twilio` | `smtp` | `mailpit` | `mailersend`:
+   - `smtp` with a username is a hosted STARTTLS relay with username and password.
+   - `mailpit` is allowed only in Development and UAT.
+   - Hosting policy refuses Mailpit (email or SMS) in any other environment, including one-shot commands.
+3. **SMS** `Sms:Provider=mailpit` is the labelled simulated sender, with its own Mailpit sender. It never goes through the email provider, and its kind stays `simulated`, so nothing reports it as delivered.
+4. **Settings:** `env/mail.env` holds, with a who-uses-what header:
+   - the sender, display names, and `SWOOVR_API_MAIL_SERVICE`, `SWOOVR_KEYCLOAK_MAIL_SERVICE` and `SWOOVR_SMS_SERVICE`;
+   - the Twilio Email key, the SendGrid relay (`smtp.sendgrid.net:587`, `apikey`), the optional MailerSend token;
+   - the IMAP mailbox: host, port, `ssl`/`starttls`, username, password, folder, keep-on-server (default `true`), support address and name.
+
+   `envtool.py check` requires exactly what the selected services need, including Twilio SMS values in `env/api.env` when SMS is `twilio`. Run `./bin/swoovr mail-apply` after a change.
+5. **Zammad IMAP:** one `Email::Account` channel (IMAP in, the SendGrid relay out) for General Support, plus its email address, created idempotently by `provision.rb`. The channel is marked `swoovr_managed`. Each run deactivates a managed mailbox that is no longer configured (empty host or changed address), so Zammad stops fetching it, and unlinks it from General Support. Hand-made channels are untouched. Inbound mail is off while the IMAP host is empty. `envtool.py` decodes single- and double-quoted values like Compose, so a single-quoted `$` password reaches Zammad unchanged.
+6. **Mailpit:** runs on the internal `mail` network, with its UI only on the VM's loopback `127.0.0.1:8025` (SSH tunnel).
+7. **Azure UAT bindings** (`infra/uat/secret-bindings.json`, `services.bicep`) use the same Twilio names.
+
+UAT consequence: phone verification is required, so until Twilio SMS is live, codes are read in Mailpit by the operator.
+
+Reversible: each service is one `env/mail.env` value. MailerSend code remains. [Application email](../architecture/APPLICATION-EMAIL.md), [Keycloak email](../architecture/KEYCLOAK-EMAIL.md). No real email or SMS was sent.
+
+### D361 — UAT runs on one Vultr cloud VM (11 November 2026)
+
+**CONFIRMED** by the owner in chat, 11 November 2026: "a single big VM in the cloud using Vultr". This supersedes the bare-metal E-2286G / RAID 1 host in the D356 plan. The bundle is unchanged apart from wording.
+
+**DEFAULT** (builder), in [VULTR-VM.md](../../deploy/vultr-uat/VULTR-VM.md):
+- **Size:** 8 vCPU, 32 GB RAM, 200 GB+ NVMe; minimum 4/16/160.
+- **Location and OS:** Sydney (or Melbourne), Debian 13 x64, SSH key only.
+- **Off:** automatic backups (disposable UAT; optional snapshot after `host-setup`), IPv6 records (no `AAAA`), and VPC.
+- **Firewall:** a Vultr firewall group with SSH from the admin IP and 80/443 from Vultr's Cloudflare source, on top of the host nftables and DOCKER-USER rules.
+
+Reversible: resize or rebuild. Nothing was created on Vultr.

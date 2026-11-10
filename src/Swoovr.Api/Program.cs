@@ -36,7 +36,7 @@ Swoovr.Api.Media.MediaSetup.AddSwoovrMedia(builder.Services, builder.Configurati
 Swoovr.Api.Media.ImagePipelineEndpoints.Add(builder.Services,builder.Configuration,builder.Environment,persistence);
 // D336 (#221): malware scanning (ClamAV) and quarantine for support attachments.
 Swoovr.Api.Ticketing.AttachmentScanningSetup.AddSwoovrAttachmentScanning(builder.Services, builder.Configuration, builder.Environment, persistence);
-builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment());
+builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment(),builder.Environment.EnvironmentName);
 BetaInvitationDelivery.PublicOrigin(builder.Configuration,builder.Environment.IsDevelopment());
 if(persistence&&builder.Configuration.GetValue("Beta:Invitations:Enabled",false))builder.Services.AddHostedService<BetaInvitationWorker>();
 // #49: travel reminders, written by the API's own worker (with a database).

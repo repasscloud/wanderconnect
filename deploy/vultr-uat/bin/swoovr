@@ -9,6 +9,7 @@
 #   swoovr job <name> [args...]        one-shot job: db-bootstrap migrate places-import keycloak-bootstrap api-command
 #   swoovr zammad-sso                  create/update the staff realm's swoovr-zammad PKCE client (hosted callback)
 #   swoovr zammad-provision            groups, identities, tokens, webhook, SSO (containers/zammad/provision.rb)
+#   swoovr mail-apply                  after editing env/mail.env: recreate Keycloak + API, re-apply Zammad mail/IMAP
 #   swoovr realms-env <directory>      load scripts/uat/keycloak_realms.py output into env/realms.env
 #   swoovr status | logs [service]     container state, health through Caddy, recent logs
 #   swoovr reset --destroy-uat-data    DELETE every UAT volume of this project (disposable UAT only)
@@ -17,7 +18,9 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$here"
 
-dc() { docker compose --project-directory "$here" -f "$here/compose.yaml" --env-file "$here/release.env" "$@"; }
+# env/mail.env (D358) feeds the mail settings of Keycloak, the API and api-command by interpolation.
+dc() { docker compose --project-directory "$here" -f "$here/compose.yaml" --env-file "$here/release.env" \
+  --env-file "$here/env/mail.env" "$@"; }
 say() { printf '\n== %s\n' "$*"; }
 
 wait_healthy() { # service, timeout seconds
@@ -84,6 +87,17 @@ zammad_provision() {
   fi
   python3 bin/envtool.py provision-output < "$output"
   rm -f "$output"
+}
+
+mail_apply() {
+  check
+  say 'mail settings from env/mail.env: recreate Keycloak and the API'
+  dc up -d mailpit
+  dc up -d --no-deps --force-recreate keycloak api
+  wait_healthy keycloak 600; wait_healthy api
+  # Idempotent: existing Zammad tokens are reused, so env/api.env is unchanged apart from the same values.
+  zammad_provision
+  echo 'Mail settings applied. Send a test (README "Change the sender") before relying on it.'
 }
 
 status() {
@@ -179,6 +193,7 @@ case "$command" in
   job) job "$@" ;;
   zammad-sso) zammad_sso ;;
   zammad-provision) zammad_provision ;;
+  mail-apply) mail_apply ;;
   realms-env) python3 bin/envtool.py realms "$@" ;;
   status) status ;;
   logs) dc logs --tail 200 "$@" ;;

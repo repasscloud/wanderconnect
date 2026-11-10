@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Owned local containers only; pinned UAT image/disabled-realm/SPI checks. No live provider or UAT deployment."""
-import argparse, importlib.util, json, os, secrets, subprocess, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
+import argparse, importlib.util, json, os, secrets, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request, uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--image',required=True);parser.add_argument('--bootstrap-image');parser.add_argument('--platform',default='linux/amd64',choices=['linux/amd64','linux/arm64']);args=parser.parse_args()
@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         image=json.loads(docker('image','inspect',args.image).stdout)[0];assert image['Os']+'/'+image['Architecture']==args.platform;checks+=1
         config=image['Config'];assert config['User']=='1000';checks+=1
         assert config['Entrypoint']==['/opt/keycloak/bin/swoovr-entrypoint.sh'];checks+=1
-        for command,message in [(['start','--optimized'],'UAT MailerSend API token is required'),(['start-dev'],'refuses development startup')]:
+        for command,message in [(['start','--optimized'],'UAT email sender is required'),(['start-dev'],'refuses development startup')]:
             name=network+'-guard';created.append(name)
             result=docker('run','--platform',args.platform,'--name',name,'--network','none',args.image,*command,check=False,timeout=20)
             assert result.returncode!=0 and message in result.stderr;checks+=1;docker('rm','-f',name);created.remove(name)
@@ -33,12 +33,12 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         for field,path in [('swoovrPrivacyUrl','privacy'),('swoovrTermsUrl','terms'),('swoovrCommunityUrl','community-guidelines')]:assert field+'=https://uat.swoovr.app/'+path in properties;checks+=1
         # issue 177: the image shows the single Swoovr version from Directory.Build.props, never a per-component label.
         import re as _re
-        version=_re.search(r'<SwoovrVersion>([^<]+)</SwoovrVersion>',open('Directory.Build.props').read()).group(1)
+        version=subprocess.run([sys.executable,'scripts/release_version.py','show'],capture_output=True,text=True,check=True).stdout.strip()  # Major.Minor.Build parts (Q129)
         assert 'swoovrVersion='+version+'\n' in properties+'\n' and '-uat' not in properties.split('swoovrVersion=')[1].split('\n')[0];checks+=1
         docker('rm','-f',name);created.remove(name)
         docker('network','create','--internal',network)
         password=secrets.token_urlsafe(32);admin_password=secrets.token_urlsafe(32)
-        env=folder/'runtime.env';values={'POSTGRES_USER':'swoovr_test','POSTGRES_PASSWORD':password,'POSTGRES_DB':'keycloak','KC_DB':'postgres','KC_DB_URL':'jdbc:postgresql://'+pg+':5432/keycloak','KC_DB_USERNAME':'swoovr_test','KC_DB_PASSWORD':password,'KC_HTTP_ENABLED':'true','KC_HOSTNAME_STRICT':'false','KC_BOOTSTRAP_ADMIN_USERNAME':'swoovr-image-admin','KC_BOOTSTRAP_ADMIN_PASSWORD':admin_password,'KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__API_TOKEN':'fictional-private-token','KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__FROM':'no-reply@example.test','SWOOVR_UAT_MEMBERS_WEB_SECRET':secrets.token_urlsafe(32),'SWOOVR_UAT_VENUES_WEB_SECRET':secrets.token_urlsafe(32),'SWOOVR_UAT_STAFF_WEB_SECRET':secrets.token_urlsafe(32),'SWOOVR_UAT_ENTRA_CLIENT_SECRET':secrets.token_urlsafe(32)}
+        env=folder/'runtime.env';values={'POSTGRES_USER':'swoovr_test','POSTGRES_PASSWORD':password,'POSTGRES_DB':'keycloak','KC_DB':'postgres','KC_DB_URL':'jdbc:postgresql://'+pg+':5432/keycloak','KC_DB_USERNAME':'swoovr_test','KC_DB_PASSWORD':password,'KC_HTTP_ENABLED':'true','KC_HOSTNAME_STRICT':'false','KC_BOOTSTRAP_ADMIN_USERNAME':'swoovr-image-admin','KC_BOOTSTRAP_ADMIN_PASSWORD':admin_password,'KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__SERVICE':'twilio','KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__TWILIO_KEY_SID':'SKfictional','KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__TWILIO_KEY_SECRET':'fictional-private-secret','KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__FROM':'no-reply@example.test','SWOOVR_UAT_MEMBERS_WEB_SECRET':secrets.token_urlsafe(32),'SWOOVR_UAT_VENUES_WEB_SECRET':secrets.token_urlsafe(32),'SWOOVR_UAT_STAFF_WEB_SECRET':secrets.token_urlsafe(32),'SWOOVR_UAT_ENTRA_CLIENT_SECRET':secrets.token_urlsafe(32)}
         env.write_text(''.join(k+'='+v+'\n' for k,v in values.items()));os.chmod(env,0o600)
         created.append(pg);docker('run','-d','--name',pg,'--network',network,'--env-file',str(env),'postgres:17.11-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb')
         for _ in range(60):
@@ -109,8 +109,8 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
         # Real Keycloak template/SPI invocation; network has no external egress and fake credential cannot deliver.
         code,_=request(base,'/admin/realms/swoovr-members/testSMTPConnection','POST',{'host':'smtp.invalid','from':'ignored@example.test'},token);assert code==500,'Blocked provider acknowledgement must not be success.';checks+=1
         logs=docker('logs',kc).stdout+docker('logs',kc).stderr
-        assert 'Email provider acknowledgement unavailable.' in logs and 'MailerSendEmailSender.send' in logs;checks+=1
-        for secret in [values['KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__API_TOKEN'],admin_password,password]:assert secret not in logs;checks+=1
+        assert 'Email provider acknowledgement unavailable.' in logs and 'TwilioEmailSender.send' in logs;checks+=1
+        for secret in [values['KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__TWILIO_KEY_SECRET'],admin_password,password]:assert secret not in logs;checks+=1
         if args.bootstrap_image:
             for key,value in bootstrap_values.items():
                 if any(word in key for word in ['PASSWORD','SECRET','TOKEN']):assert value not in logs

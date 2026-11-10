@@ -111,6 +111,45 @@ notification.assign_attributes(options: {outbound: {adapter: 'smtp', options: {h
   password: smtp.fetch('password')}}}, active: true, preferences: {online_service_disable: true},
   created_by_id: actor, updated_by_id: actor)
 notification.save!
+# Hosted runs pass a sender on the SMTP provider's verified domain (D357); local keeps Zammad's default.
+sender = input['notification_sender'].to_s.strip
+Setting.set('notification_sender', sender) unless sender.empty?
+
+# Hosted inbound support mail (Q178, owner 11 November 2026): one IMAP mailbox feeding General Support, replies sent
+# through the same SMTP relay from that address. The channel this script manages carries preferences[:swoovr_managed];
+# every run reconciles it: the configured mailbox is active, and any managed mailbox that is no longer configured (empty
+# IMAP host, or a changed address) is deactivated, so Zammad stops fetching it, and General Support stops using its address. Channels created by hand are never touched, so
+# local provisioning (no support_mailbox, no managed channel) is unchanged. Idempotent.
+MANAGED_MAILBOX = 'support_mailbox'
+support_group = Group.find_by!(name: 'General Support')
+current_account = nil
+if (mailbox = input['support_mailbox'])
+  imap = mailbox.fetch('imap')
+  raise 'support_mailbox needs smtp' unless input['notification_smtp']
+  inbound = {adapter: 'imap', options: {host: imap.fetch('host'), port: Integer(imap.fetch('port')), ssl: imap.fetch('ssl'),
+    ssl_verify: true, user: imap.fetch('user'), password: imap.fetch('password'), folder: imap.fetch('folder'),
+    keep_on_server: imap.fetch('keep_on_server') == true}}
+  outbound = {adapter: 'smtp', options: {host: smtp.fetch('host'), port: Integer(smtp.fetch('port')), ssl: smtp.fetch('ssl') == true,
+    enable_starttls_auto: smtp.fetch('enable_starttls_auto') == true, user: smtp.fetch('user'), password: smtp.fetch('password')}}
+  address = EmailAddress.find_by(email: mailbox.fetch('address'))
+  current_account = (address&.channel if address&.channel&.area == 'Email::Account') || Channel.new(area: 'Email::Account')
+  current_account.assign_attributes(options: {inbound: inbound, outbound: outbound}, group_id: support_group.id, active: true,
+    preferences: {online_service_disable: true, swoovr_managed: MANAGED_MAILBOX}, created_by_id: actor, updated_by_id: actor)
+  current_account.save!
+  address ||= EmailAddress.new(email: mailbox.fetch('address'))
+  address.assign_attributes(name: mailbox.fetch('name'), channel_id: current_account.id, active: true, created_by_id: actor, updated_by_id: actor)
+  address.save!
+  support_group.update!(email_address_id: address.id, updated_by_id: actor)
+end
+Channel.where(area: 'Email::Account').find_each do |channel|
+  next if channel.id == current_account&.id || channel.preferences.to_h.with_indifferent_access[:swoovr_managed] != MANAGED_MAILBOX
+  # Zammad only fetches active channels. An address's own active flag follows its channel's existence in Zammad 7.2,
+  # so the address stays; General Support just stops replying from it.
+  EmailAddress.where(channel_id: channel.id).find_each do |stale|
+    support_group.update!(email_address_id: nil, updated_by_id: actor) if support_group.reload.email_address_id == stale.id
+  end
+  channel.update!(active: false, updated_by_id: actor)
+end
 
 # Minimal ticket attributes: references/classification, never original evidence or identity documents.
 {

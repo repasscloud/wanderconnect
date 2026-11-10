@@ -29,13 +29,21 @@ def private_write(path, text):
 
 
 def read_pairs(path):
+    """KEY=value lines, values decoded like Compose's env files: a whole value in single quotes is literal (the form
+    `check` requires for a `$`); a whole value in double quotes loses its quotes. Used for every value this tool passes on."""
     pairs = {}
     if path.exists():
         for line in path.read_text(encoding='utf-8').splitlines():
             if line and not line.startswith('#') and '=' in line:
                 key, _, value = line.partition('=')
-                pairs[key] = value
+                pairs[key] = unquote(value)
     return pairs
+
+
+def unquote(value):
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1]
+    return value
 
 
 def set_values(path, values):
@@ -89,6 +97,11 @@ def check(mode=None):
             # Compose interpolates $ in unquoted env_file values, silently changing a secret.
             if not line.startswith('#') and '$' in value and not (value.startswith("'") and value.endswith("'")):
                 problems.append(f'{path.name}:{number}: {key} contains $; wrap the whole value in single quotes')
+    mail = ENV / 'mail.env'
+    if not mail.exists():
+        problems.append('mail.env is missing (envtool.py init)')
+    elif not any(problem.startswith('mail.env:') for problem in problems):
+        problems.extend('mail.env: ' + problem for problem in mail_problems(read_pairs(mail), read_pairs(ENV / 'api.env')))
     release = ROOT / 'release.env'
     if not release.exists():
         problems.append('release.env is missing')
@@ -131,12 +144,76 @@ def provision_input():
         'sso': {'display_name': 'Swoovr staff sign-in', 'client_id': 'swoovr-zammad',
                 'issuer': 'https://auth-uat.swoovr.app/realms/swoovr-staff'},
     }
-    if values.get('SWOOVR_ZAMMAD_SMTP_HOST', '').strip():
-        payload['notification_smtp'] = {
-            'host': values['SWOOVR_ZAMMAD_SMTP_HOST'], 'port': int(values.get('SWOOVR_ZAMMAD_SMTP_PORT') or 587),
-            'ssl': False, 'enable_starttls_auto': True,
-            'user': values.get('SWOOVR_ZAMMAD_SMTP_USER', ''), 'password': values.get('SWOOVR_ZAMMAD_SMTP_PASSWORD', '')}
+    payload.update(notification_mail(read_pairs(ENV / 'mail.env')))
     sys.stdout.write(json.dumps(payload))
+
+
+def mail_problems(values, api=None):
+    """env/mail.env (D358, D360): which service sends what, and the values the selected services need.
+    api is env/api.env, for the Twilio SMS account when SWOOVR_SMS_SERVICE=twilio."""
+    problems = []
+    get = lambda key: values.get(key, '').strip()
+    if not re.fullmatch(r'[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+', get('SWOOVR_MAIL_FROM')):
+        problems.append('SWOOVR_MAIL_FROM must be a bare address (no name or <>)')
+    for key in ['SWOOVR_MAIL_FROM_NAME', 'SWOOVR_MAIL_HELPDESK_FROM_NAME', 'SWOOVR_ZAMMAD_SUPPORT_NAME']:
+        if any(ch in values.get(key, '') for ch in '<>"@'):
+            problems.append(f'{key} must be a plain display name')
+    api_service, keycloak_service, sms = get('SWOOVR_API_MAIL_SERVICE'), get('SWOOVR_KEYCLOAK_MAIL_SERVICE'), get('SWOOVR_SMS_SERVICE')
+    if api_service not in ('twilio', 'smtp', 'mailpit'):
+        problems.append('SWOOVR_API_MAIL_SERVICE must be twilio, smtp or mailpit')
+    if keycloak_service not in ('twilio', 'mailersend'):
+        problems.append('SWOOVR_KEYCLOAK_MAIL_SERVICE must be twilio or mailersend')
+    if sms not in ('mailpit', 'twilio'):
+        problems.append('SWOOVR_SMS_SERVICE must be mailpit or twilio')
+    needed = set()
+    if 'twilio' in (api_service, keycloak_service):
+        needed |= {'SWOOVR_MAIL_TWILIO_KEY_SID', 'SWOOVR_MAIL_TWILIO_KEY_SECRET'}
+    if keycloak_service == 'mailersend':
+        needed.add('SWOOVR_MAIL_MAILERSEND_API_TOKEN')
+    # Zammad always sends through the SMTP relay.
+    needed |= {'SWOOVR_MAIL_SMTP_HOST', 'SWOOVR_MAIL_SMTP_USERNAME', 'SWOOVR_MAIL_SMTP_PASSWORD'}
+    for key in sorted(needed):
+        if not get(key):
+            problems.append(f'{key} is empty')
+    for key in ['SWOOVR_MAIL_SMTP_PORT', 'SWOOVR_ZAMMAD_IMAP_PORT']:
+        if not get(key).isdigit():
+            problems.append(f'{key} must be a number only (no trailing comment)')
+    if get('SWOOVR_ZAMMAD_IMAP_HOST'):
+        if not re.fullmatch(r'[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+', get('SWOOVR_ZAMMAD_SUPPORT_ADDRESS')):
+            problems.append('SWOOVR_ZAMMAD_SUPPORT_ADDRESS must be the support mailbox address when IMAP is set')
+        for key in ['SWOOVR_ZAMMAD_IMAP_USERNAME', 'SWOOVR_ZAMMAD_IMAP_PASSWORD']:
+            if not get(key):
+                problems.append(f'{key} is empty while SWOOVR_ZAMMAD_IMAP_HOST is set')
+        if get('SWOOVR_ZAMMAD_IMAP_SECURITY') not in ('ssl', 'starttls'):
+            problems.append('SWOOVR_ZAMMAD_IMAP_SECURITY must be ssl or starttls')
+        if get('SWOOVR_ZAMMAD_IMAP_KEEP_ON_SERVER') not in ('true', 'false'):
+            problems.append('SWOOVR_ZAMMAD_IMAP_KEEP_ON_SERVER must be true or false')
+    if sms == 'twilio' and api is not None:
+        for key in ['Sms__Twilio__AccountSid', 'Sms__Twilio__AuthToken', 'Sms__Twilio__From']:
+            if not api.get(key, '').strip():
+                problems.append(f'SWOOVR_SMS_SERVICE=twilio needs {key} in env/api.env')
+    return problems
+
+
+def notification_mail(values):
+    """Zammad: SMTP relay (SendGrid) from the shared sender, plus the optional IMAP support mailbox (D357, D358, D360)."""
+    problems = mail_problems(values)
+    if problems:
+        raise SystemExit('mail.env: ' + '; '.join(problems))
+    get = lambda key: values.get(key, '').strip()
+    name = get('SWOOVR_MAIL_HELPDESK_FROM_NAME') or 'Swoovr Helpdesk'
+    payload = {'notification_sender': f"{name} <{get('SWOOVR_MAIL_FROM')}>",
+               'notification_smtp': {'host': get('SWOOVR_MAIL_SMTP_HOST'), 'port': int(get('SWOOVR_MAIL_SMTP_PORT')),
+                                     'ssl': False, 'enable_starttls_auto': True, 'user': values['SWOOVR_MAIL_SMTP_USERNAME'],
+                                     'password': values['SWOOVR_MAIL_SMTP_PASSWORD']}}
+    if get('SWOOVR_ZAMMAD_IMAP_HOST'):
+        payload['support_mailbox'] = {
+            'address': get('SWOOVR_ZAMMAD_SUPPORT_ADDRESS'), 'name': get('SWOOVR_ZAMMAD_SUPPORT_NAME') or 'Swoovr Support',
+            'imap': {'host': get('SWOOVR_ZAMMAD_IMAP_HOST'), 'port': int(get('SWOOVR_ZAMMAD_IMAP_PORT')),
+                     'ssl': get('SWOOVR_ZAMMAD_IMAP_SECURITY'), 'user': values['SWOOVR_ZAMMAD_IMAP_USERNAME'],
+                     'password': values['SWOOVR_ZAMMAD_IMAP_PASSWORD'], 'folder': get('SWOOVR_ZAMMAD_IMAP_FOLDER') or 'INBOX',
+                     'keep_on_server': get('SWOOVR_ZAMMAD_IMAP_KEEP_ON_SERVER') == 'true'}}
+    return payload
 
 
 def provision_output():

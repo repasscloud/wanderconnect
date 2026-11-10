@@ -85,7 +85,7 @@ var apiEnv = concat(common,[
   { name: 'Media__R2__Endpoint', value: r2Endpoint }
   { name: 'Media__R2__Bucket', value: r2Bucket }
   { name: 'Media__Screening__BaseUrl', value: 'https://${screenHost}/' }
-  { name: 'Email__Provider', value: 'mailersend' }
+  { name: 'Email__Provider', value: 'twilio' }
   { name: 'Sms__Provider', value: 'twilio' }
   { name: 'Push__Provider', value: 'disabled' }
   { name: 'Didit__TestMode', value: 'false' }
@@ -180,7 +180,7 @@ module jobs 'modules/job.bicep' = [for job in jobSpecs: if(createJobs) {
   name: '${prefix}-${job.name}-job'
   params: { location: location, name: '${prefix}-${job.name}', environmentId: environment.id, identityId: identities[indexOf(actors,job.actor)].id, registryServer: registry.properties.loginServer, image: job.image, environmentVariables: concat(operatorEnv,[
     { name: 'AZURE_CLIENT_ID', value: identities[indexOf(actors,job.actor)].properties.clientId }
-    { name: 'Email__Provider', value: job.actor == 'operator' ? 'mailersend' : 'disabled' }
+    { name: 'Email__Provider', value: job.actor == 'operator' ? 'twilio' : 'disabled' }
     { name: 'Media__Store', value: contains(['operator','backup-publisher','recovery'],job.actor) ? 'r2' : 'none' }
     { name: 'PGUSER', value: contains(['bootstrap','recovery'],job.actor) ? postgresAdmin : 'swoovr_backup' }
     { name: 'PGDATABASE', value: job.name == 'backup-keycloak' ? 'keycloak' : contains(['bootstrap','recovery'],job.actor) ? 'postgres' : 'swoovr' }

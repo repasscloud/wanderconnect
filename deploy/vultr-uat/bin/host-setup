@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time preparation of the Vultr bare-metal host (Debian 12 or 13, run as root).
+# One-time preparation of the Vultr UAT VM (Debian 12 or 13, run as root; VULTR-VM.md).
 # Installs Docker Engine + Compose from Docker's own apt repository, kernel settings Zammad/Elasticsearch need,
 # a host firewall that never touches Docker's rules, and unattended security updates. Idempotent.
 # Usage: SWOOVR_SSH_CIDRS="203.0.113.10/32" ./bin/host-setup
@@ -115,5 +115,5 @@ APT::Periodic::Unattended-Upgrade "1";
 APT
 chmod 0750 "$here"
 echo
-echo 'Host prepared. Next: confirm RAID with "cat /proc/mdstat", harden SSH (key-only), then bin/tls-setup.'
+echo 'Host prepared. Next: docker login (read-only token), harden SSH (key-only), then bin/tls-setup.'
 docker version --format 'Docker {{.Server.Version}}'; docker compose version

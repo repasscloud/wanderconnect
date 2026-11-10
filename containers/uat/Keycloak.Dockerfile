@@ -20,6 +20,7 @@ RUN set -eu; \
     javac --release 21 -classpath '/build/main:/keycloak-libs/*' -d /build/tests $(find provider/test/java -name '*.java' | sort); \
     java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.RetirementPolicyChecks; \
     java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.MailerSendChecks; \
+    java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.TwilioEmailChecks; \
     java -classpath '/build/tests:/build/main:/keycloak-libs/*' app.swoovr.identity.RegistrationAdmissionChecks; \
     jar --create --file /output/swoovr-contact-policy.jar -C /build/main .
 
@@ -57,7 +58,7 @@ RUN sed -i -e 's|^swoovrPrivacyUrl=.*|swoovrPrivacyUrl=https://uat.swoovr.app/pr
     -e 's|^swoovrCommunityUrl=.*|swoovrCommunityUrl=https://uat.swoovr.app/community-guidelines|' /opt/keycloak/themes/swoovr/login/theme.properties \
     && if [ -n "$SWOOVR_VERSION" ]; then echo "$SWOOVR_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && sed -i "s|^swoovrVersion=.*|swoovrVersion=$SWOOVR_VERSION|" /opt/keycloak/themes/swoovr/login/theme.properties; fi \
     && touch -m --date=@1743465600 /opt/keycloak/providers/swoovr-contact-policy.jar \
-    && /opt/keycloak/bin/kc.sh build --features=update-email --spi-email-sender--provider=swoovr-mailersend
+    && /opt/keycloak/bin/kc.sh build --features=update-email --spi-email-sender--provider=swoovr-email
 
 FROM keycloak-base AS keycloak
 ENV KC_DB=postgres \
