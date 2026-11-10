@@ -52,7 +52,7 @@ The workflow has three jobs:
 Owner steps (the file is enabled in D359; steps 3 and 4 are done):
 
 1. Create the private Docker Hub repositories `repasscloud/swoovr-{api,web,admin,operator,keycloak}`. Then create an access token with Read & Write on those repositories only.
-2. Add the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. For production, also add the variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and `AZURE_ACR_NAME`, and a `production` environment with required reviewers.
+2. Docker Hub login uses the organisation secrets `DOCKER_HUB_USERID` and `DOCKER_HUB_PAT`, already shared with every repository (owner correction, 11 November 2026). For production, also add the variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and `AZURE_ACR_NAME`, and a `production` environment with required reviewers.
 3. Done (D359): the file is uncommented and listed in `ENABLED_WORKFLOWS` in `scripts/check_design.py`.
 4. Done: the repository is public, and GitHub's `ubuntu-24.04-arm` runners are available to public repositories. If that changes, set both matrix runners to `ubuntu-24.04` and add `docker/setup-qemu-action@v3` before Buildx. That works, but is slower.
 5. Run it with **Actions → Images → Run workflow** on the reviewed commit of `main`.

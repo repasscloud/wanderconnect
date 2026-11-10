@@ -204,4 +204,16 @@ for path in [*(root/'.github/workflows').glob('*'), *(root/'.github/workflow-tem
     assert all(not line.strip() or line.lstrip().startswith('#') for line in path.read_text().splitlines()), f'Active workflow: {path} (add it to ENABLED_WORKFLOWS only if the owner enabled it)'
 for name in ENABLED_WORKFLOWS:
     assert (root/name).is_file(), f'ENABLED_WORKFLOWS names a missing file: {name}'
+    # Every action is pinned owner/repo[/path]@<40-hex SHA>; a malformed line makes GitHub reject the whole file.
+    for number, line in enumerate((root/name).read_text().splitlines(), 1):
+        if re.match(r'\s*(-\s+)?uses:', line):
+            assert re.match(r'\s*(-\s+)?uses:\s+[\w.-]+/[\w./-]+@[0-9a-f]{40}(\s+#.*)?$', line), f'{name}:{number}: action not pinned as owner/repo@<full SHA>: {line.strip()}'
+# Owner (10 and 11 November 2026): the Images workflow runs ONLY by manual dispatch, never on push or pull request.
+images_lines = (root/'.github/workflows/images.yml').read_text().splitlines()
+on_index = images_lines.index('on:')
+images_triggers = []
+for line in images_lines[on_index + 1:]:
+    if line.strip() and not line.startswith(' '): break
+    if re.match(r'  [\w-]+:', line): images_triggers.append(line.strip().rstrip(':'))
+assert images_triggers == ['workflow_dispatch'], f'images.yml must trigger only on workflow_dispatch, found: {images_triggers}'
 print(f'PASS: {count} contrast pairs, canonical token copies (web, client, MAUI, Keycloak, launch splash), one font family in {font_count} UI files, token-only colours in {len(web_styles)} web style sources, local Markdown links and disabled workflows.')

@@ -1,7 +1,8 @@
 # ENABLED by the owner, 10 November 2026 (D359): "build the images on GitHub" to deploy UAT. Manual dispatch only:
 # Actions -> Images -> Run workflow. Public repository, so standard and arm64 runners use no paid minutes.
-# Needs the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker Hub access token with
-# Read & Write on the repasscloud/swoovr-* repositories only). Create those repositories as PRIVATE first:
+# Uses the organisation secrets DOCKER_HUB_USERID (Docker Hub username) and DOCKER_HUB_PAT (Docker Hub access
+# token), shared by the org with every repository (owner, 11 November 2026). Create the repasscloud/swoovr-*
+# repositories as PRIVATE first:
 # a push to a missing repository creates it with the namespace default visibility.
 #
 # Builds the five Swoovr images from ONE commit for linux/amd64 AND linux/arm64 on GitHub-hosted Ubuntu
@@ -38,8 +39,26 @@ permissions:
 env:
   REGISTRY_NAMESPACE: repasscloud
 jobs:
+  # Fails once, with a clear message, before ten build runners start, when the Docker Hub secrets are missing.
+  preflight:
+    name: Check Docker Hub secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          DOCKER_HUB_USERID: ${{ secrets.DOCKER_HUB_USERID }}
+          DOCKER_HUB_PAT: ${{ secrets.DOCKER_HUB_PAT }}
+        run: |
+          missing=""
+          [[ -n "$DOCKER_HUB_USERID" ]] || missing+=" DOCKER_HUB_USERID"
+          [[ -n "$DOCKER_HUB_PAT" ]] || missing+=" DOCKER_HUB_PAT"
+          if [[ -n "$missing" ]]; then
+            echo "::error::Missing organisation secret(s):${missing}. Check the org's Actions secrets are shared with this repository."
+            exit 1
+          fi
+
   build:
     name: ${{ matrix.component }} (${{ matrix.arch }})
+    needs: preflight
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: true
@@ -68,8 +87,8 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_USERID }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
       - name: Validate the optional version input
         env:
           VERSION: ${{ inputs.version }}
@@ -122,8 +141,8 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_USERID }}
+          password: ${{ secrets.DOCKER_HUB_PAT }}
       - name: Create one index per image, tagged with the commit
         id: manifest
         run: |
@@ -175,8 +194,8 @@ jobs:
       - name: az acr import by digest (no rebuild; Container Apps pulls linux/amd64 from the index)
         env:
           ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKER_HUB_USERID: ${{ secrets.DOCKER_HUB_USERID }}
+          DOCKER_HUB_PAT: ${{ secrets.DOCKER_HUB_PAT }}
           MANIFEST: ${{ needs.merge.outputs.manifest }}
         run: |
           set -euo pipefail
@@ -186,5 +205,5 @@ jobs:
             upper=$(echo "$component" | tr '[:lower:]' '[:upper:]')
             source=$(grep "^SWOOVR_${upper}_IMAGE=" release-manifest.env | cut -d= -f2-)
             az acr import --name "$ACR_NAME" --source "$source" --image "swoovr-${component}:${GITHUB_SHA}" \
-              --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN" --force
+              --username "$DOCKER_HUB_USERID" --password "$DOCKER_HUB_PAT" --force
           done

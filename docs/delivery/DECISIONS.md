@@ -879,7 +879,7 @@ Reversible: one file. No mail was sent and nothing was deployed.
 
 ### D359 — Images workflow enabled for manual runs (10 November 2026)
 
-**CONFIRMED** owner request in chat, 10 November 2026: build the UAT images on GitHub. `.github/workflows/images.yml` (D356) is uncommented and listed in `ENABLED_WORKFLOWS`. It runs only on **Run workflow** (`workflow_dispatch`). The repository is public, so GitHub's standard Linux runners, including `ubuntu-24.04-arm`, use no paid minutes. The owner adds `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` and creates the five Docker Hub repositories as private first. `promote-to-azure` stays off unless its input is set and the `production` environment approves.
+**CONFIRMED** owner request in chat, 10 November 2026: build the UAT images on GitHub. `.github/workflows/images.yml` (D356) is uncommented and listed in `ENABLED_WORKFLOWS`. It runs only on **Run workflow** (`workflow_dispatch`). The repository is public, so GitHub's standard Linux runners, including `ubuntu-24.04-arm`, use no paid minutes. Docker Hub login uses the organisation secrets `DOCKER_HUB_USERID` (username) and `DOCKER_HUB_PAT` (access token), shared with every repository (**CONFIRMED** owner correction, 11 November 2026; replaces the earlier repository secrets `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`). The owner creates the five Docker Hub repositories as private first. `promote-to-azure` stays off unless its input is set and the `production` environment approves.
 
 Reversible: comment the file out again and remove it from `ENABLED_WORKFLOWS`.
 
