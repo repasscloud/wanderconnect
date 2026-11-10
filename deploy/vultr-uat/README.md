@@ -38,7 +38,7 @@ zammad/    provision.rb  10-create-zammad-role.sh
    - SSL/TLS mode: **Full (strict)**.
    - SSL/TLS → Origin Server → **Create certificate** (owner issue #307, Q175): PEM, RSA 2048, 15 years, explicit SANs only (no wildcard): `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `helpdesk-uat.swoovr.app`, `auth-uat.swoovr.app`, `venues-uat.swoovr.app`. This certificate is for UAT only; production gets its own. Keep the certificate and key private for step 2.
    - Cache rule: **bypass cache** for all five hostnames, because their content is personalised.
-3. **Provider values** for `env/*.env`: MailerSend, Twilio, Didit, R2, screening endpoint and key, media pipeline token and signing key, escalation mailboxes, Entra client secret, and the Entra tenant and client IDs for realm generation. These are the same values the Azure Key Vault inputs use.
+3. **Provider values** for `env/*.env`: MailerSend (API token for the API and Keycloak; SMTP username, password and a sender on the verified domain for Zammad, D357), Twilio, Didit, R2, screening endpoint and key, media pipeline token and signing key, escalation mailboxes, Entra client secret, and the Entra tenant and client IDs for realm generation. These are the same values the Azure Key Vault inputs use.
 
 ## 1. Prepare the host (once)
 
@@ -59,6 +59,12 @@ SWOOVR_SSH_CIDRS="<your.admin.ip>/32" ./bin/host-setup
 - Installs a host input firewall in its own nftables table. It never touches Docker's rules.
 - Enables unattended security updates.
 - Points the five hostnames at Caddy's private address in `/etc/hosts`.
+
+The `repasscloud/swoovr-*` repositories are private (D356), so the host must sign in to Docker Hub before `bin/swoovr pull` or `bootstrap`. Use a separate Docker Hub access token with **Read-only** access, never the workflow's Read & Write token. Type the token at the prompt; never put it on the command line:
+
+```sh
+docker login -u <dockerhub-user>      # paste the read-only token at the password prompt; stored in /root/.docker/config.json
+```
 
 Afterwards, harden SSH yourself: use key-only authentication with `PasswordAuthentication no`, and check that you can still log in before closing the session.
 
@@ -156,7 +162,7 @@ A reset removes **only** this Compose project's volumes (`swoovr-uat_*`). It kee
 ## Known gaps (do not treat UAT as accepted until closed)
 
 - **No off-host backup** of UAT. The owner accepted rebuild-from-scratch for UAT. The operator image's backup transport is Azure-only.
-- **Zammad outgoing mail** isn't configured until an SMTP account is chosen (Q176). Without it, staff notifications are not sent.
+- **Zammad inbound mail** (support mail into tickets) isn't configured. Outgoing staff notifications use MailerSend SMTP (D357).
 - **Single host, single replica.** A host or Docker restart signs members out, because BFF sessions are in memory.
 - **Logs and capability tokens:** Caddy redacts trusted-contact `/safety/meeting|contact/<token>` paths and Keycloak/OIDC `key`, `code`, `token`, `state` query values in its access and error logs, and drops Referer. Keep it that way. Cloudflare-side logging (Logpush, if ever enabled) must apply the same redaction.
 - **Resource sizing is unmeasured.** Watch RAM: Elasticsearch has a 2 GB heap, and Zammad plus the .NET apps add more. Also watch disk and I/O during the first week.

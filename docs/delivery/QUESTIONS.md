@@ -2878,7 +2878,8 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q176 — UAT helpdesk hostname and Zammad outgoing mail
 
-- Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: PARTLY ANSWERED. Earliest blocking phase: Before staff use the hosted UAT helpdesk.
+- Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: ANSWERED (owner, 10 November 2026). Earliest blocking phase: Before staff use the hosted UAT helpdesk.
 - **CONFIRMED** (owner in chat, 10 November 2026): `helpdesk-uat.swoovr.app`, now listed in D355.
-- **OPEN:** choose Zammad's notification SMTP. DEFAULT: notifications stay unsent until chosen.
+- **CONFIRMED** by the [owner on #308](https://github.com/repasscloud/wanderconnect/issues/308#issuecomment-6759649647): MailerSend SMTP (`smtp.mailersend.net`, 587 or 2525). Recorded as D357. The bundle now requires the SMTP username, password and a sender on the verified domain in `env/zammad-provision.env`.
+- Original DEFAULT: notifications stay unsent until chosen.
 - Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md).

@@ -131,12 +131,31 @@ def provision_input():
         'sso': {'display_name': 'Swoovr staff sign-in', 'client_id': 'swoovr-zammad',
                 'issuer': 'https://auth-uat.swoovr.app/realms/swoovr-staff'},
     }
-    if values.get('SWOOVR_ZAMMAD_SMTP_HOST', '').strip():
-        payload['notification_smtp'] = {
-            'host': values['SWOOVR_ZAMMAD_SMTP_HOST'], 'port': int(values.get('SWOOVR_ZAMMAD_SMTP_PORT') or 587),
-            'ssl': False, 'enable_starttls_auto': True,
-            'user': values.get('SWOOVR_ZAMMAD_SMTP_USER', ''), 'password': values.get('SWOOVR_ZAMMAD_SMTP_PASSWORD', '')}
+    payload.update(notification_mail(values))
     sys.stdout.write(json.dumps(payload))
+
+
+def notification_mail(values):
+    """MailerSend SMTP (D357) for staff notifications; an empty host keeps Zammad's local sink."""
+    host = values.get('SWOOVR_ZAMMAD_SMTP_HOST', '').strip()
+    if not host:
+        return {}
+    port = values.get('SWOOVR_ZAMMAD_SMTP_PORT', '').strip() or '587'
+    user = values.get('SWOOVR_ZAMMAD_SMTP_USERNAME', '')
+    password = values.get('SWOOVR_ZAMMAD_SMTP_PASSWORD', '')
+    sender = values.get('SWOOVR_ZAMMAD_NOTIFICATION_SENDER', '').strip()
+    problems = []
+    if not port.isdigit():
+        problems.append('SWOOVR_ZAMMAD_SMTP_PORT must be a number only (no trailing comment)')
+    if not user or not password:
+        problems.append('SWOOVR_ZAMMAD_SMTP_USERNAME and SWOOVR_ZAMMAD_SMTP_PASSWORD are required with a host')
+    if '@' not in sender:
+        problems.append('SWOOVR_ZAMMAD_NOTIFICATION_SENDER must be an address on the MailerSend verified domain')
+    if problems:
+        raise SystemExit('zammad-provision.env: ' + '; '.join(problems))
+    return {'notification_sender': sender,
+            'notification_smtp': {'host': host, 'port': int(port), 'ssl': False, 'enable_starttls_auto': True,
+                                  'user': user, 'password': password}}
 
 
 def provision_output():

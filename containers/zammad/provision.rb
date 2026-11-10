@@ -111,6 +111,9 @@ notification.assign_attributes(options: {outbound: {adapter: 'smtp', options: {h
   password: smtp.fetch('password')}}}, active: true, preferences: {online_service_disable: true},
   created_by_id: actor, updated_by_id: actor)
 notification.save!
+# Hosted runs pass a sender on the SMTP provider's verified domain (D357); local keeps Zammad's default.
+sender = input['notification_sender'].to_s.strip
+Setting.set('notification_sender', sender) unless sender.empty?
 
 # Minimal ticket attributes: references/classification, never original evidence or identity documents.
 {
