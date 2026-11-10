@@ -11,3 +11,4 @@ __pycache__/
 # Operator scripts (the root .gitignore excludes .NET bin/ folders).
 !bin/
 !bin/**
+__pycache__/
