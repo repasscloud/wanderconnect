@@ -2870,12 +2870,14 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q175 — Origin TLS for the Vultr UAT host
 
-- Issue: [#307](https://github.com/repasscloud/wanderconnect/issues/307). Status: OPEN. Earliest blocking phase: Before the first Vultr UAT deployment.
-- DEFAULT (prepared in `deploy/vultr-uat`): Cloudflare Origin CA certificate for `swoovr.app` + `*.swoovr.app` on the stock owner-selected Caddy. There is no DNS token on the host, and containers trust it through a CA bundle. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy image and a zone-edit token on the host.
+- Issue: [#307](https://github.com/repasscloud/wanderconnect/issues/307). Status: ANSWERED (owner in chat, 10 November 2026). Earliest blocking phase: Before the first Vultr UAT deployment.
+- **CONFIRMED:** Cloudflare Origin CA certificate with the explicit SANs `uat`, `api-uat`, `admin-uat`, `auth-uat`, `venues-uat` and `helpdesk-uat` `.swoovr.app`. The bundle's `bin/tls-setup` checks the five routed names; `venues-uat` is covered for the future portal.
+- Original DEFAULT (prepared in `deploy/vultr-uat`): Cloudflare Origin CA certificate for `swoovr.app` + `*.swoovr.app` on the stock owner-selected Caddy. There is no DNS token on the host, and containers trust it through a CA bundle. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy image and a zone-edit token on the host.
 - Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). Independent work continues.
 
 ### Q176 — UAT helpdesk hostname and Zammad outgoing mail
 
-- Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: OPEN. Earliest blocking phase: Before staff use the hosted UAT helpdesk.
-- Confirm `helpdesk-uat.swoovr.app` (not in D355) and choose Zammad's notification SMTP. DEFAULT: notifications stay unsent until chosen.
+- Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: PARTLY ANSWERED. Earliest blocking phase: Before staff use the hosted UAT helpdesk.
+- **CONFIRMED** (owner in chat, 10 November 2026): `helpdesk-uat.swoovr.app`, now listed in D355.
+- **OPEN:** choose Zammad's notification SMTP. DEFAULT: notifications stay unsent until chosen.
 - Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md).

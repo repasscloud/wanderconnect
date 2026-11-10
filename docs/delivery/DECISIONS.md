@@ -838,7 +838,7 @@ Owner decisions are recorded before implementation. [Full owner requirements and
 
 ### D355 — Single-level UAT hosts and portable deployment preparation (10 November 2026)
 
-**CONFIRMED** by [owner #124](https://github.com/repasscloud/wanderconnect/issues/124#issuecomment-6742633182): member `uat.swoovr.app`; API `api-uat.swoovr.app`; admin `admin-uat.swoovr.app`; identity `auth-uat.swoovr.app`; future venue `venues-uat.swoovr.app`; upload Worker `images-upload-uat.swoovr.app`; delivery Worker `images-uat.swoovr.app`. D355 supersedes D291's nested hostnames and paid edge certificate requirement. Full-zone Universal SSL covers these single-level names; an origin TLS certificate is still necessary. Historical D291/Q90 records remain as written with current pointers.
+**CONFIRMED** by [owner #124](https://github.com/repasscloud/wanderconnect/issues/124#issuecomment-6742633182): member `uat.swoovr.app`; API `api-uat.swoovr.app`; admin `admin-uat.swoovr.app`; identity `auth-uat.swoovr.app`; future venue `venues-uat.swoovr.app`; upload Worker `images-upload-uat.swoovr.app`; delivery Worker `images-uat.swoovr.app`; helpdesk `helpdesk-uat.swoovr.app` (**CONFIRMED** owner addition in chat, 10 November 2026, Q176). D355 supersedes D291's nested hostnames and paid edge certificate requirement. Full-zone Universal SSL covers these single-level names; an origin TLS certificate is still necessary. Historical D291/Q90 records remain as written with current pointers.
 
 **CONFIRMED owner clarification in this chat:** production remains Azure. **OPEN:** UAT application hosting, including Vultr. Prepare portable application/container/runtime/migration/auth configuration; existing `infra/uat` Azure resources are optional. Do not treat an Azure subscription as a prerequisite for UAT readiness. Existing deployment authorisation boundaries remain unchanged. No new provider choice is requested by this change.
 
@@ -853,6 +853,6 @@ Passkey RP remains `uat.swoovr.app`; the new sibling auth origin requires an exa
 3. The UAT host runs one Compose project (`deploy/vultr-uat/`). Its environment names equal `infra/uat/secret-bindings.json`, and its database roles use the same `database-bootstrap` code.
 4. Swoovr/Keycloak PostgreSQL is `postgres:17.11-trixie` pinned by digest, TLS-only with a private CA, so clients use `VerifyFull`. This closes the stack review's OPEN Debian image choice as DEFAULT.
 5. Internal callers reach the public names through Caddy's Docker network aliases at a fixed address. Only that address is a trusted proxy. This closes the OPEN internal resolution method as DEFAULT.
-6. Origin TLS is the Cloudflare Origin CA (Q175) and the helpdesk name is `helpdesk-uat.swoovr.app` (Q176). Both stay open to the owner.
+6. **CONFIRMED** by the owner in chat, 10 November 2026: origin TLS is a Cloudflare Origin CA certificate with the explicit SANs `uat`, `api-uat`, `admin-uat`, `auth-uat`, `venues-uat` and `helpdesk-uat` `.swoovr.app` (Q175), and the helpdesk name is `helpdesk-uat.swoovr.app`, added to D355 (Q176). Zammad's outgoing SMTP remains OPEN (Q176).
 
 Reversible: the registry, runners and pins are configuration. [Plan and evidence](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). No image publication, provisioning or deployment is claimed.

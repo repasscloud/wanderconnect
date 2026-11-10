@@ -34,7 +34,7 @@ zammad/    provision.rb  10-create-zammad-role.sh
 2. **Cloudflare (swoovr.app zone):**
    - Proxied (orange-cloud) `A` records to the host's public IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`. Add `AAAA` records too if IPv6 is used.
    - SSL/TLS mode: **Full (strict)**.
-   - SSL/TLS → Origin Server → **Create certificate** for `swoovr.app` and `*.swoovr.app` (15 years). Keep the certificate and key for step 3.
+   - SSL/TLS → Origin Server → **Create certificate** with these hostnames (owner choice, Q175): `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `auth-uat.swoovr.app`, `venues-uat.swoovr.app`, `helpdesk-uat.swoovr.app`. Key type RSA or ECDSA, any validity. Keep the certificate and key for step 3.
    - Cache rule: **bypass cache** for all five hostnames, because their content is personalised.
 3. **Provider values** for `env/*.env`: MailerSend, Twilio, Didit, R2, screening endpoint and key, media pipeline token and signing key, escalation mailboxes, Entra client secret, and the Entra tenant and client IDs for realm generation. These are the same values the Azure Key Vault inputs use.
 
