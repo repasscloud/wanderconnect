@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# One-time preparation of the Vultr bare-metal host (Debian 12 or 13, run as root).
+# Installs Docker Engine + Compose from Docker's own apt repository, kernel settings Zammad/Elasticsearch need,
+# a host firewall that never touches Docker's rules, and unattended security updates. Idempotent.
+# Usage: SWOOVR_SSH_CIDRS="203.0.113.10/32" ./bin/host-setup
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo 'Run as root.' >&2; exit 1; }
+. /etc/os-release
+[[ "$ID" == debian ]] || { echo "Debian expected, found $ID." >&2; exit 1; }
+here="$(cd "$(dirname "$0")/.." && pwd)"
+
+apt-get update
+apt-get -y upgrade
+apt-get install -y --no-install-recommends ca-certificates curl gnupg openssl python3 jq nftables chrony \
+  unattended-upgrades apt-listchanges mdadm smartmontools
+
+# Docker Engine (official repository; Debian's docker.io package lags and lacks the compose plugin).
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $VERSION_CODENAME stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+install -d -m 0755 /etc/docker
+cat > /etc/docker/daemon.json <<'JSON'
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "20m", "max-file": "5" },
+  "live-restore": true,
+  "userland-proxy": false
+}
+JSON
+systemctl enable --now docker
+systemctl restart docker
+
+# Elasticsearch needs a high map count; Redis wants overcommit for background saves.
+cat > /etc/sysctl.d/90-swoovr.conf <<'SYSCTL'
+vm.max_map_count = 262144
+vm.overcommit_memory = 1
+SYSCTL
+sysctl --system >/dev/null
+
+# Host firewall in its own nftables table. Never "flush ruleset": that would delete Docker's rules.
+# Published container ports (80/443) are filtered separately in DOCKER-USER by bin/cloudflare-ips.
+ssh_rule='tcp dport 22 accept'
+if [[ -n "${SWOOVR_SSH_CIDRS:-}" ]]; then
+  # IPv4 and IPv6 CIDRs go to separate nftables rules (an IPv6 address in an "ip saddr" set fails to load).
+  v4=(); v6=()
+  for cidr in ${SWOOVR_SSH_CIDRS//,/ }; do
+    if [[ "$cidr" =~ ^[0-9.]+(/[0-9]+)?$ ]]; then v4+=("$cidr")
+    elif [[ "$cidr" =~ ^[0-9A-Fa-f]*:[0-9A-Fa-f:]*(/[0-9]+)?$ ]]; then v6+=("$cidr")
+    else echo "Invalid SSH CIDR: $cidr" >&2; exit 1
+    fi
+  done
+  ssh_rule=''
+  if (( ${#v4[@]} )); then ssh_rule+="ip saddr { $(IFS=,; echo "${v4[*]}") } tcp dport 22 accept"$'\n    '; fi
+  if (( ${#v6[@]} )); then ssh_rule+="ip6 saddr { $(IFS=,; echo "${v6[*]}") } tcp dport 22 accept"; fi
+else
+  echo 'WARNING: SWOOVR_SSH_CIDRS not set; SSH stays open to the internet (key-only auth still required).' >&2
+fi
+install -d -m 0750 /etc/swoovr
+cat > /etc/swoovr/host.nft <<NFT
+table inet swoovr_host
+delete table inet swoovr_host
+table inet swoovr_host {
+  chain input {
+    type filter hook input priority filter; policy drop;
+    iif lo accept
+    ct state established,related accept
+    ct state invalid drop
+    meta l4proto { icmp, ipv6-icmp } accept
+    $ssh_rule
+  }
+}
+NFT
+cat > /etc/systemd/system/swoovr-host-firewall.service <<'UNIT'
+[Unit]
+Description=Swoovr host input firewall (own nftables table)
+After=network-pre.target
+Before=network-online.target docker.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/swoovr/host.nft
+[Install]
+WantedBy=multi-user.target
+UNIT
+cat > /etc/systemd/system/swoovr-edge-firewall.service <<UNIT
+[Unit]
+Description=Swoovr: allow 80/443 to containers only from Cloudflare (DOCKER-USER)
+After=docker.service
+Requires=docker.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=$here/bin/cloudflare-ips --apply-cached
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now swoovr-host-firewall.service
+systemctl enable swoovr-edge-firewall.service
+
+# The host resolves the public names to Caddy's private address, so an operator SSH tunnel (ssh -D) reaches the
+# Keycloak admin console through the edge network, which Caddy allows (see Caddyfile auth-uat).
+sed -i '/# swoovr-uat$/d' /etc/hosts
+echo '172.30.0.2 uat.swoovr.app api-uat.swoovr.app admin-uat.swoovr.app auth-uat.swoovr.app helpdesk-uat.swoovr.app # swoovr-uat' >> /etc/hosts
+
+# Automatic security updates (no automatic reboot; reboot in a maintenance window).
+cat > /etc/apt/apt.conf.d/20auto-upgrades <<'APT'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT
+chmod 0750 "$here"
+echo
+echo 'Host prepared. Next: confirm RAID with "cat /proc/mdstat", harden SSH (key-only), then bin/tls-setup.'
+docker version --format 'Docker {{.Server.Version}}'; docker compose version

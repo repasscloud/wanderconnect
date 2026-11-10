@@ -1,0 +1,14 @@
+# Host-only private material: never commit.
+env/*.env
+env/.generated
+env/*.log
+tls/
+release.env
+release.env.previous
+release.env.failed
+__pycache__/
+
+# Operator scripts (the root .gitignore excludes .NET bin/ folders).
+!bin/
+!bin/**
+__pycache__/

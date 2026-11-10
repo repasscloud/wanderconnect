@@ -9,6 +9,7 @@
 | Admin | `admin-uat.swoovr.app` |
 | Keycloak | `auth-uat.swoovr.app` |
 | Future venue portal | `venues-uat.swoovr.app` |
+| Helpdesk (Zammad) | `helpdesk-uat.swoovr.app` (owner addition in chat, 10 November 2026; [Q176](QUESTIONS.md#q176--uat-helpdesk-hostname-and-zammad-outgoing-mail)) |
 | Upload Worker | `images-upload-uat.swoovr.app` |
 | Delivery Worker | `images-uat.swoovr.app` |
 

@@ -2867,3 +2867,18 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 - Issue: [#298](https://github.com/repasscloud/wanderconnect/issues/298); parent [#294](https://github.com/repasscloud/wanderconnect/issues/294). Status: OPEN. Earliest blocking phase: Before hosted release.
 - Confirm Shield account credentials/agreement, two-VM rate-limit/IP acceptance and permitted harmless provider acceptance; model licences including NudeNet discrepancy; region/disclosure and TLS readiness. DEFAULT: configured adapters and mocks are not live provider proof.
 - Design: [Vultr image pipeline](../superpowers/specs/2026-11-08-vultr-image-pipeline-design.md). Independent contracts/build/local verification can continue. Never post private credentials to the issue.
+
+### Q175 — Origin TLS for the Vultr UAT host
+
+- Issue: [#307](https://github.com/repasscloud/wanderconnect/issues/307). Status: ANSWERED (owner, 10 November 2026; closed). Earliest blocking phase: Before the first Vultr UAT deployment.
+- **CONFIRMED** by [owner #307](https://github.com/repasscloud/wanderconnect/issues/307): Cloudflare Origin CA certificate, PEM, RSA 2048, 15 years, explicit SANs only (`uat`, `api-uat`, `admin-uat`, `helpdesk-uat`, `auth-uat`, `venues-uat` `.swoovr.app`), no wildcard; stock Caddy loads `/etc/caddy/certs/uat-origin.pem` and `uat-origin.key` from read-only mounts, provisioned on the host outside Git; Full (strict); no ACME and no Cloudflare API token on the host; system CA trust preserved, with the Origin CA roots added only for containers that call Origin CA endpoints directly; UAT certificate and key independent of production and never committed.
+- Implemented in #309: `bin/origin-cert-check` runs before every command that starts Caddy and fails unless both files exist, are PEM, RSA 2048, carry all six SANs and no wildcard, match each other and the key is 0600. It never generates a certificate. Compose binds `/etc/caddy/certs` read-only without creating it.
+- Original DEFAULT (prepared in `deploy/vultr-uat`): Cloudflare Origin CA certificate for `swoovr.app` + `*.swoovr.app` on the stock owner-selected Caddy. There is no DNS token on the host, and containers trust it through a CA bundle. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy image and a zone-edit token on the host.
+- Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). Independent work continues.
+
+### Q176 — UAT helpdesk hostname and Zammad outgoing mail
+
+- Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: PARTLY ANSWERED. Earliest blocking phase: Before staff use the hosted UAT helpdesk.
+- **CONFIRMED** (owner in chat, 10 November 2026): `helpdesk-uat.swoovr.app`, now listed in D355.
+- **OPEN:** choose Zammad's notification SMTP. DEFAULT: notifications stay unsent until chosen.
+- Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md).

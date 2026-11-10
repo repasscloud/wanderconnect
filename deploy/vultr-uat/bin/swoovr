@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# Swoovr UAT operator CLI for the single Vultr host. Run from anywhere; acts on this bundle directory.
+#
+#   swoovr check                       env files filled + private, digests pinned, TLS present, compose valid
+#   swoovr pull                        pull every image named in release.env
+#   swoovr bootstrap                   FRESH UAT: database -> roles -> migrations -> places -> Keycloak -> Zammad -> apps
+#   swoovr upgrade <release.env>       switch to another release: pull, migrate, recreate changed services
+#   swoovr rollback                    return to release.env.previous (only if its schema is compatible)
+#   swoovr job <name> [args...]        one-shot job: db-bootstrap migrate places-import keycloak-bootstrap api-command
+#   swoovr zammad-sso                  create/update the staff realm's swoovr-zammad PKCE client (hosted callback)
+#   swoovr zammad-provision            groups, identities, tokens, webhook, SSO (containers/zammad/provision.rb)
+#   swoovr realms-env <directory>      load scripts/uat/keycloak_realms.py output into env/realms.env
+#   swoovr status | logs [service]     container state, health through Caddy, recent logs
+#   swoovr reset --destroy-uat-data    DELETE every UAT volume of this project (disposable UAT only)
+#   swoovr compose <args...>           raw docker compose with the right files
+set -euo pipefail
+here="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$here"
+
+dc() { docker compose --project-directory "$here" -f "$here/compose.yaml" --env-file "$here/release.env" "$@"; }
+say() { printf '\n== %s\n' "$*"; }
+
+wait_healthy() { # service, timeout seconds
+  local service="$1" limit="${2:-300}" waited=0 id state
+  id="$(dc ps -q "$service")"
+  until state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null)" \
+        && [[ "$state" == healthy ]]; do
+    (( waited >= limit )) && { echo "FAIL $service is $state after ${limit}s" >&2; dc logs --tail 50 "$service" >&2; exit 1; }
+    sleep 5; waited=$((waited + 5))
+  done
+  echo "$service healthy"
+}
+
+job() { local name="$1"; shift; say "job $name"; dc --profile jobs run --rm -T "$name" "$@"; }
+
+# Caddy must never start without the owner-provisioned origin certificate (#307).
+origin_cert() { "$here/bin/origin-cert-check"; }
+
+check() {
+  python3 bin/envtool.py check "$@"
+  origin_cert
+  dc --profile jobs --profile backup config -q
+  echo 'PASS compose configuration'
+}
+
+zammad_sso() {
+  # Same client definition as scripts/zammad_local.py sso_client(), with the hosted helpdesk origin.
+  say 'staff realm: swoovr-zammad public PKCE client'
+  dc --profile jobs run --rm -T --entrypoint /opt/operator-venv/bin/python keycloak-bootstrap - <<'PY'
+import json, os, urllib.parse, urllib.request
+base = 'https://auth-uat.swoovr.app'
+helpdesk = 'https://helpdesk-uat.swoovr.app'
+form = urllib.parse.urlencode({'grant_type': 'password', 'client_id': 'admin-cli',
+    'username': os.environ.get('KC_BOOTSTRAP_ADMIN_USERNAME', 'swoovr-bootstrap'),
+    'password': os.environ['KC_BOOTSTRAP_ADMIN_PASSWORD']}).encode()
+token = json.load(urllib.request.urlopen(base + '/realms/master/protocol/openid-connect/token', form, timeout=15))['access_token']
+def call(path, method='GET', data=None):
+    request = urllib.request.Request(base + '/admin/realms/' + path, None if data is None else json.dumps(data).encode(),
+        method=method, headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        body = response.read()
+        return json.loads(body) if body else None
+client = {'clientId': 'swoovr-zammad', 'name': 'Swoovr helpdesk', 'enabled': True, 'publicClient': True,
+    'clientAuthenticatorType': 'none', 'standardFlowEnabled': True, 'directAccessGrantsEnabled': False,
+    'implicitFlowEnabled': False, 'serviceAccountsEnabled': False, 'frontchannelLogout': False, 'fullScopeAllowed': False,
+    'redirectUris': [helpdesk + '/auth/openid_connect/callback'], 'webOrigins': [helpdesk],
+    'attributes': {'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': helpdesk + '/*',
+        'standard.token.exchange.enabled': 'false', 'oauth2.device.authorization.grant.enabled': 'false'}}
+existing = call('swoovr-staff/clients?clientId=swoovr-zammad')
+if existing: call('swoovr-staff/clients/' + existing[0]['id'], 'PUT', {**existing[0], **client})
+else: call('swoovr-staff/clients', 'POST', client)
+print('swoovr-zammad client ready in swoovr-staff (callback ' + helpdesk + '/auth/openid_connect/callback).')
+PY
+}
+
+zammad_provision() {
+  say 'Zammad provisioning'
+  dc cp "$here/zammad/provision.rb" zammad-railsserver:/tmp/swoovr-provision.rb
+  local output; output="$(mktemp)"; chmod 600 "$output"
+  if ! python3 bin/envtool.py provision-input \
+      | dc exec -T zammad-railsserver bundle exec rails runner /tmp/swoovr-provision.rb > "$output" 2>&1; then
+    install -m 600 "$output" "$here/env/.zammad-provision-error.log"; rm -f "$output"
+    echo 'FAIL provisioning; private diagnostics in env/.zammad-provision-error.log' >&2; exit 1
+  fi
+  python3 bin/envtool.py provision-output < "$output"
+  rm -f "$output"
+}
+
+status() {
+  dc ps -a
+  say 'health through Caddy (internal, with the public hostnames)'
+  for host in uat api-uat admin-uat auth-uat helpdesk-uat; do
+    path=/health/live; [[ $host == auth-uat ]] && path=/realms/master; [[ $host == helpdesk-uat ]] && path=/
+    code="$(dc exec -T caddy wget -q -S -O /dev/null --no-check-certificate "https://$host.swoovr.app$path" 2>&1 | awk '/HTTP\//{print $2}' | tail -1 || true)"
+    printf '%-26s %s\n' "$host.swoovr.app" "${code:-unreachable}"
+  done
+}
+
+bootstrap() {
+  check --bootstrap
+  dc pull
+  say 'Swoovr/Keycloak PostgreSQL'
+  dc up -d swoovr-postgres; wait_healthy swoovr-postgres
+  job db-bootstrap
+  job migrate
+  job places-import
+  say 'Caddy + Keycloak'
+  origin_cert; dc up -d caddy keycloak; wait_healthy keycloak 600
+  job keycloak-bootstrap
+  zammad_sso
+  say 'ClamAV + Zammad'
+  dc up -d clamav zammad-postgresql zammad-redis zammad-memcached zammad-elasticsearch
+  dc up -d zammad-init
+  dc up -d zammad-railsserver zammad-scheduler zammad-websocket zammad-nginx
+  wait_healthy zammad-railsserver 900
+  zammad_provision
+  say 'API, Web, Admin'
+  dc up -d api; wait_healthy api 300
+  dc up -d web admin; wait_healthy web; wait_healthy admin
+  status
+  cat <<'NEXT'
+
+Bootstrap finished. Realms are still DISABLED and no root admin exists. Continue with README.md
+"After bootstrap": provider checks, enable realms, staff sign-in, root-admin grant, smoke test.
+NEXT
+}
+
+upgrade() {
+  local next="${1:?usage: swoovr upgrade <release.env>}"
+  python3 bin/manifest-json.py "$next" > /dev/null
+  cp release.env release.env.previous
+  cp "$next" release.env
+  # A separate process, so its errexit applies; restore the running release if the new one does not pass.
+  if ! "$here/bin/swoovr" check; then
+    cp release.env.previous release.env
+    echo 'FAIL the new release did not pass "swoovr check"; release.env restored, nothing was changed.' >&2; exit 1
+  fi
+  dc pull
+  dc stop api web admin
+  job migrate
+  dc up -d --remove-orphans
+  wait_healthy api; wait_healthy web; wait_healthy admin; wait_healthy keycloak 600
+  status
+}
+
+rollback() {
+  [[ -f release.env.previous ]] || { echo 'No release.env.previous.' >&2; exit 1; }
+  echo 'Rollback swaps images only. It is safe only if the previous release understands the current schema.'
+  read -r -p 'Type ROLLBACK to continue: ' answer; [[ "$answer" == ROLLBACK ]] || exit 1
+  cp release.env release.env.failed; cp release.env.previous release.env
+  origin_cert
+  dc up -d --remove-orphans
+  status
+}
+
+reset() {
+  [[ "${1:-}" == --destroy-uat-data ]] || { echo 'Refusing: pass --destroy-uat-data.' >&2; exit 1; }
+  echo 'This deletes ALL swoovr-uat volumes: Swoovr, Keycloak and Zammad databases, Zammad storage, Caddy state.'
+  read -r -p 'Type the project name (swoovr-uat) to continue: ' answer; [[ "$answer" == swoovr-uat ]] || exit 1
+  dc --profile jobs --profile backup down --volumes --remove-orphans
+  echo 'Volumes removed. env/ and tls/ are kept. Zammad tokens in env/api.env are now stale: bootstrap replaces them.'
+  python3 - "$here/env/api.env" <<'PY'
+import re, sys
+path = sys.argv[1]
+text = open(path).read()
+text = re.sub(r'^(Ticketing__Zammad__(?:IdentityToken|StaffDirectoryToken|RetentionToken|HomeCityCheckToken))=.*$',
+              r'\1=__RUN_bin/swoovr_zammad-provision__', text, flags=re.M)
+open(path, 'w').write(text)
+PY
+}
+
+command="${1:-help}"; shift || true
+case "$command" in
+  check) check ;;
+  pull) dc pull ;;
+  bootstrap) bootstrap ;;
+  upgrade) upgrade "$@" ;;
+  rollback) rollback ;;
+  job) job "$@" ;;
+  zammad-sso) zammad_sso ;;
+  zammad-provision) zammad_provision ;;
+  realms-env) python3 bin/envtool.py realms "$@" ;;
+  status) status ;;
+  logs) dc logs --tail 200 "$@" ;;
+  reset) reset "$@" ;;
+  compose) dc "$@" ;;
+  *) sed -n '2,17p' "$0"; exit 64 ;;
+esac

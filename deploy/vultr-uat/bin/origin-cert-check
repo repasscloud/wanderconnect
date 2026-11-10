@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Validate the owner-provisioned Cloudflare Origin CA certificate before Caddy starts (owner #307, Q175).
+# The files live on the host outside Git and outside this bundle; this script only reads them and prints
+# nothing secret. It never generates or replaces a certificate.
+#   Required: PEM certificate + matching private key, RSA 2048, explicit SANs for the six UAT hosts, no wildcard.
+set -euo pipefail
+dir="${SWOOVR_ORIGIN_CERT_DIR:-/etc/caddy/certs}"
+cert="$dir/uat-origin.pem"; key="$dir/uat-origin.key"
+fail() { echo "FAIL origin certificate: $*" >&2; exit 1; }
+[[ -s "$cert" ]] || fail "$cert is missing or empty (provision it on the host; never commit it)"
+[[ -s "$key" ]] || fail "$key is missing or empty (provision it on the host; never commit it)"
+[[ "$(stat -c %a "$key")" =~ ^[0-7]00$ ]] || fail "$key must not be readable by group or others (chmod 600)"
+openssl x509 -in "$cert" -noout 2> /dev/null || fail "$cert is not a PEM certificate"
+openssl pkey -in "$key" -noout 2> /dev/null || fail "$key is not a PEM private key"
+[[ "$(openssl x509 -in "$cert" -noout -pubkey | openssl sha256)" == "$(openssl pkey -in "$key" -pubout | openssl sha256)" ]] \
+  || fail 'certificate and key do not match'
+text="$(openssl x509 -in "$cert" -noout -text)"
+if ! grep -q 'Public Key Algorithm: rsaEncryption' <<< "$text" || ! grep -q 'Public-Key: (2048 bit)' <<< "$text"; then
+  fail 'key type must be RSA 2048'
+fi
+sans="$(openssl x509 -in "$cert" -noout -ext subjectAltName 2> /dev/null | tail -n +2 | tr ',' '\n' | sed 's/^ *DNS://')"
+grep -q '\*' <<< "$sans" && fail 'wildcard SANs are not permitted'
+for host in uat api-uat admin-uat auth-uat venues-uat helpdesk-uat; do
+  grep -qx "$host.swoovr.app" <<< "$sans" || fail "SAN $host.swoovr.app is missing"
+done
+openssl x509 -in "$cert" -noout -checkend 2592000 > /dev/null || fail 'expires within 30 days'
+echo "PASS origin certificate $cert: RSA 2048, six explicit UAT SANs, no wildcard, matches its key, $(openssl x509 -in "$cert" -noout -enddate)."

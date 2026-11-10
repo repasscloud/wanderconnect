@@ -1,0 +1,114 @@
+# Swoovr UAT ingress: one Caddy for all five hostnames (owner, 10 Nov 2026). Cloudflare proxies every name with
+# SSL/TLS mode Full (strict). The origin certificate is a Cloudflare Origin CA certificate naming the six UAT hosts
+# (owner #307, Q175: RSA 2048, explicit SANs, no wildcard), provisioned by the owner on the host at /etc/caddy/certs
+# outside Git, mounted read-only, checked by bin/origin-cert-check before Caddy starts. Caddy never requests ACME.
+#
+# Capability tokens never reach Caddy's logs (MEETING-SAFETY-IMPLEMENTATION.md, D263): the trusted-contact path
+# segment under /safety/meeting/ and /safety/contact/, and Keycloak action-token and OIDC query values. Caddy already
+# omits Cookie and Authorization values. Referer is dropped because it can carry the same URLs.
+(redact_capabilities) {
+	request>uri multi_regexp {
+		regexp "^/safety/(meeting|contact)/[^?]*" "/safety/${1}/[redacted]"
+		regexp "([?&](?:key|code|token|state|session_state)=)[^&]*" "${1}[redacted]"
+	}
+	request>headers>Referer delete
+}
+
+{
+	# Admin API stays inside the container (default localhost:2019); never published.
+	auto_https disable_certs
+	# Error logs (for example a failed proxy attempt) also carry the request, so they get the same redaction.
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				import redact_capabilities
+			}
+		}
+	}
+	servers {
+		# Who may tell Caddy the client address: Cloudflare (CF-Connecting-IP; bin/cloudflare-ips writes
+		# CLOUDFLARE_RANGES into env/caddy.env) and the Web and Admin BFFs at their fixed addresses, which forward
+		# the browser's address in X-Forwarded-For when they call the API through Caddy (D181).
+		trusted_proxies static {$CLOUDFLARE_RANGES} 172.30.0.10/32 172.30.0.11/32
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+		trusted_proxies_strict
+	}
+}
+
+(origin_tls) {
+	tls /etc/caddy/certs/uat-origin.pem /etc/caddy/certs/uat-origin.key
+}
+
+# Upstreams receive exactly one X-Forwarded-For value: the client address Caddy resolved above. Without this
+# Caddy appends its direct peer (a Cloudflare edge or BFF container), and the apps, which trust only Caddy,
+# would key per-address limits on that peer instead of the member.
+(proxy) {
+	reverse_proxy {args[0]} {
+		header_up X-Forwarded-For {client_ip}
+	}
+}
+
+(common) {
+	import origin_tls
+	encode zstd gzip
+	header -Server
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				import redact_capabilities
+			}
+		}
+	}
+}
+
+uat.swoovr.app {
+	import common
+	import proxy web:8080
+}
+
+api-uat.swoovr.app {
+	import common
+	# Support attachments: 150 MB of files, ~200 MB once base64-encoded (D330).
+	request_body {
+		max_size 220MB
+	}
+	import proxy api:8080
+}
+
+admin-uat.swoovr.app {
+	import common
+	import proxy admin:8080
+}
+
+auth-uat.swoovr.app {
+	import common
+	# Keycloak management (9000) is never routed. The admin console/API and the master realm answer only to
+	# callers on the Docker edge network or the host itself (remote_ip is the direct peer, not a forwarded header).
+	@private_admin {
+		path /admin /admin/* /realms/master /realms/master/*
+		not remote_ip 172.30.0.0/24
+	}
+	respond @private_admin 404
+	import proxy keycloak:8080
+}
+
+helpdesk-uat.swoovr.app {
+	import common
+	request_body {
+		max_size 220MB
+	}
+	import proxy zammad-nginx:8080
+}
+
+# Anything else (including bare IP access) gets nothing.
+:443 {
+	import origin_tls
+	respond 404
+}
+:80 {
+	redir https://{host}{uri} permanent
+}

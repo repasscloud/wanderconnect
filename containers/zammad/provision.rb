@@ -100,11 +100,15 @@ if sso
 end
 Setting.set('user_show_password_login', sso.nil?)
 Setting.set('user_lost_password', false)
-# Local outgoing email never leaves the Docker mail sink.
+# Local outgoing email never leaves the Docker mail sink. A hosted run (deploy/vultr-uat) may pass its own
+# notification_smtp; without it the local sink is kept, so local behaviour is unchanged.
+smtp = {'host' => 'swoovr-platform', 'port' => 1025, 'ssl' => false, 'enable_starttls_auto' => false, 'user' => '', 'password' => ''}
+  .merge(input.fetch('notification_smtp', {}))
 Channel.where(area: 'Email::Notification').update_all(active: false)
 notification = Channel.find_by(area: 'Email::Notification') || Channel.new(area: 'Email::Notification')
-notification.assign_attributes(options: {outbound: {adapter: 'smtp', options: {host: 'swoovr-platform', port: 1025,
-  ssl: false, enable_starttls_auto: false, user: '', password: ''}}}, active: true, preferences: {online_service_disable: true},
+notification.assign_attributes(options: {outbound: {adapter: 'smtp', options: {host: smtp.fetch('host'), port: Integer(smtp.fetch('port')),
+  ssl: smtp.fetch('ssl') == true, enable_starttls_auto: smtp.fetch('enable_starttls_auto') == true, user: smtp.fetch('user'),
+  password: smtp.fetch('password')}}}, active: true, preferences: {online_service_disable: true},
   created_by_id: actor, updated_by_id: actor)
 notification.save!
 
@@ -222,7 +226,8 @@ mail_filter.save!
 # Webhook/trigger stay inactive unless provisioning explicitly enables events (zammad_local.py provision --events).
 events = input.fetch('events_active', false) == true
 webhook = Webhook.find_or_initialize_by(name: 'Swoovr events')
-webhook.assign_attributes(endpoint: 'http://swoovr-platform:5080/api/integrations/zammad/events',
+# Hosted runs pass the API endpoint (deploy/vultr-uat: https://api-uat.swoovr.app/..., via Caddy); local default unchanged.
+webhook.assign_attributes(endpoint: input.fetch('webhook_endpoint', 'http://swoovr-platform:5080/api/integrations/zammad/events'),
   signature_token: input.fetch('webhook_secret'), active: events, ssl_verify: true,
   customized_payload: true, custom_payload: JSON.generate({ticket: {id: '#{ticket.id}', updated_at: '#{ticket.updated_at}', customer_id: '#{ticket.customer_id}', state_id: '#{ticket.state_id}', group_id: '#{ticket.group_id}', owner_id: '#{ticket.owner_id}', priority_id: '#{ticket.priority_id}'}, article: {id: '#{article.id}'}}),
   created_by_id: actor, updated_by_id: actor)
