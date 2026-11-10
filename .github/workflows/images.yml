@@ -38,8 +38,26 @@ permissions:
 env:
   REGISTRY_NAMESPACE: repasscloud
 jobs:
+  # Fails once, with a clear message, before ten build runners start, when the Docker Hub secrets are missing.
+  preflight:
+    name: Check Docker Hub secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          missing=""
+          [[ -n "$DOCKERHUB_USERNAME" ]] || missing+=" DOCKERHUB_USERNAME"
+          [[ -n "$DOCKERHUB_TOKEN" ]] || missing+=" DOCKERHUB_TOKEN"
+          if [[ -n "$missing" ]]; then
+            echo "::error::Missing repository secret(s):${missing}. Add them under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
   build:
     name: ${{ matrix.component }} (${{ matrix.arch }})
+    needs: preflight
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: true
