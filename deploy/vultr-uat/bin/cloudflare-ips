@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Fetch Cloudflare's published edge ranges, write them for Caddy's trusted_proxies (env/caddy.env), and allow
+# published container ports 80/443 only from those ranges (DOCKER-USER chain; ufw/INPUT rules do not see them).
+#   bin/cloudflare-ips                 fetch + write env/caddy.env + apply firewall
+#   bin/cloudflare-ips --apply-cached  apply firewall from the last fetched ranges (boot; no network needed)
+set -euo pipefail
+here="$(cd "$(dirname "$0")/.." && pwd)"
+cache=/etc/swoovr/cloudflare-ranges
+if [[ "${1:-}" != --apply-cached ]]; then
+  v4="$(curl -fsSL https://www.cloudflare.com/ips-v4)"; v6="$(curl -fsSL https://www.cloudflare.com/ips-v6)"
+  [[ $(wc -l <<<"$v4") -ge 10 ]] || { echo 'Unexpected Cloudflare IPv4 list.' >&2; exit 1; }
+  install -d -m 0750 /etc/swoovr
+  printf '%s\n%s\n' "$v4" "$v6" | grep -E '^[0-9a-f:.]+/[0-9]+$' > "$cache"
+  umask 077
+  printf 'CLOUDFLARE_RANGES=%s\n' "$(tr '\n' ' ' < "$cache" | sed 's/ $//')" > "$here/env/caddy.env"
+  chmod 0600 "$here/env/caddy.env"
+  echo "Wrote $(wc -l < "$cache") ranges to env/caddy.env (restart caddy to apply)."
+fi
+[[ -s "$cache" ]] || { echo 'No cached Cloudflare ranges; run bin/cloudflare-ips first.' >&2; exit 1; }
+apply() { # $1 = iptables|ip6tables, $2 = address family grep
+  local t="$1"
+  $t -N SWOOVR-EDGE 2>/dev/null || $t -F SWOOVR-EDGE
+  while read -r range; do $t -A SWOOVR-EDGE -s "$range" -j RETURN; done < <(grep -E "$2" "$cache")
+  $t -A SWOOVR-EDGE -j DROP
+  for port in 80 443; do
+    $t -C DOCKER-USER -p tcp -m conntrack --ctorigdstport "$port" --ctdir ORIGINAL -j SWOOVR-EDGE 2>/dev/null \
+      || $t -I DOCKER-USER -p tcp -m conntrack --ctorigdstport "$port" --ctdir ORIGINAL -j SWOOVR-EDGE
+  done
+}
+apply iptables '^[0-9.]+/'
+apply ip6tables ':' || echo 'IPv6 DOCKER-USER not available; ignore if IPv6 is disabled in Docker.'
+echo 'DOCKER-USER: ports 80/443 accept Cloudflare ranges only.'

@@ -7,3 +7,7 @@ release.env
 release.env.previous
 release.env.failed
 __pycache__/
+
+# Operator scripts (the root .gitignore excludes .NET bin/ folders).
+!bin/
+!bin/**
