@@ -156,5 +156,6 @@ A reset removes **only** this Compose project's volumes (`swoovr-uat_*`). It kee
 - **No off-host backup** of UAT. The owner accepted rebuild-from-scratch for UAT. The operator image's backup transport is Azure-only.
 - **Zammad outgoing mail** isn't configured until an SMTP account is chosen (Q176). Without it, staff notifications are not sent.
 - **Single host, single replica.** A host or Docker restart signs members out, because BFF sessions are in memory.
+- **Logs and capability tokens:** Caddy redacts trusted-contact `/safety/meeting|contact/<token>` paths and Keycloak/OIDC `key`, `code`, `token`, `state` query values in its access and error logs, and drops Referer. Keep it that way. Cloudflare-side logging (Logpush, if ever enabled) must apply the same redaction.
 - **Resource sizing is unmeasured.** Watch RAM: Elasticsearch has a 2 GB heap, and Zammad plus the .NET apps add more. Also watch disk and I/O during the first week.
 - The **Keycloak image bakes UAT policy URLs**. Production needs its own build (see the plan).

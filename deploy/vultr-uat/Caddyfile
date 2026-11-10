@@ -2,9 +2,31 @@
 # SSL/TLS mode Full (strict). The origin certificate is a Cloudflare Origin CA certificate naming the six UAT hosts
 # (owner #307, Q175: RSA 2048, explicit SANs, no wildcard), provisioned by the owner on the host at /etc/caddy/certs
 # outside Git, mounted read-only, checked by bin/origin-cert-check before Caddy starts. Caddy never requests ACME.
+#
+# Capability tokens never reach Caddy's logs (MEETING-SAFETY-IMPLEMENTATION.md, D263): the trusted-contact path
+# segment under /safety/meeting/ and /safety/contact/, and Keycloak action-token and OIDC query values. Caddy already
+# omits Cookie and Authorization values. Referer is dropped because it can carry the same URLs.
+(redact_capabilities) {
+	request>uri multi_regexp {
+		regexp "^/safety/(meeting|contact)/[^?]*" "/safety/${1}/[redacted]"
+		regexp "([?&](?:key|code|token|state|session_state)=)[^&]*" "${1}[redacted]"
+	}
+	request>headers>Referer delete
+}
+
 {
 	# Admin API stays inside the container (default localhost:2019); never published.
 	auto_https disable_certs
+	# Error logs (for example a failed proxy attempt) also carry the request, so they get the same redaction.
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				import redact_capabilities
+			}
+		}
+	}
 	servers {
 		# Only Cloudflare may set the client address. bin/cloudflare-ips writes CLOUDFLARE_RANGES into env/caddy.env.
 		trusted_proxies static {$CLOUDFLARE_RANGES}
@@ -23,7 +45,12 @@
 	header -Server
 	log {
 		output stdout
-		format json
+		format filter {
+			wrap json
+			fields {
+				import redact_capabilities
+			}
+		}
 	}
 }
 
