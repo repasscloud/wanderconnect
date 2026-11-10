@@ -33,15 +33,20 @@ chown 999:999 "$tls/postgres/server.key" "$tls/postgres/server.crt"
 chmod 0600 "$tls/postgres/server.key"; chmod 0644 "$tls/postgres/server.crt" "$tls/trust/pg-ca.crt"
 chown 999:999 "$tls/postgres"; chmod 0700 "$tls/postgres"
 
-# Cloudflare Origin CA roots (documented at developers.cloudflare.com/ssl/origin-configuration/origin-ca/).
-curl -fsSL https://developers.cloudflare.com/ssl/static/origin_ca_rsa_root.pem -o "$tls/trust/cf-rsa.pem"
-curl -fsSL https://developers.cloudflare.com/ssl/static/origin_ca_ecc_root.pem -o "$tls/trust/cf-ecc.pem"
-cat "$tls/trust/cf-rsa.pem" "$tls/trust/cf-ecc.pem" > "$tls/trust/cloudflare-origin-ca.pem"
-rm -f "$tls/trust/cf-rsa.pem" "$tls/trust/cf-ecc.pem"
-echo 'Cloudflare Origin CA root fingerprints (compare with the Cloudflare documentation before continuing):'
-openssl crl2pkcs7 -nocrl -certfile "$tls/trust/cloudflare-origin-ca.pem" | openssl pkcs7 -print_certs -noout | grep subject || true
-awk 'BEGIN{c=0} /BEGIN CERT/{c++} {print > ("/tmp/swoovr-cf-" c ".pem")}' "$tls/trust/cloudflare-origin-ca.pem"
-for f in /tmp/swoovr-cf-*.pem; do openssl x509 -in "$f" -noout -fingerprint -sha256 2>/dev/null || true; rm -f "$f"; done
+# Cloudflare Origin CA roots (developers.cloudflare.com/ssl/origin-configuration/origin-ca/). Pinned by SHA-256 so a
+# tampered download never enters the trust bundle; both roots expire 15 August 2029 (update the pins then).
+declare -A cf_pin=(
+  [rsa]=D3:C7:E8:5C:91:70:7F:C0:A1:2A:BC:5D:88:26:67:47:AA:4F:A8:E7:B1:62:F6:33:FF:B3:C9:D9:89:94:76:20
+  [ecc]=AA:63:69:7A:22:76:4B:67:B2:13:4C:E1:4C:B5:69:0E:A3:36:94:0B:93:98:61:13:F4:95:45:91:78:32:D8:0D
+)
+work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+for kind in rsa ecc; do
+  curl -fsSL "https://developers.cloudflare.com/ssl/static/origin_ca_${kind}_root.pem" -o "$work/cf-$kind.pem"
+  got="$(openssl x509 -in "$work/cf-$kind.pem" -noout -fingerprint -sha256 | cut -d= -f2)"
+  [[ "$got" == "${cf_pin[$kind]}" ]] || { echo "FAIL Cloudflare Origin CA $kind root fingerprint $got is not the pinned value" >&2; exit 1; }
+  echo "PASS Cloudflare Origin CA $kind root matches the pinned SHA-256 ($got)."
+done
+cat "$work/cf-rsa.pem" "$work/cf-ecc.pem" > "$tls/trust/cloudflare-origin-ca.pem"
 
 cat /etc/ssl/certs/ca-certificates.crt "$tls/trust/cloudflare-origin-ca.pem" > "$tls/trust/origin-trust.pem"
 rm -f "$tls/trust/trust-bundle.pem"

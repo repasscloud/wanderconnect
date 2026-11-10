@@ -46,7 +46,17 @@ sysctl --system >/dev/null
 # Published container ports (80/443) are filtered separately in DOCKER-USER by bin/cloudflare-ips.
 ssh_rule='tcp dport 22 accept'
 if [[ -n "${SWOOVR_SSH_CIDRS:-}" ]]; then
-  ssh_rule="ip saddr { ${SWOOVR_SSH_CIDRS// /, } } tcp dport 22 accept"
+  # IPv4 and IPv6 CIDRs go to separate nftables rules (an IPv6 address in an "ip saddr" set fails to load).
+  v4=(); v6=()
+  for cidr in ${SWOOVR_SSH_CIDRS//,/ }; do
+    if [[ "$cidr" =~ ^[0-9.]+(/[0-9]+)?$ ]]; then v4+=("$cidr")
+    elif [[ "$cidr" =~ ^[0-9A-Fa-f]*:[0-9A-Fa-f:]*(/[0-9]+)?$ ]]; then v6+=("$cidr")
+    else echo "Invalid SSH CIDR: $cidr" >&2; exit 1
+    fi
+  done
+  ssh_rule=''
+  if (( ${#v4[@]} )); then ssh_rule+="ip saddr { $(IFS=,; echo "${v4[*]}") } tcp dport 22 accept"$'\n    '; fi
+  if (( ${#v6[@]} )); then ssh_rule+="ip6 saddr { $(IFS=,; echo "${v6[*]}") } tcp dport 22 accept"; fi
 else
   echo 'WARNING: SWOOVR_SSH_CIDRS not set; SSH stays open to the internet (key-only auth still required).' >&2
 fi

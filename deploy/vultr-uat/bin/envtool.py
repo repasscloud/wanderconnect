@@ -85,6 +85,10 @@ def check(mode=None):
         for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
             if UNFILLED.search(line) and not (later and line.endswith('=' + later)):
                 problems.append(f'{path.name}:{number}: {line.partition("=")[0]} is not filled')
+            key, _, value = line.partition('=')
+            # Compose interpolates $ in unquoted env_file values, silently changing a secret.
+            if not line.startswith('#') and '$' in value and not (value.startswith("'") and value.endswith("'")):
+                problems.append(f'{path.name}:{number}: {key} contains $; wrap the whole value in single quotes')
     release = ROOT / 'release.env'
     if not release.exists():
         problems.append('release.env is missing')

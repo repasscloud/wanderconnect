@@ -34,7 +34,7 @@ zammad/    provision.rb  10-create-zammad-role.sh
 
 1. **Images:** run the `Images` workflow for the reviewed commit (see the plan, step 2). Download the `swoovr-release-<commit>` artifact. It contains `release-manifest.env` and `swoovr-uat-bundle-<commit>.tar.gz`. Without Actions minutes, build the images locally instead (plan, "Building without Actions").
 2. **Cloudflare (swoovr.app zone):**
-   - Proxied (orange-cloud) `A` records to the host's public IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`. Add `AAAA` records too if IPv6 is used.
+   - Proxied (orange-cloud) `A` records to the host's public IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`. **No `AAAA` records:** the Docker networks are IPv4-only, so Cloudflare must reach the origin over IPv4. Visitors still get IPv6 from Cloudflare's edge.
    - SSL/TLS mode: **Full (strict)**.
    - SSL/TLS → Origin Server → **Create certificate** (owner issue #307, Q175): PEM, RSA 2048, 15 years, explicit SANs only (no wildcard): `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `helpdesk-uat.swoovr.app`, `auth-uat.swoovr.app`, `venues-uat.swoovr.app`. This certificate is for UAT only; production gets its own. Keep the certificate and key private for step 2.
    - Cache rule: **bypass cache** for all five hostnames, because their content is personalised.
@@ -77,11 +77,13 @@ systemctl start swoovr-edge-firewall
 
 Caddy reads the files read-only at `/etc/caddy/certs/` (the same path inside the container). `bin/swoovr` runs `origin-cert-check` before every command that starts Caddy and stops if it fails; Compose also refuses to create the directory if it is missing. Never generate a replacement certificate on the host or commit certificate material.
 
+Client addresses: Caddy believes `CF-Connecting-IP` only from Cloudflare's ranges, and `X-Forwarded-For` only from the Web and Admin BFFs at their fixed addresses (172.30.0.10 and .11). It sends every upstream exactly one `X-Forwarded-For` value, so per-address limits see the member, not a Cloudflare edge or container. Other containers get dynamic addresses from 172.30.0.128/25 and can't take a trusted one.
+
 The edge filter only applies to packets arriving on the public interface (detected from the default route; override with `SWOOVR_EXT_IF=<name>`). Containers' own outbound HTTPS, such as the GeoNames download and provider calls, is not filtered.
 
 Container trust keeps the system CAs. Only the services that call Caddy's public names directly (API, Web, Admin, the `api-command` and Keycloak bootstrap jobs, and Zammad's Rails and scheduler) get `SSL_CERT_FILE=origin-trust.pem`, which is the system CAs plus the Cloudflare Origin CA roots. Keycloak adds the Cloudflare roots to its default truststore with `KC_TRUSTSTORE_PATHS`. Database clients trust only the private PostgreSQL CA (`VerifyFull`).
 
-`tls-setup` prints the Cloudflare Origin CA root fingerprints. Compare them with Cloudflare's documentation. `origin-cert-check` refuses a certificate that is missing, not RSA 2048, has a wildcard, lacks one of the six hostnames, expires within 30 days, or doesn't match its key.
+`tls-setup` refuses Cloudflare Origin CA roots whose SHA-256 fingerprints differ from the pinned values (both roots expire 15 August 2029). `origin-cert-check` refuses a certificate that is missing, not RSA 2048, has a wildcard, lacks one of the six hostnames, expires within 30 days, or doesn't match its key.
 
 ## 3. Private configuration
 

@@ -28,8 +28,10 @@
 		}
 	}
 	servers {
-		# Only Cloudflare may set the client address. bin/cloudflare-ips writes CLOUDFLARE_RANGES into env/caddy.env.
-		trusted_proxies static {$CLOUDFLARE_RANGES}
+		# Who may tell Caddy the client address: Cloudflare (CF-Connecting-IP; bin/cloudflare-ips writes
+		# CLOUDFLARE_RANGES into env/caddy.env) and the Web and Admin BFFs at their fixed addresses, which forward
+		# the browser's address in X-Forwarded-For when they call the API through Caddy (D181).
+		trusted_proxies static {$CLOUDFLARE_RANGES} 172.30.0.10/32 172.30.0.11/32
 		client_ip_headers CF-Connecting-IP X-Forwarded-For
 		trusted_proxies_strict
 	}
@@ -37,6 +39,15 @@
 
 (origin_tls) {
 	tls /etc/caddy/certs/uat-origin.pem /etc/caddy/certs/uat-origin.key
+}
+
+# Upstreams receive exactly one X-Forwarded-For value: the client address Caddy resolved above. Without this
+# Caddy appends its direct peer (a Cloudflare edge or BFF container), and the apps, which trust only Caddy,
+# would key per-address limits on that peer instead of the member.
+(proxy) {
+	reverse_proxy {args[0]} {
+		header_up X-Forwarded-For {client_ip}
+	}
 }
 
 (common) {
@@ -56,7 +67,7 @@
 
 uat.swoovr.app {
 	import common
-	reverse_proxy web:8080
+	import proxy web:8080
 }
 
 api-uat.swoovr.app {
@@ -65,12 +76,12 @@ api-uat.swoovr.app {
 	request_body {
 		max_size 220MB
 	}
-	reverse_proxy api:8080
+	import proxy api:8080
 }
 
 admin-uat.swoovr.app {
 	import common
-	reverse_proxy admin:8080
+	import proxy admin:8080
 }
 
 auth-uat.swoovr.app {
@@ -82,7 +93,7 @@ auth-uat.swoovr.app {
 		not remote_ip 172.30.0.0/24
 	}
 	respond @private_admin 404
-	reverse_proxy keycloak:8080
+	import proxy keycloak:8080
 }
 
 helpdesk-uat.swoovr.app {
@@ -90,7 +101,7 @@ helpdesk-uat.swoovr.app {
 	request_body {
 		max_size 220MB
 	}
-	reverse_proxy zammad-nginx:8080
+	import proxy zammad-nginx:8080
 }
 
 # Anything else (including bare IP access) gets nothing.

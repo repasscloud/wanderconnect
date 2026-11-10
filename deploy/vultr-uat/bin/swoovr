@@ -130,7 +130,11 @@ upgrade() {
   python3 bin/manifest-json.py "$next" > /dev/null
   cp release.env release.env.previous
   cp "$next" release.env
-  check
+  # A separate process, so its errexit applies; restore the running release if the new one does not pass.
+  if ! "$here/bin/swoovr" check; then
+    cp release.env.previous release.env
+    echo 'FAIL the new release did not pass "swoovr check"; release.env restored, nothing was changed.' >&2; exit 1
+  fi
   dc pull
   dc stop api web admin
   job migrate

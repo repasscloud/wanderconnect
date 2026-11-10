@@ -149,6 +149,14 @@ Production keeps the Azure design in [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) and 
 - `caddy validate` with the owner-selected Caddy digest reports "Valid configuration". The registry digest equals the owner's pin (multi-arch).
 - `shellcheck -S warning` is clean for all bundle scripts. `ruby -c` passes for `provision.rb`.
 - `make-bundle.sh` produced a tarball with no env values, TLS files or caches.
+- Builder security review of #309 (10 November 2026), each checked locally:
+  - **Client address chain.** The pinned Caddy with an echo upstream showed the previous Caddyfile sending `198.51.100.7, 172.30.0.100` (client plus Cloudflare edge) and the Web BFF's own address to the API. The apps trust only Caddy, so they would have keyed per-address limits (phone codes, meeting-safety, MFA) on the Cloudflare edge or BFF. Now each upstream receives one value: the Cloudflare client, or the browser address forwarded by Web/Admin at fixed trusted addresses. A container at another address that sends spoofed `X-Forwarded-For` and `CF-Connecting-IP` is logged as itself.
+  - `tls-setup` pins the Cloudflare Origin CA root SHA-256 fingerprints and uses a private temporary directory instead of fixed `/tmp` names.
+  - `swoovr upgrade` restores `release.env` if the new release fails `swoovr check` (previously it stayed switched).
+  - `host-setup` splits IPv4 and IPv6 SSH CIDRs into `ip`/`ip6` rules and rejects anything else; `nft -c` accepts the generated table.
+  - `envtool.py check` refuses an unquoted `$` in an env value, which Compose would interpolate.
+  - The image workflow pins every action to a commit SHA, disables checkout credential persistence and validates the `version` input. It stays fully commented.
+  - Runbook: no `AAAA` records, because the Docker networks are IPv4-only.
 - Capability-token redaction in Caddy logs (Codex on #309; MEETING-SAFETY-IMPLEMENTATION.md): the pinned Caddy ran the bundle Caddyfile with a test certificate. Requests to `/safety/meeting/<token>`, `/safety/contact/<token>`, a Keycloak `action-token?key=` URL and an OIDC callback with `code`/`state`/`session_state` were logged as `[redacted]` in both the access log and the error log (proxy failures). The Referer header was dropped, and a fake token appeared 0 times in all Caddy output. Cloudflare-side logs are separate and not configured by this bundle.
 - Codex review fixes on #309: `bin/cloudflare-ips --apply-cached` ran in a `debian:trixie` container with `NET_ADMIN` and a stub `DOCKER-USER` chain. It removed the earlier unscoped jump, added only `-i eth0` jumps for 80/443 (IPv4 and IPv6), stayed idempotent on a second run, and refused an unknown interface. The .NET runtime image (`aspnet:10.0` digest, Ubuntu 24.04) has `/bin/sh` → dash and Bash 5.2, so the health probes now call Bash explicitly and send each service's `AllowedHosts` name.
 

@@ -224,7 +224,10 @@ services:
     healthcheck:
       <<: *dotnet-health
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: uat.swoovr.app\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
-    networks: [edge]
+    networks:
+      edge:
+        # Fixed: Caddy trusts this address's X-Forwarded-For (the BFF forwards the browser address).
+        ipv4_address: 172.30.0.10
 
   admin:
     <<: *swoovr-app
@@ -248,7 +251,10 @@ services:
     healthcheck:
       <<: *dotnet-health
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: admin-uat.swoovr.app\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
-    networks: [edge]
+    networks:
+      edge:
+        # Fixed: Caddy trusts this address's X-Forwarded-For (the BFF forwards the browser address).
+        ipv4_address: 172.30.0.11
 
   # Named volumes start root-owned; the .NET images run as UID 1654. Reuses the API image, no extra image.
   volume-permissions:
@@ -433,7 +439,7 @@ services:
       SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
     networks: [edge]
 
-  # Generic API one-shot: bin/swoovr job api-command -- root-admin grant <subject>
+  # Generic API one-shot: bin/swoovr job api-command root-admin grant <subject>
   api-command:
     <<: *job
     image: ${SWOOVR_API_IMAGE:?release.env}
@@ -453,7 +459,9 @@ services:
 networks:
   edge:
     ipam:
-      config: [{ subnet: 172.30.0.0/24 }]
+      # Fixed addresses: Caddy 172.30.0.2, Web 172.30.0.10, Admin 172.30.0.11. Dynamic ones from .128 up, so a
+      # restarted container can never take a trusted address.
+      config: [{ subnet: 172.30.0.0/24, ip_range: 172.30.0.128/25 }]
   data:
     internal: true
   ticketing:
