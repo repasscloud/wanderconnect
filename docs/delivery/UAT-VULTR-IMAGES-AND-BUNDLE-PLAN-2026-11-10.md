@@ -22,7 +22,7 @@ Nothing was published, provisioned or deployed.
 | Build once, promote | DEFAULT | Production imports the UAT-tested digests into ACR (`az acr import`); it never rebuilds them. Keycloak is the exception (see below). |
 | Swoovr/Keycloak PostgreSQL image | DEFAULT (was OPEN) | `postgres:17.11-trixie` @ `sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f`. Debian 13 index (amd64/arm64), digest checked 10 November 2026. TLS-only (`hostssl` + SCRAM; plaintext rejected) with a private CA, so `VerifyFull` is the same contract as Azure. |
 | Internal hostname resolution | DEFAULT (was OPEN) | Caddy has a fixed address 172.30.0.2 on the `edge` network and Docker network aliases for the five public names. Containers calling `https://auth-uat.swoovr.app` etc. reach Caddy directly with the right Host and SNI. There is no hairpin through the public IP. Only 172.30.0.2/32 is a trusted proxy for the apps and Keycloak. |
-| Origin TLS | CONFIRMED (owner, 10 November 2026), **Q175** | Cloudflare Origin CA certificate with the explicit SANs `uat`, `api-uat`, `admin-uat`, `auth-uat`, `venues-uat` and `helpdesk-uat` `.swoovr.app` on stock Caddy, with no ACME and no DNS API token on the host. Containers trust it through a bundle: system CAs + Cloudflare Origin CA roots + PostgreSQL CA. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy build and a zone-edit token on the host. |
+| Origin TLS | CONFIRMED (owner [#307](https://github.com/repasscloud/wanderconnect/issues/307)), **Q175** | Cloudflare Origin CA, PEM, RSA 2048, 15 years, explicit SANs for the six UAT hosts, no wildcard. The owner provisions `/etc/caddy/certs/uat-origin.pem` and `.key` on the host outside Git; stock Caddy mounts them read-only. `bin/origin-cert-check` gates every Caddy start. No ACME, no Cloudflare API token on the host. System CA trust is preserved: only API, Web, Admin, the Keycloak bootstrap job and Zammad Rails/scheduler get `SSL_CERT_FILE=origin-trust.pem` (system CAs + Origin CA roots); Keycloak adds the roots with `KC_TRUSTSTORE_PATHS`. Database clients use the private PostgreSQL CA only. The UAT certificate is independent of production. |
 | Helpdesk hostname and Zammad mail | Hostname CONFIRMED (owner, in D355); mail OPEN, **Q176** | `helpdesk-uat.swoovr.app`. Outgoing SMTP for staff notifications is not chosen yet. |
 | Backups | CONFIRMED (owner) | UAT is disposable: rebuild instead of restore. Zammad's local backup container is off by default (`--profile backup`). |
 
@@ -129,11 +129,11 @@ Production keeps the Azure design in [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) and 
 | # | Step | Who | State |
 | --- | --- | --- | --- |
 | 1 | Review and merge this PR | Owner | Open |
-| 2 | Answer Q175 (origin TLS) and Q176 (helpdesk name, Zammad SMTP) | Owner | Open |
+| 2 | Q175 origin TLS (answered #307); Q176 helpdesk name (answered) and Zammad SMTP | Owner | SMTP open |
 | 3 | Docker Hub repositories and token; enable the workflow, or build locally (§2) | Owner | Open |
 | 4 | First image run on `main`; record the five index digests in the PR or issue | Owner / builder | Open |
 | 5 | Order the server; confirm RAID 1 and Debian; run `host-setup` | Owner | Open |
-| 6 | Cloudflare DNS (proxied), Full (strict), Origin CA certificate, cache bypass | Owner | Open |
+| 6 | Cloudflare DNS (proxied), Full (strict), cache bypass; Origin CA certificate (generated, #307) placed in `/etc/caddy/certs` | Owner | Certificate generated; rest open |
 | 7 | `tls-setup`, `cloudflare-ips`, `envtool.py init`, fill provider values, realm templates | Owner (private values) | Open |
 | 8 | `bin/swoovr bootstrap` | Owner / operator | Open |
 | 9 | DEPLOYMENT-UAT.md identity, provider and admission gates; hosted smoke; measure RAM, CPU and I/O | Owner + builder | Open |
@@ -143,12 +143,13 @@ Production keeps the Azure design in [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) and 
 ## Evidence (10 November 2026, local only)
 
 - `docker compose config -q` passes with all profiles. The test used generated env files and digest-shaped placeholders.
-- `bin/tls-setup` ran in `debian:trixie`. It created the PostgreSQL CA and server certificate, fetched both Cloudflare Origin CA roots and printed their fingerprints (RSA `D3:C7:E8:5C…`, ECC `AA:63:69:7A…`), built the trust bundle, and accepted a test certificate covering all five hostnames.
+- `bin/tls-setup` ran in `debian:trixie`. It created the PostgreSQL CA and server certificate, fetched both Cloudflare Origin CA roots and printed their fingerprints (RSA `D3:C7:E8:5C…`, ECC `AA:63:69:7A…`), and built the trust bundle. After #307, `bin/origin-cert-check` accepted a self-signed RSA 2048 test certificate with the six SANs and refused wildcard, ECDSA, RSA 4096, missing-SAN, mismatched-key, group-readable-key and missing-file cases (`debian:trixie`). `caddy validate` accepted the Caddyfile with that test certificate at `/etc/caddy/certs`.
 - Real `postgres:17.11-trixie` started with the bundle's `pg_hba.conf`, SSL and initdb. It created the `keycloak` and `swoovr` databases. A `verify-full` client connected over TLS 1.3, and a plaintext login was rejected by `pg_hba`.
 - The unmodified `scripts/uat/uat_jobs.py database-bootstrap` ran against that container with generated passwords. It created the roles; `swoovr` is owned by `swoovr_migrator`; `swoovr_api` can log in with `VerifyFull` and has no database CREATE privilege.
 - `caddy validate` with the owner-selected Caddy digest reports "Valid configuration". The registry digest equals the owner's pin (multi-arch).
 - `shellcheck -S warning` is clean for all bundle scripts. `ruby -c` passes for `provision.rb`.
 - `make-bundle.sh` produced a tarball with no env values, TLS files or caches.
+- Codex review fixes on #309: `bin/cloudflare-ips --apply-cached` ran in a `debian:trixie` container with `NET_ADMIN` and a stub `DOCKER-USER` chain. It removed the earlier unscoped jump, added only `-i eth0` jumps for 80/443 (IPv4 and IPv6), stayed idempotent on a second run, and refused an unknown interface. The .NET runtime image (`aspnet:10.0` digest, Ubuntu 24.04) has `/bin/sh` → dash and Bash 5.2, so the health probes now call Bash explicitly and send each service's `AllowedHosts` name.
 
 **Not verified:**
 
@@ -156,4 +157,4 @@ Production keeps the Azure design in [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) and 
 - The API, Web, Admin, Keycloak and Zammad containers were not started from this bundle.
 - `keycloak-bootstrap`, `zammad-sso` and `zammad-provision` were not run against the hosted layout.
 - No Vultr host, DNS, Cloudflare, Entra or real provider was touched.
-- `bin/host-setup` and `bin/cloudflare-ips` (root and host firewall) were not run.
+- `bin/host-setup` was not run, and `bin/cloudflare-ips` ran only against a stub chain, not real Docker forwarding. Container egress under the scoped rule and the health probes against running app images are not verified.

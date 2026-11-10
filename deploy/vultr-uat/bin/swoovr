@@ -33,8 +33,12 @@ wait_healthy() { # service, timeout seconds
 
 job() { local name="$1"; shift; say "job $name"; dc --profile jobs run --rm -T "$name" "$@"; }
 
+# Caddy must never start without the owner-provisioned origin certificate (#307).
+origin_cert() { "$here/bin/origin-cert-check"; }
+
 check() {
   python3 bin/envtool.py check "$@"
+  origin_cert
   dc --profile jobs --profile backup config -q
   echo 'PASS compose configuration'
 }
@@ -101,7 +105,7 @@ bootstrap() {
   job migrate
   job places-import
   say 'Caddy + Keycloak'
-  dc up -d caddy keycloak; wait_healthy keycloak 600
+  origin_cert; dc up -d caddy keycloak; wait_healthy keycloak 600
   job keycloak-bootstrap
   zammad_sso
   say 'ClamAV + Zammad'
@@ -140,6 +144,7 @@ rollback() {
   echo 'Rollback swaps images only. It is safe only if the previous release understands the current schema.'
   read -r -p 'Type ROLLBACK to continue: ' answer; [[ "$answer" == ROLLBACK ]] || exit 1
   cp release.env release.env.failed; cp release.env.previous release.env
+  origin_cert
   dc up -d --remove-orphans
   status
 }

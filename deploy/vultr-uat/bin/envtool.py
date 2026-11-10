@@ -92,8 +92,8 @@ def check(mode=None):
         for key, value in read_pairs(release).items():
             if key.endswith('_IMAGE') and not re.fullmatch(r'[a-z0-9./_:-]+@sha256:[0-9a-f]{64}', value):
                 problems.append(f'release.env: {key} must be an immutable repo@sha256 reference')
-    for required in ['tls/origin/origin.pem', 'tls/origin/origin.key', 'tls/postgres/server.crt', 'tls/postgres/server.key',
-                     'tls/trust/pg-ca.crt', 'tls/trust/cloudflare-origin-ca.pem', 'tls/trust/trust-bundle.pem']:
+    for required in ['tls/postgres/server.crt', 'tls/postgres/server.key',
+                     'tls/trust/pg-ca.crt', 'tls/trust/cloudflare-origin-ca.pem', 'tls/trust/origin-trust.pem']:
         if not (ROOT / required).is_file():
             problems.append(f'{required} is missing (bin/tls-setup)')
     if problems:

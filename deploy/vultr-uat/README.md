@@ -23,7 +23,9 @@ Directory layout on the host is `/opt/swoovr/swoovr-uat/`, the unpacked bundle:
 compose.yaml  Caddyfile  release.env  thirdparty.env
 bin/   swoovr (operator CLI), host-setup, tls-setup, cloudflare-ips, envtool.py
 env/   *.env.example (in Git)  ->  *.env (host only, 0600, generated + owner-filled)
-tls/   origin/ (Cloudflare Origin CA cert)  postgres/ (private CA + server cert)  trust/ (CA bundles)
+tls/   postgres/ (private CA + server cert)  trust/ (pg-ca.crt, Cloudflare Origin CA roots, origin-trust.pem)
+
+/etc/caddy/certs/  uat-origin.pem  uat-origin.key   (owner-provisioned, outside the bundle and Git; read-only into Caddy)
 postgres/  pg_hba.conf  initdb/01-databases.sql
 zammad/    provision.rb  10-create-zammad-role.sh
 ```
@@ -34,7 +36,7 @@ zammad/    provision.rb  10-create-zammad-role.sh
 2. **Cloudflare (swoovr.app zone):**
    - Proxied (orange-cloud) `A` records to the host's public IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`. Add `AAAA` records too if IPv6 is used.
    - SSL/TLS mode: **Full (strict)**.
-   - SSL/TLS → Origin Server → **Create certificate** with these hostnames (owner choice, Q175): `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `auth-uat.swoovr.app`, `venues-uat.swoovr.app`, `helpdesk-uat.swoovr.app`. Key type RSA or ECDSA, any validity. Keep the certificate and key for step 3.
+   - SSL/TLS → Origin Server → **Create certificate** (owner issue #307, Q175): PEM, RSA 2048, 15 years, explicit SANs only (no wildcard): `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `helpdesk-uat.swoovr.app`, `auth-uat.swoovr.app`, `venues-uat.swoovr.app`. This certificate is for UAT only; production gets its own. Keep the certificate and key private for step 2.
    - Cache rule: **bypass cache** for all five hostnames, because their content is personalised.
 3. **Provider values** for `env/*.env`: MailerSend, Twilio, Didit, R2, screening endpoint and key, media pipeline token and signing key, escalation mailboxes, Entra client secret, and the Entra tenant and client IDs for realm generation. These are the same values the Azure Key Vault inputs use.
 
@@ -63,15 +65,23 @@ Afterwards, harden SSH yourself: use key-only authentication with `PasswordAuthe
 ## 2. TLS and the Cloudflare edge filter
 
 ```sh
-install -m 700 -d tls/origin
-# Paste the Cloudflare Origin CA certificate and key with an editor (never echo them in the shell):
-nano tls/origin/origin.pem; nano tls/origin/origin.key; chmod 600 tls/origin/origin.key
-./bin/tls-setup          # private PostgreSQL CA, Cloudflare Origin CA roots, trust bundle; checks the origin cert
-./bin/cloudflare-ips     # Caddy trusted proxies + DOCKER-USER: 80/443 accept Cloudflare ranges only
+# The owner provisions the certificate outside Git and outside this bundle (never echo it in a shell):
+install -m 700 -d /etc/caddy/certs
+nano /etc/caddy/certs/uat-origin.pem; nano /etc/caddy/certs/uat-origin.key
+chmod 644 /etc/caddy/certs/uat-origin.pem; chmod 600 /etc/caddy/certs/uat-origin.key
+./bin/origin-cert-check  # both files exist, PEM, RSA 2048, six explicit SANs, no wildcard, key matches
+./bin/tls-setup          # private PostgreSQL CA, Cloudflare Origin CA roots, origin-trust.pem; reruns the check
+./bin/cloudflare-ips     # Caddy trusted proxies + DOCKER-USER: 80/443 from the internet accept Cloudflare ranges only
 systemctl start swoovr-edge-firewall
 ```
 
-`tls-setup` prints the Cloudflare Origin CA root fingerprints. Compare them with Cloudflare's documentation. The script refuses an origin certificate that doesn't cover all five hostnames or doesn't match its key.
+Caddy reads the files read-only at `/etc/caddy/certs/` (the same path inside the container). `bin/swoovr` runs `origin-cert-check` before every command that starts Caddy and stops if it fails; Compose also refuses to create the directory if it is missing. Never generate a replacement certificate on the host or commit certificate material.
+
+The edge filter only applies to packets arriving on the public interface (detected from the default route; override with `SWOOVR_EXT_IF=<name>`). Containers' own outbound HTTPS, such as the GeoNames download and provider calls, is not filtered.
+
+Container trust keeps the system CAs. Only the services that call Caddy's public names directly (API, Web, Admin, the Keycloak bootstrap job and Zammad's Rails and scheduler) get `SSL_CERT_FILE=origin-trust.pem`, which is the system CAs plus the Cloudflare Origin CA roots. Keycloak adds the Cloudflare roots to its default truststore with `KC_TRUSTSTORE_PATHS`. Database clients trust only the private PostgreSQL CA (`VerifyFull`).
+
+`tls-setup` prints the Cloudflare Origin CA root fingerprints. Compare them with Cloudflare's documentation. `origin-cert-check` refuses a certificate that is missing, not RSA 2048, has a wildcard, lacks one of the six hostnames, expires within 30 days, or doesn't match its key.
 
 ## 3. Private configuration
 

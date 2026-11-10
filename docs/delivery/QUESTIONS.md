@@ -2870,8 +2870,9 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 ### Q175 — Origin TLS for the Vultr UAT host
 
-- Issue: [#307](https://github.com/repasscloud/wanderconnect/issues/307). Status: ANSWERED (owner in chat, 10 November 2026). Earliest blocking phase: Before the first Vultr UAT deployment.
-- **CONFIRMED:** Cloudflare Origin CA certificate with the explicit SANs `uat`, `api-uat`, `admin-uat`, `auth-uat`, `venues-uat` and `helpdesk-uat` `.swoovr.app`. The bundle's `bin/tls-setup` checks the five routed names; `venues-uat` is covered for the future portal.
+- Issue: [#307](https://github.com/repasscloud/wanderconnect/issues/307). Status: ANSWERED (owner, 10 November 2026; closed). Earliest blocking phase: Before the first Vultr UAT deployment.
+- **CONFIRMED** by [owner #307](https://github.com/repasscloud/wanderconnect/issues/307): Cloudflare Origin CA certificate, PEM, RSA 2048, 15 years, explicit SANs only (`uat`, `api-uat`, `admin-uat`, `helpdesk-uat`, `auth-uat`, `venues-uat` `.swoovr.app`), no wildcard; stock Caddy loads `/etc/caddy/certs/uat-origin.pem` and `uat-origin.key` from read-only mounts, provisioned on the host outside Git; Full (strict); no ACME and no Cloudflare API token on the host; system CA trust preserved, with the Origin CA roots added only for containers that call Origin CA endpoints directly; UAT certificate and key independent of production and never committed.
+- Implemented in #309: `bin/origin-cert-check` runs before every command that starts Caddy and fails unless both files exist, are PEM, RSA 2048, carry all six SANs and no wildcard, match each other and the key is 0600. It never generates a certificate. Compose binds `/etc/caddy/certs` read-only without creating it.
 - Original DEFAULT (prepared in `deploy/vultr-uat`): Cloudflare Origin CA certificate for `swoovr.app` + `*.swoovr.app` on the stock owner-selected Caddy. There is no DNS token on the host, and containers trust it through a CA bundle. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy image and a zone-edit token on the host.
 - Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). Independent work continues.
 

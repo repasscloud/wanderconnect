@@ -33,8 +33,6 @@ x-swoovr-app: &swoovr-app
     # Only Caddy's fixed address may set X-Forwarded-*.
     Hosting__TrustedProxyNetworks: 172.30.0.2/32
     Founders__Places: "1000"
-    # System CAs + Cloudflare Origin CA root (Caddy's origin certificate) + private PostgreSQL CA. See bin/tls-setup.
-    SSL_CERT_FILE: /etc/swoovr/tls/trust-bundle.pem
   volumes:
     - ./tls/trust:/etc/swoovr/tls:ro
 
@@ -70,7 +68,12 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./tls/origin:/etc/caddy/origin:ro
+      # Owner-provisioned Cloudflare Origin CA certificate + key (#307). Not part of the bundle; never in Git.
+      - type: bind
+        source: /etc/caddy/certs
+        target: /etc/caddy/certs
+        read_only: true
+        bind: { create_host_path: false }
       - caddy-data:/data
       - caddy-config:/config
     networks:
@@ -137,7 +140,7 @@ services:
       swoovr-postgres: { condition: service_healthy }
     healthcheck:
       # No curl in the Keycloak image; management port 9000 stays private.
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
       interval: 15s
       timeout: 5s
       start_period: 90s
@@ -153,6 +156,8 @@ services:
       <<: *swoovr-common
       Hosting__PublicOrigin: https://api-uat.swoovr.app
       AllowedHosts: api-uat.swoovr.app
+      # System CAs + Cloudflare Origin CA roots (bin/tls-setup): this service calls Caddy's public names directly.
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
       Keycloak__BaseUrl: https://auth-uat.swoovr.app
       Keycloak__MembersRealm: swoovr-members
       Keycloak__VenuesRealm: swoovr-venues
@@ -187,8 +192,10 @@ services:
     depends_on:
       swoovr-postgres: { condition: service_healthy }
       keycloak: { condition: service_healthy }
+    # Bash explicitly: the Ubuntu runtime's /bin/sh is dash (no /dev/tcp). The Host header must be the service's
+    # AllowedHosts value, or ASP.NET Core host filtering answers 400. The connection itself stays on loopback.
     healthcheck: &dotnet-health
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: api-uat.swoovr.app\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
       interval: 15s
       timeout: 5s
       start_period: 60s
@@ -203,6 +210,8 @@ services:
       <<: *swoovr-common
       Hosting__PublicOrigin: https://uat.swoovr.app
       AllowedHosts: uat.swoovr.app
+      # System CAs + Cloudflare Origin CA roots (bin/tls-setup): this service calls Caddy's public names directly.
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
       Api__BaseUrl: https://api-uat.swoovr.app/
       Keycloak__Authority: https://auth-uat.swoovr.app/realms/swoovr-members
       Keycloak__ClientId: swoovr-web
@@ -212,7 +221,9 @@ services:
     depends_on:
       volume-permissions: { condition: service_completed_successfully }
       api: { condition: service_healthy }
-    healthcheck: *dotnet-health
+    healthcheck:
+      <<: *dotnet-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: uat.swoovr.app\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
     networks: [edge]
 
   admin:
@@ -223,6 +234,8 @@ services:
       <<: *swoovr-common
       Hosting__PublicOrigin: https://admin-uat.swoovr.app
       AllowedHosts: admin-uat.swoovr.app
+      # System CAs + Cloudflare Origin CA roots (bin/tls-setup): this service calls Caddy's public names directly.
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
       Api__BaseUrl: https://api-uat.swoovr.app/
       Keycloak__Authority: https://auth-uat.swoovr.app/realms/swoovr-staff
       Keycloak__ClientId: swoovr-admin-web
@@ -232,7 +245,9 @@ services:
     depends_on:
       volume-permissions: { condition: service_completed_successfully }
       api: { condition: service_healthy }
-    healthcheck: *dotnet-health
+    healthcheck:
+      <<: *dotnet-health
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: admin-uat.swoovr.app\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
     networks: [edge]
 
   # Named volumes start root-owned; the .NET images run as UID 1654. Reuses the API image, no extra image.
@@ -319,8 +334,8 @@ services:
     <<: *zammad
     command: ["zammad-railsserver"]
     environment:
-      # Trusts Caddy's origin certificate for OIDC discovery (auth-uat) and the webhook (api-uat).
-      SSL_CERT_FILE: /etc/swoovr/tls/trust-bundle.pem
+      # System CAs + Cloudflare Origin CA roots: OIDC discovery (auth-uat) and the webhook (api-uat) go to Caddy.
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
     volumes:
       - zammad-backup:/var/tmp/zammad:ro
       - zammad-storage:/opt/zammad/storage
@@ -337,7 +352,7 @@ services:
     <<: *zammad
     command: ["zammad-scheduler"]
     environment:
-      SSL_CERT_FILE: /etc/swoovr/tls/trust-bundle.pem
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
     volumes:
       - zammad-backup:/var/tmp/zammad:ro
       - zammad-storage:/opt/zammad/storage
@@ -414,6 +429,8 @@ services:
     environment:
       <<: *swoovr-common
       SWOOVR_KEYCLOAK_BASE: https://auth-uat.swoovr.app
+      # System CAs + Cloudflare Origin CA roots (bin/tls-setup): this service calls Caddy's public names directly.
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
     networks: [edge]
 
   # Generic API one-shot: bin/swoovr job api-command -- root-admin grant <subject>

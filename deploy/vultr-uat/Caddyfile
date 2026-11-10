@@ -1,6 +1,7 @@
 # Swoovr UAT ingress: one Caddy for all five hostnames (owner, 10 Nov 2026). Cloudflare proxies every name with
 # SSL/TLS mode Full (strict). The origin certificate is a Cloudflare Origin CA certificate naming the six UAT hosts
-# (owner, Q175), installed by the operator into tls/origin/ and checked by bin/tls-setup. Caddy never requests ACME.
+# (owner #307, Q175: RSA 2048, explicit SANs, no wildcard), provisioned by the owner on the host at /etc/caddy/certs
+# outside Git, mounted read-only, checked by bin/origin-cert-check before Caddy starts. Caddy never requests ACME.
 {
 	# Admin API stays inside the container (default localhost:2019); never published.
 	auto_https disable_certs
@@ -13,7 +14,7 @@
 }
 
 (origin_tls) {
-	tls /etc/caddy/origin/origin.pem /etc/caddy/origin/origin.key
+	tls /etc/caddy/certs/uat-origin.pem /etc/caddy/certs/uat-origin.key
 }
 
 (common) {
