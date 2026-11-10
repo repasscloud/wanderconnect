@@ -32,13 +32,17 @@ zammad/    provision.rb  10-create-zammad-role.sh
 
 ## 0. Before you start (owner)
 
-1. **Images:** run the `Images` workflow for the reviewed commit (see the plan, step 2). Download the `swoovr-release-<commit>` artifact. It contains `release-manifest.env` and `swoovr-uat-bundle-<commit>.tar.gz`. Without Actions minutes, build the images locally instead (plan, "Building without Actions").
-2. **Cloudflare (swoovr.app zone):**
+1. **Docker Hub (`repasscloud`):** create five **private** repositories first: `swoovr-api`, `swoovr-web`, `swoovr-admin`, `swoovr-operator`, `swoovr-keycloak`. A push to a missing repository creates it with the namespace's default visibility, which may be public. Check that the Docker Hub plan allows five private repositories. Create two access tokens: **Read & Write** on those repositories for GitHub (`DOCKERHUB_TOKEN`), and **Read-only** for this host (§1).
+2. **Images:** the `Images` workflow is enabled for manual runs (D359). Add the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (Settings → Secrets and variables → Actions). Then Actions → **Images** → **Run workflow** on `main`. About 15–25 minutes. Download the `swoovr-release-<commit>` artifact from the run's summary: it contains `release-manifest.env`, `release-manifest.json` and `swoovr-uat-bundle-<commit>.tar.gz`. To build without Actions instead, see the plan, "Building without Actions".
+3. **Cloudflare (swoovr.app zone):**
    - Proxied (orange-cloud) `A` records to the host's public IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`. **No `AAAA` records:** the Docker networks are IPv4-only, so Cloudflare must reach the origin over IPv4. Visitors still get IPv6 from Cloudflare's edge.
    - SSL/TLS mode: **Full (strict)**.
    - SSL/TLS → Origin Server → **Create certificate** (owner issue #307, Q175): PEM, RSA 2048, 15 years, explicit SANs only (no wildcard): `uat.swoovr.app`, `api-uat.swoovr.app`, `admin-uat.swoovr.app`, `helpdesk-uat.swoovr.app`, `auth-uat.swoovr.app`, `venues-uat.swoovr.app`. This certificate is for UAT only; production gets its own. Keep the certificate and key private for step 2.
    - Cache rule: **bypass cache** for all five hostnames, because their content is personalised.
-3. **Provider values** for `env/*.env`: MailerSend (API token for the API and Keycloak; SMTP username, password and a sender on the verified domain for Zammad, D357), Twilio, Didit, R2, screening endpoint and key, media pipeline token and signing key, escalation mailboxes, Entra client secret, and the Entra tenant and client IDs for realm generation. These are the same values the Azure Key Vault inputs use.
+4. **Provider accounts.** These are the same values the Azure Key Vault inputs use. UAT uses real providers (D321):
+   - **MailerSend** (all email, D357/D358). The domain `repasscloud.com` is verified (SPF and DKIM, plus any return-path record MailerSend lists), and every email is sent as `hello@repasscloud.com` for now (#313). Create an **API token** with Email access to that domain (API and Keycloak), and an **SMTP user** on that domain (Zammad). Check that the plan's monthly quota covers testing and that the account has no trial restriction on recipients. All of these go in `env/mail.env`.
+   - **Twilio** (phone verification codes, D153). Swoovr makes and checks its own codes; Twilio only delivers the text through Programmable Messaging (not Verify). You need: an upgraded account (a trial only texts numbers verified in the console); Messaging → Settings → **Geo permissions** enabled for every country your testers' numbers are in (at least Australia); an SMS-capable `From` number in E.164 form (`+61…`), allowed to send to those countries; and the Account SID and Auth Token (`env/api.env` `Sms__Twilio__*`; #315 tracks restricted API keys).
+   - **Didit** (API key, workflow ID, webhook secret; webhook URL set after bootstrap, §5), **Cloudflare R2** (endpoint, bucket, and an R2 API token with Object Read & Write on that bucket only), the screening endpoint and key, the media pipeline token and signing key, two escalation mailboxes you read, the Entra client secret, and the Entra tenant and client IDs for realm generation.
 
 ## 1. Prepare the host (once)
 
@@ -97,7 +101,9 @@ Container trust keeps the system CAs. Only the services that call Caddy's public
 python3 bin/envtool.py init            # creates env/*.env, generating every password and data key once
 ```
 
-Open each `env/*.env` in an editor and replace every `__OWNER:…__` value. Generated values are kept consistent across files: for example, the API's database password matches the bootstrap role password. The generated values are also stored in `env/.generated` (0600). Never paste values into a shell command, issue, PR or chat.
+Open each `env/*.env` in an editor and replace every `__OWNER:…__` value. **All email settings live in one file, `env/mail.env`** (D358): the sender `SWOOVR_MAIL_FROM` (`hello@repasscloud.com`), display names, MailerSend SMTP host, port, username and password, and the MailerSend API token. The API, Keycloak and Zammad all read it. The owner keeps a prepared copy at `.local/uat-host/mail.env` on their workstation; copy its values in with an editor.
+
+Replace every `__OWNER:…__` value in the other files too. Generated values are kept consistent across files: for example, the API's database password matches the bootstrap role password. The generated values are also stored in `env/.generated` (0600). Never paste values into a shell command, issue, PR or chat.
 
 Generate the three **disabled** realm templates on your own machine, then copy the output directory to the host:
 
@@ -134,7 +140,7 @@ These gates are identical on Azure and Vultr. Follow the identity, provider and 
 
 1. Verify the realms. Then protect the temporary master bootstrap administrator and retire it after setup.
 2. Register the Entra broker callback `https://auth-uat.swoovr.app/realms/swoovr-staff/broker/entra/endpoint`.
-3. Run the provider checks (MailerSend, Twilio, Didit with its webhook `https://api-uat.swoovr.app/api/webhooks/didit`, R2, screening). Then enable the realms.
+3. Run the provider checks (MailerSend, Twilio, Didit with its webhook `https://api-uat.swoovr.app/api/webhooks/didit`, R2, screening). Prove real delivery with an inbox and a phone you control: sign up, verify the email (Keycloak via MailerSend), add the phone and enter the texted code (API via Twilio), and get a Zammad notification. Check the logs if one doesn't arrive: `./bin/swoovr logs api` shows `Twilio message returned <status>` or the MailerSend outcome without the address or code. Then enable the realms.
 4. Sign the approved staff member in once, then grant root:
 
    ```sh
@@ -150,6 +156,7 @@ The Keycloak admin console isn't public. To reach it, open an SSH SOCKS tunnel w
 
 | Task | Command |
 | --- | --- |
+| Change the email sender or MailerSend credentials | Edit `env/mail.env`, then `./bin/swoovr mail-apply`. It checks the file, recreates Keycloak and the API, and re-applies Zammad's notification mail (existing tokens are reused). Then send one of each: a Keycloak verification email, an API email (for example an MFA change notice) and a Zammad notification. |
 | Deploy a new release | Copy the new `release-manifest.env` to the host, then run `cat release-manifest.env thirdparty.env > next.env && ./bin/swoovr upgrade next.env`. This pulls, stops the apps, migrates once, then recreates. |
 | Roll back | `./bin/swoovr rollback`. This switches images only, so use it only when the previous release understands the current schema. |
 | Status / logs | `./bin/swoovr status`, `./bin/swoovr logs api` |
@@ -162,7 +169,9 @@ A reset removes **only** this Compose project's volumes (`swoovr-uat_*`). It kee
 ## Known gaps (do not treat UAT as accepted until closed)
 
 - **No off-host backup** of UAT. The owner accepted rebuild-from-scratch for UAT. The operator image's backup transport is Azure-only.
-- **Zammad inbound mail** (support mail into tickets) isn't configured. Outgoing staff notifications use MailerSend SMTP (D357).
+- **Zammad inbound mail** (support mail into tickets) isn't configured (Q178, #312). Outgoing staff notifications use MailerSend SMTP (D357).
+- **Keycloak emails use Keycloak's stock templates** (no Swoovr `emailTheme` yet, #314). The API's own emails are plain text written in code.
+- **Every email comes from `hello@repasscloud.com`** until MailerSend has the Swoovr domain (#313).
 - **Single host, single replica.** A host or Docker restart signs members out, because BFF sessions are in memory.
 - **Logs and capability tokens:** Caddy redacts trusted-contact `/safety/meeting|contact/<token>` paths and Keycloak/OIDC `key`, `code`, `token`, `state` query values in its access and error logs, and drops Referer. Keep it that way. Cloudflare-side logging (Logpush, if ever enabled) must apply the same redaction.
 - **Resource sizing is unmeasured.** Watch RAM: Elasticsearch has a 2 GB heap, and Zammad plus the .NET apps add more. Also watch disk and I/O during the first week.

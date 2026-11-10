@@ -2880,6 +2880,17 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 
 - Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: ANSWERED (owner, 10 November 2026). Earliest blocking phase: Before staff use the hosted UAT helpdesk.
 - **CONFIRMED** (owner in chat, 10 November 2026): `helpdesk-uat.swoovr.app`, now listed in D355.
-- **CONFIRMED** by the [owner on #308](https://github.com/repasscloud/wanderconnect/issues/308#issuecomment-6759649647): MailerSend SMTP (`smtp.mailersend.net`, 587 or 2525). Recorded as D357. The bundle now requires the SMTP username, password and a sender on the verified domain in `env/zammad-provision.env`.
+- **CONFIRMED** by the [owner on #308](https://github.com/repasscloud/wanderconnect/issues/308#issuecomment-6759649647): MailerSend SMTP (`smtp.mailersend.net`, 587 or 2525). Recorded as D357. The bundle reads the SMTP username, password and sender from `env/mail.env` (D358).
 - Original DEFAULT: notifications stay unsent until chosen.
 - Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md).
+
+### Q177 — One email configuration (host, port, username, password, From) for every sender
+
+- Issue: [#311](https://github.com/repasscloud/wanderconnect/issues/311). Status: OPEN. Earliest blocking phase: none for UAT (the HTTP API path works).
+- Owner request (chat, 10 November 2026): wherever email credentials are used, configure host, port, username, password and From, so From can change by editing one `.env` file and restarting. Sender and single file done as D358 (`env/mail.env`, `bin/swoovr mail-apply`).
+- **OPEN:** should the API and Keycloak move from the MailerSend HTTP API (D39, CONFIRMED) to SMTP with the same four values? **DEFAULT (A):** keep D39; SMTP host/port/username/password are used by Zammad only. **B:** supersede D39; needs a hosted TLS SMTP sender in the API, Keycloak's built-in SMTP instead of the Swoovr SPI, and a re-check of the acceptance/rejection outcome handling.
+
+### Q178 — Inbound support email into Zammad on UAT
+
+- Issue: [#312](https://github.com/repasscloud/wanderconnect/issues/312). Status: OPEN. Earliest blocking phase: before support mail is expected to become UAT tickets.
+- UAT has no inbound email channel. **DEFAULT (A):** none; members use in-app support. **B:** an IMAP/POP3 mailbox for a UAT-only support address. **C:** MailerSend inbound routing to Zammad.

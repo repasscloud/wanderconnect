@@ -134,6 +134,10 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: swoovr-bootstrap
       KC_LOG_LEVEL: INFO
       SWOOVR_REGISTRATION_AUTHORITY_URL: https://api-uat.swoovr.app/api/registration/admission
+      # Outgoing mail from env/mail.env (D358); bin/swoovr mail-apply recreates Keycloak after a change.
+      KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__API_TOKEN: ${SWOOVR_MAIL_API_TOKEN:?env/mail.env}
+      KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__FROM: ${SWOOVR_MAIL_FROM:?env/mail.env}
+      KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__FROM_NAME: ${SWOOVR_MAIL_FROM_NAME:-Swoovr}
     volumes:
       - ./tls/trust:/etc/swoovr/tls:ro
     depends_on:
@@ -158,6 +162,9 @@ services:
       AllowedHosts: api-uat.swoovr.app
       # System CAs + Cloudflare Origin CA roots (bin/tls-setup): this service calls Caddy's public names directly.
       SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
+      # Outgoing mail from env/mail.env (D358).
+      Email__MailerSend__ApiToken: ${SWOOVR_MAIL_API_TOKEN:?env/mail.env}
+      Email__From: "${SWOOVR_MAIL_FROM_NAME:-Swoovr} <${SWOOVR_MAIL_FROM:?env/mail.env}>"
       Keycloak__BaseUrl: https://auth-uat.swoovr.app
       Keycloak__MembersRealm: swoovr-members
       Keycloak__VenuesRealm: swoovr-venues
@@ -454,6 +461,9 @@ services:
       MemberAdmin__ClientId: swoovr-api-accounts
       Media__Store: r2
       Email__Provider: mailersend
+      # Outgoing mail from env/mail.env (D358).
+      Email__MailerSend__ApiToken: ${SWOOVR_MAIL_API_TOKEN:?env/mail.env}
+      Email__From: "${SWOOVR_MAIL_FROM_NAME:-Swoovr} <${SWOOVR_MAIL_FROM:?env/mail.env}>"
     networks: [data, edge]
 
 networks:

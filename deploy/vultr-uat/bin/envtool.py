@@ -89,6 +89,11 @@ def check(mode=None):
             # Compose interpolates $ in unquoted env_file values, silently changing a secret.
             if not line.startswith('#') and '$' in value and not (value.startswith("'") and value.endswith("'")):
                 problems.append(f'{path.name}:{number}: {key} contains $; wrap the whole value in single quotes')
+    mail = ENV / 'mail.env'
+    if not mail.exists():
+        problems.append('mail.env is missing (envtool.py init)')
+    elif not any(problem.startswith('mail.env:') for problem in problems):
+        problems.extend('mail.env: ' + problem for problem in mail_problems(read_pairs(mail)))
     release = ROOT / 'release.env'
     if not release.exists():
         problems.append('release.env is missing')
@@ -131,31 +136,38 @@ def provision_input():
         'sso': {'display_name': 'Swoovr staff sign-in', 'client_id': 'swoovr-zammad',
                 'issuer': 'https://auth-uat.swoovr.app/realms/swoovr-staff'},
     }
-    payload.update(notification_mail(values))
+    payload.update(notification_mail(read_pairs(ENV / 'mail.env')))
     sys.stdout.write(json.dumps(payload))
 
 
-def notification_mail(values):
-    """MailerSend SMTP (D357) for staff notifications; an empty host keeps Zammad's local sink."""
-    host = values.get('SWOOVR_ZAMMAD_SMTP_HOST', '').strip()
-    if not host:
-        return {}
-    port = values.get('SWOOVR_ZAMMAD_SMTP_PORT', '').strip() or '587'
-    user = values.get('SWOOVR_ZAMMAD_SMTP_USERNAME', '')
-    password = values.get('SWOOVR_ZAMMAD_SMTP_PASSWORD', '')
-    sender = values.get('SWOOVR_ZAMMAD_NOTIFICATION_SENDER', '').strip()
+def mail_problems(values):
+    """env/mail.env (D358): one sender and one MailerSend account for the API, Keycloak and Zammad."""
     problems = []
-    if not port.isdigit():
-        problems.append('SWOOVR_ZAMMAD_SMTP_PORT must be a number only (no trailing comment)')
-    if not user or not password:
-        problems.append('SWOOVR_ZAMMAD_SMTP_USERNAME and SWOOVR_ZAMMAD_SMTP_PASSWORD are required with a host')
-    if '@' not in sender:
-        problems.append('SWOOVR_ZAMMAD_NOTIFICATION_SENDER must be an address on the MailerSend verified domain')
+    sender = values.get('SWOOVR_MAIL_FROM', '')
+    if not re.fullmatch(r'[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+', sender):
+        problems.append('SWOOVR_MAIL_FROM must be a bare address on a MailerSend verified domain (no name or <>)')
+    for key in ['SWOOVR_MAIL_FROM_NAME', 'SWOOVR_MAIL_HELPDESK_FROM_NAME']:
+        if any(ch in values.get(key, '') for ch in '<>"@'):
+            problems.append(f'{key} must be a plain display name')
+    if not values.get('SWOOVR_MAIL_SMTP_PORT', '').isdigit():
+        problems.append('SWOOVR_MAIL_SMTP_PORT must be a number only (no trailing comment)')
+    for key in ['SWOOVR_MAIL_SMTP_HOST', 'SWOOVR_MAIL_SMTP_USERNAME', 'SWOOVR_MAIL_SMTP_PASSWORD', 'SWOOVR_MAIL_API_TOKEN']:
+        if not values.get(key, '').strip():
+            problems.append(f'{key} is empty')
+    return problems
+
+
+def notification_mail(values):
+    """Zammad's staff notifications: MailerSend SMTP (D357) from the shared sender (D358)."""
+    problems = mail_problems(values)
     if problems:
-        raise SystemExit('zammad-provision.env: ' + '; '.join(problems))
-    return {'notification_sender': sender,
-            'notification_smtp': {'host': host, 'port': int(port), 'ssl': False, 'enable_starttls_auto': True,
-                                  'user': user, 'password': password}}
+        raise SystemExit('mail.env: ' + '; '.join(problems))
+    name = values.get('SWOOVR_MAIL_HELPDESK_FROM_NAME', '').strip() or 'Swoovr Helpdesk'
+    return {'notification_sender': f"{name} <{values['SWOOVR_MAIL_FROM']}>",
+            'notification_smtp': {'host': values['SWOOVR_MAIL_SMTP_HOST'].strip(),
+                                  'port': int(values['SWOOVR_MAIL_SMTP_PORT']), 'ssl': False,
+                                  'enable_starttls_auto': True, 'user': values['SWOOVR_MAIL_SMTP_USERNAME'],
+                                  'password': values['SWOOVR_MAIL_SMTP_PASSWORD']}}
 
 
 def provision_output():

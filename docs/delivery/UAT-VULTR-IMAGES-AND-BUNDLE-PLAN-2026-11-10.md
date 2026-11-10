@@ -1,10 +1,10 @@
 # Multi-arch images and the Vultr UAT bundle (plan, 10 November 2026)
 
-This plan covers three things. It builds every Swoovr image once per commit as `repasscloud/{image}:{commit}` for linux/amd64 and linux/arm64 on GitHub's Ubuntu runners. It ships one deployment bundle (a single Compose file plus all configuration) to the Vultr bare-metal UAT host. It promotes the **same image digests** to Azure for production. It builds on the [Vultr stack review](VULTR-STACK-REVIEW-2026-11-10.md) (single host, single Caddy, separate Zammad PostgreSQL) and D355 hostnames. Decision records: D356 (DEFAULT), D357 (Zammad mail). Questions: Q175, Q176.
+This plan covers three things. It builds every Swoovr image once per commit as `repasscloud/{image}:{commit}` for linux/amd64 and linux/arm64 on GitHub's Ubuntu runners. It ships one deployment bundle (a single Compose file plus all configuration) to the Vultr bare-metal UAT host. It promotes the **same image digests** to Azure for production. It builds on the [Vultr stack review](VULTR-STACK-REVIEW-2026-11-10.md) (single host, single Caddy, separate Zammad PostgreSQL) and D355 hostnames. Decision records: D356 (DEFAULT), D357 (Zammad mail), D358 (one mail file and sender), D359 (workflow enabled). Questions: Q175, Q176.
 
 **Delivered in this PR:**
 
-- The workflow `.github/workflows/images.yml`. It is fully commented, because Actions minutes are off.
+- The workflow `.github/workflows/images.yml`. Enabled for manual runs on the owner's request (D359); the repository is public, so it uses no paid minutes.
 - The bundle `deploy/vultr-uat/` with its [runbook](../../deploy/vultr-uat/README.md).
 - A backward-compatible parameter in `containers/zammad/provision.rb` (webhook endpoint and notification SMTP).
 
@@ -23,7 +23,7 @@ Nothing was published, provisioned or deployed.
 | Swoovr/Keycloak PostgreSQL image | DEFAULT (was OPEN) | `postgres:17.11-trixie` @ `sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f`. Debian 13 index (amd64/arm64), digest checked 10 November 2026. TLS-only (`hostssl` + SCRAM; plaintext rejected) with a private CA, so `VerifyFull` is the same contract as Azure. |
 | Internal hostname resolution | DEFAULT (was OPEN) | Caddy has a fixed address 172.30.0.2 on the `edge` network and Docker network aliases for the five public names. Containers calling `https://auth-uat.swoovr.app` etc. reach Caddy directly with the right Host and SNI. There is no hairpin through the public IP. Only 172.30.0.2/32 is a trusted proxy for the apps and Keycloak. |
 | Origin TLS | CONFIRMED (owner [#307](https://github.com/repasscloud/wanderconnect/issues/307)), **Q175** | Cloudflare Origin CA, PEM, RSA 2048, 15 years, explicit SANs for the six UAT hosts, no wildcard. The owner provisions `/etc/caddy/certs/uat-origin.pem` and `.key` on the host outside Git; stock Caddy mounts them read-only. `bin/origin-cert-check` gates every Caddy start. No ACME, no Cloudflare API token on the host. System CA trust is preserved: only API, Web, Admin, the `api-command` and Keycloak bootstrap jobs, and Zammad Rails/scheduler get `SSL_CERT_FILE=origin-trust.pem` (system CAs + Origin CA roots); Keycloak adds the roots with `KC_TRUSTSTORE_PATHS`. Database clients use the private PostgreSQL CA only. The UAT certificate is independent of production. |
-| Helpdesk hostname and Zammad mail | CONFIRMED (owner, D355 and D357), **Q176** | `helpdesk-uat.swoovr.app`. Staff notifications go through MailerSend SMTP (`smtp.mailersend.net:587`, STARTTLS) from a sender on the verified domain (`env/zammad-provision.env`). |
+| Helpdesk hostname and Zammad mail | CONFIRMED (owner, D355 and D357), **Q176** | `helpdesk-uat.swoovr.app`. Staff notifications go through MailerSend SMTP (`smtp.mailersend.net:587`, STARTTLS) as `Swoovr Helpdesk <hello@repasscloud.com>`. Every mail setting for the API, Keycloak and Zammad is in `env/mail.env` (D358). |
 | Backups | CONFIRMED (owner) | UAT is disposable: rebuild instead of restore. Zammad's local backup container is off by default (`--profile backup`). |
 
 ## 1. Images and what each one is for
@@ -48,12 +48,12 @@ The workflow has three jobs:
 2. **merge**: runs `docker buildx imagetools create` once per image, tagging `:<commit>` from the two per-architecture digests. It refuses an index that lacks either platform. It writes `release-manifest.env` and `release-manifest.json`, then runs `deploy/vultr-uat/bin/make-bundle.sh`. Artifact: `swoovr-release-<commit>`, containing the manifest and `swoovr-uat-bundle-<commit>.tar.gz`.
 3. **promote-to-azure**: optional. It runs only with the dispatch input and approval of the `production` GitHub environment. It uses an OIDC `azure/login` (federated credential, no stored Azure secret) and runs `az acr import` per digest into the production ACR.
 
-To enable it (owner action, when minutes return):
+Owner steps (the file is enabled in D359; steps 3 and 4 are done):
 
 1. Create the private Docker Hub repositories `repasscloud/swoovr-{api,web,admin,operator,keycloak}`. Then create an access token with Read & Write on those repositories only.
 2. Add the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. For production, also add the variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and `AZURE_ACR_NAME`, and a `production` environment with required reviewers.
-3. Uncomment the file and add `.github/workflows/images.yml` to `ENABLED_WORKFLOWS` in `scripts/check_design.py`.
-4. Check that `ubuntu-24.04-arm` runners are available for this repository's plan. If they aren't, set both matrix runners to `ubuntu-24.04` and add `docker/setup-qemu-action@v3` before Buildx. That works, but is slower.
+3. Done (D359): the file is uncommented and listed in `ENABLED_WORKFLOWS` in `scripts/check_design.py`.
+4. Done: the repository is public, and GitHub's `ubuntu-24.04-arm` runners are available to public repositories. If that changes, set both matrix runners to `ubuntu-24.04` and add `docker/setup-qemu-action@v3` before Buildx. That works, but is slower.
 5. Run it with **Actions → Images → Run workflow** on the reviewed commit of `main`.
 
 Trigger: `workflow_dispatch` only, so minutes are spent only when someone asks for a release.
