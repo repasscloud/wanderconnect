@@ -79,7 +79,7 @@ Caddy reads the files read-only at `/etc/caddy/certs/` (the same path inside the
 
 The edge filter only applies to packets arriving on the public interface (detected from the default route; override with `SWOOVR_EXT_IF=<name>`). Containers' own outbound HTTPS, such as the GeoNames download and provider calls, is not filtered.
 
-Container trust keeps the system CAs. Only the services that call Caddy's public names directly (API, Web, Admin, the Keycloak bootstrap job and Zammad's Rails and scheduler) get `SSL_CERT_FILE=origin-trust.pem`, which is the system CAs plus the Cloudflare Origin CA roots. Keycloak adds the Cloudflare roots to its default truststore with `KC_TRUSTSTORE_PATHS`. Database clients trust only the private PostgreSQL CA (`VerifyFull`).
+Container trust keeps the system CAs. Only the services that call Caddy's public names directly (API, Web, Admin, the `api-command` and Keycloak bootstrap jobs, and Zammad's Rails and scheduler) get `SSL_CERT_FILE=origin-trust.pem`, which is the system CAs plus the Cloudflare Origin CA roots. Keycloak adds the Cloudflare roots to its default truststore with `KC_TRUSTSTORE_PATHS`. Database clients trust only the private PostgreSQL CA (`VerifyFull`).
 
 `tls-setup` prints the Cloudflare Origin CA root fingerprints. Compare them with Cloudflare's documentation. `origin-cert-check` refuses a certificate that is missing, not RSA 2048, has a wildcard, lacks one of the six hostnames, expires within 30 days, or doesn't match its key.
 

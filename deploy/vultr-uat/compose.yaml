@@ -442,6 +442,8 @@ services:
       <<: *swoovr-common
       Hosting__PublicOrigin: https://api-uat.swoovr.app
       Keycloak__BaseUrl: https://auth-uat.swoovr.app
+      # Same trust as the serving API: commands such as `accounts purge` call auth-uat through Caddy.
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
       Keycloak__MembersRealm: swoovr-members
       MemberAdmin__ClientId: swoovr-api-accounts
       Media__Store: r2
