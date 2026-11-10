@@ -1,0 +1,75 @@
+# Swoovr UAT ingress: one Caddy for all five hostnames (owner, 10 Nov 2026). Cloudflare proxies every name with
+# SSL/TLS mode Full (strict). The origin certificate is a Cloudflare Origin CA certificate for swoovr.app and
+# *.swoovr.app (DEFAULT, Q175), installed by bin/tls-setup into tls/origin/. Caddy never requests ACME certificates.
+{
+	# Admin API stays inside the container (default localhost:2019); never published.
+	auto_https disable_certs
+	servers {
+		# Only Cloudflare may set the client address. bin/cloudflare-ips writes CLOUDFLARE_RANGES into env/caddy.env.
+		trusted_proxies static {$CLOUDFLARE_RANGES}
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+		trusted_proxies_strict
+	}
+}
+
+(origin_tls) {
+	tls /etc/caddy/origin/origin.pem /etc/caddy/origin/origin.key
+}
+
+(common) {
+	import origin_tls
+	encode zstd gzip
+	header -Server
+	log {
+		output stdout
+		format json
+	}
+}
+
+uat.swoovr.app {
+	import common
+	reverse_proxy web:8080
+}
+
+api-uat.swoovr.app {
+	import common
+	# Support attachments: 150 MB of files, ~200 MB once base64-encoded (D330).
+	request_body {
+		max_size 220MB
+	}
+	reverse_proxy api:8080
+}
+
+admin-uat.swoovr.app {
+	import common
+	reverse_proxy admin:8080
+}
+
+auth-uat.swoovr.app {
+	import common
+	# Keycloak management (9000) is never routed. The admin console/API and the master realm answer only to
+	# callers on the Docker edge network or the host itself (remote_ip is the direct peer, not a forwarded header).
+	@private_admin {
+		path /admin /admin/* /realms/master /realms/master/*
+		not remote_ip 172.30.0.0/24
+	}
+	respond @private_admin 404
+	reverse_proxy keycloak:8080
+}
+
+helpdesk-uat.swoovr.app {
+	import common
+	request_body {
+		max_size 220MB
+	}
+	reverse_proxy zammad-nginx:8080
+}
+
+# Anything else (including bare IP access) gets nothing.
+:443 {
+	import origin_tls
+	respond 404
+}
+:80 {
+	redir https://{host}{uri} permanent
+}

@@ -1,0 +1,457 @@
+# Swoovr UAT on one Vultr bare-metal host (Debian + Docker). One file runs the whole disposable UAT stack.
+# Plan: docs/delivery/UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md   Runbook: deploy/vultr-uat/README.md
+#
+# Always run through bin/swoovr (it passes --env-file release.env). Every image comes from release.env as an
+# immutable repo@sha256 reference; this file never names a tag. Secrets live only in env/*.env (0600) on the host.
+#
+# Networks
+#   edge      172.30.0.0/24, outbound allowed. Caddy is 172.30.0.2 and also answers to the public hostnames, so a
+#             container calling https://auth-uat.swoovr.app reaches Caddy directly (no public-IP hairpin).
+#   data      internal only. Swoovr/Keycloak PostgreSQL and its authorised clients.
+#   ticketing internal only. API <-> Zammad nginx (alias swoovr-zammad) and API <-> ClamAV.
+#   zammad    internal only. Zammad's own PostgreSQL, Redis, Memcached and Elasticsearch.
+#   egress    outbound only for ClamAV signature updates.
+name: swoovr-uat
+
+x-restart: &restart
+  restart: unless-stopped
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+x-swoovr-app: &swoovr-app
+  <<: [*restart, *logging]
+  environment: &swoovr-common
+    ASPNETCORE_ENVIRONMENT: Uat
+    DOTNET_ENVIRONMENT: Uat
+    Staff__LocalPasswords: "false"
+    Prototype__Enabled: "false"
+    DetailedErrors: "false"
+    Keycloak__RequireHttpsMetadata: "true"
+    # Only Caddy's fixed address may set X-Forwarded-*.
+    Hosting__TrustedProxyNetworks: 172.30.0.2/32
+    Founders__Places: "1000"
+    # System CAs + Cloudflare Origin CA root (Caddy's origin certificate) + private PostgreSQL CA. See bin/tls-setup.
+    SSL_CERT_FILE: /etc/swoovr/tls/trust-bundle.pem
+  volumes:
+    - ./tls/trust:/etc/swoovr/tls:ro
+
+x-zammad: &zammad
+  <<: [*restart, *logging]
+  image: ${SWOOVR_ZAMMAD_IMAGE:?release.env}
+  init: true
+  env_file: [env/zammad.env]
+  volumes:
+    - zammad-backup:/var/tmp/zammad:ro
+    - zammad-storage:/opt/zammad/storage
+  networks: [zammad]
+  depends_on:
+    zammad-memcached: { condition: service_healthy }
+    zammad-postgresql: { condition: service_healthy }
+    zammad-redis: { condition: service_healthy }
+
+x-job: &job
+  <<: *logging
+  profiles: [jobs]
+  restart: "no"
+  volumes:
+    - ./tls/trust:/etc/swoovr/tls:ro
+
+services:
+  # ---------------------------------------------------------------- ingress
+  caddy:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_CADDY_IMAGE:?release.env}
+    env_file: [env/caddy.env]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./tls/origin:/etc/caddy/origin:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      edge:
+        ipv4_address: 172.30.0.2
+        aliases: [uat.swoovr.app, api-uat.swoovr.app, admin-uat.swoovr.app, auth-uat.swoovr.app, helpdesk-uat.swoovr.app]
+
+  # ---------------------------------------------------------------- Swoovr / Keycloak database
+  swoovr-postgres:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_POSTGRES_IMAGE:?release.env}
+    env_file: [env/postgres.env]
+    shm_size: 256mb
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/swoovr/pg/server.crt
+      - -c
+      - ssl_key_file=/etc/swoovr/pg/server.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - hba_file=/etc/swoovr/pg_hba.conf
+      - -c
+      - password_encryption=scram-sha-256
+    volumes:
+      - swoovr-pgdata:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./postgres/pg_hba.conf:/etc/swoovr/pg_hba.conf:ro
+      - ./tls/postgres:/etc/swoovr/pg:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    networks:
+      data:
+        aliases: [swoovr-postgres]
+
+  # ---------------------------------------------------------------- identity
+  keycloak:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_KEYCLOAK_IMAGE:?release.env}
+    env_file: [env/keycloak.env]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://swoovr-postgres:5432/keycloak?sslmode=verify-full&sslrootcert=/etc/swoovr/tls/pg-ca.crt
+      KC_DB_USERNAME: swoovr_keycloak
+      KC_HOSTNAME: https://auth-uat.swoovr.app
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: 172.30.0.2/32
+      # Lets Keycloak trust Caddy's Cloudflare Origin CA certificate when it calls the API by its public name.
+      KC_TRUSTSTORE_PATHS: /etc/swoovr/tls/cloudflare-origin-ca.pem
+      KC_BOOTSTRAP_ADMIN_USERNAME: swoovr-bootstrap
+      KC_LOG_LEVEL: INFO
+      SWOOVR_REGISTRATION_AUTHORITY_URL: https://api-uat.swoovr.app/api/registration/admission
+    volumes:
+      - ./tls/trust:/etc/swoovr/tls:ro
+    depends_on:
+      swoovr-postgres: { condition: service_healthy }
+    healthcheck:
+      # No curl in the Keycloak image; management port 9000 stays private.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 10
+    networks: [edge, data]
+
+  # ---------------------------------------------------------------- Swoovr applications (one replica each)
+  api:
+    <<: *swoovr-app
+    image: ${SWOOVR_API_IMAGE:?release.env}
+    env_file: [env/api.env]
+    environment:
+      <<: *swoovr-common
+      Hosting__PublicOrigin: https://api-uat.swoovr.app
+      AllowedHosts: api-uat.swoovr.app
+      Keycloak__BaseUrl: https://auth-uat.swoovr.app
+      Keycloak__MembersRealm: swoovr-members
+      Keycloak__VenuesRealm: swoovr-venues
+      Keycloak__StaffRealm: swoovr-staff
+      Keycloak__StaffSsoAlias: entra
+      MemberAdmin__ClientId: swoovr-api-accounts
+      MemberAdmin__ContactRetirementEnabled: "true"
+      Phone__Required: "true"
+      Retention__Worker: "true"
+      # Owner #261: opt-in staging records only; does not enable member delivery (UAT-IMAGE-STAGING-2026-11-10.md).
+      Media__Pipeline__Enabled: "true"
+      Media__Pipeline__UploadOrigin: https://images-upload-uat.swoovr.app
+      Media__Pipeline__AcceptedPolicyVersion: swoovr-images-2026-11-08-v1
+      Media__Screening__Worker: "true"
+      Media__Screening__RequireKnownContentCheck: "true"
+      Media__Store: r2
+      Email__Provider: mailersend
+      Sms__Provider: twilio
+      Push__Provider: disabled
+      Didit__TestMode: "false"
+      Beta__Enabled: "true"
+      Beta__Invitations__PublicBaseUrl: https://uat.swoovr.app/
+      MeetingSafety__Enabled: "true"
+      MeetingSafety__Worker: "true"
+      MeetingSafety__PublicBaseUrl: https://uat.swoovr.app/
+      TextHarm__Enabled: "true"
+      TextHarm__Worker: "true"
+      Ticketing__Zammad__BaseUrl: http://swoovr-zammad:8080/
+      Attachments__Scanning__ClamAv__Host: clamav
+      Attachments__Scanning__ClamAv__Port: "3310"
+      Location__HomeCityCheck__AdminBaseUrl: https://admin-uat.swoovr.app/
+    depends_on:
+      swoovr-postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+    healthcheck: &dotnet-health
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    networks: [edge, data, ticketing]
+
+  web:
+    <<: *swoovr-app
+    image: ${SWOOVR_WEB_IMAGE:?release.env}
+    env_file: [env/web.env]
+    environment:
+      <<: *swoovr-common
+      Hosting__PublicOrigin: https://uat.swoovr.app
+      AllowedHosts: uat.swoovr.app
+      Api__BaseUrl: https://api-uat.swoovr.app/
+      Keycloak__Authority: https://auth-uat.swoovr.app/realms/swoovr-members
+      Keycloak__ClientId: swoovr-web
+    volumes:
+      - ./tls/trust:/etc/swoovr/tls:ro
+      - web-dataprotection:/home/app/.aspnet/DataProtection-Keys
+    depends_on:
+      volume-permissions: { condition: service_completed_successfully }
+      api: { condition: service_healthy }
+    healthcheck: *dotnet-health
+    networks: [edge]
+
+  admin:
+    <<: *swoovr-app
+    image: ${SWOOVR_ADMIN_IMAGE:?release.env}
+    env_file: [env/admin.env]
+    environment:
+      <<: *swoovr-common
+      Hosting__PublicOrigin: https://admin-uat.swoovr.app
+      AllowedHosts: admin-uat.swoovr.app
+      Api__BaseUrl: https://api-uat.swoovr.app/
+      Keycloak__Authority: https://auth-uat.swoovr.app/realms/swoovr-staff
+      Keycloak__ClientId: swoovr-admin-web
+    volumes:
+      - ./tls/trust:/etc/swoovr/tls:ro
+      - admin-dataprotection:/home/app/.aspnet/DataProtection-Keys
+    depends_on:
+      volume-permissions: { condition: service_completed_successfully }
+      api: { condition: service_healthy }
+    healthcheck: *dotnet-health
+    networks: [edge]
+
+  # Named volumes start root-owned; the .NET images run as UID 1654. Reuses the API image, no extra image.
+  volume-permissions:
+    image: ${SWOOVR_API_IMAGE:?release.env}
+    user: "0:0"
+    entrypoint: ["chown", "-R", "1654:1654", "/dp/web", "/dp/admin"]
+    volumes:
+      - web-dataprotection:/dp/web
+      - admin-dataprotection:/dp/admin
+    restart: "no"
+    network_mode: none
+
+  # ---------------------------------------------------------------- support attachment scanning (D336)
+  clamav:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_CLAMAV_IMAGE:?release.env}
+    volumes:
+      - clamav-db:/var/lib/clamav
+    networks: [ticketing, egress]
+
+  # ---------------------------------------------------------------- Zammad 7.2.2 (own PostgreSQL)
+  zammad-postgresql:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_ZAMMAD_POSTGRES_IMAGE:?release.env}
+    env_file: [env/zammad-postgres.env]
+    shm_size: 256mb
+    volumes:
+      - zammad-pgdata:/var/lib/postgresql/data
+      - ./zammad/10-create-zammad-role.sh:/docker-entrypoint-initdb.d/10-create-zammad-role.sh:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - PGPASSWORD="$${ZAMMAD_DB_PASS}" psql --no-password --quiet --output /dev/null -v ON_ERROR_STOP=1 --host 127.0.0.1 --username "$${ZAMMAD_DB_USER}" --dbname "$${ZAMMAD_DB}" --command "SELECT 1"
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    networks: [zammad]
+
+  zammad-redis:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_ZAMMAD_REDIS_IMAGE:?release.env}
+    volumes:
+      - zammad-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    networks: [zammad]
+
+  zammad-memcached:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_ZAMMAD_MEMCACHED_IMAGE:?release.env}
+    command: memcached -m 256M
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "11211"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    networks: [zammad]
+
+  zammad-elasticsearch:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_ZAMMAD_ELASTICSEARCH_IMAGE:?release.env}
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms2g -Xmx2g
+    volumes:
+      - zammad-elasticsearch:/usr/share/elasticsearch/data
+    networks: [zammad]
+
+  zammad-init:
+    <<: *zammad
+    command: ["zammad-init"]
+    restart: on-failure
+    user: "0:0"
+
+  zammad-railsserver:
+    <<: *zammad
+    command: ["zammad-railsserver"]
+    environment:
+      # Trusts Caddy's origin certificate for OIDC discovery (auth-uat) and the webhook (api-uat).
+      SSL_CERT_FILE: /etc/swoovr/tls/trust-bundle.pem
+    volumes:
+      - zammad-backup:/var/tmp/zammad:ro
+      - zammad-storage:/opt/zammad/storage
+      - ./tls/trust:/etc/swoovr/tls:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+    networks: [zammad, edge]
+
+  zammad-scheduler:
+    <<: *zammad
+    command: ["zammad-scheduler"]
+    environment:
+      SSL_CERT_FILE: /etc/swoovr/tls/trust-bundle.pem
+    volumes:
+      - zammad-backup:/var/tmp/zammad:ro
+      - zammad-storage:/opt/zammad/storage
+      - ./tls/trust:/etc/swoovr/tls:ro
+    networks: [zammad, edge]
+
+  zammad-websocket:
+    <<: *zammad
+    command: ["zammad-websocket"]
+
+  zammad-nginx:
+    <<: *zammad
+    command: ["zammad-nginx"]
+    init: false
+    depends_on:
+      zammad-railsserver: { condition: service_healthy }
+    networks:
+      zammad:
+      edge:
+      ticketing:
+        aliases: [swoovr-zammad]
+
+  # Off by default: UAT is disposable (owner, 10 Nov 2026). Enable with --profile backup if a copy is wanted.
+  zammad-backup:
+    <<: *zammad
+    profiles: [backup]
+    command: ["zammad-backup"]
+    user: "0:0"
+    environment:
+      HOLD_DAYS: "33"
+      TZ: Australia/Adelaide
+    volumes:
+      - zammad-backup:/var/tmp/zammad
+      - zammad-storage:/opt/zammad/storage
+
+  # ---------------------------------------------------------------- one-shot jobs (bin/swoovr job <name>)
+  db-bootstrap:
+    <<: *job
+    image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
+    command: ["database-bootstrap"]
+    env_file: [env/bootstrap.env]
+    environment:
+      DOTNET_ENVIRONMENT: Uat
+      PGHOST: swoovr-postgres
+      PGPORT: "5432"
+      PGDATABASE: postgres
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /etc/swoovr/tls/pg-ca.crt
+    networks: [data]
+
+  migrate:
+    <<: *job
+    image: ${SWOOVR_API_IMAGE:?release.env}
+    command: ["migrate"]
+    env_file: [env/migrate.env]
+    environment:
+      <<: *swoovr-common
+    networks: [data]
+
+  places-import:
+    <<: *job
+    image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
+    command: ["places-import"]
+    env_file: [env/migrate.env]
+    environment:
+      <<: *swoovr-common
+    networks: [data, edge]
+
+  keycloak-bootstrap:
+    <<: *job
+    image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
+    command: ["keycloak-bootstrap"]
+    env_file: [env/keycloak.env, env/realms.env]
+    environment:
+      <<: *swoovr-common
+      SWOOVR_KEYCLOAK_BASE: https://auth-uat.swoovr.app
+    networks: [edge]
+
+  # Generic API one-shot: bin/swoovr job api-command -- root-admin grant <subject>
+  api-command:
+    <<: *job
+    image: ${SWOOVR_API_IMAGE:?release.env}
+    env_file: [env/api.env, env/operator.env]
+    environment:
+      <<: *swoovr-common
+      Hosting__PublicOrigin: https://api-uat.swoovr.app
+      Keycloak__BaseUrl: https://auth-uat.swoovr.app
+      Keycloak__MembersRealm: swoovr-members
+      MemberAdmin__ClientId: swoovr-api-accounts
+      Media__Store: r2
+      Email__Provider: mailersend
+    networks: [data, edge]
+
+networks:
+  edge:
+    ipam:
+      config: [{ subnet: 172.30.0.0/24 }]
+  data:
+    internal: true
+  ticketing:
+    internal: true
+  zammad:
+    internal: true
+  egress: {}
+
+volumes:
+  caddy-data:
+  caddy-config:
+  swoovr-pgdata:
+  web-dataprotection:
+  admin-dataprotection:
+  clamav-db:
+  zammad-pgdata:
+  zammad-redis:
+  zammad-elasticsearch:
+  zammad-storage:
+  zammad-backup:

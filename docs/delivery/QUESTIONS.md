@@ -2867,3 +2867,15 @@ Asked on #257 in three rounds: [Q141–Q148](https://github.com/repasscloud/wand
 - Issue: [#298](https://github.com/repasscloud/wanderconnect/issues/298); parent [#294](https://github.com/repasscloud/wanderconnect/issues/294). Status: OPEN. Earliest blocking phase: Before hosted release.
 - Confirm Shield account credentials/agreement, two-VM rate-limit/IP acceptance and permitted harmless provider acceptance; model licences including NudeNet discrepancy; region/disclosure and TLS readiness. DEFAULT: configured adapters and mocks are not live provider proof.
 - Design: [Vultr image pipeline](../superpowers/specs/2026-11-08-vultr-image-pipeline-design.md). Independent contracts/build/local verification can continue. Never post private credentials to the issue.
+
+### Q175 — Origin TLS for the Vultr UAT host
+
+- Issue: [#307](https://github.com/repasscloud/wanderconnect/issues/307). Status: OPEN. Earliest blocking phase: Before the first Vultr UAT deployment.
+- DEFAULT (prepared in `deploy/vultr-uat`): Cloudflare Origin CA certificate for `swoovr.app` + `*.swoovr.app` on the stock owner-selected Caddy. There is no DNS token on the host, and containers trust it through a CA bundle. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy image and a zone-edit token on the host.
+- Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). Independent work continues.
+
+### Q176 — UAT helpdesk hostname and Zammad outgoing mail
+
+- Issue: [#308](https://github.com/repasscloud/wanderconnect/issues/308). Status: OPEN. Earliest blocking phase: Before staff use the hosted UAT helpdesk.
+- Confirm `helpdesk-uat.swoovr.app` (not in D355) and choose Zammad's notification SMTP. DEFAULT: notifications stay unsent until chosen.
+- Plan: [images and bundle](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md).

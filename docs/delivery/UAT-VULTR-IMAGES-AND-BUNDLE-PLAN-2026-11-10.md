@@ -1,0 +1,159 @@
+# Multi-arch images and the Vultr UAT bundle (plan, 10 November 2026)
+
+This plan covers three things. It builds every Swoovr image once per commit as `repasscloud/{image}:{commit}` for linux/amd64 and linux/arm64 on GitHub's Ubuntu runners. It ships one deployment bundle (a single Compose file plus all configuration) to the Vultr bare-metal UAT host. It promotes the **same image digests** to Azure for production. It builds on the [Vultr stack review](VULTR-STACK-REVIEW-2026-11-10.md) (single host, single Caddy, separate Zammad PostgreSQL) and D355 hostnames. Decision record: D356 (DEFAULT). Questions: Q175, Q176.
+
+**Delivered in this PR:**
+
+- The workflow `.github/workflows/images.yml`. It is fully commented, because Actions minutes are off.
+- The bundle `deploy/vultr-uat/` with its [runbook](../../deploy/vultr-uat/README.md).
+- A backward-compatible parameter in `containers/zammad/provision.rb` (webhook endpoint and notification SMTP).
+
+Nothing was published, provisioned or deployed.
+
+## Decisions
+
+| Topic | Status | Choice |
+| --- | --- | --- |
+| UAT host | CONFIRMED (owner) | One Vultr bare-metal E-2286G, 32 GB RAM, RAID 1, Debian, Docker; one Caddy for all hostnames. |
+| PROD | CONFIRMED (owner, D355) | Azure (Container Apps, PostgreSQL Flexible Server, Key Vault). Existing `infra/uat` Bicep is the template. |
+| Registry and names | CONFIRMED (owner request) | Docker Hub `repasscloud/swoovr-api`, `-web`, `-admin`, `-operator`, `-keycloak`, tag = full 40-character commit SHA. DEFAULT: private repositories; no mutable tags. |
+| Architectures | CONFIRMED (owner request) | One OCI index per image with linux/amd64 + linux/arm64, built natively on `ubuntu-24.04` and `ubuntu-24.04-arm`. |
+| Deploy reference | DEFAULT | Servers and Azure use `repo@sha256:<index digest>` from `release-manifest.env`. The tag exists for people, not for deployment. |
+| Build once, promote | DEFAULT | Production imports the UAT-tested digests into ACR (`az acr import`); it never rebuilds them. Keycloak is the exception (see below). |
+| Swoovr/Keycloak PostgreSQL image | DEFAULT (was OPEN) | `postgres:17.11-trixie` @ `sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f`. Debian 13 index (amd64/arm64), digest checked 10 November 2026. TLS-only (`hostssl` + SCRAM; plaintext rejected) with a private CA, so `VerifyFull` is the same contract as Azure. |
+| Internal hostname resolution | DEFAULT (was OPEN) | Caddy has a fixed address 172.30.0.2 on the `edge` network and Docker network aliases for the five public names. Containers calling `https://auth-uat.swoovr.app` etc. reach Caddy directly with the right Host and SNI. There is no hairpin through the public IP. Only 172.30.0.2/32 is a trusted proxy for the apps and Keycloak. |
+| Origin TLS | DEFAULT, **Q175** | Cloudflare Origin CA certificate for `swoovr.app` + `*.swoovr.app` on stock Caddy, with no ACME and no DNS API token on the host. Containers trust it through a bundle: system CAs + Cloudflare Origin CA roots + PostgreSQL CA. Alternative: Let's Encrypt DNS-01, which needs a custom Caddy build and a zone-edit token on the host. |
+| Helpdesk hostname and Zammad mail | OPEN, **Q176** | `helpdesk-uat.swoovr.app` (from the stack review; not in D355). Outgoing SMTP for staff notifications is not chosen yet. |
+| Backups | CONFIRMED (owner) | UAT is disposable: rebuild instead of restore. Zammad's local backup container is off by default (`--profile backup`). |
+
+## 1. Images and what each one is for
+
+| Image | Dockerfile / target | Runs on UAT as | Runs on PROD as |
+| --- | --- | --- | --- |
+| `swoovr-api` | `containers/uat/Dockerfile` / `api` | `api` service, plus `migrate` and `api-command` jobs | Container App + jobs |
+| `swoovr-web` | same / `web` | `web` | Container App |
+| `swoovr-admin` | same / `admin` | `admin` | Container App |
+| `swoovr-operator` | same / `operator` | `db-bootstrap`, `places-import`, `keycloak-bootstrap` jobs | Container Apps jobs (including Azure backups) |
+| `swoovr-keycloak` | `containers/uat/Keycloak.Dockerfile` / `keycloak` | `keycloak` | **Separate production build** (below) |
+
+The .NET stages already cross-publish from `$BUILDPLATFORM` with `-a $TARGETARCH`. The base images (dotnet aspnet 10.0, Keycloak 26.8.1, Temurin 21) and every third-party pin in [thirdparty.env](../../deploy/vultr-uat/thirdparty.env) were checked as amd64 + arm64 indexes. The operator's `postgresql-client-17` pin targets Ubuntu noble pgdg, which publishes both architectures. The first arm64 build confirms this.
+
+**Keycloak image is environment-specific.** `Keycloak.Dockerfile` rewrites the theme's privacy, terms and community links to `https://uat.swoovr.app/...` at build time. Production must not reuse that digest. Follow-up (needs its own PR and image tests): add a `SWOOVR_PUBLIC_ORIGIN` build argument (default `https://uat.swoovr.app`). Then the workflow builds `swoovr-keycloak` with the UAT origin and production with `https://swoovr.app`, published under a separate tag such as `repasscloud/swoovr-keycloak:<commit>-prod`. Until then, `promote-to-azure` deliberately skips Keycloak.
+
+## 2. GitHub pipeline (`.github/workflows/images.yml`)
+
+The workflow has three jobs:
+
+1. **build**: a matrix of 5 components × 2 architectures. Each cell runs on its native Ubuntu runner, so there's no QEMU. Each cell runs `docker/build-push-action` with `push-by-digest`, SBOM and max provenance, and a GitHub Actions cache per cell. Build arguments are only `SWOOVR_VERSION` (D320); there are no secrets.
+2. **merge**: runs `docker buildx imagetools create` once per image, tagging `:<commit>` from the two per-architecture digests. It refuses an index that lacks either platform. It writes `release-manifest.env` and `release-manifest.json`, then runs `deploy/vultr-uat/bin/make-bundle.sh`. Artifact: `swoovr-release-<commit>`, containing the manifest and `swoovr-uat-bundle-<commit>.tar.gz`.
+3. **promote-to-azure**: optional. It runs only with the dispatch input and approval of the `production` GitHub environment. It uses an OIDC `azure/login` (federated credential, no stored Azure secret) and runs `az acr import` per digest into the production ACR.
+
+To enable it (owner action, when minutes return):
+
+1. Create the private Docker Hub repositories `repasscloud/swoovr-{api,web,admin,operator,keycloak}`. Then create an access token with Read & Write on those repositories only.
+2. Add the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. For production, also add the variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and `AZURE_ACR_NAME`, and a `production` environment with required reviewers.
+3. Uncomment the file and add `.github/workflows/images.yml` to `ENABLED_WORKFLOWS` in `scripts/check_design.py`.
+4. Check that `ubuntu-24.04-arm` runners are available for this repository's plan. If they aren't, set both matrix runners to `ubuntu-24.04` and add `docker/setup-qemu-action@v3` before Buildx. That works, but is slower.
+5. Run it with **Actions → Images → Run workflow** on the reviewed commit of `main`.
+
+Trigger: `workflow_dispatch` only, so minutes are spent only when someone asks for a release.
+
+### Building without Actions (same result, from a workstation)
+
+```sh
+docker login                      # repasscloud account
+docker buildx create --use --name swoovr-multi   # once; Docker Desktop provides QEMU for the other arch
+SHA=$(git rev-parse HEAD)         # clean, reviewed checkout of main
+for c in api web admin operator; do
+  docker buildx build --platform linux/amd64,linux/arm64 -f containers/uat/Dockerfile --target "$c" \
+    --provenance=mode=max --sbom=true -t "repasscloud/swoovr-$c:$SHA" --push .
+done
+docker buildx build --platform linux/amd64,linux/arm64 -f containers/uat/Keycloak.Dockerfile --target keycloak \
+  --provenance=mode=max --sbom=true -t "repasscloud/swoovr-keycloak:$SHA" --push .
+{ echo "SWOOVR_COMMIT=$SHA"; for c in api web admin operator keycloak; do
+    echo "SWOOVR_$(echo $c | tr a-z A-Z)_IMAGE=docker.io/repasscloud/swoovr-$c@$(docker buildx imagetools inspect repasscloud/swoovr-$c:$SHA --format '{{json .Manifest.Digest}}' | tr -d '"')"
+  done; } > release-manifest.env
+deploy/vultr-uat/bin/make-bundle.sh release-manifest.env dist
+```
+
+## 3. The Vultr host bundle (`deploy/vultr-uat/`)
+
+There is one `compose.yaml` for the whole stack, with every image from `release.env` by digest. The full operator procedure is in the [runbook](../../deploy/vultr-uat/README.md):
+
+1. Host setup.
+2. Origin certificate, TLS setup and the Cloudflare filter.
+3. Generated and owner-filled environment files, plus the disabled realm templates.
+4. `bin/swoovr bootstrap`.
+5. The manual identity, provider and admission gates from DEPLOYMENT-UAT.md.
+6. Upgrade, rollback and reset.
+
+```text
+Cloudflare (Full strict, proxied) ─▶ host :80/:443 (DOCKER-USER: Cloudflare ranges only)
+                                    └▶ caddy 172.30.0.2  [aliases: uat / api-uat / admin-uat / auth-uat / helpdesk-uat]
+edge (egress)     caddy, web, admin, api, keycloak, zammad-nginx/rails/scheduler, jobs needing egress
+data (internal)   swoovr-postgres ◀─ TLS VerifyFull ─ api, keycloak, db-bootstrap, migrate, places-import, api-command
+ticketing (int.)  api ─▶ swoovr-zammad:8080 (Zammad nginx), api ─▶ clamav:3310
+zammad (internal) zammad-postgresql, redis, memcached, elasticsearch + Zammad services
+egress            clamav signature updates
+```
+
+Configuration contract: the environment-variable names in `env/*.env.example` are exactly the Azure `infra/uat/secret-bindings.json` names. The non-secret values in `compose.yaml` mirror `infra/uat/services.bicep`. One application configuration therefore serves UAT on Vultr and PROD on Azure, and only the delivery mechanism differs (an env file with mode 0600 versus a Key Vault reference). Database roles are created by the same `database-bootstrap` code as on Azure.
+
+Security choices:
+
+- Only Caddy publishes ports, and only to Cloudflare ranges.
+- Keycloak `/admin` and the master realm are refused unless the caller is on the edge network. The operator reaches them through an SSH SOCKS tunnel.
+- Management port 9000, the databases, caches, Elasticsearch and ClamAV are never routed.
+- PostgreSQL rejects non-TLS network logins.
+- The host firewall lives in its own nftables table, so Docker's rules are untouched.
+
+## 4. Production on Azure (kept, not replaced)
+
+Production keeps the Azure design in [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) and [INFRASTRUCTURE-UAT.md](INFRASTRUCTURE-UAT.md). The steps:
+
+1. **Infrastructure:** copy the `infra/uat` stages (foundation → services → edge) to production parameters, either as `infra/prod` or as parameterised prefixes. This is a separate PR. Use a separate subscription or resource group, production hostnames (`swoovr.app`, `api.swoovr.app`, `admin.swoovr.app`, `auth.swoovr.app`; OPEN until confirmed), production Entra and providers, and the D261 backup jobs, which do apply to production.
+2. **Images:** promote by digest with the workflow's `promote-to-azure` job, or by hand:
+
+   ```sh
+   az acr import --name <prodAcr> --source docker.io/repasscloud/swoovr-api@sha256:<digest> --image swoovr-api:<commit> \
+     --username <dockerhub-user> --password <token>
+   ```
+
+   ACR keeps the multi-arch index, and Container Apps pulls its linux/amd64 entry. `services.parameters.json` then references `<prodAcr>.azurecr.io/swoovr-api@sha256:<same digest>`, and `scripts/uat/preflight.py` rejects tags. This keeps the UAT-to-PROD chain intact: the image tested on Vultr is byte-for-byte the image in production.
+3. **Keycloak:** a production-origin build, as described in §1.
+4. **Configuration:** the same environment names, sourced from Key Vault through `secret-bindings.json`. Production keys and secrets are never copied from UAT.
+5. **Zammad in production:** hosting is OPEN, and it isn't part of the current Azure Bicep. Either run this same Zammad Compose section on a production VM, or use Zammad's hosted service. This is to be decided before production support opens.
+
+## 5. Order of work (checklist)
+
+| # | Step | Who | State |
+| --- | --- | --- | --- |
+| 1 | Review and merge this PR | Owner | Open |
+| 2 | Answer Q175 (origin TLS) and Q176 (helpdesk name, Zammad SMTP) | Owner | Open |
+| 3 | Docker Hub repositories and token; enable the workflow, or build locally (§2) | Owner | Open |
+| 4 | First image run on `main`; record the five index digests in the PR or issue | Owner / builder | Open |
+| 5 | Order the server; confirm RAID 1 and Debian; run `host-setup` | Owner | Open |
+| 6 | Cloudflare DNS (proxied), Full (strict), Origin CA certificate, cache bypass | Owner | Open |
+| 7 | `tls-setup`, `cloudflare-ips`, `envtool.py init`, fill provider values, realm templates | Owner (private values) | Open |
+| 8 | `bin/swoovr bootstrap` | Owner / operator | Open |
+| 9 | DEPLOYMENT-UAT.md identity, provider and admission gates; hosted smoke; measure RAM, CPU and I/O | Owner + builder | Open |
+| 10 | Keycloak production-origin build argument (follow-up PR) | Builder | Open |
+| 11 | `infra/prod` Bicep and the production ACR import | Builder → owner deploys | Open |
+
+## Evidence (10 November 2026, local only)
+
+- `docker compose config -q` passes with all profiles. The test used generated env files and digest-shaped placeholders.
+- `bin/tls-setup` ran in `debian:trixie`. It created the PostgreSQL CA and server certificate, fetched both Cloudflare Origin CA roots and printed their fingerprints (RSA `D3:C7:E8:5C…`, ECC `AA:63:69:7A…`), built the trust bundle, and accepted a test certificate covering all five hostnames.
+- Real `postgres:17.11-trixie` started with the bundle's `pg_hba.conf`, SSL and initdb. It created the `keycloak` and `swoovr` databases. A `verify-full` client connected over TLS 1.3, and a plaintext login was rejected by `pg_hba`.
+- The unmodified `scripts/uat/uat_jobs.py database-bootstrap` ran against that container with generated passwords. It created the roles; `swoovr` is owned by `swoovr_migrator`; `swoovr_api` can log in with `VerifyFull` and has no database CREATE privilege.
+- `caddy validate` with the owner-selected Caddy digest reports "Valid configuration". The registry digest equals the owner's pin (multi-arch).
+- `shellcheck -S warning` is clean for all bundle scripts. `ruby -c` passes for `provision.rb`.
+- `make-bundle.sh` produced a tarball with no env values, TLS files or caches.
+
+**Not verified:**
+
+- The workflow has not run, because Actions minutes are off. No image was built for arm64 or published.
+- The API, Web, Admin, Keycloak and Zammad containers were not started from this bundle.
+- `keycloak-bootstrap`, `zammad-sso` and `zammad-provision` were not run against the hosted layout.
+- No Vultr host, DNS, Cloudflare, Entra or real provider was touched.
+- `bin/host-setup` and `bin/cloudflare-ips` (root and host firewall) were not run.

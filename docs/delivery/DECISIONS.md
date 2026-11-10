@@ -843,3 +843,16 @@ Owner decisions are recorded before implementation. [Full owner requirements and
 **CONFIRMED owner clarification in this chat:** production remains Azure. **OPEN:** UAT application hosting, including Vultr. Prepare portable application/container/runtime/migration/auth configuration; existing `infra/uat` Azure resources are optional. Do not treat an Azure subscription as a prerequisite for UAT readiness. Existing deployment authorisation boundaries remain unchanged. No new provider choice is requested by this change.
 
 Passkey RP remains `uat.swoovr.app`; the new sibling auth origin requires an exact related-origin declaration on that RP host and browser acceptance. Do not broaden the RP, cookie domains, CORS, issuer allowlists or trusted proxies. [Implementation, verification and remaining hosted checks](D355-UAT-HOSTNAMES-2026-11-10.md).
+
+### D356 — Multi-arch images per commit and the Vultr UAT bundle (10 November 2026)
+
+**DEFAULT**, builder 10 November 2026, on the owner's request in chat to "bundle these machines up using GitHub" as `repasscloud/{image_name}:{commit_hash}` for x64/arm64 on Ubuntu, with a single Docker setup on the Debian bare-metal UAT host, while production stays Azure.
+
+1. The five Swoovr images (`swoovr-api`, `-web`, `-admin`, `-operator`, `-keycloak`) are built once per commit on GitHub's native Ubuntu amd64 and arm64 runners. Each is published to Docker Hub `repasscloud/` as one multi-arch index tagged with the full commit SHA. There are no mutable tags. Deployments use the index digest only. The workflow is prepared fully commented (`.github/workflows/images.yml`).
+2. Production imports the same digests into ACR and doesn't rebuild them, except Keycloak, whose image embeds UAT policy URLs until a production-origin build argument exists.
+3. The UAT host runs one Compose project (`deploy/vultr-uat/`). Its environment names equal `infra/uat/secret-bindings.json`, and its database roles use the same `database-bootstrap` code.
+4. Swoovr/Keycloak PostgreSQL is `postgres:17.11-trixie` pinned by digest, TLS-only with a private CA, so clients use `VerifyFull`. This closes the stack review's OPEN Debian image choice as DEFAULT.
+5. Internal callers reach the public names through Caddy's Docker network aliases at a fixed address. Only that address is a trusted proxy. This closes the OPEN internal resolution method as DEFAULT.
+6. Origin TLS is the Cloudflare Origin CA (Q175) and the helpdesk name is `helpdesk-uat.swoovr.app` (Q176). Both stay open to the owner.
+
+Reversible: the registry, runners and pins are configuration. [Plan and evidence](UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md). No image publication, provisioning or deployment is claimed.
