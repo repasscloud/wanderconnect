@@ -29,13 +29,21 @@ def private_write(path, text):
 
 
 def read_pairs(path):
+    """KEY=value lines, values decoded like Compose's env files: a whole value in single quotes is literal (the form
+    `check` requires for a `$`); a whole value in double quotes loses its quotes. Used for every value this tool passes on."""
     pairs = {}
     if path.exists():
         for line in path.read_text(encoding='utf-8').splitlines():
             if line and not line.startswith('#') and '=' in line:
                 key, _, value = line.partition('=')
-                pairs[key] = value
+                pairs[key] = unquote(value)
     return pairs
+
+
+def unquote(value):
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1]
+    return value
 
 
 def set_values(path, values):

@@ -907,7 +907,7 @@ This supersedes D39's MailerSend HTTP choice for the API and Keycloak on UAT, an
    - the IMAP mailbox: host, port, `ssl`/`starttls`, username, password, folder, keep-on-server (default `true`), support address and name.
 
    `envtool.py check` requires exactly what the selected services need, including Twilio SMS values in `env/api.env` when SMS is `twilio`. Run `./bin/swoovr mail-apply` after a change.
-5. **Zammad IMAP:** one `Email::Account` channel (IMAP in, the SendGrid relay out) for General Support, plus its email address, created idempotently by `provision.rb`. Inbound mail is off while the IMAP host is empty.
+5. **Zammad IMAP:** one `Email::Account` channel (IMAP in, the SendGrid relay out) for General Support, plus its email address, created idempotently by `provision.rb`. The channel is marked `swoovr_managed`. Each run deactivates a managed mailbox that is no longer configured (empty host or changed address), so Zammad stops fetching it, and unlinks it from General Support. Hand-made channels are untouched. Inbound mail is off while the IMAP host is empty. `envtool.py` decodes single- and double-quoted values like Compose, so a single-quoted `$` password reaches Zammad unchanged.
 6. **Mailpit:** runs on the internal `mail` network, with its UI only on the VM's loopback `127.0.0.1:8025` (SSH tunnel).
 7. **Azure UAT bindings** (`infra/uat/secret-bindings.json`, `services.bicep`) use the same Twilio names.
 
