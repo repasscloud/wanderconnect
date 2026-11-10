@@ -32,6 +32,12 @@ static class HostingPolicyChecks
         {var c=Api();c.Remove("Attachments:Scanning:ClamAv:Host");Expect(Errors(c).Contains("required:Attachments:Scanning:ClamAv:Host"),"scanner host required");}
         {var c=Api();c["Ticketing:Zammad:BaseUrl"]="https://help.example.test";Expect(Errors(c).Contains("required:Ticketing:Zammad:RetentionToken"),"helpdesk needs a retention identity");c["Ticketing:Zammad:RetentionToken"]="fictional";Expect(Errors(c).Length==0,"retention identity satisfies the helpdesk rule");}
         Expect(Errors(new(),serving:false).Length==0,"minimal one-shot command does not demand unrelated live services");
+        // #316: Twilio email, hosted SMTP relay, and the Mailpit sink only on UAT.
+        {var c=Api();c["Email:Provider"]="twilio";Expect(Errors(c).Contains("required:Email:Twilio:KeySid")&&Errors(c).Contains("required:Email:Twilio:KeySecret"),"Twilio email needs its key");c["Email:Twilio:KeySid"]="SKfictional";c["Email:Twilio:KeySecret"]="fictional";Expect(Errors(c).Length==0,"complete Twilio email passes");c.Remove("Email:From");Expect(Errors(c).Contains("required:Email:From"),"every provider needs a sender");}
+        {var c=Api();c["Email:Provider"]="smtp";Expect(Errors(c).Contains("development-only:Email:Provider"),"SMTP without credentials stays a development sink");c["Email:Smtp:Host"]="smtp.example.test";c["Email:Smtp:Port"]="587";c["Email:Smtp:Username"]="apikey";c["Email:Smtp:Password"]="fictional";Expect(Errors(c).Length==0,"complete SMTP relay passes");c["Email:Smtp:Host"]="mailpit";Expect(Errors(c).Contains("hosted-smtp-relay-required"),"relay cannot target the sink");}
+        foreach(var key in new[]{"Email:Provider","Sms:Provider"})
+        {var c=Api();c[key]="mailpit";c["Mailpit:Host"]="mailpit";Expect(Errors(c).Length==0,"UAT may use the Mailpit sink: "+key);Expect(Errors(c,env:"Production").Contains("uat-only:"+key),"Production refuses the Mailpit sink: "+key);Expect(Errors(c,env:"Production",serving:false).Contains("uat-only:"+key),"one-shot Production commands refuse it too: "+key);c.Remove("Mailpit:Host");Expect(Errors(c).Contains("required:Mailpit:Host"),"sink host required: "+key);}
+        {var c=Api();c["Sms:Provider"]="simulated";Expect(Errors(c).Contains("development-only:Sms:Provider"),"UAT still refuses the development simulated sender");}
         Console.WriteLine($"PASS hosted configuration policy: {count} pure checks; no provider/network/hosted readiness claim.");
     }
 }

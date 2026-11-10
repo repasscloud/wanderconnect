@@ -28,7 +28,7 @@ if(args is ["--hosting-checks"]){HostingPolicyChecks.Run();await HostingProxyChe
 
 if(args is ["--appearance-client-checks"]){AppearanceSyncChecks.Run();AppearanceCacheChecks.Run();await AppearanceClientChecks.Run();await AppearanceCoordinatorChecks.Run();return;}
 
-if(args is ["--mailersend-checks"]){await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});return;}
+if(args is ["--mailersend-checks"]){await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});await TwilioEmailChecks.Run();return;}
 
 if(args is ["--contact-provider-probe"])
 {
@@ -104,6 +104,7 @@ ChatAttachmentChecks.Run();
 PhotoAlbumChecks.Run();
 await EmailOutcomeChecks.Run();
 await MailerSendChecks.Run((name,ok)=>{if(!ok)throw new Exception(name);});
+await TwilioEmailChecks.Run();
 await PushProviderChecks.Run();
 await ContactIdentityChecks.Run();
 await SignInChecks.Run();

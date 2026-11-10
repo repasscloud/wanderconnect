@@ -79,7 +79,7 @@ public sealed class MeetingSafetyDelivery(SwoovrDbContext db,MeetingSafetyStore 
                 outcome=contact.Channel=="email"?await email.SendOutcomeAsync(new EmailMessage(destination,"Swoovr meeting safety",body),token):new(await sms.SendNoticeAsync(destination,body,token)?sms.Kind=="simulated"?"simulated":"accepted":"unknown");
             }
             catch(Exception error)when(error is HttpRequestException or IOException or OperationCanceledException){outcome=new("unknown");}
-            row.Status=outcome.Status switch{"accepted"=>environment.IsDevelopment()?"local-sink-accepted":"accepted","simulated"=>"simulated","retry" when row.Attempts<3=>"retry","retry"=>"rejected","rejected"=>"rejected",_=>"unknown"};
+            row.Status=outcome.Status switch{"accepted"=>environment.IsDevelopment()||contact.Channel=="email"&&email.IsSink?"local-sink-accepted":"accepted","simulated"=>"simulated","retry" when row.Attempts<3=>"retry","retry"=>"rejected","rejected"=>"rejected",_=>"unknown"};
             row.CompletedAt=row.Status=="retry"?null:clock.GetUtcNow();row.NextAttemptAt=clock.GetUtcNow().AddMinutes(Math.Min(60,Math.Pow(2,row.Attempts)));
             await StatusAsync(row,CancellationToken.None);
         }

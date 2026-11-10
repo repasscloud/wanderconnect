@@ -27,7 +27,11 @@ public static class HostingPolicy
         foreach(var key in new[]{"Media:Screening:Simulate","Media:Publication:BarrierDirectory","Media:Publication:BarrierStage","Media:Preservation:Fault"})if(Has(key))errors.Add("development-only:"+key);
         if(!Flag("Keycloak:RequireHttpsMetadata",true))errors.Add("https-metadata-required");
         if(!Flag("Media:Screening:RequireKnownContentCheck",true))errors.Add("known-content-check-required");
-        foreach(var pair in new[]{("Sms:Provider","simulated"),("Push:Provider","simulated"),("Email:Provider","smtp"),("Media:Store","local")})if(Read(pair.Item1)==pair.Item2)errors.Add("development-only:"+pair.Item1);
+        foreach(var pair in new[]{("Sms:Provider","simulated"),("Push:Provider","simulated"),("Media:Store","local")})if(Read(pair.Item1)==pair.Item2)errors.Add("development-only:"+pair.Item1);
+        // The Mailpit sink delivers nothing: allowed on UAT while a provider is being verified, never in Production (#316).
+        var uat=string.Equals(environment,"Uat",StringComparison.OrdinalIgnoreCase);
+        foreach(var key in new[]{"Email:Provider","Sms:Provider"})if(Read(key)=="mailpit"&&!uat)errors.Add("uat-only:"+key);
+        if(Read("Email:Provider")=="smtp"&&!Has("Email:Smtp:Username"))errors.Add("development-only:Email:Provider");
         if(!serving)return errors.Distinct(StringComparer.Ordinal).ToArray();
         Url("Hosting:PublicOrigin");
         if(Uri.TryCreate(Read("Hosting:PublicOrigin"),UriKind.Absolute,out var origin)&&(origin.AbsolutePath!="/"||origin.Query.Length>0||origin.Fragment.Length>0))errors.Add("public-origin-required");
@@ -46,9 +50,20 @@ public static class HostingPolicy
         foreach(var realm in new[]{"Members","Venues","Staff"})if(Read("Keycloak:"+realm+"Realm")!="swoovr-"+realm.ToLowerInvariant())errors.Add("hosted-realm:Keycloak:"+realm+"Realm");
         Require("Keycloak:StaffSsoAlias");Require("MemberAdmin:ClientId");Require("MemberAdmin:ClientSecret");
         foreach(var key in new[]{"Phone:Required","Retention:Worker","Media:Screening:Worker"})if(!Flag(key,true))errors.Add("required-enabled:"+key);
-        Choice("Email:Provider","mailersend");Require("Email:MailerSend:ApiToken");Require("Email:From");
+        Require("Email:From");
+        switch(Read("Email:Provider"))
+        {
+            case "twilio":Require("Email:Twilio:KeySid");Require("Email:Twilio:KeySecret");break;
+            case "smtp":foreach(var key in new[]{"Host","Port","Username","Password"})Require("Email:Smtp:"+key);
+                if(Read("Email:Smtp:Host") is "127.0.0.1" or "localhost" or "mailpit")errors.Add("hosted-smtp-relay-required");break;
+            case "mailersend":Require("Email:MailerSend:ApiToken");break;
+            case "mailpit" when uat:Require("Mailpit:Host");break;
+            case "mailpit":break;
+            default:errors.Add("required-choice:Email:Provider");break;
+        }
         if(Has("Sms:Twilio:BaseUrl")&&Uri.TryCreate(Read("Sms:Twilio:BaseUrl"),UriKind.Absolute,out var smsUri)&&!(smsUri.Scheme=="https"&&smsUri.AbsolutePath=="/"&&(smsUri.Host=="api.twilio.com"||smsUri.Host.StartsWith("api.",StringComparison.Ordinal)&&smsUri.Host.EndsWith(".twilio.com",StringComparison.Ordinal))))errors.Add("twilio-api-origin-required");
-        Choice("Sms:Provider","twilio");foreach(var key in new[]{"AccountSid","AuthToken","From"})Require("Sms:Twilio:"+key);Url("Sms:Twilio:BaseUrl",false);
+        if(Read("Sms:Provider")=="mailpit"){if(uat)Require("Mailpit:Host");}
+        else{Choice("Sms:Provider","twilio");foreach(var key in new[]{"AccountSid","AuthToken","From"})Require("Sms:Twilio:"+key);Url("Sms:Twilio:BaseUrl",false);}
         var push=Read("Push:Provider")??"disabled";if(push is not("disabled" or "providers"))errors.Add("unknown:Push:Provider");
         if(push=="providers"&&!Flag("Push:Apns:Enabled")&&!Flag("Push:Fcm:Enabled"))errors.Add("push-platform-required");
         Choice("Media:Store","r2");foreach(var key in new[]{"Bucket","AccessKeyId","SecretAccessKey"})Require("Media:R2:"+key);Url("Media:R2:Endpoint");Url("Media:Screening:BaseUrl");

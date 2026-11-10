@@ -65,7 +65,7 @@ public sealed class TwilioMessageSender(HttpClient http, TwilioOptions options, 
 }
 
 /// <summary>
-/// The clearly labelled simulated sender (D154, D174): it never claims delivery. In local development it writes the
+/// The clearly labelled simulated sender (D154, D174): it never claims delivery. In local development (and on UAT as Sms:Provider=mailpit) it writes the
 /// message to the local mail sink (Mailpit, which delivers nothing) addressed to sms-&lt;digits&gt;@simulated.swoovr.invalid
 /// and marked SIMULATED, so a person or a test can read it; anywhere else it sends nothing.
 /// </summary>
@@ -76,12 +76,12 @@ public sealed class SimulatedMessageSender(IEmailSender email, bool localSink) :
     public Task<bool> SendCodeAsync(string number, string code, CancellationToken cancellationToken) => !localSink
         ? Task.FromResult(false)
         : email.SendAsync(new EmailMessage(Address(number), "SIMULATED SMS (not delivered)",
-            "SIMULATED: no text message was sent. This is the local development sink.\n\n" + TwilioMessageSender.Body(code)), cancellationToken);
+            "SIMULATED: no text message was sent. This copy is in the mail sink, which delivers nothing.\n\n" + TwilioMessageSender.Body(code)), cancellationToken);
 
     public Task<bool> SendNoticeAsync(string number, string text, CancellationToken cancellationToken) => !localSink
         ? Task.FromResult(false)
         : email.SendAsync(new EmailMessage(Address(number), "SIMULATED SMS (not delivered)",
-            "SIMULATED: no text message was sent. This is the local development sink.\n\n" + text), cancellationToken);
+            "SIMULATED: no text message was sent. This copy is in the mail sink, which delivers nothing.\n\n" + text), cancellationToken);
 
     public static string Address(string number) => $"sms-{number.TrimStart('+')}@simulated.swoovr.invalid";
 }

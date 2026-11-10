@@ -16,21 +16,32 @@ public interface IEmailSender
     Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken);
     async Task<EmailOutcome> SendOutcomeAsync(EmailMessage message, CancellationToken cancellationToken) =>
         new(await SendAsync(message, cancellationToken) ? "accepted" : "unknown");
+    /// <summary>True for a mail sink (Mailpit) that delivers nothing, so callers never report its acceptance as live.</summary>
+    bool IsSink => false;
+}
+
+/// <summary>Authenticated SMTP relay credentials. The relay always uses STARTTLS. ToString never exposes them.</summary>
+public sealed record SmtpRelay(string Username, string Password)
+{
+    public override string ToString() => "SmtpRelay(redacted)";
 }
 
 /// <summary>
-/// Local development only: plain SMTP to the Mailpit sink, which delivers nothing. The
-/// hosted application sender is MailerSend's HTTP API, selected separately through configuration.
+/// SMTP. Without a relay it is the plain Mailpit sink (Development, or the UAT sink selected as "mailpit"), which delivers
+/// nothing. With a relay it is a hosted SMTP provider (for example SendGrid) over STARTTLS with a username and password.
 /// </summary>
-public sealed class SmtpEmailSender(string host, int port, string from, ILogger<SmtpEmailSender> log, TimeSpan? sendTimeout = null) : IEmailSender
+public sealed class SmtpEmailSender(string host, int port, string from, ILogger<SmtpEmailSender> log, TimeSpan? sendTimeout = null, SmtpRelay? relay = null) : IEmailSender
 {
+    public bool IsSink => relay is null;
+
     public async Task<bool> SendAsync(EmailMessage message, CancellationToken cancellationToken) => (await SendOutcomeAsync(message, cancellationToken)).Status == "accepted";
 
     public async Task<EmailOutcome> SendOutcomeAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         try
         {
-            using var client = new SmtpClient(host, port) { EnableSsl = false, DeliveryMethod = SmtpDeliveryMethod.Network };
+            using var client = new SmtpClient(host, port) { EnableSsl = relay is not null, DeliveryMethod = SmtpDeliveryMethod.Network };
+            if (relay is not null) client.Credentials = new System.Net.NetworkCredential(relay.Username, relay.Password);
             using var mail = new MailMessage(from, message.To, message.Subject, message.Text);
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(sendTimeout ?? TimeSpan.FromSeconds(30));

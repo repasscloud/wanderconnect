@@ -54,7 +54,7 @@ public static class Cli
         builder.Services.AddScoped<Founders>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSwoovrProviders(builder.Configuration);
-        builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment());
+        builder.Services.AddSwoovrApplicationEmail(builder.Configuration,builder.Environment.IsDevelopment(),builder.Environment.EnvironmentName);
         BetaInvitationDelivery.PublicOrigin(builder.Configuration,builder.Environment.IsDevelopment());
         var persistence = builder.Services.AddSwoovrPersistence(builder.Configuration.GetConnectionString("Swoovr"));
         // D203: `accounts purge` deletes media objects (never the screening worker here).
