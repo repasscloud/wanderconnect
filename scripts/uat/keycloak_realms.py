@@ -175,7 +175,7 @@ def render(admin_origin, venue_origin, tenant_id, client_id):
         'runtimeSecretEnvironment': ['SWOOVR_UAT_MEMBERS_WEB_SECRET', 'SWOOVR_UAT_VENUES_WEB_SECRET',
                                      'SWOOVR_UAT_STAFF_WEB_SECRET', 'SWOOVR_UAT_ENTRA_CLIENT_SECRET'],
         'sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in results.items()},
-        'activationGates': ['isolated pinned-version import/flow tests', 'MailerSend runtime secret/domain/DNS and real acceptance/delivery',
+        'activationGates': ['isolated pinned-version import/flow tests', 'Twilio Email runtime secret/sender authentication and real acceptance/delivery (D360)',
                             'root grant to an approved verified Entra subject and operator break-glass procedure', 'Entra tenant/app/Conditional Access/email evidence',
                             'separate members Apple/Google and email-link integration', 'host configuration/Q90'],
     }

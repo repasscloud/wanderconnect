@@ -1,1 +1,1 @@
-app.swoovr.identity.MailerSendEmailSenderFactory
+app.swoovr.identity.SwoovrEmailSenderFactory
