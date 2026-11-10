@@ -1,5 +1,14 @@
 # Application email
 
+**Current selection (D360, owner #316, 11 November 2026):** `Email:Provider` is `twilio`, `smtp`, `mailpit`, `mailersend` or `disabled`. UAT uses `twilio`. The MailerSend description below stays accurate for `mailersend`.
+
+- **`twilio`** (`TwilioEmailSender`): Twilio Email API, `POST https://comms.twilio.com/v1/Emails`, HTTP Basic with `Email:Twilio:KeySid` and `Email:Twilio:KeySecret`. The JSON body carries `from` {address, name; Twilio requires the name, `Swoovr` by default}, one `to` {address}, and `content` {subject, text, html}. Swoovr's messages are plain text, so `html` is the escaped text. Twilio processes asynchronously. **202 with a bounded `operationId`** is provider acceptance only. A 202 without one is unknown. 400/401/403/404/405/413/422 are rejected. 429 and 503 (Twilio asks for `Retry-After`, which `EmailOutcome` can't carry) and everything else are unknown, never blindly retried. Single attempt, no redirects, no HTTP logging, response read bounded at 8 KB, no address/content/credential in logs or outcomes. Contract read on twilio.com/docs/email/api, 11 November 2026.
+- **`smtp`** with `Email:Smtp:Username`: a hosted SMTP relay (for example SendGrid: `smtp.sendgrid.net`, 587, username `apikey`). STARTTLS always, username and password required, never a loopback or `mailpit` host. Without a username, `smtp` remains the Development-only Mailpit sink.
+- **`mailpit`**: the Mailpit sink at `Mailpit:Host` (`mailpit` or loopback), Development or UAT only; hosting policy refuses it in any other environment. It delivers nothing and reports `IsSink`, so meeting-safety email shows `local-sink-accepted`, never live acceptance.
+
+SMS has the same sink: `Sms:Provider=mailpit` (UAT while Twilio SMS is in verification) is the labelled simulated sender, with its **own** Mailpit sender. SMS copies never go through the application email provider, so they never leave the host. Its kind stays `simulated`, so nothing reports it as delivered (D174, D321).
+
+
 D274 DEFAULT implements the existing Keycloak design's MailerSend choice for .NET application email. Authentication and sign-in links remain Keycloak-owned. This adapter does not send Keycloak verification/sign-in email or mint sessions.
 
 API and operator commands share `ApplicationEmailSetup`. `Email:Provider=mailersend` explicitly enables the actual HTTP adapter. Missing/invalid enabled options or unknown selectors fail bootstrap; they never substitute a simulated or local sender. `disabled` sends nothing. Without a selector, Development preserves an explicitly configured local Mailpit sink; other environments are disabled. Explicit `smtp` accepts only Development and localhost/127.0.0.1/mailpit with a valid port. Hosted readiness must additionally reject disabled application email where required.

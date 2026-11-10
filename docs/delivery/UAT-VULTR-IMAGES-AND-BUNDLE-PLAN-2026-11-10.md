@@ -1,6 +1,6 @@
 # Multi-arch images and the Vultr UAT bundle (plan, 10 November 2026)
 
-This plan covers three things. It builds every Swoovr image once per commit as `repasscloud/{image}:{commit}` for linux/amd64 and linux/arm64 on GitHub's Ubuntu runners. It ships one deployment bundle (a single Compose file plus all configuration) to the Vultr bare-metal UAT host. It promotes the **same image digests** to Azure for production. It builds on the [Vultr stack review](VULTR-STACK-REVIEW-2026-11-10.md) (single host, single Caddy, separate Zammad PostgreSQL) and D355 hostnames. Decision records: D356 (DEFAULT), D357 (Zammad mail), D358 (one mail file and sender), D359 (workflow enabled). Questions: Q175, Q176.
+This plan covers three things. It builds every Swoovr image once per commit as `repasscloud/{image}:{commit}` for linux/amd64 and linux/arm64 on GitHub's Ubuntu runners. It ships one deployment bundle (a single Compose file plus all configuration) to the Vultr UAT VM (D361). It promotes the **same image digests** to Azure for production. It builds on the [Vultr stack review](VULTR-STACK-REVIEW-2026-11-10.md) (single host, single Caddy, separate Zammad PostgreSQL) and D355 hostnames. Decision records: D356 (DEFAULT), D357 (Zammad mail), D358 (one mail file and sender), D359 (workflow enabled), D360 (email and SMS providers), D361 (one Vultr VM). Questions: Q175, Q176.
 
 **Delivered in this PR:**
 
@@ -14,7 +14,7 @@ Nothing was published, provisioned or deployed.
 
 | Topic | Status | Choice |
 | --- | --- | --- |
-| UAT host | CONFIRMED (owner) | One Vultr bare-metal E-2286G, 32 GB RAM, RAID 1, Debian, Docker; one Caddy for all hostnames. |
+| UAT host | CONFIRMED (owner, D361, 11 November 2026) | One Vultr **cloud VM** (DEFAULT 8 vCPU / 32 GB / NVMe, Sydney, Debian 13), Docker; one Caddy for all hostnames. [VULTR-VM.md](../../deploy/vultr-uat/VULTR-VM.md). Replaces the earlier bare-metal E-2286G / RAID 1 choice. |
 | PROD | CONFIRMED (owner, D355) | Azure (Container Apps, PostgreSQL Flexible Server, Key Vault). Existing `infra/uat` Bicep is the template. |
 | Registry and names | CONFIRMED (owner request) | Docker Hub `repasscloud/swoovr-api`, `-web`, `-admin`, `-operator`, `-keycloak`, tag = full 40-character commit SHA. DEFAULT: private repositories; no mutable tags. |
 | Architectures | CONFIRMED (owner request) | One OCI index per image with linux/amd64 + linux/arm64, built natively on `ubuntu-24.04` and `ubuntu-24.04-arm`. |
@@ -23,7 +23,8 @@ Nothing was published, provisioned or deployed.
 | Swoovr/Keycloak PostgreSQL image | DEFAULT (was OPEN) | `postgres:17.11-trixie` @ `sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f`. Debian 13 index (amd64/arm64), digest checked 10 November 2026. TLS-only (`hostssl` + SCRAM; plaintext rejected) with a private CA, so `VerifyFull` is the same contract as Azure. |
 | Internal hostname resolution | DEFAULT (was OPEN) | Caddy has a fixed address 172.30.0.2 on the `edge` network and Docker network aliases for the five public names. Containers calling `https://auth-uat.swoovr.app` etc. reach Caddy directly with the right Host and SNI. There is no hairpin through the public IP. Only 172.30.0.2/32 is a trusted proxy for the apps and Keycloak. |
 | Origin TLS | CONFIRMED (owner [#307](https://github.com/repasscloud/wanderconnect/issues/307)), **Q175** | Cloudflare Origin CA, PEM, RSA 2048, 15 years, explicit SANs for the six UAT hosts, no wildcard. The owner provisions `/etc/caddy/certs/uat-origin.pem` and `.key` on the host outside Git; stock Caddy mounts them read-only. `bin/origin-cert-check` gates every Caddy start. No ACME, no Cloudflare API token on the host. System CA trust is preserved: only API, Web, Admin, the `api-command` and Keycloak bootstrap jobs, and Zammad Rails/scheduler get `SSL_CERT_FILE=origin-trust.pem` (system CAs + Origin CA roots); Keycloak adds the roots with `KC_TRUSTSTORE_PATHS`. Database clients use the private PostgreSQL CA only. The UAT certificate is independent of production. |
-| Helpdesk hostname and Zammad mail | CONFIRMED (owner, D355 and D357), **Q176** | `helpdesk-uat.swoovr.app`. Staff notifications go through MailerSend SMTP (`smtp.mailersend.net:587`, STARTTLS) as `Swoovr Helpdesk <hello@repasscloud.com>`. Every mail setting for the API, Keycloak and Zammad is in `env/mail.env` (D358). |
+| Email and SMS | CONFIRMED (owner, D360, #316) | API and Keycloak: Twilio Email API. Zammad: SendGrid SMTP out, IMAP in (General Support). SMS: Mailpit until Twilio SMS verification, then Twilio. All in `env/mail.env`. |
+| Helpdesk hostname and Zammad mail | CONFIRMED (owner, D355 and D357; mail superseded by D360), **Q176** | `helpdesk-uat.swoovr.app`. Staff notifications go through MailerSend SMTP (`smtp.mailersend.net:587`, STARTTLS) as `Swoovr Helpdesk <hello@repasscloud.com>`. Every mail setting for the API, Keycloak and Zammad is in `env/mail.env` (D358). |
 | Backups | CONFIRMED (owner) | UAT is disposable: rebuild instead of restore. Zammad's local backup container is off by default (`--profile backup`). |
 
 ## 1. Images and what each one is for
@@ -132,7 +133,7 @@ Production keeps the Azure design in [DEPLOYMENT-UAT.md](DEPLOYMENT-UAT.md) and 
 | 2 | Q175 origin TLS (answered #307); Q176 helpdesk name and Zammad SMTP (answered #308, D357) | Owner | Answered |
 | 3 | Docker Hub repositories and token; enable the workflow, or build locally (§2). A second, read-only token for the host's `docker login` (runbook §1) | Owner | Open |
 | 4 | First image run on `main`; record the five index digests in the PR or issue | Owner / builder | Open |
-| 5 | Order the server; confirm RAID 1 and Debian; run `host-setup` | Owner | Open |
+| 5 | Create the Vultr VM ([VULTR-VM.md](../../deploy/vultr-uat/VULTR-VM.md)); run `host-setup` | Owner | Open |
 | 6 | Cloudflare DNS (proxied), Full (strict), cache bypass; Origin CA certificate (generated, #307) placed in `/etc/caddy/certs` | Owner | Certificate generated; rest open |
 | 7 | `tls-setup`, `cloudflare-ips`, `envtool.py init`, fill provider values, realm templates | Owner (private values) | Open |
 | 8 | `bin/swoovr bootstrap` | Owner / operator | Open |

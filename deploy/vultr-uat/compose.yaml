@@ -1,4 +1,4 @@
-# Swoovr UAT on one Vultr bare-metal host (Debian + Docker). One file runs the whole disposable UAT stack.
+# Swoovr UAT on one Vultr cloud VM (Debian + Docker; VULTR-VM.md). One file runs the whole disposable UAT stack.
 # Plan: docs/delivery/UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md   Runbook: deploy/vultr-uat/README.md
 #
 # Always run through bin/swoovr (it passes --env-file release.env). Every image comes from release.env as an
@@ -11,6 +11,8 @@
 #   ticketing internal only. API <-> Zammad nginx (alias swoovr-zammad) and API <-> ClamAV.
 #   zammad    internal only. Zammad's own PostgreSQL, Redis, Memcached and Elasticsearch.
 #   egress    outbound only for ClamAV signature updates.
+#   mail      internal only. API and api-command -> Mailpit (the SMS/mail sink, D360).
+#   mailpit-ui Mailpit alone; publishes its UI on the host loopback 127.0.0.1:8025 for an SSH tunnel.
 name: swoovr-uat
 
 x-restart: &restart
@@ -20,6 +22,22 @@ x-logging: &logging
   logging:
     driver: json-file
     options: { max-size: "20m", max-file: "5" }
+
+# Outgoing mail and SMS of the API and api-command, all from env/mail.env (D358, D360). After a change:
+# ./bin/swoovr mail-apply. Unused provider values may be empty; the selected provider refuses startup when incomplete.
+x-mail-env: &mail-env
+  Email__Provider: ${SWOOVR_API_MAIL_SERVICE:-twilio}
+  Email__From: "${SWOOVR_MAIL_FROM_NAME:-Swoovr} <${SWOOVR_MAIL_FROM:?env/mail.env}>"
+  Email__Twilio__KeySid: ${SWOOVR_MAIL_TWILIO_KEY_SID:-}
+  Email__Twilio__KeySecret: ${SWOOVR_MAIL_TWILIO_KEY_SECRET:-}
+  Email__Smtp__Host: ${SWOOVR_MAIL_SMTP_HOST:-}
+  Email__Smtp__Port: ${SWOOVR_MAIL_SMTP_PORT:-587}
+  Email__Smtp__Username: ${SWOOVR_MAIL_SMTP_USERNAME:-}
+  Email__Smtp__Password: ${SWOOVR_MAIL_SMTP_PASSWORD:-}
+  Email__MailerSend__ApiToken: ${SWOOVR_MAIL_MAILERSEND_API_TOKEN:-}
+  Sms__Provider: ${SWOOVR_SMS_SERVICE:-mailpit}
+  Mailpit__Host: mailpit
+  Mailpit__Port: "1025"
 
 x-swoovr-app: &swoovr-app
   <<: [*restart, *logging]
@@ -134,10 +152,14 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: swoovr-bootstrap
       KC_LOG_LEVEL: INFO
       SWOOVR_REGISTRATION_AUTHORITY_URL: https://api-uat.swoovr.app/api/registration/admission
-      # Outgoing mail from env/mail.env (D358); bin/swoovr mail-apply recreates Keycloak after a change.
-      KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__API_TOKEN: ${SWOOVR_MAIL_API_TOKEN:?env/mail.env}
-      KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__FROM: ${SWOOVR_MAIL_FROM:?env/mail.env}
-      KC_SPI_EMAIL_SENDER__SWOOVR_MAILERSEND__FROM_NAME: ${SWOOVR_MAIL_FROM_NAME:-Swoovr}
+      # Sign-in email from env/mail.env (D360): swoovr-email sends through Twilio (default) or MailerSend.
+      # bin/swoovr mail-apply recreates Keycloak after a change.
+      KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__SERVICE: ${SWOOVR_KEYCLOAK_MAIL_SERVICE:-twilio}
+      KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__FROM: ${SWOOVR_MAIL_FROM:?env/mail.env}
+      KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__FROM_NAME: ${SWOOVR_MAIL_FROM_NAME:-Swoovr}
+      KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__TWILIO_KEY_SID: ${SWOOVR_MAIL_TWILIO_KEY_SID:-}
+      KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__TWILIO_KEY_SECRET: ${SWOOVR_MAIL_TWILIO_KEY_SECRET:-}
+      KC_SPI_EMAIL_SENDER__SWOOVR_EMAIL__MAILERSEND_API_TOKEN: ${SWOOVR_MAIL_MAILERSEND_API_TOKEN:-}
     volumes:
       - ./tls/trust:/etc/swoovr/tls:ro
     depends_on:
@@ -157,14 +179,11 @@ services:
     image: ${SWOOVR_API_IMAGE:?release.env}
     env_file: [env/api.env]
     environment:
-      <<: *swoovr-common
+      <<: [*swoovr-common, *mail-env]
       Hosting__PublicOrigin: https://api-uat.swoovr.app
       AllowedHosts: api-uat.swoovr.app
       # System CAs + Cloudflare Origin CA roots (bin/tls-setup): this service calls Caddy's public names directly.
       SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
-      # Outgoing mail from env/mail.env (D358).
-      Email__MailerSend__ApiToken: ${SWOOVR_MAIL_API_TOKEN:?env/mail.env}
-      Email__From: "${SWOOVR_MAIL_FROM_NAME:-Swoovr} <${SWOOVR_MAIL_FROM:?env/mail.env}>"
       Keycloak__BaseUrl: https://auth-uat.swoovr.app
       Keycloak__MembersRealm: swoovr-members
       Keycloak__VenuesRealm: swoovr-venues
@@ -181,8 +200,6 @@ services:
       Media__Screening__Worker: "true"
       Media__Screening__RequireKnownContentCheck: "true"
       Media__Store: r2
-      Email__Provider: mailersend
-      Sms__Provider: twilio
       Push__Provider: disabled
       Didit__TestMode: "false"
       Beta__Enabled: "true"
@@ -199,6 +216,7 @@ services:
     depends_on:
       swoovr-postgres: { condition: service_healthy }
       keycloak: { condition: service_healthy }
+      mailpit: { condition: service_started }
     # Bash explicitly: the Ubuntu runtime's /bin/sh is dash (no /dev/tcp). The Host header must be the service's
     # AllowedHosts value, or ASP.NET Core host filtering answers 400. The connection itself stays on loopback.
     healthcheck: &dotnet-health
@@ -207,7 +225,7 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 5
-    networks: [edge, data, ticketing]
+    networks: [edge, data, ticketing, mail]
 
   web:
     <<: *swoovr-app
@@ -264,6 +282,21 @@ services:
         ipv4_address: 172.30.0.11
 
   # Named volumes start root-owned; the .NET images run as UID 1654. Reuses the API image, no extra image.
+  # SMS (and, if selected, API email) sink while Twilio SMS is in verification (D360). Delivers nothing.
+  # UI on the host loopback only: ssh -L 8025:127.0.0.1:8025 root@HOST, then http://127.0.0.1:8025 (README "Mailpit").
+  mailpit:
+    <<: [*restart, *logging]
+    image: ${SWOOVR_MAILPIT_IMAGE:?thirdparty.env}
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "5000"
+      MP_SMTP_RELAY_ALL: "false"
+    volumes:
+      - mailpit-data:/data
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks: [mail, mailpit-ui]
+
   volume-permissions:
     image: ${SWOOVR_API_IMAGE:?release.env}
     user: "0:0"
@@ -452,7 +485,7 @@ services:
     image: ${SWOOVR_API_IMAGE:?release.env}
     env_file: [env/api.env, env/operator.env]
     environment:
-      <<: *swoovr-common
+      <<: [*swoovr-common, *mail-env]
       Hosting__PublicOrigin: https://api-uat.swoovr.app
       Keycloak__BaseUrl: https://auth-uat.swoovr.app
       # Same trust as the serving API: commands such as `accounts purge` call auth-uat through Caddy.
@@ -460,11 +493,7 @@ services:
       Keycloak__MembersRealm: swoovr-members
       MemberAdmin__ClientId: swoovr-api-accounts
       Media__Store: r2
-      Email__Provider: mailersend
-      # Outgoing mail from env/mail.env (D358).
-      Email__MailerSend__ApiToken: ${SWOOVR_MAIL_API_TOKEN:?env/mail.env}
-      Email__From: "${SWOOVR_MAIL_FROM_NAME:-Swoovr} <${SWOOVR_MAIL_FROM:?env/mail.env}>"
-    networks: [data, edge]
+    networks: [data, edge, mail]
 
 networks:
   edge:
@@ -479,6 +508,9 @@ networks:
   zammad:
     internal: true
   egress: {}
+  mail:
+    internal: true
+  mailpit-ui: {}
 
 volumes:
   caddy-data:
@@ -492,3 +524,4 @@ volumes:
   zammad-elasticsearch:
   zammad-storage:
   zammad-backup:
+  mailpit-data:

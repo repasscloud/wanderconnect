@@ -115,6 +115,29 @@ notification.save!
 sender = input['notification_sender'].to_s.strip
 Setting.set('notification_sender', sender) unless sender.empty?
 
+# Hosted inbound support mail (Q178, owner 11 November 2026): one IMAP mailbox feeding General Support, replies sent
+# through the same SMTP relay from that address. Only when the hosted bundle passes support_mailbox; local is unchanged.
+# Idempotent: the channel is found again by its mailbox address.
+if (mailbox = input['support_mailbox'])
+  imap = mailbox.fetch('imap')
+  raise 'support_mailbox needs smtp' unless input['notification_smtp']
+  support_group = Group.find_by!(name: 'General Support')
+  inbound = {adapter: 'imap', options: {host: imap.fetch('host'), port: Integer(imap.fetch('port')), ssl: imap.fetch('ssl'),
+    ssl_verify: true, user: imap.fetch('user'), password: imap.fetch('password'), folder: imap.fetch('folder'),
+    keep_on_server: imap.fetch('keep_on_server') == true}}
+  outbound = {adapter: 'smtp', options: {host: smtp.fetch('host'), port: Integer(smtp.fetch('port')), ssl: smtp.fetch('ssl') == true,
+    enable_starttls_auto: smtp.fetch('enable_starttls_auto') == true, user: smtp.fetch('user'), password: smtp.fetch('password')}}
+  address = EmailAddress.find_by(email: mailbox.fetch('address'))
+  account = (address&.channel if address&.channel&.area == 'Email::Account') || Channel.new(area: 'Email::Account')
+  account.assign_attributes(options: {inbound: inbound, outbound: outbound}, group_id: support_group.id, active: true,
+    preferences: {online_service_disable: true}, created_by_id: actor, updated_by_id: actor)
+  account.save!
+  address ||= EmailAddress.new(email: mailbox.fetch('address'))
+  address.assign_attributes(name: mailbox.fetch('name'), channel_id: account.id, active: true, created_by_id: actor, updated_by_id: actor)
+  address.save!
+  support_group.update!(email_address_id: address.id, updated_by_id: actor)
+end
+
 # Minimal ticket attributes: references/classification, never original evidence or identity documents.
 {
   'swoovr_operation' => ['Swoovr operation', 36],
