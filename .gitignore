@@ -521,3 +521,6 @@ swoovr-zammad-integration-review-prompt.md
 /tests/backups/*
 !/tests/backups/*.py
 !/scripts/backups/requirements.txt
+
+# Other files
+tmp*.sh
