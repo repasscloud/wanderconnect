@@ -58,15 +58,52 @@ Follow the runbook §0 step 3 with the VM's IPv4: proxied `A` records for `uat`,
 
 ## 5. First login and host preparation
 
+### 5a. Get the bundle (on your machine)
+
+The bundle `swoovr-uat-bundle-<commit>.tar.gz` is **not in Git and you don't build it by hand**. The **Images** GitHub Actions workflow makes it in the same run that pushes the five images to Docker Hub (runbook §0 step 2). `<commit>` is the full 40-character commit the images were built from.
+
+1. This repository on GitHub → **Actions** → **Images** → open the successful run → **Artifacts** (bottom of the summary page) → download **`swoovr-release-<commit>`**. Or with the GitHub CLI, from inside your checkout of this repository:
+
+   ```sh
+   gh run list --workflow images.yml -L 5      # note the run ID
+   gh run download <run-id> -n swoovr-release-<commit> -D ~/swoovr-release
+   ```
+
+2. The browser download is a zip (unzip it); `gh` unzips into `~/swoovr-release` for you. Inside:
+
+   ```text
+   release-manifest.env
+   release-manifest.json
+   dist/swoovr-uat-bundle-<commit>.tar.gz      <- this is the bundle; note the dist/ folder
+   ```
+
+Artifacts expire **30 days** after the run. After that, run **Images** again (Actions → Images → **Run workflow** on `main`), or rebuild only the bundle from a checkout at the same commit with that run's `release-manifest.env` (its contents are also printed on the run's summary page):
+
 ```sh
-ssh root@<VM IPv4>
-apt-get update && apt-get -y full-upgrade && reboot      # once, then log in again
-mkdir -p /opt/swoovr && cd /opt/swoovr
-# From your machine: scp swoovr-uat-bundle-<commit>.tar.gz root@<VM IPv4>:/opt/swoovr/
+git checkout <commit>
+./deploy/vultr-uat/bin/make-bundle.sh release-manifest.env dist     # writes dist/swoovr-uat-bundle-<commit>.tar.gz
+```
+
+The bundle holds no secrets: `compose.yaml`, the Caddyfile, `bin/`, `env/*.env.example`, the Zammad provisioner and `release.env` (the image digests). Secrets are created on the VM in runbook §3.
+
+### 5b. Copy it to the VM and prepare the host
+
+Every command on the VM runs **as root**. If you log in as another user, run `sudo -i` first and stay root for the whole runbook. Mixing `sudo` and a normal user leaves files with mixed owners.
+
+```sh
+# On your machine (from the folder that holds dist/):
+scp dist/swoovr-uat-bundle-<commit>.tar.gz root@<VM IPv4>:/tmp/     # or <user>@<VM IPv4>:/tmp/
+
+# On the VM:
+ssh root@<VM IPv4>                                       # or ssh <user>@<VM IPv4>, then: sudo -i
+apt-get update && apt-get -y full-upgrade && reboot      # once, then log in again (and sudo -i)
+mkdir -p /opt/swoovr && mv /tmp/swoovr-uat-bundle-*.tar.gz /opt/swoovr/ && cd /opt/swoovr
 tar -xzf swoovr-uat-bundle-<commit>.tar.gz && cd swoovr-uat
-SWOOVR_SSH_CIDRS="<your admin IP>/32" ./bin/host-setup
+./bin/host-setup                                         # or: SWOOVR_SSH_CIDRS="<your admin IP>/32" ./bin/host-setup
 docker login -u <dockerhub-user>                          # read-only token at the prompt
 ```
+
+`SWOOVR_SSH_CIDRS` is optional. It limits SSH on the VM to the address of the machine **you connect from** (your public internet IP, `curl -4 ifconfig.me`), not the VM's own address. Leave it out if that address changes, for example on home internet: SSH then stays open to any address, still key-only. Never use `0.0.0.0` (that blocks everyone); if you get locked out, use the Vultr web console.
 
 `host-setup` finds the public interface from the default route (`enp1s0` on most Vultr VMs). Set `SWOOVR_EXT_IF=<name>` if it guesses wrong. Then harden SSH (key-only, `PasswordAuthentication no`), check that you can still log in, and continue with runbook §2 (TLS and the Cloudflare edge filter).
 
