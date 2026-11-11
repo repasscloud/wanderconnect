@@ -35,7 +35,7 @@ zammad/    provision.rb  10-create-zammad-role.sh
 
 0. **The VM:** create it on Vultr ([VULTR-VM.md](VULTR-VM.md) §1–§3) and note its public IPv4.
 1. **Docker Hub (`repasscloud`):** create five **private** repositories first: `swoovr-api`, `swoovr-web`, `swoovr-admin`, `swoovr-operator`, `swoovr-keycloak`. A push to a missing repository creates it with the namespace's default visibility, which may be public. Check that the Docker Hub plan allows five private repositories. GitHub uses the organisation secrets `DOCKER_HUB_USERID` and `DOCKER_HUB_PAT` (owner, 11 November 2026); create a separate **Read-only** access token for this host (§1).
-2. **Images:** the `Images` workflow is enabled for manual runs (D359). It logs in to Docker Hub with the organisation secrets `DOCKER_HUB_USERID` and `DOCKER_HUB_PAT`, which the org shares with every repository. Then Actions → **Images** → **Run workflow** on `main`. About 15–25 minutes. Download the `swoovr-release-<commit>` artifact from the run's summary: it contains `release-manifest.env`, `release-manifest.json` and `swoovr-uat-bundle-<commit>.tar.gz`. To build without Actions instead, see the plan, "Building without Actions".
+2. **Images:** the `Images` workflow is enabled for manual runs (D359). It logs in to Docker Hub with the organisation secrets `DOCKER_HUB_USERID` and `DOCKER_HUB_PAT`, which the org shares with every repository. Then Actions → **Images** → **Run workflow** on `main`. About 15–25 minutes. **This run also makes the deployment bundle; it is not in Git.** Download the `swoovr-release-<commit>` artifact from the run's summary (Artifacts, at the bottom). It contains `release-manifest.env`, `release-manifest.json` and **`dist/swoovr-uat-bundle-<commit>.tar.gz`**: the bundle is inside the `dist/` folder. Artifacts expire after 30 days; to download again, run again, or rebuild only the bundle, see [VULTR-VM.md §5a](VULTR-VM.md#5a-get-the-bundle-on-your-machine). To build without Actions instead, see the plan, "Building without Actions".
 3. **Cloudflare (swoovr.app zone):**
    - Proxied (orange-cloud) `A` records to the host's public IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`. **No `AAAA` records:** the Docker networks are IPv4-only, so Cloudflare must reach the origin over IPv4. Visitors still get IPv6 from Cloudflare's edge.
    - SSL/TLS mode: **Full (strict)**.
@@ -61,12 +61,16 @@ zammad/    provision.rb  10-create-zammad-role.sh
 
 ## 1. Prepare the host (once)
 
+The bundle comes from the Images run (§0 step 2, [VULTR-VM.md §5a](VULTR-VM.md#5a-get-the-bundle-on-your-machine)). Run every VM command in this runbook **as root**; if you log in as another user, `sudo -i` first.
+
 ```sh
-# As root on the new VM (VULTR-VM.md §5 covers the first login and system update).
-mkdir -p /opt/swoovr && cd /opt/swoovr
-# Copy the bundle from your machine:  scp swoovr-uat-bundle-<commit>.tar.gz root@HOST:/opt/swoovr/
+# On your machine, from the folder that holds the unzipped artifact's dist/:
+scp dist/swoovr-uat-bundle-<commit>.tar.gz root@<VM IPv4>:/tmp/
+
+# As root on the new VM (VULTR-VM.md §5b covers the first login and system update).
+mkdir -p /opt/swoovr && mv /tmp/swoovr-uat-bundle-*.tar.gz /opt/swoovr/ && cd /opt/swoovr
 tar -xzf swoovr-uat-bundle-<commit>.tar.gz && cd swoovr-uat
-SWOOVR_SSH_CIDRS="<your.admin.ip>/32" ./bin/host-setup
+./bin/host-setup        # optional: SWOOVR_SSH_CIDRS="<your public IP>/32" ./bin/host-setup (see VULTR-VM.md §5b)
 ```
 
 `host-setup` does the following:
