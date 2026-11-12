@@ -138,6 +138,27 @@ class InventoryChecks(unittest.TestCase):
         self.assertFalse(set(shell_array('SECRETS')) & set(shell_array('VARIABLES')))
         self.assertTrue(set(shell_array('REQUIRED')) <= secrets_used | vars_used)
 
+    def test_template_lists_every_name_with_a_description(self):
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'uat.env'
+            subprocess.run(['bash', str(SETUP), 'template', str(out)], check=True, capture_output=True,
+                           env={**os.environ, 'SWOOVR_GH_REPO': 'example/example'})
+            self.assertEqual(out.stat().st_mode & 0o777, 0o600)
+            lines = out.read_text().splitlines()
+            names = [line.split('=', 1)[0] for line in lines if line.startswith('UAT_')]
+            self.assertEqual(names, shell_array('SECRETS') + shell_array('VARIABLES'))
+            for i, line in enumerate(lines):
+                if line.startswith('UAT_'):
+                    self.assertRegex(lines[i - 1], r'^# \[(REQUIRED|optional) (secret|variable)\] \S', line)
+                    required = line.split('=', 1)[0] in shell_array('REQUIRED')
+                    self.assertEqual('[REQUIRED' in lines[i - 1], required, line)
+            # Re-running never overwrites a filled-in file.
+            rerun = subprocess.run(['bash', str(SETUP), 'template', str(out)], capture_output=True,
+                                   env={**os.environ, 'SWOOVR_GH_REPO': 'example/example'})
+            self.assertNotEqual(rerun.returncode, 0)
+
     def test_mapping_targets_existing_template_keys(self):
         templates = ROOT / 'deploy/vultr-uat/env'
         for name, targets in envtool.PROVIDER_VALUES.items():
