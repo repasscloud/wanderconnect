@@ -26,6 +26,12 @@ Updated 22 October 2026. Start with [current delivery status](delivery/STATUS.md
 
 - [Cloudflare image Workers handoff](../workers/images/CLOUDFLARE-HANDOFF.md): self-contained instructions for a separate session to create the UAT R2 buckets, Queues, event notification, private Wrangler configs, secrets and Worker custom domains, then verify the staging-only path.
 
+## UAT deployment redesign — 12 November 2026
+
+- [UAT deployment through GitHub Actions](delivery/UAT-GITHUB-DEPLOYMENT.md) (D362): push a `vX.Y.Z` tag on `main` to build public GHCR images and deploy UAT; upgrade/refresh modes, refresh authorisation, secrets and variables inventory, `gh` setup ([`scripts/uat/setup-github-uat.sh`](../scripts/uat/setup-github-uat.sh)). Operator runbook: [deploy/vultr-uat/README.md](../deploy/vultr-uat/README.md).
+- [Tailscale on the UAT VM](delivery/UAT-TAILSCALE-SETUP.md): manual install, private SSH and private Keycloak administration, verification and rollback.
+- [UAT deployment prerequisites](delivery/UAT-DEPLOYMENT-PREREQUISITES.md): how the Vultr UAT deployment really works, the local backup inventory, the certificates, secrets and persistent data to keep, GitHub Actions prerequisites and open questions. Server inventory script: [`scripts/uat/collect-server-state.sh`](../scripts/uat/collect-server-state.sh) (read-only). Preparation only; nothing deployed.
+
 ## Standalone messaging specification
 
 - [Optional unanswered-message limit](product/UNANSWERED-MESSAGE-LIMIT.md), tracked in [#300](https://github.com/repasscloud/wanderconnect/issues/300).

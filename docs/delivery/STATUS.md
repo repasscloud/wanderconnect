@@ -1,5 +1,18 @@
 # Current Swoovr delivery status
 
+## Automated UAT deployment — 12 November 2026
+
+D362 replaces the manual Vultr process. Pushing a `vX.Y.Z` tag that is on `main` builds the five images (linux/amd64, public GHCR) and deploys UAT over verified root SSH. The deployment runs in `upgrade` mode (verified backup, `migrate`, recreate, provisioning) or `refresh` mode (`DEPLOYMENT_MODE=refresh`: verified backup, project-only reset, R2 photo bucket emptied, bootstrap; Zammad's Microsoft 365 mail is configured in Zammad and never overwritten). It then reconciles Keycloak, runs the two-stage first-administrator grant and the smoke checks, and records the release. [Runbook](../../deploy/vultr-uat/README.md), [GitHub configuration](UAT-GITHUB-DEPLOYMENT.md), [Tailscale](UAT-TAILSCALE-SETUP.md), [prerequisites and server inventory](UAT-DEPLOYMENT-PREREQUISITES.md).
+
+Evidence (local only):
+- `tests/deploy`: 35 unit checks (workflow, inventory, Caddy, env tool, Zammad mail flag, manifest, Keycloak reconcile with a fake Admin API, R2 empty with a fake S3 API) and 31 end-to-end `bin/swoovr` scenarios in Debian 13 with a fake Docker;
+- actionlint 1.7.7 clean;
+- `docker compose config` valid for all profiles;
+- the pinned Caddy validates the Caddyfile with and without Tailscale admin networks;
+- the operator image built with the version build argument (API compiled as 1.0.7, reconcile module present).
+
+**Not run:** GitHub Actions, GHCR publication, the VM and any real provider. Owner prerequisites are listed in UAT-GITHUB-DEPLOYMENT.md.
+
 ## Zammad integration foundations — 4 November 2026
 
 Implementation is in progress under the authorised handoff. A real local Zammad 7.2.2 stack, repeatable thirteen-group provisioning, bounded typed adapter, minimal durable integration state, conservative uncertain-write orchestration and secured ids-only webhook intake are present. Provider/customer/private-note/transfer and signed-webhook acceptance have local evidence. **The complete integration is not implemented:** member Web/MAUI and Admin journeys, guest backend grants, full staff capabilities, appeal links, notification processing/reconciliation and full email/restore acceptance remain pending. The normal provisioned webhook/trigger stays inactive. [Coverage and continuation ledger](zammad/IMPLEMENTATION.md), [API boundary](zammad/API.md), [local setup](../../containers/zammad/README.md). No merge/deployment or public website is claimed.

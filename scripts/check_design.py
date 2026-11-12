@@ -197,7 +197,10 @@ for path in [root/'README.md', root/'AGENTS.md', *root.glob('docs/**/*.md')]:
 ENABLED_WORKFLOWS = {
     '.github/workflows/locked-closed-issues.yml',  # owner, 7 November 2026: locks closed issues every 3 days (built-in token only)
     '.github/workflows/auto-request-review.yml',  # owner, 8 November 2026: automatically requests rpc-bot review on PRs
-    '.github/workflows/images.yml',  # owner, 10 November 2026 (D359): build UAT images on GitHub; manual dispatch only
+    # Owner request, 12 November 2026 (D362; replaces images.yml from D359): tag-driven UAT build and deployment, and
+    # its manual maintenance companion. Confirm at PR review before merging.
+    '.github/workflows/deploy-uat.yml',
+    '.github/workflows/uat-maintenance.yml',
 }
 for path in [*(root/'.github/workflows').glob('*'), *(root/'.github/workflow-templates').glob('*')]:
     if path.relative_to(root).as_posix() in ENABLED_WORKFLOWS: continue
@@ -208,12 +211,19 @@ for name in ENABLED_WORKFLOWS:
     for number, line in enumerate((root/name).read_text().splitlines(), 1):
         if re.match(r'\s*(-\s+)?uses:', line):
             assert re.match(r'\s*(-\s+)?uses:\s+[\w.-]+/[\w./-]+@[0-9a-f]{40}(\s+#.*)?$', line), f'{name}:{number}: action not pinned as owner/repo@<full SHA>: {line.strip()}'
-# Owner (10 and 11 November 2026): the Images workflow runs ONLY by manual dispatch, never on push or pull request.
-images_lines = (root/'.github/workflows/images.yml').read_text().splitlines()
-on_index = images_lines.index('on:')
-images_triggers = []
-for line in images_lines[on_index + 1:]:
-    if line.strip() and not line.startswith(' '): break
-    if re.match(r'  [\w-]+:', line): images_triggers.append(line.strip().rstrip(':'))
-assert images_triggers == ['workflow_dispatch'], f'images.yml must trigger only on workflow_dispatch, found: {images_triggers}'
+# D362: UAT deploys ONLY from a pushed tag (never branches or pull requests); maintenance runs only by manual dispatch.
+def triggers(name):
+    lines = (root/name).read_text().splitlines()
+    found = []
+    for line in lines[lines.index('on:') + 1:]:
+        if line.strip() and not line.startswith(' '): break
+        if re.match(r'  [\w-]+:', line): found.append(line.strip().rstrip(':'))
+    return found
+assert triggers('.github/workflows/deploy-uat.yml') == ['push'], 'deploy-uat.yml must trigger only on push (tags)'
+deploy_text = (root/'.github/workflows/deploy-uat.yml').read_text()
+assert re.search(r"on:\n  push:\n    tags:\n      - 'v\*\.\*\.\*'\n", deploy_text) and 'branches' not in deploy_text.split('permissions:')[0], 'deploy-uat.yml must trigger only on vX.Y.Z tags'
+assert triggers('.github/workflows/uat-maintenance.yml') == ['workflow_dispatch'], 'uat-maintenance.yml must trigger only on workflow_dispatch'
+for name in ['.github/workflows/deploy-uat.yml', '.github/workflows/uat-maintenance.yml']:
+    text = (root/name).read_text()
+    assert 'StrictHostKeyChecking no' not in text and 'StrictHostKeyChecking=no' not in text and '/dev/null' not in text.split('known_hosts')[0][-200:], f'{name}: host keys must be verified'
 print(f'PASS: {count} contrast pairs, canonical token copies (web, client, MAUI, Keycloak, launch splash), one font family in {font_count} UI files, token-only colours in {len(web_styles)} web style sources, local Markdown links and disabled workflows.')

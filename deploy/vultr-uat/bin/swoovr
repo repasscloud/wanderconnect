@@ -1,0 +1,454 @@
+#!/usr/bin/env bash
+# Swoovr UAT operator CLI for the single Vultr host (D361, D362). The GitHub Actions workflow
+# .github/workflows/deploy-uat.yml is the normal caller; people use it only for status and exceptional recovery.
+#
+#   swoovr deploy --release-dir DIR --mode upgrade|refresh [--confirm-refresh swoovr-uat:vX.Y.Z]
+#                 [--provider-values FILE|-] [--run-id ID] [--expect-hostname NAME]
+#                                      install a staged release into /opt/swoovr/swoovr-uat and run the mode
+#   swoovr status                      container state and health through Caddy
+#   swoovr history                     deployed releases, newest last
+#   swoovr smoke                       the post-deployment checks again
+#   swoovr admin-finalize              first-administrator stage 2 (after the first Entra sign-in)
+#   swoovr keycloak-reconcile          realms, clients, Entra broker and realm enablement (idempotent)
+#   swoovr rollback --to vX.Y.Z [--yes] image and bundle swap to an earlier successful release; NO database rollback
+#   swoovr backup                      on-demand database backup (same as the automatic pre-upgrade one)
+#   swoovr check [--bootstrap]         env files filled + private, digests pinned, TLS present, compose valid
+#   swoovr zammad-provision            groups, identities, tokens, webhook, SSO, mail (containers/zammad/provision.rb)
+#   swoovr zammad-admin-login on|off  Zammad's password form for its built-in admin `swoovr-provisioner` (to set up
+#                                      the Microsoft 365 mailbox); every deployment switches it off again
+#   swoovr mail-apply                  after editing env/mail.env: recreate Keycloak + API, re-apply Zammad mail
+#   swoovr job <name> [args...]        one-shot job: db-bootstrap migrate places-import keycloak-bootstrap
+#                                      keycloak-reconcile api-command (r2-empty is refresh-only)
+#   swoovr logs [service] | compose <args...>
+set -Eeuo pipefail
+shopt -s inherit_errexit
+umask 077
+here="$(cd "$(dirname "$0")/.." && pwd)"
+LIVE="${SWOOVR_LIVE_DIR:-/opt/swoovr/swoovr-uat}"
+RELEASES="${SWOOVR_RELEASES_DIR:-/opt/swoovr/releases}"
+BACKUPS="${SWOOVR_BACKUPS_DIR:-/opt/swoovr/backups}"
+PROJECT=swoovr-uat
+LOCK=/run/lock/swoovr-uat-deploy.lock
+TAG_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+STAGE=start
+
+# env/mail.env (D358) feeds the mail settings of Keycloak, the API and api-command by interpolation.
+dc() { docker compose --project-name "$PROJECT" --project-directory "$here" -f "$here/compose.yaml" \
+  --env-file "$here/release.env" --env-file "$here/env/mail.env" "$@"; }
+say() { printf '\n== %s\n' "$*"; }
+result() { printf 'SWOOVR_RESULT %s=%s\n' "$1" "$2"; }
+die() { echo "FAIL $*" >&2; exit 1; }
+stage() { STAGE="$1"; say "stage: $1"; }
+value_of() { # value_of FILE KEY: non-secret configuration values only
+  python3 -I -c 'import sys
+for l in open(sys.argv[1], encoding="utf-8"):
+    k, _, v = l.rstrip("\n").partition("=")
+    if k == sys.argv[2]: print(v.strip("\x27\x22")); break' "$1" "$2"; }
+
+cid() { dc ps -aq "$1" 2>/dev/null | head -1; }
+wait_healthy() { # service, timeout seconds
+  local service="$1" limit="${2:-300}" waited=0 id state
+  id="$(cid "$service")"; [[ -n "$id" ]] || die "$service has no container"
+  until state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null)" \
+        && [[ "$state" == healthy ]]; do
+    (( waited >= limit )) && { echo "FAIL $service is $state after ${limit}s" >&2; dc ps "$service" >&2; return 1; }
+    sleep 5; waited=$((waited + 5))
+  done
+  echo "$service healthy"
+}
+wait_exited_ok() { # one-shot services (zammad-init): exited with 0
+  local service="$1" limit="${2:-900}" waited=0 id state code
+  id="$(cid "$service")"; [[ -n "$id" ]] || die "$service has no container"
+  while :; do
+    state="$(docker inspect -f '{{.State.Status}}' "$id")"; code="$(docker inspect -f '{{.State.ExitCode}}' "$id")"
+    [[ "$state" == exited && "$code" == 0 ]] && { echo "$service completed"; return 0; }
+    [[ "$state" == exited ]] && { echo "FAIL $service exited $code" >&2; return 1; }
+    (( waited >= limit )) && { echo "FAIL $service still $state after ${limit}s" >&2; return 1; }
+    sleep 10; waited=$((waited + 10))
+  done
+}
+HEALTHY=(swoovr-postgres keycloak zammad-postgresql zammad-redis zammad-memcached zammad-railsserver api web admin)
+wait_all() {
+  local service
+  for service in "${HEALTHY[@]}"; do
+    case "$service" in keycloak) wait_healthy "$service" 600 ;; zammad-railsserver) wait_healthy "$service" 900 ;;
+      *) wait_healthy "$service" 300 ;; esac
+  done
+  wait_exited_ok zammad-init 900
+}
+
+job() { local name="$1"; shift; say "job $name"; dc --profile jobs run --rm -T "$name" "$@"; }
+origin_cert() { "$here/bin/origin-cert-check"; }
+volume_exists() { docker volume inspect "${PROJECT}_$1" > /dev/null 2>&1; }
+
+check() {
+  python3 "$here/bin/envtool.py" check "$@"
+  origin_cert
+  dc --profile jobs --profile backup config -q
+  echo 'PASS compose configuration'
+}
+
+zammad_provision() {
+  say 'Zammad provisioning'
+  dc cp "$here/zammad/provision.rb" zammad-railsserver:/tmp/swoovr-provision.rb
+  local output; output="$(mktemp)"
+  if ! python3 "$here/bin/envtool.py" provision-input \
+      | dc exec -T zammad-railsserver bundle exec rails runner /tmp/swoovr-provision.rb > "$output" 2>&1; then
+    install -m 600 "$output" "$here/env/.zammad-provision-error.log"; rm -f "$output"
+    die 'Zammad provisioning; private diagnostics in env/.zammad-provision-error.log'
+  fi
+  python3 "$here/bin/envtool.py" provision-output < "$output"
+  rm -f "$output"
+}
+
+# Zammad admin UI access for mail setup (owner, 12 November 2026). Staff sign in through Keycloak as Agents only, and the
+# staff sync reverts other roles, so channel settings are changed as Zammad's built-in admin `swoovr-provisioner`
+# (password: SWOOVR_ZAMMAD_BOOTSTRAP_PASSWORD in env/zammad-provision.env; never printed). provision.rb hides the
+# password form again on every run, so a forgotten `on` lasts only until the next deployment.
+zammad_admin_login() {
+  local value
+  case "${1:-}" in on) value=true ;; off) value=false ;; *) die 'zammad-admin-login on|off' ;; esac
+  dc exec -T zammad-railsserver bundle exec rails runner "Setting.set('user_show_password_login', $value)" > /dev/null
+  if [[ "$value" == true ]]; then
+    echo 'Zammad password sign-in is ON. Open https://helpdesk-uat.swoovr.app, sign in as swoovr-provisioner with the'
+    echo 'password in env/zammad-provision.env (SWOOVR_ZAMMAD_BOOTSTRAP_PASSWORD), set up the mailbox under'
+    echo 'Settings -> Channels -> Email, then run: ./bin/swoovr zammad-admin-login off'
+  else
+    echo 'Zammad password sign-in is OFF (staff sign in with Swoovr staff sign-in only).'
+  fi
+}
+
+# Runs the idempotent reconcile job; its output holds states and IDs only (scripts/uat/keycloak_reconcile.py).
+RECONCILE_OUT=""
+keycloak_reconcile() {
+  RECONCILE_OUT="$(mktemp)"
+  if ! job keycloak-reconcile "$@" > "$RECONCILE_OUT" 2>&1; then
+    grep -E '^(SWOOVR_RECONCILE|Keycloak reconcile failed)' "$RECONCILE_OUT" >&2 || true
+    die 'Keycloak reconcile'
+  fi
+  grep '^SWOOVR_RECONCILE ' "$RECONCILE_OUT" || true
+}
+reconcile_value() { sed -n "s/^SWOOVR_RECONCILE $1=//p" "$RECONCILE_OUT" | tail -1; }
+
+# First administrator, stage 2 (D362): grant root only to the verified, Entra-linked staff identity of
+# UAT_INITIAL_ADMIN_EMAIL, and only when no root admin exists. Never fails the deployment while it is pending.
+admin_finalize() {
+  local state subject email out code
+  [[ -n "$RECONCILE_OUT" ]] || keycloak_reconcile --admin-only > /dev/null
+  state="$(reconcile_value initial-admin)"; subject="$(reconcile_value initial-admin-subject)"
+  email="$(value_of "$here/env/automation.env" SWOOVR_INITIAL_ADMIN_EMAIL)"
+  if [[ "$state" == ready && "$subject" =~ ^[0-9a-f-]{36}$ ]]; then
+    set +e; out="$(job api-command root-admin ensure "$subject" "$email" 2>&1)"; code=$?; set -e
+    state="$(sed -n 's/^root-admin=//p' <<< "$out" | tail -1)"; state="${state:-error-exit-$code}"
+  fi
+  install -d -m 700 "$here/state"; printf '%s\n' "$state" > "$here/state/initial-admin"
+  result initial-admin "$state"
+  case "$state" in
+    granted|already-granted) echo 'Initial administrator: root admin held by the configured, verified Entra identity.' ;;
+    pending-sign-in|pending-first-sign-in)
+      echo "Initial administrator PENDING: sign in once at https://admin-uat.swoovr.app with the Entra account for"
+      echo '  UAT_INITIAL_ADMIN_EMAIL, then run the "UAT maintenance" workflow (admin-finalize) or the next deployment.' ;;
+    held-by-another-account) echo 'WARNING: another account already holds root; nothing was changed.' ;;
+    *) echo "WARNING: initial administrator not granted ($state); see deploy/vultr-uat/README.md \"First administrator\"." ;;
+  esac
+}
+
+probe() { # probe HOST PATH -> "<status> <body first 300 bytes>" via Caddy inside the edge network
+  dc exec -T caddy sh -c 'wget -q -S -O - --no-check-certificate "https://$1$2" 2>&1 | head -c 2000' sh "$1" "$2" 2>/dev/null || true
+}
+SMOKE_FAILED=0
+expect() { # expect LABEL HOST PATH REGEX
+  local body; body="$(probe "$2" "$3")"
+  if grep -Eq -- "$4" <<< "$body"; then echo "PASS $1"; else echo "FAIL $1 ($2$3)"; SMOKE_FAILED=1; fi
+}
+smoke() {
+  local version realm id state health
+  SMOKE_FAILED=0
+  version="$(value_of "$here/release.env" SWOOVR_VERSION)"
+  say 'containers'
+  for id in $(dc ps -aq); do
+    state="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}} restarts={{.RestartCount}}' "$id")"
+    echo "  $state"
+    health="$(awk '{print $3}' <<< "$state")"
+    [[ "$health" == unhealthy || "$state" == *" restarting "* ]] && { echo "FAIL container ${state%% *}"; SMOKE_FAILED=1; }
+  done
+  say 'application readiness through Caddy'
+  expect 'api live' api-uat.swoovr.app /health/live '"status":"ok"'
+  expect 'api ready (database, migrations, restore fence)' api-uat.swoovr.app /health/ready '"status":"ready"'
+  [[ -n "$version" ]] && expect "api version $version" api-uat.swoovr.app /version "\"version\":\"$version\""
+  expect 'attachment scanning (ClamAV)' api-uat.swoovr.app /health/attachments '"status":"healthy"'
+  expect 'web ready' uat.swoovr.app /health/ready '"status":"ready"'
+  expect 'admin ready' admin-uat.swoovr.app /health/ready '"status":"ready"'
+  expect 'helpdesk' helpdesk-uat.swoovr.app / 'HTTP/1.1 200'
+  for realm in $(value_of "$here/env/automation.env" SWOOVR_KEYCLOAK_ENABLED_REALMS | tr ',' ' '); do
+    expect "realm discovery $realm" auth-uat.swoovr.app "/realms/$realm/.well-known/openid-configuration" \
+      "\"issuer\":\"https://auth-uat.swoovr.app/realms/$realm\""
+  done
+  result smoke "$([[ $SMOKE_FAILED == 0 ]] && echo passed || echo failed)"
+  return "$SMOKE_FAILED"
+}
+
+status() {
+  dc ps -a
+  smoke || true
+}
+
+# ------------------------------------------------------------------ history and releases
+history_add() { # history_add RESULT  (reads TAG COMMIT VERSION MODE RUN_ID STARTED from the environment)
+  install -d -m 700 "$here/state"
+  RESULT="$1" STAGE="$STAGE" python3 -I - "$here/state/releases.jsonl" "$here/release.env" <<'PY'
+import json, os, sys, time
+history, release = sys.argv[1], sys.argv[2]
+images = {}
+for line in open(release, encoding='utf-8'):
+    key, _, value = line.strip().partition('=')
+    if key.endswith('_IMAGE'): images[key] = value
+previous = None
+if os.path.exists(history):
+    for line in open(history, encoding='utf-8'):
+        record = json.loads(line)
+        if record.get('result') == 'success': previous = {'tag': record['tag'], 'commit': record['commit']}
+record = {'tag': os.environ.get('TAG'), 'commit': os.environ.get('COMMIT'), 'version': os.environ.get('VERSION'),
+          'mode': os.environ.get('MODE'), 'run_id': os.environ.get('RUN_ID'), 'started': os.environ.get('STARTED'),
+          'finished': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'result': os.environ['RESULT'],
+          'failed_stage': None if os.environ['RESULT'] == 'success' else os.environ.get('STAGE'),
+          'previous': previous, 'images': images}
+with open(history, 'a', encoding='utf-8') as stream:
+    stream.write(json.dumps(record, sort_keys=True) + '\n')
+PY
+}
+history_conflict() { # refuse a tag that was deployed before from another commit
+  [[ -f "$here/state/releases.jsonl" ]] || return 0
+  python3 -I - "$here/state/releases.jsonl" "$1" "$2" <<'PY'
+import json, sys
+for line in open(sys.argv[1], encoding='utf-8'):
+    record = json.loads(line)
+    if record.get('tag') == sys.argv[2] and record.get('commit') not in (None, sys.argv[3]):
+        raise SystemExit(f'{sys.argv[2]} was deployed before from commit {record["commit"]}; tags are immutable.')
+PY
+}
+history() {
+  [[ -f "$here/state/releases.jsonl" ]] || { echo 'No releases recorded yet.'; return 0; }
+  python3 -I -c 'import json,sys
+for l in open(sys.argv[1]):
+    r=json.loads(l); print(f"{r[\"finished\"]}  {r[\"tag\"]:<10} {r[\"commit\"][:12]}  {r[\"mode\"]:<8} {r[\"result\"]:<8} {r.get(\"failed_stage\") or \"\"}")' \
+    "$here/state/releases.jsonl"
+}
+
+# ------------------------------------------------------------------ backups (UAT disposable, but never destroy unrecorded data)
+backup() { # backup KIND LABEL -> prints the directory; fails (and stops the deployment) on any error
+  local kind="$1" label="$2" dir pg zp zdb mount free
+  install -d -m 700 "$BACKUPS"
+  free="$(df --output=avail -BG "$BACKUPS" | tail -1 | tr -dc 0-9)"
+  (( free >= 5 )) || die "backup needs at least 5 GB free in $BACKUPS (has ${free} GB)"
+  dir="$BACKUPS/$(date -u +%Y%m%dT%H%M%SZ)-$kind-$label"
+  install -d -m 700 "$dir"
+  if ! volume_exists swoovr-pgdata && ! volume_exists zammad-pgdata; then
+    echo 'no data volumes: nothing to back up' > "$dir/NOTHING-TO-BACK-UP"; echo "$dir"; return 0
+  fi
+  dc up -d --no-deps swoovr-postgres zammad-postgresql > /dev/null
+  wait_healthy swoovr-postgres 300 > /dev/null; wait_healthy zammad-postgresql 300 > /dev/null
+  pg="$(cid swoovr-postgres)"; zp="$(cid zammad-postgresql)"
+  for db in swoovr keycloak; do
+    docker exec "$pg" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$1" -Fc' sh "$db" > "$dir/$db.dump"
+    docker exec -i "$pg" pg_restore --list < "$dir/$db.dump" > /dev/null
+  done
+  zdb="$(docker exec "$zp" sh -c 'printf %s "$ZAMMAD_DB"')"
+  docker exec "$zp" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$1" -Fc' sh "$zdb" > "$dir/zammad.dump"
+  docker exec -i "$zp" pg_restore --list < "$dir/zammad.dump" > /dev/null
+  mount="$(docker volume inspect -f '{{.Mountpoint}}' "${PROJECT}_zammad-storage" 2>/dev/null || true)"
+  [[ -n "$mount" && -d "$mount" ]] && tar -C "$mount" -czf "$dir/zammad-storage.tar.gz" .
+  cp -a "$here/release.env" "$dir/release.env"
+  [[ -d "$here/state" ]] && cp -a "$here/state" "$dir/state"
+  ( cd "$dir" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS )
+  chmod -R go-rwx "$dir"
+  # Keep the newest backups of this kind; never touch anything else in the directory.
+  local keep=3; [[ "$kind" == pre-upgrade ]] && keep=5
+  find "$BACKUPS" -mindepth 1 -maxdepth 1 -type d -name "*-$kind-*" -printf '%f\n' | sort | head -n "-$keep" \
+    | while read -r old; do rm -rf -- "${BACKUPS:?}/$old"; done
+  echo "$dir"
+}
+
+# ------------------------------------------------------------------ fresh stack (refresh, or an exceptional manual bootstrap)
+bootstrap_sequence() {
+  stage pull; dc pull --quiet
+  stage database
+  dc up -d swoovr-postgres; wait_healthy swoovr-postgres
+  job db-bootstrap
+  stage migrate; job migrate
+  stage places-import; job places-import
+  stage identity
+  origin_cert; dc up -d caddy keycloak; wait_healthy keycloak 600
+  # Keycloak reports ready a little before its public side answers (README "If keycloak-bootstrap fails").
+  local attempt; for attempt in 1 2 3 4 5 6; do job keycloak-bootstrap && break; [[ $attempt == 6 ]] && die keycloak-bootstrap; sleep 20; done
+  keycloak_reconcile
+  stage helpdesk
+  dc up -d clamav zammad-postgresql zammad-redis zammad-memcached zammad-elasticsearch
+  dc up -d zammad-init
+  dc up -d zammad-railsserver zammad-scheduler zammad-websocket zammad-nginx
+  wait_healthy zammad-railsserver 900
+  zammad_provision
+  stage applications
+  dc up -d api; wait_healthy api 300
+  dc up -d --remove-orphans; wait_all
+}
+
+refresh_mode() {
+  stage pre-refresh-backup
+  # Not inside $(...) || ...: that would suspend errexit inside backup. Any failure here stops before deletion.
+  backup pre-refresh "$TAG" > "$here/state/last-backup"
+  result backup "$(tail -1 "$here/state/last-backup")"
+  stage reset
+  # Only this Compose project's containers and volumes. No prune; other projects are never touched.
+  dc --profile jobs --profile backup down --volumes --remove-orphans --timeout 60
+  if [[ -n "$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT")" ]]; then
+    die "volumes of $PROJECT remain after down --volumes; inspect them by hand (nothing else was removed)"
+  fi
+  python3 "$here/bin/envtool.py" zammad-tokens-reset
+  # Owner (12 November 2026): a refresh also empties the UAT photo bucket. After the reset, so no row points at a
+  # deleted object if this fails; a re-run repeats it. Cloudflare image-pipeline buckets are not touched.
+  stage r2-empty
+  job r2-empty --bucket "$(value_of "$here/env/api.env" Media__R2__Bucket)"
+  stage check; check --bootstrap
+  bootstrap_sequence
+}
+
+upgrade_mode() {
+  stage preflight
+  volume_exists swoovr-pgdata || die 'no Swoovr database volume on this host: the first deployment must be a refresh'
+  stage check; check
+  stage pull; dc pull --quiet
+  stage pre-upgrade-backup
+  backup pre-upgrade "$TAG" > "$here/state/last-backup"
+  result backup "$(tail -1 "$here/state/last-backup")"
+  stage migrate
+  dc stop api web admin
+  job migrate
+  stage recreate
+  dc up -d --remove-orphans
+  wait_all
+  stage helpdesk; zammad_provision
+  stage identity; keycloak_reconcile
+}
+
+# Runs inside the live directory, holding the deployment lock opened by `deploy`.
+apply_release() {
+  STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; export STARTED
+  trap 'code=$?; if (( code != 0 )); then history_add failed || true; result failed-stage "$STAGE";
+        say "deployment FAILED at stage $STAGE (data left as is; see README \"Recovery\")"; dc ps -a || true; fi' EXIT
+  case "$MODE" in upgrade) upgrade_mode ;; refresh) refresh_mode ;; *) die "unknown mode $MODE" ;; esac
+  stage first-administrator; admin_finalize
+  stage smoke; smoke
+  history_add success
+  cp -a "$here/release.env" "$here/state/current-release.env"
+  # Staged releases: keep the newest five (rollback sources); the current one is never removed.
+  find "$RELEASES" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' | sort -n | head -n -5 | awk '{print $2}' \
+    | while read -r old; do [[ "$old" == "$TAG-"* ]] || rm -rf -- "${RELEASES:?}/$old"; done
+  result deployed "$TAG"
+  say "deployed $TAG ($COMMIT) in $MODE mode"
+}
+
+# ------------------------------------------------------------------ install a staged release
+install_release() { # install_release SOURCE_DIR (a staged release's swoovr-uat directory)
+  local src="$1" item
+  install -d -m 750 "$LIVE"; install -d -m 700 "$LIVE/env" "$LIVE/state"
+  if [[ -f "$LIVE/release.env" ]] && ! cmp -s "$LIVE/release.env" "$src/release.env"; then
+    cp -a "$LIVE/release.env" "$LIVE/release.env.previous"
+  fi
+  for item in bin zammad postgres realms; do rm -rf -- "${LIVE:?}/$item"; [[ -e "$src/$item" ]] && cp -a "$src/$item" "$LIVE/$item"; done
+  for item in compose.yaml Caddyfile thirdparty.env release.env release-manifest.json README.md VULTR-VM.md .gitignore; do
+    [[ -e "$src/$item" ]] && cp -a "$src/$item" "$LIVE/$item"
+  done
+  cp -a "$src"/env/*.env.example "$LIVE/env/"
+  find "$LIVE/bin" -name __pycache__ -prune -exec rm -rf {} +
+}
+
+deploy() {
+  local release_dir="" confirm="" provider="" expect_host="" values
+  MODE="" RUN_ID=""
+  while (($#)); do
+    case "$1" in
+      --release-dir) release_dir="${2:?}"; shift ;; --mode) MODE="${2:?}"; shift ;;
+      --confirm-refresh) confirm="${2:?}"; shift ;; --provider-values) provider="${2:?}"; shift ;;
+      --run-id) RUN_ID="${2:?}"; shift ;; --expect-hostname) expect_host="${2:?}"; shift ;;
+      *) die "unknown option $1" ;;
+    esac; shift
+  done
+  [[ $EUID -eq 0 ]] || die 'run as root'
+  [[ "$MODE" == upgrade || "$MODE" == refresh ]] || die 'mode must be upgrade or refresh'
+  [[ -d "$release_dir" && -f "$release_dir/release.env" ]] || die 'release directory with release.env required'
+  # Read secrets from stdin first, into a private file, so nothing later can consume or echo them.
+  values="$(mktemp)"; trap 'rm -f "$values"' EXIT   # also on an early exit; exec below replaces the trap
+  if [[ "$provider" == - ]]; then cat > "$values"; elif [[ -n "$provider" ]]; then cp "$provider" "$values"; else echo '{}' > "$values"; fi
+  exec 9> "$LOCK"; flock -n 9 || die 'another deployment is running on this host'
+  [[ -z "$expect_host" || "$(hostname)" == "$expect_host" ]] || die "this host is $(hostname), expected $expect_host"
+  ( cd "$release_dir" && sha256sum --quiet -c SHA256SUMS ) || die 'release files do not match their SHA256SUMS'
+  python3 "$release_dir/bin/manifest-json.py" "$release_dir/release.env" --release > /dev/null
+  TAG="$(value_of "$release_dir/release.env" SWOOVR_TAG)"; COMMIT="$(value_of "$release_dir/release.env" SWOOVR_COMMIT)"
+  VERSION="$(value_of "$release_dir/release.env" SWOOVR_VERSION)"
+  [[ "$TAG" =~ $TAG_RE ]] || die 'invalid release tag'
+  if [[ "$MODE" == refresh && "$confirm" != "$PROJECT:$TAG" ]]; then
+    die "refresh needs --confirm-refresh $PROJECT:$TAG (the workflow passes it only after approval)"
+  fi
+  here="$LIVE" history_conflict "$TAG" "$COMMIT"
+  local free; free="$(df --output=avail -BG /var/lib/docker | tail -1 | tr -dc 0-9)"
+  (( free >= 15 )) || die "need at least 15 GB free for /var/lib/docker (has ${free} GB)"
+  docker compose version --short | awk -F. '{ exit !($1 > 2 || ($1 == 2 && $2 >= 24)) }' \
+    || die 'Docker Compose 2.24 or newer is required'
+  result mode "$MODE"; result tag "$TAG"; result commit "$COMMIT"
+  say "install $TAG ($COMMIT) into $LIVE"
+  install_release "$release_dir"
+  here="$LIVE"
+  python3 "$here/bin/envtool.py" init
+  python3 "$here/bin/envtool.py" apply-provider "$values"
+  rm -f "$values"
+  python3 "$here/bin/envtool.py" realms "$here/realms"
+  [[ -f "$here/tls/trust/origin-trust.pem" && -f "$here/tls/postgres/server.key" ]] || "$here/bin/tls-setup"
+  export TAG COMMIT VERSION MODE RUN_ID
+  # The rest runs from the installed copy, still holding the lock (fd 9 is inherited).
+  exec "$LIVE/bin/swoovr" _apply
+}
+
+rollback() {
+  local target="" yes=0 dir
+  while (($#)); do case "$1" in --to) target="${2:?}"; shift ;; --yes) yes=1 ;; *) die "unknown option $1" ;; esac; shift; done
+  [[ "$target" =~ $TAG_RE ]] || die 'rollback --to vX.Y.Z'
+  dir="$(find "$RELEASES" -mindepth 1 -maxdepth 1 -type d -name "$target-*" | sort | tail -1)"
+  [[ -n "$dir" && -f "$dir/swoovr-uat/release.env" ]] || die "no staged release $target in $RELEASES"
+  echo "Rollback swaps images and bundle files to $target. It does NOT roll back the database: use it only when"
+  echo "$target understands the current schema (README \"Rollback\"). Migrations applied since then stay applied."
+  if (( ! yes )); then read -r -p "Type $target to continue: " answer; [[ "$answer" == "$target" ]] || exit 1; fi
+  exec 9> "$LOCK"; flock -n 9 || die 'another deployment is running on this host'
+  install_release "$dir/swoovr-uat"; here="$LIVE"
+  TAG="$target" COMMIT="$(value_of "$here/release.env" SWOOVR_COMMIT)" VERSION="$(value_of "$here/release.env" SWOOVR_VERSION)" \
+    MODE=rollback RUN_ID=manual STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  export TAG COMMIT VERSION MODE RUN_ID STARTED
+  trap 'code=$?; (( code == 0 )) || history_add failed || true' EXIT
+  STAGE=recreate; origin_cert; dc up -d --remove-orphans; wait_all
+  STAGE=smoke; smoke
+  history_add success
+}
+
+command="${1:-help}"; shift || true
+case "$command" in
+  deploy) deploy "$@" ;;
+  _apply) apply_release ;;
+  status) status ;;
+  history) history ;;
+  smoke) smoke ;;
+  admin-finalize) admin_finalize ;;
+  keycloak-reconcile) keycloak_reconcile "$@" ;;
+  rollback) rollback "$@" ;;
+  backup) backup manual "$(value_of "$here/release.env" SWOOVR_TAG || echo unknown)" ;;
+  check) check "$@" ;;
+  zammad-provision) zammad_provision ;;
+  zammad-admin-login) zammad_admin_login "$@" ;;
+  mail-apply)
+    check; say 'mail settings from env/mail.env: recreate Keycloak and the API'
+    dc up -d mailpit; dc up -d --no-deps --force-recreate keycloak api
+    wait_healthy keycloak 600; wait_healthy api; zammad_provision ;;
+  job) job "$@" ;;
+  logs) dc logs --tail 200 "$@" ;;
+  compose) dc "$@" ;;
+  *) sed -n '2,24p' "$0"; exit 64 ;;
+esac

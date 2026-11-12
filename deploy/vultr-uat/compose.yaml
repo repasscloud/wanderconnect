@@ -1,8 +1,9 @@
 # Swoovr UAT on one Vultr cloud VM (Debian + Docker; VULTR-VM.md). One file runs the whole disposable UAT stack.
 # Plan: docs/delivery/UAT-VULTR-IMAGES-AND-BUNDLE-PLAN-2026-11-10.md   Runbook: deploy/vultr-uat/README.md
 #
-# Always run through bin/swoovr (it passes --env-file release.env). Every image comes from release.env as an
-# immutable repo@sha256 reference; this file never names a tag. Secrets live only in env/*.env (0600) on the host.
+# Deployed by .github/workflows/deploy-uat.yml through bin/swoovr (D362); always run Compose through bin/swoovr, which
+# passes --env-file release.env. Every image comes from release.env as an immutable repo@sha256 reference (Swoovr images
+# from ghcr.io/repasscloud); this file never names a tag. Secrets live only in env/*.env (0600) on the host.
 #
 # Networks
 #   edge      172.30.0.0/24, outbound allowed. Caddy is 172.30.0.2 and also answers to the public hostnames, so a
@@ -80,7 +81,11 @@ services:
   caddy:
     <<: [*restart, *logging]
     image: ${SWOOVR_CADDY_IMAGE:?release.env}
-    env_file: [env/caddy.env]
+    env_file:
+      - env/caddy.env
+      # Optional: SWOOVR_ADMIN_PRIVATE_NETWORKS for Keycloak admin over Tailscale (docs/delivery/UAT-TAILSCALE-SETUP.md).
+      - path: env/caddy-admin.env
+        required: false
     ports:
       - "80:80"
       - "443:443"
@@ -479,7 +484,29 @@ services:
       SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
     networks: [edge]
 
-  # Generic API one-shot: bin/swoovr job api-command root-admin grant <subject>
+  # D362: idempotent realm/client/broker reconciliation and the first-administrator check (every deployment).
+  keycloak-reconcile:
+    <<: *job
+    image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
+    command: ["keycloak-reconcile"]
+    env_file: [env/keycloak.env, env/realms.env, env/automation.env]
+    environment:
+      <<: *swoovr-common
+      SWOOVR_KEYCLOAK_BASE: https://auth-uat.swoovr.app
+      SSL_CERT_FILE: /etc/swoovr/tls/origin-trust.pem
+    networks: [edge]
+
+  # D362: refresh only. Empties the configured R2 photo bucket (owner, 12 November 2026); bin/swoovr passes the name.
+  r2-empty:
+    <<: *job
+    image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
+    command: ["r2-empty"]
+    env_file: [env/api.env]
+    environment:
+      DOTNET_ENVIRONMENT: Uat
+    networks: [edge]
+
+  # Generic API one-shot: bin/swoovr job api-command root-admin ensure <subject> <email>
   api-command:
     <<: *job
     image: ${SWOOVR_API_IMAGE:?release.env}
