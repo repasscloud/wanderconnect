@@ -1,6 +1,6 @@
 # Swoovr image pipeline: Cloudflare orchestration and always-on Vultr processing
 
-Prepared 8 November 2026. Documentation branch: `codex/docs-vultr-image-pipeline`. Status: owner-requested implementation design and migration requirements; not implemented or deployed by this document. Tracking: https://github.com/repasscloud/wanderconnect/issues/294. Supersedes the Cloudflare Container hosting assumption in the [original overview](../../../Swoovr_Cloudflare_Image_Architecture_GitHub_Issues.md), not historical validation evidence.
+Prepared 8 November 2026. Documentation branch: `codex/docs-vultr-image-pipeline`. Status: owner-requested implementation design and migration requirements; not implemented or deployed by this document. Tracking: https://github.com/repasscloud/wanderconnect/issues/294. Supersedes the Cloudflare Container hosting assumption in the [original overview](../../architecture/CLOUDFLARE-IMAGE-ARCHITECTURE.md), not historical validation evidence.
 
 ## 1. Intent and requirement status
 
