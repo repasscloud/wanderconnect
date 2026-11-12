@@ -88,9 +88,12 @@ auth-uat.swoovr.app {
 	import common
 	# Keycloak management (9000) is never routed. The admin console/API and the master realm answer only to
 	# callers on the Docker edge network or the host itself (remote_ip is the direct peer, not a forwarded header).
+	# SWOOVR_ADMIN_PRIVATE_NETWORKS (env/caddy-admin.env, optional, empty by default) may add Tailscale device
+	# addresses (100.64.0.0/10 range, /32 per device). Public traffic reaches Caddy only from Cloudflare's ranges
+	# (DOCKER-USER on the public interface), so it can never carry such a peer address.
 	@private_admin {
 		path /admin /admin/* /realms/master /realms/master/*
-		not remote_ip 172.30.0.0/24
+		not remote_ip 172.30.0.0/24 {$SWOOVR_ADMIN_PRIVATE_NETWORKS}
 	}
 	respond @private_admin 404
 	import proxy keycloak:8080

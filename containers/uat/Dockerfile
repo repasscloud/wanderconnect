@@ -2,19 +2,26 @@
 # Reuse the repository's immutable .NET 10 image pins; upgrades need validation.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.400@sha256:4beef5b8919dcaa2dc924233bd069257e883cc7a061e09088a97d152d6a48510 AS source
 ARG TARGETARCH
+# D320/D362: the release's Build number (Z of vX.Y.Z) and commit. Empty keeps the committed Directory.Build.props version.
+ARG SWOOVR_VERSION_BUILD=
+ARG SWOOVR_SOURCE_REVISION=
+ENV SWOOVR_VERSION_BUILD=$SWOOVR_VERSION_BUILD SWOOVR_SOURCE_REVISION=$SWOOVR_SOURCE_REVISION
 WORKDIR /source
 COPY global.json Directory.Build.props ./
 COPY src/ ./src/
+RUN set -eu; \
+    if [ -n "$SWOOVR_VERSION_BUILD" ]; then echo "$SWOOVR_VERSION_BUILD" | grep -Eq '^(0|[1-9][0-9]{0,8})$'; fi; \
+    if [ -n "$SWOOVR_SOURCE_REVISION" ]; then echo "$SWOOVR_SOURCE_REVISION" | grep -Eq '^[0-9a-f]{40}$'; fi
 
 FROM source AS api-publish
-RUN dotnet publish src/Swoovr.Api/Swoovr.Api.csproj -c Release -a $TARGETARCH --self-contained false -o /publish -p:UseAppHost=false
+RUN dotnet publish src/Swoovr.Api/Swoovr.Api.csproj -c Release -a $TARGETARCH --self-contained false -o /publish -p:UseAppHost=false ${SWOOVR_VERSION_BUILD:+-p:SwoovrVersionBuild=$SWOOVR_VERSION_BUILD} ${SWOOVR_SOURCE_REVISION:+-p:SourceRevisionId=$SWOOVR_SOURCE_REVISION}
 
 FROM source AS web-publish
 # Publish the host: its Web.Client reference supplies WASM and static assets.
-RUN dotnet publish src/Swoovr.Web/Swoovr.Web.csproj -c Release -a $TARGETARCH --self-contained false -o /publish -p:UseAppHost=false
+RUN dotnet publish src/Swoovr.Web/Swoovr.Web.csproj -c Release -a $TARGETARCH --self-contained false -o /publish -p:UseAppHost=false ${SWOOVR_VERSION_BUILD:+-p:SwoovrVersionBuild=$SWOOVR_VERSION_BUILD} ${SWOOVR_SOURCE_REVISION:+-p:SourceRevisionId=$SWOOVR_SOURCE_REVISION}
 
 FROM source AS admin-publish
-RUN dotnet publish src/Swoovr.Admin/Swoovr.Admin.csproj -c Release -a $TARGETARCH --self-contained false -o /publish -p:UseAppHost=false
+RUN dotnet publish src/Swoovr.Admin/Swoovr.Admin.csproj -c Release -a $TARGETARCH --self-contained false -o /publish -p:UseAppHost=false ${SWOOVR_VERSION_BUILD:+-p:SwoovrVersionBuild=$SWOOVR_VERSION_BUILD} ${SWOOVR_SOURCE_REVISION:+-p:SourceRevisionId=$SWOOVR_SOURCE_REVISION}
 
 # Optional local validation target reuses the existing Checks project; never published as a serving image.
 FROM source AS checks-publish
@@ -66,7 +73,7 @@ COPY scripts/backups/requirements.txt /opt/backups/requirements.txt
 RUN /opt/operator-venv/bin/pip install --no-cache-dir -r /opt/backups/requirements.txt
 COPY --from=api-publish /publish/ /app/
 COPY scripts/backups/*.py /opt/backups/
-COPY scripts/uat/uat_jobs.py scripts/uat/keycloak_bootstrap.py /opt/uat/
+COPY scripts/uat/uat_jobs.py scripts/uat/keycloak_bootstrap.py scripts/uat/keycloak_reconcile.py scripts/uat/r2_empty.py /opt/uat/
 COPY scripts/uat/bundle-producer.sh /opt/uat/bundle-producer
 RUN chmod 0555 /opt/uat/bundle-producer
 ENV PATH="/opt/operator-venv/bin:/usr/lib/postgresql/17/bin:${PATH}" PYTHONDONTWRITEBYTECODE=1

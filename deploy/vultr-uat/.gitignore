@@ -12,3 +12,10 @@ __pycache__/
 !bin/
 !bin/**
 __pycache__/
+
+# Deployment state written on the host (D362): release history, staged releases, generated realm templates.
+state/
+realms/
+release-manifest.env
+release-manifest.json
+SHA256SUMS

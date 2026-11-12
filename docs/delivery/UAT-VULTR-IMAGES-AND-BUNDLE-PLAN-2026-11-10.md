@@ -1,5 +1,7 @@
 # Multi-arch images and the Vultr UAT bundle (plan, 10 November 2026)
 
+**Superseded in part by D362 (12 November 2026):** images are now built by `.github/workflows/deploy-uat.yml` on a `vX.Y.Z` tag, for linux/amd64 only, and published **publicly to GHCR**. The workflow also deploys the bundle over SSH. `images.yml`, Docker Hub and the manual bundle download below are retired. See [UAT-GITHUB-DEPLOYMENT.md](UAT-GITHUB-DEPLOYMENT.md). The host design (one Compose project, Caddy, TLS, networks) stands.
+
 This plan covers three things. It builds every Swoovr image once per commit as `repasscloud/{image}:{commit}` for linux/amd64 and linux/arm64 on GitHub's Ubuntu runners. It ships one deployment bundle (a single Compose file plus all configuration) to the Vultr UAT VM (D361). It promotes the **same image digests** to Azure for production. It builds on the [Vultr stack review](VULTR-STACK-REVIEW-2026-11-10.md) (single host, single Caddy, separate Zammad PostgreSQL) and D355 hostnames. Decision records: D356 (DEFAULT), D357 (Zammad mail), D358 (one mail file and sender), D359 (workflow enabled), D360 (email and SMS providers), D361 (one Vultr VM). Questions: Q175, Q176.
 
 **Delivered in this PR:**

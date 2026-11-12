@@ -100,6 +100,9 @@ if sso
 end
 Setting.set('user_show_password_login', sso.nil?)
 Setting.set('user_lost_password', false)
+# Mail channels: managed here unless the caller says otherwise (hosted UAT, owner 12 November 2026: Zammad's Microsoft 365
+# mailbox and notifications are configured in Zammad's admin UI and must survive every re-provisioning).
+if input.fetch('manage_mail', true) != false
 # Local outgoing email never leaves the Docker mail sink. A hosted run (deploy/vultr-uat) may pass its own
 # notification_smtp; without it the local sink is kept, so local behaviour is unchanged.
 smtp = {'host' => 'swoovr-platform', 'port' => 1025, 'ssl' => false, 'enable_starttls_auto' => false, 'user' => '', 'password' => ''}
@@ -149,6 +152,7 @@ Channel.where(area: 'Email::Account').find_each do |channel|
     support_group.update!(email_address_id: nil, updated_by_id: actor) if support_group.reload.email_address_id == stale.id
   end
   channel.update!(active: false, updated_by_id: actor)
+end
 end
 
 # Minimal ticket attributes: references/classification, never original evidence or identity documents.

@@ -1,0 +1,73 @@
+# Swoovr UAT maintenance (D362): read-only status/history, and the first-administrator stage 2 after the first Entra
+# sign-in. Manual dispatch only; never deploys, migrates, refreshes or rolls back. Same SSH secrets and lock as
+# deploy-uat.yml. Runbook: deploy/vultr-uat/README.md.
+name: UAT maintenance
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status | history | admin-finalize"
+        type: choice
+        options: [status, history, admin-finalize]
+        default: status
+permissions: {}
+concurrency:
+  group: swoovr-uat-deploy
+  cancel-in-progress: false
+jobs:
+  run:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions: {}
+    environment: uat
+    steps:
+      - name: SSH (verified host key)
+        env:
+          SSH_HOST: ${{ secrets.UAT_SSH_HOST }}
+          SSH_USER: ${{ secrets.UAT_SSH_USER }}
+          SSH_KEY: ${{ secrets.UAT_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.UAT_SSH_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          [[ "$SSH_USER" == root ]] || { echo "::error::UAT_SSH_USER must be root."; exit 1; }
+          [[ "$SSH_HOST" =~ ^[A-Za-z0-9.:-]+$ ]] || { echo "::error::UAT_SSH_HOST must be a bare IP address or host name."; exit 1; }
+          [[ "$SSH_HOST_KEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp(256|384|521)|ssh-rsa)\ [A-Za-z0-9+/]+=*$ ]] \
+            || { echo "::error::UAT_SSH_HOST_KEY must be '<type> <base64>'."; exit 1; }
+          dir="$RUNNER_TEMP/ssh"; install -d -m 700 "$dir"
+          ( umask 077; printf '%s\n' "$SSH_KEY" > "$dir/key"; printf '%s %s\n' "$SSH_HOST" "$SSH_HOST_KEY" > "$dir/known_hosts" )
+          cat > "$dir/config" <<EOF
+          Host uat
+            HostName $SSH_HOST
+            User root
+            IdentityFile $dir/key
+            IdentitiesOnly yes
+            UserKnownHostsFile $dir/known_hosts
+            StrictHostKeyChecking yes
+            GlobalKnownHostsFile none
+            BatchMode yes
+            ConnectTimeout 20
+          EOF
+          chmod 600 "$dir/config"
+      - name: Run ${{ inputs.action }}
+        env:
+          ACTION: ${{ inputs.action }}
+          EXPECTED_HOSTNAME: ${{ vars.UAT_EXPECTED_HOSTNAME }}
+        run: |
+          set -euo pipefail
+          case "$ACTION" in status|history|admin-finalize) ;; *) echo "::error::unsupported action"; exit 1 ;; esac
+          [[ "$EXPECTED_HOSTNAME" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || { echo "::error::UAT_EXPECTED_HOSTNAME is not set."; exit 1; }
+          ssh -F "$RUNNER_TEMP/ssh/config" uat bash -s -- "$EXPECTED_HOSTNAME" "$ACTION" <<'REMOTE' | tee "$RUNNER_TEMP/out.log"
+          set -euo pipefail
+          [[ "$(hostname)" == "$1" ]] || { echo "FAIL this host is $(hostname), expected $1"; exit 1; }
+          exec 9> /run/lock/swoovr-uat-deploy.lock
+          flock -n 9 || { echo "FAIL a deployment is running"; exit 1; }
+          /opt/swoovr/swoovr-uat/bin/swoovr "$2"
+          REMOTE
+          {
+            echo "## UAT maintenance: $ACTION"
+            grep '^SWOOVR_RESULT ' "$RUNNER_TEMP/out.log" | sed 's/^SWOOVR_RESULT /- /' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove SSH material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ssh"

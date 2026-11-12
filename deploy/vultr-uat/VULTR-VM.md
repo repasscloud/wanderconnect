@@ -42,7 +42,7 @@ Vultr console → **Deploy** (or **Products → Compute → Deploy Server**):
 
 | Protocol | Port | Source |
 | --- | --- | --- |
-| SSH (TCP) | 22 | your admin IP, `/32` |
+| SSH (TCP) | 22 | **anywhere** (key-only root): GitHub's runners deploy over SSH from changing addresses |
 | TCP | 80 | **Cloudflare** (Vultr's built-in Cloudflare source) |
 | TCP | 443 | **Cloudflare** |
 
@@ -54,75 +54,36 @@ Vultr blocks outgoing SMTP port 25 on new accounts. That doesn't matter here: Se
 
 ## 4. DNS and TLS (Cloudflare)
 
-Follow the runbook §0 step 3 with the VM's IPv4: proxied `A` records for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat`, Full (strict), the cache bypass, and the Origin CA certificate from #307.
+Proxied (orange-cloud) `A` records to the VM's IPv4 for `uat`, `api-uat`, `admin-uat`, `auth-uat` and `helpdesk-uat` (no `AAAA`: the Docker networks are IPv4-only), SSL/TLS **Full (strict)**, a cache rule that **bypasses cache** for all five hostnames, and a Cloudflare **Origin CA certificate** (owner #307: PEM, RSA 2048, explicit SANs `uat`, `api-uat`, `admin-uat`, `auth-uat`, `helpdesk-uat`, `venues-uat` `.swoovr.app`, no wildcard).
 
-## 5. First login and host preparation
+**GitHub deployments (D362)** connect over SSH from GitHub's runners, whose addresses change. The current VM has **no** Vultr firewall group (owner, 12 November 2026); the host firewall allows key-only SSH. If you add a group, keep SSH open to all addresses for the runners.
 
-### 5a. Get the bundle (on your machine)
+## 5. First login and host preparation (a new VM only)
 
-The bundle `swoovr-uat-bundle-<commit>.tar.gz` is **not in Git and you don't build it by hand**. The **Images** GitHub Actions workflow makes it in the same run that pushes the five images to Docker Hub (runbook §0 step 2). `<commit>` is the full 40-character commit the images were built from.
-
-1. This repository on GitHub → **Actions** → **Images** → open the successful run → **Artifacts** (bottom of the summary page) → download **`swoovr-release-<commit>`**. Or with the GitHub CLI, from inside your checkout of this repository:
-
-   ```sh
-   # 1. List recent runs: <run-id>  <commit>  <result>  <date>
-   gh run list --workflow images.yml -L 5 --json databaseId,headSha,conclusion,createdAt \
-     -q '.[] | "\(.databaseId)  \(.headSha)  \(.conclusion)  \(.createdAt)"'
-
-   # 2. Put the newest successful run in $1 (run ID) and $2 (commit), show the command, then download
-   set -- $(gh run list --workflow images.yml --status success -L 1 --json databaseId,headSha \
-     -q '.[0] | "\(.databaseId) \(.headSha)"')
-   [ -n "$2" ] || echo "No successful Images run found"
-   echo gh run download "$1" -n "swoovr-release-$2" -D ~/swoovr-release
-   gh run download "$1" -n "swoovr-release-$2" -D ~/swoovr-release
-   ```
-
-   To download a different run, set it yourself first: `set -- <run-id> <commit>`, using a line from step 1, then run the two last commands.
-
-2. The browser download is a zip (unzip it); `gh` unzips into `~/swoovr-release` for you. Inside:
-
-   ```text
-   release-manifest.env
-   release-manifest.json
-   dist/swoovr-uat-bundle-<commit>.tar.gz      <- this is the bundle; note the dist/ folder
-   ```
-
-Artifacts expire **30 days** after the run. After that, run **Images** again (Actions → Images → **Run workflow** on `main`), or rebuild only the bundle from a checkout at the same commit with that run's `release-manifest.env` (its contents are also printed on the run's summary page):
+The current VM is already prepared. For a new one, every command on the VM runs **as root** (`sudo -i` first if you log in as another user). Copy the host scripts from your checkout of `main`; the deployment workflow ships everything else:
 
 ```sh
-git checkout <commit>
-./deploy/vultr-uat/bin/make-bundle.sh release-manifest.env dist     # writes dist/swoovr-uat-bundle-<commit>.tar.gz
+# On your machine
+scp deploy/vultr-uat/bin/{host-setup,tls-setup,cloudflare-ips,origin-cert-check} root@<VM IPv4>:/tmp/
+# On the VM
+apt-get update && apt-get -y full-upgrade && reboot      # once, then log in again
+install -d -m 750 /opt/swoovr/swoovr-uat/bin && install -d -m 700 /opt/swoovr/swoovr-uat/env
+mv /tmp/{host-setup,tls-setup,cloudflare-ips,origin-cert-check} /opt/swoovr/swoovr-uat/bin/ && cd /opt/swoovr/swoovr-uat
+./bin/host-setup                                         # Docker, sysctls, nftables input table, /etc/hosts aliases, unattended upgrades
+install -m 700 -d /etc/caddy/certs                       # then paste the Origin certificate and key with an editor:
+nano /etc/caddy/certs/uat-origin.pem; nano /etc/caddy/certs/uat-origin.key
+chmod 644 /etc/caddy/certs/uat-origin.pem; chmod 600 /etc/caddy/certs/uat-origin.key
+./bin/origin-cert-check && ./bin/tls-setup && ./bin/cloudflare-ips && systemctl start swoovr-edge-firewall
 ```
 
-The bundle holds no secrets: `compose.yaml`, the Caddyfile, `bin/`, `env/*.env.example`, the Zammad provisioner and `release.env` (the image digests). Secrets are created on the VM in runbook §3.
+`SWOOVR_SSH_CIDRS="<your public IP>/32" ./bin/host-setup` optionally limits SSH on the VM itself; don't use it if GitHub runners must connect. `host-setup` finds the public interface from the default route (`enp1s0` on Vultr); set `SWOOVR_EXT_IF=<name>` if it guesses wrong. Harden SSH yourself (key-only, `PasswordAuthentication no`, `PermitRootLogin prohibit-password`) and add the deploy key to `/root/.ssh/authorized_keys`. Then set `UAT_EXPECTED_HOSTNAME` to the VM's `hostname` and the new host key on GitHub, and make the first deployment a **refresh** (runbook "First deployment").
 
-### 5b. Copy it to the VM and prepare the host
-
-Every command on the VM runs **as root**. If you log in as another user, run `sudo -i` first and stay root for the whole runbook. Mixing `sudo` and a normal user leaves files with mixed owners.
-
-```sh
-# On your machine (from the folder that holds dist/):
-scp dist/swoovr-uat-bundle-<commit>.tar.gz root@<VM IPv4>:/tmp/     # or <user>@<VM IPv4>:/tmp/
-
-# On the VM:
-ssh root@<VM IPv4>                                       # or ssh <user>@<VM IPv4>, then: sudo -i
-apt-get update && apt-get -y full-upgrade && reboot      # once, then log in again (and sudo -i)
-mkdir -p /opt/swoovr && mv /tmp/swoovr-uat-bundle-*.tar.gz /opt/swoovr/ && cd /opt/swoovr
-tar -xzf swoovr-uat-bundle-<commit>.tar.gz && cd swoovr-uat
-./bin/host-setup                                         # or: SWOOVR_SSH_CIDRS="<your admin IP>/32" ./bin/host-setup
-docker login -u <dockerhub-user>                          # read-only token at the prompt
-```
-
-`SWOOVR_SSH_CIDRS` is optional. It limits SSH on the VM to the address of the machine **you connect from** (your public internet IP, `curl -4 ifconfig.me`), not the VM's own address. Leave it out if that address changes, for example on home internet: SSH then stays open to any address, still key-only. Never use `0.0.0.0` (that blocks everyone); if you get locked out, use the Vultr web console.
-
-`host-setup` finds the public interface from the default route (`enp1s0` on most Vultr VMs). Set `SWOOVR_EXT_IF=<name>` if it guesses wrong. Then harden SSH (key-only, `PasswordAuthentication no`), check that you can still log in, and continue with runbook §2 (TLS and the Cloudflare edge filter).
-
-Optional: **Snapshots → Take snapshot** now. A rebuilt VM from that snapshot skips §5.
+No Docker registry login is needed: the Swoovr images on GHCR are public and the third-party images are public upstream. Optional: **Snapshots → Take snapshot** after this section.
 
 ## 6. Day-to-day
 
-- **Status:** `./bin/swoovr status`. **Logs:** `./bin/swoovr logs api`.
+- **Deploy:** push a `vX.Y.Z` tag from `main` (runbook "Releasing"). **Status:** Actions → UAT maintenance → `status`, or `./bin/swoovr status`. **Logs:** `./bin/swoovr logs api`.
 - **Mailpit** (SMS codes and anything sent to the sink): `ssh -L 8025:127.0.0.1:8025 root@<VM IPv4>`, then open http://127.0.0.1:8025 on your machine.
-- **Keycloak admin:** the SSH SOCKS tunnel in the runbook §5.
+- **Keycloak admin:** the SSH SOCKS tunnel (runbook "Keycloak admin console") or Tailscale ([UAT-TAILSCALE-SETUP.md](../../docs/delivery/UAT-TAILSCALE-SETUP.md)).
 - **Resize:** Vultr → instance → **Settings → Change Plan**. It reboots the VM. Docker restarts the stack, which signs members out.
-- **Rebuild from scratch:** destroy the instance and repeat this page. Or keep the VM and run `./bin/swoovr reset --destroy-uat-data`.
+- **Reset the application data:** a **refresh** deployment (`DEPLOYMENT_MODE=refresh`, runbook). **Rebuild the VM:** destroy the instance and repeat this page.

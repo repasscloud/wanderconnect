@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Fetch Cloudflare's published edge ranges, write them for Caddy's trusted_proxies (env/caddy.env), and allow
+# published container ports 80/443 only from those ranges (DOCKER-USER chain; ufw/INPUT rules do not see them).
+# Only packets arriving on the public interface are filtered (Docker's documented `-i ext_if` pattern), so
+# containers' own outbound HTTPS (GeoNames, providers, Cloudflare APIs) and bridge-internal traffic pass untouched.
+#   bin/cloudflare-ips                 fetch + write env/caddy.env + apply firewall
+#   bin/cloudflare-ips --apply-cached  apply firewall from the last fetched ranges (boot; no network needed)
+# SWOOVR_EXT_IF overrides the public interface (default: the IPv4 default-route interface, remembered for boot).
+set -euo pipefail
+here="$(cd "$(dirname "$0")/.." && pwd)"
+cache=/etc/swoovr/cloudflare-ranges
+iface_file=/etc/swoovr/edge-interface
+if [[ "${1:-}" != --apply-cached ]]; then
+  v4="$(curl -fsSL https://www.cloudflare.com/ips-v4)"; v6="$(curl -fsSL https://www.cloudflare.com/ips-v6)"
+  [[ $(wc -l <<<"$v4") -ge 10 ]] || { echo 'Unexpected Cloudflare IPv4 list.' >&2; exit 1; }
+  install -d -m 0750 /etc/swoovr
+  printf '%s\n%s\n' "$v4" "$v6" | grep -E '^[0-9a-f:.]+/[0-9]+$' > "$cache"
+  umask 077
+  printf 'CLOUDFLARE_RANGES=%s\n' "$(tr '\n' ' ' < "$cache" | sed 's/ $//')" > "$here/env/caddy.env"
+  chmod 0600 "$here/env/caddy.env"
+  echo "Wrote $(wc -l < "$cache") ranges to env/caddy.env (restart caddy to apply)."
+fi
+[[ -s "$cache" ]] || { echo 'No cached Cloudflare ranges; run bin/cloudflare-ips first.' >&2; exit 1; }
+if [[ -n "${SWOOVR_EXT_IF:-}" ]]; then ext_if="$SWOOVR_EXT_IF"
+elif [[ "${1:-}" == --apply-cached && -s "$iface_file" ]]; then ext_if="$(cat "$iface_file")"
+else ext_if="$(ip -4 route show default | awk '{for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit }}')"
+fi
+if ! [[ "$ext_if" =~ ^[A-Za-z0-9_.@-]+$ ]] || ! ip link show "$ext_if" > /dev/null 2>&1; then
+  echo "Public interface '${ext_if:-}' not found; set SWOOVR_EXT_IF." >&2; exit 1
+fi
+install -d -m 0750 /etc/swoovr; printf '%s\n' "$ext_if" > "$iface_file"
+apply() { # $1 = iptables|ip6tables, $2 = address family grep
+  local t="$1"
+  $t -N SWOOVR-EDGE 2>/dev/null || $t -F SWOOVR-EDGE
+  while read -r range; do $t -A SWOOVR-EDGE -s "$range" -j RETURN; done < <(grep -E "$2" "$cache")
+  $t -A SWOOVR-EDGE -j DROP
+  # Remove every earlier jump (any interface, including the first unscoped version), then add the scoped one.
+  local -a rule
+  while read -ra rule; do
+    rule[0]=-D; "$t" "${rule[@]}"
+  done < <($t -S DOCKER-USER | grep -- '-j SWOOVR-EDGE' || true)
+  for port in 80 443; do
+    $t -I DOCKER-USER -i "$ext_if" -p tcp -m conntrack --ctorigdstport "$port" --ctdir ORIGINAL -j SWOOVR-EDGE
+  done
+}
+apply iptables '^[0-9.]+/'
+apply ip6tables ':' || echo 'IPv6 DOCKER-USER not available; ignore if IPv6 is disabled in Docker.'
+echo "DOCKER-USER: ports 80/443 arriving on $ext_if accept Cloudflare ranges only; container egress is not filtered."

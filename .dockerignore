@@ -67,3 +67,5 @@
 !scripts/uat/bundle-producer.sh
 
 !scripts/uat/keycloak_bootstrap.py
+!scripts/uat/keycloak_reconcile.py
+!scripts/uat/r2_empty.py

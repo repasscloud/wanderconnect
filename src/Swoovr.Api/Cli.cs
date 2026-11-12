@@ -121,6 +121,34 @@ public static class Cli
                 await db.Database.MigrateAsync();
                 Console.WriteLine("Database is up to date.");
                 return 0;
+            // D362: the automated deployment's second stage. The caller (keycloak-reconcile) has already checked that
+            // the subject is the only enabled staff-realm user with this address, a Keycloak-verified email and a linked
+            // Entra identity. This command adds the Swoovr-side checks and is safe to repeat: it never moves root from
+            // another account and never re-grants. Exit 0 = root is held by this account, 3 = waiting for the first
+            // sign-in, 1 = refused.
+            case ["root-admin", "ensure", var subject, var expectedEmail]:
+            {
+                var existingRoot = await db.Accounts.Where(a => a.IsRootAdmin).ToListAsync();
+                var candidates = await db.Accounts.Where(a => a.Realm == AccountRealm.Staff && a.Subject == subject).ToListAsync();
+                if (existingRoot.Count > 0)
+                {
+                    var holder = existingRoot.Count == 1 && candidates.Count == 1 && existingRoot[0].Id == candidates[0].Id;
+                    Console.WriteLine(holder ? "root-admin=already-granted" : "root-admin=held-by-another-account");
+                    return holder ? 0 : 1;
+                }
+                if (candidates.Count == 0) { Console.WriteLine("root-admin=pending-first-sign-in"); return 3; }
+                var candidate = candidates.Single();
+                if (candidate.Status != AccountStatus.Active || !string.Equals(candidate.Email, expectedEmail, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine("root-admin=refused-account-not-active-or-email-differs");
+                    return 1;
+                }
+                candidate.IsRootAdmin = true;
+                Audit.Record(db, now, null, "cli", "root-admin.granted", "account", candidate.Id.ToString(), "deployment");
+                await db.SaveChangesAsync();
+                Console.WriteLine("root-admin=granted");
+                return 0;
+            }
             case ["root-admin", "grant", var subject, ..]:
             {
                 // The staff-realm subject (Keycloak user id) of the single break-glass account (D36).

@@ -926,3 +926,53 @@ Reversible: each service is one `env/mail.env` value. MailerSend code remains. [
 - **Firewall:** a Vultr firewall group with SSH from the admin IP and 80/443 from Vultr's Cloudflare source, on top of the host nftables and DOCKER-USER rules.
 
 Reversible: resize or rebuild. Nothing was created on Vultr.
+
+### D362 — Tag-driven UAT deployment through GitHub Actions (12 November 2026)
+
+**CONFIRMED** by the owner in chat, 12 November 2026:
+- Pushing a `vX.Y.Z` tag that is on `main` builds, publishes and deploys UAT with no manual server steps.
+- Images are linux/amd64 only, **public** on GHCR (`ghcr.io/repasscloud/swoovr-*`) and tagged with the full commit SHA; deployments use digests.
+- SSH runs as `root`, with strict host-key checking, using the `uat` environment secrets `UAT_SSH_HOST`, `UAT_SSH_USER`, `UAT_SSH_PRIVATE_KEY` and `UAT_SSH_HOST_KEY`.
+- The repository variable `DEPLOYMENT_MODE` selects `upgrade` (default) or `refresh`, checked with an if/elif/else; that variable alone authorises a refresh (owner correction, same day: no separate approval environment or confirmation variable). A refresh preserves the host, its certificates and server-held secrets, and **empties the R2 photo bucket**.
+- Zammad is deployed and provisioned by every deployment, but its mail (a Microsoft 365 mailbox) is configured by the owner in Zammad after setup and must not be overwritten.
+- No Vultr firewall group is in front of the VM; the host accepts key-only SSH from any address. The organisation already allows public packages.
+- The first Swoovr administrator is named by the `uat` variable `UAT_INITIAL_ADMIN_EMAIL`.
+- Tailscale is installed by hand later (not by automation).
+- The owner needs no database dump of the current UAT and will start from scratch.
+
+This replaces D356's private Docker Hub DEFAULT and multi-arch build, and D359's manual Images workflow (removed).
+
+**DEFAULT** (builder):
+1. **Workflows:** `.github/workflows/deploy-uat.yml` (tag push only) and `uat-maintenance.yml` (manual: `status`, `history`, `admin-finalize`). Both share one concurrency group. Both are listed in `ENABLED_WORKFLOWS` on this request; the owner confirms at PR review.
+2. **Validation:**
+   - a strict tag regex;
+   - the tag must point at the built commit, and that commit must be an ancestor of `origin/main`;
+   - Major.Minor must match `Directory.Build.props` (D320);
+   - the images compile as `X.Y.Z` (new `SWOOVR_VERSION_BUILD` build argument);
+   - the existing image for a commit is reused, never rebuilt or overwritten;
+   - an anonymous pull of every digest must succeed (packages must be public).
+3. **Mode:** `DEPLOYMENT_MODE` is read once, checked (anything but empty, `upgrade` or `refresh` fails before any build or SSH) and carried as a job output. The workflow passes `--confirm-refresh swoovr-uat:<tag>` itself, so the host refuses a refresh started any other way. Set the variable back to `upgrade` after a refresh.
+4. **One server entry point**, `deploy/vultr-uat/bin/swoovr deploy`. The `bin/` scripts deleted in `fbe7a17` are restored and refactored, and the manual `upgrade`/`reset` paths are gone.
+   - It verifies checksums, takes a host lock and refuses a tag already deployed from another commit.
+   - It installs the release without touching `env/` or `tls/`, and writes GitHub-supplied provider values from stdin. An empty value keeps the host value; `-` clears it.
+   - **Upgrade:** a verified `pg_dump` backup, then a single `migrate`, `up -d`, Zammad provisioning and Keycloak reconciliation.
+   - **Refresh:** a verified backup that stops the run if it fails, then `down --volumes` for the `swoovr-uat` project only, then `r2-empty` (operator image; deletes every object in `Media__R2__Bucket` with SigV4 and keeps the bucket; refuses a bucket name other than the configured one), then the existing bootstrap sequence.
+   - Then the first-administrator stage 2, smoke checks and `state/releases.jsonl`.
+   - Rollback is an image and bundle swap to a staged release and never a database rollback.
+5. **Server-held secrets stay on the host:** generated passwords, data keys, client secrets, the Zammad tokens and the new `swoovr-deploy` secret. GitHub holds only owner-supplied provider values (mapping: `envtool.py` `PROVIDER_VALUES`).
+6. **Keycloak automation:** a master-realm service client `swoovr-deploy`, created by the temporary admin on a fresh database. It can only manage the three Swoovr realms and read master users. `keycloak-reconcile` (idempotent) does the following:
+   - maintains `swoovr-zammad` and the Entra broker (Keycloak side only);
+   - verifies web callbacks without rewriting them;
+   - enables `swoovr-members` and `swoovr-staff` (venues refused);
+   - deletes `swoovr-bootstrap` only once a personal master admin with OTP exists.
+7. **First administrator, two stages:**
+   - Deployments prepare the realms and the broker; no account or password is invented.
+   - After the person's first Entra sign-in, root is granted only to the single enabled staff user with that address, a Keycloak-verified email, a linked Entra identity, an active Swoovr staff account with the same address, and only when no root exists (`root-admin ensure`, idempotent, audited). A pending state never fails a deployment and is never reported as granted.
+8. **Zammad mail:** `SWOOVR_ZAMMAD_MANAGE_MAIL` (`UAT_ZAMMAD_MANAGE_MAIL`, default `false`). When false, `provision.rb` leaves every mail channel and the notification sender alone; local provisioning keeps managing them. `bin/swoovr zammad-admin-login on|off` shows Zammad's password form for its built-in admin `swoovr-provisioner`, so the owner can add the mailbox (staff SSO users are Agents, and the staff sync reverts other roles); every deployment hides it again. A refresh deletes Zammad's data, so the mailbox is set up again after each refresh. `envtool.py init` also appends keys added to a template to existing env files, without changing existing values.
+9. **Tailscale preparation:** Caddy's private-admin matcher also admits the optional `SWOOVR_ADMIN_PRIVATE_NETWORKS` (`env/caddy-admin.env`). It is empty by default, so behaviour is unchanged.
+
+**OPEN:**
+- production promotion from GHCR (the removed `images.yml` held the ACR import);
+- a schedule for `founders allocate`.
+
+Reversible: delete the tag-triggered workflow, or set `DEPLOYMENT_MODE=upgrade`; the host scripts also work by hand. [Runbook](../../deploy/vultr-uat/README.md), [GitHub configuration](UAT-GITHUB-DEPLOYMENT.md), [Tailscale](UAT-TAILSCALE-SETUP.md). Nothing was deployed, published or configured on GitHub by this change.

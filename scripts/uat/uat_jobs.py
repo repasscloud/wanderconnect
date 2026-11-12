@@ -121,6 +121,12 @@ def main(args):
     if args==['keycloak-bootstrap']:
         from keycloak_bootstrap import main as bootstrap
         return bootstrap()
+    if args[:1]==['r2-empty']:
+        from r2_empty import main as r2_empty
+        return r2_empty(args[1:])
+    if args[:1]==['keycloak-reconcile'] and set(args[1:])<={'--admin-only'}:
+        from keycloak_reconcile import main as reconcile
+        return reconcile(args[1:])
     if args==['tools-check']:
         for values in [['pg_dump','--version'],['pg_restore','--version'],['psql','--version'],['age','--version'],['dotnet','--list-runtimes']]:run(values)
         import azure.identity,azure.storage.blob

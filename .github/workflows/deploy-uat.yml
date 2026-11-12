@@ -1,0 +1,494 @@
+# Swoovr UAT release and deployment (D362). Owner request, 12 November 2026: push a vX.Y.Z tag from main and the
+# whole UAT deployment happens here. Runbook: deploy/vultr-uat/README.md. Secrets inventory and setup:
+# docs/delivery/UAT-GITHUB-DEPLOYMENT.md and scripts/uat/setup-github-uat.sh.
+#
+#   validate           strict vX.Y.Z tag, tag == checked-out commit, commit reachable from origin/main, version matches
+#                      Directory.Build.props Major.Minor, DEPLOYMENT_MODE read ONCE and passed on as a job output
+#   build              five Swoovr images, linux/amd64 only, ghcr.io/repasscloud/swoovr-<image>:<full commit SHA>;
+#                      an existing commit tag is reused, never rebuilt or overwritten
+#   deploy             `uat` environment: release manifest, anonymous-pull check (packages must be PUBLIC), realm
+#                      templates, bundle, verified SSH as root, deploy, public smoke checks, summary
+#
+# DEPLOYMENT_MODE (repository variable: upgrade | refresh) is read when this run starts; it is not part of the tag.
+# Owner decision (12 November 2026): that variable alone selects refresh. Set it back to upgrade after a refresh.
+# Every action is pinned to a full commit SHA (the tag is only a comment).
+name: Deploy UAT
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+permissions: {}
+# One UAT deployment at a time, never cancelled half-way (shared with uat-maintenance.yml).
+concurrency:
+  group: swoovr-uat-deploy
+  cancel-in-progress: false
+env:
+  REGISTRY: ghcr.io/repasscloud
+
+jobs:
+  validate:
+    name: Validate tag, branch and mode
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      build: ${{ steps.tag.outputs.build }}
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - name: Strict version tag
+        id: tag
+        env:
+          REF: ${{ github.ref }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$REF_TYPE" == tag && "$REF" == "refs/tags/$TAG" ]] || { echo "::error::Not a tag push."; exit 1; }
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Tag '$TAG' is not vX.Y.Z (digits only, no leading zeros, no suffix)."; exit 1
+          fi
+          { echo "tag=$TAG"; echo "version=${TAG#v}"; echo "build=${BASH_REMATCH[3]}"; } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Tagged commit is on main
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --quiet origin "+refs/tags/$TAG:refs/tags/$TAG"
+          tagged="$(git rev-parse "refs/tags/$TAG^{commit}")"
+          [[ "$tagged" == "$GITHUB_SHA" ]] || { echo "::error::$TAG points at $tagged, not the commit being built ($GITHUB_SHA)."; exit 1; }
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::$GITHUB_SHA is not reachable from origin/main. Only tags on main deploy."; exit 1
+          fi
+          echo "$TAG -> $GITHUB_SHA, reachable from origin/main."
+      - name: Version matches Directory.Build.props
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release_version.py msbuild-args "$VERSION" > /dev/null
+          python3 scripts/check_version.py
+      - name: Deployment mode (read once)
+        id: mode
+        env:
+          MODE: ${{ vars.DEPLOYMENT_MODE }}
+        run: |
+          set -euo pipefail
+          # Unset means upgrade. Anything other than upgrade or refresh stops here, before any build or SSH.
+          if [[ -z "$MODE" || "$MODE" == upgrade ]]; then
+            mode=upgrade
+          elif [[ "$MODE" == refresh ]]; then
+            mode=refresh
+            echo "::warning::DEPLOYMENT_MODE=refresh: this run deletes and recreates all UAT application data (after a verified backup), and empties the R2 photo bucket."
+          else
+            echo "::error::DEPLOYMENT_MODE must be upgrade or refresh, not '$MODE'."
+            exit 1
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Deployment mode: $mode"
+
+  build:
+    name: Image ${{ matrix.component }} (linux/amd64)
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        component: [api, web, admin, operator, keycloak]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Reuse an existing image for this commit
+        id: existing
+        env:
+          IMAGE: ${{ env.REGISTRY }}/swoovr-${{ matrix.component }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"')" \
+              && [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Image exists for this commit; reusing $digest (never rebuilt or overwritten)."
+            { echo "exists=true"; echo "digest=$digest"; } >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push
+        id: build
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.component == 'keycloak' && 'containers/uat/Keycloak.Dockerfile' || 'containers/uat/Dockerfile' }}
+          target: ${{ matrix.component }}
+          platforms: linux/amd64
+          build-args: |
+            SWOOVR_VERSION=${{ needs.validate.outputs.version }}
+            SWOOVR_VERSION_BUILD=${{ needs.validate.outputs.build }}
+            SWOOVR_SOURCE_REVISION=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.validate.outputs.version }}
+            org.opencontainers.image.title=swoovr-${{ matrix.component }}
+          tags: ${{ env.REGISTRY }}/swoovr-${{ matrix.component }}:${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          push: true
+          cache-from: type=gha,scope=uat-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=uat-${{ matrix.component }}
+      - name: Record the digest
+        env:
+          COMPONENT: ${{ matrix.component }}
+          BUILT: ${{ steps.build.outputs.digest }}
+          EXISTING: ${{ steps.existing.outputs.digest }}
+        run: |
+          set -euo pipefail
+          digest="${BUILT:-$EXISTING}"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::No digest for $COMPONENT."; exit 1; }
+          mkdir -p digests && echo "$digest" > "digests/$COMPONENT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.component }}
+          path: digests/*
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to UAT (${{ needs.validate.outputs.mode }})
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    environment: uat
+    env:
+      TAG: ${{ needs.validate.outputs.tag }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      MODE: ${{ needs.validate.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - name: Check configuration
+        env:
+          SSH_HOST: ${{ secrets.UAT_SSH_HOST }}
+          SSH_USER: ${{ secrets.UAT_SSH_USER }}
+          SSH_KEY: ${{ secrets.UAT_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.UAT_SSH_HOST_KEY }}
+          EXPECTED_HOSTNAME: ${{ vars.UAT_EXPECTED_HOSTNAME }}
+          ENTRA_TENANT: ${{ vars.UAT_ENTRA_TENANT_ID }}
+          ENTRA_CLIENT: ${{ vars.UAT_ENTRA_CLIENT_ID }}
+          ADMIN_EMAIL: ${{ vars.UAT_INITIAL_ADMIN_EMAIL }}
+        run: |
+          set -euo pipefail
+          fail=0
+          need() { [[ -n "$2" ]] || { echo "::error::$1 is not set in the uat environment."; fail=1; }; }
+          need UAT_SSH_HOST "$SSH_HOST"; need UAT_SSH_USER "$SSH_USER"; need UAT_SSH_PRIVATE_KEY "$SSH_KEY"
+          need UAT_SSH_HOST_KEY "$SSH_HOST_KEY"; need UAT_EXPECTED_HOSTNAME "$EXPECTED_HOSTNAME"
+          need UAT_ENTRA_TENANT_ID "$ENTRA_TENANT"; need UAT_ENTRA_CLIENT_ID "$ENTRA_CLIENT"; need UAT_INITIAL_ADMIN_EMAIL "$ADMIN_EMAIL"
+          [[ "$SSH_USER" == root ]] || { echo "::error::UAT_SSH_USER must be root."; fail=1; }
+          [[ "$SSH_HOST" =~ ^[A-Za-z0-9.:-]+$ ]] || { echo "::error::UAT_SSH_HOST must be a bare IP address or host name."; fail=1; }
+          [[ "$EXPECTED_HOSTNAME" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || { echo "::error::UAT_EXPECTED_HOSTNAME is not a host name."; fail=1; }
+          grep -q -- '-----BEGIN OPENSSH PRIVATE KEY-----' <<< "$SSH_KEY" || { echo "::error::UAT_SSH_PRIVATE_KEY must be an OpenSSH private key."; fail=1; }
+          if [[ ! "$SSH_HOST_KEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp(256|384|521)|ssh-rsa)\ [A-Za-z0-9+/]+=*$ ]]; then
+            echo "::error::UAT_SSH_HOST_KEY must be one public host key line: '<type> <base64>' (from ssh-keyscan, checked against the fingerprint)."; fail=1
+          fi
+          [[ "$ADMIN_EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || { echo "::error::UAT_INITIAL_ADMIN_EMAIL is not an email address."; fail=1; }
+          exit "$fail"
+      - name: Release manifest
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          {
+            echo "SWOOVR_TAG=$TAG"
+            echo "SWOOVR_VERSION=$VERSION"
+            echo "SWOOVR_COMMIT=$GITHUB_SHA"
+            for component in api web admin operator keycloak; do
+              upper="$(tr '[:lower:]' '[:upper:]' <<< "$component")"
+              echo "SWOOVR_${upper}_IMAGE=$REGISTRY/swoovr-$component@$(cat "digests/$component")"
+            done
+          } > dist/release-manifest.env
+          python3 deploy/vultr-uat/bin/manifest-json.py dist/release-manifest.env --release > /dev/null
+          python3 - dist/release-manifest.env > dist/release-manifest.json <<'PY'
+          import json, os, sys, time
+          values = dict(line.strip().split('=', 1) for line in open(sys.argv[1]) if '=' in line)
+          images = {}
+          for component in ['api', 'web', 'admin', 'operator', 'keycloak']:
+              ref = values[f'SWOOVR_{component.upper()}_IMAGE']
+              name, digest = ref.split('@')
+              images[component] = {'name': name, 'tag': values['SWOOVR_COMMIT'], 'digest': digest, 'reference': ref}
+          print(json.dumps({'schema': 'swoovr-uat-release/1', 'tag': values['SWOOVR_TAG'], 'version': values['SWOOVR_VERSION'],
+                            'commit': values['SWOOVR_COMMIT'], 'images': images,
+                            'built_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                            'deployment_mode': os.environ['MODE'], 'workflow_run_id': os.environ['RUN_ID'],
+                            'workflow_run_attempt': os.environ['RUN_ATTEMPT'], 'repository': os.environ['REPOSITORY']},
+                           indent=2, sort_keys=True))
+          PY
+          cat dist/release-manifest.env
+      - name: Images are public (anonymous pull)
+        run: |
+          set -euo pipefail
+          anonymous="$(mktemp -d)"
+          fail=0
+          for component in api web admin operator keycloak; do
+            ref="$REGISTRY/swoovr-$component@$(cat "digests/$component")"
+            if platforms="$(DOCKER_CONFIG="$anonymous" docker buildx imagetools inspect "$ref" \
+                --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}' 2>/dev/null)"; then
+              grep -q 'linux/amd64' <<< "$platforms" || { echo "::error::$ref has no linux/amd64 image."; fail=1; }
+              echo "public: $ref"
+            else
+              echo "::error::swoovr-$component cannot be pulled anonymously. Make the GHCR package public (repasscloud → Packages → swoovr-$component → Package settings → Change visibility → Public), then re-run this job."
+              fail=1
+            fi
+          done
+          exit "$fail"
+      - name: Disabled realm templates for this commit
+        env:
+          ENTRA_TENANT: ${{ vars.UAT_ENTRA_TENANT_ID }}
+          ENTRA_CLIENT: ${{ vars.UAT_ENTRA_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          python3 scripts/uat/keycloak_realms.py --admin-origin https://admin-uat.swoovr.app \
+            --venue-origin https://venues-uat.swoovr.app --entra-tenant-id "$ENTRA_TENANT" \
+            --entra-client-id "$ENTRA_CLIENT" --output "$RUNNER_TEMP/realms-$GITHUB_SHA"
+      - name: Deployment bundle
+        run: |
+          set -euo pipefail
+          deploy/vultr-uat/bin/make-bundle.sh dist/release-manifest.env "$RUNNER_TEMP/realms-$GITHUB_SHA" \
+            dist/release-manifest.json dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: swoovr-uat-release-${{ needs.validate.outputs.tag }}-${{ github.run_attempt }}
+          path: |
+            dist/release-manifest.env
+            dist/release-manifest.json
+            dist/*.tar.gz
+            dist/*.sha256
+          retention-days: 90
+          if-no-files-found: error
+      - name: SSH (verified host key)
+        env:
+          SSH_HOST: ${{ secrets.UAT_SSH_HOST }}
+          SSH_KEY: ${{ secrets.UAT_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.UAT_SSH_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/ssh"; install -d -m 700 "$dir"
+          ( umask 077; printf '%s\n' "$SSH_KEY" > "$dir/key"; printf '%s %s\n' "$SSH_HOST" "$SSH_HOST_KEY" > "$dir/known_hosts" )
+          cat > "$dir/config" <<EOF
+          Host uat
+            HostName $SSH_HOST
+            User root
+            IdentityFile $dir/key
+            IdentitiesOnly yes
+            UserKnownHostsFile $dir/known_hosts
+            StrictHostKeyChecking yes
+            GlobalKnownHostsFile none
+            BatchMode yes
+            ConnectTimeout 20
+            ServerAliveInterval 30
+            ServerAliveCountMax 10
+          EOF
+          chmod 600 "$dir/config"
+          echo "SSH_CONFIG=$dir/config" >> "$GITHUB_ENV"
+      - name: Server preflight
+        env:
+          EXPECTED_HOSTNAME: ${{ vars.UAT_EXPECTED_HOSTNAME }}
+        run: |
+          set -euo pipefail
+          ssh -F "$SSH_CONFIG" uat bash -s -- "$EXPECTED_HOSTNAME" <<'REMOTE'
+          set -euo pipefail
+          [[ "$(id -u)" == 0 ]] || { echo "FAIL not root"; exit 1; }
+          [[ "$(hostname)" == "$1" ]] || { echo "FAIL this host is $(hostname), expected $1"; exit 1; }
+          . /etc/os-release; [[ "$ID" == debian ]] || { echo "FAIL not Debian"; exit 1; }
+          [[ "$(dpkg --print-architecture)" == amd64 ]] || { echo "FAIL not amd64"; exit 1; }
+          docker info > /dev/null || { echo "FAIL Docker is not running"; exit 1; }
+          echo "host $(hostname): Debian $VERSION_ID, Docker $(docker version -f '{{.Server.Version}}'), Compose $(docker compose version --short)"
+          for path in /var/lib/docker /opt; do
+            free="$(df --output=avail -BG "$path" | tail -1 | tr -dc 0-9)"
+            echo "free on $path: ${free} GB"; (( free >= 15 )) || { echo "FAIL need 15 GB free on $path"; exit 1; }
+          done
+          [[ -s /etc/caddy/certs/uat-origin.pem && -s /etc/caddy/certs/uat-origin.key ]] || { echo "FAIL origin certificate missing in /etc/caddy/certs"; exit 1; }
+          systemctl is-active --quiet swoovr-edge-firewall || echo "WARNING swoovr-edge-firewall is not active (80/443 may not be limited to Cloudflare)"
+          REMOTE
+      - name: Transfer and verify the bundle
+        run: |
+          set -euo pipefail
+          bundle="$(cd dist && ls swoovr-uat-bundle-*.tar.gz)"
+          release="$TAG-${GITHUB_SHA:0:12}"
+          ssh -F "$SSH_CONFIG" uat 'install -d -m 700 /opt/swoovr/releases/.incoming'
+          scp -F "$SSH_CONFIG" -q "dist/$bundle" "dist/$bundle.sha256" "uat:/opt/swoovr/releases/.incoming/"
+          ssh -F "$SSH_CONFIG" uat bash -s -- "$bundle" "$release" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/swoovr/releases/.incoming
+          sha256sum --quiet -c "$1.sha256"
+          target="/opt/swoovr/releases/$2"
+          if [[ -d "$target" ]]; then
+            # Same tag and commit staged before (a re-run): it must be byte-identical apart from per-run metadata.
+            fresh="$(mktemp -d)"; tar -C "$fresh" -xzf "$1"
+            diff -q <(grep -v ' ./release-manifest.json$' "$fresh/swoovr-uat/SHA256SUMS") \
+                    <(grep -v ' ./release-manifest.json$' "$target/swoovr-uat/SHA256SUMS") \
+              || { echo "FAIL $2 is already staged with different content; releases are immutable"; exit 1; }
+            cp "$fresh/swoovr-uat/release-manifest.json" "$target/swoovr-uat/release-manifest.json"
+            ( cd "$target/swoovr-uat" && grep -v ' ./release-manifest.json$' SHA256SUMS > SHA256SUMS.tmp \
+              && sha256sum ./release-manifest.json >> SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS )
+            rm -rf "$fresh"
+          else
+            install -d -m 700 "$target"; tar -C "$target" -xzf "$1"
+          fi
+          ( cd "$target/swoovr-uat" && sha256sum --quiet -c SHA256SUMS )
+          rm -f "$1" "$1.sha256"
+          echo "staged and verified: $target"
+          REMOTE
+          echo "RELEASE_DIR=/opt/swoovr/releases/$release/swoovr-uat" >> "$GITHUB_ENV"
+      - name: Deploy (${{ needs.validate.outputs.mode }})
+        env:
+          RUN_ID: ${{ github.run_id }}
+          EXPECTED_HOSTNAME: ${{ vars.UAT_EXPECTED_HOSTNAME }}
+          # Owner-supplied provider values (PV_ + the name in deploy/vultr-uat/bin/envtool.py PROVIDER_VALUES). Empty
+          # values keep the host's value. They travel only on the SSH session's stdin, never in arguments or artifacts.
+          PV_UAT_ENTRA_CLIENT_SECRET: ${{ secrets.UAT_ENTRA_CLIENT_SECRET }}
+          PV_UAT_DIDIT_API_KEY: ${{ secrets.UAT_DIDIT_API_KEY }}
+          PV_UAT_DIDIT_WEBHOOK_SECRET: ${{ secrets.UAT_DIDIT_WEBHOOK_SECRET }}
+          PV_UAT_R2_ACCESS_KEY_ID: ${{ secrets.UAT_R2_ACCESS_KEY_ID }}
+          PV_UAT_R2_SECRET_ACCESS_KEY: ${{ secrets.UAT_R2_SECRET_ACCESS_KEY }}
+          PV_UAT_SCREENING_API_KEY: ${{ secrets.UAT_SCREENING_API_KEY }}
+          PV_UAT_MEDIA_PIPELINE_SERVICE_TOKEN: ${{ secrets.UAT_MEDIA_PIPELINE_SERVICE_TOKEN }}
+          PV_UAT_MEDIA_PIPELINE_UPLOAD_SIGNING_KEY: ${{ secrets.UAT_MEDIA_PIPELINE_UPLOAD_SIGNING_KEY }}
+          PV_UAT_MODERATION_ESCALATION_EMAIL: ${{ secrets.UAT_MODERATION_ESCALATION_EMAIL }}
+          PV_UAT_MODERATION_ESCALATION_BACKUP_EMAIL: ${{ secrets.UAT_MODERATION_ESCALATION_BACKUP_EMAIL }}
+          PV_UAT_TWILIO_SMS_ACCOUNT_SID: ${{ secrets.UAT_TWILIO_SMS_ACCOUNT_SID }}
+          PV_UAT_TWILIO_SMS_AUTH_TOKEN: ${{ secrets.UAT_TWILIO_SMS_AUTH_TOKEN }}
+          PV_UAT_TWILIO_EMAIL_KEY_SID: ${{ secrets.UAT_TWILIO_EMAIL_KEY_SID }}
+          PV_UAT_TWILIO_EMAIL_KEY_SECRET: ${{ secrets.UAT_TWILIO_EMAIL_KEY_SECRET }}
+          PV_UAT_SENDGRID_API_KEY: ${{ secrets.UAT_SENDGRID_API_KEY }}
+          PV_UAT_MAILERSEND_API_TOKEN: ${{ secrets.UAT_MAILERSEND_API_TOKEN }}
+          PV_UAT_ZAMMAD_IMAP_PASSWORD: ${{ secrets.UAT_ZAMMAD_IMAP_PASSWORD }}
+          PV_UAT_INITIAL_ADMIN_EMAIL: ${{ vars.UAT_INITIAL_ADMIN_EMAIL }}
+          PV_UAT_ENTRA_TENANT_ID: ${{ vars.UAT_ENTRA_TENANT_ID }}
+          PV_UAT_ENTRA_CLIENT_ID: ${{ vars.UAT_ENTRA_CLIENT_ID }}
+          PV_UAT_KEYCLOAK_ENABLED_REALMS: ${{ vars.UAT_KEYCLOAK_ENABLED_REALMS }}
+          PV_UAT_DIDIT_WORKFLOW_ID: ${{ vars.UAT_DIDIT_WORKFLOW_ID }}
+          PV_UAT_R2_ENDPOINT: ${{ vars.UAT_R2_ENDPOINT }}
+          PV_UAT_R2_BUCKET: ${{ vars.UAT_R2_BUCKET }}
+          PV_UAT_SCREENING_BASE_URL: ${{ vars.UAT_SCREENING_BASE_URL }}
+          PV_UAT_TWILIO_SMS_FROM: ${{ vars.UAT_TWILIO_SMS_FROM }}
+          PV_UAT_MAIL_FROM: ${{ vars.UAT_MAIL_FROM }}
+          PV_UAT_MAIL_FROM_NAME: ${{ vars.UAT_MAIL_FROM_NAME }}
+          PV_UAT_MAIL_HELPDESK_FROM_NAME: ${{ vars.UAT_MAIL_HELPDESK_FROM_NAME }}
+          PV_UAT_API_MAIL_SERVICE: ${{ vars.UAT_API_MAIL_SERVICE }}
+          PV_UAT_KEYCLOAK_MAIL_SERVICE: ${{ vars.UAT_KEYCLOAK_MAIL_SERVICE }}
+          PV_UAT_SMS_SERVICE: ${{ vars.UAT_SMS_SERVICE }}
+          PV_UAT_SMTP_HOST: ${{ vars.UAT_SMTP_HOST }}
+          PV_UAT_SMTP_PORT: ${{ vars.UAT_SMTP_PORT }}
+          PV_UAT_SMTP_USERNAME: ${{ vars.UAT_SMTP_USERNAME }}
+          PV_UAT_ZAMMAD_SUPPORT_ADDRESS: ${{ vars.UAT_ZAMMAD_SUPPORT_ADDRESS }}
+          PV_UAT_ZAMMAD_SUPPORT_NAME: ${{ vars.UAT_ZAMMAD_SUPPORT_NAME }}
+          PV_UAT_ZAMMAD_IMAP_HOST: ${{ vars.UAT_ZAMMAD_IMAP_HOST }}
+          PV_UAT_ZAMMAD_IMAP_PORT: ${{ vars.UAT_ZAMMAD_IMAP_PORT }}
+          PV_UAT_ZAMMAD_IMAP_SECURITY: ${{ vars.UAT_ZAMMAD_IMAP_SECURITY }}
+          PV_UAT_ZAMMAD_IMAP_USERNAME: ${{ vars.UAT_ZAMMAD_IMAP_USERNAME }}
+          PV_UAT_ZAMMAD_IMAP_FOLDER: ${{ vars.UAT_ZAMMAD_IMAP_FOLDER }}
+          PV_UAT_ZAMMAD_IMAP_KEEP_ON_SERVER: ${{ vars.UAT_ZAMMAD_IMAP_KEEP_ON_SERVER }}
+          PV_UAT_ZAMMAD_MANAGE_MAIL: ${{ vars.UAT_ZAMMAD_MANAGE_MAIL }}
+        run: |
+          set -euo pipefail
+          values="$RUNNER_TEMP/provider-values.json"
+          ( umask 077; jq -n 'env | with_entries(select(.key | startswith("PV_")) | .key |= ltrimstr("PV_"))' > "$values" )
+          confirm=()
+          [[ "$MODE" == refresh ]] && confirm=(--confirm-refresh "swoovr-uat:$TAG")
+          set +e
+          ssh -F "$SSH_CONFIG" uat "$RELEASE_DIR/bin/swoovr" deploy --release-dir "$RELEASE_DIR" --mode "$MODE" \
+            --provider-values - --run-id "$RUN_ID" --expect-hostname "$EXPECTED_HOSTNAME" "${confirm[@]}" \
+            < "$values" 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          code="${PIPESTATUS[0]}"
+          set -e
+          rm -f "$values"
+          grep '^SWOOVR_RESULT ' "$RUNNER_TEMP/deploy.log" | sed 's/^SWOOVR_RESULT //' > "$RUNNER_TEMP/results.txt" || true
+          exit "$code"
+      - name: Public checks through Cloudflare
+        env:
+          REALMS: ${{ vars.UAT_KEYCLOAK_ENABLED_REALMS }}
+        run: |
+          set -euo pipefail
+          fail=0
+          check() { # label, expected (regex on "<status> <body>"), curl arguments...
+            local label="$1" want="$2"; shift 2
+            local out; out="$(curl -sS -o "$RUNNER_TEMP/body" -w '%{http_code}' --max-time 20 "$@" 2>/dev/null || true)"
+            out="$out $(head -c 400 "$RUNNER_TEMP/body" 2>/dev/null | tr -d '\n')"
+            if grep -Eq -- "$want" <<< "$out"; then echo "PASS $label"; else echo "FAIL $label (got ${out:0:3})"; fail=1; fi
+          }
+          check 'api ready' '^200 .*"status":"ready"' https://api-uat.swoovr.app/health/ready
+          check "api version $VERSION" "^200 .*\"version\":\"$VERSION\"" https://api-uat.swoovr.app/version
+          check 'web ready' '^200 ' https://uat.swoovr.app/health/ready
+          check 'admin ready' '^200 ' https://admin-uat.swoovr.app/health/ready
+          check 'web home page' '^200 ' https://uat.swoovr.app/
+          check 'helpdesk' '^200 ' https://helpdesk-uat.swoovr.app/
+          for realm in ${REALMS//,/ }; do
+            check "realm discovery $realm" "^200 .*\"issuer\":\"https://auth-uat.swoovr.app/realms/$realm\"" \
+              "https://auth-uat.swoovr.app/realms/$realm/.well-known/openid-configuration"
+          done
+          check 'Keycloak admin console not public' '^404 ' https://auth-uat.swoovr.app/admin/
+          check 'master realm not public' '^404 ' https://auth-uat.swoovr.app/realms/master/.well-known/openid-configuration
+          check 'messaging hub requires sign-in' '^401 ' -X POST 'https://api-uat.swoovr.app/hubs/messages/negotiate?negotiateVersion=1'
+          # The handshake key is a fixed nonce (RFC 6455), not a credential; curl waits after 101, so a short timeout.
+          check 'helpdesk WebSocket upgrade' '^101 ' --max-time 5 --http1.1 -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+            -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: c3dvb3ZyLXVhdC1zbW9rZQ==' https://helpdesk-uat.swoovr.app/ws
+          exit "$fail"
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## UAT deployment: $TAG"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Mode | \`$MODE\` |"
+            echo "| Commit | \`$GITHUB_SHA\` |"
+            echo "| Workflow run | ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT}) |"
+            if [[ -f "$RUNNER_TEMP/results.txt" ]]; then
+              while IFS='=' read -r key value; do
+                [[ "$key" == backup ]] && value="${value##*/}"
+                echo "| ${key} | \`${value}\` |"
+              done < "$RUNNER_TEMP/results.txt"
+            fi
+            echo
+            echo "### Images"
+            for component in api web admin operator keycloak; do
+              [[ -f "digests/$component" ]] && echo "- \`$REGISTRY/swoovr-$component@$(cat "digests/$component")\` (tag \`$GITHUB_SHA\`)"
+            done
+            if grep -q '^initial-admin=pending' "$RUNNER_TEMP/results.txt" 2>/dev/null; then
+              echo
+              echo "**First administrator pending:** sign in once at https://admin-uat.swoovr.app with the Entra account, then run the *UAT maintenance* workflow with \`admin-finalize\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove SSH material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ssh" "$RUNNER_TEMP/provider-values.json"
