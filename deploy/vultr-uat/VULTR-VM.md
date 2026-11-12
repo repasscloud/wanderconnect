@@ -65,7 +65,9 @@ The bundle `swoovr-uat-bundle-<commit>.tar.gz` is **not in Git and you don't bui
 1. This repository on GitHub → **Actions** → **Images** → open the successful run → **Artifacts** (bottom of the summary page) → download **`swoovr-release-<commit>`**. Or with the GitHub CLI, from inside your checkout of this repository:
 
    ```sh
-   gh run list --workflow images.yml -L 5      # note the run ID
+   gh run list --workflow images.yml -L 5 --json databaseId,headSha,conclusion,createdAt \
+     -q '.[] | "\(.databaseId)  \(.headSha)  \(.conclusion)  \(.createdAt)"'
+   # prints: <run-id>  <commit>  success  <date>; use the newest "success" line
    gh run download <run-id> -n swoovr-release-<commit> -D ~/swoovr-release
    ```
 
