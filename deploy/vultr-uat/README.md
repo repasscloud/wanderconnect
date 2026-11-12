@@ -61,7 +61,39 @@ zammad/    provision.rb  10-create-zammad-role.sh
 
 ## 1. Prepare the host (once)
 
-The bundle comes from the Images run (§0 step 2, [VULTR-VM.md §5a](VULTR-VM.md#5a-get-the-bundle-on-your-machine)). Run every VM command in this runbook **as root**; if you log in as another user, `sudo -i` first.
+### 1a. Get the bundle (on your machine)
+
+The bundle `swoovr-uat-bundle-<commit>.tar.gz` is **not in Git, and you don't build it by hand**. The **Images** GitHub Actions workflow makes it in the same run that pushes the five images to Docker Hub (§0 step 2). `<commit>` is the full 40-character commit the images were built from.
+
+1. Download the run's artifact **`swoovr-release-<commit>`**:
+   - **Browser:** this repository on GitHub → **Actions** → **Images** → open the successful run → **Artifacts** (bottom of the run's summary page) → `swoovr-release-<commit>`. It downloads as a zip; unzip it.
+   - **GitHub CLI**, from inside your checkout of this repository (`gh` unzips it for you):
+
+     ```sh
+     gh run list --workflow images.yml -L 5      # note the run ID of the successful run
+     gh run download <run-id> -n swoovr-release-<commit> -D ~/swoovr-release
+     ```
+
+2. Inside the downloaded folder:
+
+   ```text
+   release-manifest.env
+   release-manifest.json
+   dist/swoovr-uat-bundle-<commit>.tar.gz      <- this is the bundle; note the dist/ folder
+   ```
+
+Artifacts expire **30 days** after the run. After that, run **Images** again (Actions → Images → **Run workflow** on `main`), or rebuild only the bundle from a checkout at the same commit with that run's `release-manifest.env` (its contents are also printed on the run's summary page):
+
+```sh
+git checkout <commit>
+./deploy/vultr-uat/bin/make-bundle.sh release-manifest.env dist     # writes dist/swoovr-uat-bundle-<commit>.tar.gz
+```
+
+The bundle holds no secrets: `compose.yaml`, the Caddyfile, `bin/`, `env/*.env.example`, the Zammad provisioner and `release.env` (the image digests). Secrets are created on the VM in §3.
+
+### 1b. Copy it to the VM and prepare the host
+
+Run every VM command in this runbook **as root**; if you log in as another user, `sudo -i` first and stay root for the whole runbook. Mixing `sudo` and a normal user leaves files with mixed owners.
 
 ```sh
 # On your machine, from the folder that holds the unzipped artifact's dist/:
