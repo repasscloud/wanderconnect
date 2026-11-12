@@ -70,11 +70,19 @@ The bundle `swoovr-uat-bundle-<commit>.tar.gz` is **not in Git, and you don't bu
    - **GitHub CLI**, from inside your checkout of this repository (`gh` unzips it for you):
 
      ```sh
+     # 1. List recent runs: <run-id>  <commit>  <result>  <date>
      gh run list --workflow images.yml -L 5 --json databaseId,headSha,conclusion,createdAt \
        -q '.[] | "\(.databaseId)  \(.headSha)  \(.conclusion)  \(.createdAt)"'
-     # prints: <run-id>  <commit>  success  <date>; use the newest "success" line
-     gh run download <run-id> -n swoovr-release-<commit> -D ~/swoovr-release
+
+     # 2. Put the newest successful run in $1 (run ID) and $2 (commit), show the command, then download
+     set -- $(gh run list --workflow images.yml --status success -L 1 --json databaseId,headSha \
+       -q '.[0] | "\(.databaseId) \(.headSha)"')
+     [ -n "$2" ] || echo "No successful Images run found"
+     echo gh run download "$1" -n "swoovr-release-$2" -D ~/swoovr-release
+     gh run download "$1" -n "swoovr-release-$2" -D ~/swoovr-release
      ```
+
+     To download a different run, set it yourself first: `set -- <run-id> <commit>`, using a line from step 1, then run the two last commands.
 
 2. Inside the downloaded folder:
 
