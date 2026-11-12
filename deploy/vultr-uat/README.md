@@ -57,7 +57,7 @@ zammad/    provision.rb  10-create-zammad-role.sh
    - **SendGrid:** Settings → API Keys → Create (restricted, **Mail Send** only). The SMTP username is the literal word `apikey`.
    - **Twilio SMS (later):** Swoovr makes and checks its own codes; Twilio only delivers the text through Programmable Messaging (not Verify). When verification completes: an upgraded account; Messaging → Settings → **Geo permissions** for every tester country (at least Australia); an SMS-capable `From` number in E.164 form (`+61…`). Put the Account SID, Auth Token and From in `env/api.env` (`Sms__Twilio__*`), set `SWOOVR_SMS_SERVICE=twilio`, then `./bin/swoovr mail-apply`. #315 tracks restricted API keys.
    - **Until then, SMS codes go to Mailpit, not to phones.** Members can't receive a code themselves: phone verification is required on UAT, so either read the code in Mailpit and pass it on, or keep sign-ups to people you can help until Twilio SMS is live.
-   - **Didit** (API key, workflow ID, webhook secret; webhook URL set after bootstrap, §5), **Cloudflare R2** (endpoint, bucket, and an R2 API token with Object Read & Write on that bucket only), the screening endpoint and key, the media pipeline token and signing key, two escalation mailboxes you read, the Entra client secret, and the Entra tenant and client IDs for realm generation.
+   - **Didit** (API key, workflow ID, webhook secret; webhook URL set after bootstrap, §5), **Cloudflare R2** (endpoint, bucket, and an R2 API token with Object Read & Write on that bucket only), the screening endpoint and key, the media pipeline token and signing key, two escalation mailboxes you read, and the Entra staff app registration (tenant ID, client ID, client secret; how to create it: §3b).
 
 ## 1. Prepare the host (once)
 
@@ -157,25 +157,97 @@ Container trust keeps the system CAs. Only the services that call Caddy's public
 
 ## 3. Private configuration
 
+Two separate parts: **3a** fills the env files on the host; **3b** registers the staff sign-in app in Microsoft Entra, generates the three Keycloak realm templates on your own machine and loads them on the host. Do 3a first.
+
+### 3a. Env files (on the host)
+
 ```sh
+cd /opt/swoovr/swoovr-uat
 python3 bin/envtool.py init            # creates env/*.env, generating every password and data key once
 ```
 
 Open each `env/*.env` in an editor and replace every `__OWNER:…__` value. **All email and SMS settings live in one file, `env/mail.env`** (D358, D360): the sender `SWOOVR_MAIL_FROM` (`hello@repasscloud.com`) and display names, which service each sender uses (the table in §0), the Twilio Email key, the SendGrid SMTP relay, the optional Zammad IMAP mailbox, and the SMS choice. Its header lists which service uses what. The owner keeps a prepared copy at `.local/uat-host/mail.env` on their workstation; copy its values in with an editor.
 
-Replace every `__OWNER:…__` value in the other files too. Generated values are kept consistent across files: for example, the API's database password matches the bootstrap role password. The generated values are also stored in `env/.generated` (0600). Never paste values into a shell command, issue, PR or chat.
+Replace every `__OWNER:…__` value in the other files too, **except `SWOOVR_UAT_ENTRA_CLIENT_SECRET` in `env/realms.env`**: you create that secret in 3b step 1. Leave the `__RUN_…__` values alone; commands fill them (`realms-env` in 3b, `zammad-provision` during bootstrap). Generated values are kept consistent across files: for example, the API's database password matches the bootstrap role password. The generated values are also stored in `env/.generated` (0600). Never paste values into a shell command, issue, PR or chat. If a value contains `$`, wrap the whole value in single quotes; `swoovr check` refuses it otherwise.
 
-Generate the three **disabled** realm templates on your own machine, then copy the output directory to the host:
+### 3b. Staff sign-in (Entra) and the Keycloak realms
+
+Staff sign in through Microsoft Entra only (no passwords, no social sign-in). Keycloak's staff realm needs three values from an Entra **app registration**: the **Directory (tenant) ID** and the **Application (client) ID** (both UUIDs, not secret; they go into the realm templates) and a **client secret** (secret; it goes into `env/realms.env` on the host only).
+
+**1. Register the app in Entra** (once; needs at least the Application Developer role in your Microsoft tenant):
+
+1. Sign in to the [Microsoft Entra admin center](https://entra.microsoft.com). If you have several tenants, switch to the one your staff accounts are in (Settings icon → Directories + subscriptions).
+2. **Entra ID** → **App registrations** → **New registration**:
+   - **Name:** `Swoovr UAT staff` (staff may see it on Microsoft's sign-in page).
+   - **Supported account types:** single tenant (**Accounts in this organizational directory only**). Never a multitenant or personal-accounts option: the generator only builds a tenant-specific issuer.
+   - **Redirect URI:** platform **Web**, value exactly `https://auth-uat.swoovr.app/realms/swoovr-staff/broker/entra/endpoint`.
+   - **Register.**
+3. On the app's **Overview** page, note the two IDs:
+   - **Directory (tenant) ID** → `--entra-tenant-id` in step 2.
+   - **Application (client) ID** → `--entra-client-id` in step 2.
+
+   Don't use the Object ID; it's a different UUID. The generator rejects anything that isn't a UUID, and the all-zeros UUID.
+4. **Certificates & secrets** → **Client secrets** → **New client secret**. Pick an expiry (24 months at most; put the date in your calendar, because staff sign-in stops when it expires). Copy the **Value** column straight away (not the Secret ID); it's shown only once. On the host, paste it into `env/realms.env` as `SWOOVR_UAT_ENTRA_CLIENT_SECRET` with an editor.
+5. **API permissions:** Keycloak requests `openid profile email` and never calls Microsoft Graph. Recommended: **Add a permission** → Microsoft Graph → **Delegated** → `openid`, `profile`, `email`, then **Grant admin consent**, so staff don't see a consent prompt.
+6. Limit who can sign in: **Entra ID** → **Enterprise apps** → `Swoovr UAT staff` → **Properties** → **Assignment required?** = **Yes** → Save. Then **Users and groups** → **Add user/group** → only the approved staff. Without this, anyone in the tenant (guests included) can reach the staff realm.
+
+**2. Generate the realm templates (on your machine).** The generator reads the realm baseline from the repository, so run it from a checkout of **the same commit as the bundle**. That is the `<commit>` in the bundle's file name, `swoovr-uat-bundle-<commit>.tar.gz` (§1a); it's also `headSha` in the `gh run list` output. It writes three **disabled** realm templates and a `manifest.json`. They hold the two IDs and `${SWOOVR_UAT_…}` placeholders, no secrets; Keycloak's bootstrap fills the placeholders in memory. The output directory must be:
+
+- an **absolute** path;
+- **new**: the generator refuses to overwrite, so use a new name each time;
+- inside a folder that **already exists**;
+- **outside every Git checkout**, including the temporary one below.
+
+Make a temporary, **detached** checkout of that commit with `git worktree`. It's a second working folder from your existing clone, fixed at one commit with no branch, so your normal checkout and its uncommitted changes aren't touched:
 
 ```sh
-# On your machine, from the reviewed checkout (output outside any checkout):
-python3 scripts/uat/keycloak_realms.py --admin-origin https://admin-uat.swoovr.app \
-  --venue-origin https://venues-uat.swoovr.app --entra-tenant-id "<tenant>" --entra-client-id "<client>" \
-  --output /absolute/private/dir/swoovr-uat-realms
-# On the host:
-./bin/swoovr realms-env /path/to/swoovr-uat-realms
-./bin/swoovr check       # before bootstrap, only the Zammad tokens may still be placeholders
+# 1. Set the commit once (all 40 characters from the bundle's file name):
+COMMIT=<commit>
+
+# 2. From your existing clone of this repository, fetch it and make the detached checkout:
+cd <your clone of this repository>
+git fetch origin
+git cat-file -e "$COMMIT^{commit}" && echo "commit found"   # stop here if this errors: wrong or unfetched commit
+git worktree add --detach ~/swoovr-uat-checkout-$COMMIT "$COMMIT"
+
+# 3. Generate from inside it, writing outside it:
+mkdir -p -m 700 ~/swoovr-uat-private                         # parent folder, not in any checkout
+cd ~/swoovr-uat-checkout-$COMMIT
+git rev-parse HEAD                                           # must print the same 40 characters as $COMMIT
+# No member-origin flag: https://uat.swoovr.app (also the passkey RP ID) and https://auth-uat.swoovr.app
+# are built into the generator, so they can't change by mistake. Only the two portal origins are flags.
+python3 scripts/uat/keycloak_realms.py \
+  --admin-origin https://admin-uat.swoovr.app \
+  --venue-origin https://venues-uat.swoovr.app \
+  --entra-tenant-id "<Directory (tenant) ID>" \
+  --entra-client-id "<Application (client) ID>" \
+  --output ~/swoovr-uat-private/realms-$COMMIT
+
+# 4. Remove the temporary checkout (the generated folder in ~/swoovr-uat-private stays):
+cd <your clone of this repository>
+git worktree remove ~/swoovr-uat-checkout-$COMMIT
 ```
+
+No clone yet? `git clone git@github.com:repasscloud/wanderconnect.git ~/swoovr-uat-checkout-$COMMIT && cd ~/swoovr-uat-checkout-$COMMIT && git checkout --detach "$COMMIT"` does the same; afterwards delete that folder instead of step 4.
+
+Type the two origins exactly as shown (CONFIRMED D355; the generator accepts only single-level `https://*-uat.swoovr.app` origins). The member origin `https://uat.swoovr.app` and the authentication origin `https://auth-uat.swoovr.app` are built in. On success it prints `Prepared three DISABLED UAT realms and manifest in …`, and the folder contains `swoovr-members.json`, `swoovr-venues.json`, `swoovr-staff.json` and `manifest.json`.
+
+**3. Copy the folder to the host and load it:**
+
+```sh
+# On your machine (-p keeps the 0700/0600 permissions):
+scp -rp ~/swoovr-uat-private/realms-$COMMIT root@<VM IPv4>:/root/swoovr-uat-realms
+
+# As root on the host:
+cd /opt/swoovr/swoovr-uat
+./bin/swoovr realms-env /root/swoovr-uat-realms    # writes the three templates into env/realms.env
+rm -r /root/swoovr-uat-realms                      # env/realms.env now holds them; keep your local copy
+./bin/swoovr check
+```
+
+`realms-env` prints `Stored three disabled realm templates in env/realms.env.` Before the first bootstrap, `swoovr check` is expected to print exactly four `FAIL` lines, the Zammad tokens that bootstrap fills itself (`api.env: Ticketing__Zammad__IdentityToken`, `…StaffDirectoryToken`, `…RetentionToken`, `…HomeCityCheckToken` `is not filled`). Fix **any other** `FAIL` before you continue; for example, `realms.env: SWOOVR_UAT_ENTRA_CLIENT_SECRET is not filled` means 3b step 1.4 is missing.
+
+To change the tenant or client ID later, generate into a new folder and run `realms-env` again. Keycloak only imports realms that don't exist yet, so on a host that has already bootstrapped you also need **Reset UAT** (Day-2 operations).
 
 ## 4. Fresh bootstrap
 
@@ -200,7 +272,7 @@ The bootstrap runs these steps in order and stops at the first failure:
 These gates are identical on Azure and Vultr. Follow the identity, provider and admission sections of [DEPLOYMENT-UAT.md](../../docs/delivery/DEPLOYMENT-UAT.md) in this order:
 
 1. Verify the realms. Then protect the temporary master bootstrap administrator and retire it after setup.
-2. Register the Entra broker callback `https://auth-uat.swoovr.app/realms/swoovr-staff/broker/entra/endpoint`.
+2. Check that the Entra app's Web redirect URI is exactly `https://auth-uat.swoovr.app/realms/swoovr-staff/broker/entra/endpoint` (§3b step 1).
 3. Run the provider checks (Twilio Email, SendGrid, Didit with its webhook `https://api-uat.swoovr.app/api/webhooks/didit`, R2, screening). Prove delivery with an inbox you control: sign up and verify the email (Keycloak via Twilio Email), add the phone and read the code in Mailpit ("Mailpit" below), trigger an API email (for example an MFA change notice), and get a Zammad notification (SendGrid). If you set IMAP, send a message to the support address and see it arrive in General Support. If one doesn't arrive: `./bin/swoovr logs api` and `./bin/swoovr logs keycloak` show the fixed outcome without the address or content; the Twilio and SendGrid consoles show their side. Then enable the realms.
 4. Sign the approved staff member in once, then grant root:
 
