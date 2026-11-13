@@ -1,10 +1,14 @@
 @inject AdminClient Admin
+@* D366 (issue 336): a sign-in with MFA counts as MFA verification for 60 minutes; "Verify MFA" restarts the 60 minutes. *@
 <section class="ui-card ui-section" aria-labelledby="mfa-elevation-title">
 <h2 id="mfa-elevation-title">MFA verification</h2>
-@if (status?.Elevated == true) { <p role="status">MFA elevation is active for this staff session.</p> }
-else { <p>Verify MFA again before a privileged operation. Your roles and recorded-purpose requirements still apply.</p> }
-@if (Result == "denied") { <p role="alert">MFA elevation could not be confirmed. Start again after signing in. Verification must use this same staff session.</p> }
-<a href="/sign-in?elevate=true" class="ui-button-primary" data-enhance-nav="false">Verify MFA</a>
+@if (status?.Elevated == true)
+{
+    <p role="status" data-mfa-elevated="@(status.ExpiresAt?.ToString("O"))">MFA verified@(status.ExpiresAt is { } until ? $" until {until.ToUniversalTime():HH:mm} UTC" : ""). Privileged actions work until then.</p>
+}
+else { <p data-mfa-elevated="none">Privileged actions need a sign-in with MFA in the last 60 minutes. Your roles and recorded-purpose requirements still apply.</p> }
+@if (Result == "denied") { <p role="alert">MFA verification could not be confirmed. Start again after signing in. Verification must use this same staff session.</p> }
+<a href="/sign-in?elevate=true" class="ui-button-primary" data-enhance-nav="false">@(status?.Elevated == true ? "Verify again for 60 minutes" : "Verify MFA")</a>
 </section>
 @code {
     [SupplyParameterFromQuery(Name="mfa")] public string? Result { get; set; }

@@ -152,7 +152,7 @@ else
     {
         var ok = status is >= 200 and < 300;
         resultCode = ok ? "ok" : code ?? status.ToString();
-        reauth = status == 401 || code == "stale-session";
+        reauth = AdminText.NeedsSignIn(status, code);
         message = ok ? success : AdminText.Refusal(status, code);
     }
 }

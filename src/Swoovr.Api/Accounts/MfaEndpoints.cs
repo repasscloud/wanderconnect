@@ -37,7 +37,8 @@ public static class MfaEndpoints
         admin.MapGet("/elevation", async(ClaimsPrincipal user,AccountResolver accounts,TimeProvider clock,IConfiguration config,CancellationToken ct)=>
         {
             var(current,denied)=await ActorAsync(user,accounts,ct);if(denied is not null)return denied;
-            return Results.Ok(new MfaElevationView(await MfaElevationService.HasAsync(current!,user,accounts.Db!,config,clock.GetUtcNow(),ct),null));
+            var until=await MfaElevationService.UntilAsync(current!,user,accounts.Db!,config,clock.GetUtcNow(),ct);
+            return Results.Ok(new MfaElevationView(until is not null,until));
         });
     }
 
@@ -78,7 +79,7 @@ public static class MfaEndpoints
         {
             MfaElevationService.Audit(db,now,actor,null,"elevation-denied","refused");await db.SaveChangesAsync(ct);return MfaElevationService.Required();
         }
-        var minutes=Math.Clamp(config.GetValue("Mfa:ElevationMinutes",10),1,15);
+        var minutes=MfaElevationService.Minutes(config);
         row.CompletedAt=now;row.AuthenticatedAt=current.Facts.AuthenticatedAt;row.ExpiresAt=now.AddMinutes(minutes);
         MfaElevationService.Audit(db,now,actor,null,"elevation-completed","accepted");await db.SaveChangesAsync(ct);
         return Results.Ok(new MfaElevationView(true,row.ExpiresAt));

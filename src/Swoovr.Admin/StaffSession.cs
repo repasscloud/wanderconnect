@@ -51,10 +51,20 @@ public sealed class TicketStore(IMemoryCache cache) : ITicketStore
 /// <summary>Short wording shared by the pages for API refusals.</summary>
 public static class AdminText
 {
+    /// <summary>
+    /// Refusals a fresh sign-in fixes, so pages offer "Sign in again". D366 (issue 336): a sign-in with MFA counts as MFA
+    /// verification for 60 minutes, so an expired MFA check is one more sign-in, not a trip to Elevated access.
+    /// </summary>
+    public static bool NeedsSignIn(int status, string? code) => status == 401 || code is "stale-session" or "mfa-elevation-required";
+
+    /// <summary>The sign-in that brings staff back to <paramref name="returnUrl"/> (a local path) afterwards.</summary>
+    public static string SignInAgain(string? returnUrl) =>
+        "/sign-in?reauth=true" + (returnUrl is { } r && r.StartsWith('/') && !r.StartsWith("//") ? "&returnUrl=" + Uri.EscapeDataString(r) : "");
+
     public static string Refusal(int status, string? code) => (status, code) switch
     {
         (401, _) => "Your session has ended. Sign in to continue.",
-        (403, "mfa-elevation-required") => "Verify MFA again under Elevated access before this privileged action.",
+        (403, "mfa-elevation-required") => "This needs a sign-in with MFA in the last 60 minutes. Sign in again, then repeat it.",
         (403, "stale-session") => "For your security, this action needs a recent sign-in.",
         (403, "elevated-access-required") => "This needs time-limited access with a recorded purpose. Ask for it under Elevated access, then repeat it.",
         (403, "conflict-of-interest") => "A conflict of interest keeps you away from this member's records.",

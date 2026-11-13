@@ -1007,3 +1007,13 @@ Reversible: revert the staff flows; the account can be disabled in the Keycloak 
 - `%` is still the only wildcard and `_` and `\` stay literal. Searches made only of `%`, `@` and spaces are refused, so staff still cannot list every account. Audit, permission and the 50-row limit are unchanged.
 
 DEFAULT: email patterns are lower-cased and refuse spaces. Reversible: the email clauses in `GET /api/admin/accounts/search`.
+
+### D366 — Staff MFA counts for 60 minutes from a sign-in (14 November 2026)
+
+**CONFIRMED** by the owner in [issue 336](https://github.com/repasscloud/wanderconnect/issues/336), 14 November 2026: once MFA is done it should be recognised for 60 minutes, not asked for again and again, and "Sign in again" should be useful.
+- A sign-in to Admin that itself completed MFA (`amr` includes `otp`) counts as MFA verification for privileged actions for 60 minutes from that sign-in. The separate **Verify MFA** step on Elevated access still works and now also lasts 60 minutes (was 10, at most 15). `Mfa:ElevationMinutes` stays configurable, 1–60, default 60.
+- Unchanged: the receipt and the sign-in stay bound to the same Keycloak session and the Admin client; password-only sign-ins never count; session revocation, suspension, roles, conflict-of-interest records and recorded-purpose grants (for example `profile-dob-open`) still apply.
+- Admin: an "MFA needed" refusal now offers **Sign in again**, and the header's **Sign in again** returns to the page staff were on. Elevated access shows when MFA verification ends.
+- Staff accounts have no member profile, so the account page no longer offers "View date of birth" for them (UAT, 13 November 2026: the only accounts were staff, so the date could never open).
+
+Reversible: set `Mfa:ElevationMinutes` lower, or remove the sign-in clause in `MfaElevationService.UntilAsync`.

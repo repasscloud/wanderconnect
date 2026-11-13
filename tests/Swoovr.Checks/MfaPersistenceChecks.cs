@@ -43,14 +43,25 @@ static class MfaPersistenceChecks
         check("fresh same-user session completes independent elevation",Status(complete)==200);
         check("elevation challenge replay refused",Status(await MfaEndpoints.CompleteAsync(new(challenge.Challenge),adminUser,resolver,TimeProvider.System,config,CancellationToken.None))==403);
         var current=(await resolver.ResolveAsync(adminUser,CancellationToken.None))!;
-        check("another device cannot reuse elevation",!await MfaElevationService.HasAsync(current,User(admin,DateTimeOffset.UtcNow,sid:"other-device"),db,config,now,CancellationToken.None));
-        check("expired elevation refused",!await MfaElevationService.HasAsync(current,adminUser,db,config,now.AddMinutes(11),CancellationToken.None));
+        // D366: a fresh MFA sign-in elevates by itself, so the receipt's session binding is checked after a 1-minute sign-in window.
+        var shortSignIn=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["Mfa:ElevationMinutes"]="1"}).Build();
+        check("the Verify MFA receipt outlasts the sign-in window on its own session",await MfaElevationService.HasAsync(current,adminUser,db,shortSignIn,now.AddMinutes(3),CancellationToken.None));
+        check("another device cannot reuse elevation",!await MfaElevationService.HasAsync(current,User(admin,DateTimeOffset.UtcNow,sid:"other-device"),db,shortSignIn,now.AddMinutes(3),CancellationToken.None));
+        check("expired elevation refused",!await MfaElevationService.HasAsync(current,adminUser,db,config,now.AddMinutes(61),CancellationToken.None));
+        // D366 (issue 336): a sign-in that itself completed MFA counts for 60 minutes; password-only or older sign-ins do not.
+        var freshUser=User(admin,now.AddMinutes(-30),sid:"fresh-sign-in");var freshCurrent=(await resolver.ResolveAsync(freshUser,CancellationToken.None))!;
+        check("MFA sign-in within 60 minutes counts as elevation",await MfaElevationService.HasAsync(freshCurrent,freshUser,db,config,now,CancellationToken.None));
+        check("MFA sign-in elevation ends 60 minutes after sign-in",await MfaElevationService.UntilAsync(freshCurrent,freshUser,db,config,now,CancellationToken.None) is {} freshUntil&&Math.Abs((freshUntil-now.AddMinutes(30)).TotalSeconds)<2);
+        var oldUser=User(admin,now.AddMinutes(-61),sid:"old-sign-in");var oldCurrent=(await resolver.ResolveAsync(oldUser,CancellationToken.None))!;
+        check("MFA sign-in older than 60 minutes needs Verify MFA",!await MfaElevationService.HasAsync(oldCurrent,oldUser,db,config,now,CancellationToken.None));
+        var passwordUser=User(admin,now.AddMinutes(-1),otp:false,sid:"password-only");var passwordCurrent=(await resolver.ResolveAsync(passwordUser,CancellationToken.None))!;
+        check("password-only sign-in is never elevation",!await MfaElevationService.HasAsync(passwordCurrent,passwordUser,db,config,now,CancellationToken.None));
         var photo=Guid.NewGuid();
         db.MediaItems.Add(new MediaItem{Id=photo,AccountId=memberId,Status=MediaStatus.Uncertain,CreatedAt=now,ContentType="image/jpeg",Sha256=new byte[32],UploadSha256=new byte[32],Width=300,Height=300,Bytes=100});await db.SaveChangesAsync();
         check("a staff media link alone carries no viewing authority",await Swoovr.Api.Media.MfaEvidenceAccess.CheckAsync(photo,memberId,"case",adminUser,resolver,now,CancellationToken.None) is not null);
         db.MediaReviewViews.Add(new MediaReviewView{MediaId=photo,ActorAccountId=adminId,Purpose="Fictional evidence review",At=now});await db.SaveChangesAsync();
         check("issued staff evidence link works only with live MFA elevation",await Swoovr.Api.Media.MfaEvidenceAccess.CheckAsync(photo,memberId,"case",adminUser,resolver,now,CancellationToken.None) is null);
-        check("staff evidence delivery refuses expired elevation",await Swoovr.Api.Media.MfaEvidenceAccess.CheckAsync(photo,memberId,"case",adminUser,resolver,now.AddMinutes(11),CancellationToken.None) is not null);
+        check("staff evidence delivery refuses expired elevation",await Swoovr.Api.Media.MfaEvidenceAccess.CheckAsync(photo,memberId,"case",adminUser,resolver,now.AddMinutes(61),CancellationToken.None) is not null);
         check("Business cannot read staff evidence even with the signed link",await Swoovr.Api.Media.MfaEvidenceAccess.CheckAsync(photo,memberId,"case",User(staff,now),resolver,now,CancellationToken.None) is not null);
         var provider=new FakeProvider();var supportUser=User(support,now.AddSeconds(-20));
         var required=await MfaEndpoints.RequireAsync(memberId,new(true,"security-review",true),supportUser,resolver,provider,TimeProvider.System,CancellationToken.None);

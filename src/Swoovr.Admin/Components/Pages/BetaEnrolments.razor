@@ -5,7 +5,7 @@
     <h1>Beta enrolments</h1>
     <p>Pre-authorise emails for the private beta.</p>
 </header>
-@if (message is not null) { <p class="notice" role="status" data-beta-result="@resultCode">@message</p> }
+@if (message is not null) { <p class="notice@(reauth ? " notice-action" : "")" role="status" data-beta-result="@resultCode"><span>@message</span>@if (reauth) { <a href="@AdminText.SignInAgain("/beta")" class="ui-button-primary notice-button" data-enhance-nav="false" data-reauth>Sign in again</a> }</p> }
 @if (loaded && authorised)
 {
     <section class="ui-card" aria-labelledby="beta-add-heading">
@@ -114,7 +114,7 @@
         var name=string.Join(" ",new[]{row.FirstName,row.LastName}.Where(n=>!string.IsNullOrWhiteSpace(n)));
         return name.Length==0?null:name;
     }
-    private bool loaded, authorised;
+    private bool loaded, authorised, reauth;
     private string? message, resultCode;
     protected override async Task OnInitializedAsync() => await LoadAsync();
     private static string State(string state) => state switch { "pending" => "Pending activation", "activated" => "Activated", "revoked" => "Revoked", _ => "Unknown state" };
@@ -131,6 +131,7 @@
         // Refusal remains server-authoritative even if someone handcrafts this form submission.
         var result = await Admin.AddBetaEnrolmentAsync(Field("email"));
         resultCode = result.Ok ? "added" : result.Code ?? result.Status.ToString();
+        reauth = !result.Ok && AdminText.NeedsSignIn(result.Status, result.Code);
         message = result.Ok ? (result.Status == 201 ? result.Value?.InvitationState=="pending"?"Enrolment added. Invitation email queued, not yet sent.":"Enrolment added." : "This address already has a live enrolment.") : AdminText.Refusal(result.Status, result.Code);
         await LoadAsync();
     }
