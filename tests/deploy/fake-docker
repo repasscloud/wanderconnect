@@ -27,7 +27,7 @@ if [[ "${1:-}" == compose ]]; then
       case "$service" in
         keycloak-reconcile)
           echo 'SWOOVR_RECONCILE deploy-client=ok'
-          echo "SWOOVR_RECONCILE initial-admin=${FAKE_ADMIN_STATE:-pending-sign-in}"
+          echo "SWOOVR_RECONCILE initial-admin=${FAKE_ADMIN_STATE:-invite-not-completed}"
           [[ "${FAKE_ADMIN_STATE:-}" == ready ]] && echo 'SWOOVR_RECONCILE initial-admin-subject=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' ;;
         api-command) [[ "${1:-} ${2:-}" == "root-admin ensure" ]] && echo 'root-admin=granted' ;;
         *) echo "job $service ok" ;;

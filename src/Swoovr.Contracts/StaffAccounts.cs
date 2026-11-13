@@ -1,7 +1,8 @@
 namespace Swoovr.Contracts;
 
 public sealed record StaffAccountSummary(Guid Id, string? FirstName, string? LastName, string? Email, string Status,
-    IReadOnlyList<string> Roles, DateTimeOffset LastSeenAt, bool Root, long Revision, DateTimeOffset? LastSignInAt = null, string Mfa = "unknown");
+    IReadOnlyList<string> Roles, DateTimeOffset LastSeenAt, bool Root, long Revision, DateTimeOffset? LastSignInAt = null, string Mfa = "unknown",
+    IReadOnlyList<string>? EntraRoles = null);
 public sealed record StaffAccountPage(IReadOnlyList<StaffAccountSummary> Items, int Total, int Page, int Size);
 public sealed record StaffAccountDetail(StaffAccountSummary Account, string? Phone, bool ProviderAvailable, bool ProviderEnabled,
     bool EmailVerified, IReadOnlyList<string> CredentialTypes, IReadOnlyList<string> RequiredActions,

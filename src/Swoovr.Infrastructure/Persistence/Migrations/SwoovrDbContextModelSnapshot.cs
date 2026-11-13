@@ -7151,6 +7151,11 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("role");
 
+                    b.Property<string>("Source")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("source");
+
                     b.Property<Guid?>("VenueId")
                         .HasColumnType("uuid")
                         .HasColumnName("venue_id");

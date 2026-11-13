@@ -24,7 +24,7 @@ class FakeKeycloak:
         self.idp = {'alias': 'entra', 'enabled': True, 'trustEmail': False, 'storeToken': False,
                     'config': {**kr.entra_config(TENANT, CLIENT), 'clientSecret': '**********'}}
         self.staff_users, self.links, self.master_people = [], {}, []
-        self.deleted = []
+        self.deleted, self.credentials, self.invites, self.mail_works = [], {}, [], True
 
     @staticmethod
     def web(origin):
@@ -64,10 +64,22 @@ class FakeKeycloak:
                 self.idp = data
                 return 204, None
             return 200, self.idp
+        if rest == ['users'] and method == 'POST':
+            assert realm == 'swoovr-staff' and 'credentials' not in data, 'no credential is ever set by the deployment'
+            self.staff_users.append({**data, 'id': f'u{len(self.staff_users)}'})
+            return 201, None
         if rest == ['users']:
             return 200, [u for u in self.staff_users if u['email'] == query.get('email')]
         if rest[0] == 'users' and rest[2] == 'federated-identity':
             return 200, self.links.get(rest[1], [])
+        if rest[0] == 'users' and rest[2] == 'credentials':
+            return 200, [{'type': t} for t in self.credentials.get(rest[1], [])]
+        if rest[0] == 'users' and rest[2] == 'execute-actions-email' and method == 'PUT':
+            assert query.get('lifespan') == str(kr.INVITE_LIFESPAN) and data == kr.INVITE_ACTIONS
+            if not self.mail_works:
+                return 500, None
+            self.invites.append(rest[1])
+            return 204, None
         raise AssertionError(f'unexpected {method} {path}')
 
     def master(self, method, rest, query, data, token):
@@ -110,10 +122,10 @@ def env(**extra):
             'SWOOVR_INITIAL_ADMIN_EMAIL': 'first.admin@example.test', **extra}
 
 
-def run(fake, values=None, admin_only=False):
+def run(fake, values=None, admin_only=False, resend=False):
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-        kr.reconcile(fake, values or env(), admin_only)
+        kr.reconcile(fake, values or env(), admin_only, resend)
     text = out.getvalue()
     for secret in (DEPLOY_SECRET, BOOTSTRAP_PASSWORD, ENTRA_SECRET):
         assert secret not in text, 'a secret was printed'
@@ -130,7 +142,8 @@ class ReconcileChecks(unittest.TestCase):
         self.assertEqual(result['zammad-client'], 'created')
         self.assertEqual(fake.idp['config']['clientSecret'], ENTRA_SECRET)
         self.assertEqual(result['bootstrap-admin'], 'kept-no-personal-admin')  # no personal admin with OTP yet
-        self.assertEqual(result['initial-admin'], 'pending-sign-in')
+        self.assertEqual(result['root-account'], 'created-invite-sent')
+        self.assertEqual(result['initial-admin'], 'invite-not-completed')
 
     def test_repeat_is_idempotent_and_never_needs_the_bootstrap_admin(self):
         fake = FakeKeycloak(deploy_client=True, bootstrap_admin=False)
@@ -172,19 +185,49 @@ class ReconcileChecks(unittest.TestCase):
         self.assertEqual(run(fake)['bootstrap-admin'], 'deleted')
         self.assertEqual(fake.deleted, ['boot'])
 
-    def test_initial_admin_needs_verified_email_and_entra_link(self):
+    def test_break_glass_account_created_once_with_invite_and_no_credentials(self):
+        fake = FakeKeycloak(deploy_client=True, bootstrap_admin=False)
+        result = run(fake, admin_only=True)
+        self.assertEqual(result['root-account'], 'created-invite-sent')
+        user = fake.staff_users[0]
+        self.assertEqual((user['username'], user['emailVerified'], user['requiredActions']),
+                         ('first.admin@example.test', False, kr.INVITE_ACTIONS))
+        self.assertEqual(run(fake, admin_only=True)['root-account'], 'exists')  # never a second account or email
+        self.assertEqual(len(fake.staff_users), 1)
+        self.assertEqual(fake.invites, [user['id']])
+        self.assertEqual(run(fake, admin_only=True, resend=True)['root-account'], 'invite-sent')
+        self.assertEqual(fake.invites, [user['id'], user['id']])
+
+    def test_invite_mail_failure_never_fails_the_deployment(self):
+        fake = FakeKeycloak(deploy_client=True, bootstrap_admin=False)
+        fake.mail_works = False
+        self.assertEqual(run(fake)['root-account'], 'created-invite-email-failed')
+
+    def test_initial_admin_needs_local_password_code_verified_email_and_no_entra_link(self):
         fake = FakeKeycloak(deploy_client=True, bootstrap_admin=False)
         user = {'id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'email': 'first.admin@example.test', 'enabled': True,
-                'emailVerified': False, 'username': 'first.admin'}
+                'emailVerified': False, 'username': 'first.admin@example.test', 'requiredActions': ['UPDATE_PASSWORD']}
         fake.staff_users = [user]
+        self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'invite-not-completed')
+        user['requiredActions'] = []
         self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'unverified-email')
         user['emailVerified'] = True
-        self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'not-linked')
-        fake.links[user['id']] = [{'identityProvider': 'entra'}]
+        self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'missing-password-or-authenticator')
+        fake.credentials[user['id']] = ['password']
+        self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'missing-password-or-authenticator')
+        fake.credentials[user['id']] = ['password', 'otp']
         result = run(fake, admin_only=True)
         self.assertEqual((result['initial-admin'], result['initial-admin-subject']), ('ready', user['id']))
+        fake.links[user['id']] = [{'identityProvider': 'entra'}]
+        result = run(fake, admin_only=True)
+        self.assertEqual(result['initial-admin'], 'linked-to-identity-provider')
+        self.assertNotIn('initial-admin-subject', result)
+        fake.links.clear()
         fake.staff_users.append({**user, 'id': 'second'})
         self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'ambiguous')
+        user['enabled'] = False
+        fake.staff_users.pop()
+        self.assertEqual(run(fake, admin_only=True)['initial-admin'], 'disabled')
 
     def test_missing_admin_email_is_reported_not_guessed(self):
         result = run(FakeKeycloak(deploy_client=True), env(SWOOVR_INITIAL_ADMIN_EMAIL=''), admin_only=True)

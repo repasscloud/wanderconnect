@@ -51,7 +51,7 @@ describe() {
     UAT_SSH_PRIVATE_KEY) echo 'PATH to the dedicated deploy private key (~ is fine), e.g. ~/.ssh/swoovr-uat-deploy.' ;;
     UAT_SSH_HOST_KEY) echo "One line 'ssh-ed25519 AAAA...' from 'host-key HOST', only after its fingerprint matched." ;;
     UAT_EXPECTED_HOSTNAME) echo 'Server hostname, checked before deploying: uat-01.' ;;
-    UAT_INITIAL_ADMIN_EMAIL) echo "First Swoovr root admin's Entra address." ;;
+    UAT_INITIAL_ADMIN_EMAIL) echo 'Break-glass root admin address, outside the Entra tenant (D364).' ;;
     UAT_ENTRA_TENANT_ID) echo 'Entra Directory (tenant) ID.' ;;
     UAT_ENTRA_CLIENT_ID) echo 'Entra Application (client) ID.' ;;
     UAT_ENTRA_CLIENT_SECRET) echo 'Entra client secret for the Keycloak entra broker.' ;;

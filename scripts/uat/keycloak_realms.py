@@ -94,33 +94,72 @@ def local_flows(value, member):
         ]
 
 
+ENTRA_ROLES_ATTRIBUTE = 'swoovr_entra_roles'
+
+
 def staff_flows(value, tenant, client_id):
-    browser = 'swoovr-uat-staff-entra-only'
+    """Staff sign in with Microsoft (Entra) plus a Keycloak one-time code after the broker (#196/#193: staff MFA is
+    required). D364: the single break-glass root admin is a local account with password + one-time code and no Entra
+    link; no other staff account has a password, so the password form is effectively the root admin's alone."""
+    browser = 'swoovr-uat-staff-browser'
+    forms = 'swoovr-uat-staff-forms'
+    second = 'swoovr-uat-staff-otp'
     first = 'swoovr-uat-staff-first-broker'
+    post = 'swoovr-uat-staff-post-broker'
     deny = 'swoovr-uat-staff-deny-local'
     value.update(browserFlow=browser, resetCredentialsFlow=deny, directGrantFlow=deny,
                  registrationFlow=deny, clientAuthenticationFlow='clients',
                  registrationAllowed=False, resetPasswordAllowed=False, loginWithEmailAllowed=False,
-                 webAuthnPolicyPasswordlessPasskeysEnabled=False)
+                 verifyEmail=True, webAuthnPolicyPasswordlessPasskeysEnabled=False)
     value['authenticationFlows'] = [
-        flow(browser, [execution('identity-provider-redirector', config='swoovr-uat-entra-redirect')]),
+        flow(browser, [execution('auth-cookie', 'ALTERNATIVE'), subflow(forms, 'ALTERNATIVE')]),
+        # The login page lists "Sign in with Microsoft" next to the form; only accounts with a password can use the form.
+        flow(forms, [execution('auth-username-password-form', config='swoovr-amr-pwd'), subflow(second)], top=False),
+        # REQUIRED: a user without an authenticator is sent to CONFIGURE_TOTP enrolment instead of skipping it.
+        flow(second, [execution('auth-otp-form', config='swoovr-amr-otp')], top=False),
         # Do not merge/link an existing local identity merely because its email matches.
         flow(first, [execution('idp-create-user-if-unique')]),
+        # After every Microsoft sign-in: the Keycloak one-time code, so the API sees `otp` in amr (staff MFA).
+        flow(post, [execution('auth-otp-form', config='swoovr-amr-otp-broker')]),
         flow(deny, [execution('deny-access-authenticator')]),
     ]
     value['authenticatorConfig'] = [
-        {'alias': 'swoovr-uat-entra-redirect', 'config': {'defaultProvider': ENTRA_ALIAS}}
+        {'alias': alias, 'config': {'default.reference.value': reference, 'default.reference.maxAge': '43200'}}
+        for alias, reference in (('swoovr-amr-pwd', 'pwd'), ('swoovr-amr-otp', 'otp'), ('swoovr-amr-otp-broker', 'otp'))
     ]
+    # VERIFY_EMAIL: verifyEmail needs the action registered, or no verification email is ever sent (trustEmail is off).
+    # UPDATE_PASSWORD and CONFIGURE_TOTP: the root admin's invitation email (D364) and staff authenticator enrolment.
     value['requiredActions'] = [
         {'alias': action, 'name': action, 'providerId': action,
-         'enabled': False, 'defaultAction': False, 'priority': index * 10}
-        for index, action in enumerate(('UPDATE_PASSWORD', 'CONFIGURE_TOTP', 'webauthn-register-passwordless'))
+         'enabled': enabled, 'defaultAction': False, 'priority': (index + 1) * 10}
+        for index, (action, enabled) in enumerate((('VERIFY_EMAIL', True), ('UPDATE_PASSWORD', True), ('CONFIGURE_TOTP', True),
+                                                   ('webauthn-register-passwordless', False)))
     ]
+    # D363: Entra app roles reach the API as `swoovr_entra_roles`; only administrators (the broker mapper) write it.
+    profile = value['components']['org.keycloak.userprofile.UserProfileProvider'][0]['config']
+    config = json.loads(profile['kc.user.profile.config'][0])
+    config['attributes'] = [a for a in config['attributes'] if a['name'] != ENTRA_ROLES_ATTRIBUTE] + [{
+        'name': ENTRA_ROLES_ATTRIBUTE, 'displayName': 'Entra app roles', 'multivalued': True,
+        'permissions': {'view': ['admin'], 'edit': ['admin']}, 'validations': {}, 'annotations': {}}]
+    profile['kc.user.profile.config'] = [json.dumps(config, separators=(',', ':'))]
+    for item in value['clients']:
+        if item['clientId'] == 'swoovr-admin-web':
+            item['protocolMappers'] = [m for m in item.get('protocolMappers', []) if m['name'] != 'swoovr-entra-roles'] + [{
+                'name': 'swoovr-entra-roles', 'protocol': 'openid-connect', 'protocolMapper': 'oidc-usermodel-attribute-mapper',
+                'config': {'user.attribute': ENTRA_ROLES_ATTRIBUTE, 'claim.name': ENTRA_ROLES_ATTRIBUTE, 'multivalued': 'true',
+                           'jsonType.label': 'String', 'id.token.claim': 'false', 'access.token.claim': 'true',
+                           'introspection.token.claim': 'true', 'userinfo.token.claim': 'false'}}]
+    value['identityProviderMappers'] = [{
+        'name': 'swoovr-entra-roles', 'identityProviderAlias': ENTRA_ALIAS,
+        'identityProviderMapper': 'oidc-user-attribute-idp-mapper',
+        # FORCE: rewritten on every Microsoft sign-in, so removing someone from an Entra role group takes effect.
+        'config': {'claim': 'roles', 'user.attribute': ENTRA_ROLES_ATTRIBUTE, 'syncMode': 'FORCE'}}]
     authority = 'https://login.microsoftonline.com/' + tenant
     value['identityProviders'] = [{
         'alias': ENTRA_ALIAS, 'displayName': 'Sign in with Microsoft', 'providerId': 'oidc',
         'enabled': True, 'trustEmail': False, 'storeToken': False, 'addReadTokenRoleOnCreate': False,
         'authenticateByDefault': False, 'linkOnly': False, 'firstBrokerLoginFlowAlias': first,
+        'postBrokerLoginFlowAlias': post,
         'config': {'clientId': client_id, 'clientSecret': '${SWOOVR_UAT_ENTRA_CLIENT_SECRET}',
                    'issuer': authority + '/v2.0', 'authorizationUrl': authority + '/oauth2/v2.0/authorize',
                    'tokenUrl': authority + '/oauth2/v2.0/token', 'jwksUrl': authority + '/discovery/v2.0/keys',
@@ -176,7 +215,7 @@ def render(admin_origin, venue_origin, tenant_id, client_id):
                                      'SWOOVR_UAT_STAFF_WEB_SECRET', 'SWOOVR_UAT_ENTRA_CLIENT_SECRET'],
         'sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in results.items()},
         'activationGates': ['isolated pinned-version import/flow tests', 'Twilio Email runtime secret/sender authentication and real acceptance/delivery (D360)',
-                            'root grant to an approved verified Entra subject and operator break-glass procedure', 'Entra tenant/app/Conditional Access/email evidence',
+                            'root grant to the D364 break-glass account (local password + one-time code, no Entra link)', 'Entra tenant/app/Conditional Access/email evidence',
                             'separate members Apple/Google and email-link integration', 'host configuration/Q90'],
     }
     results['manifest.json'] = json.dumps(manifest, indent=2) + '\n'

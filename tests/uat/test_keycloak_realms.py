@@ -85,14 +85,22 @@ class RealmPreparationChecks(unittest.TestCase):
             self.assertEqual([provider['alias'] for provider in realm['identityProviders']],
                              ['entra'] if kind == 'staff' else [])
 
-    def test_staff_only_entra_no_password_or_auto_email_linking(self):
+    def test_staff_entra_plus_code_and_break_glass_password_no_auto_email_linking(self):
         staff = self.realms()['swoovr-staff.json']
         flows = {item['alias']: item for item in staff['authenticationFlows']}
-        steps = flows[staff['browserFlow']]['authenticationExecutions']
-        self.assertEqual([(s['authenticator'], s['requirement']) for s in steps], [('identity-provider-redirector', 'REQUIRED')])
+        def steps(alias):
+            return [(s.get('authenticator') or s.get('flowAlias'), s['requirement']) for s in flows[alias]['authenticationExecutions']]
+        self.assertEqual(steps(staff['browserFlow']), [('auth-cookie', 'ALTERNATIVE'), ('swoovr-uat-staff-forms', 'ALTERNATIVE')])
+        # D364: password always followed by a REQUIRED one-time code (enrolment when missing), never password alone.
+        self.assertEqual(steps('swoovr-uat-staff-forms'), [('auth-username-password-form', 'REQUIRED'), ('swoovr-uat-staff-otp', 'REQUIRED')])
+        self.assertEqual(steps('swoovr-uat-staff-otp'), [('auth-otp-form', 'REQUIRED')])
         self.assertFalse(staff['resetPasswordAllowed'])
+        self.assertTrue(staff['verifyEmail'])
         for name in ('registrationFlow', 'resetCredentialsFlow', 'directGrantFlow'):
             self.assertEqual(flows[staff[name]]['authenticationExecutions'][0]['authenticator'], 'deny-access-authenticator')
+        actions = {a['alias']: a['enabled'] for a in staff['requiredActions']}
+        self.assertEqual(actions, {'VERIFY_EMAIL': True, 'UPDATE_PASSWORD': True, 'CONFIGURE_TOTP': True,
+                                   'webauthn-register-passwordless': False})
         provider = staff['identityProviders'][0]
         self.assertFalse(provider['trustEmail'])
         self.assertFalse(provider['storeToken'])
@@ -100,7 +108,29 @@ class RealmPreparationChecks(unittest.TestCase):
         self.assertEqual(provider['config']['clientSecret'], '${SWOOVR_UAT_ENTRA_CLIENT_SECRET}')
         broker = flows[provider['firstBrokerLoginFlowAlias']]['authenticationExecutions']
         self.assertEqual([step['authenticator'] for step in broker], ['idp-create-user-if-unique'])
-        self.assertNotIn('auth-username-password-form', json.dumps(staff['authenticationFlows']))
+        # Staff MFA after Microsoft: the Keycloak one-time code, recorded as `otp` in amr.
+        self.assertEqual(steps(provider['postBrokerLoginFlowAlias']), [('auth-otp-form', 'REQUIRED')])
+        references = {c['alias']: c['config']['default.reference.value'] for c in staff['authenticatorConfig']}
+        for flow in staff['authenticationFlows']:
+            for step in flow['authenticationExecutions']:
+                if step.get('authenticator') in ('auth-otp-form', 'auth-username-password-form'):
+                    expected = 'otp' if step['authenticator'] == 'auth-otp-form' else 'pwd'
+                    self.assertEqual(references[step['authenticatorConfig']], expected)
+
+    def test_staff_entra_app_roles_reach_the_admin_token_only_through_the_broker(self):
+        staff = self.realms()['swoovr-staff.json']
+        [mapper] = staff['identityProviderMappers']
+        self.assertEqual((mapper['identityProviderAlias'], mapper['identityProviderMapper'], mapper['config']),
+                         ('entra', 'oidc-user-attribute-idp-mapper',
+                          {'claim': 'roles', 'user.attribute': 'swoovr_entra_roles', 'syncMode': 'FORCE'}))
+        profile = json.loads(staff['components']['org.keycloak.userprofile.UserProfileProvider'][0]['config']['kc.user.profile.config'][0])
+        [attribute] = [a for a in profile['attributes'] if a['name'] == 'swoovr_entra_roles']
+        self.assertEqual(attribute['permissions'], {'view': ['admin'], 'edit': ['admin']})
+        self.assertTrue(attribute['multivalued'])
+        [admin] = [c for c in staff['clients'] if c['clientId'] == 'swoovr-admin-web']
+        [claim] = [m for m in admin['protocolMappers'] if m['name'] == 'swoovr-entra-roles']
+        self.assertEqual((claim['config']['claim.name'], claim['config']['multivalued'], claim['config']['access.token.claim']),
+                         ('swoovr_entra_roles', 'true', 'true'))
 
     def test_reject_invalid_hosted_inputs(self):
         for origin in ['http://admin-uat.swoovr.app', 'https://localhost', 'https://admin.swoovr.app',
