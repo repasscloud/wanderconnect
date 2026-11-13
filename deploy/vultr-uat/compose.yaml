@@ -443,7 +443,7 @@ services:
   db-bootstrap:
     <<: *job
     image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
-    command: ["database-bootstrap"]
+    entrypoint: ["/opt/operator-venv/bin/python", "/opt/uat/uat_jobs.py", "database-bootstrap"]
     env_file: [env/bootstrap.env]
     environment:
       DOTNET_ENVIRONMENT: Uat
@@ -466,7 +466,7 @@ services:
   places-import:
     <<: *job
     image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
-    command: ["places-import"]
+    entrypoint: ["/opt/operator-venv/bin/python", "/opt/uat/uat_jobs.py", "places-import"]
     env_file: [env/migrate.env]
     environment:
       <<: *swoovr-common
@@ -475,7 +475,7 @@ services:
   keycloak-bootstrap:
     <<: *job
     image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
-    command: ["keycloak-bootstrap"]
+    entrypoint: ["/opt/operator-venv/bin/python", "/opt/uat/uat_jobs.py", "keycloak-bootstrap"]
     env_file: [env/keycloak.env, env/realms.env]
     environment:
       <<: *swoovr-common
@@ -488,7 +488,7 @@ services:
   keycloak-reconcile:
     <<: *job
     image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
-    command: ["keycloak-reconcile"]
+    entrypoint: ["/opt/operator-venv/bin/python", "/opt/uat/uat_jobs.py", "keycloak-reconcile"]
     env_file: [env/keycloak.env, env/realms.env, env/automation.env]
     environment:
       <<: *swoovr-common
@@ -500,7 +500,7 @@ services:
   r2-empty:
     <<: *job
     image: ${SWOOVR_OPERATOR_IMAGE:?release.env}
-    command: ["r2-empty"]
+    entrypoint: ["/opt/operator-venv/bin/python", "/opt/uat/uat_jobs.py", "r2-empty"]
     env_file: [env/api.env]
     environment:
       DOTNET_ENVIRONMENT: Uat

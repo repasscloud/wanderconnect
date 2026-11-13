@@ -123,7 +123,10 @@ def main(args):
         return bootstrap()
     if args[:1]==['r2-empty']:
         from r2_empty import main as r2_empty
-        return r2_empty(args[1:])
+        import xml.etree.ElementTree as ET
+        # r2_empty's messages carry no keys or secrets (HTTP status, endpoint shape, counts), so show them.
+        try:return r2_empty(args[1:])
+        except (ValueError,OSError,ET.ParseError) as error:raise SystemExit(f'R2 empty failed: {error}') from None
     if args[:1]==['keycloak-reconcile'] and set(args[1:])<={'--admin-only'}:
         from keycloak_reconcile import main as reconcile
         return reconcile(args[1:])

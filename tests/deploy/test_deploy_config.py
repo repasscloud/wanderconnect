@@ -176,6 +176,30 @@ class InventoryChecks(unittest.TestCase):
         self.assertFalse(generated & mapped, 'host-generated values must stay on the host')
 
 
+class OperatorJobChecks(unittest.TestCase):
+    def test_job_name_is_in_the_entrypoint_so_run_arguments_are_appended(self):
+        # `docker compose run SERVICE ARGS` replaces `command:`; with the job name there, `job r2-empty --bucket X`
+        # reached uat_jobs.py as ['--bucket', X] and failed (v1.0.0 refresh, 13 November 2026).
+        dockerfile = (ROOT / 'containers/uat/Dockerfile').read_text()
+        stage = dockerfile.split(' AS operator\n', 1)[1]
+        image_entrypoint = json.loads(re.search(r'^ENTRYPOINT (\[.*\])$', stage, re.M).group(1))
+        services = load(ROOT / 'deploy/vultr-uat/compose.yaml')['services']
+        operator = {name: s for name, s in services.items() if 'SWOOVR_OPERATOR_IMAGE' in str(s.get('image', ''))}
+        self.assertTrue({'r2-empty', 'keycloak-reconcile'} <= operator.keys())
+        for name, service in operator.items():
+            self.assertNotIn('command', service, name)
+            self.assertEqual(service['entrypoint'][:2], image_entrypoint, name)
+            self.assertEqual(len(service['entrypoint']), 3, name)
+
+    def test_r2_empty_error_reaches_the_log(self):
+        result = subprocess.run(['python3', str(ROOT / 'scripts/uat/uat_jobs.py'), 'r2-empty', '--bucket', 'x'],
+                                capture_output=True, text=True, env={'PATH': '/usr/bin:/bin'},
+                                cwd=ROOT / 'scripts/uat')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('R2 empty failed: The bucket to empty must equal the configured Media__R2__Bucket.',
+                      result.stderr)
+
+
 class CaddyChecks(unittest.TestCase):
     def test_admin_paths_private_by_default(self):
         text = (ROOT / 'deploy/vultr-uat/Caddyfile').read_text()
