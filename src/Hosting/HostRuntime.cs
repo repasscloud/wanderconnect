@@ -56,8 +56,20 @@ public static class HostRuntime
             context.Response.Headers.ContentSecurityPolicy=responsePolicy;
             context.Response.Headers.XContentTypeOptions="nosniff";
             context.Response.Headers["Referrer-Policy"]="strict-origin-when-cross-origin";
+            // Issue 334: Cloudflare's Email Address Obfuscation rewrote addresses in our pages to "[email protected]"
+            // links (account search results, examples, contact details), which also need its injected script that our
+            // CSP refuses. `no-transform` tells Cloudflare not to rewrite the page; only HTML pages carry it.
+            if(host!=HostKind.Api)context.Response.OnStarting(()=>{NoTransform(context.Response);return Task.CompletedTask;});
             await next(context);
         });
+    }
+    /// <summary>Adds `no-transform` to an HTML response's Cache-Control, keeping any directives the page already set.</summary>
+    public static void NoTransform(HttpResponse response)
+    {
+        if(response.ContentType?.StartsWith("text/html",StringComparison.OrdinalIgnoreCase)!=true)return;
+        var current=response.Headers.CacheControl.ToString();
+        if(current.Contains("no-transform",StringComparison.OrdinalIgnoreCase))return;
+        response.Headers.CacheControl=current.Length==0?"no-transform":current+", no-transform";
     }
     public static void MapPortalHealth(WebApplication app)
     {
