@@ -234,6 +234,7 @@ public static class AdminEndpoints
 
         // D307 (Q110): search by mobile (optional +, spaces ignored), email (lower-cased) or registered first/last name, where
         // `%` is the only wildcard and other pattern characters are literal. Empty or wildcard-only searches are refused.
+        // D365 (issue 331): `%` searches also match email addresses.
         // Same Support permission as the exact email lookup; audited with the kind and result count, never the value.
         admin.MapGet("/accounts/search", async (string? q, ClaimsPrincipal user, AccountResolver accounts, TimeProvider clock, CancellationToken cancellationToken) =>
         {
@@ -246,10 +247,16 @@ public static class AdminEndpoints
                          join p in db.MemberProfiles on a.Id equals p.AccountId into profiles from p in profiles.DefaultIfEmpty()
                          join m in db.MemberPhones on a.Id equals m.AccountId into phones from m in phones.DefaultIfEmpty()
                          select new { a, p, m };
+            // D365 (issue 331): a `%` search also looks in email addresses (stored lower-case); exact searches are unchanged.
+            var emailPattern = AccountSearch.EmailPattern(query);
             source = query.Kind switch
             {
                 "phone" => source.Where(x => x.m != null && x.m.Number == query.Value),
+                "email" when query.Wildcard => source.Where(x => x.a.Email != null && EF.Functions.ILike(x.a.Email, emailPattern, "\\")),
                 "email" => source.Where(x => x.a.Email == query.Value),
+                _ when query.Wildcard => source.Where(x => (x.a.RegisteredFirstName != null && EF.Functions.ILike(x.a.RegisteredFirstName, query.Value, "\\"))
+                    || (x.a.RegisteredLastName != null && EF.Functions.ILike(x.a.RegisteredLastName, query.Value, "\\"))
+                    || (x.a.Email != null && EF.Functions.ILike(x.a.Email, emailPattern, "\\"))),
                 _ => source.Where(x => (x.a.RegisteredFirstName != null && EF.Functions.ILike(x.a.RegisteredFirstName, query.Value, "\\"))
                     || (x.a.RegisteredLastName != null && EF.Functions.ILike(x.a.RegisteredLastName, query.Value, "\\"))),
             };
