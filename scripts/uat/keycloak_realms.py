@@ -77,8 +77,11 @@ def local_flows(value, member):
         value['registrationFlow'] = registration
         value['authenticationFlows'] += [
             flow(registration, [{**subflow(registration_forms), 'authenticator': 'registration-page-form'}]),
-            flow(registration_forms, [execution('registration-user-creation'), execution('registration-profile-action'),
-                                     execution('registration-password-action'), execution('registration-terms-and-conditions')],
+            # Issue 332: only form actions Keycloak 26 still ships. `registration-profile-action` was removed in
+            # Keycloak 24 (the declarative user profile moved into `registration-user-creation`); a missing form action
+            # makes every registration page an internal server error ("action" is null in FormAction.buildPage).
+            flow(registration_forms, [execution('registration-user-creation'), execution('registration-password-action'),
+                                     execution('registration-terms-and-conditions')],
                  top=False, provider='form-flow'),
         ]
         value['requiredActions'] = [
