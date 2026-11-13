@@ -173,7 +173,12 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
             profile = existingProfile ?? await CreateProfileAsync(account.Id, facts, email, now, cancellationToken);
         }
         else
+        {
             await AcceptInvitationsAsync(account, facts, result, email, now, cancellationToken);
+            // D363: only a Microsoft (Entra) staff sign-in carries Entra app roles; a password session never changes them.
+            if (result.Method == SignInMethod.CorporateSso)
+                await SyncEntraRolesAsync(account, EntraRoleSync.Parse(user.FindAll(EntraRolesClaim).Select(c => c.Value)), now, cancellationToken);
+        }
         if (identifierAuthority is not null) await identifierAuthority.DisposeAsync();
         // #87 (policy §4, §14): the previous address hears that it changed, never what to.
         if (previousEmail is not null && facts.Realm == AccountRealm.Members)
@@ -322,6 +327,34 @@ public sealed class AccountResolver(IServiceProvider services, KeycloakOptions k
     /// Binds pending venue or staff invitations for this verified email to this account, once.
     /// After acceptance the role belongs to (issuer, subject); the email is not consulted again.
     /// </summary>
+    /// <summary>Keycloak access-token claim with the Entra app-role values (scripts/uat/keycloak_realms.py, D363).</summary>
+    public const string EntraRolesClaim = "swoovr_entra_roles";
+
+    private async Task SyncEntraRolesAsync(Account account, IReadOnlySet<AccountRole> entraRoles, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        // Cheap check first: most requests change nothing.
+        var current = await Db!.RoleGrants.AsNoTracking().Where(r => r.AccountId == account.Id).ToListAsync(cancellationToken);
+        if (!EntraRoleSync.Compute(current, entraRoles).Changes) return;
+        await using var lifecycle = await AccountLifecycleLease.AcquireAsync(Db, account.Id, cancellationToken);
+        await Db.Entry(account).ReloadAsync(cancellationToken);
+        if (account.Status == AccountStatus.Deleted) return;
+        current = await Db.RoleGrants.Where(r => r.AccountId == account.Id).ToListAsync(cancellationToken);
+        var plan = EntraRoleSync.Compute(current, entraRoles);
+        if (!plan.Changes) return;
+        Db.RoleGrants.RemoveRange(plan.Remove);
+        Db.RoleGrants.AddRange(plan.Add.Select(role => new RoleGrant { Id = Guid.NewGuid(), AccountId = account.Id, Role = role, GrantedAt = now, Source = RoleGrant.EntraSource }));
+        account.StaffRevision++;
+        Audit.Record(Db, now, account.Id, "entra", "staff.roles-synced", "account", account.Id.ToString(),
+            "added:" + string.Join(',', plan.Add) + ";removed:" + string.Join(',', plan.Remove.Select(g => g.Role)));
+        try { await Db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException exception)
+        {
+            log.LogWarning(exception, "Entra role sync raced; the next request retries.");
+            Db.ChangeTracker.Clear();
+        }
+        services.GetService<Ticketing.TicketingStaffSignal>()?.Nudge();
+    }
+
     private async Task AcceptInvitationsAsync(Account account, ValidatedSessionFacts facts, SessionEvidence result, string? email,
         DateTimeOffset now, CancellationToken cancellationToken)
     {

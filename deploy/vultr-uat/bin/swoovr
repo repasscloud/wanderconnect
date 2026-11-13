@@ -8,7 +8,8 @@
 #   swoovr status                      container state and health through Caddy
 #   swoovr history                     deployed releases, newest last
 #   swoovr smoke                       the post-deployment checks again
-#   swoovr admin-finalize              first-administrator stage 2 (after the first Entra sign-in)
+#   swoovr admin-finalize              grant root to the break-glass account (D364) once it signed in with password + code
+#   swoovr admin-invite                email the break-glass account its set-up link again (while unfinished)
 #   swoovr keycloak-reconcile          realms, clients, Entra broker and realm enablement (idempotent)
 #   swoovr rollback --to vX.Y.Z [--yes] image and bundle swap to an earlier successful release; NO database rollback
 #   swoovr backup                      on-demand database backup (same as the automatic pre-upgrade one)
@@ -130,8 +131,9 @@ keycloak_reconcile() {
 }
 reconcile_value() { sed -n "s/^SWOOVR_RECONCILE $1=//p" "$RECONCILE_OUT" | tail -1; }
 
-# First administrator, stage 2 (D362): grant root only to the verified, Entra-linked staff identity of
-# UAT_INITIAL_ADMIN_EMAIL, and only when no root admin exists. Never fails the deployment while it is pending.
+# First administrator (D362, D364): root goes only to the break-glass account of UAT_INITIAL_ADMIN_EMAIL: a local
+# staff-realm account with a verified email, its own password and one-time code and no Entra link (checked by
+# keycloak-reconcile), that has signed in to Admin once; and only when no root admin exists. Never fails a deployment.
 admin_finalize() {
   local state subject email out code
   [[ -n "$RECONCILE_OUT" ]] || keycloak_reconcile --admin-only > /dev/null
@@ -142,15 +144,27 @@ admin_finalize() {
     state="$(sed -n 's/^root-admin=//p' <<< "$out" | tail -1)"; state="${state:-error-exit-$code}"
   fi
   install -d -m 700 "$here/state"; printf '%s\n' "$state" > "$here/state/initial-admin"
+  result root-account "$(reconcile_value root-account)"
   result initial-admin "$state"
   case "$state" in
-    granted|already-granted) echo 'Initial administrator: root admin held by the configured, verified Entra identity.' ;;
-    pending-sign-in|pending-first-sign-in)
-      echo "Initial administrator PENDING: sign in once at https://admin-uat.swoovr.app with the Entra account for"
-      echo '  UAT_INITIAL_ADMIN_EMAIL, then run the "UAT maintenance" workflow (admin-finalize) or the next deployment.' ;;
+    granted|already-granted) echo 'Initial administrator: root admin held by the configured break-glass account.' ;;
+    pending-invite|invite-not-completed|unverified-email|missing-password-or-authenticator)
+      echo "Initial administrator PENDING ($state): open the set-up email sent to UAT_INITIAL_ADMIN_EMAIL (verify the"
+      echo '  address, choose a password, add an authenticator app). Resend it with the "UAT maintenance" workflow (admin-invite).' ;;
+    pending-first-sign-in)
+      echo 'Initial administrator PENDING: sign in once at https://admin-uat.swoovr.app with the break-glass email,'
+      echo '  password and code (not "Sign in with Microsoft"), then run "UAT maintenance" (admin-finalize).' ;;
+    linked-to-identity-provider)
+      echo 'WARNING: the break-glass account is linked to Microsoft/Entra; it must stay local. Nothing was changed.' ;;
     held-by-another-account) echo 'WARNING: another account already holds root; nothing was changed.' ;;
     *) echo "WARNING: initial administrator not granted ($state); see deploy/vultr-uat/README.md \"First administrator\"." ;;
   esac
+}
+
+admin_invite() {
+  keycloak_reconcile --admin-only --resend-invite > /dev/null
+  result root-account "$(reconcile_value root-account)"
+  result initial-admin "$(reconcile_value initial-admin)"
 }
 
 probe() { # probe HOST PATH -> "<status> <body first 300 bytes>" via Caddy inside the edge network
@@ -437,6 +451,7 @@ case "$command" in
   history) history ;;
   smoke) smoke ;;
   admin-finalize) admin_finalize ;;
+  admin-invite) admin_invite ;;
   keycloak-reconcile) keycloak_reconcile "$@" ;;
   rollback) rollback "$@" ;;
   backup) backup manual "$(value_of "$here/release.env" SWOOVR_TAG || echo unknown)" ;;

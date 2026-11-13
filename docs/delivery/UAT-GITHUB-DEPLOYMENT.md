@@ -84,7 +84,7 @@ What a refresh still guarantees on the VM:
 | Variable | Configuration key | Example / notes |
 | --- | --- | --- |
 | `UAT_EXPECTED_HOSTNAME` | — (checked before deploying) | `uat-01` |
-| `UAT_INITIAL_ADMIN_EMAIL` | `automation.env` `SWOOVR_INITIAL_ADMIN_EMAIL` | the first Swoovr root admin's Entra address |
+| `UAT_INITIAL_ADMIN_EMAIL` | `automation.env` `SWOOVR_INITIAL_ADMIN_EMAIL` | the break-glass root admin's address, outside the Entra tenant (D364; password + authenticator, no Entra link) |
 | `UAT_ENTRA_TENANT_ID` | realm templates + `automation.env` `SWOOVR_ENTRA_TENANT_ID` | Directory (tenant) ID |
 | `UAT_ENTRA_CLIENT_ID` | realm templates + `automation.env` `SWOOVR_ENTRA_CLIENT_ID` | Application (client) ID |
 | `UAT_KEYCLOAK_ENABLED_REALMS` | `automation.env` `SWOOVR_KEYCLOAK_ENABLED_REALMS` | `swoovr-members,swoovr-staff` (default); venues can never be listed |

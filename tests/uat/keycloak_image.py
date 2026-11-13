@@ -89,8 +89,11 @@ with tempfile.TemporaryDirectory(prefix='swoovr-uat-keycloak-image-') as private
             assert selected[0]['attributes']['post.logout.redirect.uris']==origin+'/signout-callback-oidc';checks+=1
             assert selected[0]['directAccessGrantsEnabled'] is False and selected[0]['serviceAccountsEnabled'] is False;checks+=1
             if kind=='members':assert value['webAuthnPolicyPasswordlessRpId']=='uat.swoovr.app';checks+=1
-        code,staff=request(base,'/admin/realms/swoovr-staff/authentication/flows',token=token);assert code==200 and any(f['alias']=='swoovr-uat-staff-entra-only' for f in staff);checks+=1
-        code,executions=request(base,'/admin/realms/swoovr-staff/authentication/flows/swoovr-uat-staff-entra-only/executions',token=token);assert code==200 and len(executions)==1 and executions[0]['providerId']=='identity-provider-redirector' and executions[0]['requirement']=='REQUIRED';checks+=1
+        code,staff=request(base,'/admin/realms/swoovr-staff/authentication/flows',token=token);assert code==200 and any(f['alias']=='swoovr-uat-staff-browser' for f in staff);checks+=1
+        code,executions=request(base,'/admin/realms/swoovr-staff/authentication/flows/swoovr-uat-staff-browser/executions',token=token);assert code==200
+        assert [(e.get('providerId') or e.get('displayName'),e['requirement']) for e in executions if e['level']==0]==[('auth-cookie','ALTERNATIVE'),('swoovr-uat-staff-forms','ALTERNATIVE')];checks+=1
+        assert [(e['providerId'],e['requirement']) for e in executions if e.get('providerId') in ('auth-username-password-form','auth-otp-form')]==[('auth-username-password-form','REQUIRED'),('auth-otp-form','REQUIRED')];checks+=1
+        code,post=request(base,'/admin/realms/swoovr-staff/authentication/flows/swoovr-uat-staff-post-broker/executions',token=token);assert code==200 and [(e['providerId'],e['requirement']) for e in post]==[('auth-otp-form','REQUIRED')];checks+=1
         code,providers=request(base,'/admin/realms/swoovr-staff/identity-provider/instances',token=token);assert code==200 and len(providers)==1 and providers[0]['alias']=='entra' and providers[0]['trustEmail'] is False;checks+=1
         if args.bootstrap_image:
             code,clients=request(base,'/admin/realms/swoovr-members/clients?clientId=swoovr-api-accounts',token=token);assert code==200 and len(clients)==1;service=clients[0];checks+=1

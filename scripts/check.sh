@@ -6,6 +6,7 @@ python3 -m unittest discover -s tests/backups -p 'test_*.py'
 python3 -m unittest discover -s tests/zammad -p 'test_*.py'
 python3 -m unittest discover -s tests/image-pipeline -p 'test_*.py'
 python3 -m unittest discover -s tests/deploy -p 'test_*.py'
+python3 -m unittest discover -s tests/uat -p 'test_*.py'
 python3 scripts/check_design.py --check
 python3 scripts/check_version.py
 python3 -m unittest discover -s tests/release -p 'test_*.py'

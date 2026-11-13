@@ -60,7 +60,7 @@ public static class StaffAccountEndpoints
             else accounts = await rows.OrderBy(a => a.RegisteredFirstName).ThenBy(a => a.Id).Skip((number - 1) * 25).Take(25).ToListAsync(ct);
             var ids = accounts.Select(a => a.Id).ToList();
             var roles = await db.RoleGrants.AsNoTracking().Where(g => ids.Contains(g.AccountId)).ToListAsync(ct);
-            return Results.Ok(new StaffAccountPage(accounts.Select(a => Summary(a, roles.Where(g => g.AccountId == a.Id).Select(g => g.Role))
+            return Results.Ok(new StaffAccountPage(accounts.Select(a => Summary(a, roles.Where(g => g.AccountId == a.Id).ToList())
                 with { Mfa = snapshots.TryGetValue(a.Id, out var info) ? Mfa(info) : "unknown" }).ToList(), total, number, 25));
         });
         staff.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, AccountResolver resolver, IStaffIdentityAdmin identity, CancellationToken ct) =>
@@ -139,7 +139,11 @@ public static class StaffAccountEndpoints
         var target = await db.Accounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (target is null) return Results.NotFound(); await db.Entry(target).ReloadAsync(ct);
         var oldRoles = await db.RoleGrants.Where(r => r.AccountId == id).ToListAsync(ct);
-        if (!StaffManagementPolicy.CanManage(actor!.Account!.Id, actor.IsRootAdmin, target, oldRoles.Select(g => g.Role).ToList(), roles)) return Results.Forbid();
+        // D363: the request lists the roles granted in Swoovr. Entra-managed roles stay as Entra set them, unless Admin grants
+        // the same role here, which turns it into a Swoovr grant that Entra no longer changes.
+        var keptEntra = oldRoles.Where(g => g.FromEntra && !roles.Contains(g.Role)).ToList();
+        var effective = roles.Concat(keptEntra.Select(g => g.Role)).Distinct().ToList();
+        if (!StaffManagementPolicy.CanManage(actor!.Account!.Id, actor.IsRootAdmin, target, oldRoles.Select(g => g.Role).ToList(), effective)) return Results.Forbid();
         if (request.ExpectedRevision != target.StaffRevision) return Changed();
         if (!identity.Configured) return ProviderUnavailable();
         var now = clock.GetUtcNow();
@@ -167,15 +171,18 @@ public static class StaffAccountEndpoints
         await using (var preservation = await Retention.PreservationLease.SharedAsync(db, ct))
         await using (var transaction = await db.Database.BeginTransactionAsync(ct))
         {
-            db.RoleGrants.RemoveRange(oldRoles);
-            db.RoleGrants.AddRange(roles.Select(r => new RoleGrant { Id = Guid.NewGuid(), AccountId = id, Role = r, GrantedBy = actor.Account.Id, GrantedAt = clock.GetUtcNow() }));
+            db.RoleGrants.RemoveRange(oldRoles.Where(g => !g.FromEntra && !roles.Contains(g.Role)));
+            foreach (var adopted in oldRoles.Where(g => g.FromEntra && roles.Contains(g.Role))) { adopted.Source = null; adopted.GrantedBy = actor.Account.Id; adopted.GrantedAt = clock.GetUtcNow(); }
+            db.RoleGrants.AddRange(roles.Where(r => !oldRoles.Any(g => g.Role == r && g.VenueId is null))
+                .Select(r => new RoleGrant { Id = Guid.NewGuid(), AccountId = id, Role = r, GrantedBy = actor.Account.Id, GrantedAt = clock.GetUtcNow() }));
             target.RegisteredFirstName = update.FirstName; target.RegisteredLastName = update.LastName;
             // Email is updated only after a verified provider token, never asserted by an administrator.
             target.Status = status; target.StatusReason = status == AccountStatus.Active ? null : "staff-managed";
             Audit.Record(db, clock.GetUtcNow(), actor.Account.Id, "account", "staff.updated", "account", id.ToString(), string.Join(',', roles.Select(Wire)));
             await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         }
-        helpdesk.Nudge(); return Results.Ok(Summary(target, roles));
+        helpdesk.Nudge();
+        return Results.Ok(Summary(target, await db.RoleGrants.AsNoTracking().Where(g => g.AccountId == id).ToListAsync(ct)));
     }
 
     public static async Task<IResult> SecurityAsync(Guid id, StaffSecurityAction request, ClaimsPrincipal user, AccountResolver resolver, IStaffIdentityAdmin identity,
@@ -215,17 +222,23 @@ public static class StaffAccountEndpoints
 
     public static StaffAccountSummary Summary(Account a, IEnumerable<AccountRole> roles) => new(a.Id, a.RegisteredFirstName, a.RegisteredLastName, a.Email, Wire(a.Status),
         roles.Where(StaffManagementPolicy.InternalRole).Select(Wire).Order().ToArray(), a.LastSeenAt, a.IsRootAdmin, a.StaffRevision, a.StaffLastSignInAt);
+    /// <summary>With the D363 source: <c>EntraRoles</c> lists the roles managed by Entra app roles (read-only in Admin).</summary>
+    public static StaffAccountSummary Summary(Account a, IReadOnlyCollection<RoleGrant> grants) => Summary(a, grants.Select(g => g.Role)) with
+    {
+        EntraRoles = grants.Where(g => g.FromEntra && StaffManagementPolicy.InternalRole(g.Role)).Select(g => Wire(g.Role)).Order().ToArray(),
+    };
     private static async Task<IResult> DetailAsync(Guid id, CurrentAccount actor, AccountResolver resolver, IStaffIdentityAdmin identity, CancellationToken ct)
     {
         var db = resolver.Db!;
         var target = await db.Accounts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id && a.Realm == AccountRealm.Staff, ct);
         if (target is null) return Results.NotFound();
-        var roles = await db.RoleGrants.AsNoTracking().Where(g => g.AccountId == id).Select(g => g.Role).ToListAsync(ct);
+        var grants = await db.RoleGrants.AsNoTracking().Where(g => g.AccountId == id).ToListAsync(ct);
+        var roles = grants.Select(g => g.Role).ToList();
         var info = await identity.AccountAsync(target.Subject, ct);
         var sessions = info is null ? null : await identity.SignInsAsync(target.Subject, ct);
         var history = await db.AuditEntries.AsNoTracking().Where(a => a.TargetType == "account" && a.TargetId == id.ToString() && a.Action.StartsWith("staff."))
             .OrderByDescending(a => a.Id).Take(100).Select(a => new StaffActionEntry(a.Id, a.At, a.Action)).ToListAsync(ct);
-        var summary = Summary(target, roles);
+        var summary = Summary(target, grants);
         if (info is not null) summary = summary with { Email = info.Email, FirstName = info.FirstName, LastName = info.LastName, Mfa = Mfa(info) };
         return Results.Ok(new StaffAccountDetail(summary, info?.Phone, info is not null, info?.Enabled == true, info?.EmailVerified == true,
             info?.CredentialTypes ?? [], info?.RequiredActions ?? [], sessions?.Sessions.Select(s => new SignInSessionView(SignInPolicy.Handle(s.Id), SignInPolicy.Device(s.Clients), s.Started, s.LastActive, false)).ToArray() ?? [], history, StaffManagementPolicy.CanManage(actor.Account!.Id, actor.IsRootAdmin, target, roles, roles)));

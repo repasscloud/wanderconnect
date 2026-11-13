@@ -12,8 +12,13 @@ user other than reading them, and never prints a secret. In order:
 3. Redirect URIs of the hosted web clients are verified against the UAT hostnames (refuses on drift, never rewrites).
 4. The realms named in SWOOVR_KEYCLOAK_ENABLED_REALMS are enabled (only members and staff may be listed).
 5. The temporary bootstrap admin is deleted once a personal master-realm admin with OTP exists; otherwise kept.
-6. First administrator: reports whether SWOOVR_INITIAL_ADMIN_EMAIL belongs to exactly one enabled staff-realm user
-   with a Keycloak-verified email and a linked Entra identity. Only then is its subject printed for the root grant.
+6. First administrator (D364, break-glass): SWOOVR_INITIAL_ADMIN_EMAIL is a local staff-realm account with its own
+   password and one-time code and NO Entra link, so it still works when the tenant or Microsoft is unavailable. If no
+   staff user has that address, it is created (username = email, no credentials) and Keycloak emails it a link to
+   verify the address, choose a password and enrol an authenticator. `--resend-invite` sends that email again while
+   the account is unfinished. The subject is printed for the root grant only when exactly one enabled user has the
+   address, it is verified, it has a password and a one-time code, no required action is pending and no identity
+   provider is linked.
 
 Output: `SWOOVR_RECONCILE <key>=<value>` lines (states and IDs only).
 """
@@ -187,24 +192,69 @@ def retire_bootstrap_admin(admin, request, env):
     return 'kept-no-personal-admin'
 
 
-def admin_candidate(admin, email):
-    """Verified identity only: never grants on an address match alone."""
-    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email or ''):
-        return 'not-configured', None
-    users = [u for u in admin.call('/swoovr-staff/users?exact=true&email=' + urllib.parse.quote(email))
-             if (u.get('email') or '').lower() == email.lower()]
+INVITE_ACTIONS = ['VERIFY_EMAIL', 'UPDATE_PASSWORD', 'CONFIGURE_TOTP']
+INVITE_LIFESPAN = 43200  # 12 hours
+
+
+def valid_email(email):
+    return bool(re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email or ''))
+
+
+def staff_users(admin, email):
+    return [u for u in admin.call('/swoovr-staff/users?exact=true&email=' + urllib.parse.quote(email))
+            if (u.get('email') or '').lower() == email.lower()]
+
+
+def send_invite(admin, user_id):
+    """Keycloak's own execute-actions email. A mail failure is reported, never fatal to the deployment."""
+    try:
+        admin.call(f'/swoovr-staff/users/{user_id}/execute-actions-email?lifespan={INVITE_LIFESPAN}', 'PUT',
+                   INVITE_ACTIONS, (204,))
+        return 'sent'
+    except ValueError:
+        return 'email-failed'
+
+
+def ensure_root_account(admin, email, resend=False):
+    """D364: create the break-glass account once; never touch an account that already has the address."""
+    if not valid_email(email):
+        return 'not-configured'
+    users = staff_users(admin, email)
     if not users:
-        return 'pending-sign-in', None
+        admin.call('/swoovr-staff/users', 'POST', {
+            'username': email.lower(), 'email': email, 'enabled': True, 'emailVerified': False,
+            'requiredActions': INVITE_ACTIONS}, (201,))
+        users = staff_users(admin, email)
+        if len(users) != 1:
+            raise ValueError('The break-glass account could not be read back after creation.')
+        return 'created-invite-' + send_invite(admin, users[0]['id'])
+    if len(users) == 1 and resend and users[0].get('requiredActions'):
+        return 'invite-' + send_invite(admin, users[0]['id'])
+    return 'exists'
+
+
+def admin_candidate(admin, email):
+    """Verified break-glass identity only: never grants on an address match alone."""
+    if not valid_email(email):
+        return 'not-configured', None
+    users = staff_users(admin, email)
+    if not users:
+        return 'pending-invite', None
     if len(users) > 1:
         return 'ambiguous', None
     user = users[0]
     if not user.get('enabled'):
         return 'disabled', None
+    links = admin.call('/swoovr-staff/users/' + user['id'] + '/federated-identity')
+    if links:
+        return 'linked-to-identity-provider', None
+    if user.get('requiredActions'):
+        return 'invite-not-completed', None
     if user.get('emailVerified') is not True:
         return 'unverified-email', None
-    links = admin.call('/swoovr-staff/users/' + user['id'] + '/federated-identity')
-    if not any(link.get('identityProvider') == 'entra' for link in links or []):
-        return 'not-linked', None
+    types = {c.get('type') for c in admin.call('/swoovr-staff/users/' + user['id'] + '/credentials') or []}
+    if not {'password', 'otp'} <= types:
+        return 'missing-password-or-authenticator', None
     return 'ready', user['id']
 
 
@@ -215,7 +265,7 @@ def wanted_realms(env):
     return names
 
 
-def reconcile(request, env, admin_only=False):
+def reconcile(request, env, admin_only=False, resend_invite=False):
     secret = env.get('SWOOVR_KC_DEPLOY_CLIENT_SECRET', '')
     if len(secret) < 32:
         raise ValueError('The deployment client secret is missing (env/automation.env).')
@@ -244,7 +294,9 @@ def reconcile(request, env, admin_only=False):
         say('realms', enable_realms(admin, wanted_realms(env)))
     # Also in admin-only mode (the maintenance workflow's admin-finalize), so the temporary admin goes once you have yours.
     say('bootstrap-admin', retire_bootstrap_admin(admin, request, env))
-    state, subject = admin_candidate(admin, env.get('SWOOVR_INITIAL_ADMIN_EMAIL', ''))
+    email = env.get('SWOOVR_INITIAL_ADMIN_EMAIL', '')
+    say('root-account', ensure_root_account(admin, email, resend_invite))
+    state, subject = admin_candidate(admin, email)
     say('initial-admin', state)
     if subject:
         say('initial-admin-subject', subject)
@@ -254,7 +306,7 @@ def reconcile(request, env, admin_only=False):
 def main(args):
     env = os.environ
     request = Transport(env.get('SWOOVR_KEYCLOAK_BASE', AUTH), env.get('DOTNET_ENVIRONMENT') == 'Development')
-    return reconcile(request, env, admin_only='--admin-only' in args)
+    return reconcile(request, env, admin_only='--admin-only' in args, resend_invite='--resend-invite' in args)
 
 
 if __name__ == '__main__':

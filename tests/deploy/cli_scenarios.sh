@@ -82,7 +82,7 @@ deploy "$r1" upgrade && bad 'upgrade without data accepted'; grep -q 'first depl
 # 3. First refresh: no data to back up, full bootstrap, admin pending, history recorded.
 FAKE_VERSION=1.0.3 deploy "$r1" refresh --confirm-refresh swoovr-uat:v1.0.3 || { cat "$work/out.log"; bad 'first refresh failed'; }
 grep -q 'SWOOVR_RESULT deployed=v1.0.3' "$work/out.log" && ok 'first refresh deployed' || bad 'first refresh deployed'
-grep -q 'SWOOVR_RESULT initial-admin=pending-sign-in' "$work/out.log" && ok 'initial admin reported pending, not granted' || bad 'initial admin reported pending, not granted'
+grep -q 'SWOOVR_RESULT initial-admin=invite-not-completed' "$work/out.log" && ok 'initial admin reported pending, not granted' || bad 'initial admin reported pending, not granted'
 ls /opt/swoovr/backups/*-pre-refresh-v1.0.3/NOTHING-TO-BACK-UP > /dev/null && ok 'empty host recorded as nothing to back up' || bad 'empty host recorded as nothing to back up'
 grep -q '^Ticketing__Zammad__RetentionToken=t3$' "$live/env/api.env" && ok 'Zammad tokens provisioned' || bad 'Zammad tokens provisioned'
 grep -q "^SWOOVR_UAT_REALM_STAFF='{" "$live/env/realms.env" && ok 'realm templates loaded from the release' || bad 'realm templates loaded from the release'

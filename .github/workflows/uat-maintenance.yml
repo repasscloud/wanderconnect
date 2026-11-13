@@ -1,14 +1,14 @@
-# Swoovr UAT maintenance (D362): read-only status/history, and the first-administrator stage 2 after the first Entra
-# sign-in. Manual dispatch only; never deploys, migrates, refreshes or rolls back. Same SSH secrets and lock as
-# deploy-uat.yml. Runbook: deploy/vultr-uat/README.md.
+# Swoovr UAT maintenance (D362, D364): read-only status/history; admin-finalize grants root to the break-glass account
+# after its first password + code sign-in; admin-invite re-sends its set-up email. Manual dispatch only; never
+# deploys, migrates, refreshes or rolls back. Same SSH secrets and lock as deploy-uat.yml. Runbook: deploy/vultr-uat/README.md.
 name: UAT maintenance
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status | history | admin-finalize"
+        description: "status | history | admin-finalize | admin-invite"
         type: choice
-        options: [status, history, admin-finalize]
+        options: [status, history, admin-finalize, admin-invite]
         default: status
 permissions: {}
 concurrency:
@@ -55,7 +55,7 @@ jobs:
           EXPECTED_HOSTNAME: ${{ vars.UAT_EXPECTED_HOSTNAME }}
         run: |
           set -euo pipefail
-          case "$ACTION" in status|history|admin-finalize) ;; *) echo "::error::unsupported action"; exit 1 ;; esac
+          case "$ACTION" in status|history|admin-finalize|admin-invite) ;; *) echo "::error::unsupported action"; exit 1 ;; esac
           [[ "$EXPECTED_HOSTNAME" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || { echo "::error::UAT_EXPECTED_HOSTNAME is not set."; exit 1; }
           ssh -F "$RUNNER_TEMP/ssh/config" uat bash -s -- "$EXPECTED_HOSTNAME" "$ACTION" <<'REMOTE' | tee "$RUNNER_TEMP/out.log"
           set -euo pipefail

@@ -61,7 +61,7 @@ DEFAULT (owner delegated the choice): Keycloak answers "who is this and how did 
 
 Keycloak owns: credentials, linked Apple/Google/Entra identities, passkeys, OTP, email verification, sign-in method evidence (`amr`/`acr`, broker `identity_provider` note), sessions, brute-force lockout, the registration-time adult attestation, and (later) venue organisation membership.
 
-The API owns: the member/venue/staff profile keyed by `(issuer, subject)`; roles (admin, support, venue roles) and venue membership; date of birth and age status; bans, locks and moderation state; consent records; audit logs. Keycloak realm roles and groups are not used for Swoovr authorization, and no role is accepted from a token claim, request body, email domain or Entra group (DEFAULT; Entra group mapping can be revisited later).
+The API owns: the member/venue/staff profile keyed by `(issuer, subject)`; roles (admin, support, venue roles) and venue membership; date of birth and age status; bans, locks and moderation state; consent records; audit logs. Keycloak realm roles and groups are not used for Swoovr authorization, and no role is accepted from a request body, email domain or Entra group. Exception (D363): Entra app roles of a Microsoft staff sign-in arrive in the `swoovr_entra_roles` claim (written only by the Entra broker) and become Entra-sourced grants; Swoovr-granted roles and the root admin (D364) never come from a token.
 
 Tokens carry only identity and session evidence. The API looks up everything else on each request (with a short cache), so a ban or role change takes effect without waiting for token expiry.
 

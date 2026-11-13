@@ -89,21 +89,24 @@ The old Docker Hub images and `/root/.docker/config.json` are no longer used; GH
 
 ## First administrator
 
-`UAT_INITIAL_ADMIN_EMAIL` names the first Swoovr root admin. Staff sign in only with Microsoft Entra (no passwords, no social sign-in, D281). Swoovr never grants privileges because an address matches. Provisioning has two stages:
+The root admin is a **break-glass account** (D364): `UAT_INITIAL_ADMIN_EMAIL` is a dedicated address with no connection to the Entra tenant, with its own password and authenticator app. It still works when Entra or Microsoft 365 is down. Everyday administration uses Entra accounts with the Admin role (D363). Swoovr never grants privileges because an address matches.
 
-1. **Every deployment (automatic):** the staff realm, its clients and the Entra broker are ready, and the staff realm is enabled. Nothing is created for the person: no password is invented, and no account is pre-created.
-2. **After that person's first sign-in:** they open `https://admin-uat.swoovr.app` and sign in with Microsoft. Keycloak creates the user (only if unique) and asks them to verify their email address by link, because `trustEmail=false`. Admin then shows "no access", which is expected. Then run **Actions → UAT maintenance → admin-finalize** (or just the next deployment). It grants root only if **all** hold:
-   - exactly one enabled staff-realm user has that address;
+1. **Every deployment (automatic):** if no staff user has that address, `keycloak-reconcile` creates one (username = the address, no password) and Keycloak emails it a link, valid 12 hours, to verify the address, choose a password and add an authenticator app. It never creates a second account or touches an existing one. A mail failure is shown as `root-account=…-email-failed` and never fails the deployment; **Actions → UAT maintenance → admin-invite** sends the link again.
+2. **The owner completes the email** (verify, password of 12+ characters, scan the QR code with an authenticator app). Keep the authenticator's backup somewhere safe and offline.
+3. **First sign-in:** `https://admin-uat.swoovr.app` → the **username/password form** (not "Sign in with Microsoft"), then the 6-digit code. Admin shows "no access", which is expected.
+4. **Actions → UAT maintenance → admin-finalize** (or the next deployment). It grants root only if **all** hold:
+   - exactly one enabled staff-realm user has that address, with no required action pending;
    - Keycloak shows the address **verified**;
-   - an **Entra** identity is linked;
-   - the Swoovr staff account exists, is active and carries the same address;
+   - it has a **password** and a **one-time code** credential;
+   - **no** identity provider (Entra) is linked to it;
+   - the Swoovr staff account exists (step 3), is active and carries the same address;
    - **no** root admin exists yet.
 
-   It never moves root from another account and never re-grants (`root-admin ensure`, audited).
+   It never moves root from another account and never re-grants (`root-admin ensure`, audited). Then choose **Sign in again** in Admin.
 
-The summary and `state/initial-admin` show the state: `pending-sign-in`, `unverified-email`, `not-linked`, `ambiguous`, `disabled`, `granted`, `already-granted` or `held-by-another-account`. A deployment never fails because the admin is pending, and never reports it as granted until it is. After a refresh, the Keycloak user ID changes, so the person signs in once more and `admin-finalize` grants root again. Root's own privileged actions still need the existing MFA/freshness rules (D322).
+The summary and `state/initial-admin` show the state: `pending-invite`, `invite-not-completed`, `unverified-email`, `missing-password-or-authenticator`, `linked-to-identity-provider`, `pending-first-sign-in`, `ambiguous`, `disabled`, `granted`, `already-granted` or `held-by-another-account`. A deployment never fails because the admin is pending. **A refresh deletes the Keycloak users**, so after each refresh the account is created again, a new email arrives, and steps 2–4 repeat. Root's privileged actions still need password + code within the freshness rules (D36, D322).
 
-Other staff roles: invite them in Admin as root, or `./bin/swoovr job api-command staff-role grant <subject> support|trust-safety|admin|business` on the host.
+Other staff roles: Entra app roles (below), invitations in Admin, or `./bin/swoovr job api-command staff-role grant <subject> support|trust-safety|admin|business` on the host.
 
 ## Zammad mail (Microsoft 365)
 
@@ -141,6 +144,16 @@ Reuse the existing app registration **Swoovr UAT staff** (single tenant). Nothin
 | API permissions | Microsoft Graph delegated `openid`, `profile`, `email` (admin consent recommended) |
 | Enterprise app → Assignment required | **Yes**, with only approved staff assigned |
 | Client secret | max. 24 months; put the expiry in your calendar; when renewed, update `UAT_ENTRA_CLIENT_SECRET` and deploy |
+
+### Staff roles from Entra app roles (D363)
+
+| Entra | Setting |
+| --- | --- |
+| App registration → App roles | `Support`, `TrustSafety`, `Admin`, `Legal` (Value exactly as written; allowed member types Users/Groups; enabled) |
+| Security groups | one per role, e.g. "Swoovr UAT Support", members added directly (nested groups don't pass roles) |
+| Enterprise app → Users and groups | "Swoovr UAT" → Default Access (may sign in); each role group → its role |
+
+At every Microsoft sign-in Keycloak copies the `roles` claim into `swoovr_entra_roles`, and the API adds or removes the person's **Entra-managed** roles to match. Roles granted in Swoovr Admin, by invitation or the CLI are never changed by Entra; Admin shows Entra roles as "managed in Entra". A change in Entra applies at the person's next Microsoft sign-in. After Microsoft, staff also enter a Keycloak one-time code (authenticator app, set up at the first sign-in) and verify their email once by link.
 
 GitHub: `UAT_ENTRA_TENANT_ID` (Directory ID), `UAT_ENTRA_CLIENT_ID` (Application ID, not the Object ID), secret `UAT_ENTRA_CLIENT_SECRET`. Each deployment generates the realm templates from these and the tagged commit. `keycloak-reconcile` corrects the broker's tenant/client/secret if they differ, and verifies the Keycloak client callbacks: `https://uat.swoovr.app/signin-oidc`, `https://admin-uat.swoovr.app/signin-oidc` (and `/signout-callback-oidc`), and the helpdesk `https://helpdesk-uat.swoovr.app/auth/openid_connect/callback`. Those are Keycloak callbacks and are not registered in Entra.
 

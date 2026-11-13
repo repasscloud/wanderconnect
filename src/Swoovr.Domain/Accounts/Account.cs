@@ -67,6 +67,13 @@ public sealed class RoleGrant
     public DateTimeOffset GrantedAt { get; set; }
     /// <summary>The granting account, or null for an invitation acceptance or the CLI.</summary>
     public Guid? GrantedBy { get; set; }
+    /// <summary>
+    /// D363: null for a grant made in Swoovr (Admin, invitation, CLI), which only Swoovr changes; <see cref="EntraSource"/>
+    /// for a grant that mirrors the staff member's Entra app roles at their last Microsoft sign-in.
+    /// </summary>
+    public string? Source { get; set; }
+    public const string EntraSource = "entra";
+    public bool FromEntra => Source == EntraSource;
 }
 
 /// <summary>
