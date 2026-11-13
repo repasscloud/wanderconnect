@@ -13,7 +13,7 @@
 <button type="button" class="jump-button" data-palette-open aria-label="Jump to a page or search accounts" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><span class="jump-label">Jump to…</span><kbd>⌘K</kbd></button>
 <button type="button" class="theme-button" data-theme-toggle aria-label="Toggle light or dark theme">Theme</button>
 <details class="staff-menu"><summary><span class="staff-avatar" aria-hidden="true">@Initials</span><span class="staff-name">@StaffName</span><span aria-hidden="true">⌄</span></summary>
-<div class="account-actions"><p>Staff account</p><a href="/sign-in?reauth=true" data-enhance-nav="false">Sign in again</a><form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form></div></details>
+<div class="account-actions"><p>Staff account</p><a href="@AdminText.SignInAgain(Here)" data-enhance-nav="false" data-sign-in-again title="Sign in with MFA again. It counts as MFA verification for 60 minutes.">Sign in again</a><form method="post" action="/sign-out" data-enhance="false"><AntiforgeryToken /><button type="submit" class="quiet">Sign out</button></form></div></details>
 </div>
 </header>
 <main id="main-content" tabindex="-1" class="admin-main @(DesktopOnly ? "requires-desktop" : "") @(LimitedPhone ? "phone-summary" : "")">
@@ -26,6 +26,8 @@
 <dialog id="navigation-drawer" aria-label="Navigation"><AdminNavigation Drawer="true" /></dialog>
 @code {
 private string Path => new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+// Issue 336: "Sign in again" (with MFA, D366) comes back to this page instead of the overview.
+private string Here => new Uri(Navigation.Uri).PathAndQuery;
 // D302: viewport rules are presentation only; API roles/elevation remain authoritative.
 private bool DesktopOnly => new[] { "/media", "/registry", "/holds", "/law-enforcement", "/disclosures", "/identity", "/access", "/security" }.Any(route => Path == route || Path.StartsWith(route + "/", StringComparison.Ordinal))
     || Path.EndsWith("/content", StringComparison.Ordinal) || Path.EndsWith("/text-review", StringComparison.Ordinal) || Path.EndsWith("/reinstate", StringComparison.Ordinal);

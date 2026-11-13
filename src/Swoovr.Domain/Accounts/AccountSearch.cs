@@ -1,12 +1,17 @@
 namespace Swoovr.Domain;
 
-/// <summary>A parsed D307 staff account search: "phone" (E.164), "email" (normalised) or "name" (ILIKE pattern, `\` escape).</summary>
-public sealed record AccountSearchQuery(string Kind, string Value);
+/// <summary>
+/// A parsed D307 staff account search: "phone" (E.164), "email" (normalised, or a lower-cased ILIKE pattern when
+/// <see cref="Wildcard"/>) or "name" (ILIKE pattern, `\` escape; with a `%` wildcard it also matches the email address).
+/// </summary>
+public sealed record AccountSearchQuery(string Kind, string Value, bool Wildcard = false);
 
 /// <summary>
 /// D307 (owner, 3 November 2026): one search box for mobile, email or registered first/last name. Mobile accepts a leading
-/// `+` or not and ignores spaces; email is lower-cased; for names `%` is the only wildcard (like `*`), every other
-/// character — including `_` and `\` — is literal, and a value without `%` is an exact case-insensitive match.
+/// `+` or not and ignores spaces; email is lower-cased; `%` is the only wildcard (like `*`), every other character —
+/// including `_` and `\` — is literal, and a value without `%` is an exact case-insensitive match.
+/// D365 (owner, issue 331): a `%` search also looks in email addresses. With `@` it is an email pattern
+/// (`%name@company%`); without `@` it matches first name, last name or email (`%name%`).
 /// Empty and wildcard-only searches are refused so staff cannot list every account.
 /// </summary>
 public static class AccountSearch
@@ -17,11 +22,17 @@ public static class AccountSearch
     {
         var text = input?.Trim();
         if (string.IsNullOrEmpty(text) || text.Length > MaxLength || text.Any(char.IsControl)) return null;
-        if (text.Contains('@')) return EmailAddress.Normalise(text) is { } email ? new("email", email) : null;
+        var wildcard = text.Contains('%');
+        // Nothing but wildcards, `@` and spaces would list every account.
+        if (text.Replace("%", "").Replace("@", "").Trim().Length == 0) return null;
+        if (text.Contains('@'))
+        {
+            if (!wildcard) return EmailAddress.Normalise(text) is { } email ? new("email", email) : null;
+            return text.Any(char.IsWhiteSpace) ? null : new("email", Pattern(text.ToLowerInvariant()), true);
+        }
         if (text.All(c => char.IsAsciiDigit(c) || c is ' ' or '+' or '-' or '(' or ')' or '.') && text.Any(char.IsAsciiDigit))
             return Phone(text) is { } phone ? new("phone", phone) : null;
-        if (text.Replace("%", "").Trim().Length == 0) return null;
-        return new("name", NamePattern(text));
+        return new("name", Pattern(text), wildcard);
     }
 
     /// <summary>Canonical E.164 using the verification rules, plus international digits typed without the `+`.</summary>
@@ -33,5 +44,8 @@ public static class AccountSearch
     }
 
     /// <summary>Escapes `\` and `_` for ILIKE (escape character `\`); `%` stays the wildcard.</summary>
-    public static string NamePattern(string text) => text.Replace("\\", "\\\\").Replace("_", "\\_");
+    public static string Pattern(string text) => text.Replace("\\", "\\\\").Replace("_", "\\_");
+
+    /// <summary>The same pattern for the stored (lower-case) email column.</summary>
+    public static string EmailPattern(AccountSearchQuery query) => query.Value.ToLowerInvariant();
 }

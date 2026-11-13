@@ -190,14 +190,14 @@ else
     private async Task PreserveAsync()
     {
         var result = await Admin.PlaceHoldAsync(new NewLegalHold(PreserveForm?.Reason, [detail?.Case.SubjectAccountId ?? Guid.Empty], null, null, null, null, null, Id));
-        (resultCode, reauth) = (result.Ok ? "ok" : result.Code ?? result.Status.ToString(), result.Status == 401);
+        (resultCode, reauth) = (result.Ok ? "ok" : result.Code ?? result.Status.ToString(), AdminText.NeedsSignIn(result.Status, result.Code));
         message = result.Ok ? $"Provisional hold placed; {result.Value!.Items} item(s) preserved. The security and legal officer reviews it within 30 days." : HoldText.Refusal(result.Status, result.Code);
         await LoadAsync();
     }
 
     private void Show(int status, string? code, string ok)
     {
-        (resultCode, reauth) = (status is >= 200 and < 300 ? "ok" : code ?? status.ToString(), status == 401 || code == "stale-session");
+        (resultCode, reauth) = (status is >= 200 and < 300 ? "ok" : code ?? status.ToString(), AdminText.NeedsSignIn(status, code));
         message = status is >= 200 and < 300 ? ok : AdminText.Refusal(status, code);
     }
 }

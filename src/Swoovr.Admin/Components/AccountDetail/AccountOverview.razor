@@ -6,6 +6,13 @@
         <h2 class="ui-card-title">Identity</h2>
         <dl class="ad-dl">
             <div><dt>Registered name</dt><dd data-registered-identity>@(names is { } n ? $"{n.FirstName} {n.LastName}".Trim() : "Not provided") @if (names is not null) {<span class="ui-sub">@(names.Confirmed ? "Confirmed by the member" : "Awaiting confirmation") · @(names.MatchesId is null ? "No ID comparison" : names.MatchesId == true ? "Matches ID" : "Differs from ID")</span>}</dd><dd class="ad-act"><a class="ui-button-ghost" href="/name-reviews">Name changes</a></dd></div>
+            @* Issue 336: staff accounts have no member profile, so there is no date of birth to open. *@
+            @if (Account.Realm != "members")
+            {
+            <div><dt>Date of birth</dt><dd data-dob-check="not-applicable">Not recorded for staff accounts</dd><dd></dd></div>
+            }
+            else
+            {
             <div><dt>Date of birth</dt>
                 <dd data-dob-check="@Account.DobCheck">
                     @if (dob is not null) {<span data-profile-dob>@(dob.DateOfBirth?.ToString("d MMMM yyyy") ?? "No date saved")</span>}
@@ -13,6 +20,7 @@
                     <span class="ad-tag">@(Account.DateOfBirthVerified ? "Verified by ID" : Account.DobCheck switch { "correctionNeeded" => "Correction requested", "manualReview" => "Waiting for review", _ => "Saved, not verified" })</span>
                 </dd>
                 <dd class="ad-act">@if (dob is null) {<button type="button" class="ui-button-ghost" data-dialog-open="dob-open" data-op="dob-open">View date of birth</button>}</dd></div>
+            }
             <div><dt>Age</dt><dd>@(Account.Age?.ToString() ?? "Not provided") · @AccountLabels.Age(Account.AgeStatus)</dd><dd></dd></div>
             <div><dt>Display name</dt><dd>@(Account.DisplayName ?? "None")</dd><dd class="ad-act"><a class="ui-button-ghost" href="/accounts/@Account.Id/profiles">Profiles</a></dd></div>
             <div><dt>Verified identity</dt><dd data-identity-on-file="@(Account.IdentityOnFileSince is null ? "none" : "on-file")">@(Account.IdentityOnFileSince is { } since ? $"On file since {since:d MMM yyyy}{(Account.IdentityIssuingCountry is { } c ? $" · {c}" : "")}" : "None on file")</dd>
@@ -67,11 +75,14 @@
     </div>
 </div>
 
+@if (Account.Realm == "members")
+{
 <ConfirmDialog Id="dob-open" FormName="dob-open" Title="Open date of birth" Confirm="Open" OnSubmit="OpenDobAsync">
     <label class="ui-field"><span>Purpose</span><select name="purpose" required>@foreach (var p in Purposes){<option>@p</option>}</select></label>
     <NoteField Name="detail" Label="Details" Required="true" Max="300" />
     <p class="ui-help">Access lasts 60 minutes and is recorded against your name.</p>
 </ConfirmDialog>
+}
 <ConfirmDialog Id="home-wait" FormName="home-wait" Title="Lift the 30-day home-city wait" Confirm="Lift wait" OnSubmit='() => RunAsync("home")'>
     <label class="ui-field"><span>Reason</span><select name="reason" required><option>Moved for work, confirmed</option><option>Relocation evidence reviewed</option><option>Staff error</option></select></label>
 </ConfirmDialog>
@@ -118,6 +129,8 @@
         }
         var result = await Admin.ProfileDobAsync(Account.Id, purpose);
         dob = result.Value;
+        // Issue 336: an account without a saved date says so, instead of "Not found, or not available to your role".
+        if (result.Status == 404) { Report?.Invoke((200, null, "This account has no date of birth saved.")); return; }
         Report?.Invoke((result.Status, result.Code, "Date of birth opened. Access is recorded."));
     }
 

@@ -70,7 +70,7 @@ const log = (event, extra={}) => console.log(JSON.stringify({at:new Date().toISO
   const {totp}=await import('../../scripts/auth/totp.mjs');
   await staff.fill('#otp',totp(fixture.totpSecret));await staff.click('#kc-login');
   await staff.waitForURL(admin+'/access?mfa=verified');
-  await staff.getByText('MFA elevation is active for this staff session.',{exact:true}).waitFor();
+  await staff.locator('[data-mfa-elevated]:not([data-mfa-elevated=none])').waitFor();
   log('staff-mfa-elevated');
   await exchange(0,'before-a');await exchange(1,'before-b');
   const started=Date.now();log('observation-start');

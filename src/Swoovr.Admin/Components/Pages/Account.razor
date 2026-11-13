@@ -112,7 +112,7 @@ else
     private void Report((int Status, string? Code, string Done) outcome)
     {
         var ok = outcome.Status is >= 200 and < 300;
-        (resultCode, reauth) = (ok ? "ok" : outcome.Code ?? outcome.Status.ToString(), outcome.Status == 401 || outcome.Code == "stale-session");
+        (resultCode, reauth) = (ok ? "ok" : outcome.Code ?? outcome.Status.ToString(), AdminText.NeedsSignIn(outcome.Status, outcome.Code));
         message = ok ? outcome.Done : AdminText.Refusal(outcome.Status, outcome.Code);
         // A tab reports through a plain delegate, so re-render the page (header, notice) explicitly.
         StateHasChanged();
@@ -128,7 +128,7 @@ else
     {
         var handler = Context?.Request.HasFormContentType == true ? Context.Request.Form["_handler"].ToString() : "";
         var back = $"/accounts/{Id}/{Current}" + (System.Text.RegularExpressions.Regex.IsMatch(handler, "^[A-Za-z0-9-]{1,80}$") ? $"?resume={handler}" : "");
-        return "/sign-in?reauth=true&returnUrl=" + Uri.EscapeDataString(back);
+        return AdminText.SignInAgain(back);
     }
 
     private string Name => registeredName is { Confirmed: true } r
