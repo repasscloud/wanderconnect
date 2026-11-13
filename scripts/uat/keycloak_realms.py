@@ -156,7 +156,7 @@ def staff_flows(value, tenant, client_id):
         'config': {'claim': 'roles', 'user.attribute': ENTRA_ROLES_ATTRIBUTE, 'syncMode': 'FORCE'}}]
     authority = 'https://login.microsoftonline.com/' + tenant
     value['identityProviders'] = [{
-        'alias': ENTRA_ALIAS, 'displayName': 'Sign in with Microsoft', 'providerId': 'oidc',
+        'alias': ENTRA_ALIAS, 'displayName': 'Microsoft', 'providerId': 'oidc',  # issue 335: the button adds "Sign in with"
         'enabled': True, 'trustEmail': False, 'storeToken': False, 'addReadTokenRoleOnCreate': False,
         'authenticateByDefault': False, 'linkOnly': False, 'firstBrokerLoginFlowAlias': first,
         'postBrokerLoginFlowAlias': post,

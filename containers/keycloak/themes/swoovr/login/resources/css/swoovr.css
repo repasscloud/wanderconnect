@@ -312,3 +312,26 @@ html:active-view-transition-type(sw-back)::view-transition-new(root) { animation
 .pf-v5-c-login__main .sw-reset-actions a.pf-v5-c-button.pf-m-primary:hover { border-color: var(--sw-primary); }
 [aria-invalid="true"] { scroll-margin-block: 24px; }
 [id^="input-error-"] .pf-v5-c-form__helper-text { font-weight: 600; }
+
+/* ---------- Issues 333 and 337: setup pages ---------- */
+/* Lists read as lists: numbered steps, and bullet points for apps, settings and what is left to do. */
+.sw-totp-steps { margin: 20px 0 0; padding-left: 22px; list-style: decimal; color: var(--sw-text); font-size: 15px; line-height: 1.45; }
+.sw-totp-steps > li { margin: 0 0 14px; padding-left: 4px; }
+.sw-totp-steps > li > p { margin: 0; }
+.sw-steps { margin: 8px 0 0; padding-left: 20px; list-style: disc; color: var(--sw-text); font-size: 15px; line-height: 1.6; }
+.sw-steps > li { margin: 0; padding-left: 2px; }
+.sw-steps > li::marker { color: var(--sw-muted); }
+#kc-info-message .sw-steps { margin-top: 10px; }
+/* The manual authenticator key: a code block, easy to read and to select. */
+.sw-code {
+  margin: 10px 0 6px; padding: 12px 14px; border: 1px solid var(--sw-border); border-radius: 12px; background: var(--sw-soft);
+  overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+}
+.sw-code code { font: 600 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0; color: var(--sw-text); user-select: all; }
+/* A normal-width primary button (not a full-width one) for a single "Continue". */
+.sw-actions { margin: 26px 0 0; }
+.pf-v5-c-login__main a.pf-v5-c-button.sw-button-inline {
+  display: inline-flex; width: auto; padding: 0 28px; border: 1px solid var(--sw-primary);
+  background: var(--sw-primary); color: var(--sw-on-primary);
+}
+.pf-v5-c-login__main a.pf-v5-c-button.sw-button-inline:hover { border-color: var(--sw-primary); }

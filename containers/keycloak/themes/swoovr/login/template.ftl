@@ -35,7 +35,16 @@
 <#assign swBack = {"register": url.loginUrl, "login-reset-password": url.loginUrl}[pageId]!"">
 <#assign swIcon = {"login-reset-password": "key", "login-update-password": "lock", "login-verify-email": "mail", "login-otp": "lock", "login-config-totp": "lock"}[pageId]!"">
 <#assign swSubtitleKey = "swoovrSubtitle." + pageId>
+<#-- Issue 335: staff and venue sign-in pages speak to their own audience ("swoovrSubtitle.<kind>.<pageId>"), never
+     the member tagline. The realm kind comes from its name (swoovr-staff, swoovr-staff-dev, swoovr-venues, ...). -->
+<#assign swRealmKind = realm.name?contains("staff")?then("staff", realm.name?contains("venue")?then("venues", ""))>
+<#if swRealmKind?has_content && msg("swoovrSubtitle." + swRealmKind + "." + pageId) != "swoovrSubtitle." + swRealmKind + "." + pageId>
+  <#assign swSubtitleKey = "swoovrSubtitle." + swRealmKind + "." + pageId>
+</#if>
 <#assign swSubtitle = msg(swSubtitleKey)>
+<#-- Issue 337: on the setup pages Keycloak's "You need to ... to activate your account" warnings repeat what the page
+     already says, so only errors and confirmations show there. -->
+<#assign swQuietWarnings = ["login-verify-email", "login-config-totp", "login-update-password", "info"]?seq_contains(pageId)>
 <#if isResetConfirmation()>
   <#assign swIcon = "mail">
   <#assign swSubtitle = msg("swoovrResetConfirmationBody")>
@@ -274,7 +283,7 @@
 
         <#-- App-initiated actions should not see warning messages about the need to complete the action -->
         <#-- during login.                                                                               -->
-        <#if displayMessage && message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
+        <#if displayMessage && message?has_content && (message.type != 'warning' || (!isAppInitiatedAction?? && !swQuietWarnings))>
             <div class="${properties.kcAlertClass!} pf-m-${(message.type = 'error')?then('danger', message.type)}">
                 <div class="${properties.kcAlertIconClass!}">
                     <#if message.type = 'success'><span class="${properties.kcFeedbackSuccessIcon!}"></span></#if>
