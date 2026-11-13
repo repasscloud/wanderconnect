@@ -6,7 +6,10 @@ Runbook for the UAT deployment (D361 host, D362 automation). The complete, dispo
 - Creating the VM: [VULTR-VM.md](VULTR-VM.md). Private admin access: [UAT-TAILSCALE-SETUP.md](../../docs/delivery/UAT-TAILSCALE-SETUP.md)
 - What the server held before automation: [UAT-DEPLOYMENT-PREREQUISITES.md](../../docs/delivery/UAT-DEPLOYMENT-PREREQUISITES.md)
 
-**Status (12 November 2026):** the stack was first deployed by hand on 12 November 2026 (realms still disabled, no accounts). The automated deployment is implemented and tested locally (`tests/deploy`, including a fake-Docker end-to-end run of every mode). It has not yet run on GitHub or on the VM.
+**Status (13 November 2026):** the automated deployment runs on GitHub and the VM: refreshes v1.0.1 and v1.0.2 succeeded with every public check passing (v1.0.0 failed at `r2-empty`, fixed in v1.0.1). `tests/deploy` covers every mode locally with fake Docker.
+
+
+Step-by-step owner procedures (maintenance actions, the break-glass admin, staff roles, email checks): [UAT operations SOP](../../docs/delivery/UAT-OPERATIONS-SOP.md).
 
 ## What runs on the host
 
@@ -91,10 +94,10 @@ The old Docker Hub images and `/root/.docker/config.json` are no longer used; GH
 
 The root admin is a **break-glass account** (D364): `UAT_INITIAL_ADMIN_EMAIL` is a dedicated address with no connection to the Entra tenant, with its own password and authenticator app. It still works when Entra or Microsoft 365 is down. Everyday administration uses Entra accounts with the Admin role (D363). Swoovr never grants privileges because an address matches.
 
-1. **Every deployment (automatic):** if no staff user has that address, `keycloak-reconcile` creates one (username = the address, no password) and Keycloak emails it a link, valid 12 hours, to verify the address, choose a password and add an authenticator app. It never creates a second account or touches an existing one. A mail failure is shown as `root-account=…-email-failed` and never fails the deployment; **Actions → UAT maintenance → admin-invite** sends the link again.
+1. **Every deployment (automatic):** if no staff user has that address, `keycloak-reconcile` creates one (username = the address, no password) and Keycloak emails it a link, valid 12 hours, to verify the address, choose a password and add an authenticator app. It never creates a second account or touches an existing one. A mail failure is shown as `root-account=…-email-failed` and never fails the deployment; **Actions → UAT maintenance → admin-invite** (from the tag, as below) sends the link again; no redeploy is needed. To test the mail path itself: `scripts/uat/mail-test.sh <VM IPv4> <address>` ([SOP "Email"](../../docs/delivery/UAT-OPERATIONS-SOP.md#6-email)).
 2. **The owner completes the email** (verify, password of 12+ characters, scan the QR code with an authenticator app). Keep the authenticator's backup somewhere safe and offline.
 3. **First sign-in:** `https://admin-uat.swoovr.app` → the **username/password form** (not "Sign in with Microsoft"), then the 6-digit code. Admin shows "no access", which is expected.
-4. **Actions → UAT maintenance → admin-finalize** (or the next deployment). It grants root only if **all** hold:
+4. **Actions → UAT maintenance → admin-finalize**, started from the deployed **tag** (`gh workflow run uat-maintenance.yml --ref vX.Y.Z -f action=admin-finalize`; from `main` GitHub rejects it, because the `uat` environment accepts only `v*` tags), or the next deployment. It grants root only if **all** hold:
    - exactly one enabled staff-realm user has that address, with no required action pending;
    - Keycloak shows the address **verified**;
    - it has a **password** and a **one-time code** credential;
@@ -245,7 +248,7 @@ This procedure has not been rehearsed on the VM. On UAT a **refresh is the norma
 
 | Task | Command |
 | --- | --- |
-| Status and checks | `./bin/swoovr status` (or Actions → UAT maintenance → status) |
+| Status and checks | `./bin/swoovr status` (or Actions → UAT maintenance → status, started from the deployed tag) |
 | History | `./bin/swoovr history` |
 | First admin stage 2 | `./bin/swoovr admin-finalize` (or the maintenance workflow) |
 | Mail settings changed on GitHub | deploy a new tag (values are applied on every deployment), or edit `env/mail.env` and `./bin/swoovr mail-apply` |

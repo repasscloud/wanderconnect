@@ -9,7 +9,7 @@ D362 (DEFAULT design on the owner's request of 12 November 2026). Pushing a `vX.
 | File | Trigger | Does |
 | --- | --- | --- |
 | [`.github/workflows/deploy-uat.yml`](../../.github/workflows/deploy-uat.yml) | push of a tag matching `v*.*.*`, then strictly validated as `vX.Y.Z` | validate → build → deploy |
-| [`.github/workflows/uat-maintenance.yml`](../../.github/workflows/uat-maintenance.yml) | manual (Actions → UAT maintenance → Run workflow) | `status`, `history` or `admin-finalize` over SSH; never deploys |
+| [`.github/workflows/uat-maintenance.yml`](../../.github/workflows/uat-maintenance.yml) | manual (Actions → UAT maintenance → Run workflow, **"Use workflow from" = the deployed tag**, not `main`: the `uat` environment accepts only `v*` tags) | `status`, `history`, `admin-finalize` or `admin-invite` over SSH; never deploys. Procedures: [UAT operations SOP](UAT-OPERATIONS-SOP.md#2-running-a-maintenance-action-and-the-tag-rule) |
 
 Both share the concurrency group `swoovr-uat-deploy`: one UAT run at a time, never cancelled half-way. GitHub keeps at most one run *pending* per group, so pushing three tags quickly runs the first, and of the other two only the newest stays pending (the middle one is cancelled before it starts).
 
