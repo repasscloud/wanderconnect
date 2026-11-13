@@ -77,8 +77,11 @@ def local_flows(value, member):
         value['registrationFlow'] = registration
         value['authenticationFlows'] += [
             flow(registration, [{**subflow(registration_forms), 'authenticator': 'registration-page-form'}]),
-            flow(registration_forms, [execution('registration-user-creation'), execution('registration-profile-action'),
-                                     execution('registration-password-action'), execution('registration-terms-and-conditions')],
+            # Issue 332: only form actions Keycloak 26 still ships. `registration-profile-action` was removed in
+            # Keycloak 24 (the declarative user profile moved into `registration-user-creation`); a missing form action
+            # makes every registration page an internal server error ("action" is null in FormAction.buildPage).
+            flow(registration_forms, [execution('registration-user-creation'), execution('registration-password-action'),
+                                     execution('registration-terms-and-conditions')],
                  top=False, provider='form-flow'),
         ]
         value['requiredActions'] = [
@@ -91,6 +94,13 @@ def local_flows(value, member):
              'providerId': 'UPDATE_PASSWORD', 'enabled': True, 'defaultAction': False, 'priority': 30},
             {'alias': 'UPDATE_EMAIL', 'name': 'Update Email',
              'providerId': 'UPDATE_EMAIL', 'enabled': True, 'defaultAction': False, 'priority': 40},
+            # Issue 332: an explicit list registers only these actions. Without VERIFY_EMAIL, verifyEmail=true sends no
+            # verification email after registration (the staff realm hit the same gap, D363); without CONFIGURE_TOTP,
+            # Account settings → Security & access cannot add an authenticator (MemberSignIn.KeycloakActions).
+            {'alias': 'VERIFY_EMAIL', 'name': 'Verify Email',
+             'providerId': 'VERIFY_EMAIL', 'enabled': True, 'defaultAction': False, 'priority': 50},
+            {'alias': 'CONFIGURE_TOTP', 'name': 'Configure OTP',
+             'providerId': 'CONFIGURE_TOTP', 'enabled': True, 'defaultAction': False, 'priority': 60},
         ]
 
 

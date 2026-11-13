@@ -69,10 +69,16 @@ class RealmPreparationChecks(unittest.TestCase):
         forms = flows[registration['flowAlias']]['authenticationExecutions']
         self.assertIn(('registration-terms-and-conditions', 'REQUIRED'),
                       [(step['authenticator'], step['requirement']) for step in forms])
+        # Issue 332: every form action must exist in Keycloak 26 (its built-in "registration form" set); an unknown
+        # one, such as the removed `registration-profile-action`, breaks the registration page with a server error.
+        self.assertEqual([step['authenticator'] for step in forms],
+                         ['registration-user-creation', 'registration-password-action', 'registration-terms-and-conditions'])
         self.assertTrue(next(action for action in member['requiredActions']
                              if action['alias'] == 'TERMS_AND_CONDITIONS')['defaultAction'])
         # Q126 A: change password / email are member-initiated Keycloak steps, enabled but never default.
-        for alias in ('UPDATE_PASSWORD', 'UPDATE_EMAIL'):
+        # Issue 332: VERIFY_EMAIL (verifyEmail=true sends nothing without it) and CONFIGURE_TOTP (Security & access).
+        self.assertTrue(member['verifyEmail'])
+        for alias in ('UPDATE_PASSWORD', 'UPDATE_EMAIL', 'VERIFY_EMAIL', 'CONFIGURE_TOTP'):
             action = next(action for action in member['requiredActions'] if action['alias'] == alias)
             self.assertTrue(action['enabled'])
             self.assertFalse(action['defaultAction'])
