@@ -94,7 +94,8 @@ document.addEventListener('input', event => {
   const input = event.target.closest?.('[data-kind-input]'); if (!input) return;
   const v = input.value.trim();
   const kind = !v ? '' : v.includes('@') ? 'email' : /^[\d\s+().-]+$/.test(v) && /\d/.test(v) ? 'phone' : 'name';
-  const hints = { phone: 'Spaces removed · + optional', email: 'Lower-cased before search', name: 'First or last name · use % as a wildcard', '': '' };
+  // D365 (issue 331): with %, a name search also looks in email addresses. Same wording as Accounts.razor.
+  const hints = { phone: 'Spaces removed · + optional', email: 'Lower-cased · use % as a wildcard', name: 'First or last name · with %, email too', '': '' };
   document.querySelectorAll('[data-kind-chips] [data-kind]').forEach(c => c.toggleAttribute('aria-current', c.dataset.kind === kind));
   const hint = document.querySelector('[data-kind-hint]'); if (hint) hint.textContent = hints[kind];
 });
