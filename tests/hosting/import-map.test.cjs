@@ -24,6 +24,8 @@ for(const environment of ['Development','Uat'])test(environment+' authorizes exa
   const script=(response.headers['content-security-policy']??'').split(';').find(v=>v.trim().startsWith('script-src '));
   assert.ok(script?.includes("'"+integrity+"'"),'policy must authorize the exact rendered bytes');assert.equal(map[0].match(/integrity="([^"]+)"/)[1].replace(/&#x([0-9a-f]+);/gi,(_,hex)=>String.fromCodePoint(parseInt(hex,16))),integrity);
   assert.ok(!script.includes("'unsafe-inline'")&&!script.includes("'unsafe-eval'"));
+  // Issue 334: pages tell Cloudflare not to rewrite email addresses into "[email protected]" links.
+  assert.match(response.headers['cache-control']??'',/(^|,\s*)no-transform(\s*,|$)/);
   // Stable asset metadata must remain authorized across documents/enhanced navigation, without a broad nonce.
   const next=await get('http://127.0.0.1:'+port+'/privacy');
   assert.equal(next.status,200);assert.equal(next.headers['content-security-policy'],response.headers['content-security-policy']);
