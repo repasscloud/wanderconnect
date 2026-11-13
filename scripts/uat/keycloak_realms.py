@@ -94,6 +94,13 @@ def local_flows(value, member):
              'providerId': 'UPDATE_PASSWORD', 'enabled': True, 'defaultAction': False, 'priority': 30},
             {'alias': 'UPDATE_EMAIL', 'name': 'Update Email',
              'providerId': 'UPDATE_EMAIL', 'enabled': True, 'defaultAction': False, 'priority': 40},
+            # Issue 332: an explicit list registers only these actions. Without VERIFY_EMAIL, verifyEmail=true sends no
+            # verification email after registration (the staff realm hit the same gap, D363); without CONFIGURE_TOTP,
+            # Account settings → Security & access cannot add an authenticator (MemberSignIn.KeycloakActions).
+            {'alias': 'VERIFY_EMAIL', 'name': 'Verify Email',
+             'providerId': 'VERIFY_EMAIL', 'enabled': True, 'defaultAction': False, 'priority': 50},
+            {'alias': 'CONFIGURE_TOTP', 'name': 'Configure OTP',
+             'providerId': 'CONFIGURE_TOTP', 'enabled': True, 'defaultAction': False, 'priority': 60},
         ]
 
 
