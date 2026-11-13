@@ -29,6 +29,7 @@ Updated 22 October 2026. Start with [current delivery status](delivery/STATUS.md
 ## UAT deployment redesign — 12 November 2026
 
 - [UAT deployment through GitHub Actions](delivery/UAT-GITHUB-DEPLOYMENT.md) (D362): push a `vX.Y.Z` tag on `main` to build public GHCR images and deploy UAT; upgrade/refresh modes, refresh authorisation, secrets and variables inventory, `gh` setup ([`scripts/uat/setup-github-uat.sh`](../scripts/uat/setup-github-uat.sh)). Operator runbook: [deploy/vultr-uat/README.md](../deploy/vultr-uat/README.md).
+- [UAT operations SOP](delivery/UAT-OPERATIONS-SOP.md): plain-language owner procedures: maintenance actions and the tag rule, deploying (upgrade/refresh), the break-glass root admin (D364), staff roles from Entra (D363), email checks ([`scripts/uat/mail-test.sh`](../scripts/uat/mail-test.sh)), where settings live.
 - [Tailscale on the UAT VM](delivery/UAT-TAILSCALE-SETUP.md): manual install, private SSH and private Keycloak administration, verification and rollback.
 - [UAT deployment prerequisites](delivery/UAT-DEPLOYMENT-PREREQUISITES.md): how the Vultr UAT deployment really works, the local backup inventory, the certificates, secrets and persistent data to keep, GitHub Actions prerequisites and open questions. Server inventory script: [`scripts/uat/collect-server-state.sh`](../scripts/uat/collect-server-state.sh) (read-only). Preparation only; nothing deployed.
 
