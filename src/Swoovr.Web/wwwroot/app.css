@@ -1233,8 +1233,12 @@ body:has(.public-layout) { padding-bottom: 0; }
 .chat-thread .bubble.meetup { width: min(100%, 22rem); max-width: min(100%, 22rem); padding: 12px 14px 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .chat-thread .bubble.meetup.mine { background: var(--surface); color: var(--text); }
 .chat-thread .bubble.meetup .field-help { color: var(--muted); }
-.meetup-card { display: grid; gap: 6px; flex: 1 1 100%; min-width: 0; }
-.meetup-card p { margin: 0; }
+.meetup-card, .location-card { display: grid; gap: 6px; flex: 1 1 100%; min-width: 0; }
+.meetup-card p, .location-card p { margin: 0; }
+/* Issue 544 (D455): the location form's preview; the card reuses the meet-up card's look. */
+.location-preview { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.location-preview p { margin: 0; }
+.location-choose { display: grid; gap: 6px; justify-items: start; }
 .meetup-kicker { display: flex; align-items: center; gap: 6px; color: var(--muted); font: var(--type-small); }
 .meetup-title { font: 700 1rem/1.3 var(--font); }
 .meetup-line { display: flex; align-items: center; gap: 6px; font: var(--type-body); }

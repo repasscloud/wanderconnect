@@ -92,6 +92,15 @@ static class ContentRemovalPersistenceChecks
         var view=Swoovr.Api.Connections.MessagingEndpoints.View(marker,reporter,now);
         check("both-member projection distinguishes staff removal from member unsend",view.Kind=="removed-by-moderation"&&view.Text=="Removed by Swoovr."&&!view.CanDelete&&!view.Deleted);
         check("removed message no longer appears as a live content source",!(await service.SourcesAsync(actor,review,default)).Any(x=>x.MessageId==message));
+        // PR 632 review (#544): a reported location (its label is member text) can be removed; the database guard accepts it.
+        var pinBody=ChatLocationPolicy.Format(-34.92851,138.60071,"Fictional send me money at the cafe");var pin=Guid.NewGuid();
+        db.Messages.Add(new(){Id=pin,ConversationId=conversation,SenderAccountId=subject,Kind=MessageKind.Location,Body=pinBody,SentAt=now.AddSeconds(1)});
+        db.CaseEvidence.Add(new(){Id=Guid.NewGuid(),CaseId=review,ReportId=report,Kind="conversation",MediaIds=[],CapturedAt=now,Snapshot=$"{{\"messages\":[{{\"id\":\"{pin}\"}}]}}"});
+        await db.SaveChangesAsync();
+        var pinCommand=new ContentRemovalRequest(Guid.NewGuid(),report,"message",null,pin,ContentRemovalPolicy.Hash(pinBody),"Fictional location review");
+        await service.RemoveAsync(actor,review,pinCommand,now,CancellationToken.None);
+        check("a reported location is removed by staff (guard accepts Location)",await db.Messages.AnyAsync(m=>m.Id==pin&&m.Body==""&&m.ModerationRemovedAt!=null)
+            &&Swoovr.Api.Connections.MessagingEndpoints.View(await db.Messages.AsNoTracking().SingleAsync(m=>m.Id==pin),reporter,now).Location is null);
 
         await db.Messages.Where(m=>m.Id==message).ExecuteDeleteAsync();
         check("removed source deletion cannot erase independent case evidence",(await service.EvidenceAsync(actor,review,messageCommand.CommandId,default)).Text=="Fictional reported message");
@@ -116,7 +125,8 @@ static class ContentRemovalPersistenceChecks
         hold.Status=LegalHoldStatus.Released;hold.ReleasedAt=DateTimeOffset.UtcNow.AddMonths(-13);hold.ReleasedBy=actor;hold.ReleaseReason="Fictional lawful release";hold.NoReviewRetentionConfirmedAt=hold.ReleasedAt;hold.NoReviewRetentionConfirmedBy=actor;await db.SaveChangesAsync();
         await retention.PurgeAsync(DateTimeOffset.UtcNow,default,onlyCase:review);
         check("actual retention erases expired encrypted content and its fingerprint atomically",await db.Set<ContentRemoval>().AsNoTracking().AllAsync(r=>r.CaseId!=review||r.SealedSnapshot==null&&r.SnapshotHash.Length==0&&r.EvidenceDisposedAt!=null));
-        check("content disposal keeps minimal decision records on their later clock",await db.Set<ContentRemoval>().CountAsync(r=>r.CaseId==review)==3&&await db.ModerationCases.AnyAsync(c=>c.Id==review));
+        // Four removals: about, mode about, the message and (PR 632 review) the location.
+        check("content disposal keeps minimal decision records on their later clock",await db.Set<ContentRemoval>().CountAsync(r=>r.CaseId==review)==4&&await db.ModerationCases.AnyAsync(c=>c.Id==review));
 
     }
     private sealed class Development:IHostEnvironment

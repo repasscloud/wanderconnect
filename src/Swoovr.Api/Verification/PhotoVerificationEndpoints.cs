@@ -202,6 +202,10 @@ public static class PhotoVerificationEndpoints
             }
             Audit.Record(db, now, actor, "account", approve ? "verification.photoVerified.approved" : "verification.photoVerified.rejected", "account", attempt.AccountId.ToString(),
                 approve ? $"photos:{matched.Count}" : request.Reason);
+            // D454: the member hears about the decision in their notification centre, in the same commit. Ids only; the
+            // outcome and its wording are on the verification page.
+            db.Notifications.Add(new Notification { Id = Guid.NewGuid(), AccountId = attempt.AccountId, Kind = NotificationKind.PhotoVerified, SubjectId = attempt.Id,
+                DedupeKey = "photo-verified:" + attempt.Id.ToString("N"), CreatedAt = now, UpdatedAt = now });
             await db.SaveChangesAsync(token);
             await transaction.CommitAsync(token);
             return Results.Ok(new { attempt.Id, state = approve ? "approved" : "rejected" });

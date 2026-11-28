@@ -21,7 +21,16 @@ public sealed record ConversationView(Guid Id, PersonSummary Person, DateTimeOff
 /// not-accepted when it couldn't be delivered; the recipient then never sees the message at all.
 /// </summary>
 public sealed record MessageView(Guid Id, Guid ConversationId, bool Mine, string Kind, string Text, DateTimeOffset SentAt, bool CanDelete, bool Deleted = false,
-    PhotoView? Photo = null, string? PhotoState = null, MeetupView? Meetup = null, bool? Explicit = null);
+    PhotoView? Photo = null, string? PhotoState = null, MeetupView? Meetup = null, bool? Explicit = null, ChatLocationView? Location = null);
+
+/// <summary>
+/// Issue 544 (D455): a "location" message's place: the exact point the sender chose (5 decimal places) and an optional label.
+/// Absent once the message is deleted for both or removed by Swoovr. Text carries the label (or is empty).
+/// </summary>
+public sealed record ChatLocationView(double Latitude, double Longitude, string? Label);
+
+/// <summary>Issue 544: share one place in a chat. Label is optional, one line of up to 80 characters.</summary>
+public sealed record ShareLocation(double? Latitude, double? Longitude, string? Label);
 
 /// <summary>
 /// Issue 545 (D430): a private 1-on-1 meet-up invitation as one of its two members sees it (the card of a "meetup" message).

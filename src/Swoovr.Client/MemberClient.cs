@@ -320,6 +320,10 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<MessageView>> ProposeMeetupAsync(Guid conversation, MeetupRequest request, CancellationToken token = default) =>
         SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/conversations/{conversation}/meetups") { Content = JsonContent.Create(request) }, token);
 
+    /// <summary>Issue 544 (D455): share one chosen place in a chat.</summary>
+    public Task<ApiResult<MessageView>> ShareLocationAsync(Guid conversation, ShareLocation request, CancellationToken token = default) =>
+        SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/conversations/{conversation}/locations") { Content = JsonContent.Create(request) }, token);
+
     /// <summary>Issue 545: the invited member suggests changes (a new invitation the other way).</summary>
     public Task<ApiResult<MessageView>> SuggestMeetupAsync(Guid meetup, MeetupRequest request, CancellationToken token = default) =>
         SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/meetups/{meetup}/suggest") { Content = JsonContent.Create(request) }, token);

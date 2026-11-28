@@ -68,7 +68,7 @@
     <ul class="chat-thread" aria-live="polite" data-messages="@messages.Count">
         @foreach (var m in messages)
         {
-            <li class="@(m.Kind == "system" ? "chat-system" : "bubble" + (m.Mine ? " mine" : "") + (m.Kind == "meetup" ? " meetup" : "") + (m.Deleted ? " deleted" : "") + (menuFor == m.Id ? " has-menu" : ""))" data-message-kind="@m.Kind" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")"
+            <li class="@(m.Kind == "system" ? "chat-system" : "bubble" + (m.Mine ? " mine" : "") + (m.Kind == "meetup" ? " meetup" : m.Kind == "location" && m.Location is not null ? " meetup location" : "") + (m.Deleted ? " deleted" : "") + (menuFor == m.Id ? " has-menu" : ""))" data-message-kind="@m.Kind" data-message="@m.Id" data-mine="@(m.Mine ? "true" : "false")" data-deleted="@(m.Deleted ? "true" : "false")"
                 @oncontextmenu="() => OpenMessageMenu(m)" @oncontextmenu:preventDefault="@(m.Kind != "system")">
                 <span class="visually-hidden">@(m.Kind == "system" ? "Swoovr" : m.Mine ? "You" : conversation.Person.DisplayName): </span>
                 @if (m.Kind == "farewell") { <p class="field-help">Predefined farewell</p> }
@@ -104,6 +104,12 @@
                         <MeetupCard Meetup="plan" Busy="busy" Answer="a => AnswerMeetupAsync(plan, a)" Suggest="() => OpenPlan(plan)" Calendar="() => CalendarAsync(plan)" />
                     }
                     else { <p class="field-help" data-meetup-gone>This meet-up is no longer available.</p> }
+                }
+                else if (m.Kind == "location")
+                {
+                    @* Issue 544 (D455): a shared place; deleted for both or removed shows no place. *@
+                    @if (m.Location is { } place) { <LocationCard Place="place" /> }
+                    else { <p class="field-help" data-location-gone>@(m.Deleted ? "" : "This location is no longer available.")</p> }
                 }
                 else { <p>@m.Text</p> }
                 @if (m.Kind != "system")
@@ -168,6 +174,8 @@
                     <label class="chat-menu-item" for="chat-photo" aria-disabled="@(awaiting ? "true" : "false")" data-attach-photo><Icon Name="image" Size="16" />Send a photo</label>
                     @* Issue 545 (D430): a private 1-on-1 meet-up. *@
                     <button type="button" class="chat-menu-item" disabled="@awaiting" @onclick="() => OpenPlan(null)" data-attach-meetup><Icon Name="calendar" Size="16" />Plan a meet-up</button>
+                    @* Issue 544 (D455): one chosen place, never live. *@
+                    <button type="button" class="chat-menu-item" disabled="@awaiting" @onclick="OpenLocation" data-attach-location><Icon Name="pin" Size="16" />Share a location</button>
                     <p class="field-help">@PhotoText.ChatRules</p>
                 </div>
             }
@@ -187,6 +195,12 @@
         {
             <img class="chat-own-photo" src="@PhotoText.Web(own.Link)" alt="Your photo" draggable="false" @oncontextmenu:preventDefault="true" @ondragstart:preventDefault="true" data-photo-guard data-own-photo="@own.Id" />
             <p class="field-help">@PhotoText.ChatState("not-accepted"). It wasn't delivered, and they weren't told.</p>
+        }
+    </MemberDialog>
+    <MemberDialog Kind="location" Title="@($"Share a location with {conversation.Person.DisplayName}")" Open="locating" Closed="() => locating = false">
+        @if (locating)
+        {
+            <LocationForm Busy="busy" Message="@locationMessage" Submit="ShareLocationAsync" Cancel="() => locating = false" />
         }
     </MemberDialog>
     <MemberDialog Kind="meetup" Title="@(suggesting is null ? $"Plan a meet-up with {conversation.Person.DisplayName}" : "Suggest changes")" Open="planning" Closed="() => planning = false">
@@ -304,6 +318,26 @@
     private string ProfileLink => conversation is { ModeId: { } mode } ? $"/people/{conversation.Person.Id}?mode={mode}" : $"/people/{conversation?.Person.Id}";
     private string ModeLabel(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
     private static string Initial(string? name) => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+
+    private bool locating;
+    private string? locationMessage;
+    private void OpenLocation() => (locating, locationMessage, attachMenu, chatMenu, menuFor) = (true, null, false, false, null);
+
+    private async Task ShareLocationAsync(ShareLocation request)
+    {
+        busy = true;
+        var result = await Members.ShareLocationAsync(Id, request);
+        busy = false;
+        if (result.Value is { } sent) { Upsert(sent); followNew = true; locating = false; return; }
+        if (result.Code == ProblemCodes.UnansweredLimit) { locating = false; AwaitReply(); await RecheckAwaitingAsync(); return; }
+        locationMessage = result.Code switch
+        {
+            ProblemCodes.InvalidLocation => "Check the place and keep the label to one short line.",
+            ProblemCodes.TooManyRequests => "That's a lot of messages. Slow down a little.",
+            ProblemCodes.Restricted => "You can't send messages right now.",
+            _ => "That couldn't be sent.",
+        };
+    }
 
     private void OpenPlan(MeetupView? plan) => (planning, suggesting, planMessage, attachMenu, chatMenu, menuFor) = (true, plan, null, false, false, null);
 

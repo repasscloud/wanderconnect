@@ -75,9 +75,9 @@ static class IdImageChecks
         // Release gate: the notice in force covers it from 0.21, on or after its date.
         Expect(!PrivacyNoticeVersion.CoversIdReview("0.20, 17 November 2026", new(2027, 1, 1)) && !PrivacyNoticeVersion.CoversIdReview("0.21, 3 December 2026", new(2026, 12, 2))
             && PrivacyNoticeVersion.CoversIdReview("0.21, 3 December 2026", new(2026, 12, 3)) && PrivacyNoticeVersion.CoversIdReview("1.0, 3 December 2026", new(2027, 1, 1)) && !PrivacyNoticeVersion.CoversIdReview("soon", new(2027, 1, 1)), "notice version");
-        // D432: 0.21 takes effect on 26 November 2026, so from then the notice in force covers it (D413's gate opens).
-        Expect(PrivacyNoticeVersion.CoversIdReview(PrivacyNoticeVersion.Current, new(2026, 11, 26)) && !PrivacyNoticeVersion.CoversIdReview(PrivacyNoticeVersion.Current, new(2026, 11, 25))
-            && Swoovr.Client.PrivacyNotice.Version == PrivacyNoticeVersion.Current, "the notice in force covers it from 26 November 2026");
+        // D432/D453: 0.21 took effect on 26 November 2026; the notice in force now (0.22, from 28 November 2026) still covers it.
+        Expect(PrivacyNoticeVersion.CoversIdReview(PrivacyNoticeVersion.Current, new(2026, 11, 28)) && !PrivacyNoticeVersion.CoversIdReview(PrivacyNoticeVersion.Current, new(2026, 11, 27))
+            && Swoovr.Client.PrivacyNotice.Version == PrivacyNoticeVersion.Current, "the notice in force covers it from its date");
         bool Can(string capability, AccountRole role) => StaffAccessPolicy.CheckRequest(capability, "Fictional", r => r == role) == AccessRefusal.None;
         Expect(Can("id-image-open", AccountRole.Admin) && !new[] { AccountRole.Support, AccountRole.Legal, AccountRole.TrustSafety }.Any(r => Can("id-image-open", r)), "Admin only");
         Expect(StaffAccessPolicy.Classify("POST", $"/api/admin/accounts/{account}/id-image", 200) == ("identity", account.ToString(), "view")

@@ -414,14 +414,14 @@ public static partial class MessagingEndpoints
         return limit is { } cap ? (cap, await UnansweredCountAsync(db, conversation, sender, recipient, cap, cancellationToken)) : (null, 0);
     }
 
-    /// <summary>#300: the sender's consecutive text, photo and meet-up messages after the recipient's last one, counted up to cap (index conversation_id, sent_at). PR 583 review: a meet-up invitation counts and resets the run like any message.</summary>
+    /// <summary>#300: the sender's consecutive text, photo, meet-up and location messages after the recipient's last one, counted up to cap (index conversation_id, sent_at). PR 583 review: a meet-up invitation counts and resets the run like any message.</summary>
     public static async Task<int> UnansweredCountAsync(SwoovrDbContext db, Guid conversation, Guid sender, Guid recipient, int cap, CancellationToken cancellationToken)
     {
         var lastReply = await db.Messages.Where(m => m.ConversationId == conversation && m.SenderAccountId == recipient
-                && (m.Kind == MessageKind.Text || m.Kind == MessageKind.Photo || m.Kind == MessageKind.Meetup))
+                && (m.Kind == MessageKind.Text || m.Kind == MessageKind.Photo || m.Kind == MessageKind.Meetup || m.Kind == MessageKind.Location))
             .MaxAsync(m => (DateTimeOffset?)m.SentAt, cancellationToken);
         return await db.Messages.Where(m => m.ConversationId == conversation && m.SenderAccountId == sender
-                && (m.Kind == MessageKind.Text || m.Kind == MessageKind.Photo || m.Kind == MessageKind.Meetup) && (lastReply == null || m.SentAt > lastReply))
+                && (m.Kind == MessageKind.Text || m.Kind == MessageKind.Photo || m.Kind == MessageKind.Meetup || m.Kind == MessageKind.Location) && (lastReply == null || m.SentAt > lastReply))
             .Take(cap).CountAsync(cancellationToken);
     }
 
@@ -502,8 +502,12 @@ public static partial class MessagingEndpoints
                 photo = new PhotoView(media.Id, link);
             if (mine) state = media.RemovedAt is not null ? "removed" : message.ExplicitRefusedAt is not null ? ExplicitChatPolicy.NotAccepted : MediaPolicy.MemberState(media.Status);
         }
-        return new(message.Id, message.ConversationId, message.SenderAccountId == viewer, Wire(message.Kind), MessagingPolicy.VisibleText(message), message.SentAt,
-            MessagingPolicy.MayDeleteForBoth(message, viewer, now), message.DeletedAt is not null, photo, state, meetup, explicitPhoto ? true : null);
+        // Issue 544 (D455): a location's place, while the message still shows; the text is its label only.
+        var place = message.Kind == MessageKind.Location && message.DeletedAt is null ? ChatLocationPolicy.Read(message.Body) : null;
+        var text = message.Kind == MessageKind.Location ? place?.Label ?? "" : MessagingPolicy.VisibleText(message);
+        return new(message.Id, message.ConversationId, message.SenderAccountId == viewer, Wire(message.Kind), text, message.SentAt,
+            MessagingPolicy.MayDeleteForBoth(message, viewer, now), message.DeletedAt is not null, photo, state, meetup, explicitPhoto ? true : null,
+            place is null ? null : new ChatLocationView(place.Latitude, place.Longitude, place.Label));
     }
 
     private static async Task<Dictionary<Guid, MediaItem>> MediaForAsync(SwoovrDbContext db, IEnumerable<Message> messages, CancellationToken cancellationToken)
