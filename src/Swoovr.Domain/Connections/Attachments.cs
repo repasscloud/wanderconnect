@@ -15,6 +15,13 @@ public static class AttachmentPolicy
     public const int PerDay = 20;
     public static readonly TimeSpan Day = TimeSpan.FromDays(1);
 
+    /// <summary>
+    /// Issue 543 (D456): a library photo the member may send in a chat: their own approved profile-library photo, live, not
+    /// uploaded into an album, and standard (an explicit or albums-only photo is shared from its album, #431).
+    /// </summary>
+    public static bool FromLibrary(MediaItem item) =>
+        item is { Purpose: null, AlbumId: null, AlbumOnly: false, ContentRating: ContentRating.Standard, Status: MediaStatus.Passed, RemovedAt: null, ObjectDeletedAt: null };
+
     /// <summary>Whether the recipient may see a photo message: it passed and wasn't removed (a deleted message shows as deleted to both).</summary>
     public static bool RecipientSees(MediaStatus status, bool removed) => status == MediaStatus.Passed && !removed;
 

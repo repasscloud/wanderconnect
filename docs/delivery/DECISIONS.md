@@ -1957,3 +1957,11 @@ Builds D431 (**CONFIRMED**) with the Privacy Notice 0.22 wording (D453). **DEFAU
 - **Kept and removed like any message (D431, D165, D167):** the place is the message's own text (`geo:lat,lon`, then the label), so delete for both within five minutes hides it for both at once, the text stays 30 days for investigations and is then purged, holds keep it, a report keeps it as evidence, staff can remove it ("Removed by Swoovr."), and the export and account deletion treat it as text. No migration.
 - **Location privacy scan (D348):** the contract scan allows exactly `ChatLocationView` and `ShareLocation` latitude and longitude: a place the member chose to share with one other member (D431). Discovery, cards and profiles still carry no coordinates.
 - **Not in this slice:** the Flutter apps; staff screens show the raw `geo:` line in evidence.
+
+### D456 — Chat attachment menu: library photos, upload and camera (#543, 28 November 2026)
+
+Builds the first part of [#543](https://github.com/repasscloud/swoovr/issues/543). Albums in chat (#431 §4–5) come next.
+- **The + menu:** Image from library, Send a photo, Take a photo, Plan a meet-up (D440), Share a location (D455).
+- **Image from library:** a dialog lists the member's own approved library photos and nothing else: never an album upload, an albums-only or explicit photo (those are shared from their album, #431), someone else's, or a removed one. `POST /api/conversations/{id}/photos/library` `{ photoId }` checks it again on the server.
+- **DEFAULT:** the chat gets **its own copy** through the same pipeline as a new chat photo (type check, re-encode, metadata strip, malware and known-content checks, screening), with every chat photo rule: connected and open, restrictions, the recipient's Photos in chat, the rate, unanswered and 20-a-day limits, and the D451 adult-photo gates. #543 allows reusing the earlier classification; re-checking keeps one path and means deleting the library photo never touches the chat photo, or the other way round.
+- **Take a photo:** the same upload with `capture="environment"`, which opens the camera on phones and tablets and the file picker elsewhere. No new path or permission prompt.

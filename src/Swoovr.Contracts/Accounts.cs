@@ -306,6 +306,8 @@ public static class ProblemCodes
     public const string ConflictOfInterest = "conflict-of-interest";
     /// <summary>D203: photo uploads and storage.</summary>
     public const string MediaUnavailable = "media-unavailable";
+    /// <summary>Issue 543 (D456): not one of the member's own approved library photos.</summary>
+    public const string PhotoNotFound = "photo-not-found";
     public const string PhotoTooBig = "photo-too-big";
     public const string PhotoUnsupported = "photo-unsupported";
     public const string PhotoInvalid = "photo-invalid";

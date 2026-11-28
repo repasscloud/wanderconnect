@@ -29,6 +29,9 @@ public sealed record MessageView(Guid Id, Guid ConversationId, bool Mine, string
 /// </summary>
 public sealed record ChatLocationView(double Latitude, double Longitude, string? Label);
 
+/// <summary>Issue 543 (D456): send one of my own approved library photos in a chat.</summary>
+public sealed record LibraryPhoto(Guid? PhotoId);
+
 /// <summary>Issue 544: share one place in a chat. Label is optional, one line of up to 80 characters.</summary>
 public sealed record ShareLocation(double? Latitude, double? Longitude, string? Label);
 
