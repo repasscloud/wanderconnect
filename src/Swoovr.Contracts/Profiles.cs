@@ -102,6 +102,12 @@ public sealed record ProfileAtReport(DateTimeOffset ReportedAt, List<ProfileVers
 public sealed record MarketInterestUpdate(bool Interested);
 public sealed record PersonProfile(Guid Id, string DisplayName, string? About, IReadOnlyList<SharedModeView> Modes, IReadOnlyList<BadgeView> Badges,
     int? Age = null, string? Gender = null, string? Pronouns = null, PhotoView? Photo = null, DistanceView? Distance = null, string? PictureText = null,
-    bool Online = false, DateOnly? LastUpdated = null, bool Favourite = false);
+    bool Online = false, DateOnly? LastUpdated = null, bool Favourite = false, ProfileTravelView? Travel = null);
+
+/// <summary>
+/// Issue 571 (D460): the person's trip to the viewer's own area, exactly as the viewer's Who's visiting list would show it
+/// (D137, D352): city and dates only, never an exact place or distance. Visiting: the stay has started.
+/// </summary>
+public sealed record ProfileTravelView(string City, string Country, DateOnly Arrival, DateOnly Departure, bool Visiting);
 // Issue 568: Online is the D410/D422 green dot (both members chose to show it; never a time). LastUpdated is the day the
 // profile the viewer can see last changed (its captured versions, #91): a date only, never activity.

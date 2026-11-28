@@ -1990,3 +1990,9 @@ Builds [#452](https://github.com/repasscloud/swoovr/issues/452) as narrowed by t
 - **What's compared:** the `interests` detail only (D457 option ids), the intersection of what both members chose. Never another detail, a sensitive attribute, an inferred interest, a score, a percentage, a ranking or any similarity model. Discovery is untouched.
 - **Opting in (DEFAULT):** publishing your own interests in a mode is opting in to the comparison there. The line shows in a mode only when **both** published interests in it, so it never reveals an interest someone hasn't shown in that mode, and a viewer who hasn't shown theirs sees nothing.
 - **Where:** `GET /api/profiles/{id}` adds `sharedInterests` (labels in catalogue order) to each shown mode where there's an overlap, never to your own profile. The person page shows "You both like hiking and travel" at the top of More about me. Hidden when there's no overlap.
+
+### D460 — Travel on the member profile (#571, 28 November 2026)
+
+Builds the travel part of [#571](https://github.com/repasscloud/swoovr/issues/571). General availability is already a profile detail ("Usually free", D457/D458), as #448 §12 asked; trips stay in the travel subsystem.
+- **What shows:** the person's trip to **the viewer's own area**, picked by exactly the rule of the viewer's **Who's visiting** list (`VisitsToAsync`: visible, not cancelled, not over, the destination in the viewer's home market, the person's mode on and visible, D137/D352). It shows as "Visiting Adelaide until 10 Dec" or "Upcoming visit to Adelaide, 3–10 Dec": city and dates only, never an exact place or distance (#571).
+- **DEFAULT:** trips anywhere else are never shown, so a profile never becomes a list of someone's travel plans. A traveller viewing a local sees nothing new. Your own profile shows no Travel card. Hidden when there's nothing.

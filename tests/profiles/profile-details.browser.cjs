@@ -92,6 +92,26 @@ const ADELAIDE = 2078025;
     const exported = await (await fetch(api + '/' + ticket.body.path, { headers: { Authorization: 'Bearer ' + tk.ana } })).json();
     assert.deepEqual(exported.profileDetails.map(d => [d.detail, d.shownIn.join(',')]), [['interests', 'dating,friends'], ['relationship-status', 'dating'], ['smoking', '']], 'export'); pass();
 
+    // Issue 571 (D460): a traveller's trip to Ana's area shows on their profile for Ana, by the Who's visiting rule; a trip
+    // elsewhere never does.
+    const MELBOURNE = 2158177, SYDNEY = 2147714;
+    members.trv = await createMember('pdet-trv');
+    await cli('beta', 'add', members.trv.email);
+    tk.trv = await memberToken(browser, members.trv);
+    const trvSaved = await call(tk.trv, '/api/me/profile', { method: 'PUT', body: { displayName: 'Fictional Pdet trv', homeCityId: MELBOURNE } });
+    assert.equal(trvSaved.status, 200); pid.trv = trvSaved.body.publicId;
+    await call(tk.trv, '/api/me/modes/dating', { method: 'PUT', body: { enabled: true, visible: true } });
+    await matchReady(tk.trv);
+    const plus = days => { const d = new Date(); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
+    assert.equal((await call(tk.trv, '/api/me/trips', { method: 'POST', body: { cityId: SYDNEY, arrival: plus(1), departure: plus(2), visible: true } })).status < 300, true);
+    assert.equal((await call(tk.trv, '/api/me/trips', { method: 'POST', body: { cityId: ADELAIDE, arrival: plus(3), departure: plus(6), visible: true } })).status < 300, true);
+    const trvView = await call(tk.ana, `/api/profiles/${pid.trv}?mode=dating`);
+    assert.equal(trvView.status, 200, 'the visit opens the profile (D125)');
+    assert.deepEqual([trvView.body.travel?.city, trvView.body.travel?.arrival, trvView.body.travel?.departure, trvView.body.travel?.visiting], ['Adelaide', plus(3), plus(6), false],
+      'the upcoming visit to her area: ' + JSON.stringify(trvView.body.travel)); pass();
+    assert.ok(!JSON.stringify(trvView.body).includes('Sydney'), 'never a trip elsewhere'); pass();
+    assert.equal((await call(tk.trv, `/api/profiles/${pid.ana}?mode=dating`)).body?.travel ?? null, null, "Ana has no trip; travellers don't see locals' plans"); pass();
+
     // Web (slice 2): the editor on /me/profile, then what Ben sees.
     const signIn = async (who, viewport) => {
       const context = await browser.newContext({ viewport });
@@ -130,6 +150,7 @@ const ADELAIDE = 2078025;
     assert.deepEqual(shown, [['height', '183 cm (6′0″)'], ['alcohol', 'Socially'], ['relationship-status', 'Single'], ['interests', 'Hiking, Travel']], 'published details, grouped, once each: ' + JSON.stringify(shown)); pass();
     assert.ok(!(await page.textContent('[data-person-more]')).includes('Never'), 'unpublished smoking never shown'); pass();
     assert.equal((await page.textContent('[data-shared-interests]')).trim(), 'You both like hiking and travel', 'D459'); pass();
+    assert.equal(await page.locator('[data-person-travel]').count(), 0, 'no trip, no Travel card'); pass();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at 390 px'); pass();
     if (output) await page.screenshot({ path: output + '/profile-details-public.png', fullPage: true });
     await context.close();

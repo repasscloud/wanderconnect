@@ -279,6 +279,20 @@ public static class ProfileEndpoints
                 clock.GetUtcNow(), cancellationToken);
             // Issue 448 (D457): each shown mode's published details only.
             var details = await ProfileAttributeEndpoints.PublishedAsync(db, person.Profile.AccountId, shownIds, cancellationToken);
+            // Issue 571 (D460): their trip to the viewer's own area, by the same rule as the viewer's Who's visiting list, in the
+            // first shown mode that has one. Nothing about trips anywhere else.
+            ProfileTravelView? trip = null;
+            foreach (var modeId in shownIds)
+            {
+                var (home, _) = await MarketEndpoints.LocalAsync(db, current.Profile!, modeId, cancellationToken);
+                if (home is null) continue;
+                var visit = (await Travel.TravelEndpoints.VisitsToAsync(db, configuration, viewer, home, await MarketEndpoints.ZonesAsync(db, cancellationToken), modeId,
+                    clock.GetUtcNow(), cancellationToken, person.Profile.AccountId)).FirstOrDefault();
+                if (visit is null) continue;
+                trip = new ProfileTravelView(visit.City.Name, visit.City.CountryName, visit.Trip.Arrival, visit.Trip.Departure,
+                    TravelPolicy.LocalToday(visit.City.TimeZone, clock.GetUtcNow()) >= visit.Trip.Arrival);
+                break;
+            }
             // Issue 452 (D459): interests both chose and both published in that mode; labels only, no score.
             var interests = await db.ProfileAttributeValues.AsNoTracking().Where(v => (v.AccountId == viewer || v.AccountId == person.Profile.AccountId) && v.AttributeId == "interests")
                 .ToListAsync(cancellationToken);
@@ -303,6 +317,8 @@ public static class ProfileEndpoints
                 // Issue 389 (D382): the text picture stands in only while no approved main photo shows.
                 {
                     PictureText = photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0])) is null ? person.Profile.PictureText : null,
+                    // Issue 571 (D460): their trip to the viewer's own area only.
+                    Travel = viewer == person.Profile.AccountId ? null : trip,
                     // Issue 572 (D448): only the viewer's own private favourite, never anyone else's.
                     Favourite = await db.MemberFavourites.AnyAsync(f => f.AccountId == viewer && f.TargetAccountId == person.Profile.AccountId, cancellationToken),
                     // Issue 568: the green dot as on Explore cards (D410, D422), and the day what the viewer can see last changed.

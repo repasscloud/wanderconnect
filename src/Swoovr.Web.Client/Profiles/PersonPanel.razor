@@ -135,6 +135,14 @@
             </dl>
         </section>
     }
+    @* Issue 571 (D460): their trip to your area, as your Who's visiting list shows it; city and dates only. *@
+    @if (person.Travel is { } trip)
+    {
+        <section class="card person-card" aria-labelledby="travel-heading" data-person-travel="@(trip.Visiting ? "visiting" : "upcoming")">
+            <h2 id="travel-heading">Travel</h2>
+            <p class="person-shared"><Icon Name="globe" Size="16" />@ProfileDetailText.Trip(trip)</p>
+        </section>
+    }
     @* Issue 448 (D457): the details the person published in the modes shown here, once each, grouped; nothing else. *@
     @if (Details is { Count: > 0 } || SharedInterests is { Count: > 0 })
     {
