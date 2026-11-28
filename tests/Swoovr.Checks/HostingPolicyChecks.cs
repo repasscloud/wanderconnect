@@ -40,7 +40,9 @@ static class HostingPolicyChecks
          Expect(With("0.22, 3 December 2026").Length==0,"Photo Verified with notice 0.22 in force");
          Expect(With("0.21, 26 November 2026").SequenceEqual(["notice-required:Verification:PhotoVerified:Enabled"])&&With("0.22, 11 December 2026").Length==1,"not before notice 0.22");
          Expect(With("0.21, 26 November 2026","Uat").Length==0,"private UAT before the notice");
-         {var c=Api();Expect(Errors(c).Length==0,"off by default needs nothing");}}
+         {var c=Api();Expect(Errors(c).Length==0,"off by default needs nothing");}
+         // D453: the notice in force now is 0.22, so production may turn it on from 28 November 2026.
+         Expect(Swoovr.Contracts.PrivacyNoticeVersion.CoversPhotoVerification(Swoovr.Contracts.PrivacyNoticeVersion.Current,new(2026,11,28)),"0.22 is in force");}
         // D336/D337: scanning always on with a scanner; a configured helpdesk needs its retention identity.
         {var c=Api();c["Attachments:Scanning:Enabled"]="false";Expect(Errors(c).Contains("required-enabled:Attachments:Scanning:Enabled"),"attachment scanning can't be switched off");Expect(Errors(c,env:"Development").Length==0,"Development may switch scanning off");}
         {var c=Api();c["Attachments:Scanning:Worker"]="false";Expect(Errors(c).Contains("required-enabled:Attachments:Scanning:Worker"),"scan worker required");}

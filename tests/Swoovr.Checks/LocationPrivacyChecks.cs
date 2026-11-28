@@ -39,9 +39,12 @@ static class LocationPrivacyChecks
         Expect(new MemberProfile() is { AppearInNearby: false, ShowDistance: false }, "D348: both settings are off by default");
 
         // D348 contract scan: no member-facing response type carries coordinates or a numeric distance. Allowed: the member's
-        // own device reading sent to the API (LocationCheck), their own filter setting and its choices, and staff market config.
+        // own device reading sent to the API (LocationCheck), their own filter setting and its choices, staff market config, and a
+        // place a member chooses to share in a chat (D431, D455).
         var allowed = new HashSet<string> { "LocationCheck.Latitude", "LocationCheck.Longitude", "LocationCheck.AccuracyMetres",
-            "FilterView.MaxDistanceKm", "FilterUpdate.MaxDistanceKm", "FilterView.DistanceOptions", "MarketAreaView.RadiusKm" };
+            "FilterView.MaxDistanceKm", "FilterUpdate.MaxDistanceKm", "FilterView.DistanceOptions", "MarketAreaView.RadiusKm",
+            // D431/D455 (#544): a place a member chose to share in one chat, never their device location by itself. Only these four.
+            "ChatLocationView.Latitude", "ChatLocationView.Longitude", "ShareLocation.Latitude", "ShareLocation.Longitude" };
         var leaks = typeof(Swoovr.Contracts.ProfileCard).Assembly.GetTypes().Where(t => t.IsPublic)
             .SelectMany(t => t.GetProperties().Select(p => (Name: $"{t.Name}.{p.Name}", p.PropertyType)))
             .Where(p => System.Text.RegularExpressions.Regex.IsMatch(p.Name.Split('.')[1], "Latitude|Longitude|Coordinate|Km$|Metres|Radius|Distance", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
