@@ -238,6 +238,8 @@ public static class ProblemCodes
     public const string InvalidMeetup = "invalid-meetup";
     /// <summary>Issue 544 (D455): a shared location with no valid point, or a label that is too long.</summary>
     public const string InvalidLocation = "invalid-location";
+    /// <summary>Issue 448 (D457): an unknown or not yet available profile detail; a value or modes it doesn't accept.</summary>
+    public const string UnknownProfileDetail = "unknown-profile-detail", InvalidProfileDetail = "invalid-profile-detail";
     public const string MeetupPending = "meetup-pending";
     public const string MeetupNotOpen = "meetup-not-open";
     /// <summary>Issue 533: the name on the ID isn't a valid registered name as it is; ask Swoovr to check it instead.</summary>

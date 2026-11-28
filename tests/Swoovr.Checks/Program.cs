@@ -16,7 +16,7 @@ if(args is ["--zammad-live", var privateDirectory]){await ZammadLiveChecks.Run(p
 
 if(args is ["--ticketing-checks"]){TicketingRuntimeChecks.Run();await TicketingGuestChecks.Run();await TicketNewFormChecks.Run();TicketingChecks.Run();TicketingWebhookChecks.Run();await ZammadTransportChecks.Run();return;}
 
-if(args is ["--chat-location-checks"]){MessagingChecks.Run();ChatLocationChecks.Run();return;}
+if(args is ["--chat-location-checks"]){MessagingChecks.Run();ChatLocationChecks.Run();ProfileAttributeChecks.Run();return;}
 if(args is ["--media-checks"]){MediaChecks.Run();ImageProcessingChecks.Run();return;}
 if(args is ["--device-client-checks"]){await DeviceClientChecks.Run();return;}
 if(args is ["--sms-checks"]){await SmsTransportChecks.Run();return;}
@@ -80,6 +80,7 @@ PhotoGuardChecks.Run();
 ArrivalChecks.Run();
 MessagingChecks.Run();
 ChatLocationChecks.Run();
+ProfileAttributeChecks.Run();
 SessionRetirementChecks.Run();
 DobCorrectionChecks.Run();
 AccountInspectionChecks.Run();

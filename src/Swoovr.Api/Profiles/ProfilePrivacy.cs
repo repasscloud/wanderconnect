@@ -53,14 +53,27 @@ public static class ProfilePrivacy
         var snapshots = new List<(string Mode, object Content)>
             // Issue 389 (D382): the text picture is public too; without one the snapshot keeps its earlier shape (and hash).
             { (ProfileVersions.Core, profile.PictureText is null ? (object)new { profile.DisplayName, profile.About } : new { profile.DisplayName, profile.About, profile.PictureText }) };
-        snapshots.AddRange(modes.Select(m => (m.ModeId, (object)new
+        // Issue 448 (D457): the details published in each mode, as shown. Only when there are some, so earlier snapshots keep their hash.
+        var details = await db.ProfileAttributeValues.Where(v => v.AccountId == account).OrderBy(v => v.AttributeId).ToListAsync(cancellationToken);
+        object ModeSnapshot(MemberMode m)
         {
-            m.Enabled, m.Visible, m.DisplayName, ShownName = ModePrivacy.DisplayName(m.DisplayName, profile.DisplayName), ModeAbout = m.About, ShareCoreAbout = m.ShareCoreAbout == true,
-            ShownAbout = ModePrivacy.About(m.About, profile.About, m.ShareCoreAbout),
-            Intentions = chips.Where(c => c.ModeId == m.ModeId).Select(c => c.Label).Order().ToList(),
-            MainPhoto = photos.GetValueOrDefault(m.ModeId)?.FirstOrDefault(p => p.IsMain),
-            Photos = photos.GetValueOrDefault(m.ModeId) ?? [],
-        })));
+            var shown = details.Select(d => (d.AttributeId, Labels: ProfileAttributes.Shown(d, m.ModeId))).Where(d => d.Labels is not null)
+                .Select(d => new { Detail = d.AttributeId, Values = d.Labels }).ToList();
+            var basic = new
+            {
+                m.Enabled, m.Visible, m.DisplayName, ShownName = ModePrivacy.DisplayName(m.DisplayName, profile.DisplayName), ModeAbout = m.About, ShareCoreAbout = m.ShareCoreAbout == true,
+                ShownAbout = ModePrivacy.About(m.About, profile.About, m.ShareCoreAbout),
+                Intentions = chips.Where(c => c.ModeId == m.ModeId).Select(c => c.Label).Order().ToList(),
+                MainPhoto = photos.GetValueOrDefault(m.ModeId)?.FirstOrDefault(p => p.IsMain),
+                Photos = photos.GetValueOrDefault(m.ModeId) ?? [],
+            };
+            return shown.Count == 0 ? basic : new
+            {
+                basic.Enabled, basic.Visible, basic.DisplayName, basic.ShownName, basic.ModeAbout, basic.ShareCoreAbout, basic.ShownAbout, basic.Intentions, basic.MainPhoto, basic.Photos,
+                Details = shown,
+            };
+        }
+        snapshots.AddRange(modes.Select(m => (m.ModeId, ModeSnapshot(m))));
         var latest = (await db.ProfileVersions.Where(v => v.AccountId == account).ToListAsync(cancellationToken))
             .GroupBy(v => v.ModeId).ToDictionary(g => g.Key, g => g.OrderByDescending(v => v.CapturedAt).First());
         foreach (var (mode, content) in snapshots)
