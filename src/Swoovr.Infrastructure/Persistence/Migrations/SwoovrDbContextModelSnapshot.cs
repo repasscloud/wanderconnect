@@ -6874,6 +6874,41 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Swoovr.Domain.ProfileAttributeValue", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("AttributeId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("attribute_id");
+
+                    b.Property<int>("CatalogueVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("catalogue_version");
+
+                    b.PrimitiveCollection<List<string>>("Modes")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("modes");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("value");
+
+                    b.HasKey("AccountId", "AttributeId")
+                        .HasName("pk_profile_attribute_values");
+
+                    b.ToTable("profile_attribute_values");
+                });
+
             modelBuilder.Entity("Swoovr.Domain.ProfileOption", b =>
                 {
                     b.Property<string>("Kind")
@@ -10746,6 +10781,16 @@ namespace Swoovr.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_policy_notice_recipients_policy_notice_publications_publica~");
+                });
+
+            modelBuilder.Entity("Swoovr.Domain.ProfileAttributeValue", b =>
+                {
+                    b.HasOne("Swoovr.Domain.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_profile_attribute_values_accounts_account_id");
                 });
 
             modelBuilder.Entity("Swoovr.Domain.PushDevice", b =>

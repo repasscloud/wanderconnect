@@ -74,7 +74,23 @@ public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> Peopl
 /// <param name="ConnectionId">The accepted connection in this mode, for disconnecting (D176); null otherwise.</param>
 /// <param name="Orientation">Issue 447, D175: Dating only, and only when the person chose to show it; null everywhere else.</param>
 public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions, string Connection, Guid? RequestId, bool CanRequest = true,
-    bool ArrivalRequired = false, string? About = null, Guid? ConnectionId = null, IReadOnlyList<PhotoView>? Photos = null, string? DisplayName = null, PhotoView? MainPhoto = null, string? Orientation = null);
+    bool ArrivalRequired = false, string? About = null, Guid? ConnectionId = null, IReadOnlyList<PhotoView>? Photos = null, string? DisplayName = null, PhotoView? MainPhoto = null, string? Orientation = null,
+    IReadOnlyList<ProfileDetailView>? Details = null);
+
+/// <summary>Issue 448 (D457): one published profile detail as a viewer reads it in a mode: its labels, never option ids or unpublished values.</summary>
+public sealed record ProfileDetailView(string Id, string Category, string Label, IReadOnlyList<string> Values, string CategoryLabel = "");
+
+/// <summary>Issue 448: the detail catalogue members can use today (sensitive categories aren't listed until reviewed).</summary>
+public sealed record ProfileDetailCatalogue(int Version, IReadOnlyList<ProfileDetailCategory> Categories, IReadOnlyList<ProfileDetailDefinition> Details);
+public sealed record ProfileDetailCategory(string Id, string Label);
+/// <summary>Kind is single, multi, boolean or measure (whole numbers in Unit, between Min and Max). Modes: where it may be published.</summary>
+public sealed record ProfileDetailDefinition(string Id, string Category, string Label, string Kind, IReadOnlyList<ProfileDetailOption> Options, IReadOnlyList<string> Modes,
+    int MaxChoices, int? Min, int? Max, string? Unit);
+public sealed record ProfileDetailOption(string Id, string Label);
+/// <summary>Issue 448: a member's own saved detail: the value as JSON (an option id, a list of them, true/false or a number) and where it's shown.</summary>
+public sealed record ProfileDetailValue(string Id, System.Text.Json.JsonElement Value, IReadOnlyList<string> Modes);
+/// <summary>Issue 448: save a detail. Modes empty: saved but not shown to anyone.</summary>
+public sealed record ProfileDetailUpdate(System.Text.Json.JsonElement Value, IReadOnlyList<string>? Modes);
 
 /// <summary>#91: one captured version of what others could see (Mode "core" or a mode id), as JSON.</summary>
 public sealed record ProfileVersionView(string Mode, DateTimeOffset CapturedAt, string ContentJson, string Sha256);

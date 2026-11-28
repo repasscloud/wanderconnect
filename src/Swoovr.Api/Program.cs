@@ -153,6 +153,7 @@ Swoovr.Api.Travel.HomeCityCheckEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.Map(app);
 Swoovr.Api.Connections.MessagingEndpoints.MapMeetups(app);
 Swoovr.Api.Connections.MessagingEndpoints.MapLocations(app);
+Swoovr.Api.Profiles.ProfileAttributeEndpoints.Map(app);
 Swoovr.Api.Verification.VerificationEndpoints.Map(app);
 Swoovr.Api.Moderation.ModerationEndpoints.Map(app);
 if(persistence){Swoovr.Api.Policies.PolicyEndpoints.Map(app);Swoovr.Api.Moderation.ContentRemovalEndpoints.Map(app);Swoovr.Api.Moderation.TextHarmEndpoints.Map(app);Swoovr.Api.Moderation.ModerationTransparencyEndpoints.Map(app);}
