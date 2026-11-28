@@ -276,6 +276,10 @@ public sealed partial class MemberClient(HttpClient transport)
             + (before is { } b ? "?before=" + Uri.EscapeDataString(b.ToString("O")) : "")), cancellationToken);
 
     /// <summary>#41: sends a photo in chat; the recipient sees it once it passed screening, the sender sees its state.</summary>
+    /// <summary>Issue 543 (D456): send one of my own approved library photos (checked again like a new upload).</summary>
+    public Task<ApiResult<MessageView>> SendLibraryPhotoAsync(Guid conversationId, Guid photoId, CancellationToken token = default) =>
+        SendAsync<MessageView>(new HttpRequestMessage(HttpMethod.Post, $"api/conversations/{conversationId}/photos/library") { Content = JsonContent.Create(new LibraryPhoto(photoId)) }, token);
+
     public Task<ApiResult<MessageView>> SendChatPhotoAsync(Guid conversationId, byte[] data, string fileName, string contentType, CancellationToken cancellationToken = default)
     {
         var form = new MultipartFormDataContent();

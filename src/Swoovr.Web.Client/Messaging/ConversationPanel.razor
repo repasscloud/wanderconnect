@@ -171,7 +171,10 @@
             @if (attachMenu)
             {
                 <div class="chat-menu attach-menu" id="attach-menu" data-attach-menu-open>
-                    <label class="chat-menu-item" for="chat-photo" aria-disabled="@(awaiting ? "true" : "false")" data-attach-photo><Icon Name="image" Size="16" />Send a photo</label>
+                    @* Issue 543 (D456): a library photo, a photo from the device, or one taken now with the camera. *@
+                    <button type="button" class="chat-menu-item" disabled="@awaiting" @onclick="OpenLibrary" data-attach-library><Icon Name="image" Size="16" />Image from library</button>
+                    <label class="chat-menu-item" for="chat-photo" aria-disabled="@(awaiting ? "true" : "false")" data-attach-photo><Icon Name="upload" Size="16" />Send a photo</label>
+                    <label class="chat-menu-item" for="chat-camera" aria-disabled="@(awaiting ? "true" : "false")" data-attach-camera><Icon Name="camera" Size="16" />Take a photo</label>
                     @* Issue 545 (D430): a private 1-on-1 meet-up. *@
                     <button type="button" class="chat-menu-item" disabled="@awaiting" @onclick="() => OpenPlan(null)" data-attach-meetup><Icon Name="calendar" Size="16" />Plan a meet-up</button>
                     @* Issue 544 (D455): one chosen place, never live. *@
@@ -180,6 +183,8 @@
                 </div>
             }
             <InputFile id="chat-photo" class="visually-hidden" aria-label="Send a photo" OnChange="SendPhotoAsync" accept="image/jpeg,image/png,image/webp" disabled="@(busy || awaiting)" data-chat-photo-input />
+            @* The camera on phones and tablets ("capture"); browsers without one open the file picker instead. Same upload and checks. *@
+            <InputFile id="chat-camera" class="visually-hidden" aria-label="Take a photo" OnChange="SendPhotoAsync" accept="image/jpeg,image/png,image/webp" capture="environment" disabled="@(busy || awaiting)" data-chat-camera-input />
             <form class="composer" @onsubmit="SendAsync" data-composer data-composer-state="@(awaiting ? "awaiting-reply" : "open")">
                 <button type="button" class="chat-icon-button" aria-label="Attach" aria-expanded="@(attachMenu ? "true" : "false")" aria-controls="attach-menu" disabled="@awaiting" @onclick="() => { attachMenu = !attachMenu; chatMenu = false; menuFor = null; }" data-attach><Icon Name="plus" Size="20" /></button>
                 <label class="visually-hidden" for="message">Message</label>
@@ -195,6 +200,12 @@
         {
             <img class="chat-own-photo" src="@PhotoText.Web(own.Link)" alt="Your photo" draggable="false" @oncontextmenu:preventDefault="true" @ondragstart:preventDefault="true" data-photo-guard data-own-photo="@own.Id" />
             <p class="field-help">@PhotoText.ChatState("not-accepted"). It wasn't delivered, and they weren't told.</p>
+        }
+    </MemberDialog>
+    <MemberDialog Kind="library" Title="Send a photo from your library" Open="picking" Closed="() => picking = false">
+        @if (picking)
+        {
+            <LibraryPicker Busy="busy" Message="@pickMessage" Send="SendLibraryAsync" Cancel="() => picking = false" />
         }
     </MemberDialog>
     <MemberDialog Kind="location" Title="@($"Share a location with {conversation.Person.DisplayName}")" Open="locating" Closed="() => locating = false">
@@ -318,6 +329,20 @@
     private string ProfileLink => conversation is { ModeId: { } mode } ? $"/people/{conversation.Person.Id}?mode={mode}" : $"/people/{conversation?.Person.Id}";
     private string ModeLabel(string id) => modes.FirstOrDefault(m => m.Id == id)?.Label ?? id;
     private static string Initial(string? name) => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+
+    private bool picking;
+    private string? pickMessage;
+    private void OpenLibrary() => (picking, pickMessage, attachMenu, chatMenu, menuFor) = (true, null, false, false, null);
+
+    private async Task SendLibraryAsync(Guid photo)
+    {
+        busy = true;
+        var result = await Members.SendLibraryPhotoAsync(Id, photo);
+        busy = false;
+        if (result.Value is { } sent) { if (messages.All(m => m.Id != sent.Id)) messages.Add(sent); followNew = true; picking = false; (status, message) = ("photo-sent", null); return; }
+        if (result.Code == ProblemCodes.UnansweredLimit) { picking = false; AwaitReply(); await RecheckAwaitingAsync(); return; }
+        pickMessage = result.Code == ProblemCodes.PhotoNotFound ? "That photo can't be sent. Choose another one." : PhotoText.Refusal(result.Code);
+    }
 
     private bool locating;
     private string? locationMessage;

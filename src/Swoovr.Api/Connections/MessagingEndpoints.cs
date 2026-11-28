@@ -262,59 +262,27 @@ public static partial class MessagingEndpoints
             if (file.Length > MediaPolicy.MaxUploadBytes) return Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB.");
             using var buffer = new MemoryStream();
             await file.CopyToAsync(buffer, cancellationToken);
-            await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
-            if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return NotAvailable();
-            await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
-            await using var transaction = await LockAsync(db, id, me, cancellationToken);
-            now = clock.GetUtcNow();
-            var conversation = await OpenAsync(db, id, me, cancellationToken);
-            if (conversation is null) return NotAvailable();
-            await db.Entry(conversation).ReloadAsync(cancellationToken);
-            var other = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
-            switch (MessagingPolicy.CanSend(await SendFactsAsync(db, current.Profile!.Bot, me, other, id, now, cancellationToken), "photo"))
-            {
-                case SendRefusal.NotAvailable: return NotAvailable();
-                case SendRefusal.BotMayOnlyReply: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.BotCannotInitiate, "Official bots reply only in conversations members start.");
-                case SendRefusal.ArrivalRequired: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ArrivalRequired, "You can reply, or write first once you've confirmed you've arrived.");
-                case SendRefusal.AwaitingReply: return AwaitingReply();
-                case SendRefusal.RateLimited: return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.TooManyRequests, "That's a lot of messages. Slow down a little.");
-            }
-            if (!(await Notifications.Notifier.SettingsAsync(db, other, cancellationToken)).ChatPhotos)
-                return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotosOff, "This person isn't accepting photos in chat.");
-            var pipeline = accounts.Services.GetRequiredService<Media.MediaPipeline>();
-            if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
-            if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == AttachmentPolicy.Purpose && i.CreatedAt > now - AttachmentPolicy.Day, cancellationToken) >= AttachmentPolicy.PerDay)
-                return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.AttachmentLimit, $"You can send up to {AttachmentPolicy.PerDay} photos a day.");
-            var (item, error) = await pipeline.UploadAsync(me, buffer.ToArray(), null, now, cancellationToken, conversation.Id, deferScreening: true);
-            if (error != MediaUploadError.None) return error switch
-            {
-                MediaUploadError.TooBig => Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB."),
-                MediaUploadError.UnsupportedType or MediaUploadError.Animated => Problem(StatusCodes.Status415UnsupportedMediaType, ProblemCodes.PhotoUnsupported, "Use a JPEG, PNG or WebP photo."),
-                MediaUploadError.TooSmall => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, $"Photos need to be at least {MediaPolicy.MinSide} pixels on each side."),
-                MediaUploadError.Malware => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.PhotoRefused, "That file can't be used. Choose a different photo."),
-                MediaUploadError.ScanUnsupported => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.PhotoRefused, "That photo couldn't be checked. Choose a different photo."),
-                MediaUploadError.ScanUnavailable => Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.PhotoCheckUnavailable, "Photos can't be checked right now. Try again in a few minutes."),
-                _ => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "That photo couldn't be read."),
-            };
-            now = clock.GetUtcNow();
-            // #300 (D380): an accepted photo resets the other member's run now, but they see it only once it passed. If it
-            // frees them, tell their clients to read the conversation again (state only, nothing about the photo).
-            var (theirLimit, theirRun) = await UnansweredAsync(db, id, other, me, cancellationToken);
-            var frees = MessagingPolicy.AwaitingReply(theirLimit, theirRun);
-            // The message exists from now, for the sender only; LastMessageAt moves when the recipient can see it.
-            var message = new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Photo, Body = "", SentAt = now, MediaId = item!.Id };
-            db.Messages.Add(message);
-            await db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            await barrier.DisposeAsync();
-            await lifecycle.DisposeAsync();
-            await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
-            pipeline.ScheduleScreening(item!.Id);
-            var view = View(message, me, now, item);
-            await BetaMessageAudience.SendAsync(accounts.Services,me,view,cancellationToken);
-            if (frees) await PushReleasedAsync(hub, [(id, other)], cancellationToken);
-            return Results.Accepted($"/api/messages/{message.Id}", view);
+            return await SendChatPhotoAsync(id, buffer.ToArray(), current, accounts, hub, clock, cancellationToken);
         }).DisableAntiforgery();
+
+        // Issue 543 (D456): send one of the member's own approved library photos. It goes through the same checks as a new upload
+        // (a fresh chat copy, so deleting either one never touches the other), with every chat photo rule and the D451 gates.
+        api.MapPost("/conversations/{id:guid}/photos/library", async (Guid id, LibraryPhoto request, ClaimsPrincipal user, AccountResolver accounts, IHubContext<MessagesHub> hub,
+            TimeProvider clock, CancellationToken cancellationToken) =>
+        {
+            var (current, denied) = await MemberAsync(user, accounts, cancellationToken);
+            if (denied is not null) return denied;
+            if (current!.Enforcement.NoMessages) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send messages right now.");
+            if (current!.Enforcement.NoPhotoUploads) return Problem(StatusCodes.Status403Forbidden, ProblemCodes.Restricted, "You can't send photos right now.");
+            var (db, me) = (accounts.Db!, current!.Account!.Id);
+            if (await OpenAsync(db, id, me, cancellationToken) is null) return NotAvailable();
+            var item = request.PhotoId is { } photo ? await db.MediaItems.AsNoTracking().SingleOrDefaultAsync(i => i.Id == photo && i.AccountId == me, cancellationToken) : null;
+            if (item is null || !AttachmentPolicy.FromLibrary(item))
+                return Problem(StatusCodes.Status404NotFound, ProblemCodes.PhotoNotFound, "Choose one of your approved library photos.");
+            var bytes = await accounts.Services.GetRequiredService<Media.MediaPipeline>().ExportBytesAsync(item, cancellationToken);
+            if (bytes is null) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
+            return await SendChatPhotoAsync(id, bytes, current, accounts, hub, clock, cancellationToken);
+        });
 
         // D213: the closure, mode changes, farewell, system event and audit commit together; retries are harmless.
         api.MapPost("/conversations/{id:guid}/end", async (Guid id, EndConversation request, ClaimsPrincipal user, AccountResolver accounts, IHubContext<MessagesHub> hub,
@@ -386,6 +354,65 @@ public static partial class MessagingEndpoints
         // signed out from Security & access, on any API instance) stops receiving within the token lifetime. Clients reconnect
         // with a refreshed token; a signed-out device can't refresh and stays disconnected.
         app.MapHub<MessagesHub>("/hubs/messages", options => options.CloseOnAuthenticationExpiration = true).RequireAuthorization();
+    }
+
+    /// <summary>#41: a chat photo's bytes, after the request is read: every send rule, the daily limit, then the upload pipeline (screening deferred).</summary>
+    private static async Task<IResult> SendChatPhotoAsync(Guid id, byte[] upload, CurrentAccount current, AccountResolver accounts, IHubContext<MessagesHub> hub,
+        TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var (db, me, now) = (accounts.Db!, current.Account!.Id, clock.GetUtcNow());
+        await using var lifecycle = await AccountLifecycleLease.AcquireAsync(db, me, cancellationToken);
+        if (!await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == me && a.Status == AccountStatus.Active, cancellationToken)) return NotAvailable();
+        await using var barrier = await Retention.PreservationLease.SharedAsync(db, cancellationToken);
+        await using var transaction = await LockAsync(db, id, me, cancellationToken);
+        now = clock.GetUtcNow();
+        var conversation = await OpenAsync(db, id, me, cancellationToken);
+        if (conversation is null) return NotAvailable();
+        await db.Entry(conversation).ReloadAsync(cancellationToken);
+        var other = conversation.PairLow == me ? conversation.PairHigh : conversation.PairLow;
+        switch (MessagingPolicy.CanSend(await SendFactsAsync(db, current.Profile!.Bot, me, other, id, now, cancellationToken), "photo"))
+        {
+            case SendRefusal.NotAvailable: return NotAvailable();
+            case SendRefusal.BotMayOnlyReply: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.BotCannotInitiate, "Official bots reply only in conversations members start.");
+            case SendRefusal.ArrivalRequired: return Problem(StatusCodes.Status403Forbidden, ProblemCodes.ArrivalRequired, "You can reply, or write first once you've confirmed you've arrived.");
+            case SendRefusal.AwaitingReply: return AwaitingReply();
+            case SendRefusal.RateLimited: return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.TooManyRequests, "That's a lot of messages. Slow down a little.");
+        }
+        if (!(await Notifications.Notifier.SettingsAsync(db, other, cancellationToken)).ChatPhotos)
+            return Problem(StatusCodes.Status409Conflict, ProblemCodes.PhotosOff, "This person isn't accepting photos in chat.");
+        var pipeline = accounts.Services.GetRequiredService<Media.MediaPipeline>();
+        if (!pipeline.Available) return Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.MediaUnavailable, "Photos aren't available right now.");
+        if (await db.MediaItems.CountAsync(i => i.AccountId == me && i.Purpose == AttachmentPolicy.Purpose && i.CreatedAt > now - AttachmentPolicy.Day, cancellationToken) >= AttachmentPolicy.PerDay)
+            return Problem(StatusCodes.Status429TooManyRequests, ProblemCodes.AttachmentLimit, $"You can send up to {AttachmentPolicy.PerDay} photos a day.");
+        var (item, error) = await pipeline.UploadAsync(me, upload, null, now, cancellationToken, conversation.Id, deferScreening: true);
+        if (error != MediaUploadError.None) return error switch
+        {
+            MediaUploadError.TooBig => Problem(StatusCodes.Status413PayloadTooLarge, ProblemCodes.PhotoTooBig, "Photos can be up to 10 MB."),
+            MediaUploadError.UnsupportedType or MediaUploadError.Animated => Problem(StatusCodes.Status415UnsupportedMediaType, ProblemCodes.PhotoUnsupported, "Use a JPEG, PNG or WebP photo."),
+            MediaUploadError.TooSmall => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, $"Photos need to be at least {MediaPolicy.MinSide} pixels on each side."),
+            MediaUploadError.Malware => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.PhotoRefused, "That file can't be used. Choose a different photo."),
+            MediaUploadError.ScanUnsupported => Problem(StatusCodes.Status422UnprocessableEntity, ProblemCodes.PhotoRefused, "That photo couldn't be checked. Choose a different photo."),
+            MediaUploadError.ScanUnavailable => Problem(StatusCodes.Status503ServiceUnavailable, ProblemCodes.PhotoCheckUnavailable, "Photos can't be checked right now. Try again in a few minutes."),
+            _ => Problem(StatusCodes.Status400BadRequest, ProblemCodes.PhotoInvalid, "That photo couldn't be read."),
+        };
+        now = clock.GetUtcNow();
+        // #300 (D380): an accepted photo resets the other member's run now, but they see it only once it passed. If it
+        // frees them, tell their clients to read the conversation again (state only, nothing about the photo).
+        var (theirLimit, theirRun) = await UnansweredAsync(db, id, other, me, cancellationToken);
+        var frees = MessagingPolicy.AwaitingReply(theirLimit, theirRun);
+        // The message exists from now, for the sender only; LastMessageAt moves when the recipient can see it.
+        var message = new Message { Id = Guid.NewGuid(), ConversationId = id, SenderAccountId = me, Kind = MessageKind.Photo, Body = "", SentAt = now, MediaId = item!.Id };
+        db.Messages.Add(message);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        await barrier.DisposeAsync();
+        await lifecycle.DisposeAsync();
+        await MemberMutationAuthority.ReleaseForEffectsAsync(accounts.Services);
+        pipeline.ScheduleScreening(item!.Id);
+        var view = View(message, me, now, item);
+        await BetaMessageAudience.SendAsync(accounts.Services,me,view,cancellationToken);
+        if (frees) await PushReleasedAsync(hub, [(id, other)], cancellationToken);
+        return Results.Accepted($"/api/messages/{message.Id}", view);
     }
 
     private static async Task<SendFacts> SendFactsAsync(SwoovrDbContext db, bool senderIsBot, Guid me, Guid other, Guid conversation, DateTimeOffset now,
