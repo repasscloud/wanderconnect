@@ -22,6 +22,8 @@ public static class NotificationLinks
         // Issue 558: opens the decided photo with its reason (and Appeal where allowed) on Your photos. Only the id goes in the link.
         NotificationKind.PhotoDecision when n.SubjectId is { } decision => $"/me/photos?decision={decision:N}",
         NotificationKind.PhotoDecision => "/me/photos",
+        // D454 (#530): the verification page shows the outcome (and the reason for a refusal).
+        NotificationKind.PhotoVerified => "/me/verification",
         NotificationKind.Support => SupportNotice.Ticket(n.SubjectId) is { } ticket ? $"/me/support/{ticket}" : "/me/support",
         NotificationKind.Request => "/connections",
         NotificationKind.Connection when n.ActorAccountId is { } actor
@@ -273,6 +275,7 @@ public static class NotificationEndpoints
                 NotificationKind.PolicyChange => "Safety policy update: "+publications[n.SubjectId!.Value].Title,
                 NotificationKind.Announcement => "From Swoovr: " + broadcasts[n.SubjectId!.Value],
                 NotificationKind.PhotoDecision => "There is an update to one of your photos. Open Your photos to review it.",
+                NotificationKind.PhotoVerified => "There is an update to your Photo Verified request. Open Verification to see it.",
                 NotificationKind.Support => "Swoovr support replied to your request. Open Support to read it.",
                 NotificationKind.ReportOutcome => "There is an update to a report you submitted. Open Notices and reports to review it.",
                 NotificationKind.ConversationEnded => ConversationEnding.Notification,

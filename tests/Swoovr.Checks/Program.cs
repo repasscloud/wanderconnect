@@ -92,6 +92,7 @@ NearMeChecks.Run();
 HomeCityCheckChecks.Run();
 PrivacyNoticeChecks.Run();
 PrivacyNotice021Checks.Run();
+PrivacyNotice022Checks.Run();
 HelpdeskRetentionAndScanningChecks.Run();
 SeriousIncidentChecks.Run();
 IdentityStoreChecks.Run();

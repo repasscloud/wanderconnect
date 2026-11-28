@@ -14,9 +14,11 @@ public static class PrivacyNotice
     // Issue 359: 0.20 names Postmark for email (Q179 A, effective 17 November 2026; owner; D377). D351's location wording becomes 0.21.
     // 0.21, effective 26 November 2026 (D432): D351's location wording (#271, #283), staff viewing an ID (#513, D413) and online
     // status (#525, D422), each word for word as approved (curly quotes set as straight ones, as in the rest of this notice).
+    // 0.22, effective 28 November 2026 (D453): Photo Verified (#530, D427) and sharing a location in chat (#544, D431), word
+    // for word as approved on #609.
     // Issue 296 (Q172, D374): raw-original photo wording applied as the owner supplied it. Version and approval date are NOT
     // advanced until owner/legal approval of the final text and its publication date (owner instruction on #296).
-    public const string StatusLabel = "Privacy notice — approved 26 November 2026.";
+    public const string StatusLabel = "Privacy notice — approved 28 November 2026.";
     public const string Version = Swoovr.Contracts.PrivacyNoticeVersion.Current;
     /// <summary>CONFIRMED (D202, Q80): privacy@swoovr.com; mail to privacy@swoovr.app forwards to it.</summary>
     public const string Contact = "privacy@swoovr.com";
@@ -89,6 +91,7 @@ public static class PrivacyNotice
         new("messages", "Messages, including ones you unsend", [
             "Messages are stored so you and the person you're talking to can read them. When you delete a message for both of you, it shows as deleted straight away, but we keep the text for 30 days in case it's needed to investigate a report, then erase it.",
             "If you report a conversation, the messages you choose are kept as evidence with the report.",
+            "If you choose to share a location in a chat, the other member sees the exact place you picked, as a place name or coordinates they can open in their own maps app. We don't show a third-party map preview in the chat. A shared location is kept and removed like any other message.",
         ]),
         new("modes", "Your modes and who sees what", [
             "Each connection mode shows only what belongs to it. Your main about appears in a mode only if you turn on \"Show my main about\" for that mode.",
@@ -101,6 +104,7 @@ public static class PrivacyNotice
             "Approved, processed copies are stored in private Cloudflare R2 storage and made available to other members only through short-lived links and in the modes you choose. An original uploaded photo is normally securely deleted no later than 30 days after its initial upload; it may be deleted sooner when no longer needed. The 30-day period does not restart after scanning, processing, retries or review.",
             "If an original photo is required for an unresolved appeal, safety investigation, legal hold or another lawful evidence-preservation obligation, we restrict access and retain only the material needed while that requirement applies. Once it ends, we reassess retention and securely delete the original when no longer required. When you delete a photo or your account, processed copies are removed under our normal deletion rules unless a safety or legal retention requirement applies. If a photo matches known child sexual abuse material, we keep it sealed as evidence, never publish it, and follow applicable reporting and preservation requirements.",
             "ID verification selfies and documents never go through this process; Didit holds them, and our staff view ID document images only as described under ID verification and your identity record.",
+            "If you choose to get Photo Verified, you send us one photo of yourself holding a piece of paper with a code and the date we give you. Authorised Swoovr staff compare it with your public profile photos to decide whether to award the Photo Verified badge. It isn't an identity or age check. We keep that photo privately and delete it 30 days after the decision, unless a legal hold or safety investigation requires us to keep it longer. We keep a record of the decision (who decided, when, the outcome and which profile photos were compared). Photo Verified lasts 12 months, and ends sooner if you change a verified profile photo.",
         ]),
         new("meeting-safety", "Voluntary meeting safety and trusted contacts", [
             "Meeting safety is optional and free. You can save up to three trusted contacts, including people without Swoovr accounts. Only add someone who is happy for you to share their contact details with us. We keep their contact details encrypted and use them for invitations and safety updates, never marketing. Invitations expire after seven days; contacts must agree before receiving meeting updates and can decline or withdraw.",

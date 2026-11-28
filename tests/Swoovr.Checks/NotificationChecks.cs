@@ -33,6 +33,8 @@ static class NotificationChecks
         Expect(NotificationPolicy.Decide(Facts(NotificationKind.Account, actor: false, on: false, muted: true)).Push == send, "account notices can't be switched off");
         Expect(NotificationPolicy.Decide(Facts(NotificationKind.Message)).Email == NotificationPolicy.NotForKind, "messages are never emailed");
         Expect(NotificationPolicy.Decide(Facts(NotificationKind.Account, actor: false)).Email == NotificationPolicy.NotForKind, "account notices keep D135's own email");
+        // D454 (#530): a Photo Verified decision is a centre item only (no push or email), like a photo decision.
+        { var pv = NotificationPolicy.Decide(Facts(NotificationKind.PhotoVerified, actor: false)); Expect(pv.Centre && pv.Push == NotificationPolicy.NotForKind && pv.Email == NotificationPolicy.NotForKind, "Photo Verified decisions: centre only"); }
         Expect(NotificationPolicy.Decide(Facts(NotificationKind.Connection)).Email == send && NotificationPolicy.Decide(Facts(NotificationKind.Travel, actor: false)).Email == send,
             "connections and travel reminders may be emailed");
         var defaults = new NotificationSettings();
