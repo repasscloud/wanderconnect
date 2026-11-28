@@ -225,6 +225,8 @@ services:
       Didit__IdImages__Enabled: "true"
       # D422/D432: online status is on with Privacy Notice 0.21 (effective 26 November 2026); opt-in, mutual, green dot only.
       Explore__OnlineStatus: "true"
+      # D427/D453: Photo Verified is on with Privacy Notice 0.22 (effective 28 November 2026); Support or Admin decide each one.
+      Verification__PhotoVerified__Enabled: "true"
       # Issue 438: Didit returns the member here. Without it the API used to fall back to localhost.
       Didit__Callbacks__Web: https://uat.swoovr.app/me/verification/return
       Beta__Enabled: "true"

@@ -1932,3 +1932,11 @@ Builds [#530](https://github.com/repasscloud/swoovr/issues/530) on D424 and D427
 - **Approval:** Photo Verified (not manual) for 12 months, with the matched photos recorded. The viewer shows "Photo verified: {date}" on those photos (D399). It never grants or implies ID Verified.
 - **Ending it:** a change to a matched public photo (removed, replaced, taken out of every mode, or taken down) ends it. The check runs wherever profile photos change (`ProfilePrivacy.CaptureAsync`). The retention run ends it after 12 months, retires unused codes after a day, and deletes each evidence photo 30 days after its decision unless the account is held. The decision record stays.
 - **Not yet:** no notification when a decision is made (the member sees it on the verification page). Mobile's 3-second video (D424) is for the Flutter apps.
+
+### D453 — Privacy Notice 0.22 is published; Photo Verified is on in UAT (#609, #530, #544, 28 November 2026)
+
+Builds D427 and D431 (**CONFIRMED**) with the wording the owner approved on [#609](https://github.com/repasscloud/swoovr/issues/609) (28 November 2026). Version "0.22, 28 November 2026", label "approved 28 November 2026". `PrivacyNotice022Checks` compares both paragraphs word for word.
+- **Effective date (DEFAULT):** the day of approval, 28 November 2026, because #609's approval gave no other date. Say if it should be later; only the version string and label change.
+- **Where the wording goes:** the Photo Verified paragraph ends "Your photos", after the ID verification paragraph; the chat location paragraph ends "Messages, including ones you unsend". Nothing else changes.
+- **On with it:** `Verification:PhotoVerified:Enabled` is on in UAT. There is no production host yet; `HostingPolicy` now lets it be turned on there, because 0.22 is in force. #544 (sharing a location in chat) can be built.
+- **Telling members:** after deployment, an operator stages and publishes the policy-update notice for version "0.22, 28 November 2026" with the existing CLI (`PolicyNoticePublisher`, #121). Nothing is sent by this change alone.
