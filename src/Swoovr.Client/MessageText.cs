@@ -14,7 +14,7 @@ public static class MessageText
     /// <summary>#300: the choices, 0 for Off (the default).</summary>
     public static readonly IReadOnlyList<(int Value,string Label)> LimitChoices=[(0,"Off"),(3,"3 messages"),(5,"5 messages"),(10,"10 messages")];
     /// <summary>#300: a message from the other member that ends the sender's wait (a reply: text, photo or meet-up, never a system event or farewell).</summary>
-    public static bool IsReply(MessageView message)=>!message.Mine&&message.Kind is "text" or "photo" or "meetup";
+    public static bool IsReply(MessageView message)=>!message.Mine&&message.Kind is "text" or "photo" or "meetup" or "location";
     /// <summary>A delayed page/send response cannot undo a removal already observed by this client.</summary>
     public static MessageView ApplyKnownRemoval(MessageView message,ISet<Guid> removed)
     {

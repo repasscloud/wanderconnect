@@ -155,6 +155,17 @@ static class TextHarmRuntimeChecks
         await processor.ProcessAsync(await MessageIntent(Message(noteSubject,noteChats[2],noteText,clock.Now)),default);
         var noteHistory=detector.Inputs.Last(i=>i.AccountId==noteSubject).History;
         check("meet-up notes count in text-harm history, note-less cards don't",noteHistory.Complete&&noteHistory.SameTextMessagesLastHour==2&&noteHistory.DistinctRecipientsLastHour==3);
+        // PR 631 review (#544): a labelled location is inspected, and repeated or bulk locations count in the history.
+        var placeSender=await Member();var placePeers=new[]{await Member(),await Member(),await Member()};
+        var placeChats=new[]{await Conversation(placeSender,placePeers[0]),await Conversation(placeSender,placePeers[1]),await Conversation(placeSender,placePeers[2])};
+        var pinned=ChatLocationPolicy.Format(-34.92851,138.60071,"Fictional send me money at the cafe");
+        Message Pin(Guid chat,string body,int minutes){var m=Message(placeSender,chat,body,clock.Now.AddMinutes(-minutes));m.Kind=MessageKind.Location;return m;}
+        db.Messages.AddRange(Pin(placeChats[0],pinned,30),Pin(placeChats[1],pinned,20));
+        await db.SaveChangesAsync();
+        var pinResult=await processor.ProcessAsync(await MessageIntent(Pin(placeChats[2],pinned,0)),default);
+        var pinHistory=detector.Inputs.Last(i=>i.AccountId==placeSender).History;
+        check("a labelled location is inspected, and repeated locations count in text-harm history",pinResult.Result is not "stale"&&pinHistory.Complete
+            &&pinHistory.SameTextMessagesLastHour==2&&pinHistory.DistinctRecipientsLastHour==3);
 
         // Actual server history: no supplied client counts. UUID tie order, future/old rows and current count are checked.
         var repeatedSubject=await Member();var peers=new[]{await Member(),await Member(),await Member(),await Member()};

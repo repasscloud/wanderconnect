@@ -1,0 +1,15 @@
+@* Issue 544 (D431, D455): a shared location in the chat. The label (or "Shared location") and the coordinates; no map image.
+   The links open the member's own maps app or web maps, only when tapped, with the coordinates only. *@
+<div class="location-card" data-location="@Place.Latitude,@Place.Longitude">
+    <p class="meetup-kicker"><Icon Name="pin" Size="14" />Location</p>
+    <p class="meetup-title" data-location-title>@ChatLocationText.Title(Place)</p>
+    <p class="meetup-line" data-location-coordinates>@ChatLocationText.Coordinates(Place)</p>
+    <div class="meetup-actions">
+        <a class="button button-secondary meetup-button" href="@ChatLocationText.AppleMaps(Place)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-location-open="apple">Apple Maps</a>
+        <a class="button button-secondary meetup-button" href="@ChatLocationText.GoogleMaps(Place)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-location-open="google">Google Maps</a>
+        <a class="button button-secondary meetup-button" href="@ChatLocationText.OpenStreetMap(Place)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-location-open="osm">OpenStreetMap</a>
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public ChatLocationView Place { get; set; } = default!;
+}

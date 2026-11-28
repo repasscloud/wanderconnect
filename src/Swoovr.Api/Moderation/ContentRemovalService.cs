@@ -75,7 +75,7 @@ public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,E
         else if(request.Field=="message")
         {
             if(report.SubjectType is not(ReportSubject.Message or ReportSubject.Conversation))throw Refuse(409,"message-not-in-report");
-            message=await db.Messages.SingleOrDefaultAsync(m=>m.Id==request.MessageId&&m.SenderAccountId==subject.Value&&(m.Kind==MessageKind.Text||m.Kind==MessageKind.Meetup&&m.Body!=""),token);
+            message=await db.Messages.SingleOrDefaultAsync(m=>m.Id==request.MessageId&&m.SenderAccountId==subject.Value&&(m.Kind==MessageKind.Text||m.Kind==MessageKind.Location||m.Kind==MessageKind.Meetup&&m.Body!=""),token);
             if(message is null||message.DeletedAt!=null||message.ModerationRemovedAt!=null)throw Refuse(404,"content-not-available");
             await db.Entry(message).ReloadAsync(token);
             var snapshots=await db.CaseEvidence.AsNoTracking().Where(e=>e.CaseId==caseId&&e.ReportId==request.ReportId).ToListAsync(token);
@@ -176,7 +176,7 @@ public sealed class ContentRemovalService(SwoovrDbContext db,EvidenceKeys keys,E
                                 if(row.ValueKind==JsonValueKind.Object&&row.TryGetProperty("id",out var value)&&value.ValueKind==JsonValueKind.String&&value.TryGetGuid(out var messageId))reportedIds.Add(messageId);
                     }
                     catch(JsonException){ }
-                foreach(var message in await db.Messages.AsNoTracking().Where(m=>m.SenderAccountId==subject&&reportedIds.Contains(m.Id)&&(m.Kind==MessageKind.Text||m.Kind==MessageKind.Meetup&&m.Body!="")&&m.DeletedAt==null&&m.ModerationRemovedAt==null).OrderByDescending(m=>m.SentAt).ToListAsync(token))
+                foreach(var message in await db.Messages.AsNoTracking().Where(m=>m.SenderAccountId==subject&&reportedIds.Contains(m.Id)&&(m.Kind==MessageKind.Text||m.Kind==MessageKind.Location||m.Kind==MessageKind.Meetup&&m.Body!="")&&m.DeletedAt==null&&m.ModerationRemovedAt==null).OrderByDescending(m=>m.SentAt).ToListAsync(token))
                     if(snapshots.Any(e=>ContentRemovalPolicy.ReportContainsMessage(e.Kind,e.Snapshot,message.Id)))Add("message",null,message.Id,message.Body);
                 // Issue 586 (D444): the place of each of their meet-ups whose card is in the report.
                 var places=await (from m in db.Messages.AsNoTracking()
