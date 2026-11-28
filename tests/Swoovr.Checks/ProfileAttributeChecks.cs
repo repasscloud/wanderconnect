@@ -63,6 +63,16 @@ static class ProfileAttributeChecks
         Expect(ProfileAttributes.OptionIds("not json").Count == 0, "bad JSON reads as nothing");
         Expect(ProfileAttributes.Height(152) == "152 cm (5′0″)" && ProfileAttributes.Height(200) == "200 cm (6′7″)", "height in both units");
 
+        // Issue 452 (D459): "You both like…": both chose it and both published interests in this mode; labels, no score.
+        ProfileAttributeValue I(string json, params string[] modes) => new() { AttributeId = "interests", Value = json, Modes = [.. modes] };
+        Expect(ProfileAttributes.SharedInterests(I("[\"hiking\",\"travel\",\"coffee\"]", "friends"), I("[\"travel\",\"hiking\",\"gym\"]", "friends"), "friends").SequenceEqual(["Hiking", "Travel"]), "the overlap, in catalogue order");
+        Expect(ProfileAttributes.SharedInterests(I("[\"hiking\"]"), I("[\"hiking\"]", "friends"), "friends").Count == 0, "the viewer hasn't published theirs: nothing");
+        Expect(ProfileAttributes.SharedInterests(I("[\"hiking\"]", "friends"), I("[\"hiking\"]", "dating"), "friends").Count == 0, "the person hasn't published theirs in this mode: nothing");
+        Expect(ProfileAttributes.SharedInterests(I("[\"hiking\"]", "friends"), null, "friends").Count == 0 && ProfileAttributes.SharedInterests(I("[\"hiking\"]", "friends"), I("[\"gym\"]", "friends"), "friends").Count == 0, "no overlap: nothing");
+        Expect(ProfileAttributes.SharedInterests(new() { AttributeId = "smoking", Value = "\"never\"", Modes = ["friends"] }, new() { AttributeId = "smoking", Value = "\"never\"", Modes = ["friends"] }, "friends").Count == 0, "interests only, never another detail");
+        Expect(Swoovr.Client.ProfileDetailText.BothLike(["Hiking"]) == "You both like hiking" && Swoovr.Client.ProfileDetailText.BothLike(["Hiking", "Travel"]) == "You both like hiking and travel"
+            && Swoovr.Client.ProfileDetailText.BothLike(["Coffee", "TV", "Travel"]) == "You both like coffee, TV and travel", "wording");
+
         Console.WriteLine($"PASS: profile details (#448, D457) ({checks}).");
     }
 }

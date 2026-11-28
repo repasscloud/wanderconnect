@@ -75,7 +75,7 @@ public sealed record ExploreResult(string Mode, IReadOnlyList<ProfileCard> Peopl
 /// <param name="Orientation">Issue 447, D175: Dating only, and only when the person chose to show it; null everywhere else.</param>
 public sealed record SharedModeView(string Id, string Label, IReadOnlyList<string> Intentions, string Connection, Guid? RequestId, bool CanRequest = true,
     bool ArrivalRequired = false, string? About = null, Guid? ConnectionId = null, IReadOnlyList<PhotoView>? Photos = null, string? DisplayName = null, PhotoView? MainPhoto = null, string? Orientation = null,
-    IReadOnlyList<ProfileDetailView>? Details = null);
+    IReadOnlyList<ProfileDetailView>? Details = null, IReadOnlyList<string>? SharedInterests = null);
 
 /// <summary>Issue 448 (D457): one published profile detail as a viewer reads it in a mode: its labels, never option ids or unpublished values.</summary>
 public sealed record ProfileDetailView(string Id, string Category, string Label, IReadOnlyList<string> Values, string CategoryLabel = "");

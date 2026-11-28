@@ -234,6 +234,19 @@ public static class ProfileAttributes
         }
     }
 
+    /// <summary>
+    /// Issue 452 (D459): "You both like…": the interests both members chose and both published in this mode, as labels in
+    /// catalogue order. Publishing your own interests in a mode is opting in; nothing hidden, inferred or sensitive is
+    /// compared, and there is no score. Empty when either side hasn't published them there.
+    /// </summary>
+    public static IReadOnlyList<string> SharedInterests(ProfileAttributeValue? mine, ProfileAttributeValue? theirs, string mode)
+    {
+        if (mine is null || theirs is null || mine.AttributeId != "interests" || theirs.AttributeId != "interests") return [];
+        if (Shown(mine, mode) is null || Shown(theirs, mode) is null) return [];
+        var both = OptionIds(mine.Value).Intersect(OptionIds(theirs.Value)).ToHashSet();
+        return Find("interests")!.Options.Where(o => both.Contains(o.Id)).Select(o => o.Label).ToList();
+    }
+
     /// <summary>"178 cm (5′10″)": both units from the canonical centimetres.</summary>
     public static string Height(int centimetres)
     {

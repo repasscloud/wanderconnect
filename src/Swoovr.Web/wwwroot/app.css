@@ -966,6 +966,8 @@ body:has(.public-layout) { padding-bottom: 0; }
 .favourite-star[aria-pressed=true] svg { fill: var(--favourite); }
 .person-header .safety-menu-list { left: 0; right: auto; }
 .safety-menu-item .icon { margin-right: 8px; }
+/* Issue 452 (D459): interests both members chose and show; plain text, no score. */
+.person-shared { display: flex; align-items: center; gap: 8px; margin: 0; font: var(--type-body); }
 .person-basics { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr)); gap: 12px 24px; margin: 0; }
 .person-basics dt { color: var(--muted); font: var(--type-small); }
 .person-basics dd { margin: 2px 0 0; font-weight: 600; }

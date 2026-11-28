@@ -1983,3 +1983,10 @@ Builds the editing and presentation parts of the owner's decision on [#448](http
 - **`/me/profile` → More about you:** one folding row per category (only categories with a detail members can use today), so nobody faces one long form. Each detail is a dropdown, chips (with "n of max"), a yes/no dropdown or a number (height in centimetres with the feet and inches beside it). Choosing saves it, **shown to nobody** ("Saved. Not shown to anyone yet."). **Show in** ticks the modes it can appear in, from the modes the member uses, with **All** to publish everywhere at once. **Remove** deletes it; "Not answered" removes it too.
 - **Private progress:** each row shows "n of m answered" to the member only. There's no percentage, prompt, penalty or anything other members can see (§2).
 - **Public profile:** one **More about me** card after The basics, grouped by category, each detail once with its labels, only what the API returned for the modes shown. Empty categories and the card itself are hidden when there's nothing (§8). Explore cards are unchanged (D443).
+
+### D459 — Shared interests: "You both like…" (#452, 28 November 2026)
+
+Builds [#452](https://github.com/repasscloud/swoovr/issues/452) as narrowed by the owner (27 November 2026) and #448 §9: factual shared interests only.
+- **What's compared:** the `interests` detail only (D457 option ids), the intersection of what both members chose. Never another detail, a sensitive attribute, an inferred interest, a score, a percentage, a ranking or any similarity model. Discovery is untouched.
+- **Opting in (DEFAULT):** publishing your own interests in a mode is opting in to the comparison there. The line shows in a mode only when **both** published interests in it, so it never reveals an interest someone hasn't shown in that mode, and a viewer who hasn't shown theirs sees nothing.
+- **Where:** `GET /api/profiles/{id}` adds `sharedInterests` (labels in catalogue order) to each shown mode where there's an overlap, never to your own profile. The person page shows "You both like hiking and travel" at the top of More about me. Hidden when there's no overlap.

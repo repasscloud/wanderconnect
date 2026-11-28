@@ -136,10 +136,13 @@
         </section>
     }
     @* Issue 448 (D457): the details the person published in the modes shown here, once each, grouped; nothing else. *@
-    @if (Details is { Count: > 0 } groups)
+    @if (Details is { Count: > 0 } || SharedInterests is { Count: > 0 })
     {
+        var groups = Details ?? [];
         <section class="card person-card" aria-labelledby="more-heading" data-person-more>
             <h2 id="more-heading">More about me</h2>
+            @* Issue 452 (D459): only interests you both chose and both show here; never a score. *@
+            @if (SharedInterests is { Count: > 0 } both) { <p class="person-shared" data-shared-interests="@both.Count"><Icon Name="users" Size="16" />@ProfileDetailText.BothLike(both)</p> }
             @foreach (var group in groups)
             {
                 <h3 class="person-subhead" data-detail-group="@group.Key">@group.First().CategoryLabel</h3>
@@ -311,6 +314,9 @@
     /// Issue 448 (D457): each published detail once across the shown modes (a detail has one value, published per mode), in
     /// the API's catalogue order, grouped by category. The API returns only what this viewer may see.
     /// </summary>
+    /// <summary>Issue 452 (D459): interests you both chose and both show in a mode shown here, once each.</summary>
+    private List<string>? SharedInterests => person?.Modes.SelectMany(m => m.SharedInterests ?? []).Distinct().ToList();
+
     private List<IGrouping<string, ProfileDetailView>>? Details => person?.Modes.SelectMany(m => m.Details ?? []).DistinctBy(d => d.Id).GroupBy(d => d.Category).ToList();
 
     /// <summary>D175: one About me when every shown mode says the same; otherwise each mode's card carries its own words.</summary>
