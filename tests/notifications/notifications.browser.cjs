@@ -415,6 +415,8 @@ const pushBox = id => `push-${id.replace(/-/g, '')}@simulated.swoovr.invalid`;
     assert.ok(waitingBefore >= 1, `bob has ${waitingBefore} waiting`); pass();
     await page.goto(web + '/connections');
     await page.waitForSelector(`[data-unread-badge="connections"][data-pending-requests="${waitingBefore}"]`, { state: 'attached', timeout: 20000 }); pass();
+    // Since #561 the Connections page reads the centre as it loads: let it finish before holding the next poll.
+    await page.waitForSelector(`[data-request="${fresh.body.id}"] button:has-text("Decline")`, { timeout: 20000 });
     const centrePoll = /\/api\/me\/notifications$/;
     let releaseHeld, heldCaptured, holdingCentre = false;
     const heldRelease = new Promise(done => { releaseHeld = done; }), heldPoll = new Promise(done => { heldCaptured = done; });

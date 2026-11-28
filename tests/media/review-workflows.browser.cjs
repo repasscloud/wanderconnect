@@ -76,7 +76,7 @@ if(process.env.Media__Screening__Simulate!=='blocked')throw Error('Photo workflo
    assert.equal((await h.call(tokens.second,'/api/admin/media/workload')).body.appeals,0);assert.equal((await h.call(tokens.second,'/api/admin/media/appeals')).body.total,0);
    assert.equal((await h.call(tokens.first,'/api/admin/media/workload')).body.awaitingOtherAdmin,0,'decided appeal no longer waits for another Admin');
    assert.ok(!(await h.call(token,'/api/me/photos/decisions')).body.filter(d=>d.mediaId===ids[3]).some(d=>d.canAppeal));
-   await page.goto(h.admin+'/sign-in');await page.fill('#username',people.support.email);await page.fill('#password',people.support.password);await page.click('#kc-login');await page.waitForURL(h.admin+'/**');await page.goto(h.admin+'/media');await page.locator('[data-media-item]').first().locator('[data-review-open]').click();
+   await page.goto(h.admin+'/sign-in');await page.fill('#username',people.support.email);await page.fill('#password',people.support.password);await page.click('#kc-login');await h.fillStaffOtp(page,people.support);await page.waitForURL(h.admin+'/**');await page.goto(h.admin+'/media');await page.locator('[data-media-item]').first().locator('[data-review-open]').click();
    await page.waitForSelector('dialog:modal');await page.keyboard.press('Escape');await page.waitForSelector('[data-photo-dialog]',{state:'detached'});
    console.log('PASS: owned photo review paging/roles/acknowledgement, retained rejection, safe durable notices, one independent final appeal, specialist exclusion and keyboard dialog');
   }finally{await context.close();}
