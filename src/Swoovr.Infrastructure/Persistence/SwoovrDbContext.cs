@@ -90,6 +90,8 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
     public DbSet<Entitlement> Entitlements => Set<Entitlement>();
     public DbSet<ProfileOption> ProfileOptions => Set<ProfileOption>();
     public DbSet<MemberIdentity> MemberIdentities => Set<MemberIdentity>();
+    /// <summary>Issue 448 (D457): optional profile details, one row per member and detail, published per mode.</summary>
+    public DbSet<ProfileAttributeValue> ProfileAttributeValues => Set<ProfileAttributeValue>();
     public DbSet<ModeFilter> ModeFilters => Set<ModeFilter>();
     public DbSet<DataExport> DataExports => Set<DataExport>();
     public DbSet<TerminatedEmailHold> TerminatedEmailHolds => Set<TerminatedEmailHold>();
@@ -1147,6 +1149,14 @@ public sealed class SwoovrDbContext(DbContextOptions<SwoovrDbContext> options) :
                 new ProfileOption { Kind = "orientation", Id = "queer", Label = "Queer", SortOrder = 7 },
                 new ProfileOption { Kind = "orientation", Id = "questioning", Label = "Questioning", SortOrder = 8 },
                 new ProfileOption { Kind = "orientation", Id = "another", Label = "Another orientation", SortOrder = 9 });
+        });
+        // Issue 448 (D457): a detail's value (canonical JSON) and the modes it's published in; it goes with the account.
+        model.Entity<ProfileAttributeValue>(value =>
+        {
+            value.HasKey(v => new { v.AccountId, v.AttributeId });
+            value.HasOne<Account>().WithMany().HasForeignKey(v => v.AccountId).OnDelete(DeleteBehavior.Cascade);
+            value.Property(v => v.AttributeId).HasMaxLength(32);
+            value.Property(v => v.Value).HasColumnType("jsonb");
         });
         model.Entity<MemberIdentity>(identity =>
         {

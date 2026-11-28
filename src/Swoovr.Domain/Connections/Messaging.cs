@@ -29,8 +29,9 @@ public static class ClosedReasons
     public const string Blocked = "blocked", Disconnected = "disconnected", Deleted = "deleted", MemberEnded = "member-ended";
 }
 
-/// <summary>What a message carries: text, or one photo through the media quarantine (#41, D203; policy §5).</summary>
-public enum MessageKind { Text, Photo, Farewell, System, Meetup }
+/// <summary>What a message carries: text, or one photo through the media quarantine (#41, D203; policy §5). Issue 544 (D455):
+/// Location carries one shared place in its text (<see cref="ChatLocationPolicy"/>).</summary>
+public enum MessageKind { Text, Photo, Farewell, System, Meetup, Location }
 
 /// <summary>
 /// A message. Deleting for both (within five minutes, rule 8) shows it to both members as deleted at once; its text
@@ -150,7 +151,7 @@ public static class MessagingPolicy
     /// out, removed by moderation). Farewells and system events never count; nor do receipts, typing or reading, which
     /// aren't messages at all. Time never resets it; only a reply does.
     /// </summary>
-    public static bool CountsAsUnanswered(MessageKind kind) => kind is MessageKind.Text or MessageKind.Photo;
+    public static bool CountsAsUnanswered(MessageKind kind) => kind is MessageKind.Text or MessageKind.Photo or MessageKind.Location;
 
     /// <summary>
     /// #300: the sender has reached the recipient's limit and waits for a reply. Read against the recipient's setting at
@@ -161,7 +162,7 @@ public static class MessagingPolicy
 
     /// <summary>Rule 8: only the sender, only within five minutes, only once.</summary>
     public static bool MayDeleteForBoth(Message message, Guid me, DateTimeOffset now) =>
-        message.Kind is MessageKind.Text or MessageKind.Photo && message.SenderAccountId == me && message.DeletedAt is null && message.ModerationRemovedAt is null && now - message.SentAt <= DeleteWindow;
+        message.Kind is MessageKind.Text or MessageKind.Photo or MessageKind.Location && message.SenderAccountId == me && message.DeletedAt is null && message.ModerationRemovedAt is null && now - message.SentAt <= DeleteWindow;
 
     /// <summary>
     /// Whether a message is listed for a member: not hidden by them, not before they hid the conversation. A message

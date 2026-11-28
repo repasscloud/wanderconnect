@@ -14,7 +14,7 @@ static class PrivacyNoticeChecks
         string Text(string id) => string.Join(" ", PrivacyNotice.Sections.Single(s => s.Id == id).Paragraphs);
         var all = string.Join(" ", PrivacyNotice.Sections.SelectMany(s => s.Paragraphs));
 
-        Expect(!PrivacyNotice.StatusLabel.Contains("draft", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("approved 26 November 2026") && PrivacyNotice.Version == "0.21, 26 November 2026", "0.21 effective 26 November 2026 (D432), never draft");
+        Expect(!PrivacyNotice.StatusLabel.Contains("draft", StringComparison.OrdinalIgnoreCase) && PrivacyNotice.StatusLabel.Contains("approved 28 November 2026") && PrivacyNotice.Version == "0.22, 28 November 2026", "0.22 effective 28 November 2026 (D453), never draft");
         // Issue 208 / D333–D334: helpdesk collection, self-hosted Zammad, support retention, customer retirement, logs and backups.
         Expect(Text("collect").Contains("Customer support: when you contact us") && Text("collect").Contains("internal case notes"), "support information collected (issue 208 §2)");
         Expect(Text("sharing").Contains("self-hosted customer support system using Zammad") && Text("sharing").Contains("not an independent recipient") && Text("sharing").Contains("email service provider"), "self-hosted Zammad, not a recipient (issue 208 §3)");
@@ -76,6 +76,6 @@ static class PrivacyNoticeChecks
             && Text("holds").Contains("suspends ordinary deletion only for the information it covers"), "30-day raw-original retention and hold scope (D374)");
         Expect(!all.Contains("never the original", StringComparison.OrdinalIgnoreCase) && !all.Contains("re-made copy", StringComparison.OrdinalIgnoreCase),
             "no contradictory claim that originals are never kept (issue 296)");
-        Console.WriteLine($"PASS: approved privacy notice 0.21 ({checks}).");
+        Console.WriteLine($"PASS: approved privacy notice 0.22 ({checks}).");
     }
 }

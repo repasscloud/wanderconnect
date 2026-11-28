@@ -277,6 +277,13 @@ public static class ProfileEndpoints
             // D203, #91: the main photo, and each shown mode's own photos (never another mode's).
             var photos = await Media.MediaEndpoints.PhotosAsync(db, accounts.Services.GetRequiredService<Media.MediaLinks>(), [person.Profile.AccountId], shownIds,
                 clock.GetUtcNow(), cancellationToken);
+            // Issue 448 (D457): each shown mode's published details only.
+            var details = await ProfileAttributeEndpoints.PublishedAsync(db, person.Profile.AccountId, shownIds, cancellationToken);
+            // Issue 452 (D459): interests both chose and both published in that mode; labels only, no score.
+            var interests = await db.ProfileAttributeValues.AsNoTracking().Where(v => (v.AccountId == viewer || v.AccountId == person.Profile.AccountId) && v.AttributeId == "interests")
+                .ToListAsync(cancellationToken);
+            IReadOnlyList<string>? SharedIn(string modeId) => ProfileAttributes.SharedInterests(interests.FirstOrDefault(v => v.AccountId == viewer),
+                interests.FirstOrDefault(v => v.AccountId == person.Profile.AccountId), modeId) is { Count: > 0 } both ? both : null;
             return Results.Ok(new PersonProfile(person.Profile.PublicId, ModePrivacy.DisplayName(abouts.GetValueOrDefault(mode ?? shownIds[0])?.DisplayName, person.Profile.DisplayName)!, AboutIn(mode ?? shownIds[0]),
                 shared.Where(m => shownIds.Contains(m.Id)).Select(m =>
                 {
@@ -287,7 +294,8 @@ public static class ProfileEndpoints
                           ConnectionId = between.FirstOrDefault(r => r.ModeId == m.Id && r.Status == ConnectionRequestStatus.Accepted)?.Id,
                           MainPhoto = photos.Main.GetValueOrDefault((person.Profile.AccountId, m.Id)),
                           Photos = photos.Modes.GetValueOrDefault((person.Profile.AccountId, m.Id)) ?? [],
-                          Orientation = OrientationIn(m.Id, identity, orientations) };
+                          Orientation = OrientationIn(m.Id, identity, orientations), Details = details.GetValueOrDefault(m.Id) is { Count: > 0 } d ? d : null,
+                          SharedInterests = viewer == person.Profile.AccountId ? null : SharedIn(m.Id) };
                 }).ToList(),
                 Badges(person.Profile, await BadgeOrderAsync(db, cancellationToken)), shownAs.Age, shownAs.Gender, shownAs.Pronouns,
                 photos.Main.GetValueOrDefault((person.Profile.AccountId, mode ?? shownIds[0])),

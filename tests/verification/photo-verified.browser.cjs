@@ -153,6 +153,10 @@ const output = process.env.SWOOVR_SCREENSHOTS;
     assert.equal(await sql(`SELECT count(*) FROM media_items WHERE id = '${evidence}' AND object_key IS NOT NULL`), '1', 'kept after a rejection'); pass();
     r = await view(undefined, 'pia');
     assert.deepEqual([r.body.state, r.body.reason, r.body.attemptsLeft], ['rejected', 'Your profile photos changed after you sent it. Send a new one.', 2]); pass();
+    // D454: the decision reaches the member's notification centre, opening the verification page; no outcome in the text.
+    const noticed = async () => (await call(tk.pia, '/api/me/notifications')).body.items.filter(n => n.kind === 'photoVerified');
+    let notes = await noticed();
+    assert.deepEqual([notes.length, notes[0]?.link, notes[0]?.title], [1, '/me/verification', 'There is an update to your Photo Verified request. Open Verification to see it.']); pass();
 
     // ---- Again, approved: Photo Verified for 12 months, the badge, and the date on the matched photo in the viewer.
     const again = (await askCode('pia')).body.code;
@@ -163,6 +167,9 @@ const output = process.env.SWOOVR_SCREENSHOTS;
     assert.equal((await call(sup, `/api/admin/photo-verification/${item.id}/decision`, { method: 'POST', body: { decision: 'approve' } })).status, 200); pass();
     r = await view(undefined, 'pia');
     assert.equal(r.body.state, 'verified'); pass();
+    notes = await noticed();
+    assert.equal(notes.length, 2, 'one notification per decision'); pass();
+    assert.equal(await sql(`SELECT count(*) FROM notification_deliveries d JOIN notifications n ON n.id = d.notification_id WHERE n.account_id = '${id.pia}' AND n.kind = 'PhotoVerified' AND d.status = 'send'`), '0', 'no push or email'); pass();
     const months = (new Date(r.body.verifiedUntil) - new Date(r.body.verifiedAt)) / 86400000;
     assert.ok(months >= 364 && months <= 366, '12 months'); pass();
     assert.equal(await sql(`SELECT photo_status || '|' || photo_manual || '|' || id_status FROM member_profiles WHERE account_id = '${id.pia}'`), 'Verified|false|NotStarted', 'never ID Verified'); pass();

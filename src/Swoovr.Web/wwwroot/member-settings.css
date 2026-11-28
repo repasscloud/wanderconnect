@@ -675,3 +675,11 @@
 .photo-check-date { font: 600 1rem/1.3 var(--font); color: var(--muted); }
 .photo-check-steps { margin: 0 0 4px; padding-left: 1.25rem; display: grid; gap: 4px; }
 .photo-check-send { cursor: pointer; }
+/* Issue 448 (D457): optional profile details on /me/profile. */
+.profile-detail { display: grid; gap: 8px; padding-block: 4px; }
+.profile-detail + .profile-detail { padding-top: 12px; border-top: 1px solid var(--border); }
+.profile-detail .field { margin: 0; }
+.profile-detail-choices { margin: 0; padding: 0; border: 0; min-width: 0; }
+.profile-detail-choices legend { font-weight: 600; margin-bottom: 6px; }
+.profile-detail-where { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.profile-detail-where .check { margin: 0; }

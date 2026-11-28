@@ -5,7 +5,7 @@ namespace Swoovr.Domain;
 /// Message requests in Swoovr are connection requests: people can only message once connected (D143).
 /// </summary>
 /// <remarks>Issue 588 (D446): Announcement is a notification Swoovr sends to every member; it opens its own read-only page.</remarks>
-public enum NotificationKind { Message, Request, Connection, Travel, Account, ConversationEnded, MeetingSafety, ReportOutcome, PolicyChange, PhotoDecision, Support, Announcement }
+public enum NotificationKind { Message, Request, Connection, Travel, Account, ConversationEnded, MeetingSafety, ReportOutcome, PolicyChange, PhotoDecision, Support, Announcement, PhotoVerified }
 
 /// <summary>
 /// A reply from Swoovr support to the member's own request (helpdesk ticket). Ids only: the ticket number is packed into the
@@ -153,7 +153,8 @@ public static class NotificationPolicy
         // Support stays open to barred members (like notices and appeals), so its replies do too.
         if (f.RecipientBarred && f.Kind is not(NotificationKind.Account or NotificationKind.ReportOutcome or NotificationKind.PhotoDecision or NotificationKind.Support)) return NotificationDecision.None;
         if (f.HasActor && !f.ActorAllowed) return NotificationDecision.None;
-        if(f.Kind is NotificationKind.ReportOutcome or NotificationKind.PolicyChange or NotificationKind.PhotoDecision)return new(true,NotForKind,NotForKind);
+        // D454 (#530): a Photo Verified decision is a centre item only, like a photo decision.
+        if(f.Kind is NotificationKind.ReportOutcome or NotificationKind.PolicyChange or NotificationKind.PhotoDecision or NotificationKind.PhotoVerified)return new(true,NotForKind,NotForKind);
         var wanted = f.Kind is NotificationKind.Account or NotificationKind.Support || f.KindOn && !f.ModeMuted;
         string Channel(bool on, bool forKind) => !forKind ? NotForKind : !wanted || !on ? Off : f.QuietNow ? Quiet : Send;
         // Account notices are emailed by D135's own notice email; messages are never emailed.

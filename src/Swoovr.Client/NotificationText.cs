@@ -33,6 +33,7 @@ public static class NotificationText
         "request" => "Requests",
         "connection" => "New connections",
         "travel" => "Travel reminders",
+        "photoVerified" => "Photo Verified",
         _ => "Your account",
     };
 
