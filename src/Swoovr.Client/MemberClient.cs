@@ -135,6 +135,16 @@ public sealed partial class MemberClient(HttpClient transport)
     public Task<ApiResult<MyProfileView>> SavePictureTextAsync(string? text, CancellationToken token = default) =>
         SendAsync<MyProfileView>(new HttpRequestMessage(HttpMethod.Put, "api/me/picture-text") { Content = JsonContent.Create(new PictureTextUpdate(text)) }, token);
 
+    /// <summary>Issue 448 (D457): the profile details members can use, my saved ones, save and remove.</summary>
+    public Task<ApiResult<ProfileDetailCatalogue>> ProfileDetailCatalogueAsync(CancellationToken token = default) =>
+        SendAsync<ProfileDetailCatalogue>(new HttpRequestMessage(HttpMethod.Get, "api/profile-attributes"), token);
+    public Task<ApiResult<List<ProfileDetailValue>>> MyProfileDetailsAsync(CancellationToken token = default) =>
+        SendAsync<List<ProfileDetailValue>>(new HttpRequestMessage(HttpMethod.Get, "api/me/profile-attributes"), token);
+    public Task<ApiResult<List<ProfileDetailValue>>> SaveProfileDetailAsync(string id, ProfileDetailUpdate update, CancellationToken token = default) =>
+        SendAsync<List<ProfileDetailValue>>(new HttpRequestMessage(HttpMethod.Put, $"api/me/profile-attributes/{id}") { Content = JsonContent.Create(update) }, token);
+    public Task<ApiResult<List<ProfileDetailValue>>> RemoveProfileDetailAsync(string id, CancellationToken token = default) =>
+        SendAsync<List<ProfileDetailValue>>(new HttpRequestMessage(HttpMethod.Delete, $"api/me/profile-attributes/{id}"), token);
+
     public Task<ApiResult<ProfileOptionsView>> ProfileOptionsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<ProfileOptionsView>(new HttpRequestMessage(HttpMethod.Get, "api/profile-options"), cancellationToken);
 
