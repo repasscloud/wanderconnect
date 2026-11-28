@@ -116,7 +116,7 @@ public sealed class TextHarmProcessor(SwoovrDbContext db,EvidenceKeys keys,Evide
         if(intent.Source!=TextHarmSource.Message||intent.ModeId is not null||intent.Revision!=intent.SourceId)return null;
         var message=await db.Messages.AsNoTracking().SingleOrDefaultAsync(m=>m.Id==intent.SourceId&&m.SenderAccountId==intent.AccountId
             // PR 583 review: a meet-up's optional note is the carrying message's body, screened like any message.
-            &&(m.Kind==MessageKind.Text||m.Kind==MessageKind.Meetup)
+            &&(m.Kind==MessageKind.Text||m.Kind==MessageKind.Meetup||m.Kind==MessageKind.Location)
             &&m.DeletedAt==null&&m.ModerationRemovedAt==null&&m.Body==text,token);
         return message is null?null:new(message);
     }

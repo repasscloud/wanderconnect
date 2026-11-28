@@ -269,6 +269,8 @@ public sealed class AccountDeletion(IServiceProvider services, IIdentityAdmin id
         await db.MemberFavourites.Where(f => f.AccountId == id || f.TargetAccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.ModeFilters.Where(f => f.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MemberIdentities.Where(i => i.AccountId == id).ExecuteDeleteAsync(cancellationToken);
+        // Issue 448 (D457): optional profile details.
+        await db.ProfileAttributeValues.Where(v => v.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.BotModeAuthorisations.Where(b => b.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.BotMarkets.Where(b => b.AccountId == id).ExecuteDeleteAsync(cancellationToken);
         await db.MarketInterests.Where(i => i.AccountId == id).ExecuteDeleteAsync(cancellationToken);

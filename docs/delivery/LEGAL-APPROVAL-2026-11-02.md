@@ -58,3 +58,11 @@ Owner: wording approved on [#271](https://github.com/repasscloud/swoovr/issues/2
 | Source | SHA-256 |
 | --- | --- |
 | [src/Swoovr.Client/PrivacyNotice.cs](../../src/Swoovr.Client/PrivacyNotice.cs) | `8ec47f25c43af08eb9fa4e04fb650f7bbc5f0fcd8967a55f1d59fd450061ae87` |
+
+## Privacy notice 0.22 — effective 28 November 2026 (D453)
+
+Owner: wording approved on [#609](https://github.com/repasscloud/swoovr/issues/609) ("Approved", 28 November 2026): Photo Verified (#530, D427) in "Your photos" and sharing a location in chat (#544, D431) in the messages section. Both paragraphs are applied word for word; `PrivacyNotice022Checks` compares them with #609. Nothing else changes.
+
+| Source | SHA-256 |
+| --- | --- |
+| [src/Swoovr.Client/PrivacyNotice.cs](../../src/Swoovr.Client/PrivacyNotice.cs) | `463a2c99756ff53bc09e87e4c79bd1ebc0d54f4adbea35eef153399c246b80ca` |

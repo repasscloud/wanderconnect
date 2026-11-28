@@ -107,6 +107,9 @@ public static class DataExportBuilder
                 gender = identity.GenderId, identity.GenderDescription, pronouns = identity.PronounId, selfDescribedPronouns = identity.Pronouns, orientation = identity.OrientationId,
                 identity.ShowGender, identity.ShowPronouns, identity.ShowOrientation, identity.ShowAge, identity.DatingShowMe,
             },
+            // Issue 448 (D457): every saved profile detail, published or not, with the modes it's shown in.
+            profileDetails = (await db.ProfileAttributeValues.Where(v => v.AccountId == id).OrderBy(v => v.AttributeId).ToListAsync(cancellationToken))
+                .Select(v => new { detail = v.AttributeId, label = ProfileAttributes.Find(v.AttributeId)?.Label, value = System.Text.Json.JsonDocument.Parse(v.Value).RootElement.Clone(), shownIn = v.Modes, v.UpdatedAt }),
             modes, filters, trips, requests, blocks, favourites, conversations = chats, reportsYouMade = reports, notices, sanctions, appeals, meetingSafety,
             policyNoticeReceipts=await (from recipient in db.Set<PolicyNoticeRecipient>() join publication in db.Set<PolicyNoticePublication>() on recipient.PublicationId equals publication.Id where recipient.AccountId==id select new{publication.Version,recipient.Status,recipient.CreatedAt,recipient.CompletedAt,publication.PurgeAfter}).ToListAsync(cancellationToken),
             // D348, #278: that a Near me position is stored and until when; never the position itself.
