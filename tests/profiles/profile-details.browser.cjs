@@ -4,7 +4,9 @@
 // audit (ids only) and the profile snapshot for moderation. Owned stack; every person is fictional.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.SWOOVR_PLAYWRIGHT_PATH || 'playwright');
-const { api, createMember, memberToken, cli, call, sql, claims, matchReady } = require('../auth/local-tokens.cjs');
+const { api, web, createMember, memberToken, cli, call, sql, claims, matchReady } = require('../auth/local-tokens.cjs');
+const audit = require('../accessibility/audit.cjs');
+const output = process.env.SWOOVR_SCREENSHOTS;
 const ADELAIDE = 2078025;
 
 (async () => {
@@ -82,6 +84,47 @@ const ADELAIDE = 2078025;
     const ticket = await call(tk.ana, '/api/me/export', { method: 'POST' });
     const exported = await (await fetch(api + '/' + ticket.body.path, { headers: { Authorization: 'Bearer ' + tk.ana } })).json();
     assert.deepEqual(exported.profileDetails.map(d => [d.detail, d.shownIn.join(',')]), [['interests', 'dating,friends'], ['relationship-status', 'dating'], ['smoking', '']], 'export'); pass();
+
+    // Web (slice 2): the editor on /me/profile, then what Ben sees.
+    const signIn = async (who, viewport) => {
+      const context = await browser.newContext({ viewport });
+      const page = await context.newPage();
+      await page.goto(web + '/account/sign-in?intro=done'); await page.fill('#username', members[who].email); await page.fill('#password', members[who].password);
+      await Promise.all([page.waitForURL(u => !u.href.includes('/realms/')), page.click('#kc-login')]);
+      return { context, page };
+    };
+    let { context, page } = await signIn('ana', { width: 1280, height: 900 });
+    await page.goto(web + '/me/profile');
+    await page.waitForSelector('[data-profile-details=ready]', { timeout: 20000 });
+    const categories = await page.locator('[data-detail-category]').evaluateAll(es => es.map(e => e.dataset.detailCategory));
+    assert.ok(categories.includes('lifestyle') && !categories.includes('beliefs') && !categories.includes('accessibility'), 'no sensitive category offered: ' + categories); pass();
+    assert.equal(await page.textContent('[data-detail-category=lifestyle] [data-detail-count]'), '1 of 7 answered', 'the owner sees their own progress'); pass();
+    await page.click('[data-detail-toggle=lifestyle]');
+    await page.selectOption('[data-detail-select=alcohol]', 'socially');
+    await page.waitForSelector('[data-detail="alcohol"][data-detail-saved=yes] [data-detail-private=alcohol]');
+    assert.equal(await sql(`SELECT value::text || '|' || array_to_string(modes, ',') FROM profile_attribute_values WHERE account_id = '${id.ana}' AND attribute_id = 'alcohol'`), '"socially"|', 'saved, shown to nobody'); pass();
+    await page.check('[data-detail-mode="alcohol:dating"]');
+    await page.waitForSelector('[data-detail="alcohol"]:not(:has([data-detail-private]))');
+    assert.equal(await sql(`SELECT array_to_string(modes, ',') FROM profile_attribute_values WHERE account_id = '${id.ana}' AND attribute_id = 'alcohol'`), 'dating'); pass();
+    await page.click('[data-detail-toggle=appearance]');
+    await page.fill('[data-detail-number=height]', '183'); await page.press('[data-detail-number=height]', 'Tab');
+    await page.waitForSelector('[data-detail-imperial=height]');
+    assert.equal((await page.textContent('[data-detail-imperial=height]')).trim(), 'About 6′0″'); pass();
+    await page.click('[data-detail-all=height]');
+    await page.waitForFunction(() => document.querySelector('[data-detail-mode="height:friends"]')?.checked && document.querySelector('[data-detail-mode="height:dating"]')?.checked);
+    pass();
+    assert.deepEqual(await page.evaluate(audit), [], 'page accessibility'); pass();
+    if (output) await page.screenshot({ path: output + '/profile-details-editor.png', fullPage: true });
+    await context.close();
+    ({ context, page } = await signIn('ben', { width: 390, height: 844 }));
+    await page.goto(`${web}/people/${pid.ana}?mode=dating`);
+    await page.waitForSelector('[data-person-more]', { timeout: 20000 });
+    const shown = await page.locator('[data-person-detail]').evaluateAll(es => es.map(e => [e.dataset.personDetail, e.querySelector('dd').textContent]));
+    assert.deepEqual(shown, [['height', '183 cm (6′0″)'], ['alcohol', 'Socially'], ['relationship-status', 'Single'], ['interests', 'Hiking, Travel']], 'published details, grouped, once each: ' + JSON.stringify(shown)); pass();
+    assert.ok(!(await page.textContent('[data-person-more]')).includes('Never'), 'unpublished smoking never shown'); pass();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll at 390 px'); pass();
+    if (output) await page.screenshot({ path: output + '/profile-details-public.png', fullPage: true });
+    await context.close();
 
     console.log(`PASS: profile-details (${passed} checks).`);
   } finally {

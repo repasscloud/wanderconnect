@@ -1,0 +1,159 @@
+@* Issue 448 (owner decision 27 November 2026, D457): optional profile details, one folding row per category so nobody
+   faces one long form. Every detail is optional: choose, skip, change or remove it, and pick where it shows (nowhere by
+   default; any of the modes it can appear in, or all of them at once). Changes save as they're made. The count on each
+   row is for the member only and is never shown to anyone else. Sensitive categories aren't offered until reviewed. *@
+@using System.Text.Json
+@inject MemberClient Members
+<section class="rd-card" aria-labelledby="details-heading" data-profile-details="@(catalogue is null ? "loading" : "ready")">
+    <div class="rd-row rd-row-baseline">
+        <h2 id="details-heading">More about you</h2>
+        <p class="field-help">All optional. Nothing here shows to anyone until you choose where.</p>
+    </div>
+    @if (catalogue is null) { <p role="status">Loading…</p> }
+    else
+    {
+        @foreach (var category in catalogue.Categories)
+        {
+            var details = catalogue.Details.Where(d => d.Category == category.Id).ToList();
+            var answered = details.Count(d => values.ContainsKey(d.Id));
+            var open = expanded.Contains(category.Id);
+            <article class="rd-mode" data-detail-category="@category.Id" data-detail-open="@(open ? "true" : "false")">
+                <div class="rd-mode-head">
+                    <div class="rd-mode-name"><strong>@category.Label</strong>
+                        @if (answered > 0) { <span class="field-help" data-detail-count="@answered">@answered of @details.Count answered</span> }</div>
+                    <button type="button" class="button button-secondary button-xs" aria-expanded="@(open ? "true" : "false")" aria-controls="@($"details-{category.Id}")"
+                            @onclick="() => Fold(category.Id)" data-detail-toggle="@category.Id">@(open ? "Close" : "Edit")<span class="visually-hidden"> @category.Label</span></button>
+                </div>
+                <div class="rd-mode-body" id="@($"details-{category.Id}")" hidden="@(!open)">
+                    @foreach (var d in details)
+                    {
+                        var current = values.GetValueOrDefault(d.Id);
+                        var shownIn = current?.Modes ?? [];
+                        var eligible = d.Modes.Where(m => Modes.Any(x => x.Id == m)).ToList();
+                        <div class="profile-detail" data-detail="@d.Id" data-detail-saved="@(current is null ? "no" : "yes")">
+                            @switch (d.Kind)
+                            {
+                                case "single":
+                                    <div class="field">
+                                        <label for="@($"detail-{d.Id}")">@d.Label</label>
+                                        <select id="@($"detail-{d.Id}")" disabled="@busy" @onchange="e => ChooseAsync(d, e.Value as string)" data-detail-select="@d.Id">
+                                            <option value="" selected="@(current is null)">Not answered</option>
+                                            @foreach (var o in d.Options) { <option value="@o.Id" selected="@(Single(current) == o.Id)">@o.Label</option> }
+                                        </select>
+                                    </div>
+                                    break;
+                                case "multi":
+                                    var picked = Multi(current);
+                                    <fieldset class="profile-detail-choices">
+                                        <legend>@d.Label <span class="field-help" data-detail-picked="@picked.Count">@picked.Count of @d.MaxChoices</span></legend>
+                                        <ul class="chip-row">
+                                            @foreach (var o in d.Options)
+                                            {
+                                                var on = picked.Contains(o.Id);
+                                                <li><button type="button" class="chip @(on ? "is-on" : null)" aria-pressed="@(on ? "true" : "false")" disabled="@(busy || !on && picked.Count >= d.MaxChoices)"
+                                                            @onclick="() => ToggleAsync(d, picked, o.Id)" data-detail-chip="@($"{d.Id}:{o.Id}")">@o.Label</button></li>
+                                            }
+                                        </ul>
+                                    </fieldset>
+                                    break;
+                                case "boolean":
+                                    <div class="field">
+                                        <label for="@($"detail-{d.Id}")">@d.Label</label>
+                                        <select id="@($"detail-{d.Id}")" disabled="@busy" @onchange="e => BooleanAsync(d, e.Value as string)" data-detail-select="@d.Id">
+                                            <option value="" selected="@(current is null)">Not answered</option>
+                                            <option value="true" selected="@(current?.Value.ValueKind == JsonValueKind.True)">Yes</option>
+                                            <option value="false" selected="@(current?.Value.ValueKind == JsonValueKind.False)">No</option>
+                                        </select>
+                                    </div>
+                                    break;
+                                default:
+                                    <div class="field">
+                                        <label for="@($"detail-{d.Id}")">@d.Label (@d.Unit)</label>
+                                        <input id="@($"detail-{d.Id}")" type="number" inputmode="numeric" min="@d.Min" max="@d.Max" step="1" disabled="@busy"
+                                               value="@(current?.Value.ValueKind == JsonValueKind.Number ? current.Value.GetInt32().ToString() : "")"
+                                               @onchange="e => MeasureAsync(d, e.Value as string)" data-detail-number="@d.Id" />
+                                        @if (d.Unit == "cm" && current?.Value.ValueKind == JsonValueKind.Number) { <p class="field-help" data-detail-imperial="@d.Id">@ProfileDetailText.Height(current.Value.GetInt32())</p> }
+                                    </div>
+                                    break;
+                            }
+                            @if (current is not null)
+                            {
+                                <div class="profile-detail-where" role="group" aria-label="@($"Where {d.Label} shows")">
+                                    <span class="field-help">Show in</span>
+                                    @foreach (var m in eligible)
+                                    {
+                                        var on = shownIn.Contains(m);
+                                        <label class="check"><input type="checkbox" checked="@on" disabled="@busy" @onchange="e => PublishAsync(d, current, Toggle(shownIn, m, e.Value is true))" data-detail-mode="@($"{d.Id}:{m}")" /><span class="box"><Icon Name="check" Size="15" Stroke="2.5" /></span> @Modes.First(x => x.Id == m).Label</label>
+                                    }
+                                    @if (eligible.Count > 1 && !eligible.All(shownIn.Contains)) { <button type="button" class="button button-secondary button-xs" disabled="@busy" @onclick="() => PublishAsync(d, current, eligible)" data-detail-all="@d.Id">All</button> }
+                                    @if (eligible.Count == 0) { <span class="field-help">Turn on @(string.Join(" or ", d.Modes.Select(ModeLabel))) to show this.</span> }
+                                    <button type="button" class="button button-secondary button-xs" disabled="@busy" @onclick="() => RemoveAsync(d)" data-detail-remove="@d.Id">Remove<span class="visually-hidden"> @d.Label</span></button>
+                                </div>
+                                @if (shownIn.Count == 0) { <p class="field-help" data-detail-private="@d.Id">Saved. Not shown to anyone yet.</p> }
+                            }
+                        </div>
+                    }
+                </div>
+            </article>
+        }
+    }
+    <p role="status" aria-live="polite" class="field-help" data-details-status="@status">@message</p>
+</section>
+@code {
+    /// <summary>The modes the member uses (labels), so a detail can only be shown where it may appear.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<(string Id, string Label)> Modes { get; set; } = [];
+    [Parameter] public IReadOnlyList<(string Id, string Label)> AllModes { get; set; } = [];
+    private ProfileDetailCatalogue? catalogue;
+    private Dictionary<string, ProfileDetailValue> values = [];
+    private readonly HashSet<string> expanded = [];
+    private bool busy;
+    private string? status, message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var (catalogueResult, mineResult) = (Members.ProfileDetailCatalogueAsync(), Members.MyProfileDetailsAsync());
+        catalogue = (await catalogueResult).Value;
+        values = ((await mineResult).Value ?? []).ToDictionary(v => v.Id);
+    }
+
+    private void Fold(string id) { if (!expanded.Remove(id)) expanded.Add(id); }
+    private string ModeLabel(string id) => AllModes.FirstOrDefault(m => m.Id == id).Label ?? id;
+    private static string? Single(ProfileDetailValue? v) => v?.Value.ValueKind == JsonValueKind.String ? v.Value.GetString() : null;
+    private static List<string> Multi(ProfileDetailValue? v) => v?.Value.ValueKind == JsonValueKind.Array ? v.Value.EnumerateArray().Select(e => e.GetString()!).ToList() : [];
+    private static List<string> Toggle(IReadOnlyList<string> list, string item, bool on) => on ? [.. list.Where(x => x != item), item] : list.Where(x => x != item).ToList();
+
+    private Task ChooseAsync(ProfileDetailDefinition d, string? option) =>
+        string.IsNullOrEmpty(option) ? RemoveAsync(d) : SaveAsync(d, JsonSerializer.SerializeToElement(option));
+    private Task BooleanAsync(ProfileDetailDefinition d, string? value) =>
+        value is "true" or "false" ? SaveAsync(d, JsonSerializer.SerializeToElement(value == "true")) : RemoveAsync(d);
+    private Task MeasureAsync(ProfileDetailDefinition d, string? text) =>
+        string.IsNullOrWhiteSpace(text) ? RemoveAsync(d) : int.TryParse(text, out var n) ? SaveAsync(d, JsonSerializer.SerializeToElement(n)) : Fail("Use a whole number.");
+    private Task ToggleAsync(ProfileDetailDefinition d, List<string> picked, string option)
+    {
+        var next = Toggle(picked, option, !picked.Contains(option));
+        return next.Count == 0 ? RemoveAsync(d) : SaveAsync(d, JsonSerializer.SerializeToElement(next));
+    }
+    private Task PublishAsync(ProfileDetailDefinition d, ProfileDetailValue current, IReadOnlyList<string> modes) => SaveAsync(d, current.Value, modes);
+
+    private async Task SaveAsync(ProfileDetailDefinition d, JsonElement value, IReadOnlyList<string>? modes = null)
+    {
+        busy = true;
+        // A new detail starts unpublished; a change keeps where it already shows.
+        var result = await Members.SaveProfileDetailAsync(d.Id, new ProfileDetailUpdate(value, modes ?? values.GetValueOrDefault(d.Id)?.Modes ?? []));
+        busy = false;
+        if (result.Value is { } mine) { values = mine.ToDictionary(v => v.Id); (status, message) = ("saved", $"{d.Label} saved."); }
+        else (status, message) = ("failed", result.Code == ProblemCodes.InvalidProfileDetail ? $"Check {d.Label}." : "That couldn't be saved. Try again.");
+    }
+
+    private async Task RemoveAsync(ProfileDetailDefinition d)
+    {
+        if (!values.ContainsKey(d.Id)) return;
+        busy = true;
+        var result = await Members.RemoveProfileDetailAsync(d.Id);
+        busy = false;
+        if (result.Value is { } mine) { values = mine.ToDictionary(v => v.Id); (status, message) = ("removed", $"{d.Label} removed."); }
+        else (status, message) = ("failed", "That couldn't be removed. Try again.");
+    }
+
+    private Task Fail(string text) { (status, message) = ("failed", text); return Task.CompletedTask; }
+}

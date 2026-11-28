@@ -132,6 +132,9 @@
         }
         <p role="status" aria-live="polite" class="visually-hidden" data-mode-status>@modeMessage</p>
     </section>
+    @* Issue 448 (D457): optional details, published per mode; only the modes the member uses can be chosen. *@
+    <ProfileDetailsEditor Modes="@(modes.Where(m => profile.Modes.Any(x => x.Id == m.Id && x.Enabled)).Select(m => (m.Id, m.Label)).ToList())"
+                          AllModes="@(modes.Select(m => (m.Id, m.Label)).ToList())" />
 }
 </div>
 @code {

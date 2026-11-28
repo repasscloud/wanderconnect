@@ -135,6 +135,20 @@
             </dl>
         </section>
     }
+    @* Issue 448 (D457): the details the person published in the modes shown here, once each, grouped; nothing else. *@
+    @if (Details is { Count: > 0 } groups)
+    {
+        <section class="card person-card" aria-labelledby="more-heading" data-person-more>
+            <h2 id="more-heading">More about me</h2>
+            @foreach (var group in groups)
+            {
+                <h3 class="person-subhead" data-detail-group="@group.Key">@group.First().CategoryLabel</h3>
+                <dl class="person-basics">
+                    @foreach (var d in group) { <div data-person-detail="@d.Id"><dt>@d.Label</dt><dd>@string.Join(", ", d.Values)</dd></div> }
+                </dl>
+            }
+        </section>
+    }
     @* Issue 447/568: one block per shared mode: where the two stand, their own words there, and what they're here for. *@
     @if (person.Modes.Any(HasDetails))
     {
@@ -292,6 +306,12 @@
         ("Gender", person.Gender, "gender"),
         ("Orientation", person.Modes.Select(m => m.Orientation).FirstOrDefault(o => o is not null), "orientation"),
     }.Where(b => !string.IsNullOrWhiteSpace(b.Item2)).Select(b => (b.Item1, b.Item2!, b.Item3)).ToList();
+
+    /// <summary>
+    /// Issue 448 (D457): each published detail once across the shown modes (a detail has one value, published per mode), in
+    /// the API's catalogue order, grouped by category. The API returns only what this viewer may see.
+    /// </summary>
+    private List<IGrouping<string, ProfileDetailView>>? Details => person?.Modes.SelectMany(m => m.Details ?? []).DistinctBy(d => d.Id).GroupBy(d => d.Category).ToList();
 
     /// <summary>D175: one About me when every shown mode says the same; otherwise each mode's card carries its own words.</summary>
     private bool SameAbout => person is not null && person.Modes.Select(m => m.About).Distinct().Count() <= 1;
