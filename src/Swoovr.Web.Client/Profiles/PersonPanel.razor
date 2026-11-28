@@ -135,6 +135,31 @@
             </dl>
         </section>
     }
+    @* Issue 571 (D460): their trip to your area, as your Who's visiting list shows it; city and dates only. *@
+    @if (person.Travel is { } trip)
+    {
+        <section class="card person-card" aria-labelledby="travel-heading" data-person-travel="@(trip.Visiting ? "visiting" : "upcoming")">
+            <h2 id="travel-heading">Travel</h2>
+            <p class="person-shared"><Icon Name="globe" Size="16" />@ProfileDetailText.Trip(trip)</p>
+        </section>
+    }
+    @* Issue 448 (D457): the details the person published in the modes shown here, once each, grouped; nothing else. *@
+    @if (Details is { Count: > 0 } || SharedInterests is { Count: > 0 })
+    {
+        var groups = Details ?? [];
+        <section class="card person-card" aria-labelledby="more-heading" data-person-more>
+            <h2 id="more-heading">More about me</h2>
+            @* Issue 452 (D459): only interests you both chose and both show here; never a score. *@
+            @if (SharedInterests is { Count: > 0 } both) { <p class="person-shared" data-shared-interests="@both.Count"><Icon Name="users" Size="16" />@ProfileDetailText.BothLike(both)</p> }
+            @foreach (var group in groups)
+            {
+                <h3 class="person-subhead" data-detail-group="@group.Key">@group.First().CategoryLabel</h3>
+                <dl class="person-basics">
+                    @foreach (var d in group) { <div data-person-detail="@d.Id"><dt>@d.Label</dt><dd>@string.Join(", ", d.Values)</dd></div> }
+                </dl>
+            }
+        </section>
+    }
     @* Issue 447/568: one block per shared mode: where the two stand, their own words there, and what they're here for. *@
     @if (person.Modes.Any(HasDetails))
     {
@@ -292,6 +317,15 @@
         ("Gender", person.Gender, "gender"),
         ("Orientation", person.Modes.Select(m => m.Orientation).FirstOrDefault(o => o is not null), "orientation"),
     }.Where(b => !string.IsNullOrWhiteSpace(b.Item2)).Select(b => (b.Item1, b.Item2!, b.Item3)).ToList();
+
+    /// <summary>
+    /// Issue 448 (D457): each published detail once across the shown modes (a detail has one value, published per mode), in
+    /// the API's catalogue order, grouped by category. The API returns only what this viewer may see.
+    /// </summary>
+    /// <summary>Issue 452 (D459): interests you both chose and both show in a mode shown here, once each.</summary>
+    private List<string>? SharedInterests => person?.Modes.SelectMany(m => m.SharedInterests ?? []).Distinct().ToList();
+
+    private List<IGrouping<string, ProfileDetailView>>? Details => person?.Modes.SelectMany(m => m.Details ?? []).DistinctBy(d => d.Id).GroupBy(d => d.Category).ToList();
 
     /// <summary>D175: one About me when every shown mode says the same; otherwise each mode's card carries its own words.</summary>
     private bool SameAbout => person is not null && person.Modes.Select(m => m.About).Distinct().Count() <= 1;

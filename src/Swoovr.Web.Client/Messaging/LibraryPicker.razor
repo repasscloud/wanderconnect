@@ -1,0 +1,40 @@
+@* Issue 543 (D456): choose one of your own approved library photos to send in this chat. Album and adult photos aren't
+   listed (they're shared from their album, issue 431). Nothing is sent until Send; the API checks the photo and the chat again. *@
+@inject MemberClient Members
+<div class="stack library-picker" data-library-picker>
+    @if (photos is null) { <p class="field-help" role="status">Loading your photos…</p> }
+    else if (photos.Count == 0) { <p class="field-help" data-library-empty>You have no approved library photos yet. Add some in <a href="/me/photos">Your photos</a>.</p> }
+    else
+    {
+        <fieldset class="library-grid">
+            <legend class="visually-hidden">Your library photos</legend>
+            @foreach (var p in photos)
+            {
+                <label class="library-choice@(chosen == p.Id ? " is-on" : "")" data-library-photo="@p.Id">
+                    <input type="radio" class="visually-hidden" name="library-photo" value="@p.Id" checked="@(chosen == p.Id)" @onchange="() => chosen = p.Id" />
+                    <img src="@PhotoText.Web(p.Link!)" alt="Your photo from @p.CreatedAt.ToLocalTime().ToString("d MMM yyyy")" loading="lazy" draggable="false" @oncontextmenu:preventDefault="true" @ondragstart:preventDefault="true" data-photo-guard />
+                </label>
+            }
+        </fieldset>
+    }
+    <p class="field-help">@PhotoText.ChatRules</p>
+    <div class="dialog-actions">
+        <button type="button" class="button button-secondary" @onclick="() => Cancel.InvokeAsync()">Cancel</button>
+        <button type="button" class="button" disabled="@(Busy || chosen is null)" @onclick="() => Send.InvokeAsync(chosen!.Value)" data-library-send>Send photo</button>
+    </div>
+    <p role="status" aria-live="polite" class="field-help" data-library-status>@Message</p>
+</div>
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public EventCallback<Guid> Send { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+    private List<MyPhotoView>? photos;
+    private Guid? chosen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Members.PhotosAsync();
+        photos = (result.Value?.Photos ?? []).Where(p => p.State == "approved" && !p.AlbumOnly && p.AlbumId is null && p.Link is not null).ToList();
+    }
+}

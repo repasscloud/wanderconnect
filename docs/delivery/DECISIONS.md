@@ -1932,3 +1932,67 @@ Builds [#530](https://github.com/repasscloud/swoovr/issues/530) on D424 and D427
 - **Approval:** Photo Verified (not manual) for 12 months, with the matched photos recorded. The viewer shows "Photo verified: {date}" on those photos (D399). It never grants or implies ID Verified.
 - **Ending it:** a change to a matched public photo (removed, replaced, taken out of every mode, or taken down) ends it. The check runs wherever profile photos change (`ProfilePrivacy.CaptureAsync`). The retention run ends it after 12 months, retires unused codes after a day, and deletes each evidence photo 30 days after its decision unless the account is held. The decision record stays.
 - **Not yet:** no notification when a decision is made (the member sees it on the verification page). Mobile's 3-second video (D424) is for the Flutter apps.
+
+### D453 — Privacy Notice 0.22 is published; Photo Verified is on in UAT (#609, #530, #544, 28 November 2026)
+
+Builds D427 and D431 (**CONFIRMED**) with the wording the owner approved on [#609](https://github.com/repasscloud/swoovr/issues/609) (28 November 2026). Version "0.22, 28 November 2026", label "approved 28 November 2026". `PrivacyNotice022Checks` compares both paragraphs word for word.
+- **Effective date (DEFAULT):** the day of approval, 28 November 2026, because #609's approval gave no other date. Say if it should be later; only the version string and label change.
+- **Where the wording goes:** the Photo Verified paragraph ends "Your photos", after the ID verification paragraph; the chat location paragraph ends "Messages, including ones you unsend". Nothing else changes.
+- **On with it:** `Verification:PhotoVerified:Enabled` is on in UAT. There is no production host yet; `HostingPolicy` now lets it be turned on there, because 0.22 is in force. #544 (sharing a location in chat) can be built.
+- **Telling members:** after deployment, an operator stages and publishes the policy-update notice for version "0.22, 28 November 2026" with the existing CLI (`PolicyNoticePublisher`, #121). Nothing is sent by this change alone.
+
+### D454 — Members hear about Photo Verified decisions (#530, 28 November 2026)
+
+Closes the gap D452 left ("no notification when a decision is made").
+- When Support or Admin approve or reject a Photo Verified request, the member gets one notification centre item, in the same commit as the decision: "There is an update to your Photo Verified request. Open Verification to see it." It opens `/me/verification`, which shows the outcome and, for a refusal, the reason. The item holds ids only (kind `photoVerified`, the request id, dedupe `photo-verified:{id}`).
+- **DEFAULT:** centre only, no push or email, like a photo decision (D203). Barred members don't see it.
+- The badge running out after 12 months, or ending because a verified photo changed, sends nothing; the verification page says so.
+
+### D455 — Sharing a location in chat: built (#544, 28 November 2026)
+
+Builds D431 (**CONFIRMED**) with the Privacy Notice 0.22 wording (D453). **DEFAULT** (overnight plan F3, owner to confirm): how the place is chosen.
+- **Choosing the place:** + → **Share a location**. The member taps **Use my current location** (one reading, only then; the browser asks for permission; never watched or tracked), or pastes coordinates or a link from Apple Maps, Google Maps or OpenStreetMap (read on the device; no provider is asked). An optional label, one line of up to 80 characters. A preview shows the label and coordinates (and the reading's accuracy) before **Share location**. Swoovr has no place search and loads no map tiles, here or in the chat.
+- **In the chat:** a card with the label (or "Shared location") and the coordinates, and links to Apple Maps, Google Maps and OpenStreetMap that open only when tapped and carry the coordinates only (never the label). No map image (D431). Notifications and previews say "Location", never the place; the audit names the action only (`message.location`).
+- **API:** `POST /api/conversations/{id}/locations` `{ latitude, longitude, label? }`, a `location` message (`MessageKind.Location`). Every send rule of a text message applies: connected and open chat, restrictions, the rate and unanswered limits (a location counts and resets the run), bots and travellers before arrival. Latitude −90…90, longitude −180…180, finite, not 0,0 (**DEFAULT**: what a failed reading produces), kept to 5 decimal places (about a metre: the exact place, D431). The label is screened like message text.
+- **Kept and removed like any message (D431, D165, D167):** the place is the message's own text (`geo:lat,lon`, then the label), so delete for both within five minutes hides it for both at once, the text stays 30 days for investigations and is then purged, holds keep it, a report keeps it as evidence, staff can remove it ("Removed by Swoovr."), and the export and account deletion treat it as text. No migration.
+- **Location privacy scan (D348):** the contract scan allows exactly `ChatLocationView` and `ShareLocation` latitude and longitude: a place the member chose to share with one other member (D431). Discovery, cards and profiles still carry no coordinates.
+- **Not in this slice:** the Flutter apps; staff screens show the raw `geo:` line in evidence.
+
+### D456 — Chat attachment menu: library photos, upload and camera (#543, 28 November 2026)
+
+Builds the first part of [#543](https://github.com/repasscloud/swoovr/issues/543). Albums in chat (#431 §4–5) come next.
+- **The + menu:** Image from library, Send a photo, Take a photo, Plan a meet-up (D440), Share a location (D455).
+- **Image from library:** a dialog lists the member's own approved library photos and nothing else: never an album upload, an albums-only or explicit photo (those are shared from their album, #431), someone else's, or a removed one. `POST /api/conversations/{id}/photos/library` `{ photoId }` checks it again on the server.
+- **DEFAULT:** the chat gets **its own copy** through the same pipeline as a new chat photo (type check, re-encode, metadata strip, malware and known-content checks, screening), with every chat photo rule: connected and open, restrictions, the recipient's Photos in chat, the rate, unanswered and 20-a-day limits, and the D451 adult-photo gates. #543 allows reusing the earlier classification; re-checking keeps one path and means deleting the library photo never touches the chat photo, or the other way round.
+- **Take a photo:** the same upload with `capture="environment"`, which opens the camera on phones and tablets and the file picker elsewhere. No new path or permission prompt.
+
+### D457 — Optional profile details: the attribute model (#448, 28 November 2026)
+
+Builds the owner's decision on [#448](https://github.com/repasscloud/swoovr/issues/448) (27 November 2026, **CONFIRMED**), slice 1: the model, storage, publication and server-side visibility. The editor on `/me/profile` and the public rendering come in the next PR.
+- **Catalogue in code** (`ProfileAttributes`, version 1): stable detail and option ids, English labels (localisation keys later), categories in display order, kinds (single choice, multiple choice with a limit, yes/no, whole-number measure with a canonical unit), the modes each may appear in, deprecated options kept readable but not newly chosen. Adding a detail or option needs no migration (values are JSON keyed by id).
+- **Initial set:** the owner's catalogue (§6), with the option lists drafted here (**DEFAULT**, inclusive, "Prefer not to say" where it fits). Free-text details (occupation, favourite music, films and TV, ideal first date, deal breakers, communication boundaries) wait for the next slice, because they need text screening.
+- **Sensitive categories unavailable** (§5): weight, ethnicity, nationality, religion, spirituality, political views, causes, romantic orientation and accessibility are listed so their ids are reserved, but they aren't offered, can't be saved and are never shown until their privacy review, consent and notice wording are done. **DEFAULT:** nationality and causes count as sensitive (they can reveal ethnic origin and political opinions), as does accessibility (health).
+- **Storage:** `profile_attribute_values` (account, detail id, canonical JSON value, published modes, catalogue version, updated at), migration `ProfileAttributes`. No row means unanswered; "Prefer not to say" is an answer.
+- **Publication** (§3–4): saved unpublished by default; the member publishes each detail to any of the modes it may appear in. Dating-only details (relationship status, style and intentions, wanting children, dating pace, affection, favourite dates, long distance) can only be published in Dating. Business only gets details meant for it (interests, languages, education, communication, availability).
+- **Shown:** `GET /api/profiles/{id}` adds each shown mode's published details (labels only, never option ids or unpublished values) in one query. Explore cards stay as D443 (fixed rows, #589): details belong on the profile. Nothing feeds discovery, filters, ranking or any score (§14).
+- **API:** `GET /api/profile-attributes` (the catalogue), `GET /api/me/profile-attributes`, `PUT` and `DELETE /api/me/profile-attributes/{id}`. The audit records the detail id only (`profile.detail.saved`, `profile.detail.removed`). The profile snapshot for moderation (#91) includes each mode's published details, only when there are some. The export lists every saved detail. Account deletion removes them.
+
+### D458 — Optional profile details on the web (#448 slice 2, 28 November 2026)
+
+Builds the editing and presentation parts of the owner's decision on [#448](https://github.com/repasscloud/swoovr/issues/448) (§2, §4, §8) on D457.
+- **`/me/profile` → More about you:** one folding row per category (only categories with a detail members can use today), so nobody faces one long form. Each detail is a dropdown, chips (with "n of max"), a yes/no dropdown or a number (height in centimetres with the feet and inches beside it). Choosing saves it, **shown to nobody** ("Saved. Not shown to anyone yet."). **Show in** ticks the modes it can appear in, from the modes the member uses, with **All** to publish everywhere at once. **Remove** deletes it; "Not answered" removes it too.
+- **Private progress:** each row shows "n of m answered" to the member only. There's no percentage, prompt, penalty or anything other members can see (§2).
+- **Public profile:** one **More about me** card after The basics, grouped by category, each detail once with its labels, only what the API returned for the modes shown. Empty categories and the card itself are hidden when there's nothing (§8). Explore cards are unchanged (D443).
+
+### D459 — Shared interests: "You both like…" (#452, 28 November 2026)
+
+Builds [#452](https://github.com/repasscloud/swoovr/issues/452) as narrowed by the owner (27 November 2026) and #448 §9: factual shared interests only.
+- **What's compared:** the `interests` detail only (D457 option ids), the intersection of what both members chose. Never another detail, a sensitive attribute, an inferred interest, a score, a percentage, a ranking or any similarity model. Discovery is untouched.
+- **Opting in (DEFAULT):** publishing your own interests in a mode is opting in to the comparison there. The line shows in a mode only when **both** published interests in it, so it never reveals an interest someone hasn't shown in that mode, and a viewer who hasn't shown theirs sees nothing.
+- **Where:** `GET /api/profiles/{id}` adds `sharedInterests` (labels in catalogue order) to each shown mode where there's an overlap, never to your own profile. The person page shows "You both like hiking and travel" at the top of More about me. Hidden when there's no overlap.
+
+### D460 — Travel on the member profile (#571, 28 November 2026)
+
+Builds the travel part of [#571](https://github.com/repasscloud/swoovr/issues/571). General availability is already a profile detail ("Usually free", D457/D458), as #448 §12 asked; trips stay in the travel subsystem.
+- **What shows:** the person's trip to **the viewer's own area**, picked by exactly the rule of the viewer's **Who's visiting** list (`VisitsToAsync`: visible, not cancelled, not over, the destination in the viewer's home market, the person's mode on and visible, D137/D352). It shows as "Visiting Adelaide until 10 Dec" or "Upcoming visit to Adelaide, 3–10 Dec": city and dates only, never an exact place or distance (#571).
+- **DEFAULT:** trips anywhere else are never shown, so a profile never becomes a list of someone's travel plans. A traveller viewing a local sees nothing new. Your own profile shows no Travel card. Hidden when there's nothing.

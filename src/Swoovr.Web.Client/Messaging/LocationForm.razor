@@ -1,0 +1,76 @@
+@* Issue 544 (D431, D455): share one place in a chat. The member picks it: their current location (one reading, only when
+   they tap the button; the browser asks for permission) or coordinates / a maps link they paste. Nothing is sent until they
+   check the preview and choose Share. No map is loaded here or in the chat. *@
+@inject IJSRuntime JS
+<form class="stack location-form" @onsubmit="SubmitAsync" data-location-form>
+    <div class="location-choose">
+        <button type="button" class="button button-secondary" disabled="@(reading || Busy)" @onclick="UseCurrentAsync" data-location-current><Icon Name="pin" Size="16" />@(reading ? "Finding you…" : "Use my current location")</button>
+        @if (readStatus is { } s) { <p class="field-help" role="status" data-location-read="@s">@ReadText(s)</p> }
+    </div>
+    <div class="field">
+        <label for="location-paste">Or paste coordinates or a maps link</label>
+        <input id="location-paste" maxlength="2048" autocomplete="off" inputmode="url" placeholder="-33.8688, 151.2093" @bind="pasted" @bind:event="oninput" @bind:after="PastedChanged" data-location-paste />
+        @if (!string.IsNullOrWhiteSpace(pasted) && point is null && readStatus is null) { <p class="field-help" data-location-paste-invalid>That doesn't look like a place. Try "latitude, longitude" or a link from a maps app.</p> }
+    </div>
+    <div class="field">
+        <label for="location-label">Label (optional)</label>
+        <input id="location-label" maxlength="@ChatLocationText.LabelMax" autocomplete="off" placeholder="For example: the café's front door" @bind="label" @bind:event="oninput" data-location-label />
+    </div>
+    @if (point is { } p)
+    {
+        var preview = new ChatLocationView(p.Latitude, p.Longitude, string.IsNullOrWhiteSpace(label) ? null : label.Trim());
+        <div class="location-preview" data-location-preview>
+            <p class="meetup-kicker"><Icon Name="pin" Size="14" />Preview</p>
+            <p class="meetup-title">@ChatLocationText.Title(preview)</p>
+            <p class="meetup-line" data-location-preview-coordinates>@ChatLocationText.Coordinates(preview)@(accuracy is { } a ? $" · within about {Math.Round(a)} m" : "")</p>
+        </div>
+    }
+    <p class="field-help">@ChatLocationText.Explain</p>
+    <div class="dialog-actions">
+        <button type="button" class="button button-secondary" @onclick="() => Cancel.InvokeAsync()">Cancel</button>
+        <button type="submit" class="button" disabled="@(Busy || point is null)" data-location-send>Share location</button>
+    </div>
+    <p role="status" aria-live="polite" class="field-help" data-location-form-status>@Message</p>
+</form>
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public EventCallback<ShareLocation> Submit { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+    private (double Latitude, double Longitude)? point;
+    private double? accuracy;
+    private string? pasted, label, readStatus;
+    private bool reading;
+
+    private sealed record NearRead(string Status, Reading? Reading);
+    private sealed record Reading(double Latitude, double Longitude, double AccuracyMetres);
+
+    private async Task UseCurrentAsync()
+    {
+        reading = true;
+        NearRead? read = null;
+        try { read = await JS.InvokeAsync<NearRead>("swoovrLocation.readNearMe"); } catch (JSException) { } catch (TaskCanceledException) { }
+        reading = false;
+        readStatus = read?.Status ?? "unavailable";
+        if (read?.Reading is { } r) { (point, accuracy, pasted) = ((r.Latitude, r.Longitude), r.AccuracyMetres, null); }
+    }
+
+    private void PastedChanged()
+    {
+        (readStatus, accuracy) = (null, null);
+        point = ChatLocationText.Parse(pasted);
+    }
+
+    private static string ReadText(string status) => status switch
+    {
+        "ok" => "Found. Check the preview before you share it.",
+        "inaccurate" => "Your device could only find you roughly. Check the preview, or paste a more exact place.",
+        "denied" => "Location is off for Swoovr in your browser. Turn it on in the browser's site settings, or paste a place instead.",
+        "unsupported" => "This browser can't share your location. Paste a place instead.",
+        _ => "Your location couldn't be found. Try again, or paste a place instead.",
+    };
+
+    private Task SubmitAsync() => point is { } p
+        ? Submit.InvokeAsync(new ShareLocation(p.Latitude, p.Longitude, string.IsNullOrWhiteSpace(label) ? null : label.Trim()))
+        : Task.CompletedTask;
+}
